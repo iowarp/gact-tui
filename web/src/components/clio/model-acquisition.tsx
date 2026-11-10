@@ -2,7 +2,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { ManagedServiceCatalog, ModelAcquisition, ModelDownloadInput } from '@clio/core/v3';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRightIcon, DownloadIcon, HardDriveIcon } from 'lucide-react';
+import { ChevronRightIcon, CircleAlertIcon, DownloadIcon, HardDriveIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -11,20 +11,21 @@ import { DIALOG_FULL_WINDOW_CLASS } from '@/lib/dialog-sheet';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { InfoTip } from './info-tip';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { MenuRow } from './primitives/menu-row';
 import { HostPathPicker } from './host-path-picker';
 import { InstallExpectation } from './install-expectation';
+import { installExpectation } from './install-expectation-model';
 import { ModelDownloadSearch } from './model-download-search';
 import { ModelInventoryRow } from './model-inventory-row';
 import { ModelDownloadProgress } from './model-download-progress';
@@ -33,6 +34,7 @@ import { RegistryModelDetails } from './registry-model-details';
 import { InfraList } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { StateView } from './primitives/state-view';
+import { SourceStatusLine, sourceInputClass } from './source-form-parts';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
 
@@ -181,6 +183,10 @@ export function ModelAcquisitions({
     setOpen(true);
   };
   const downloadDisabled = !inventory.data || Boolean(unavailable);
+  const downloadEstimate = {
+    downloadBytes: chosen?.size_bytes,
+    thing: draft.repository.trim() || 'the model files',
+  };
   return (
     <div className="flex min-w-0 flex-col">
       <InfraTabActions
@@ -286,9 +292,12 @@ export function ModelAcquisitions({
         }}
       >
         <DialogContent
+          showCloseButton={false}
           className={cn(
-            // Spec: 56% of the window; the details go below the list under 900 px.
-            'flex max-h-[90dvh] flex-col overflow-hidden sm:w-[clamp(560px,56vw,1040px)] sm:max-w-[calc(100%-2rem)]',
+            // Spec `.c3d`: 56% of the window, centred; the details go below the list under 900 px.
+            'flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 min-[600px]:top-1/2 min-[600px]:-translate-y-1/2 sm:w-[clamp(560px,56vw,1040px)] sm:max-w-[calc(100%-2rem)]',
+            // A fixed height while choosing, so loading results never moves the frame.
+            !acquire.data && 'min-[600px]:h-[min(640px,calc(100dvh-2rem))]',
             DIALOG_FULL_WINDOW_CLASS,
           )}
           // Search first, as the spec pickers do, rather than the title's info tip.
@@ -299,32 +308,48 @@ export function ModelAcquisitions({
             search.focus();
           }}
         >
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <DialogTitle>{acquire.data ? 'Model download' : 'Find a model'}</DialogTitle>
-              {acquire.data ? null : (
-                <InfoTip label="About model downloads">
-                  Download the repository's files into a dedicated folder on this host.{' '}
-                  {vocab.agent} resolves an immutable revision, checks free space, and verifies the
-                  files. This does not load model code or start inference.
-                </InfoTip>
-              )}
-            </div>
-            <DialogDescription>
-              {acquire.data
-                ? 'Progress continues if you close this window.'
-                : `Choose a model to download to ${hostLabel}.`}
-            </DialogDescription>
-          </DialogHeader>
+          <div className="flex h-12 min-w-0 shrink-0 items-center gap-2.5 pr-2.5 pl-4">
+            <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[14px] leading-7 font-semibold">
+              {acquire.data ? 'Model download' : 'Find a model'}
+            </DialogTitle>
+            {acquire.data ? null : (
+              <InfoTip className="size-7" label="About model downloads">
+                Download the repository's files into a dedicated folder on this host. {vocab.agent}{' '}
+                resolves an immutable revision, checks free space, and verifies the files. This does
+                not load model code or start inference.
+              </InfoTip>
+            )}
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close"
+                title="Close"
+                disabled={acquire.isPending}
+                className="shrink-0 text-muted-foreground"
+              >
+                <CloseIcon aria-hidden="true" />
+              </Button>
+            </DialogClose>
+          </div>
+          <DialogDescription className="-mt-1.5 shrink-0 truncate px-4 pb-[13px] text-[11.5px] text-faint">
+            {acquire.data
+              ? 'Progress continues if you close this window.'
+              : `Choose a model to download to ${hostLabel}.`}
+          </DialogDescription>
           {acquire.data ? (
-            <div className="space-y-5">
-              <p className="font-medium">{acquire.data.repository}</p>
-              <ModelDownloadProgress
-                model={
-                  inventory.data?.models.find((row) => row.id === acquire.data.id) ?? acquire.data
-                }
-              />
-              <div className="flex justify-end">
+            <>
+              <div className="flex min-h-0 flex-col gap-[13px] overflow-y-auto px-4 pb-3.5">
+                <p className="truncate text-[12.5px] font-semibold" title={acquire.data.repository}>
+                  {acquire.data.repository}
+                </p>
+                <ModelDownloadProgress
+                  model={
+                    inventory.data?.models.find((row) => row.id === acquire.data.id) ?? acquire.data
+                  }
+                />
+              </div>
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-4">
                 <Button onClick={() => setOpen(false)}>
                   {['queued', 'running'].includes(
                     (
@@ -336,140 +361,163 @@ export function ModelAcquisitions({
                     : 'Done'}
                 </Button>
               </div>
-            </div>
+            </>
           ) : (
             <form
-              className="flex min-h-0 flex-col"
+              className="flex min-h-0 flex-1 flex-col"
               onSubmit={(event) => {
                 event.preventDefault();
                 acquire.mutate();
               }}
             >
-              <div className="grid min-h-0 gap-6 overflow-y-auto pr-1 min-[900px]:grid-cols-2 min-[900px]:overflow-hidden">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <p>
-                      {submittedSearch
-                        ? `Results for “${submittedSearch}”`
-                        : searchFilters.length
-                          ? 'Models on Hugging Face'
-                          : 'Popular text models on Hugging Face'}
-                    </p>
-                    <InfoTip label="About model search">
+              <div className="grid min-h-0 flex-1 auto-rows-min gap-x-4 gap-y-[13px] overflow-y-auto px-4 pb-3.5 max-[899px]:grid-rows-[minmax(14rem,1fr)_auto] min-[900px]:grid-cols-2 min-[900px]:grid-rows-[minmax(0,1fr)] min-[900px]:overflow-hidden">
+                <ModelDownloadSearch
+                  heading={
+                    submittedSearch
+                      ? `Results for “${submittedSearch}”`
+                      : searchFilters.length
+                        ? 'Models on Hugging Face'
+                        : 'Popular text models on Hugging Face'
+                  }
+                  headingAction={
+                    <InfoTip className="size-5" label="About model search">
                       Search uses Hugging Face tags. Capability filters also check the evidence in
                       loaded results; unknown capabilities are not assumed. Counts refer to loaded
                       results. Load more to continue searching.
                     </InfoTip>
-                  </div>
-                  <ModelDownloadSearch
-                    tokens={searchFilters}
-                    onTokensChange={setSearchFilters}
-                    query={search}
-                    onQuery={setSearch}
-                    onSearch={() => setSubmittedSearch(search.trim())}
-                    models={found.data?.pages
-                      .flatMap((page) => page.models)
-                      .filter(
-                        (model, index, all) =>
-                          all.findIndex((other) => other.repository === model.repository) === index,
-                      )
-                      .map((model) =>
-                        selectedDetails.data?.repository === model.repository
-                          ? {
-                              ...model,
-                              capability_tags: selectedDetails.data.capability_tags,
-                              model_facts: selectedDetails.data.model_facts,
-                            }
-                          : model,
-                      )}
-                    searching={found.isFetching}
-                    error={found.error}
-                    selected={draft.repository}
-                    onSelect={(model) =>
-                      setDraft((old) => ({
-                        ...old,
-                        repository: model.repository,
-                        revision: model.revision || 'main',
-                      }))
-                    }
-                  />
-                  {found.hasNextPage ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={found.isFetchingNextPage}
-                      onClick={() => void found.fetchNextPage()}
-                    >
-                      {found.isFetchingNextPage ? 'Loading…' : 'Load more models'}
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="min-h-0 space-y-4 min-[900px]:max-h-[65dvh] min-[900px]:overflow-y-auto min-[900px]:border-l min-[900px]:pl-6">
+                  }
+                  loadMore={
+                    found.hasNextPage
+                      ? {
+                          onLoad: () => void found.fetchNextPage(),
+                          loading: found.isFetchingNextPage,
+                        }
+                      : undefined
+                  }
+                  tokens={searchFilters}
+                  onTokensChange={setSearchFilters}
+                  query={search}
+                  onQuery={setSearch}
+                  onSearch={() => setSubmittedSearch(search.trim())}
+                  models={found.data?.pages
+                    .flatMap((page) => page.models)
+                    .filter(
+                      (model, index, all) =>
+                        all.findIndex((other) => other.repository === model.repository) === index,
+                    )
+                    .map((model) =>
+                      selectedDetails.data?.repository === model.repository
+                        ? {
+                            ...model,
+                            capability_tags: selectedDetails.data.capability_tags,
+                            model_facts: selectedDetails.data.model_facts,
+                          }
+                        : model,
+                    )}
+                  searching={found.isFetching && !found.isFetchingNextPage}
+                  error={found.error}
+                  selected={draft.repository}
+                  onSelect={(model) =>
+                    setDraft((old) => ({
+                      ...old,
+                      repository: model.repository,
+                      revision: model.revision || 'main',
+                    }))
+                  }
+                />
+                {/* Spec `.c3pane`: the chosen model's facts, then the download settings. */}
+                <div className="flex min-h-0 min-w-0 flex-col gap-[13px] border-border max-[899px]:border-t max-[899px]:pt-3 min-[900px]:overflow-y-auto min-[900px]:border-l min-[900px]:pl-4">
                   {draft.repository ? (
-                    <>
-                      <p className="break-all font-semibold">{draft.repository}</p>
-                      <RegistryModelDetails repository={draft.repository} compact />
-                    </>
+                    <RegistryModelDetails
+                      repository={draft.repository}
+                      compact
+                      sizeBytes={chosen?.size_bytes}
+                      task={chosen?.task}
+                    />
                   ) : (
-                    <p className="py-8 text-sm text-muted-foreground">
+                    <p className="py-1.5 text-[12px] text-pretty text-faint">
                       Choose a model to see its capabilities and model card.
                     </p>
                   )}
                   <Collapsible
-                    className="border-t pt-3"
+                    className="group/advanced -mx-2 flex min-w-0 flex-col"
                     open={advancedOpen}
                     onOpenChange={setAdvancedOpen}
                   >
-                    <CollapsibleTrigger className="group/advanced flex items-center gap-1.5 text-sm font-medium">
-                      <ChevronRightIcon
+                    <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
+                      <span
                         aria-hidden="true"
-                        className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]/advanced:rotate-90 motion-reduce:transition-none"
-                      />
+                        className="grid w-3 shrink-0 place-items-center text-faint"
+                      >
+                        <ChevronRightIcon className="size-3 group-data-[state=open]/advanced:rotate-90 motion-safe:transition-transform" />
+                      </span>
                       Advanced download settings
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-4 space-y-4">
-                      <Field>
-                        <FieldLabel htmlFor="model-repository">Repository</FieldLabel>
-                        <Input
-                          id="model-repository"
-                          required
-                          value={draft.repository}
-                          placeholder="organization/model"
-                          onChange={(event) =>
-                            setDraft({ ...draft, repository: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <div className="flex items-center gap-2">
-                          <FieldLabel htmlFor="model-revision">Revision</FieldLabel>
-                          <InfoTip label="About model revisions">
-                            A branch or tag is resolved once to a commit. Retries keep that same
-                            commit even if the branch changes.
-                          </InfoTip>
+                    <CollapsibleContent className="flex min-w-0 flex-col gap-[13px] px-2 pt-1.5">
+                      <div className="grid min-w-0 grid-cols-2 gap-2.5">
+                        <div className="flex min-w-0 flex-col gap-[5px]">
+                          <label
+                            htmlFor="model-repository"
+                            className="flex min-h-5 items-center text-[11.5px] whitespace-nowrap text-muted-foreground"
+                          >
+                            Repository
+                          </label>
+                          <Input
+                            id="model-repository"
+                            required
+                            className={cn(sourceInputClass, 'font-mono text-[12px] md:text-[12px]')}
+                            value={draft.repository}
+                            placeholder="organization/model"
+                            onChange={(event) =>
+                              setDraft({ ...draft, repository: event.target.value })
+                            }
+                          />
                         </div>
-                        <Input
-                          id="model-revision"
-                          required
-                          value={draft.revision}
-                          onChange={(event) => setDraft({ ...draft, revision: event.target.value })}
-                        />
-                      </Field>
-                      <Field>
-                        <div className="flex items-center gap-2">
-                          <FieldLabel htmlFor="model-destination">
+                        <div className="flex min-w-0 flex-col gap-[5px]">
+                          <div className="flex min-h-5 items-center gap-1.5">
+                            <label
+                              htmlFor="model-revision"
+                              className="text-[11.5px] whitespace-nowrap text-muted-foreground"
+                            >
+                              Revision
+                            </label>
+                            <InfoTip className="size-5" label="About model revisions">
+                              A branch or tag is resolved once to a commit. Retries keep that same
+                              commit even if the branch changes.
+                            </InfoTip>
+                          </div>
+                          <Input
+                            id="model-revision"
+                            required
+                            className={cn(sourceInputClass, 'font-mono text-[12px] md:text-[12px]')}
+                            value={draft.revision}
+                            onChange={(event) =>
+                              setDraft({ ...draft, revision: event.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-col gap-[5px]">
+                        <div className="flex min-h-5 min-w-0 items-center gap-1.5">
+                          <label
+                            htmlFor="model-destination"
+                            className="truncate text-[11.5px] whitespace-nowrap text-muted-foreground"
+                          >
                             Destination on {hostLabel}
-                          </FieldLabel>
-                          <InfoTip label="About model destination">
+                          </label>
+                          <InfoTip className="size-5" label="About model destination">
                             Choose a dedicated empty folder, or leave this blank to create one under
                             this host's configured Models folder. Existing downloads retain their
                             original paths when settings change.
                           </InfoTip>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <Input
                             id="model-destination"
+                            className={cn(
+                              sourceInputClass,
+                              'min-w-0 flex-1 font-mono text-[12px] md:text-[12px]',
+                            )}
                             value={draft.destination}
                             placeholder={`${storage.data?.effective.models || 'Models folder'}/repository--revision`}
                             onChange={(event) =>
@@ -482,24 +530,33 @@ export function ModelAcquisitions({
                             label="Model destination"
                             path={draft.destination || storage.data?.effective.models || ''}
                             onChoose={(destination) => setDraft({ ...draft, destination })}
+                            triggerClassName="h-[30px] shrink-0 px-2 text-[12px] text-muted-foreground"
                           />
                         </div>
-                      </Field>
+                      </div>
                     </CollapsibleContent>
                   </Collapsible>
                   {acquire.error ? (
-                    <StateView kind="error" size="row" title={acquire.error.message} />
+                    <SourceStatusLine icon={<CircleAlertIcon />} role="alert" tone="error">
+                      {acquire.error.message}
+                    </SourceStatusLine>
                   ) : null}
-                  <InstallExpectation
-                    downloadBytes={chosen?.size_bytes}
-                    thing={draft.repository.trim() || 'the model files'}
-                  />
                 </div>
               </div>
-              <div className="mt-4 flex shrink-0 justify-end gap-2 border-t pt-4">
+              {/* Spec `.df`: what the download involves at the left, then Cancel and Download. */}
+              <div className="flex shrink-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-4">
+                <div
+                  className="mr-auto flex min-w-0 overflow-hidden"
+                  title={installExpectation(downloadEstimate)}
+                >
+                  <InstallExpectation
+                    className="min-w-0 items-center text-[11.5px] whitespace-nowrap text-faint [&>span]:truncate [&>svg]:mt-0"
+                    {...downloadEstimate}
+                  />
+                </div>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   disabled={acquire.isPending}
                   onClick={() => setOpen(false)}
                 >

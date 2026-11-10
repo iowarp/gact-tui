@@ -1,16 +1,34 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { NDPDataset } from '@clio/core/v3';
-import { DatabaseIcon, SearchIcon, UsersIcon } from 'lucide-react';
+import type { NDPDataset, NDPEndpointConnection } from '@clio/core/v3';
+import {
+  ActivityIcon,
+  AtSignIcon,
+  ChevronDownIcon,
+  DatabaseIcon,
+  GlobeIcon,
+  PlayIcon,
+  SearchIcon,
+  UsersIcon,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
+import { useComposerReferenceAvailable } from '@/lib/composer-reference-requests';
 import { connectionScope } from '@/lib/connection-scope';
 import { AddIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import {
+  ndpResourceIconName,
+  ndpResourceKind,
+  ndpResourceMessageText,
+  ndpResourceMeta,
+} from '@/lib/ndp-resource';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { FileTypeIcon } from './file-type-icon';
 import { NDPOrganizationFilter } from './ndp-organization-filter';
+import { NDPWorkflowForm, type NDPWorkflow } from './ndp-workflow-form';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
@@ -20,14 +38,19 @@ import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
 
 const datasetKey = (dataset: NDPDataset) => JSON.stringify([dataset.endpoint_id, dataset.id]);
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+/** The endpoint operations that open a catalog stream, as the endpoint browser's Read stream. */
+const STREAM_OPEN = ['SDK streaming_v2.open', 'POST /streams'];
 
 type Picked = { dataset: NDPDataset; resourceId: string };
+type Streaming = { endpoint: NDPEndpointConnection; workflow: NDPWorkflow };
+type Resource = NDPDataset['resources'][number];
 
 /**
  * The NDP catalog as a workbench tab: the frame bar, a search and access row,
  * then one Files tree of organizations, datasets and their resources. A
  * resource is picked in the tree and added to the workspace from the bar, the
- * same connection the Connect dialog makes.
+ * same connection the Connect dialog makes. On hover a resource offers @ (Add
+ * to message); a stream pins its start, which opens the endpoint's stream form.
  */
 export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; label: string }) {
   const repository = useRepository();
@@ -45,6 +68,94 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [picked, setPicked] = useState<Picked>();
+  const [streaming, setStreaming] = useState<Streaming>();
+  const composerOpen = useComposerReferenceAvailable(workspaceId);
+  const hasStreams = catalog.datasets.some((dataset) =>
+    dataset.resources.some((resource) => ndpResourceKind(resource) === 'stream'),
+  );
+  const endpoints = useQuery({
+    queryKey: ['ndp-endpoints', scope, workspaceId],
+    queryFn: ({ signal }) => repository.ndpEndpointConnections(workspaceId, signal, true),
+    enabled: hasStreams,
+    retry: false,
+  });
+  const streamEndpoint = endpoints.data?.endpoints.find((endpoint) =>
+    endpoint.operations.some((operation) => STREAM_OPEN.includes(operation.id)),
+  );
+  const startReason = endpoints.isPending
+    ? 'Checking NDP endpoints'
+    : streamEndpoint
+      ? undefined
+      : 'Connect an NDP endpoint with streaming first';
+  const startStream = (resource: Resource) => {
+    const operation = streamEndpoint?.operations.find((row) => STREAM_OPEN.includes(row.id));
+    if (!streamEndpoint || !operation) return;
+    const read = { resource_id: resource.id, start: 'earliest' };
+    const sdk = operation.id === 'SDK streaming_v2.open';
+    setStreaming({
+      endpoint: streamEndpoint,
+      workflow: {
+        title: `Start ${resource.name}`,
+        operation,
+        parameters: sdk ? read : {},
+        body: sdk ? undefined : read,
+      },
+    });
+  };
+  const addToMessage = (resource: Resource, dataset: NDPDataset) => {
+    window.dispatchEvent(
+      new CustomEvent('clio:use-message-draft', {
+        detail: {
+          text: ndpResourceMessageText(resource, dataset),
+          sourceKey: `ndp:${datasetKey(dataset)}:${resource.id}`,
+        },
+      }),
+    );
+    toast.success(`Added ${resource.name} to the message.`);
+  };
+  const resourceRow = (dataset: NDPDataset, resource: Resource): FileTreeRow => {
+    const kind = ndpResourceKind(resource);
+    return {
+      kind: 'file',
+      path: `r:${datasetKey(dataset)}:${resource.id}`,
+      name: resource.name,
+      depth: 2,
+      alignWithFolders: true,
+      icon:
+        kind === 'stream' ? (
+          <ActivityIcon className="size-3.5" />
+        ) : kind === 'service' ? (
+          <GlobeIcon className="size-3.5" />
+        ) : (
+          <FileTypeIcon className="size-3.5" name={ndpResourceIconName(resource)} />
+        ),
+      size: kind === 'file' && resource.size > 0 ? resource.size : undefined,
+      meta: ndpResourceMeta(resource),
+      actions: (
+        <IconButton
+          className="text-foreground"
+          disabledReason={composerOpen ? undefined : 'Open a conversation to add it to a message'}
+          icon={<AtSignIcon />}
+          label="Add to message"
+          onClick={() => addToMessage(resource, dataset)}
+          size="sm"
+          tooltipSide="bottom"
+        />
+      ),
+      pinned:
+        kind === 'stream' ? (
+          <IconButton
+            className="text-foreground"
+            disabledReason={startReason}
+            icon={<PlayIcon />}
+            label="Start stream"
+            onClick={() => startStream(resource)}
+            size="sm"
+            tooltipSide="bottom"
+          />
+        ) : undefined,
+    };
+  };
   const groups = useMemo(() => {
     const byOrganization = new Map<string, NDPDataset[]>();
     for (const dataset of catalog.datasets) {
@@ -86,16 +197,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         meta: plural(dataset.resources.length, 'resource'),
       });
       if (!open) continue;
-      for (const resource of dataset.resources)
-        result.push({
-          kind: 'file',
-          path: `r:${datasetKey(dataset)}:${resource.id}`,
-          name: resource.name,
-          depth: 2,
-          alignWithFolders: true,
-          icon: <FileTypeIcon className="size-3.5" name={resource.name} />,
-          size: resource.size || undefined,
-        });
+      for (const resource of dataset.resources) result.push(resourceRow(dataset, resource));
       if (!dataset.resources.length)
         result.push({
           kind: 'note',
@@ -154,7 +256,20 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         : plural(catalog.datasets.length, 'dataset');
 
   let body;
-  if (catalog.results.isPending && !catalog.data)
+  if (streaming)
+    body = (
+      <div className="px-3.5 py-2">
+        <NDPWorkflowForm
+          endpoint={streaming.endpoint}
+          key={`${streaming.workflow.operation.id}/${JSON.stringify(streaming.workflow.parameters ?? {})}/${JSON.stringify(streaming.workflow.body ?? {})}`}
+          onClose={() => setStreaming(undefined)}
+          onSaved={() => undefined}
+          workflow={streaming.workflow}
+          workspaceId={workspaceId}
+        />
+      </div>
+    );
+  else if (catalog.results.isPending && !catalog.data)
     body = <StateView className="p-6" kind="loading" size="panel" title="Loading the catalog" />;
   else if (catalog.results.error && !catalog.data)
     body = (
@@ -256,21 +371,27 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
             aria-label="Search NDP datasets"
             className={cn(sourceInputClass, 'pl-8')}
             onChange={(event) => catalog.setQuery(event.target.value)}
-            placeholder="Search datasets"
+            placeholder="Search NDP datasets"
             value={catalog.query}
           />
         </div>
-        <select
-          aria-label="Catalog access filter"
-          className={cn(sourceInputClass, 'w-auto max-w-full basis-[30%] border bg-background')}
-          onChange={(event) => catalog.setOnlyGroups(event.target.value === 'groups')}
-          value={catalog.onlyGroups ? 'groups' : 'all'}
-        >
-          <option value="all">All catalog data</option>
-          <option disabled={!signedIn} value="groups">
-            Only my groups
-          </option>
-        </select>
+        <span className="relative max-w-full min-w-[9.5rem] basis-[30%]">
+          <select
+            aria-label="Catalog access filter"
+            className={cn(sourceInputClass, 'w-full appearance-none border bg-background pr-8')}
+            onChange={(event) => catalog.setOnlyGroups(event.target.value === 'groups')}
+            value={catalog.onlyGroups ? 'groups' : 'all'}
+          >
+            <option value="all">All catalog data</option>
+            <option disabled={!signedIn} value="groups">
+              Only my groups
+            </option>
+          </select>
+          <ChevronDownIcon
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 opacity-60"
+          />
+        </span>
         <NDPOrganizationFilter
           account={catalog.account}
           cacheEnabled={catalog.cacheEnabled}
