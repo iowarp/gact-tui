@@ -241,7 +241,7 @@ export function ProvidersSettings() {
         title="Providers"
       />
       {error ? (
-        <div className="max-w-[760px]" title={error.message}>
+        <div className={SETTINGS_COLUMN} title={error.message}>
           <StateView
             action={{
               label: 'Retry',
