@@ -34,6 +34,7 @@ import {
 } from './file-viewer-action-context';
 import { FileSourceOptions, FileViewerInformationHost } from './file-viewer-context';
 import {
+  FILE_SIZE_FACT,
   FileViewerFactsRegistry,
   FileViewerTitleRegistry,
   type FileViewerTitle,
@@ -275,8 +276,15 @@ export function FileViewerShell({
       toast.error(error instanceof Error ? error.message : 'Could not open fullscreen.');
     }
   };
-  const rendererFacts =
-    selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat();
+  const rendererFacts = (
+    selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat()
+  ).flatMap((fact) =>
+    fact !== FILE_SIZE_FACT
+      ? [fact]
+      : identity.size === undefined
+        ? []
+        : [formatBytes(identity.size)],
+  );
   // Each mode states its own fact, as the frame spec does: Render what the renderer
   // draws (rows, pages), Source the bytes, Lineage the version and its graph.
   // A viewer that names itself (a dashboard) shows its own facts, not the file's size.
@@ -287,8 +295,7 @@ export function FileViewerShell({
   // A file whose only rendering is its source (code) states its facts there, e.g. its language.
   const sourceOnly = (renderer?.modes.length ?? 0) < 2;
   const positioned =
-    selectedValue === LINEAGE_VIEW ||
-    ((!showingSource || sourceOnly) && rendererFacts.length > 0);
+    selectedValue === LINEAGE_VIEW || ((!showingSource || sourceOnly) && rendererFacts.length > 0);
   // A view with no mode segment (one representation) states its facts and its size.
   const what = !positioned
     ? size

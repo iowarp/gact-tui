@@ -18,6 +18,7 @@ import {
 } from '@/lib/runtime-limits';
 import { SourceWindowContext } from '@/lib/source-window';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { FileWindowNoticeShown } from './file-window-context';
 
 function fileName(path: string): string {
   return (
@@ -195,23 +196,27 @@ function WorkspaceTextWindowView({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="text-file-window">
       <div className="min-h-0 flex-1">
-        {showEnd || !head ? (
-          textWindow.tailError ? (
-            <ViewerReadError error={textWindow.tailError.message} where={path} />
-          ) : tail === undefined ? (
-            <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
+        <FileWindowNoticeShown.Provider value>
+          {showEnd || !head ? (
+            textWindow.tailError ? (
+              <ViewerReadError error={textWindow.tailError.message} where={path} />
+            ) : tail === undefined ? (
+              <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
+            ) : (
+              <FileTextView content={tail} mediaType={mediaType} name={name} />
+            )
           ) : (
-            <FileTextView content={tail} mediaType={mediaType} name={name} />
-          )
-        ) : (
-          <SourceWindowContext.Provider value={sourceWindow}>
-            <FileTextView content={head.text} mediaType={mediaType} name={name} />
-          </SourceWindowContext.Provider>
-        )}
+            <SourceWindowContext.Provider value={sourceWindow}>
+              <FileTextView content={head.text} mediaType={mediaType} name={name} />
+            </SourceWindowContext.Provider>
+          )}
+        </FileWindowNoticeShown.Provider>
       </div>
       <StateView
         action={{
-          label: showEnd ? 'Show beginning' : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
+          label: showEnd
+            ? 'Show beginning'
+            : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
           onClick: () => setShowEnd(!showEnd),
         }}
         className="shrink-0 border-t px-3"

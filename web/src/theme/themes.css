@@ -217,13 +217,13 @@
   --terminal-accent: #74b8b0;
   --syntax-foreground: #ece6da;
   --syntax-background: #2a2823;
-  --syntax-token-keyword: #74b8b0;
-  --syntax-token-string: #e8c27a;
+  --syntax-token-keyword: #c69bd9;
+  --syntax-token-string: #b5cf8f;
   --syntax-token-string-expression: #9fd3cb;
   --syntax-token-comment: #9c9588;
   --syntax-token-constant: #e8a595;
-  --syntax-token-function: #a9c7e6;
-  --syntax-token-parameter: #e8c27a;
+  --syntax-token-function: #8db4da;
+  --syntax-token-parameter: #b5cf8f;
   --syntax-token-punctuation: #b3ac9f;
   --syntax-token-link: #74b8b0;
   --scrim: rgb(10 9 8 / 62%);

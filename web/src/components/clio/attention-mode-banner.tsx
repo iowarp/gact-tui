@@ -1,8 +1,6 @@
 import { attentionDomainLabel, type AttentionAvailable } from '@clio/core/v3';
 import { RadarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AttentionModeState } from '@/hooks/use-attention-mode';
 import { attentionDomainColor } from '@/lib/attention-domain-colors';
@@ -13,6 +11,9 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
 import { AttentionHeatViewControls } from './attention-heat-view-controls';
 import { InfoTip } from './info-tip';
+import { FrameBar } from './primitives/frame-bar';
+import { IconButton } from './primitives/icon-button';
+import { RingSpinner } from './primitives/ring-spinner';
 import type { AttentionProfile } from '@clio/core/v3';
 
 const QUOTE_TRUNCATE_CHARS = 160;
@@ -22,10 +23,11 @@ const SPREAD_THIN_TOOLTIP =
   'Attention spread across the parts of the conversation outside the top 10% the capture keeps.';
 
 /**
- * The pinned "Attention mode" banner: the quoted selection, an X back to the
- * normal transcript, and (once shown) the source breakdown for what produced
- * it. `state.status === 'idle'` renders nothing — the caller mounts this
- * unconditionally above the transcript.
+ * Attention mode's one bar, the same frame bar as a tab (runs-attention 08): radar and
+ * "Attention mode" (the quoted selection on hover), a fact when tool results lead,
+ * Lines Words Tokens and Max Mean, the heat profile's sliders icon, then X back to the
+ * normal transcript. The source breakdown sits as one quiet strip under the bar.
+ * `state.status === 'idle'` renders nothing; the caller mounts this above the transcript.
  */
 export function AttentionModeBanner({
   onDismiss,
@@ -41,71 +43,81 @@ export function AttentionModeBanner({
   onViewChange?: (view: AttentionHeatView) => void;
 }) {
   if (state.status === 'idle') return null;
+  const shown = state.status === 'shown' ? state.data : undefined;
+  const dominant = shown?.flags.some((flag) => flag.kind === 'tool_result_dominant');
+  const quote = `“${truncate(state.selection.text, QUOTE_TRUNCATE_CHARS)}”`;
   return (
-    <div
-      className="sticky top-0 z-20 shrink-0 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6"
-      data-slot="attention-mode-banner"
-    >
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-        <div className="flex items-start gap-2">
-          <RadarIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Attention mode</span>
-              {state.status === 'loading' ? <Spinner className="size-3.5" /> : null}
-            </div>
-            <p
-              className="mt-0.5 truncate text-xs text-muted-foreground"
-              title={state.selection.text}
-            >
-              “{truncate(state.selection.text, QUOTE_TRUNCATE_CHARS)}”
-            </p>
-          </div>
-          <Button
-            aria-label="Exit attention mode"
-            className="shrink-0"
-            onClick={onDismiss}
-            size="icon-xs"
-            variant="ghost"
+    <div className="sticky top-0 z-20 shrink-0 bg-background" data-slot="attention-mode-banner">
+      <FrameBar
+        label="Attention mode"
+        where={
+          <span
+            className="flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px]"
+            title={`Attention mode: ${quote}`}
           >
-            <CloseIcon aria-hidden="true" />
-          </Button>
+            <RadarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            <b className="font-medium text-foreground">Attention mode</b>
+            {state.status === 'loading' ? <RingSpinner /> : null}
+          </span>
+        }
+        what={
+          state.status === 'loading' ? (
+            <span role="status">Loading</span>
+          ) : state.status === 'unavailable' ? (
+            <span data-slot="attention-unavailable-message" title={state.message}>
+              {state.message}
+            </span>
+          ) : dominant ? (
+            <span title="Tool results lead captured content">tool results first</span>
+          ) : (
+            <span className="truncate" title={state.selection.text}>
+              {quote}
+            </span>
+          )
+        }
+        format={
+          shown && view && onViewChange ? (
+            <AttentionHeatViewControls
+              meanAvailable={shown.blocks.every((block) => block.token_starts !== undefined)}
+              onChange={onViewChange}
+              view={view}
+            />
+          ) : undefined
+        }
+        actions={
+          <>
+            {shown?.profile && onProfileChange ? (
+              <AttentionProfileEditor iconOnly onApply={onProfileChange} profile={shown.profile} />
+            ) : null}
+            <IconButton icon={<CloseIcon />} label="Exit attention mode" onClick={onDismiss} />
+          </>
+        }
+      />
+      {shown ? (
+        <div className="border-b border-border px-2 py-1.5">
+          <AttentionBreakdown data={shown} hideFlags={dominant} />
         </div>
-        {state.status === 'unavailable' ? (
-          <p className="text-xs text-muted-foreground" data-slot="attention-unavailable-message">
-            {state.message}
-          </p>
-        ) : null}
-        {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
-        {state.status === 'shown' && view && onViewChange ? (
-          <AttentionHeatViewControls
-            meanAvailable={state.data.blocks.every((block) => block.token_starts !== undefined)}
-            onChange={onViewChange}
-            view={view}
-          />
-        ) : null}
-        {state.status === 'shown' && state.data.profile && onProfileChange ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
-          </div>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }
-
 /** Every prompt section the capture scored (system, tool definitions, tool calls/results, user, …) plus the spread-thin residual. */
 export function AttentionBreakdown({
   data,
+  hideFlags = false,
 }: {
   data: Pick<AttentionAvailable, 'residual' | 'flags' | 'unmapped_content'> & {
     sources: readonly { domain: string; share: number }[];
   };
+  /** The frame bar already names the lead ("tool results first"). */
+  hideFlags?: boolean;
 }) {
   const sources = [...data.sources]
     .filter((source) => source.share > 0)
     .sort((left, right) => right.share - left.share);
-  const dominant = data.flags.find((flag) => flag.kind === 'tool_result_dominant');
+  const dominant = hideFlags
+    ? undefined
+    : data.flags.find((flag) => flag.kind === 'tool_result_dominant');
   return (
     <div className="flex flex-col gap-1.5" data-slot="attention-breakdown">
       <div aria-hidden="true" className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
