@@ -148,8 +148,11 @@ interface TranscriptWidthOptions {
   readingAnchorRef: RefObject<TranscriptReadingAnchor | null>;
   scrollIntentVersionRef: RefObject<number>;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
-  scrollToBottom: (behavior: ScrollBehavior) => void;
 }
+
+// The transcript keeps its width across conversation switches and page
+// returns; seeding from the last one spares every remount a re-render.
+let lastTranscriptWidth = 0;
 
 /** Remeasure wrapped rows while preserving the reader's visible anchor. */
 export function useTranscriptWidth({
@@ -159,20 +162,34 @@ export function useTranscriptWidth({
   readingAnchorRef,
   scrollIntentVersionRef,
   virtualizer,
-  scrollToBottom,
 }: TranscriptWidthOptions): number {
-  const [conversationViewportWidth, setConversationViewportWidth] = useState(0);
+  const [conversationViewportWidth, setConversationViewportWidthState] =
+    useState(lastTranscriptWidth);
+  const widthStateRef = useRef(conversationViewportWidth);
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
+    const setConversationViewportWidth = (next: number) => {
+      lastTranscriptWidth = next;
+      if (next === widthStateRef.current) return;
+      widthStateRef.current = next;
+      setConversationViewportWidthState(next);
+    };
     let width = Math.round(element.getBoundingClientRect().width);
     setConversationViewportWidth(width);
     let frame = 0;
+    let observed = false;
     const observer = new ResizeObserver(([entry]) => {
       const nextWidth = Math.round(entry?.contentRect.width ?? 0);
+      // The first observation reports the content box, which excludes the
+      // scrollbar that the border box above includes. It is not a resize: rows
+      // mounted in this commit were measured at this width already.
+      const initial = !observed;
+      observed = true;
       if (!nextWidth || nextWidth === width) return;
       width = nextWidth;
       setConversationViewportWidth(nextWidth);
+      if (initial) return;
       const resizeAnchor = readingAnchorRef.current;
       const intentVersion = scrollIntentVersionRef.current;
       // Only mounted rows carry a live ResizeObserver, so every off-screen row
@@ -185,11 +202,11 @@ export function useTranscriptWidth({
       let remainingFrames = 30;
       const restore = () => {
         // Re-check intent at execution time; the user may have scrolled since
-        // this resize was queued. Geometry alone never enables following.
-        if (pinnedToBottomRef.current) {
-          scrollToBottom('instant');
-          return;
-        }
+        // this resize was queued. Geometry alone never enables following. A
+        // pinned view needs nothing here: the autoscroll observer already
+        // followed the resize before paint, and scrolling again would force
+        // another layout.
+        if (pinnedToBottomRef.current) return;
         if (intentVersion !== scrollIntentVersionRef.current || !resizeAnchor) return;
         const row = document.getElementById(resizeAnchor.id);
         const delta = row
@@ -219,7 +236,6 @@ export function useTranscriptWidth({
     pinnedToBottomRef,
     readingAnchorRef,
     scrollIntentVersionRef,
-    scrollToBottom,
     virtualizer,
     virtualized,
   ]);

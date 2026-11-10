@@ -1,14 +1,21 @@
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CodeIcon, EyeIcon, GitBranchIcon } from 'lucide-react';
+import { CodeIcon, EyeIcon, GitBranchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Tabs } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DocumentViewControls } from './document-view-controls';
 import { FileModeControls } from './file-mode-controls';
 import { FrameTalkTake } from './file-viewer-take';
 import { FrameBar } from './primitives/frame-bar';
+import { ToolbarAction } from './viewer-toolbar';
 
 const MODES = [
   { value: 'render', label: 'Render', icon: EyeIcon },
@@ -19,11 +26,15 @@ const MODES = [
 function Frame({
   onChange,
   document = false,
+  tools,
   onAdd,
+  bodies = false,
 }: {
   onChange: (value: string) => void;
   document?: boolean;
+  tools?: React.ReactNode;
   onAdd?: () => void;
+  bodies?: boolean;
 }) {
   const [mode, setMode] = useState('render');
   const [view, setView] = useState('preview');
@@ -44,6 +55,7 @@ function Frame({
                 <DocumentViewControls markdown value={view} onChange={setView} />
               </Tabs>
             ) : null}
+            {tools}
           </>
         }
         actions={
@@ -53,6 +65,13 @@ function Frame({
           />
         }
       />
+      {bodies
+        ? MODES.map(({ value, label }) => (
+            <TabsContent key={value} value={value}>
+              <button type="button">{`${label} body`}</button>
+            </TabsContent>
+          ))
+        : null}
     </Tabs>
   );
 }
@@ -202,6 +221,98 @@ describe('frame bar modes at the narrowest fold', () => {
       expect(screen.queryByRole('menu')).toBeNull();
     } finally {
       style.remove();
+      restore();
+    }
+  });
+
+  it('keeps focus in the frame when a mode key replaces the focused body', async () => {
+    const onChange = vi.fn();
+    render(<Frame onChange={onChange} bodies />);
+    act(() => screen.getByRole('button', { name: 'Render body' }).focus());
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('tabpanel', { name: 'Lineage' })),
+    );
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    expect(onChange).toHaveBeenLastCalledWith('render');
+  });
+});
+
+describe('the renderer’s Format icons at the narrowest fold', () => {
+  function Zoom({ onIn, outReason }: { onIn: () => void; outReason?: string }) {
+    return (
+      <div role="group" aria-label="Diagram zoom">
+        <ToolbarAction label="Zoom out" disabledReason={outReason} onClick={() => {}}>
+          <ZoomOutIcon aria-hidden="true" />
+        </ToolbarAction>
+        <ToolbarAction label="Zoom in" onClick={onIn}>
+          <ZoomInIcon aria-hidden="true" />
+        </ToolbarAction>
+      </div>
+    );
+  }
+
+  it('keeps them in the bar, not the … menu, while the bar is wide', async () => {
+    render(<Frame onChange={() => {}} tools={<Zoom onIn={() => {}} />} />);
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.queryByRole('menuitem', { name: /Zoom in/ })).toBeNull();
+  });
+
+  it('lists them in the … menu after the modes and runs them from there', async () => {
+    const restore = narrowFrameBars();
+    try {
+      const onIn = vi.fn();
+      render(<Frame onChange={() => {}} tools={<Zoom onIn={onIn} outReason="Already fitted" />} />);
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      const rows = screen.getAllByRole('menuitem').map((row) => row.textContent);
+      expect(rows.slice(0, 2)).toEqual(['Zoom outAlready fitted', 'Zoom in']);
+      expect(screen.getByRole('menuitem', { name: /Zoom out/ }).getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Zoom in' }));
+      expect(onIn).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it('leaves the … trigger itself in the bar', () => {
+    const restore = narrowFrameBars();
+    try {
+      render(<Frame onChange={() => {}} tools={<Zoom onIn={() => {}} />} />);
+      const more = screen.getByRole('button', { name: 'More actions' });
+      expect(more.closest('[data-slot="frame-format"]')).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('keeps a menu or popover trigger in the bar, out of the … menu', async () => {
+    const restore = narrowFrameBars();
+    try {
+      render(
+        <Frame
+          onChange={() => {}}
+          tools={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ToolbarAction label="Source file: main.tex">
+                  <CodeIcon aria-hidden="true" />
+                </ToolbarAction>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>main.tex</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />,
+      );
+      const trigger = screen.getByRole('button', { name: 'Source file: main.tex' });
+      expect(trigger.hasAttribute('data-frame-tool')).toBe(false);
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      expect(screen.queryByRole('menuitem', { name: /Source file/ })).toBeNull();
+    } finally {
       restore();
     }
   });

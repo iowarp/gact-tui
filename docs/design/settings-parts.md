@@ -77,7 +77,8 @@ own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
-and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,
+and the meta in faint 11.5 px on the same line. The meta gives way first: the name keeps
+its full width and ellipsizes only when it alone overflows the row. Pickers, menus,
 Infrastructure and dense Settings lists use it instead of cards, accordions or two-line
 rows. `default` (46 px, meta under the name) is for lists whose meta needs room, and
 `sm` (34 px) for nested lists.
@@ -183,12 +184,12 @@ muted track without a border, 24 px items at 12 px, and the selected item raised
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
 
 **`StepList`** `components/clio/primitives/step-list.tsx`
-`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label }`.
 The steps of a long operation in 28 px rows: a check, a 12 px teal ring on its track (the spec's
 `.spin`; it stays still with reduced motion), an open circle or an alert, the
 state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
-`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
-default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step; the
+local startup passes none and keeps its output in Startup details.
 Used by the update page and the local startup (`LocalStartupSteps`).
 
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and

@@ -28,7 +28,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
  * and what they add or remove; installed agents show their description.
  */
 function agentMeta(agent: AgentEntry, agents: readonly AgentEntry[]): string[] {
-  const count = plural(agent.plugins.length, 'plugin');
+  const count = plural(agent.plugins.length, 'package');
   if (agent.kind !== 'user') return agent.description ? [agent.description] : [count];
   const parent = agent.extends ? agentDisplayName(agent.extends, agents) : '';
   const add = agent.delta?.add ?? [];

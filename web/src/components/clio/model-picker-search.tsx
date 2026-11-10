@@ -13,8 +13,8 @@ import {
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
-import { ModelPickerFacetPanel } from './model-picker-facet-panel';
-import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
+import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-facet-panel';
+import { rangeFilterSections } from './model-picker-filter-ranges';
 import { ModelPickerQuickStrip } from './model-picker-quick-strip';
 
 interface ModelPickerSearchProps {
@@ -43,6 +43,8 @@ interface ModelPickerSearchProps {
   onFacetsOpenChange: (open: boolean) => void;
   /** The highest input price the listed models state (the Cost slider's top). */
   maxInputPrice?: number;
+  /** Whether any listed model states its size: the Size chip and slider show only then. */
+  sizes?: boolean;
   /** Downloads share the picker search without claiming serving capabilities or prices. */
   label?: string;
   inputId?: string;
@@ -85,6 +87,7 @@ export function ModelPickerSearch({
   facetsOpen,
   onFacetsOpenChange,
   maxInputPrice,
+  sizes = false,
   label = 'Search providers and models',
   inputId,
   onSearch,
@@ -92,9 +95,10 @@ export function ModelPickerSearch({
   single = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<FacetPanelHandle>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
-  const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined);
+  const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined, sizes);
   const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
   const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
   const rowTwo =
@@ -129,6 +133,16 @@ export function ModelPickerSearch({
   }, [facetsOpen, onFacetsOpenChange]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // The picker's own highlight seed presses arrows; those are not the person's.
+    if (event.currentTarget.dataset.seeding !== undefined) return;
+    // The open panel moves and toggles its own rows; the list behind it stays put.
+    if (facetsOpen && panelRef.current?.keyDown(event)) {
+      event.preventDefault();
+      (
+        event as KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler?: () => void }
+      ).preventBaseUIHandler?.();
+      return;
+    }
     if (event.key === 'Enter' && onSearch) {
       event.preventDefault();
       onFacetsOpenChange(false);
@@ -273,16 +287,14 @@ export function ModelPickerSearch({
       ) : null}
       {facetsOpen ? (
         <ModelPickerFacetPanel
+          onClose={() => onFacetsOpenChange(false)}
           onToggleChip={toggleChip}
-          sliders={
-            maxInputPrice === undefined ? undefined : (
-              <ModelPickerFacetSliders
-                maxInputPrice={maxInputPrice}
-                onTokensChange={onTokensChange}
-                tokens={tokens}
-              />
-            )
+          ranges={
+            maxInputPrice === undefined
+              ? undefined
+              : rangeFilterSections({ tokens, onTokensChange, maxInputPrice, sizes })
           }
+          ref={panelRef}
           tabs={facetTabs}
         />
       ) : null}

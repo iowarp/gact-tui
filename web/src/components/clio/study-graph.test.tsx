@@ -23,6 +23,9 @@ vi.mock('@xyflow/react', () => ({
   BackgroundVariant: { Dots: 'dots' },
   MarkerType: { ArrowClosed: 'closed' },
   useReactFlow: () => ({ setViewport: () => Promise.resolve(true) }),
+  // A phone-width pane at the readable floor, scrolled to the drawing's top-left.
+  useStore: (select: (state: unknown) => unknown) =>
+    select({ transform: [0, 0, 0.85], width: 368, height: 600 }),
   Handle: () => null,
   Background: () => null,
   Controls: () => null,
@@ -224,6 +227,17 @@ describe('science log graph navigation', () => {
     expect(
       screen.getByRole('listitem', { name: 'Hypothesis: Square-root temperature law' }),
     ).toHaveAttribute('data-focused', 'true');
+  });
+
+  it('marks the edge the graph continues past when it opens at the readable floor', async () => {
+    const user = userEvent.setup();
+    render(<ScienceLogView study={study} sessionId="root" />);
+    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    const graph = screen.getByRole('region', { name: 'Study relationship graph' });
+    const more = [...graph.querySelectorAll('[data-graph-more]')].map((edge) =>
+      edge.getAttribute('data-graph-more'),
+    );
+    expect(more).toEqual(['right']);
   });
 
   it('renders new recorded links on a study update and never enables an unavailable entry', async () => {

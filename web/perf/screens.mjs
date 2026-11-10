@@ -827,9 +827,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
         await page.waitForTimeout(300);
       },
@@ -840,9 +838,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived-delete',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
         await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
         await page.waitForTimeout(300);
@@ -1011,7 +1007,8 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
-    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'h3' }),
+    // The welcome title; the left bar's headings are folded away at narrow widths.
+    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'main h1' }),
     ...settings.map(({ href, name }) =>
       s('settings', slug(name), href, null, {
         ready: 'main',
@@ -1054,7 +1051,13 @@ function catalogue({ settings, infrastructure }) {
       'state-filter',
       '/runs',
       async (page) => {
-        await press(page, 'radio', /^Waiting for you/u);
+        // Narrow toolbars fold the state chips into one filter menu.
+        const chip = page.getByRole('radio', { name: /^Waiting for you/u });
+        if (await chip.isVisible().catch(() => false)) await chip.click();
+        else {
+          await press(page, 'button', /^Filter by state/u);
+          await press(page, 'menuitem', /^Waiting for you/u);
+        }
         await page.waitForTimeout(400);
       },
       { ready: '[data-run-state]' },
@@ -1159,6 +1162,25 @@ function catalogue({ settings, infrastructure }) {
         scenario: { specFiles: true },
         settleMs: 1500,
       }),
+    ),
+    // A diagram's zoom icons leave the bar with the modes (workbench-lineage
+    // step 6: the name, comments and …) and are rows in its … menu.
+    s(
+      'viewer',
+      'mermaid-more',
+      SESSION,
+      async (page) => {
+        await openFile(page, 'diagrams/pipeline.mmd');
+        await page.waitForTimeout(1200);
+        await page
+          .getByRole('toolbar', { name: 'File' })
+          .filter({ visible: true })
+          .getByRole('button', { name: 'File actions' })
+          .first()
+          .click();
+        await overlay(page);
+      },
+      { scenario: { specFiles: true } },
     ),
     s(
       'viewer',
