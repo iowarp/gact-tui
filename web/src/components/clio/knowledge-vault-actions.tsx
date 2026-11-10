@@ -20,6 +20,9 @@ import type { KnowledgeOpened } from './knowledge-note-body';
 import { PresentationNavigation } from './presentation-navigation';
 import { MenuRow } from './primitives/menu-row';
 
+/** Jump letters of the vault's … rows (KnowledgeVaultMenuRows). */
+const VAULT_LETTERS = 'RSLNA';
+
 export type KnowledgeVaultSource = Awaited<
   ReturnType<ReturnType<typeof useRepository>['connectedSources']>
 >[number];
@@ -65,7 +68,7 @@ export function KnowledgeVaultTake({
         menu={rows}
       />
     );
-  return <FrameTalkTake comments={comments} copy={copy} menu={rows} />;
+  return <FrameTalkTake comments={comments} copy={copy} menu={rows} menuLetters={VAULT_LETTERS} />;
 }
 
 function KnowledgeNoteTake({
@@ -109,6 +112,7 @@ function KnowledgeNoteTake({
       copy={copy}
       open={open}
       menu={menu}
+      menuLetters={VAULT_LETTERS}
     />
   );
 }
@@ -171,39 +175,49 @@ function KnowledgeVaultMenuRows({
 }: KnowledgeVaultMenu) {
   return (
     <>
-      <DropdownMenuItem onSelect={refresh}>
-        <MenuRow icon={<RefreshIcon />} label="Refresh" />
+      <DropdownMenuItem data-accelerator="R" onSelect={refresh}>
+        <MenuRow icon={<RefreshIcon />} label="Refresh" accelerator="R" />
       </DropdownMenuItem>
       {sync ? (
-        <DropdownMenuItem disabled={sync.pending} onSelect={sync.toggle}>
+        <DropdownMenuItem data-accelerator="S" disabled={sync.pending} onSelect={sync.toggle}>
           <MenuRow
             icon={sync.running ? <SquareIcon /> : <PlayIcon />}
             label={sync.running ? 'Stop sync' : 'Start sync'}
+            accelerator="S"
           />
         </DropdownMenuItem>
       ) : null}
       <DropdownMenuSeparator />
-      <DropdownMenuItem disabled={!selected} onSelect={() => setFocus(selected)}>
+      <DropdownMenuItem
+        data-accelerator="L"
+        disabled={!selected}
+        onSelect={() => setFocus(selected)}
+      >
         <MenuRow
           icon={<NetworkIcon />}
           label="Show its linked notes"
           description={selected ? undefined : 'Choose a note first'}
           checked={Boolean(focus) && focus === selected}
+          accelerator="L"
         />
       </DropdownMenuItem>
-      <DropdownMenuItem disabled={!focus} onSelect={() => setFocus('')}>
-        <MenuRow icon={<FileTextIcon />} label="Show all notes" checked={!focus} />
+      <DropdownMenuItem data-accelerator="N" disabled={!focus} onSelect={() => setFocus('')}>
+        <MenuRow icon={<FileTextIcon />} label="Show all notes" checked={!focus} accelerator="N" />
       </DropdownMenuItem>
       {mode === 'graph' ? (
         <>
           <DropdownMenuSeparator />
           <DropdownMenuItem
+            data-accelerator="A"
             onSelect={(event) => {
               event.preventDefault();
               setAttachments(!attachments);
             }}
           >
-            <MenuRow icon={<PaperclipIcon />} label="Show attachments" checked={attachments} />
+            <MenuRow icon={<PaperclipIcon />} label="Show attachments"
+              checked={attachments}
+              accelerator="A"
+            />
           </DropdownMenuItem>
         </>
       ) : null}

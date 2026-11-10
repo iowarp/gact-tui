@@ -1,4 +1,4 @@
-﻿import type { FleetAccount, FleetSpend } from '@clio/core/v3';
+import type { FleetAccount, FleetSpend } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -139,6 +139,8 @@ function AccountDetails({
   ];
   return (
     <DetailPane
+      // The pane sits on the settings surface, not on the app background.
+      className="bg-transparent"
       icon={<ModelSelectorLogo provider={providerLogoId(account.id)} />}
       onClose={onClose}
       title={account.label}

@@ -17,7 +17,6 @@ import {
   TranscriptLoading,
   TRANSCRIPT_CONTROL_LANE_PX,
   TranscriptControlLane,
-  TranscriptSyncing,
 } from './transcript-inline-states';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
@@ -94,10 +93,23 @@ export function ClioConversation(props: ClioConversationProps) {
   );
 }
 
-/** Background refreshes must not change the transcript's reading position. */
-function TranscriptSyncingSlot({ loading, queryKey }: { loading?: boolean; queryKey?: QueryKey }) {
+/**
+ * The lane above the composer, shown while the reader is away from the latest
+ * message or the history is refreshing. A refresh sits in the lane at row
+ * height, so it never covers a message or moves the reading position.
+ */
+function TranscriptControls({
+  loading,
+  onJump,
+  queryKey,
+}: {
+  loading?: boolean;
+  onJump?: () => void;
+  queryKey?: QueryKey;
+}) {
   const fetching = useQueryFetching(queryKey);
-  return loading || fetching ? <TranscriptSyncing /> : null;
+  const syncing = Boolean(loading || fetching);
+  return syncing || onJump ? <TranscriptControlLane onJump={onJump} syncing={syncing} /> : null;
 }
 function RoutedConversationBody(props: ClioConversationProps) {
   const location = useLocation();
@@ -654,9 +666,6 @@ function ConversationBody({
         }}
         tabIndex={0}
       >
-        {messages.length > 0 ? (
-          <TranscriptSyncingSlot loading={loading} queryKey={loadingQueryKey} />
-        ) : null}
         {emptyTranscript === 'error' && error ? (
           <TranscriptLoadError error={error} onRetry={onReload} />
         ) : emptyTranscript === 'loading' ? (
@@ -799,7 +808,13 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {jumpVisible ? <TranscriptControlLane onJump={autoscroll.engage} /> : null}
+        {messages.length > 0 ? (
+          <TranscriptControls
+            loading={loading}
+            onJump={jumpVisible ? autoscroll.engage : undefined}
+            queryKey={loadingQueryKey}
+          />
+        ) : null}
       </div>
     </div>
   );
