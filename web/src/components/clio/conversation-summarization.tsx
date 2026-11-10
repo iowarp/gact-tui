@@ -38,7 +38,7 @@ export function SummarizationInjection({
   const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
   const compacted = stringList(block.metadata?.compacted_message_ids);
   const line = compacted.length
-    ? `Compacted here, ${compacted.length} ${compacted.length === 1 ? 'message' : 'messages'} summarized`
+    ? `Compacted here, ${countLabel(compacted.length)} summarized`
     : 'Compacted here, earlier messages summarized';
   return (
     <section
@@ -66,9 +66,14 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
+function countLabel(count: number) {
+  return `${count} ${count === 1 ? 'message' : 'messages'}`;
+}
+
 function CompactionRecord({ block }: { block: SummarizationBlock }) {
   const systemPrompt =
     typeof block.metadata?.system_prompt === 'string' ? block.metadata.system_prompt : '';
+  const keptSent = Array.isArray(block.metadata?.kept_message_ids);
   const keptIds = stringList(block.metadata?.kept_message_ids);
   return (
     <ActivityNest label="What the agent kept">
@@ -76,8 +81,8 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         id={`${block.id}:system`}
         icon={<ScrollTextIcon aria-hidden="true" />}
         name="System prompt"
-        absent="Unchanged"
-        absentTitle="A compaction does not change the system prompt; this record does not carry its text"
+        absent="Not recorded"
+        absentTitle="The agent had not recorded its system prompt when this compaction ran"
       >
         {systemPrompt ? (
           <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">
@@ -100,9 +105,13 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         id={`${block.id}:kept`}
         icon={<MessagesSquareIcon aria-hidden="true" />}
         name="Recent turns kept verbatim"
-        meta={keptIds.length ? `${keptIds.length} messages` : undefined}
-        absent="Not recorded"
-        absentTitle="This agent does not record which turns it kept"
+        meta={keptIds.length ? countLabel(keptIds.length) : undefined}
+        absent={keptSent ? 'None' : 'Not recorded'}
+        absentTitle={
+          keptSent
+            ? 'The summary replaced every earlier message'
+            : 'This agent does not record which turns it kept'
+        }
       >
         {keptIds.length ? <KeptTurns ids={keptIds} /> : null}
       </CompactionSection>

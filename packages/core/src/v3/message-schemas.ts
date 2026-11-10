@@ -191,12 +191,14 @@ const injectionMessageBlockSchema = additivelyTolerant(
       call_id: z.string().optional(),
       trigger: z.enum(['auto', 'manual']).optional(),
       compaction_id: z.string().optional(),
-      // TODO(clio-schemas): InjectionMessageBlock lacks `metadata`; clio-agent
-      // already sends a summarization's `compacted_message_ids` there.
+      // clio-schemas InjectionMetadata: a compaction record's summarized and kept
+      // messages, and the system prompt in force.
       metadata: z
         .object({
           compacted_message_ids: z.array(z.string()).optional(),
           derived_from: z.array(z.string()).optional(),
+          kept_message_ids: z.array(z.string()).optional(),
+          system_prompt: z.string().optional(),
         })
         .passthrough()
         .optional(),
