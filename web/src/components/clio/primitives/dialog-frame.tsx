@@ -423,12 +423,13 @@ export const WindowShell = memo(function WindowShell({
           >
             {title}
           </DialogTitle>
-          {picker ? <div className="flex min-w-0 shrink min-[600px]:hidden">{picker}</div> : null}
+          {/* The picker keeps its full label; the search beside it gives up the width. */}
+          {picker ? <div className="flex min-w-0 shrink-0 min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
               {/* On a phone a search button stays compact; a live query field takes the free width. */}
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
+              <div className="@container ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
                 {search}
               </div>
               <span className="flex-1 max-[599px]:[:has(input)+&]:hidden" />
