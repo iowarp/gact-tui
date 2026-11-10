@@ -1,11 +1,23 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
+import { DownloadIcon, FileTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { BoundedResult } from './bounded-result';
 import { BlockBody, PagedBlock } from './tool-result-primitives';
 import { PresentationLink } from './presentation-link';
 import { ResultDialogContent } from './result-dialog-content';
-import { skillFileBlock, skillFileSection } from './skill-file-content';
+import {
+  skillFileBlock,
+  skillFileDownload,
+  skillFileSection,
+  skillFileTitle,
+  skillFileTrail,
+} from './skill-file-content';
+import { downloadText } from './surface-export';
+import { TextFileCopyAction } from './text-file-copy-action';
+import { CopyAction } from './tool-compact-row';
+import { ToolbarAction } from './viewer-toolbar';
 
 /**
  * A skill's files live with the installed skill, outside every workspace, so
@@ -17,11 +29,13 @@ function SkillFileLink({
   index,
   count,
   body,
+  directory,
 }: {
   file: ToolPresentationBlock;
   index: number;
   count: number;
   body: ToolPresentationBlock | undefined;
+  directory: string | undefined;
 }) {
   const name = file.label || file.text || '';
   const path = file.uri ?? '';
@@ -31,6 +45,7 @@ function SkillFileLink({
         {name}
       </p>
     );
+  const trail = path ? skillFileTrail(path, directory) : '';
   const render = (text: string, complete: boolean) => {
     const section = skillFileSection(text, name, index, count);
     if (section === undefined)
@@ -41,7 +56,21 @@ function SkillFileLink({
             : 'Load the complete content to read this file.'}
         </p>
       );
-    return <BlockBody block={skillFileBlock(name, section)} text={section} full />;
+    const { filename, mimeType } = skillFileDownload(name);
+    return (
+      <>
+        <div className="flex justify-end gap-1" role="toolbar" aria-label={`${name} actions`}>
+          <TextFileCopyAction name={name} readText={() => section} />
+          <ToolbarAction
+            label={`Download ${filename}`}
+            onClick={() => downloadText(section, mimeType, filename)}
+          >
+            <DownloadIcon aria-hidden="true" />
+          </ToolbarAction>
+        </div>
+        <BlockBody block={skillFileBlock(name, section)} text={section} full />
+      </>
+    );
   };
   return (
     <Dialog>
@@ -54,7 +83,19 @@ function SkillFileLink({
           {name}
         </Button>
       </DialogTrigger>
-      <ResultDialogContent title={name} description={path || undefined}>
+      <ResultDialogContent
+        icon={<FileTextIcon />}
+        title={skillFileTitle(name)}
+        description={trail || path || undefined}
+        descriptionTitle={path || undefined}
+        descriptionAction={
+          path ? (
+            <TooltipProvider delayDuration={200}>
+              <CopyAction value={path} label="Copy path" />
+            </TooltipProvider>
+          ) : undefined
+        }
+      >
         {body.content_ref ? (
           <PagedBlock
             block={body}
@@ -97,6 +138,7 @@ export function SkillToolResult({
       index={files.indexOf(file)}
       count={files.length}
       body={body}
+      directory={directory?.text}
     />
   );
   const renderBlock = (block: ToolPresentationBlock, text: string) => {
