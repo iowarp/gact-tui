@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
+import { StateView } from '@/components/clio/primitives/state-view';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import { useUnofferedSections } from '@/components/clio/settings-unoffered-sections';
 import {
@@ -9,16 +10,14 @@ import {
   SettingsSearchButton,
   SettingsSectionPicker,
 } from '@/components/clio/settings-navigation';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
+import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
 import { settingsDestinations } from '@/lib/application-destinations';
-import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
-import { SettingsIcon } from '@/lib/icon-vocabulary';
-import { isLoopbackAddress } from '@/lib/local-servers';
+import { SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
-import { useSettingsWorkspaceName } from '@/lib/settings-workspace-name';
 import {
   arrivedFromSearch,
   historyIndex,
@@ -47,24 +46,9 @@ function SectionsLoaded({ onLoaded }: { onLoaded: () => void }) {
   return null;
 }
 
-/** "CLIO local" for this computer's agent, "CLIO on gpu-01" for another. */
-function agentPlaceName(endpoint: string): string {
-  if (isLoopbackAddress(endpoint)) return `${vocab.agent} local`;
-  try {
-    return `${vocab.agent} on ${new URL(endpoint).hostname}`;
-  } catch {
-    return vocab.agent;
-  }
-}
-
+/** Sections load lazily: the shared inline loading line where the page will be. */
 function SectionsLoading() {
-  return (
-    <div aria-busy="true" className="space-y-3" role="status">
-      <Skeleton className="h-7 w-40" />
-      <Skeleton className="h-24 w-full max-w-xl" />
-      <p className="text-sm text-muted-foreground">Loading settings…</p>
-    </div>
-  );
+  return <StateView kind="loading" size="row" title="Loading settings…" />;
 }
 
 export function SettingsWindow() {
@@ -104,7 +88,7 @@ export function SettingsWindow() {
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const workspaceName = useSettingsWorkspaceName(workspaceId);
-  const agentName = settings.label || agentPlaceName(settings.endpoint);
+  const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
   const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
   const scopeLine: SettingsScope = {
@@ -198,7 +182,7 @@ export function SettingsWindow() {
       className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
       contentLabel="Settings content"
       contentRef={content}
-      icon={<SettingsIcon />}
+      icon={<SettingsWindowIcon />}
       navigation={<SettingsNavigation {...navigation} />}
       onOpenChange={(open) => {
         if (open) return;

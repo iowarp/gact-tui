@@ -16,7 +16,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { InfoIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
-import { ROW_STATE_WRAP } from '@/lib/settings-fold';
+import { ROW_STATE_WRAP, SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { workspaceScopeLine } from '@/lib/settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -281,8 +281,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         />
       </SettingsRow>
 
-      {/* Item lists fill the content column; only setting rows take 60%. */}
-      <div className="w-full" data-slot="folders-lists">
+      {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
+      <div className={SETTINGS_COLUMN} data-slot="folders-lists">
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>
