@@ -36,8 +36,11 @@ vi.mock('@/hooks/use-repository', () => ({
     retryTurn: proposals.retryTurn,
   }),
 }));
+const versionStatus = vi.hoisted(() => ({
+  value: { state: 'current', desktopShell: false, updating: false } as Record<string, unknown>,
+}));
 vi.mock('@/hooks/use-system-version-status', () => ({
-  useSystemVersionStatus: () => ({ state: 'current', desktopShell: false, updating: false }),
+  useSystemVersionStatus: () => versionStatus.value,
 }));
 
 const baseSession: Session = {
@@ -247,6 +250,7 @@ describe('ClioAttentionCenter', () => {
     resetNotificationReadsForTest();
     proposals.list = [];
     proposals.recent = [];
+    versionStatus.value = { state: 'current', desktopShell: false, updating: false };
   });
   afterEach(cleanup);
 
@@ -387,6 +391,42 @@ describe('ClioAttentionCenter', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Nothing needs you.')).toBeInTheDocument();
     expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('says a failed update check could not finish, with no Update action or badge', async () => {
+    versionStatus.value = {
+      state: 'unavailable',
+      desktopShell: true,
+      updating: false,
+      message:
+        "Could not check for updates: this app's release v0.9.6-beta.0 is not published, so the runtime (0.9.5.1) cannot be restored to match it.",
+    };
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+    expect(within(bell).queryByText(/\d/)).toBeNull();
+    fireEvent.click(bell);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText("Couldn't check for updates")).toBeInTheDocument();
+    expect(
+      within(dialog).getAllByText(/^This app's release v0\.9\.6-beta\.0 is not published/)[0],
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText('Update ready')).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Update' })).toBeNull();
+  });
+
+  it('offers Update only when a newer release is ready', async () => {
+    versionStatus.value = {
+      state: 'available',
+      desktopShell: true,
+      updating: false,
+      updateAll: vi.fn(),
+    };
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Update ready')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Update' })).toBeInTheDocument();
+    expect(within(dialog).queryByText("Couldn't check for updates")).toBeNull();
   });
 
   it('lists waiting sessions with their pending work and opens with its shortcut', async () => {

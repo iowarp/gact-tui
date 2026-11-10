@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { formatResourceSize } from '@/lib/format';
-import { AddIcon, InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceActions } from './connected-source-actions';
@@ -154,16 +154,28 @@ export function SourcesList({
           </p>
         ) : null}
         {sources.error || resourcesError ? (
-          // The spec's status line (`.c3s`): the reason, no box.
-          <p
-            className="flex min-h-[26px] items-center gap-2 px-2 text-[12px] text-muted-foreground"
-            role="listitem"
-          >
-            <InfoIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="min-w-0 truncate">
-              {sources.error ? connectedSourceErrorMessage(sources.error) : resourcesError}
-            </span>
-          </p>
+          // The spec's status line (`.c3s`): what failed and Retry, no box.
+          <div role="listitem">
+            <StateView
+              action={{ label: 'Retry', onClick: refresh }}
+              kind="error"
+              size="row"
+              title={
+                <span
+                  title={
+                    sources.error
+                      ? connectedSourceErrorMessage(sources.error).replace(
+                          / Try again in a moment\.$/u,
+                          '',
+                        )
+                      : undefined
+                  }
+                >
+                  {sources.error ? "Sources couldn't be listed" : "Uploads couldn't be listed"}
+                </span>
+              }
+            />
+          </div>
         ) : null}
         {needle || (sources.error && !connected.length) ? null : (
           <div role="listitem">

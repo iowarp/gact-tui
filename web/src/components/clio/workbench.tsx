@@ -622,9 +622,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               />
               {orderedTabs.map((tab) => (
                 // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
+                // Every tab holds its own controls, so the panel itself is not a stop.
                 <TabsContent
                   className="isolate m-0 min-h-0 overflow-hidden"
                   key={tab.id}
+                  tabIndex={-1}
                   value={tab.id}
                 >
                   {/* Only the active tab: Radix Presence renders an outgoing panel once more
