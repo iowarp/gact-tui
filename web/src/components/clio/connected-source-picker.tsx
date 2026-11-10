@@ -618,7 +618,9 @@ export function ConnectedSourceContents({
                     >
                       <SourceProviderLogo provider={row.provider} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{row.label}</span>
+                        <span className="block truncate text-sm font-medium" title={row.label}>
+                          {row.label}
+                        </span>
                         <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                           <span>
                             {row.linked
