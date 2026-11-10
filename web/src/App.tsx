@@ -16,8 +16,6 @@ import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { requestClioMenu } from '@/lib/clio-menu-request';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { WorkspacePage } from '@/routes/workspace-page';
-import { NewConversationPage } from '@/routes/new-conversation-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
@@ -32,7 +30,6 @@ import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
-import { SettingsWindow } from '@/routes/settings-window';
 import { OnboardingTourProvider } from '@/components/clio/onboarding/onboarding-tour';
 import {
   installRoutePrefetch,
@@ -69,6 +66,10 @@ function lazyRoute<Name extends RouteChunk>(
 }
 
 const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
+const WorkspacePage = lazyRoute('workspace', (module) => module.WorkspacePage);
+const NewConversationPage = lazyRoute('newConversation', (module) => module.NewConversationPage);
+// The window frame travels with its sections: one chunk, prefetched on idle and link hover.
+const SettingsWindow = lazyRoute('settings', (module) => module.SettingsWindow);
 const ConnectionDialog = lazy(() =>
   loadRouteChunk('connection').then((module) => ({ default: module.ConnectionDialog })),
 );
@@ -215,9 +216,11 @@ export default function App() {
         </div>
       </div>
       {isSettingsRoute(location.pathname) ? (
-        <Routes location={location}>
-          <Route element={<SettingsWindow />} path="/settings/:section" />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes location={location}>
+            <Route element={<SettingsWindow />} path="/settings/:section" />
+          </Routes>
+        </Suspense>
       ) : null}
       {connectOverPage ? (
         <Suspense fallback={null}>

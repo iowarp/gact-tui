@@ -1,6 +1,14 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { LoaderCircleIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -10,7 +18,6 @@ import { Command, CommandEmpty, CommandInput, CommandList } from '@/components/u
 import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
-import { ClioSearchAssistant } from './search-assistant';
 import { connectionScope } from '@/lib/connection-scope';
 import {
   ALL_SCOPE_GROUP_LIMIT,
@@ -51,6 +58,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+
+// The assistant renders a whole conversation: it loads when the palette opens, not at boot.
+const loadSearchAssistant = () => import('./search-assistant');
+const ClioSearchAssistant = lazy(() =>
+  loadSearchAssistant().then((module) => ({ default: module.ClioSearchAssistant })),
+);
 
 export function ClioCommandMenu({
   onOpenResource,
@@ -123,9 +136,11 @@ export function ClioCommandMenu({
   useEffect(() => {
     if (open && !aiMode) searchInput.current?.focus();
   }, [open, aiMode]);
-  // Ctrl Enter may move the list into a tab: have its code ready before then.
+  // Ctrl Enter may move the list into a tab, and Ask opens the assistant: have their code ready.
   useEffect(() => {
-    if (open) void import('./search-results-tab');
+    if (!open) return;
+    void import('./search-results-tab');
+    void loadSearchAssistant().catch(() => undefined);
   }, [open]);
 
   const searchWorkspaceId = workspaceId || workspaces.data?.[0]?.id;
@@ -295,16 +310,18 @@ export function ClioCommandMenu({
           </DialogDescription>
         </DialogHeader>
         {aiMode && searchWorkspaceId ? (
-          <ClioSearchAssistant
-            key={connectionScope(settings)}
-            workspaceId={searchWorkspaceId}
-            parentSessionId={sessionId || undefined}
-            query={searchText}
-            onQueryChange={setQuery}
-            onBack={() => setAiMode(false)}
-            onClose={() => finish(() => {})}
-            onOpenResource={openResource}
-          />
+          <Suspense fallback={<StateView kind="loading" title="Opening the search assistant" />}>
+            <ClioSearchAssistant
+              key={connectionScope(settings)}
+              workspaceId={searchWorkspaceId}
+              parentSessionId={sessionId || undefined}
+              query={searchText}
+              onQueryChange={setQuery}
+              onBack={() => setAiMode(false)}
+              onClose={() => finish(() => {})}
+              onOpenResource={openResource}
+            />
+          </Suspense>
         ) : (
           <Command shouldFilter={false}>
             <GlobalSearchMatchesScope

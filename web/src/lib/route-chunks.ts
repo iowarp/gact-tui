@@ -3,6 +3,8 @@ import { prefetchDeferredChunks } from './deferred-chunk';
 /** Lazily loaded route modules, shared by the router and its prefetcher so each loads once. */
 const routeModules = {
   connection: () => import('@/routes/connection-page'),
+  workspace: () => import('@/routes/workspace-page'),
+  newConversation: () => import('@/routes/new-conversation-page'),
   runs: () => import('@/routes/runs-page'),
   infrastructure: () => import('@/routes/infrastructure-page'),
   settings: () => import('@/routes/settings-page'),
@@ -37,6 +39,8 @@ export function loadRouteChunk<Name extends RouteChunk>(name: Name): Promise<Rou
 
 /** The lazily loaded route a same-origin path opens, if any. */
 export function routeChunkForPath(pathname: string): RouteChunk | undefined {
+  if (/^\/workspaces\/[^/]+\/sessions\/[^/]+\/?$/.test(pathname)) return 'workspace';
+  if (/^\/workspaces\/[^/]+\/new\/?$/.test(pathname)) return 'newConversation';
   if (pathname === '/runs' || pathname.startsWith('/runs/')) return 'runs';
   if (pathname === '/infrastructure' || pathname.startsWith('/infrastructure/'))
     return 'infrastructure';
@@ -46,7 +50,13 @@ export function routeChunkForPath(pathname: string): RouteChunk | undefined {
 
 /** Delay before idle prefetching, so it never competes with the first screen. Unit: ms. */
 const IDLE_PREFETCH_DELAY_MS = 3_000;
-const IDLE_PREFETCH: readonly RouteChunk[] = ['runs', 'settings', 'infrastructure'];
+const IDLE_PREFETCH: readonly RouteChunk[] = [
+  'workspace',
+  'newConversation',
+  'runs',
+  'settings',
+  'infrastructure',
+];
 
 /**
  * Warm the secondary routes: when a link to one is hovered, focused or touched,
