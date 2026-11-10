@@ -319,6 +319,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           }
         >
           <ClioComposer
+            autoFocus
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
             disabled={send.isPending || runDraftCommand.isPending}

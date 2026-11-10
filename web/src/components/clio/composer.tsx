@@ -170,6 +170,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
   annotations?: readonly CommentAttachment[];
   onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
+  /**
+   * Place the caret in the editor on mount when nothing else holds focus. Skipped
+   * on touch screens so arriving on the page doesn't raise the on-screen keyboard.
+   */
+  autoFocus?: boolean;
   variant?: 'docked' | 'welcome';
   /**
    * Hint shown in the empty editor. Defaults to steering copy in a conversation
@@ -230,6 +235,7 @@ export function ClioComposer({
   annotations = [],
   onAnnotationsChange,
   focusRequestKey,
+  autoFocus = false,
   variant = 'docked',
   placeholder = variant === 'welcome'
     ? `Ask ${brand.name} anything, or describe a task…`
@@ -418,6 +424,18 @@ export function ClioComposer({
     const frame = window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
+
+  const autoFocusRef = useRef(autoFocus);
+  useEffect(() => {
+    if (!autoFocusRef.current) return undefined;
+    if (window.matchMedia?.('(pointer: coarse)').matches) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      focusComposerEditor(inputRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (disabled || !restoreFocusAfterSubmitRef.current) return;
