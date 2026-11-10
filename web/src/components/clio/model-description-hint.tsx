@@ -1,6 +1,6 @@
 import type { ReactNode, SyntheticEvent } from 'react';
 import { ExternalLink } from '@/components/ui/external-link';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { LazyHoverCard } from './primitives/lazy-hover-card';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import type { ModelFactSummary } from '@/lib/model-facts';
 
@@ -50,8 +50,17 @@ function linkedText({ plain, links }: Description): { body: ReactNode[]; extra: 
 export function ModelDescriptionHint({ description, name }: { description: Description; name: string }) {
   const { body, extra } = linkedText(description);
   return (
-    <HoverCard closeDelay={150} openDelay={200}>
-      <HoverCardTrigger asChild>
+    <LazyHoverCard
+      align="start"
+      className="w-96 max-w-[calc(100vw-2rem)] text-sm"
+      closeDelay={150}
+      data-slot="model-description"
+      onClick={contain}
+      onMouseDown={contain}
+      onPointerDown={contain}
+      openDelay={200}
+      side="right"
+      trigger={
         <span
           aria-label={`About ${name}`}
           className="inline-flex size-4 shrink-0 cursor-help items-center justify-center text-muted-foreground hover:text-foreground"
@@ -65,30 +74,21 @@ export function ModelDescriptionHint({ description, name }: { description: Descr
         >
           <InfoIcon aria-hidden="true" className="size-3.5" />
         </span>
-      </HoverCardTrigger>
-      <HoverCardContent
-        align="start"
-        className="w-96 max-w-[calc(100vw-2rem)] text-sm"
-        data-slot="model-description"
-        onClick={contain}
-        onMouseDown={contain}
-        onPointerDown={contain}
-        side="right"
-      >
-        <p className="font-medium">{name}</p>
-        <p className="mt-1 leading-relaxed whitespace-pre-line text-muted-foreground">{body}</p>
-        {extra.length ? (
-          <ul className="mt-2 flex flex-col gap-1">
-            {extra.map((link) => (
-              <li key={link.url}>
-                <ExternalLink className="text-primary underline underline-offset-2" href={link.url} onClick={contain}>
-                  {link.text || link.url}
-                </ExternalLink>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </HoverCardContent>
-    </HoverCard>
+      }
+    >
+      <p className="font-medium">{name}</p>
+      <p className="mt-1 leading-relaxed whitespace-pre-line text-muted-foreground">{body}</p>
+      {extra.length ? (
+        <ul className="mt-2 flex flex-col gap-1">
+          {extra.map((link) => (
+            <li key={link.url}>
+              <ExternalLink className="text-primary underline underline-offset-2" href={link.url} onClick={contain}>
+                {link.text || link.url}
+              </ExternalLink>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </LazyHoverCard>
   );
 }

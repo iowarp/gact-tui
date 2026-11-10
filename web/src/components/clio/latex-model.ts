@@ -54,19 +54,26 @@ export function latexOutlineRows(nodes: readonly LatexOutlineNode[]): LatexOutli
   return rows;
 }
 
+/** A message without its trailing ", line N": the row shows the line as its own fact. */
+function withoutLine(message: string, line: number | undefined): string {
+  if (!line) return message;
+  return message.replace(new RegExp(`[,;]?\\s*(?:(?:on|at)\\s+)?line\\s+${line}\\.?$`, 'iu'), '');
+}
+
 /** The build's problems: failing diagnostics and failed checks are errors, the rest warnings. */
 export function latexProblems(report: LatexReport): LatexProblem[] {
   const build = report.build;
   return [
-    ...build.diagnostics.map(
-      (item): LatexProblem => ({
+    ...build.diagnostics.map((item): LatexProblem => {
+      const message = withoutLine(item.message, item.line);
+      return {
         severity: LATEX_WARNING_KINDS.has(item.kind) ? 'warning' : 'error',
-        title: item.message || latexKindLabel(item.kind),
-        detail: `${latexKindLabel(item.kind)}: ${item.message}`,
+        title: message || latexKindLabel(item.kind),
+        detail: `${latexKindLabel(item.kind)}: ${message}`,
         file: item.file,
         line: item.line || undefined,
-      }),
-    ),
+      };
+    }),
     ...(build.venue?.checks ?? [])
       .filter((check) => check.status !== 'passed')
       .map(
