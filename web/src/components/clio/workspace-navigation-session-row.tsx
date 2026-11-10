@@ -284,6 +284,8 @@ function SessionRow({
               topLevel ? 'pl-2.5' : 'pl-[34px]',
             )}
             data-session-row={session.id}
+            // Its hover card (on pointer and focus) shows the whole title.
+            data-truncation-hint={isMobile ? undefined : 'off'}
             meta={
               needsAttention && attention ? (
                 <span
@@ -356,14 +358,17 @@ function SessionRow({
           <div className="flex min-w-0 items-start gap-2">
             <div className="min-w-0 flex-1">
               <button
-                className="group/name flex max-w-full items-center gap-1 rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                className="group/name flex max-w-full items-start gap-1 rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onRename({ kind: 'session', id: session.id, label: session.title })}
                 type="button"
               >
-                <span className="truncate">{session.title || 'Untitled session'}</span>
+                {/* The card is where a cut row title reads whole, so it wraps. */}
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  {session.title || 'Untitled session'}
+                </span>
                 <EditIcon
                   aria-hidden="true"
-                  className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
+                  className="mt-[3px] size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
                 />
               </button>
               {needsAttention && attention ? (

@@ -14,7 +14,15 @@ import {
   XIcon,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -44,6 +52,7 @@ import {
 import { type AwayTone, awayRows } from './attention-away';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
+import { useHasTruncatedText } from './primitives/truncated-text';
 import { permissionCommand } from './permission-operation-labels';
 import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
@@ -246,6 +255,48 @@ function needRows(session: Session, attention: SessionAttention): NeedRow[] {
     });
   }
   return rows;
+}
+
+interface NoticeFrameProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+  /** What the notice is about, for the expand control's name. */
+  subject: string;
+  children: (expanded: boolean) => ReactNode;
+}
+
+/**
+ * A notification's frame. Its cut title and description read whole on hover
+ * (the app-wide truncation hint); while anything is cut, a chevron under the
+ * icon also opens the whole notice in place, and closes it again.
+ */
+function NoticeFrame({ subject, children, className, ...rest }: NoticeFrameProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const cut = useHasTruncatedText(ref, expanded);
+  return (
+    <div
+      className={cn('relative', className)}
+      data-expanded={expanded || undefined}
+      ref={ref}
+      {...rest}
+    >
+      {children(expanded)}
+      {expanded || cut ? (
+        <IconButton
+          aria-expanded={expanded}
+          className="absolute top-[25px] left-[5px] size-5 text-faint hover:bg-menu-highlight"
+          icon={
+            <ChevronDownIcon
+              className={cn('size-3.5 motion-safe:transition-transform', expanded && 'rotate-180')}
+            />
+          }
+          label={expanded ? `Show less of ${subject}` : `Show all of ${subject}`}
+          onClick={() => setExpanded((open) => !open)}
+          size="sm"
+          tooltipSide="left"
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function moveFocus(event: KeyboardEvent<HTMLElement>) {
@@ -480,74 +531,86 @@ export function ClioAttentionCenter({
                   );
                 };
                 return (
-                  <div className={rowFrame} data-slot="attention-request" key={row.key}>
-                    <Link
-                      aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
-                      className="block outline-none"
-                      onClick={() => setOpen(false)}
-                      to={to}
-                    >
-                      <ListRow
-                        description={row.detail}
-                        hoverText={{
-                          title: `${session.title} ${row.kind.verb}`,
-                          description: row.detailText,
-                        }}
-                        icon={<KindIcon aria-hidden="true" className="text-warning" />}
-                        meta={
-                          <ClioRelativeTime
-                            className="text-[11px] text-faint"
-                            compact
-                            label="Asked"
-                            timestamp={row.timestamp}
-                          />
-                        }
-                        primaryAction={row.permission ? undefined : row.kind.action}
-                        title={
-                          <>
-                            <span className="font-semibold text-foreground">{session.title}</span>{' '}
-                            {row.kind.verb}
-                          </>
-                        }
-                        variant="notice"
-                      />
-                    </Link>
-                    {row.permission ? (
-                      <div
-                        aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
-                        role="group"
-                      >
-                        <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
-                          disabled={deciding}
-                          onClick={() => decide('allow')}
-                          size="xs"
-                        >
-                          Allow
-                        </Button>
-                        <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
-                          disabled={deciding}
-                          onClick={() => decide('deny')}
-                          size="xs"
-                          variant="secondary"
-                        >
-                          Deny
-                        </Button>
+                  <NoticeFrame
+                    className={rowFrame}
+                    data-slot="attention-request"
+                    key={row.key}
+                    subject={`${session.title} ${row.kind.verb}`}
+                  >
+                    {(expanded) => (
+                      <>
                         <Link
-                          aria-hidden="true"
-                          className="ml-auto leading-6 font-semibold text-accent-foreground hover:underline"
-                          data-duplicate-link=""
+                          aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                          className="block outline-none"
                           onClick={() => setOpen(false)}
-                          tabIndex={-1}
                           to={to}
                         >
-                          {row.kind.action}
+                          <ListRow
+                            description={row.detail}
+                            hoverText={{
+                              title: `${session.title} ${row.kind.verb}`,
+                              description: row.detailText,
+                            }}
+                            icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                            meta={
+                              <ClioRelativeTime
+                                className="text-[11px] text-faint"
+                                compact
+                                label="Asked"
+                                timestamp={row.timestamp}
+                              />
+                            }
+                            expanded={expanded}
+                            primaryAction={row.permission ? undefined : row.kind.action}
+                            title={
+                              <>
+                                <span className="font-semibold text-foreground">
+                                  {session.title}
+                                </span>{' '}
+                                {row.kind.verb}
+                              </>
+                            }
+                            variant="notice"
+                          />
                         </Link>
-                      </div>
-                    ) : null}
-                  </div>
+                        {row.permission ? (
+                          <div
+                            aria-label={`Decide: ${session.title} ${row.kind.verb}`}
+                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                            role="group"
+                          >
+                            <Button
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                              disabled={deciding}
+                              onClick={() => decide('allow')}
+                              size="xs"
+                            >
+                              Allow
+                            </Button>
+                            <Button
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                              disabled={deciding}
+                              onClick={() => decide('deny')}
+                              size="xs"
+                              variant="secondary"
+                            >
+                              Deny
+                            </Button>
+                            <Link
+                              aria-hidden="true"
+                              className="ml-auto leading-6 font-semibold text-accent-foreground hover:underline"
+                              data-duplicate-link=""
+                              onClick={() => setOpen(false)}
+                              tabIndex={-1}
+                              to={to}
+                            >
+                              {row.kind.action}
+                            </Link>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </NoticeFrame>
                 );
               })}
             </section>
@@ -558,63 +621,71 @@ export function ClioAttentionCenter({
                 While you were away
               </h3>
               {shownAway.map((row) => (
-                <div
-                  className={cn(rowFrame, 'relative', row.read && 'opacity-50')}
+                <NoticeFrame
+                  className={cn(rowFrame, row.read && 'opacity-50')}
                   data-read={row.read || undefined}
                   data-slot="attention-away"
                   key={row.session.id}
+                  subject={`${row.session.title} ${row.verb}`}
                 >
-                  <Link
-                    aria-label={`${row.session.title} ${row.verb}: ${row.detail}`}
-                    className="block outline-none"
-                    onClick={() => setOpen(false)}
-                    to={sessionPath(row.session)}
-                  >
-                    <ListRow
-                      description={row.detail}
-                      hoverText={{
-                        title: `${row.session.title} ${row.verb}`,
-                        description: row.detail,
-                      }}
-                      icon={AWAY_ICON[row.tone]}
-                      meta={
-                        <ClioRelativeTime
-                          className="text-[11px] text-faint"
-                          compact
-                          label="Ended"
-                          timestamp={row.timestamp}
+                  {(expanded) => (
+                    <>
+                      <Link
+                        aria-label={`${row.session.title} ${row.verb}: ${row.detail}`}
+                        className="block outline-none"
+                        onClick={() => setOpen(false)}
+                        to={sessionPath(row.session)}
+                      >
+                        <ListRow
+                          description={row.detail}
+                          hoverText={{
+                            title: `${row.session.title} ${row.verb}`,
+                            description: row.detail,
+                          }}
+                          expanded={expanded}
+                          icon={AWAY_ICON[row.tone]}
+                          meta={
+                            <ClioRelativeTime
+                              className="text-[11px] text-faint"
+                              compact
+                              label="Ended"
+                              timestamp={row.timestamp}
+                            />
+                          }
+                          primaryAction={
+                            row.action === 'Retry' ? (
+                              <span aria-hidden="true" className="invisible">
+                                Retry
+                              </span>
+                            ) : (
+                              row.action
+                            )
+                          }
+                          title={
+                            <>
+                              <span className="font-semibold text-foreground">
+                                {row.session.title}
+                              </span>{' '}
+                              {row.verb}
+                            </>
+                          }
+                          variant="notice"
                         />
-                      }
-                      primaryAction={
-                        row.action === 'Retry' ? (
-                          <span aria-hidden="true" className="invisible">
-                            Retry
-                          </span>
-                        ) : (
-                          row.action
-                        )
-                      }
-                      title={
-                        <>
-                          <span className="font-semibold text-foreground">{row.session.title}</span>{' '}
-                          {row.verb}
-                        </>
-                      }
-                      variant="notice"
-                    />
-                  </Link>
-                  {row.action === 'Retry' ? (
-                    <button
-                      aria-label={`Retry ${row.session.title}`}
-                      className="absolute right-2 bottom-1.5 text-[11.5px] leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
-                      disabled={retry.isPending && retry.variables?.id === row.session.id}
-                      onClick={() => retry.mutate(row.session)}
-                      type="button"
-                    >
-                      Retry
-                    </button>
-                  ) : null}
-                </div>
+                      </Link>
+                      {row.action === 'Retry' ? (
+                        <button
+                          aria-label={`Retry ${row.session.title}`}
+                          className="absolute right-2 bottom-1.5 text-[11.5px] leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
+                          disabled={retry.isPending && retry.variables?.id === row.session.id}
+                          onClick={() => retry.mutate(row.session)}
+                          type="button"
+                        >
+                          Retry
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </NoticeFrame>
               ))}
             </section>
           ) : null}
@@ -624,52 +695,63 @@ export function ClioAttentionCenter({
                 {vocab.agent}
               </h3>
               {updateReady ? (
-                <div
+                <NoticeFrame
                   className="min-h-[46px] rounded-[6px] px-2 py-1.5"
                   data-slot="attention-update"
+                  subject="the update notice"
                 >
-                  <ListRow
-                    description={versions.message}
-                    hoverText={{ description: versions.message }}
-                    icon={<ProductUpdateIcon state={versions.state} />}
-                    primaryAction={
-                      versions.desktopShell ? (
-                        <button
-                          className="hover:underline disabled:opacity-50"
-                          disabled={versions.updating}
-                          onClick={() => versions.updateAll()}
-                          type="button"
-                        >
-                          Update
-                        </button>
-                      ) : undefined
-                    }
-                    title={<span className="font-semibold text-foreground">Update ready</span>}
-                    variant="notice"
-                  />
-                </div>
-              ) : null}
-              {memoryCount > 0 ? (
-                <div className={rowFrame} data-slot="attention-memory">
-                  <Link
-                    className="block outline-none"
-                    onClick={() => setOpen(false)}
-                    to="/settings/memory?view=review"
-                  >
+                  {(expanded) => (
                     <ListRow
-                      description={memorySources}
-                      hoverText={{ description: memorySources }}
-                      icon={<BrainCircuitIcon />}
-                      primaryAction="Review"
-                      title={
-                        <span className="font-semibold text-foreground">
-                          {plural(memoryCount, 'memory', 'memories')} to review
-                        </span>
+                      description={versions.message}
+                      expanded={expanded}
+                      hoverText={{ description: versions.message }}
+                      icon={<ProductUpdateIcon state={versions.state} />}
+                      primaryAction={
+                        versions.desktopShell ? (
+                          <button
+                            className="hover:underline disabled:opacity-50"
+                            disabled={versions.updating}
+                            onClick={() => versions.updateAll()}
+                            type="button"
+                          >
+                            Update
+                          </button>
+                        ) : undefined
                       }
+                      title={<span className="font-semibold text-foreground">Update ready</span>}
                       variant="notice"
                     />
-                  </Link>
-                </div>
+                  )}
+                </NoticeFrame>
+              ) : null}
+              {memoryCount > 0 ? (
+                <NoticeFrame
+                  className={rowFrame}
+                  data-slot="attention-memory"
+                  subject="the memories to review"
+                >
+                  {(expanded) => (
+                    <Link
+                      className="block outline-none"
+                      onClick={() => setOpen(false)}
+                      to="/settings/memory?view=review"
+                    >
+                      <ListRow
+                        description={memorySources}
+                        expanded={expanded}
+                        hoverText={{ description: memorySources }}
+                        icon={<BrainCircuitIcon />}
+                        primaryAction="Review"
+                        title={
+                          <span className="font-semibold text-foreground">
+                            {plural(memoryCount, 'memory', 'memories')} to review
+                          </span>
+                        }
+                        variant="notice"
+                      />
+                    </Link>
+                  )}
+                </NoticeFrame>
               ) : null}
             </section>
           ) : null}
