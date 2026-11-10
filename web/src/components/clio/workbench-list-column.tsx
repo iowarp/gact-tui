@@ -31,12 +31,11 @@ import {
 import { artifactEvidenceLabel } from '@/lib/artifact-presentation';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatResourceSize } from '@/lib/format';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
-import { SegmentedControl, type SegmentedOption } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { Tag, MetaValue } from './primitives/tag';
 import { BrowserNewPage } from './browser-new-page';
@@ -56,11 +55,12 @@ import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 
 export type WorkbenchActivityView = 'timeline' | 'events' | 'relationships' | 'context';
 
-const ACTIVITY_VIEWS: readonly SegmentedOption<WorkbenchActivityView>[] = [
-  { value: 'timeline', label: 'Timeline' },
-  { value: 'events', label: 'Events' },
-  { value: 'relationships', label: 'Relationships' },
-  { value: 'context', label: 'Context' },
+/** Timeline leads; the event list, family graph and context window are views in More. */
+const ACTIVITY_VIEWS: readonly { value: WorkbenchActivityView; label: string; title: string }[] = [
+  { value: 'timeline', label: 'Timeline', title: 'Activity' },
+  { value: 'events', label: 'Events', title: 'Events' },
+  { value: 'relationships', label: 'Relationships', title: 'Relationships' },
+  { value: 'context', label: 'Context', title: 'Context' },
 ];
 
 export interface WorkbenchListColumnProps {
@@ -149,42 +149,61 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
 
 /**
  * Activity: the causal timeline of this conversation and its child agents
- * first, then every event as a list, the conversation family graph, then the
- * context window.
+ * first; every event as a flat list, the conversation family graph and the
+ * context window are the header's other views (More).
  */
 function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: string }) {
   const { sessionView, onActivityViewChange } = props;
-  const switcher =
-    sessionView && props.sessionId && onActivityViewChange ? (
-      // Header actions are icon buttons with their own inset; the segmented control needs one.
-      <span className="mr-1.5 flex shrink-0">
-        <SegmentedControl
-          className="@max-[320px]/list-header:[&>*]:px-1.5!"
-          label="Activity view"
-          onValueChange={onActivityViewChange}
-          options={ACTIVITY_VIEWS}
-          value={props.activityView ?? 'timeline'}
-        />
-      </span>
-    ) : null;
-  const activityView = switcher ? (props.activityView ?? 'timeline') : 'events';
+  const switchable = Boolean(sessionView && props.sessionId && onActivityViewChange);
+  const activityView = switchable ? (props.activityView ?? 'timeline') : 'events';
+  const current = ACTIVITY_VIEWS.find((view) => view.value === activityView)!;
+  const viewMenu = switchable ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton icon={<MoreIcon />} label="Activity views" size="sm" tooltipSide="bottom" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuLabel>View</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => onActivityViewChange?.(value as WorkbenchActivityView)}
+          value={activityView}
+        >
+          {ACTIVITY_VIEWS.map((view) => (
+            <DropdownMenuRadioItem key={view.value} value={view.value}>
+              {view.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+  const headerTitle = switchable ? current.title : title;
+  const renderHeader = (actions: ReactNode) => (
+    <WorkbenchListHeader
+      actions={
+        <>
+          {actions}
+          {viewMenu}
+        </>
+      }
+      title={headerTitle}
+    />
+  );
   if (activityView !== 'events')
     return (
-      <>
-        <WorkbenchListHeader actions={switcher} title={title} titleYieldsWhenNarrow />
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-slot="activity-session">
-          <ObservabilityViewControl.Provider
-            value={{
-              view:
-                activityView === 'context' || activityView === 'relationships'
-                  ? activityView
-                  : 'activity',
-            }}
-          >
-            {sessionView}
-          </ObservabilityViewControl.Provider>
-        </div>
-      </>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-slot="activity-session">
+        <ObservabilityViewControl.Provider
+          value={{
+            view:
+              activityView === 'context' || activityView === 'relationships'
+                ? activityView
+                : 'activity',
+            renderHeader,
+          }}
+        >
+          {sessionView}
+        </ObservabilityViewControl.Provider>
+      </div>
     );
   return (
     <WorkbenchActivityList
@@ -194,17 +213,7 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
       onOpenFile={props.onOpenFile}
       onOpenSubagent={props.onOpenSubagent}
       onOpenTab={props.onOpenTab}
-      renderHeader={(actions) => (
-        <WorkbenchListHeader
-          actions={
-            <>
-              {switcher}
-              {actions}
-            </>
-          }
-          title={title}
-        />
-      )}
+      renderHeader={renderHeader}
       sessionId={props.sessionId}
       subagents={props.subagents}
       tabs={props.tabs}

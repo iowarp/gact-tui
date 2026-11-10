@@ -15,13 +15,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { copyText } from '@/lib/clipboard';
-import { workspaceLabelText, type WorkspaceDisplayLabel } from '@/lib/workspace-labels';
+import {
+  DEFAULT_WORKSPACE_ID,
+  workspaceLabelText,
+  type WorkspaceDisplayLabel,
+} from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 
-/** Conversations started outside a project folder live in the default workspace. */
-export const DEFAULT_WORKSPACE_ID = 'ws_default';
+export { DEFAULT_WORKSPACE_ID };
 
 interface WorkspaceActionsMenuProps {
   workspace: Workspace;

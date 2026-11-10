@@ -26,7 +26,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
 import { connectedSourceErrorMessage } from './connected-source-error';
-import { linkAccessNames } from './connected-source-labels';
+import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
 import { SourceProviderLogo } from './source-provider-logo';
 import { SourceProviderInfo } from './source-provider-info';
@@ -638,7 +638,7 @@ export function ConnectedSourceContents({
                                   ? 'Linked folder'
                                   : row.materialization === 'not_materialized'
                                     ? 'Ready to use'
-                                    : row.materialization?.replaceAll('_', ' ')}
+                                    : sourceStatus(row).label}
                           </span>
                         </span>
                       </span>

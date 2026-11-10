@@ -33,7 +33,6 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   };
   const actions: ResourceActions = {
     createWorkspace: vi.fn(),
-    createSession: vi.fn(),
     renameWorkspace: vi.fn(),
     updateWorkspace: vi.fn().mockResolvedValue(undefined),
     grantWorkspaceFolder: vi.fn(),

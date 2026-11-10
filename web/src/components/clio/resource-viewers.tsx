@@ -9,7 +9,7 @@ import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { EyeIcon } from 'lucide-react';
+import { CodeIcon, EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
@@ -21,7 +21,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 
-import { ArtifactLineageView, type LineageActivity } from './artifact-lineage-view';
+import {
+  ArtifactLineageView,
+  WorkspaceFileLineage,
+  type LineageActivity,
+} from './artifact-lineage-view';
 import {
   ArtifactRecoveryError,
   isMissingArtifactPayload,
@@ -34,6 +38,7 @@ import { ClioDocumentWorkspace } from './document-workspace';
 import { HtmlFileInBrowser } from './html-in-browser';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
+import { FileSourceView } from './file-source-view';
 import { ClioPdfPreview } from './pdf-preview';
 import {
   ResourceLoading,
@@ -60,6 +65,7 @@ export function WorkspaceFileView({
   initialPage,
   locator,
   embedded = false,
+  sessionId,
 }: {
   workspaceId: string;
   path: string;
@@ -72,6 +78,8 @@ export function WorkspaceFileView({
   initialPage?: number;
   /** The enclosing tool-result card already owns the file identity. */
   embedded?: boolean;
+  /** The open conversation, whose recorded artifacts give the file its Lineage. */
+  sessionId?: string;
 }) {
   // A listing's generic octet-stream says nothing: the name decides (a .tex is text).
   const detected =
@@ -79,8 +87,11 @@ export function WorkspaceFileView({
     inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
   const [previewAnyway, setPreviewAnyway] = useState(false);
+  // A large text file past the gate opens at its beginning or its end, as chosen.
+  const [textStart, setTextStart] = useState<'head' | 'end'>();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
+  const text = html || isTextMediaType(detected);
   const source: FileViewerSource = {
     kind: 'workspace',
     workspaceId,
@@ -94,8 +105,18 @@ export function WorkspaceFileView({
     (detected === 'application/pdf' || detected.startsWith('image/')) &&
     size !== undefined &&
     size > INLINE_PREVIEW_MAX_BYTES;
+  // Text is read in windows, but past the inline cap nothing is fetched until a window is chosen.
+  const textTooLarge =
+    text && textStart === undefined && size !== undefined && size > INLINE_PREVIEW_MAX_BYTES;
   const preview = tooLarge ? (
     <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={size} source={source} />
+  ) : textTooLarge ? (
+    <ViewerTooLarge
+      onPreview={() => setTextStart('head')}
+      onShowEnd={() => setTextStart('end')}
+      size={size}
+      source={source}
+    />
   ) : detected === 'application/pdf' ? (
     <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
   ) : detected.startsWith('image/') ? (
@@ -105,11 +126,18 @@ export function WorkspaceFileView({
       html={{ openOnShow: !embedded }}
       path={path}
       size={size}
+      startAtEnd={textStart === 'end'}
       workspaceId={workspaceId}
       mediaType={detected}
     />
   ) : isTextMediaType(detected) ? (
-    <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
+    <WorkspaceTextView
+      path={path}
+      size={size}
+      startAtEnd={textStart === 'end'}
+      workspaceId={workspaceId}
+      mediaType={detected}
+    />
   ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
     <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
       <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
@@ -139,6 +167,11 @@ export function WorkspaceFileView({
       source={source}
       showIdentity={!embedded}
       tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
+      lineage={
+        embedded ? undefined : (
+          <WorkspaceFileLineage path={path} sessionId={sessionId} workspaceId={workspaceId} />
+        )
+      }
     />
   );
 }
@@ -229,7 +262,15 @@ function WorkspaceBinaryView({
   mediaType: string;
   size?: number;
 }) {
-  return <ViewerNoPreview source={{ kind: 'workspace', workspaceId, path, mediaType, size }} />;
+  const [asText, setAsText] = useState(false);
+  return asText ? (
+    <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType="text/plain" />
+  ) : (
+    <ViewerNoPreview
+      onShowText={() => setAsText(true)}
+      source={{ kind: 'workspace', workspaceId, path, mediaType, size }}
+    />
+  );
 }
 
 type ArtifactViewProps = {
@@ -263,7 +304,12 @@ function ArtifactFileView({
 }: Omit<ArtifactViewProps, 'sessionId'>) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
+  const [asText, setAsText] = useState(false);
+  const canPreviewText = asText || isTextArtifact(artifact.media_type, artifact.name);
+  // A dashboard's frame draws Render, Definition (its JSON) and Lineage.
+  const isDashboard =
+    artifact.producer?.['designation'] === 'dashboard-report' ||
+    artifact.name.endsWith('.dashboard.json');
   const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
   const fallbackFile = useMemo(
     () => uniqueWorkspaceArtifactFile(artifact, workspaceId, files),
@@ -360,8 +406,7 @@ function ArtifactFileView({
     !canLoadInline ? (
       <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={previewSize} source={source} />
     ) : text.data ? (
-      artifact.producer?.['designation'] === 'dashboard-report' ||
-      artifact.name.endsWith('.dashboard.json') ? (
+      isDashboard ? (
         <DashboardResourceView content={text.data.content} artifactId={artifact.id} />
       ) : isHtmlFile(artifact.name, artifact.media_type) ? (
         <HtmlFileInBrowser
@@ -414,7 +459,7 @@ function ArtifactFileView({
       <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={previewSize} source={source} />
     )
   ) : (
-    <ViewerNoPreview source={source} />
+    <ViewerNoPreview onShowText={() => setAsText(true)} source={source} />
   );
   return (
     <FileViewerShell
@@ -426,7 +471,7 @@ function ArtifactFileView({
       tabs={[
         {
           value: 'preview',
-          label: 'Preview',
+          label: isDashboard ? 'Render' : 'Preview',
           icon: EyeIcon,
           content: (
             <>
@@ -461,6 +506,16 @@ function ArtifactFileView({
             </>
           ),
         },
+        ...(isDashboard && text.data
+          ? [
+              {
+                value: 'source',
+                label: 'Definition',
+                icon: CodeIcon,
+                content: <FileSourceView name={artifact.name} content={text.data.content} />,
+              },
+            ]
+          : []),
       ]}
       lineage={
         <ArtifactLineageView
@@ -516,6 +571,14 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'txt',
       'yaml',
       'yml',
+      // Logs, job output and plain configuration read as text.
+      'log',
+      'out',
+      'err',
+      'tsv',
+      'ini',
+      'cfg',
+      'conf',
       // LaTeX sources: a paper's .tex opens as the LaTeX workspace; the rest as text.
       'tex',
       'ltx',

@@ -159,6 +159,8 @@ export interface ShortcutHandlerOptions {
    * keys a widget also binds (cmdk takes Ctrl+K as "previous item").
    */
   overrideHandled?: boolean;
+  /** Fire only while this holds; otherwise the key keeps its usual meaning (Ctrl+C with a selection). */
+  when?: (event: KeyboardEvent) => boolean;
 }
 
 export type ShortcutHandler = (event: KeyboardEvent, position: number | undefined) => void;
@@ -197,6 +199,7 @@ function dispatch(event: KeyboardEvent) {
       // Tab keys need a region; any other key with a mounted region fires only inside it.
       const region = options.region?.() ?? null;
       if ((definition.group === 'tab' || region) && !inRegion(region, event)) continue;
+      if (options.when && !options.when(event)) continue;
       event.preventDefault();
       registration.handler()(event, chordPosition(chord, event));
       return;

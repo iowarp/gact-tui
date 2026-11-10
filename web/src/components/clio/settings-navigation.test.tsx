@@ -77,17 +77,14 @@ it('groups sections by scope, hides folded pages and keeps the route state', asy
   );
 });
 
-it('lists only the sections a search matches and keeps the search on their links', async () => {
-  const user = userEvent.setup();
-  const clear = vi.fn();
+it('keeps every section listed in the filtered window, counting the matching ones', () => {
   render(
     <MemoryRouter initialEntries={['/settings/data-sources?q=drive']}>
       <TooltipProvider>
         <nav aria-label="Settings sections">
           <SettingsNavigation
-            filter="drive"
+            counts={{ 'data-sources': 2 }}
             linkState={linkState}
-            onClearFilter={clear}
             scopeLabels={scopeLabels}
             section="data-sources"
             sections={sections}
@@ -97,14 +94,10 @@ it('lists only the sections a search matches and keeps the search on their links
     </MemoryRouter>,
   );
   const nav = within(screen.getByRole('navigation', { name: 'Settings sections' }));
-  expect(nav.getAllByRole('link').map((node) => node.textContent)).toEqual(['Data sources']);
-  expect(nav.getByRole('link', { name: 'Data sources' })).toHaveAttribute(
-    'href',
-    '/settings/data-sources?q=drive',
-  );
-  expect(nav.getByRole('status')).toHaveTextContent('drive1');
-  await user.click(nav.getByRole('button', { name: 'Show every section' }));
-  expect(clear).toHaveBeenCalledOnce();
+  expect(nav.getAllByRole('link').length).toBeGreaterThan(1);
+  const match = nav.getByRole('link', { name: 'Data sources 2' });
+  expect(match).toHaveAttribute('href', '/settings/data-sources');
+  expect(match).not.toHaveAttribute('aria-current');
 });
 
 it('keeps a host page listed when a search matches a page folded into it', () => {

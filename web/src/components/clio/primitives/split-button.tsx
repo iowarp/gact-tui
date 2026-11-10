@@ -9,6 +9,7 @@ import {
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
+import { HeldKeyBadge } from './key-chip';
 import { menuAcceleratorKeyDown } from './menu-row';
 
 export interface SplitButtonProps {
@@ -23,6 +24,8 @@ export interface SplitButtonProps {
   /** Menu rows; mounted only while the menu is open. */
   children: ReactNode;
   shortcut?: string;
+  /** The chevron shows its Alt ↓ while Ctrl (⌘) is held: one per bar, not on every chevron. */
+  menuKey?: boolean;
   variant?: 'ghost' | 'outline' | 'default';
   disabled?: boolean;
   /** The menu stays usable while the face is disabled (pick a variant that is allowed). */
@@ -55,6 +58,7 @@ export const SplitButton = memo(function SplitButton({
   menuLabel,
   children,
   shortcut,
+  menuKey = false,
   variant = 'ghost',
   disabled,
   menuDisabled = disabled,
@@ -91,6 +95,7 @@ export const SplitButton = memo(function SplitButton({
       {leading}
       {icon}
       {showLabel ? label : null}
+      {shortcut ? <HeldKeyBadge id={shortcut} /> : null}
     </Button>
   );
   return (
@@ -158,6 +163,7 @@ export const SplitButton = memo(function SplitButton({
               )}
             >
               <ChevronDownIcon aria-hidden="true" />
+              {menuKey ? <HeldKeyBadge id="split-menu" /> : null}
             </Button>
           )}
         </DropdownMenuTrigger>

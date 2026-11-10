@@ -27,13 +27,14 @@ import type {
 import { artifactDeliverables } from '@/lib/artifact-presentation';
 import {
   BoxesIcon,
-  LoaderCircleIcon,
+  MessageCircleQuestionIcon,
   PanelRightOpenIcon,
   PanelRightDashedIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { useId, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
 import { cn } from '@/lib/utils';
 import { failedWorkCount, railButtonLook, type RailButtonLook } from './rail-button-look';
 import {
@@ -415,9 +416,11 @@ function RailButton({
             )}
           >
             {current.kind === 'running' ? (
-              <LoaderCircleIcon className="size-3 text-primary motion-safe:animate-spin" />
+              <RingSpinner className="size-[11px]" />
+            ) : current.kind === 'waiting' ? (
+              <MessageCircleQuestionIcon className="size-3 text-warning" />
             ) : current.kind === 'failed' ? (
-              <TriangleAlertIcon className="size-3 text-destructive" />
+              <TriangleAlertIcon className="size-3 text-destructive-text" />
             ) : null}
           </span>
           <span
@@ -426,7 +429,8 @@ function RailButton({
               'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
               current.kind === 'idle' && 'max-sm:hidden',
               current.kind === 'waiting' && 'text-warning',
-              current.kind === 'failed' && 'text-destructive',
+              current.kind === 'failed' && 'text-destructive-text',
+              current.kind === 'running' && 'text-foreground',
             )}
           >
             {current.count ? (current.count > 99 ? '99+' : current.count) : ''}
