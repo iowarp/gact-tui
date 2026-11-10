@@ -38,11 +38,19 @@ export async function selectFileView(page: Page, viewer: Locator, name: string):
   }
   await viewer.getByRole('button', { name: 'File actions', exact: true }).click();
   // Narrowest, the modes are a checked list in …; otherwise an inspection view.
-  await page
-    .getByRole('menuitemradio', { name, exact: true })
+  const modeRow = page.getByRole('menuitemradio', { name, exact: true });
+  const isMode = (await modeRow.count()) > 0;
+  await modeRow
     .or(page.getByRole('menuitemcheckbox', { name, exact: true }))
     .first()
     .click();
+  if (isMode) {
+    // The hidden segment tab carries the choice; the renderer names its own panel.
+    await expect(
+      viewer.getByRole('tab', { name, exact: true, includeHidden: true }),
+    ).toHaveAttribute('aria-selected', 'true');
+    return;
+  }
   await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
 }
 
