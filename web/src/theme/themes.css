@@ -35,7 +35,8 @@
   --muted: #ede7da;
   /* Muted text reaches 4.5:1 on every light surface, the menu highlight included. */
   --muted-foreground: #675f53;
-  --faint: #6f675b;
+  /* Steps down from muted text as far as dark's --faint does (1.7:1) and stays 3:1 on every surface. */
+  --faint: #8a8378;
   --changed: #276a63;
   --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ece6da;

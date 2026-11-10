@@ -9,9 +9,9 @@ describe('ClioRelativeTime', () => {
 
   it.each([
     ['2026-08-24T17:59:40Z', 'Now'],
-    ['2026-08-24T17:48:00Z', '12m ago'],
-    ['2026-08-24T14:00:00Z', '4h ago'],
-    ['2026-08-22T18:00:00Z', '2d ago'],
+    ['2026-08-24T17:48:00Z', '12m'],
+    ['2026-08-24T14:00:00Z', '4h'],
+    ['2026-08-22T12:00:00Z', 'Sat'],
   ])('shows recent interaction %s as %s', (timestamp, expected) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-24T18:00:00Z'));
