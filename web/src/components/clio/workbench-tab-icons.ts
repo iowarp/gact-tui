@@ -49,13 +49,36 @@ export function workbenchTabPath(tab: WorkbenchTab): string | undefined {
 }
 
 /**
- * How the tab row fits: every name, then inactive tabs as icons, then also an
- * "All N tabs" menu. Measured, one step at a time, from `full`.
+ * How the tab row fits (workbench-lineage "The tab row, as it narrows"): every
+ * name, then inactive tabs as icons, then the least recently used go into a
+ * list at the end. Measured, one step at a time, from `full`.
  */
 export type TabRowFit = 'full' | 'compact' | 'overflow';
 
 export function nextTabRowFit(fit: TabRowFit): TabRowFit {
   return fit === 'full' ? 'compact' : 'overflow';
+}
+
+/**
+ * The tabs in the list at the end of the row: all but the open tab and the
+ * `shown` most recently used, most recent first. `recency` holds tab ids, most
+ * recently opened in front first; a tab never in front ranks by when it opened.
+ */
+export function overflowTabs(
+  tabs: readonly WorkbenchTab[],
+  activeTabId: string,
+  recency: readonly string[],
+  shown: number,
+): WorkbenchTab[] {
+  return tabs
+    .map((tab, index) => {
+      const used = recency.indexOf(tab.id);
+      return { tab, rank: used >= 0 ? used : recency.length + tabs.length - index };
+    })
+    .filter(({ tab }) => tab.id !== activeTabId)
+    .sort((a, b) => a.rank - b.rank)
+    .slice(Math.max(0, shown))
+    .map(({ tab }) => tab);
 }
 
 export function workbenchTabLabel(tab: WorkbenchTab): string {

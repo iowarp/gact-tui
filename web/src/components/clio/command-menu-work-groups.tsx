@@ -1,10 +1,16 @@
 import { brand } from '@brand';
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { BoxIcon, FileIcon, MessageSquareTextIcon } from 'lucide-react';
-import { CommandGroup, CommandItem, CommandShortcut } from '@/components/ui/command';
+import { CommandGroup, CommandItem } from '@/components/ui/command';
 import { projectText } from '@/lib/attention-text';
+import { formatCompactBytes } from '@/lib/format';
 import type { CommandMenuScope } from '@/lib/command-menu-scopes';
-import { MoreResultsItem, ResultsHeading } from './global-search-results';
+import {
+  MoreResultsItem,
+  ResultDetail,
+  ResultsHeading,
+  ResultTrail,
+} from './global-search-results';
 import { SearchHighlight } from './search-highlight';
 
 type Rows<Item> = { rows: readonly Item[]; hidden: number };
@@ -56,7 +62,7 @@ export function MessageHitGroup({
               {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open matching passage
             </span>
           </span>
-          <CommandShortcut>{roleLabel(hit.role)}</CommandShortcut>
+          <ResultTrail>{roleLabel(hit.role)}</ResultTrail>
         </CommandItem>
       ))}
       <MoreResultsItem hidden={hits.hidden} noun="messages" onMore={onMore} scope="conversations" />
@@ -72,7 +78,7 @@ export function FileResultGroup({
   onOpen,
   onMore,
 }: {
-  files: Rows<{ path: string }>;
+  files: Rows<{ path: string; size?: number }>;
   total: number;
   query: string;
   onOpen: (path: string) => void;
@@ -80,14 +86,27 @@ export function FileResultGroup({
 }) {
   return (
     <CommandGroup heading={<ResultsHeading count={total} label="Files" />}>
-      {files.rows.map((file) => (
-        <CommandItem key={file.path} onSelect={() => onOpen(file.path)} value={file.path}>
-          <FileIcon aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate">
-            <SearchHighlight text={file.path} query={query} />
-          </span>
-        </CommandItem>
-      ))}
+      {files.rows.map((file) => {
+        const slash = file.path.lastIndexOf('/');
+        const name = file.path.slice(slash + 1);
+        const folder = slash > 0 ? file.path.slice(0, slash) : '';
+        return (
+          <CommandItem key={file.path} onSelect={() => onOpen(file.path)} value={file.path}>
+            <FileIcon aria-hidden="true" />
+            <span className="min-w-0 flex-[0_1_auto] truncate" title={file.path}>
+              <SearchHighlight text={name} query={query} />
+            </span>
+            {folder ? (
+              <ResultDetail title={file.path}>
+                <SearchHighlight text={folder} query={query} />
+              </ResultDetail>
+            ) : null}
+            <ResultTrail>
+              {file.size === undefined ? null : formatCompactBytes(file.size)}
+            </ResultTrail>
+          </CommandItem>
+        );
+      })}
       <MoreResultsItem hidden={files.hidden} noun="files" onMore={onMore} scope="files" />
     </CommandGroup>
   );
@@ -116,10 +135,10 @@ export function ArtifactResultGroup({
           value={`artifact:${artifact.id}`}
         >
           <BoxIcon aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate">
+          <span className="min-w-0 flex-[0_1_auto] truncate">
             <SearchHighlight text={artifact.name} query={query} />
           </span>
-          <CommandShortcut>{artifact.media_type}</CommandShortcut>
+          <ResultTrail>{artifact.media_type}</ResultTrail>
         </CommandItem>
       ))}
       <MoreResultsItem

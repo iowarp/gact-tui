@@ -47,7 +47,7 @@ export function SpendRow({
       meta={meta}
       size={size}
       slot={null}
-      status={<UsageFigure>{tokens}</UsageFigure>}
+      status={<UsageFigure className="@max-sm:text-left">{tokens}</UsageFigure>}
       title={<span title={title}>{title}</span>}
     />
   );

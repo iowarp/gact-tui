@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { createElement, useState, type ReactNode } from 'react';
+import { createElement, Fragment, useState, type ReactNode } from 'react';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -89,7 +89,7 @@ export function ToolCompactRow({
   const argument = operation.subjects.length ? (
     <>
       {operation.subjects.map((subject, index) => (
-        <span key={`${subject.id}-${index}`}>
+        <Fragment key={`${subject.id}-${index}`}>
           {index && index === operation.subjects.length - 1 ? ' and ' : null}
           {onOpenFlow && index === 0 ? (
             <Button
@@ -111,9 +111,9 @@ export function ToolCompactRow({
             subject.label || subject.text
           )}
           {index < operation.subjects.length - 2 ? ', ' : null}
-        </span>
+        </Fragment>
       ))}
-      {operation.qualifier ? <span> {operation.qualifier}</span> : null}
+      {operation.qualifier ? ` ${operation.qualifier}` : null}
     </>
   ) : operation.qualifier ? (
     operation.qualifier
@@ -147,7 +147,7 @@ export function ToolCompactRow({
   ) : null;
   const outcome =
     waiting || metadata || failureWord ? (
-      <span className="flex items-center gap-2">
+      <>
         {metadata}
         {waiting}
         {failureWord ? (
@@ -160,7 +160,7 @@ export function ToolCompactRow({
             {failureWord}
           </span>
         ) : null}
-      </span>
+      </>
     ) : undefined;
   const copyValue = copyTarget(operation);
   const openSubject = operation.subjects.find(
@@ -229,11 +229,7 @@ export function ToolCompactRow({
           </span>
         ) : null
       }
-      status={
-        <span data-slot={interrupted ? 'tool-interrupted-mark' : 'tool-status'} className="grid">
-          <StatusIndicator tone={tone} label={statusLabel} display="column" mark="glyph" />
-        </span>
-      }
+      status={<StatusIndicator tone={tone} label={statusLabel} display="column" mark="glyph" />}
       info={info}
     />
   );
@@ -256,7 +252,11 @@ export function CopyAction({ value, label }: { value: string; label: string }) {
           });
         }}
       >
-        {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+        {copied ? (
+          <CheckIcon aria-hidden="true" className="size-[13px]" />
+        ) : (
+          <CopyIcon aria-hidden="true" className="size-[13px]" />
+        )}
       </Button>
     </NamedTooltip>
   );

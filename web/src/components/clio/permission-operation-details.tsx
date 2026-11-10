@@ -19,7 +19,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { AskCode, AskFacts, AskSection, type AskFact } from './ask-card';
 import { TechnicalDetails } from './technical-details';
-import { permissionOperationLabel } from './permission-operation-labels';
+import { permissionCommand, permissionOperationLabel } from './permission-operation-labels';
 
 const SOURCE_ACCESS: Record<string, string> = {
   read_only: 'Read only',
@@ -34,12 +34,14 @@ export interface PermissionOperation {
   paths: readonly string[];
 }
 
-function Place({ icon, mono, children }: { icon: ReactNode; mono?: boolean; children: string }) {
+function Place({ icon, mono, children }: { icon?: ReactNode; mono?: boolean; children: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5" title={children}>
-      <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-3.5">
-        {icon}
-      </span>
+      {icon ? (
+        <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-3.5">
+          {icon}
+        </span>
+      ) : null}
       <span className={cn('min-w-0 truncate', mono && 'font-mono text-[12px]')}>{children}</span>
     </span>
   );
@@ -59,10 +61,9 @@ function permissionOperation(
     call?.input && typeof call.input === 'object' ? (call.input as Record<string, unknown>) : {};
   const name = access?.operation ?? call?.tool_name ?? interaction.source.tool_name ?? '';
   const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
-  const command = access?.command || text('command');
+  const { command, computer } = permissionCommand(interaction);
   const path = text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
-  const computer = access?.computer || interaction.payload?.execution?.computer || '';
   const isWebRequest = name === 'web_fetch' || name === 'web_search' || name === 'browser_host';
   const isSourceConnection = name === 'connected_data_connect';
   const resources = Array.isArray(input.resources)
@@ -124,6 +125,16 @@ function permissionOperation(
                 ) : null}
               </>
             ),
+            // The label is the server icon when narrow; the computer does not repeat it.
+            narrow:
+              computer && folder ? (
+                <>
+                  <Place>{computer}</Place>
+                  <Place icon={<FolderIcon />} mono>
+                    {folder}
+                  </Place>
+                </>
+              ) : undefined,
           },
         ]
       : []),
@@ -148,6 +159,10 @@ function permissionOperation(
                 ))}
               </>
             ),
+            narrow:
+              access.folders.length > 1 ? (
+                <span className="min-w-0 truncate">writes to {access.folders.length} folders</span>
+              ) : undefined,
           },
         ]
       : []),
@@ -178,6 +193,7 @@ export function PermissionOperationDetails({
   title,
   extraFacts = [],
   pathsInline = true,
+  showCommand = true,
 }: {
   interaction: PendingInteraction;
   title?: string;
@@ -185,18 +201,24 @@ export function PermissionOperationDetails({
   extraFacts?: readonly AskFact[];
   /** Standalone use lists the files here; the card moves them into Technical details. */
   pathsInline?: boolean;
+  /** Off when the card shows the whole script instead of the command that runs it. */
+  showCommand?: boolean;
 }) {
   const { facts, command, folders, paths } = permissionOperation(interaction, { title });
   return (
     <div className="contents" data-slot="permission-operation-details">
       <AskFacts facts={[...facts, ...extraFacts]} />
       {folders.length ? (
-        <AskSection className="mt-1 text-[11.5px] text-muted-foreground">
+        // Nothing wraps at a fifth of the window; hover keeps the whole sentence.
+        <AskSection
+          className="mt-1 text-[11.5px] text-muted-foreground @max-[420px]/ask:truncate"
+          title={`${vocab.agent} can change files here, including after restart, until you remove these folders. Conversations on the primary folder share this access.`}
+        >
           {vocab.agent} can change files here, including after restart, until you remove these
           folders. Conversations on the primary folder share this access.
         </AskSection>
       ) : null}
-      {command ? <AskCode code={command} label="Command to run" /> : null}
+      {showCommand && command ? <AskCode code={command} label="Command to run" /> : null}
       {pathsInline && paths.length ? (
         <AskSection>
           <TechnicalDetails className="text-[11.5px] text-muted-foreground" title="Files involved">
