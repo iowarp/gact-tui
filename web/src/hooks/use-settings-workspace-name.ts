@@ -36,8 +36,10 @@ export function useSettingsWorkspaceName(workspaceId: string | undefined): Setti
   const entry = live?.display_name || live?.name ? live : listed;
   const name = entry ? workspaceName(entry) : undefined;
   if (name) return { label: name, line: workspaceScopeLine(name), known: true };
+  // The Workspace group keeps its own name until the workspace's name arrives; the
+  // page's own lists show the loading state.
   if (workspaces.isPending)
-    return { label: 'Loading…', line: 'Loading this workspace…', known: false };
+    return { label: 'Workspace', line: 'Loading this workspace…', known: false };
   if (workspaces.isError || workspaceId)
     return {
       label: 'This workspace',

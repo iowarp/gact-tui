@@ -72,6 +72,7 @@ export function ClioObservabilityView({
   artifactProvenanceProvider,
   provenanceProvider,
   provenancePending,
+  provenanceEarlier,
   provenanceDegradation,
   onProvenanceProviderChange,
   resources,
@@ -300,6 +301,7 @@ export function ClioObservabilityView({
         execution={executionProvenance}
         artifactProvider={artifactProvenanceProvider}
         degradation={provenanceDegradation}
+        earlier={provenanceEarlier}
         onProviderChange={onProvenanceProviderChange}
         pending={provenancePending}
         provider={provenanceProvider}
@@ -362,6 +364,7 @@ export function ClioObservabilityView({
               <ActivityRecordFooter
                 artifactProvider={artifactProvenanceProvider}
                 degradation={provenanceDegradation}
+                earlier={provenanceEarlier}
                 execution={executionProvenance}
                 folders={workspaceFolders}
                 onProviderChange={onProvenanceProviderChange}

@@ -67,6 +67,7 @@ export function ComposerAddContextButtons({
   const button = (
     <IconButton
       className="aria-expanded:bg-hover"
+      data-tour="add-context"
       disabled={disabled || plusPending}
       icon={<AddIcon />}
       label={attach || plusPending ? 'Attach files' : 'Add connected data'}

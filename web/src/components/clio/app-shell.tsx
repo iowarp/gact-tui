@@ -44,6 +44,7 @@ import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { fitWorkbenchWidthTo } from './workbench-list-fit';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -359,6 +360,15 @@ export function ClioAppShell({
     } else workbenchPanelRef.current?.collapse();
   }, [applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
 
+  // Under the split breakpoint the canvas is a sheet over the conversation, so
+  // the floating conversation rail hides under it: one sheet at a time.
+  const workbenchSheetOpen = workbenchOpen && !desktopWorkbench;
+  useEffect(() => {
+    if (!workbenchSheetOpen) return;
+    document.body.setAttribute('data-canvas-sheet', '');
+    return () => document.body.removeAttribute('data-canvas-sheet');
+  }, [workbenchSheetOpen]);
+
   // The width is a share of the window, so a window resize re-applies it.
   useEffect(() => {
     if (!hasWorkbench) return;
@@ -438,13 +448,16 @@ export function ClioAppShell({
             onClick={toggleWorkbench}
             shortcut="right-pocket"
             aria-pressed={workbenchOpen}
+            {...tourAnchor('workbench-lists')}
           >
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>
         )}
         <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden" {...tourAnchor('conversation-area')}>
+        {updating ? <UpdatePage /> : children}
+      </div>
     </section>
   );
 
