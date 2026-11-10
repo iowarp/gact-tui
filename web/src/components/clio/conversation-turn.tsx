@@ -42,6 +42,7 @@ import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-present
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 import { TranscriptDiffCard } from './transcript-diff-card';
+import { toolOutputDiffKey } from './declared-diff-key';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
@@ -650,6 +651,8 @@ function IterationDetail({
                   >
                     <ClioToolInvocation
                       compact={compact}
+                      // A file change reads open, as its reported change did beside it.
+                      defaultOpen={toolOutputDiffKey(entry.tool) ? true : undefined}
                       flowResult={flowCards}
                       attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                       attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
@@ -726,7 +729,11 @@ function IterationDetail({
             )
           ) : entry.kind === 'diff' ? (
             <div data-turn-activity={`diff:${entry.id}`} key={`diff:${entry.id}`}>
-              <TranscriptDiffCard block={entry.block} onOpenFile={onOpenFile} />
+              <TranscriptDiffCard
+                block={entry.block}
+                className="mt-0.5 mb-2 ml-[30px]"
+                onOpenFile={onOpenFile}
+              />
             </div>
           ) : showTasks ? (
             <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />

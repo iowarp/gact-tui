@@ -1,11 +1,14 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
+import { PanelRightIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PresentationLink } from './presentation-link';
 import { CopyAction } from './tool-compact-row';
 
 const MONO = 'font-mono text-[11.5px] leading-[18px]';
-const BAR = 'flex h-7 min-w-0 items-center gap-2 border-b border-border px-3 text-[11.5px]';
+const BAR =
+  'flex h-[30px] min-w-0 items-center gap-2 border-b border-border pl-2.5 pr-1 text-[11.5px]';
 
 interface DiffLine {
   kind: 'context' | 'added' | 'removed' | 'hunk';
@@ -47,20 +50,28 @@ function numberedDiff(text: string): DiffLine[] {
 export function TranscriptDiffBody({
   block,
   subject,
+  onOpen,
 }: {
   block: ToolPresentationBlock;
   subject?: ToolPresentationBlock;
+  /** Opens the changed file when no declared link names it. */
+  onOpen?: () => void;
 }) {
   const text = block.text ?? '';
   const lines = numberedDiff(text);
   const path = block.path || subject?.uri || subject?.label || '';
-  const segments = path.split(/[\\/]/u).filter(Boolean);
+  // An absolute path names only its folder and file, as a workspace-relative one would.
+  const all = path.split(/[\\/]/u).filter(Boolean);
+  const segments = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) ? all.slice(-2) : all;
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
   return (
     <div data-slot="transcript-diff" className="min-w-0">
-      <div className={BAR}>
-        <span className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
+      <div className={cn(BAR, 'pl-3.5 text-xs')}>
+        <span
+          className="flex min-w-0 items-center gap-1 truncate text-muted-foreground"
+          title={path}
+        >
           {segments.map((segment, index) => (
             <span key={`${segment}-${index}`} className="flex min-w-0 items-center gap-1">
               {index ? <span aria-hidden="true">›</span> : null}
@@ -85,6 +96,17 @@ export function TranscriptDiffBody({
             <span className="grid size-[22px] place-items-center">
               <PresentationLink block={subject} compact iconOnly />
             </span>
+          ) : onOpen ? (
+            <Button
+              aria-label={`Open ${segments.at(-1) ?? path}`}
+              className="size-[22px] text-muted-foreground hover:text-foreground"
+              onClick={onOpen}
+              size="icon-xs"
+              title={`Open ${path}`}
+              variant="ghost"
+            >
+              <PanelRightIcon aria-hidden="true" className="size-3.5" />
+            </Button>
           ) : null}
         </span>
       </div>
@@ -133,10 +155,16 @@ export function TranscriptTerminalBody({
   tool,
   block,
   live,
+  failure,
+  failed = true,
 }: {
   tool: ToolInvocation;
   block: ToolPresentationBlock;
   live: boolean;
+  /** Why the command failed, when its output does not already say. */
+  failure?: string;
+  /** A stopped command's reason reads muted, not as a failure. */
+  failed?: boolean;
 }) {
   const command = block.command || inputText(tool, 'command') || '';
   const where = [inputText(tool, 'host'), inputText(tool, 'cwd')].filter(Boolean).join(' ');
@@ -146,7 +174,7 @@ export function TranscriptTerminalBody({
       {command ? (
         <>
           <div className={BAR}>
-            <span className="font-medium text-foreground">Command</span>
+            <span className="text-xs font-medium text-foreground">Command</span>
             {where ? (
               <span className="ml-auto truncate font-mono text-muted-foreground" title="Ran on">
                 {where}
@@ -165,7 +193,7 @@ export function TranscriptTerminalBody({
         </>
       ) : null}
       <div className={BAR}>
-        <span className="font-medium text-foreground">Output</span>
+        <span className="text-xs font-medium text-foreground">Output</span>
         {live ? <span className="text-muted-foreground">live</span> : null}
       </div>
       {output ? (
@@ -182,6 +210,17 @@ export function TranscriptTerminalBody({
           {live ? 'Waiting for output' : 'No output'}
         </p>
       )}
+      {failure ? (
+        <p
+          role={failed ? 'alert' : undefined}
+          className={cn(
+            'whitespace-pre-wrap border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]',
+            failed ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+        </p>
+      ) : null}
     </div>
   );
 }

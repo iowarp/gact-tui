@@ -183,16 +183,38 @@ export function ClioToolInvocation({
 
   const actionLabel = operation.action;
   const active = status === 'running' || status === 'pending';
+  // A stopped call is not an error; its declared outcome already says how it ended.
+  const stopped = status === 'cancelled' || status === 'interrupted';
+  const declaredOutcome = presentedTool.presentation?.blocks.some(
+    (block) => block.severity && block.text?.trim(),
+  );
   const expanded = resultOpen && operation.expandable;
   const blocks = presentedTool.presentation?.blocks ?? [];
   const contentBlocks = blocks.filter((block) => block.id !== subject?.id);
   // In the transcript a file change or a command reads as the spec's compact body.
+  const terminalBlocks = contentBlocks.filter((block) => block.type === 'terminal');
+  const terminalOutput = terminalBlocks[0]?.text ?? '';
+  const outputCarries = (text?: string) =>
+    !text?.trim() || terminalOutput.includes(text.trim().split('\n').at(-1)!.trim());
+  // A failed command keeps its command and output; its error shows only when the output lacks it.
+  const terminalFailure =
+    failure && !outputCarries(failure)
+      ? failure
+      : contentBlocks.find(
+          (block) =>
+            block.severity === 'error' && block.type !== 'terminal' && !outputCarries(block.text),
+        )?.text;
   const compactBody =
-    surface !== 'evidence' && operation.kind === 'declared' && !failure && !declaredFailure
-      ? contentBlocks.length === 1 && contentBlocks[0]!.type === 'diff' && contentBlocks[0]!.text
+    surface !== 'evidence' && operation.kind === 'declared'
+      ? !failure &&
+        !declaredFailure &&
+        contentBlocks.length === 1 &&
+        contentBlocks[0]!.type === 'diff' &&
+        contentBlocks[0]!.text
         ? ({ kind: 'diff', block: contentBlocks[0]! } as const)
-        : contentBlocks.length === 1 && contentBlocks[0]!.type === 'terminal'
-          ? ({ kind: 'terminal', block: contentBlocks[0]! } as const)
+        : terminalBlocks.length === 1 &&
+            contentBlocks.every((block) => block.type === 'terminal' || block.severity === 'error')
+          ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
           : undefined
       : undefined;
   // One delegate's row already names the agent and its task; opened, it shows the child's calls.
@@ -257,6 +279,8 @@ export function ClioToolInvocation({
                 tool={presentedTool}
                 block={compactBody.block}
                 live={active}
+                failure={terminalFailure}
+                failed={status === 'failed'}
               />
             )}
           </ToolDetailsContent>
@@ -269,10 +293,10 @@ export function ClioToolInvocation({
                 !presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')
               }
             >
-              {failure && !declaredFailure ? (
+              {failure && !declaredFailure && !(stopped && declaredOutcome) ? (
                 <p
-                  role="alert"
-                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
+                  role={stopped ? undefined : 'alert'}
+                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
                 >
                   {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                 </p>
