@@ -38,7 +38,8 @@ import {
   getToolResultBlocks,
   isA2uiCatalogLookup,
 } from './tool-presentation';
-import { withQuestionPresentation } from './question-tool-presentation';
+import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
+import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
@@ -73,6 +74,16 @@ function ToolResultBody({
   const questionContext = useQuestionAnswer();
   const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
   const lines = useTranscriptPreviewLines();
+  const reading = answeredQuestionReading(recordedTool, questionContext?.interactions);
+  if (reading)
+    return (
+      <div
+        className="ml-7 min-w-0 overflow-hidden rounded-md border"
+        data-slot="tool-human-result"
+      >
+        <QuestionAnswerReader reading={reading} />
+      </div>
+    );
   if (INLINE_MEMORY_TOOLS.has(tool.name) && getToolStatus(tool) === 'succeeded')
     return <MemoryToolResult tool={tool} />;
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);

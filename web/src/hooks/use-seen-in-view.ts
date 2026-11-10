@@ -5,7 +5,8 @@ const READ_AHEAD_MARGIN = '600px 0px';
 
 const EVERYTHING: Pick<ReadonlySet<string>, 'has'> = { has: () => true };
 
-function scrollParent(element: HTMLElement): HTMLElement | null {
+/** The nearest ancestor that scrolls vertically. */
+export function scrollParent(element: HTMLElement): HTMLElement | null {
   for (let node = element.parentElement; node; node = node.parentElement) {
     if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
   }
@@ -19,7 +20,8 @@ function scrollParent(element: HTMLElement): HTMLElement | null {
  * counts as seen.
  *
  * `layout` changes whenever the observed elements may have been replaced (a new filter or
- * list), so new elements are observed.
+ * list), so new elements are observed. Elements mounted later, as a windowed list
+ * scrolls, are observed as they arrive.
  */
 export function useSeenInView(
   container: RefObject<HTMLElement | null>,
@@ -44,8 +46,21 @@ export function useSeenInView(
       },
       { root: scrollParent(root), rootMargin: READ_AHEAD_MARGIN },
     );
-    root.querySelectorAll(`[${attribute}]`).forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
+    const selector = `[${attribute}]`;
+    root.querySelectorAll(selector).forEach((element) => observer.observe(element));
+    const arrivals = new MutationObserver((records) => {
+      for (const record of records)
+        for (const node of record.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          if (node.matches(selector)) observer.observe(node);
+          node.querySelectorAll(selector).forEach((element) => observer.observe(element));
+        }
+    });
+    arrivals.observe(root, { childList: true, subtree: true });
+    return () => {
+      arrivals.disconnect();
+      observer.disconnect();
+    };
   }, [attribute, container, layout, observable]);
   return observable ? seen : EVERYTHING;
 }

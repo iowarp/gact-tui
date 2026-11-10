@@ -21,6 +21,7 @@ import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import type { SessionAttention } from '@/lib/session-attention';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 export interface ClioNavigationProps {
   endpoint: string;
@@ -145,6 +146,7 @@ export function ClioNavigation({
             aria-label="Workspace navigation"
             data-keyboard-region=""
             ref={navRef}
+            {...tourAnchor('workspace-navigation')}
             className="flex h-full min-w-0 flex-1 flex-col"
           >
             <NavigationHeader

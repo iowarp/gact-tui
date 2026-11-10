@@ -21,8 +21,17 @@ import { ResourceLoading } from './resource-states';
 import { TechnicalDetails } from './technical-details';
 import { WorkspaceFoldersBar } from './workspace-folders';
 
+/** Older activity records the service holds beyond the pages read so far. */
+export interface ProvenanceEarlier {
+  /** Records asked for so far, newest first. */
+  limit: number;
+  loading: boolean;
+  onLoad: () => void;
+}
+
 export function ProvenanceSourceBar({
   compact = false,
+  earlier,
   execution,
   artifactProvider,
   degradation,
@@ -33,6 +42,7 @@ export function ProvenanceSourceBar({
 }: {
   /** One quiet line under a list, shown only when there is a choice, a read or a problem. */
   compact?: boolean;
+  earlier?: ProvenanceEarlier;
   execution?: ExecutionProvenanceResult;
   artifactProvider?: ArtifactProvenanceProviderSummary;
   degradation?: ExecutionProvenanceDegradation;
@@ -49,9 +59,10 @@ export function ProvenanceSourceBar({
     selectedDegradation ?? (!selected ? degradation : undefined),
     execution,
     selected,
+    Boolean(earlier),
   );
   const choosable = Boolean(providers && providers.length > 1 && provider && onProviderChange);
-  if (compact && !issue && !choosable && !pending) return null;
+  if (compact && !issue && !choosable && !pending && !earlier) return null;
   return (
     <div
       className={
@@ -73,8 +84,24 @@ export function ProvenanceSourceBar({
             </>
           )}
           {pending ? <ResourceLoading label="Loading evidence sources" variant="line" /> : null}
+          {earlier && !pending ? (
+            <span className="truncate text-xs text-muted-foreground">
+              Latest {earlier.limit.toLocaleString()} records
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {earlier && !pending ? (
+            <Button
+              className="h-7 px-1.5 text-xs"
+              disabled={earlier.loading}
+              onClick={earlier.onLoad}
+              size="sm"
+              variant="ghost"
+            >
+              {earlier.loading ? 'Loading earlier' : 'Load earlier'}
+            </Button>
+          ) : null}
           {choosable && providers ? (
             <Select onValueChange={onProviderChange} value={provider}>
               <SelectTrigger aria-label="Activity record source" className="w-auto" size="sm">
@@ -195,8 +222,10 @@ function evidenceRecordIssue(
   degradation: ExecutionProvenanceDegradation | undefined,
   execution: ExecutionProvenanceResult | undefined,
   source: ProvenanceProviderSummary | undefined,
+  pageable = false,
 ): { label: string; title: string; explanation: string; consequence: string } | undefined {
-  if (execution?.truncated)
+  // A page of the newest records is cut on purpose; Load earlier reads the rest.
+  if (execution?.truncated && !pageable)
     return {
       label: 'Limited history',
       title: 'Some activity is not shown',

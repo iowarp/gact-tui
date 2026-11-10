@@ -177,7 +177,8 @@ function permissionOperation(
             label: access.folders.length > 1 ? 'Folders' : 'Folder',
             icon: <FolderIcon />,
             title: `${access.folders.join('\n')}\n${ACCESS_NOTE}`,
-            // The lasting-access note sits under the folders it is about, in up to two lines.
+            // The lasting-access note sits under the folders it is about. It is consent text,
+            // so it wraps to as many lines as it needs and is never cut.
             wrap: true,
             value: (
               <span className="grid w-full min-w-0">
@@ -188,7 +189,7 @@ function permissionOperation(
                     </span>
                   ))}
                 </span>
-                <span className="line-clamp-2 text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
+                <span className="text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
                   {ACCESS_NOTE}
                 </span>
               </span>
@@ -199,8 +200,8 @@ function permissionOperation(
                   <span className="min-w-0 truncate">
                     writes to {access.folders.length} folders
                   </span>
-                  {/* At phone width the same note needs a third line. */}
-                  <span className="line-clamp-3 text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
+                  {/* Consent text: never cut, at any width. */}
+                  <span className="text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
                     {ACCESS_NOTE}
                   </span>
                 </span>

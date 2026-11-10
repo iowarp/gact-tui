@@ -21,6 +21,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
+import { SettingsWindowCloseContext } from '@/lib/settings-window-close';
 import {
   arrivedFromSearch,
   historyIndex,
@@ -231,6 +232,11 @@ export function SettingsWindow() {
       workspaceId={workspaceId}
     />
   );
+  const close = () => {
+    const step = settingsCloseStep(openedAt, historyIndex());
+    if (step !== undefined) void navigate(step);
+    else void navigate(background ?? workspaceRoute, { replace: true });
+  };
   return (
     <WindowShell
       className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
@@ -239,10 +245,7 @@ export function SettingsWindow() {
       icon={<SettingsWindowIcon />}
       navigation={<SettingsNavigation {...navigation} />}
       onOpenChange={(open) => {
-        if (open) return;
-        const step = settingsCloseStep(openedAt, historyIndex());
-        if (step !== undefined) void navigate(step);
-        else void navigate(background ?? workspaceRoute, { replace: true });
+        if (!open) close();
       }}
       open
       picker={<SettingsSectionPicker {...navigation} />}
@@ -266,23 +269,25 @@ export function SettingsWindow() {
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>
-            <Suspense fallback={<SectionsLoading />}>
-              {showResults ? (
-                <SettingsResults
-                  onClear={clearQuery}
-                  onOpen={(id) =>
-                    void navigate(`/settings/${id}`, { replace: true, state: linkState })
-                  }
-                  query={filter}
-                  renderSection={page}
-                  results={results}
-                  scopeLabels={scopeLabels}
-                />
-              ) : (
-                page(section)
-              )}
-              {sectionsLoaded ? null : <SectionsLoaded onLoaded={markSectionsLoaded} />}
-            </Suspense>
+            <SettingsWindowCloseContext.Provider value={close}>
+              <Suspense fallback={<SectionsLoading />}>
+                {showResults ? (
+                  <SettingsResults
+                    onClear={clearQuery}
+                    onOpen={(id) =>
+                      void navigate(`/settings/${id}`, { replace: true, state: linkState })
+                    }
+                    query={filter}
+                    renderSection={page}
+                    results={results}
+                    scopeLabels={scopeLabels}
+                  />
+                ) : (
+                  page(section)
+                )}
+                {sectionsLoaded ? null : <SectionsLoaded onLoaded={markSectionsLoaded} />}
+              </Suspense>
+            </SettingsWindowCloseContext.Provider>
           </SettingsScopeContext.Provider>
         </div>
       </main>

@@ -285,8 +285,9 @@ describe('memory page', () => {
     expect(screen.getByText('Frontier allocation details')).toBeVisible();
     await user.clear(screen.getByRole('textbox', { name: 'Search memories' }));
     await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'notfound');
+    // The list filters once typing pauses.
+    expect(await screen.findByText(/No memories match/u)).toBeVisible();
     expect(screen.queryByText('Frontier allocation details')).not.toBeInTheDocument();
-    expect(screen.getByText(/No memories match/u)).toBeVisible();
     await user.click(screen.getByRole('radio', { name: 'Create memories' }));
     expect(await screen.findByText('Search past sessions')).toBeVisible();
   });

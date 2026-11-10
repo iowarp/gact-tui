@@ -177,6 +177,8 @@ export function chordKeyLabel(parsed: ParsedChord, platform: KeyPlatform): strin
 }
 
 const ARIA_KEYS: Record<string, string> = {
+  // `+` joins aria-keyshortcuts keys, so the key itself is spelled out.
+  '+': 'Plus',
   Esc: 'Escape',
   Up: 'ArrowUp',
   Down: 'ArrowDown',
@@ -258,12 +260,17 @@ function keysOverlap(a: string, b: string): boolean {
 /** Whether `event` presses exactly `parsed` (no extra modifiers). */
 export function chordMatches(parsed: ParsedChord, event: ChordEvent): boolean {
   if (parsed.hold || !parsed.key) return false;
+  // A bare `+` is whatever types it (Shift = on most layouts, the keypad, the `=` key
+  // browsers already zoom with), so Shift is free for it.
+  const plus = parsed.key === '+' && parsed.modifiers.size === 0;
   return (
     event.ctrlKey === parsed.modifiers.has('ctrl') &&
     event.altKey === parsed.modifiers.has('alt') &&
-    event.shiftKey === parsed.modifiers.has('shift') &&
+    (plus || event.shiftKey === parsed.modifiers.has('shift')) &&
     event.metaKey === parsed.modifiers.has('meta') &&
-    keysOverlap(parsed.key, eventKey(event))
+    (plus
+      ? event.key === '+' || ['+', '='].includes(eventKey(event))
+      : keysOverlap(parsed.key, eventKey(event)))
   );
 }
 

@@ -38,6 +38,7 @@ export function ComposerModelControl({
           appearance="text"
           aria-label="Change model"
           className="max-w-56 @min-[48rem]/composer:max-w-72"
+          data-tour="model-picker"
           option={selected}
           problem={problem}
           shortcut="model-picker"
