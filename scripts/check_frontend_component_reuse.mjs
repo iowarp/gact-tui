@@ -12,14 +12,14 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
+  'web/src/components/clio/conversation-model-boundary.tsx': ['./primitives/state-view'],
   'web/src/components/clio/conversation-message-blocks.tsx': [
+    '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
     './artifact-card',
     './transcript-text-block',
     './conversation-process-sequence',
   ],
-  // The transcript's diff card moved here from conversation-message-blocks.
-  'web/src/components/clio/transcript-diff-card.tsx': ['@/components/ai-elements/code-block'],
   // Source text rendering now owns the stable part/revision selection binding.
   'web/src/components/clio/transcript-text-block.tsx': [
     './grounded-message-response',
