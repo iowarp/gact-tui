@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -97,7 +98,7 @@ export function SettingsRow({
             </div>
           ) : null}
           {error ? (
-            <div className="mt-0.5 truncate text-xs text-destructive" role="alert">
+            <div className="mt-0.5 text-xs text-destructive" role="alert">
               {error}
             </div>
           ) : null}
@@ -182,20 +183,27 @@ export function SettingsChoice({
     icon?: ComponentType<SVGProps<SVGSVGElement>>;
   }>;
 }) {
+  const [choiceRef, iconOnly] = useIconOnlyFit(
+    options.some((option) => option.icon),
+    options.map((option) => option.label).join('\n'),
+  );
   return (
     <RadioGroup
+      ref={choiceRef}
       aria-label={label}
       orientation="horizontal"
       value={value}
       onValueChange={onChange}
       data-slot="settings-choice"
+      data-compact={iconOnly || undefined}
       className="inline-flex w-auto max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
     >
       {options.map(({ value: option, label: name, description, icon: Icon }) => (
         <Label
           key={option}
           htmlFor={`${id}-${option}`}
-          title={description}
+          // Icon choices drop to icon-only when their names don't fit; the title keeps the name.
+          title={Icon ? (description ? `${name}: ${description}` : name) : description}
           className={cn(
             'flex h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[0.3125rem] px-2.5 text-xs font-normal whitespace-nowrap text-muted-foreground hover:text-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
             value === option && 'bg-menu-highlight text-foreground',
@@ -212,9 +220,53 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className="min-w-0 truncate">{name}</span>
+          <span className={cn('min-w-0 truncate', Icon && iconOnly && 'sr-only')}>{name}</span>
         </Label>
       ))}
     </RadioGroup>
   );
+}
+
+/**
+ * Whether icon choices must drop their names: true when the names would not fit
+ * the space the control is given. A fixed breakpoint can't know this, because the
+ * row's control column narrows at several widths (the 60% row, the window rail).
+ */
+function useIconOnlyFit(
+  hasIcons: boolean,
+  names: string,
+): [RefObject<HTMLDivElement | null>, boolean] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+  useLayoutEffect(() => {
+    const group = ref.current;
+    const slot = group?.parentElement;
+    if (!hasIcons || !group || !slot || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      // The group's width with every name at full length, whether a name is
+      // showing (and maybe truncated) or folded to sr-only.
+      let need = group.offsetWidth;
+      for (const name of group.querySelectorAll<HTMLElement>('label > span')) {
+        const shown = name.getBoundingClientRect().width;
+        const gap = parseFloat(getComputedStyle(name.parentElement!).columnGap) || 0;
+        need += shown > 1 ? name.scrollWidth - shown : name.scrollWidth + gap;
+      }
+      // The control column sizes to its content, so it narrows once the names fold.
+      // A label beside it can give up everything above its 6rem minimum.
+      const label = slot.previousElementSibling;
+      const beside =
+        label instanceof HTMLElement && label.offsetTop + label.offsetHeight > slot.offsetTop
+          ? Math.max(
+              0,
+              label.clientWidth -
+                6 * parseFloat(getComputedStyle(document.documentElement).fontSize),
+            )
+          : 0;
+      setOn(slot.clientWidth + beside + 0.5 < need);
+    };
+    const observer = new ResizeObserver(check);
+    observer.observe(slot.parentElement ?? slot);
+    return () => observer.disconnect();
+  }, [hasIcons, names]);
+  return [ref, on];
 }
