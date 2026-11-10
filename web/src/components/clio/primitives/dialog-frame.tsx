@@ -3,7 +3,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { CloseIcon } from '@/lib/icon-vocabulary';
-import { DIALOG_SHEET_CLASS } from '@/lib/dialog-sheet';
+import { DIALOG_FULL_WINDOW_LAYOUT, DIALOG_SHEET_CLASS } from '@/lib/dialog-sheet';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
@@ -140,6 +140,12 @@ export interface DialogFrameProps {
   growDown?: boolean;
   /** A confirmation that interrupts (removing something): an alertdialog that a click outside does not close. */
   alert?: boolean;
+  /**
+   * Under 600 px: a bottom `sheet` (the default) or the full `window` (spec
+   * connect-infrastructure "Dialogs … Under 600 px, full window"; Connect and
+   * Manage agents opt in).
+   */
+  narrow?: 'sheet' | 'window';
   className?: string;
 }
 
@@ -174,8 +180,10 @@ export const DialogFrame = memo(function DialogFrame({
   help,
   growDown,
   alert,
+  narrow = 'sheet',
   className,
 }: DialogFrameProps) {
+  const fullWindow = narrow === 'window';
   const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
   const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
@@ -208,11 +216,11 @@ export const DialogFrame = memo(function DialogFrame({
         className={cn(
           'top-1/2 max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
           DIALOG_FRAME_WIDTH,
-          DIALOG_SHEET_CLASS,
+          fullWindow ? DIALOG_FULL_WINDOW_LAYOUT : DIALOG_SHEET_CLASS,
           className,
         )}
       >
-        <DialogSheetHandle />
+        {fullWindow ? null : <DialogSheetHandle />}
         <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
           {icon ? (
             <span
@@ -253,6 +261,8 @@ export const DialogFrame = memo(function DialogFrame({
             // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
             className={cn(
               'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              // Full window: the body takes the height, so the buttons sit at the bottom.
+              fullWindow && 'max-[599px]:flex-1',
               '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               icon ? 'pl-[42px]' : 'pl-[18px]',
             )}
