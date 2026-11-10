@@ -10,6 +10,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 
 import {
   deleteConnectionCredential,
+  deleteProviderCredential,
   readConnectionCredential,
   storeConnectionCredential,
 } from './secure-credentials';
@@ -57,5 +58,18 @@ describe('secure credential bridge', () => {
     await expect(readConnectionCredential('http://agent.local')).rejects.toThrow(
       'The system credential vault is locked',
     );
+  });
+
+  it('deletes a provider key through its own command instead of storing an empty one', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.invoke.mockResolvedValue(undefined);
+
+    await deleteProviderCredential('anthropic', 'https://api.anthropic.com/v1');
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+    expect(mocks.invoke).toHaveBeenCalledWith('provider_credential_delete', {
+      providerId: 'anthropic',
+      apiBase: 'https://api.anthropic.com/v1',
+    });
   });
 });
