@@ -107,6 +107,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
     aliases?: readonly string[];
   }>;
   disabled?: boolean;
+  /**
+   * The connection's defaults are still loading. The draft stays editable; the
+   * controls and the send wait, and an Enter pressed meanwhile sends once ready.
+   */
+  connecting?: boolean;
   /** Keep the draft editable while the first session catalog is registering. */
   catalogPreparing?: boolean;
   contextReferences?: boolean;
@@ -186,6 +191,7 @@ export function ClioComposer({
   confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
+  connecting = false,
   catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
@@ -259,6 +265,9 @@ export function ClioComposer({
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
   const nextDeliveryRef = useRef<MessageDelivery | 'queued' | undefined>(undefined);
+  // An Enter pressed while connecting, with the delivery it asked for.
+  const [heldSend, setHeldSend] = useState<{ delivery: MessageDelivery | 'queued' }>();
+  const controlsDisabled = disabled || connecting;
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -410,6 +419,20 @@ export function ClioComposer({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [disabled]);
+
+  useEffect(() => {
+    if (connecting || !heldSend) return;
+    // Submit on the next frame so the square has re-enabled with the connection.
+    const frame = window.requestAnimationFrame(() => {
+      setHeldSend(undefined);
+      const form = rootRef.current?.querySelector('form');
+      const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (!form || !submit || submit.disabled) return;
+      nextDeliveryRef.current = heldSend.delivery;
+      form.requestSubmit();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [connecting, heldSend]);
 
   const restoreInputFocusWhenReady = () => {
     window.requestAnimationFrame(() => {
@@ -684,7 +707,11 @@ export function ClioComposer({
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
             // No submit square (Stop shows while work runs with nothing typed): nothing to send.
-            if (!submit || submit.disabled) return;
+            if (!submit || submit.disabled) {
+              const delivery = composerDelivery(state, event.ctrlKey || event.metaKey);
+              if (submit && connecting && !draftEmpty) setHeldSend({ delivery });
+              return;
+            }
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}
@@ -698,7 +725,7 @@ export function ClioComposer({
               <ComposerAddContextButtons
                 attachments={attachments}
                 contextReferences={contextReferences}
-                disabled={disabled}
+                disabled={controlsDisabled}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
               />
@@ -715,7 +742,7 @@ export function ClioComposer({
               spotterModelControl={
                 <ComposerSpotterModel
                   catalogStatus={modelCatalogStatus}
-                  disabled={disabled}
+                  disabled={controlsDisabled}
                   onChange={spotter.set}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
@@ -727,7 +754,7 @@ export function ClioComposer({
                 configuredEffort,
                 selectedOption?.reasoning,
               )}
-              disabled={disabled}
+              disabled={controlsDisabled}
               modelControl={
                 <ClioModelPicker
                   catalogStatus={modelCatalogStatus}
@@ -757,7 +784,14 @@ export function ClioComposer({
               onChange={choose}
               unrecognizedEffort={unrecognizedEffort}
             />
-            {catalogPreparing && state !== 'running' ? (
+            {connecting ? (
+              <span
+                className="shrink-0 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
+                role="status"
+              >
+                {heldSend ? 'Sends when connected' : 'Connecting…'}
+              </span>
+            ) : catalogPreparing && state !== 'running' ? (
               <span
                 className="shrink-0 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
                 role="status"
@@ -769,7 +803,9 @@ export function ClioComposer({
               state={state}
               hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
               disabled={
-                disabled || (catalogPreparing && state !== 'running') || connectedSources.pending
+                controlsDisabled ||
+                (catalogPreparing && state !== 'running') ||
+                connectedSources.pending
               }
               onSubmit={(event) => {
                 nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
