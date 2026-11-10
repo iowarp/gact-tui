@@ -48,6 +48,13 @@ interface ModelPickerSearchProps {
   inputId?: string;
   /** Repository searches run remotely on submission rather than filtering a loaded catalog. */
   onSearch?: () => void;
+  /**
+   * The narrowest picker (under 400px): row 2 folds into the Filters button
+   * and shows above the filter panel while it is open.
+   */
+  compact?: boolean;
+  /** One column: the count is the matches alone ("6"), as each group states its own. */
+  single?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -81,12 +88,18 @@ export function ModelPickerSearch({
   label = 'Search providers and models',
   inputId,
   onSearch,
+  compact = false,
+  single = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
   const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined);
   const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
+  const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
+  const rowTwo =
+    (strip.length || extraTokens.length || suggestions.length) &&
+    (!compact || facetsOpen || suggestions.length);
 
   function addToken(token: ModelFilterToken) {
     onTokensChange(addModelFilterToken(tokens, token));
@@ -194,14 +207,19 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
-          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-faint tabular-nums"
+          aria-label={
+            single
+              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+              : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+          }
+          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
-          {shown} / {total}
+          {shown}
+          {single ? '' : ` / ${total}`}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
-        {facetTabs.some((tab) => tab.chipCount > 0) ? (
+        {hasFilters ? (
           <>
             <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
             <TooltipProvider disableHoverableContent>
@@ -243,7 +261,7 @@ export function ModelPickerSearch({
           </>
         ) : null}
       </div>
-      {strip.length || extraTokens.length || suggestions.length ? (
+      {rowTwo ? (
         <ModelPickerQuickStrip
           extraTokens={extraTokens}
           filters={strip}

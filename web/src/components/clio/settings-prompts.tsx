@@ -2,7 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { TransportError, type CommandDefinition, type PromptDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellIcon, FileTextIcon, FolderIcon, ScrollTextIcon, SquareSlashIcon } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,8 +13,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { narrowerThan, useElementWidth } from '@/hooks/use-element-width';
 import { useRepository } from '@/hooks/use-repository';
 import { commandGroups, commandSource } from '@/lib/command-table';
+import { cn } from '@/lib/utils';
 import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { reminderMeta } from '@/lib/reminder-meta';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -82,22 +84,6 @@ function commandState(command: CommandDefinition): {
       detail: `This file’s ${command.unsupported_fields.join(', ')} settings are not used.`,
     };
   return { tone: 'success', label: 'Available' };
-}
-
-/** Whether the element is narrower than `width`, so a toolbar can fold labels to icons. */
-function useNarrow<T extends HTMLElement>(width: number) {
-  const ref = useRef<T>(null);
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setNarrow(entry.contentRect.width < width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [width]);
-  return [ref, narrow] as const;
 }
 
 /** A whole row that opens its details; it has no controls of its own. */
@@ -191,7 +177,10 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [toolbar, narrow] = useNarrow<HTMLDivElement>(600);
+  const [toolbar, toolbarWidth] = useElementWidth<HTMLDivElement>();
+  const narrow = narrowerThan(toolbarWidth, 600);
+  // Below 400 px the workspace choice takes its own line rather than clip its name.
+  const tight = narrowerThan(toolbarWidth, 400);
   const [view, setView] = useState<View>('prompts');
   const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId ?? '');
   const [editor, setEditor] = useState<{ prompt?: PromptDefinition; key: number }>();
@@ -343,7 +332,10 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
     <div className="grid min-w-0">
       <SettingsSectionHeading info={INFO} title="Prompts and commands" />
       <div
-        className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2.5 whitespace-nowrap"
+        className={cn(
+          'mb-1.5 flex min-w-0 items-center gap-2.5 whitespace-nowrap',
+          tight ? 'flex-wrap gap-y-1.5' : 'h-[2.125rem]',
+        )}
         data-slot="settings-toolbar"
         ref={toolbar}
       >
@@ -371,7 +363,10 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         >
           <SelectTrigger
             aria-label="Prompt workspace"
-            className="h-7! w-44 min-w-0 shrink gap-1.5 px-2 text-xs"
+            className={cn(
+              'h-7! min-w-0 shrink gap-1.5 px-2 text-xs *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate',
+              tight ? 'order-last w-full *:data-[slot=select-value]:flex-1' : 'w-44',
+            )}
             size="sm"
             title={workspaceName ?? 'Global service view'}
           >

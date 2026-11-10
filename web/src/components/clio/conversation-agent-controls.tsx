@@ -40,12 +40,12 @@ export function ConversationAgentControls({
       ? `Customize the agent (${changes} ${changes === 1 ? 'change' : 'changes'})`
       : 'Customize the agent';
   return (
-    <div className="flex shrink-0 items-center gap-2">
-      <label className="flex items-center gap-2 text-sm">
+    <div className="flex shrink-0 items-center gap-1">
+      <label className="flex shrink-0 items-center gap-2 text-sm">
         <span className="max-sm:sr-only">with</span>
         <select
           aria-label="Conversation agent"
-          className="min-w-20 max-w-36 truncate rounded-md border border-border bg-background px-2 py-1 sm:max-w-48"
+          className="h-7 w-28 min-w-0 shrink-0 truncate rounded-[6px] border border-border bg-background px-1.5 text-[13px] sm:w-auto sm:max-w-48 sm:min-w-24"
           disabled={disabled || readOnly || !onSelect || pending || Boolean(agentsError && !agents)}
           onChange={(event) => onSelect?.(event.target.value)}
           title={
@@ -92,14 +92,15 @@ export function ConversationAgentControls({
           disabled={disabled}
           onClick={onCustomize}
           size="sm"
+          title={customizeLabel}
           variant="ghost"
         >
           <ConfigureIcon aria-hidden="true" />
-          <span className="max-sm:sr-only">
+          <span className="max-lg:sr-only">
             {readOnly ? 'Agent' : changes ? `Customized (${changes})` : 'Customize'}
           </span>
           {changes && !readOnly ? (
-            <span aria-hidden="true" className="text-xs sm:hidden">
+            <span aria-hidden="true" className="text-xs lg:hidden">
               {changes}
             </span>
           ) : null}

@@ -306,7 +306,7 @@ function outline() {
           }),
         ],
       }),
-      node('Results', 'opal_paper.tex', results, discussion - 1, 2, 420),
+      node('Results', 'opal_paper.tex', results, discussion - 1, 2, 266),
       node('Discussion', 'opal_paper.tex', discussion, TEX_LINES.length, 3, 96, {
         citations: [{ key: 'smap008', resolved: false }],
       }),
@@ -450,7 +450,8 @@ function paperPdf() {
   const kids = [];
   const moisture = monthlyMoisture();
   pages.forEach((rows, index) => {
-    let y = 720;
+    // Page 2 opens with Figure 1 (y 560 to 740), so its text starts below the plot.
+    let y = index === 1 ? 556 : 720;
     let content = '';
     for (const row of rows) {
       y -= row.size === 20 ? 0 : row.size >= 14 ? 30 : row.size === 12 ? 22 : 16;
@@ -458,7 +459,7 @@ function paperPdf() {
     }
     if (index === 1) {
       // Figure 1 above its caption: axes, the dashed baseline and the monthly series.
-      content += '0.5 w 0.4 G 90 560 m 90 740 l 530 740 l S\n';
+      content += '0.5 w 0.4 G 90 740 m 90 560 l 530 560 l S\n';
       content += '[4 3] 0 d 0.6 0.5 0.2 RG 90 668 m 530 668 l S [] 0 d\n';
       content += '1.2 w 0.1 0.55 0.5 RG ';
       moisture.forEach((point, step) => {

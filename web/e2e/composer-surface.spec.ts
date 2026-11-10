@@ -161,7 +161,8 @@ for (const theme of ['dark', 'light'] as const) {
 
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.getByRole('heading', { name: 'EarthScope NDP evidence review' }).click();
+      // The title opens the conversation menu; release editor focus directly.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       // Resizing can leave a final Motion layout transform on the composer.
       // Capture idle geometry only after native and frame-driven motion settle;
       // the focus assertion below still requires exactly the same bounds.

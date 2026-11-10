@@ -1,21 +1,13 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ActivityIcon } from 'lucide-react';
+import { ArchiveIcon, UserRoundIcon } from 'lucide-react';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
 import { useKnownConnections } from '@/hooks/use-known-connections';
@@ -25,13 +17,13 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
-import { NavigationInfrastructure } from './navigation-infrastructure';
-import { HeldKeyBadge } from './primitives/key-chip';
 import { StableInput } from './primitives/stable-input';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
+import { newConversationRoute } from '@/lib/workspace-route-memory';
+import { useLocalProfile } from './settings-profile-store';
 import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
@@ -59,6 +51,8 @@ export function ClioNavigation({
   attentions,
 }: ClioNavigationProps) {
   const location = useLocation();
+  const profileName = useLocalProfile().profile.name;
+  const initials = profileInitials(profileName);
   const { settings } = useConnectionSettings();
   const knownConnections = useKnownConnections();
   const activeConnection = useMemo(() => [{ ...settings, endpoint }], [endpoint, settings]);
@@ -74,16 +68,20 @@ export function ClioNavigation({
   );
   const switchConnection = useSwitchConnection();
   const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
-  const [createWorkspaceId, setCreateWorkspaceId] = useState(activeWorkspaceId);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
+  // The workspace chosen by "Import conversation here"; the service files the
+  // import there when the blob names an existing workspace.
+  const importWorkspaceRef = useRef<string | undefined>(undefined);
 
+  const navigate = useNavigate();
+  const draftMatch = useMatch('/workspaces/:workspaceId/new');
+  // A new conversation is a draft in place; it becomes a row once it is sent.
   const openNewSession = (workspaceId = activeWorkspaceId) => {
-    setCreateWorkspaceId(workspaceId);
-    setCreateKind('session');
+    void navigate(newConversationRoute(workspaceId || 'ws_default'));
   };
   const downloadSession = async (
     sessionId: string,
@@ -116,7 +114,17 @@ export function ClioNavigation({
   // the direct paths below (the header's import button, per-session export)
   // already cover them, so no useMenuAction registration is needed for
   // either.
+  const importSession = (workspaceId?: string) => {
+    importWorkspaceRef.current = workspaceId;
+    importInputRef.current?.click();
+  };
   useMenuAction('new-session', () => openNewSession());
+  useShortcut('new-conversation-browser', () => openNewSession(), { allowInTextField: true });
+  useShortcut('import-conversation', () => importSession(), {
+    allowInTextField: true,
+  });
+  useShortcut('previous-conversation', () => stepConversation(-1), { allowInTextField: true });
+  useShortcut('next-conversation', () => stepConversation(1), { allowInTextField: true });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);
@@ -136,66 +144,86 @@ export function ClioNavigation({
             activeLabel={settings.label}
             activeLocation={settings.location}
             attentionControl={
-              <ClioAttentionCenter
-                activeSessionId={activeSessionId}
-                attentions={attentions}
-                sessions={sessions}
-              />
+              <li className="shrink-0">
+                <ClioAttentionCenter
+                  activeSessionId={activeSessionId}
+                  attentions={attentions}
+                  sessions={sessions}
+                />
+              </li>
             }
             currentPath={location.pathname}
             connectionAvailabilities={connectionAvailabilities}
             endpoint={endpoint}
             onConnect={switchService}
-            onImportSession={() => importInputRef.current?.click()}
+            onImportSession={() => importSession()}
             onNewSession={() => openNewSession()}
-            onNewWorkspace={() => setCreateKind('workspace')}
-            onOpenArchived={() => setArchivedOpen(true)}
             connections={knownConnections}
           />
-          <SidebarContent>
+          <SidebarContent className="gap-0">
             <WorkspaceNavigation
               actions={actions}
               attentions={attentions}
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
               agents={agents}
+              draftWorkspaceId={draftMatch?.params.workspaceId}
               onAction={runNavigationAction}
               onCreateSession={openNewSession}
               onDelete={setDeleteTarget}
               onDownloadSession={downloadSession}
               onEditWorkspace={setWorkspaceEditorId}
+              onImportSession={importSession}
+              onNewWorkspace={() => setCreateKind('workspace')}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={setRenameTarget}
               sessions={sessions}
               workspaces={workspaces}
             />
           </SidebarContent>
-          <SidebarFooter className="gap-0 px-2 pb-2">
-            <SidebarGroup className="p-0">
-              <SidebarGroupLabel>Explore</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Runs">
-                      <Link state={{ endpoint, from: location.pathname }} to="/runs">
-                        <ActivityIcon aria-hidden="true" />
-                        <span>Runs</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Settings">
-                      <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
-                        <SettingsIcon aria-hidden="true" />
-                        <span>Settings</span>
-                        <HeldKeyBadge id="settings" side="inside-end" />
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+          <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
+            <NamedTooltip label="Profile" side="top">
+              <Link
+                className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-[6px] px-1 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring group-data-[collapsible=icon]:hidden"
+                state={{ endpoint, from: location.pathname }}
+                to="/settings/profile"
+              >
+                <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+                  {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
+                </span>
+                <span className="flex min-w-0 flex-col leading-tight">
+                  {profileName ? (
+                    <span className="truncate text-[13px] text-foreground">{profileName}</span>
+                  ) : null}
+                  <span
+                    className={
+                      profileName
+                        ? 'truncate text-[11px] text-muted-foreground'
+                        : 'truncate text-[13px] text-foreground'
+                    }
+                  >
+                    Local profile
+                  </span>
+                </span>
+              </Link>
+            </NamedTooltip>
+            <IconButton
+              icon={<ArchiveIcon />}
+              label="Archived conversations"
+              onClick={() => setArchivedOpen(true)}
+              tooltipSide="top"
+            />
+            <NamedTooltip label="Settings" shortcut="settings" side="top">
+              <Link
+                aria-label="Settings"
+                className="relative grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                state={{ endpoint, from: location.pathname }}
+                to="/settings/general"
+              >
+                <SettingsIcon aria-hidden="true" className="size-[15px]" />
+                <HeldKeyBadge id="settings" />
+              </Link>
+            </NamedTooltip>
           </SidebarFooter>
         </nav>
         <SidebarRail />
@@ -206,12 +234,14 @@ export function ClioNavigation({
         className="sr-only"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
+          const workspaceId = importWorkspaceRef.current;
           event.currentTarget.value = '';
+          importWorkspaceRef.current = undefined;
           if (!file) return;
           void file
             .text()
             .then((text) => JSON.parse(text) as unknown)
-            .then((value) => actions.importSession(value))
+            .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
             .then(() => toast.success('Session imported'))
             .catch((error: unknown) =>
               toast.error(error instanceof Error ? error.message : 'Session import failed'),
@@ -222,7 +252,7 @@ export function ClioNavigation({
       />
       <ClioResourceDialogs
         actions={actions}
-        activeWorkspaceId={createWorkspaceId || activeWorkspaceId}
+        activeWorkspaceId={activeWorkspaceId}
         agents={agents}
         createKind={createKind}
         deleteTarget={deleteTarget}
@@ -249,4 +279,35 @@ export function ClioNavigation({
       ) : null}
     </>
   );
+}
+
+/** Opens the conversation above or below the current one, in the left bar's visible order. */
+/** Up to two initials from the profile name, e.g. "Jaime Cernuda" → "JC". */
+function profileInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? [words[0], words[words.length - 1]] : words;
+  return letters
+    .map((word) => Array.from(word)[0] ?? '')
+    .join('')
+    .toUpperCase();
+}
+
+function stepConversation(step: -1 | 1) {
+  const links = [
+    ...document.querySelectorAll<HTMLAnchorElement>('[data-session-row] a[data-active]'),
+  ];
+  const current = links.findIndex((link) => link.dataset.active === 'true');
+  const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
+  target?.click();
+}
+
+/** Points an export blob at the chosen workspace, keeping its other fields. */
+function importBlobInto(value: unknown, workspaceId: string | undefined): unknown {
+  if (!workspaceId || typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const blob = value as Record<string, unknown>;
+  const workspace =
+    typeof blob.workspace === 'object' && blob.workspace !== null ? blob.workspace : {};
+  return { ...blob, workspace: { ...workspace, id: workspaceId } };
 }

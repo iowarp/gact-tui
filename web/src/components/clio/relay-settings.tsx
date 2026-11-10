@@ -89,7 +89,7 @@ export function RelaySettings() {
       <StateView
         action={{ label: 'Add by URL', onClick: () => setAdding(true) }}
         className="min-h-48"
-        detail="Add an MCP server by its URL, and its tools run on that machine."
+        detail="Add an MCP server by URL to run its tools there."
         kind="empty"
         title="No remote tools yet"
       />

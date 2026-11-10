@@ -12,6 +12,9 @@ import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({ state: 'current', desktopShell: false, updating: false }),
+}));
 
 const baseSession: Session = {
   id: 'sess_1',
@@ -168,9 +171,12 @@ describe('ClioAttentionCenter', () => {
     );
   }
 
-  it('renders nothing when no session needs a response', () => {
+  it('stays in the header without a count when no session needs a response', async () => {
     render(<Center attentions={{}} sessions={[baseSession]} />);
     expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Nothing is waiting for you.')).toBeInTheDocument();
   });
 
   it('lists waiting sessions with their pending work and opens with its shortcut', async () => {

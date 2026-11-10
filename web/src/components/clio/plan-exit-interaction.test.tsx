@@ -101,6 +101,8 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     expect(
       await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
     ).toBeVisible();
+    // The glance runs from the summary into the numbered steps; the outline still counts them.
+    expect(screen.queryByRole('heading', { name: 'Steps' })).not.toBeInTheDocument();
     expect(screen.getByText('4 steps, execution recommendation, 2 risks')).toBeVisible();
     expect(screen.getByText('Plan ready')).toBeVisible();
     // Recommended mode is the default; the trigger names it.
@@ -180,7 +182,6 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     expect(screen.getByText('Plan unavailable')).toBeVisible();
     expect(screen.getByText(/saved plan could not be loaded/iu)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Dismiss plan review' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Execution mode, Interactive' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Exit Plan mode only' }));
     await user.click(screen.getByRole('button', { name: 'Leave Plan mode' }));
@@ -260,8 +261,7 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     );
   });
 
-  it('dismisses, reports its own failure and stays disabled while answering', async () => {
-    const user = userEvent.setup();
+  it('reports its own failure, offers no ×, and stays disabled while answering', () => {
     const interaction = planInteraction();
     const onResponse = vi.fn(async () => undefined);
     const { rerender } = render(
@@ -274,8 +274,9 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Response unavailableSession closed');
     expect(screen.getByText('Session not listed yet')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Dismiss plan review' }));
-    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'cancel' });
+    // The spec's plan header is the icon, Plan and the file; cancel is not a header ×.
+    expect(interaction.actions).toContain('cancel');
+    expect(screen.queryByRole('button', { name: 'Dismiss plan review' })).not.toBeInTheDocument();
     rerender(
       <PlanExitResponse disabled interaction={interaction} onResponse={onResponse} showOwner />,
     );

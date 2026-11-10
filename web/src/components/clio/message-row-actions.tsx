@@ -1,7 +1,9 @@
 import type { Message } from '@clio/core/v3';
 import { BookmarkIcon, CopyIcon, LoaderCircleIcon } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { copyText } from '@/lib/clipboard';
+import { canDeferHoverControls, WIDE_HOVER_DEFERRAL } from '@/lib/hover-deferral';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { answerRevisions } from './answer-revisions';
@@ -38,6 +40,46 @@ function copyMessage(message: Message) {
       .flatMap((block) => (block.type === 'text' && !revised.has(block.id) ? [block.text] : []))
       .join('\n'),
   );
+}
+
+/**
+ * Hover-only actions mount once the pointer or focus first enters their
+ * message, so a long transcript does not carry every row's hidden buttons (and
+ * their per-message rating reads). Devices without hover, windows narrower than
+ * `sm` (where the actions always show), and `keep` (a marked message, a visible
+ * retry) mount them at once; narrowing the window later mounts them too.
+ */
+export function DeferredMessageActions({
+  children,
+  keep,
+}: {
+  children: ReactNode;
+  keep?: boolean;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [armed, setArmed] = useState(() => !canDeferHoverControls(WIDE_HOVER_DEFERRAL));
+  useEffect(() => {
+    if (armed || keep) return;
+    const row = anchor.current?.closest('[data-message-id]');
+    if (!row) {
+      setArmed(true);
+      return;
+    }
+    const arm = () => setArmed(true);
+    const media = window.matchMedia?.(WIDE_HOVER_DEFERRAL);
+    const onMedia = () => {
+      if (!media?.matches) arm();
+    };
+    row.addEventListener('pointerenter', arm);
+    row.addEventListener('focusin', arm);
+    media?.addEventListener?.('change', onMedia);
+    return () => {
+      row.removeEventListener('pointerenter', arm);
+      row.removeEventListener('focusin', arm);
+      media?.removeEventListener?.('change', onMedia);
+    };
+  }, [armed, keep]);
+  return armed || keep ? children : <span ref={anchor} hidden />;
 }
 
 /**
