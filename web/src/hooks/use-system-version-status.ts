@@ -175,9 +175,13 @@ export function useSystemVersionStatus() {
     ) {
       return 'checking';
     }
-    if (desktopUpdateAvailable || agentBehindLatest) return 'available';
+    if (desktopShell ? desktopUpdateAvailable : agentBehindLatest) return 'available';
     if (desktopRowState === 'unavailable' || agentRowState === 'unavailable') return 'unavailable';
     if (desktopRowState === 'unknown' || !agentVersionKnown) return 'unknown';
+    // In the desktop the runtime's "target" is this app's own version, not a
+    // release: a runtime behind it with nothing the check could install is a
+    // difference to report, never "update ready".
+    if (agentBehindLatest) return 'unavailable';
     return 'current';
   })();
 
@@ -210,7 +214,10 @@ export function useSystemVersionStatus() {
   const message: string | undefined =
     (desktopShell ? desktopIssue?.text : undefined) ??
     (agentRowState === 'unavailable' ? agentIssue?.text : undefined) ??
-    (capabilities.isError ? 'The connected runtime could not be reached.' : undefined);
+    (capabilities.isError ? 'The connected runtime could not be reached.' : undefined) ??
+    (state === 'unavailable' && agentBehindLatest
+      ? `Could not check for updates: the runtime (${agentVersion}) is older than this app (${agentTargetVersion}) and no update for it was found.`
+      : undefined);
   const versions = [
     {
       label: 'Interface version',
@@ -225,7 +232,10 @@ export function useSystemVersionStatus() {
     {
       label: 'Runtime version',
       version: agentVersion,
-      targetVersion: agentBehindLatest ? agentTargetVersion : undefined,
+      targetVersion:
+        agentBehindLatest && (!desktopShell || desktopUpdateAvailable)
+          ? agentTargetVersion
+          : undefined,
       releaseUrl:
         brand.agentReleaseUrl && agentVersion
           ? `${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`

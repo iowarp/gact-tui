@@ -1,6 +1,5 @@
 import type { PermissionPolicy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
@@ -8,9 +7,9 @@ import { queryKeys } from '@/lib/query-keys';
 import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
-import { ItemList, ItemRow } from './primitives/item-row';
+import { ItemList } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
-import { StatusIndicator } from './primitives/status-indicator';
+import { StateView } from './primitives/state-view';
 import { AccessRuleDialog } from './settings-access-rule-dialog';
 import {
   changeSummary,
@@ -19,7 +18,6 @@ import {
   policyFromDraft,
   priorityChoices,
   priorityRanks,
-  RULE_COLUMNS,
   type PolicyDraft,
 } from './settings-access-rule-model';
 import { AccessRuleRow } from './settings-access-rule-row';
@@ -110,7 +108,10 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
 
   return (
     <section aria-labelledby="access-rules-heading">
-      <SettingsGroupLabel addLabel="New access rule" onAdd={() => openEditor()}>
+      <SettingsGroupLabel
+        addLabel="New access rule"
+        onAdd={policies.data ? () => openEditor() : undefined}
+      >
         <span className="flex items-center gap-1.5" id="access-rules-heading">
           Access rules
           <InfoTip label="About access rules">
@@ -140,13 +141,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
           />
         ))}
         {policies.isPending ? (
-          <ItemRow
-            {...RULE_COLUMNS}
-            actions={null}
-            icon={<ShieldIcon />}
-            status={<StatusIndicator label="Loading" tone="running" />}
-            title="Access rules"
-          />
+          <StateView kind="loading" size="row" title="Loading access rules…" />
         ) : null}
         {policies.isSuccess && rules.length === 0 ? (
           <GroupEmptyLine>
