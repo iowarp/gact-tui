@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
-import { MenuAcceleratorKey } from './primitives/menu-row';
+import { JumpLabel, MenuAcceleratorKey, jumpLetterIndex } from './primitives/menu-row';
 import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
@@ -99,15 +99,17 @@ export function FileModeMenuItem({ mode, accelerator }: { mode: FileMode; accele
       className="group/mode"
     >
       <Icon aria-hidden="true" />
-      {label}
-      {keys || accelerator ? (
+      <JumpLabel label={label} letter={accelerator} />
+      {keys || (accelerator && jumpLetterIndex(label, accelerator) < 0) ? (
         <span className="ml-auto flex items-center pl-4 group-data-[state=unchecked]/mode:-mr-6">
           {keys ? (
             <span aria-hidden="true" className="group-data-[state=checked]/mode:hidden">
               <ShortcutKeys id={shortcut} variant="menu" />
             </span>
           ) : null}
-          {accelerator ? <MenuAcceleratorKey letter={accelerator} /> : null}
+          {accelerator && jumpLetterIndex(label, accelerator) < 0 ? (
+            <MenuAcceleratorKey letter={accelerator} />
+          ) : null}
         </span>
       ) : null}
     </DropdownMenuRadioItem>

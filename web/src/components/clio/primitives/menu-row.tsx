@@ -33,8 +33,8 @@ export interface MenuRowProps {
   shortcut?: string;
   /**
    * A one-key accelerator while the menu is open (a tab's right-click menu:
-   * P, F, Y, C). Shown as text in the shortcut column; the menu host handles
-   * the key (see `menuAcceleratorKeyDown`).
+   * P, F, Y, C). Underlined in the label when the menu was opened from the
+   * keyboard; the menu host handles the key (see `menuAcceleratorKeyDown`).
    */
   accelerator?: string;
   /** Opens a submenu or a window: shows a › in the last column. */
@@ -84,7 +84,9 @@ export const MenuRow = memo(function MenuRow({
       ) : null}
       {detail ? (
         <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
-          <span className={cn('truncate', muted && 'text-muted-foreground')}>{label}</span>
+          <span className={cn('truncate', muted && 'text-muted-foreground')}>
+            <JumpLabel label={label} letter={accelerator} />
+          </span>
           <span title={detail} className="truncate text-[11px] text-muted-foreground">
             {detail}
           </span>
@@ -97,7 +99,7 @@ export const MenuRow = memo(function MenuRow({
           )}
         >
           <span className={cn('max-w-full shrink-0 truncate', muted && 'text-muted-foreground')}>
-            {label}
+            <JumpLabel label={label} letter={accelerator} />
           </span>
           {description ? (
             <span
@@ -129,7 +131,9 @@ export const MenuRow = memo(function MenuRow({
         </span>
       ) : null}
       {shortcut ? <ShortcutKeys id={shortcut} variant="menu" className="pl-2" /> : null}
-      {accelerator ? <MenuAcceleratorKey letter={accelerator} /> : null}
+      {accelerator && jumpLetterIndex(label, accelerator) < 0 ? (
+        <MenuAcceleratorKey letter={accelerator} />
+      ) : null}
       {submenu ? (
         <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       ) : null}
@@ -138,7 +142,48 @@ export const MenuRow = memo(function MenuRow({
   );
 });
 
-/** A row's jump letter, in the last key column; the menu host handles the key. */
+/**
+ * Where a jump letter sits in its label: the first word that starts with it,
+ * else its first occurrence; -1 when the label doesn't contain it.
+ */
+// oxlint-disable-next-line react/only-export-components
+export function jumpLetterIndex(label: string, letter: string): number {
+  const text = label.toLocaleUpperCase();
+  const key = letter.toLocaleUpperCase();
+  if (key.length !== 1) return -1;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === key && (index === 0 || /\s/u.test(text[index - 1]))) return index;
+  }
+  return text.indexOf(key);
+}
+
+/**
+ * A label with its jump letter underlined (workbench-keyboard, "Menus show the
+ * key that works anywhere"). The underline is drawn only in a menu opened from
+ * the keyboard; with the mouse the label reads plainly and the right column
+ * keeps the key that works without the menu.
+ */
+export function JumpLabel({ label, letter }: { label: string; letter?: string }) {
+  const index = letter ? jumpLetterIndex(label, letter) : -1;
+  if (index < 0) return label;
+  return (
+    <>
+      {label.slice(0, index)}
+      <u
+        data-slot="menu-jump-letter"
+        className="no-underline decoration-muted-foreground underline-offset-[3px] [[data-opened-by=keyboard]_&]:underline"
+      >
+        {label[index]}
+      </u>
+      {label.slice(index + 1)}
+    </>
+  );
+}
+
+/**
+ * A jump letter the label doesn't contain, in the last key column; shown only
+ * in a menu opened from the keyboard. The menu host handles the key.
+ */
 export function MenuAcceleratorKey({ letter }: { letter: string }) {
   return (
     <kbd
