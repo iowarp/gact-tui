@@ -24,9 +24,12 @@
  * - Adjust: pick a level on a scale (reasoning effort).
  * - Connection settings: the same sliders, as the CLIO menu's details draw
  *   the link to the agent's connection page (spec v15).
+ * - Settings window: the cog in the window's own title bar (spec `#cog`),
+ *   distinct from the sliders that link to it.
  */
 export {
   SlidersVerticalIcon as SettingsIcon,
+  CogIcon as SettingsWindowIcon,
   SlidersVerticalIcon as ConfigureIcon,
   SlidersVerticalIcon as ManageIcon,
   PencilIcon as EditIcon,

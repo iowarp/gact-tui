@@ -7,6 +7,8 @@ import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { ClioModelPicker } from './model-picker';
 import type { ProviderGroup } from './model-picker-model';
 import { ListDetailLayout } from './primitives/detail-pane';
@@ -132,7 +134,9 @@ export function ProvidersSettings() {
   const requestedCloud = cloud.find((preset) => preset.id === requestedProvider);
 
   const list = (
-    <div className="max-w-[760px] pb-4">
+    // One setting column (spec `.xrw`) for the list and the rows, so their right
+    // edges meet; beside an open details pane the column is the list's whole side.
+    <div className={cn('pb-4', !opened && SETTINGS_COLUMN)}>
       <SettingsGroupLabel
         addLabel="Add server"
         className="mt-2"
@@ -192,6 +196,7 @@ export function ProvidersSettings() {
       <SettingsGroupLabel className="mt-6">Cloud and subscription providers</SettingsGroupLabel>
       <div className="@container" data-slot="cloud-providers">
         <SettingsRow
+          fullWidth
           info="Cloud and subscription providers are set up from the model picker."
           title="Keys and sign-ins"
         >
@@ -243,7 +248,7 @@ export function ProvidersSettings() {
           />
         </div>
       ) : loading ? (
-        <StateView kind="loading" title="Loading providers" />
+        <StateView kind="loading" size="row" title="Loading providers…" />
       ) : (
         <ListDetailLayout
           detail={
