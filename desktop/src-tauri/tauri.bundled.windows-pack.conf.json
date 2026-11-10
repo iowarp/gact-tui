@@ -4,7 +4,7 @@
     "resources": ["gact-runtime.tar.zst", "gact-runtime.pack.json"],
     "windows": {
       "nsis": {
-        "compression": "zlib"
+        "compression": "none"
       }
     }
   }

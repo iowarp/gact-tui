@@ -566,22 +566,42 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       }
       setRecents((current) => {
         const saved = current.some((item) => item.endpoint === endpoint);
+        // A reload opens the first remembered connection, so a newly added one goes
+        // after the active connection instead of taking its place.
+        const active =
+          endpoint !== settings.endpoint && current[0]?.endpoint === settings.endpoint
+            ? [current[0]]
+            : [];
+        if (
+          !saved &&
+          !active.length &&
+          endpoint !== settings.endpoint &&
+          settings.endpoint !== managedEndpoint
+        ) {
+          active.push({
+            endpoint: settings.endpoint,
+            label: settings.label,
+            location: settings.location,
+            infrastructure: settings.infrastructure,
+          });
+        }
         const updated = saved
           ? current.map((item) => (item.endpoint === endpoint ? { ...item, label: name } : item))
           : [
+              ...active,
               {
                 endpoint,
                 label: name,
                 location: connection.location,
                 infrastructure: connection.infrastructure,
               },
-              ...current,
+              ...current.filter((item) => item.endpoint !== settings.endpoint),
             ].slice(0, RECENT_CONNECTIONS_LIMIT);
         localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
         return updated;
       });
     },
-    [managedEndpoint],
+    [managedEndpoint, settings],
   );
 
   const forget = useCallback(async (endpoint: string): Promise<void> => {

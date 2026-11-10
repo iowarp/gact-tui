@@ -299,6 +299,7 @@ function ExploreNudgeSetting({
           onValueChange={(next) => setDraft(next[0])}
           onValueCommit={(next) => commit(next[0])}
           step={1}
+          thumbProps={() => ({ 'aria-label': 'Reads before the Explore suggestion' })}
           value={[after]}
         />
         <Input
