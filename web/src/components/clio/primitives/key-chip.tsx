@@ -44,7 +44,7 @@ export function KeyCap({
   );
 }
 
-export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row';
+export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row' | 'menu';
 
 interface ShortcutKeysProps {
   /** A catalog id; the key follows the catalog everywhere it is shown. */
@@ -56,7 +56,8 @@ interface ShortcutKeysProps {
   /**
    * `caps`: one cap per key (the shortcut sheet). `text`: one quiet line (a
    * menu's right column, a tooltip). `inline`: one small chip inside a button.
-   * `row`: one full cap at the end of a menu's highlighted row.
+   * `row`: one full cap at the end of a menu's highlighted row. `menu`: a menu's
+   * key column, 10.5px mono and faint (workbench-keyboard, "Menus show the key").
    */
   variant?: ShortcutKeysVariant;
   /** Cap size for `caps`. */
@@ -110,6 +111,19 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     );
   }
   const text = shortcutText(definition, platform);
+  if (variant === 'menu') {
+    return (
+      <kbd
+        data-slot="shortcut-keys"
+        className={cn(
+          'shrink-0 font-mono text-[10.5px] font-normal whitespace-nowrap text-faint',
+          className,
+        )}
+      >
+        {text}
+      </kbd>
+    );
+  }
   if (variant === 'row') {
     return (
       <KeyCap size="row" className={className}>
@@ -150,7 +164,8 @@ export const ShortcutKeys = memo(function ShortcutKeys({
  * icon, centred on it, inside a tight column (the pocket rail) where left would cover the
  * pocket and below the button would reach the next icon. `above-icon` sits just over the
  * icon at the control's centre line, so a toolbar row's badges share one baseline (the
- * composer, in the gap between the text and its toolbar).
+ * composer, in the gap between the text and its toolbar). `end` sits just right of the
+ * control, outside it (the collapsed left rail, whose icons leave no room inside).
  */
 export type HeldKeySide =
   | 'below'
@@ -158,6 +173,7 @@ export type HeldKeySide =
   | 'top-edge'
   | 'start'
   | 'inside-end'
+  | 'end'
   | 'cover'
   | 'under-icon'
   | 'above-icon';
@@ -241,6 +257,10 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     left = target.right - width - GAP * 1.5;
     top = centreY - height / 2;
   }
+  if (side === 'end') {
+    left = target.right + GAP * 2;
+    top = centreY - height / 2;
+  }
   if (placement === 'cover') {
     left = centreX - width / 2;
     top = centreY - height / 2;
@@ -269,7 +289,7 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   // A top-edge pair (Esc beside Cmd+Return) stacks instead, one badge per control.
   if (
     blocking &&
-    !['start', 'inside-end', 'top-edge', 'under-icon', 'above-icon'].includes(placement)
+    !['start', 'inside-end', 'end', 'top-edge', 'under-icon', 'above-icon'].includes(placement)
   ) {
     const slid =
       blocking.left + blocking.width / 2 <= left + width / 2
@@ -285,6 +305,7 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     if (vertical === 'above' || vertical === 'top-edge' || vertical === 'above-icon')
       top -= height + GAP + 1;
     else if (vertical === 'below' || vertical === 'under-icon') top += height + GAP + 1;
+    else if (vertical === 'end') left += width + GAP + 1;
     else left -= width + GAP + 1;
     clamp();
   }

@@ -1,4 +1,5 @@
 import {
+  createContext,
   forwardRef,
   Fragment,
   memo,
@@ -25,8 +26,10 @@ import { IconButton } from './icon-button';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
- * folders, Open, Copy, @, the position fact (a page, a row count; marked
- * `data-frame-position`), then the modes folding to one icon, then only the
+ * then the position fact (a page, a row count; marked `data-frame-position`),
+ * so every fact has gone to the hover name before anything else moves
+ * (workbench-lineage step 2), then folders, Open, Copy, @, then the modes
+ * folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
  * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
@@ -41,11 +44,11 @@ import { IconButton } from './icon-button';
  */
 const FRAME_FOLDS = [
   'facts',
+  'position',
   'folders',
   'open',
   'copy',
   'talk',
-  'position',
   'modes',
   'name',
   'modes-menu',
@@ -57,18 +60,35 @@ const FRAME_FOLDS = [
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
 
+/** Folded facts, read for the location's hover name. */
+const FrameFactsContext = createContext('');
+
 /**
  * Whether a part of the bar is cut off: the bar scrolls, a marked text
- * truncates, or the name has truncated below `FRAME_NAME_MIN`.
+ * truncates, or the name has truncated while a fact still shows or below
+ * `FRAME_NAME_MIN`.
  */
 function frameOverflows(bar: HTMLElement) {
   if (bar.scrollWidth > bar.clientWidth + 1) return true;
+  const facts = bar.querySelector<HTMLElement>('[data-slot=frame-facts]');
+  const factShown = Array.from(facts?.children ?? []).some(
+    (fact) => (fact as HTMLElement).offsetParent !== null,
+  );
   for (const part of bar.querySelectorAll<HTMLElement>('[data-frame-fit]')) {
     if (part.offsetParent === null || part.scrollWidth <= part.clientWidth + 1) continue;
-    if (part.dataset.frameFit === 'name' && part.clientWidth >= FRAME_NAME_MIN) continue;
+    if (part.dataset.frameFit === 'name' && !factShown && part.clientWidth >= FRAME_NAME_MIN)
+      continue;
     return true;
   }
   return false;
+}
+
+/** The facts' words, comma separated, for the hover name once they have folded. */
+function factsText(facts: HTMLElement | null): string {
+  if (!facts) return '';
+  return Array.from(facts.children, (child) => child.textContent?.trim() ?? '')
+    .filter(Boolean)
+    .join(', ');
 }
 
 /**
@@ -99,6 +119,7 @@ export const FrameBar = memo(function FrameBar({
 }) {
   const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
+  const factsRef = useRef<HTMLDivElement>(null);
   // Width and content both start the fit again from nothing folded.
   const [fitKey, setFitKey] = useState('');
   const [measured, setMeasured] = useState({ key: '', fold: 0 });
@@ -122,12 +143,19 @@ export const FrameBar = memo(function FrameBar({
       content.disconnect();
     };
   }, []);
+  const [foldedFacts, setFoldedFacts] = useState('');
   useLayoutEffect(() => {
     const bar = barRef.current;
-    if (!bar || fold >= FRAME_FOLDS.length || !frameOverflows(bar)) return;
-    setMeasured((current) =>
-      current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
-    );
+    if (!bar) return;
+    if (fold < FRAME_FOLDS.length && frameOverflows(bar)) {
+      setMeasured((current) =>
+        current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
+      );
+      return;
+    }
+    // Settled: the facts that went to hover join the location's hover name.
+    const text = fold > 0 ? factsText(factsRef.current) : '';
+    setFoldedFacts((current) => (current === text ? current : text));
   }, [fitKey, fold]);
   const flags = Object.fromEntries(
     FRAME_FOLDS.map((step, index) => [`data-fold-${step}`, fold > index || undefined]),
@@ -156,10 +184,12 @@ export const FrameBar = memo(function FrameBar({
             tooltipSide="bottom"
           />
         ) : null}
-        {where}
+        <FrameFactsContext.Provider value={foldedFacts}>{where}</FrameFactsContext.Provider>
         {what ? (
           <div
             data-frame-fit=""
+            data-slot="frame-facts"
+            ref={factsRef}
             className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
@@ -211,7 +241,9 @@ export const FrameCrumbs = memo(function FrameCrumbs({
   parts: readonly FrameCrumb[];
   className?: string;
 }) {
-  const full = parts.map((part) => part.label).join(' / ');
+  const facts = useContext(FrameFactsContext);
+  const path = parts.map((part) => part.label).join(' / ');
+  const full = facts ? `${path}\n${facts}` : path;
   const folders = parts.slice(0, -1);
   const name = parts.at(-1);
   return (

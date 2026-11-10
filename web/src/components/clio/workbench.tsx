@@ -464,7 +464,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         icon: <FlaskConicalIcon />,
         pressed: activeTabId === scienceLogTab.id,
       });
-    if (onOpenTerminal) listItem('terminal', 'Terminal', <TerminalSquareIcon />);
+    // Always on the strip: where terminals can't run, its list says so.
+    listItem('terminal', 'Terminal', <TerminalSquareIcon />);
     listItem('browser', 'Browser pages', <GlobeIcon />);
 
     /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */

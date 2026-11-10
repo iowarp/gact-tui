@@ -50,6 +50,8 @@ export interface TakeRow {
   label: string;
   icon: ReactNode;
   accelerator?: string;
+  /** Catalog id of the key that does this without the menu, in the key column. */
+  shortcut?: string;
   /** Why the row is unavailable, shown beside it. */
   reason?: string;
   separatorBefore?: boolean;
@@ -166,6 +168,8 @@ export function useCopyTake(
       label: 'Contents',
       icon: <FileTextIcon />,
       accelerator: 'C',
+      // Ctrl+C in the frame runs the face, which copies the contents when it can.
+      shortcut: contentsReason ? undefined : 'copy',
       reason: contentsReason,
       onSelect: () => void copyContents(),
     },
