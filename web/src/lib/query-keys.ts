@@ -56,6 +56,7 @@ export type ClioQueryNamespace =
   | 'provider-catalog'
   | 'provider-components'
   | 'provider-component-update'
+  | 'provider-install-jobs'
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'

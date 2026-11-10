@@ -251,7 +251,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
       {!selectedSessionId && !sessions.isPending && (retentionOffered || compactionOffered) ? (
         <StateView kind="empty" size="row" title="No conversations yet" />
       ) : null}
-      {events.isPending && selectedSessionId ? (
+      {compactionOffered && (sessions.isPending || (events.isPending && selectedSessionId)) ? (
         <StateView kind="loading" size="row" title="Loading compaction history…" />
       ) : null}
       {events.error ? (

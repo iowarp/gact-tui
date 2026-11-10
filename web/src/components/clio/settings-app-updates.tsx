@@ -24,7 +24,7 @@ import {
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { RefreshButton } from './refresh-button';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
-import { desktopCheckIssue } from './version-check-issue';
+import { desktopCheckIssue, versionCheckIssueDetail } from './version-check-issue';
 
 type UpdateKind = 'unknown' | 'checking' | 'current' | 'available' | 'unavailable' | 'error';
 
@@ -90,12 +90,7 @@ export function AppUpdateSettings() {
   const updating = desktopInstalling || updateInFlight;
   const status = updating ? { label: 'Updating', tone: 'running' as const } : STATUS[kind];
   const issueText = desktopCheckIssue(snapshot)?.text;
-  const detail =
-    issueText !== undefined
-      ? issueText.replace(/^Could not check for updates:\s*(.)/i, (_match, initial: string) =>
-          initial.toUpperCase(),
-        )
-      : undefined;
+  const detail = issueText !== undefined ? versionCheckIssueDetail(issueText) : undefined;
   const versions = available
     ? `v${displayReleaseVersion(available.currentVersion)} → v${displayReleaseVersion(available.version)}`
     : undefined;

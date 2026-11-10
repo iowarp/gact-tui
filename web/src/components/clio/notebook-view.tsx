@@ -169,7 +169,8 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
       return (
         <div
           className={cn(
-            'min-w-0 overflow-x-auto py-1 [&_table]:text-[12px] [&_table]:tabular-nums',
+            // The cell's gap stops here: the result table sits flush under its code cell.
+            '-mt-1.5 min-w-0 overflow-x-auto pb-1 [&_table]:text-[12px] [&_table]:tabular-nums',
             // One hairline around the result table, flush with the code cell above it.
             '[&_[data-streamdown=table-wrapper]]:!my-0 [&_[data-streamdown=table-wrapper]]:!rounded-none [&_[data-streamdown=table-wrapper]]:!border-0 [&_[data-streamdown=table-wrapper]]:!bg-transparent [&_[data-streamdown=table-wrapper]]:!p-0',
           )}

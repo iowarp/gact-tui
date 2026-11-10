@@ -81,6 +81,8 @@ const { configuration, repository } = vi.hoisted(() => {
         installed: true,
         instructions: 'installed',
       }),
+      startProviderInstall: vi.fn(),
+      providerInstallJobs: vi.fn().mockResolvedValue([]),
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
       providerAuthStatus: vi.fn().mockResolvedValue({ state: 'pending', reason: '' }),
