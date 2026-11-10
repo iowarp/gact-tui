@@ -8,7 +8,7 @@ export interface TextTab<Value extends string> {
   label: string;
   /** Shown before the label; it is the whole tab when the strip is compact. */
   icon?: ReactNode;
-  /** Results or items behind the tab, right of the label in tabular figures. */
+  /** Results or items behind the tab, right of the label in tabular figures. Zero hides it. */
   count?: number;
   /** A tab that gathers several kinds ("More") carries a chevron after its label. */
   gathers?: boolean;
@@ -56,7 +56,9 @@ function TextTabsImpl<Value extends string>({
     >
       {tabs.map((tab) => {
         const selected = tab.value === value;
-        const name = tab.count === undefined ? tab.label : `${tab.label}, ${tab.count}`;
+        // A count shows only where there are results.
+        const count = tab.count === 0 ? undefined : tab.count;
+        const name = count === undefined ? tab.label : `${tab.label}, ${count}`;
         const button = (
           <button
             aria-controls={controls}
@@ -81,9 +83,9 @@ function TextTabsImpl<Value extends string>({
             {tab.gathers && !(compact && tab.icon) ? (
               <ChevronDownIcon className="-ml-1 size-3! text-muted-foreground" />
             ) : null}
-            {tab.count === undefined ? null : (
+            {count === undefined ? null : (
               <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
-                {tab.count}
+                {count}
               </span>
             )}
           </button>

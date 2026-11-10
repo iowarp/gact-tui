@@ -180,7 +180,8 @@ describe('AgentSettings', () => {
     renderSettings();
     const yours = await screen.findByRole('group', { name: 'Your agents' });
     expect(within(yours).getByText('No agents of your own yet.')).toBeVisible();
-    await user.click(within(yours).getByRole('button', { name: 'New agent' }));
+    expect(within(yours).queryByRole('button')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'New agent' }));
     const pane = await screen.findByRole('complementary', { name: 'CLIO' });
     expect(await within(pane).findByRole('button', { name: 'Save local variation' })).toBeEnabled();
   });

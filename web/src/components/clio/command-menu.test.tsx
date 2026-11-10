@@ -341,6 +341,18 @@ describe('ClioCommandMenu workspace search', () => {
     expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('counts only the result types that found something', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard('dark mode');
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Actions/u }).textContent).toMatch(/^Actions\d+$/u);
+    const files = screen.getByRole('tab', { name: /^Files/u });
+    expect(files).toHaveTextContent(/^Files$/u);
+    expect(files).toHaveAccessibleName('Files');
+  });
+
   it('opens Settings filtered to the search when every result is a setting', async () => {
     // No remembered passages match, so only settings remain once the search settles.
     repository.searchMemory.mockResolvedValue({

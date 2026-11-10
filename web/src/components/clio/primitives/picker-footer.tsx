@@ -12,6 +12,8 @@ export interface PickerHint {
   disabled?: boolean;
   /** Dropped first when the picker is narrow. */
   optional?: boolean;
+  /** Shown only on a wide picker (48rem); dropped before any other hint. */
+  wide?: boolean;
   /** Sits at the right edge, apart from the hints before it ("Ask"). */
   end?: boolean;
 }
@@ -64,7 +66,11 @@ export const PickerFooter = memo(function PickerFooter({
             </>
           );
           const visibility = cn(
-            hint.optional ? 'hidden @[28rem]:inline-flex' : 'inline-flex',
+            hint.wide
+              ? 'hidden @[48rem]:inline-flex'
+              : hint.optional
+                ? 'hidden @[28rem]:inline-flex'
+                : 'inline-flex',
             hint.end && 'ml-auto',
           );
           return hint.onSelect ? (

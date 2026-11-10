@@ -570,7 +570,8 @@ function previewModels(
 
 /**
  * Word, then key: the picker's keys. One column keeps only Choose and Close
- * (the spec's fold drops every key except ? and Esc).
+ * (the spec's fold drops every key except ? and Esc); two columns drop
+ * Columns, then Move, and always keep Close.
  */
 function footerHints(columns: boolean): PickerHint[] {
   if (!columns) {
@@ -582,7 +583,7 @@ function footerHints(columns: boolean): PickerHint[] {
   return [
     { label: 'Move', shortcut: 'menu-move', optional: true },
     { label: 'Choose', shortcut: 'menu-pick' },
-    { label: 'Columns', shortcut: 'menu-columns', optional: true },
-    { label: 'Close', shortcut: 'menu-close', optional: true },
+    { label: 'Columns', shortcut: 'menu-columns', wide: true },
+    { label: 'Close', shortcut: 'menu-close' },
   ];
 }
