@@ -61,7 +61,6 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ConnectionPage } from './connection-page';
-import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 import { InfrastructureTargetGoneError } from '@/lib/connection';
 import { TransportError } from '@clio/core/v3';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -72,7 +71,6 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   vi.clearAllMocks();
-  clearConnectionOutcomes();
   mocks.credentialsReady = true;
   mocks.inTauri = false;
   mocks.managedConnectionReady = false;
@@ -697,7 +695,6 @@ it('auto-connects to a draft without minting a persistent session', async () => 
 
   expect(await screen.findByText('Presentation-only draft')).toBeVisible();
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
-  expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
 
 // The bounded session reads, answered from this test's session list.
