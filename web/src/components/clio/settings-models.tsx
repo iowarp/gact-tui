@@ -235,6 +235,7 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         <SettingsRow
           info="How hard the model thinks before it answers. Default is the model's own level."
           title="Reasoning effort"
+          wideControl
         >
           {marker('effort')}
           <ReasoningLevelSegmented

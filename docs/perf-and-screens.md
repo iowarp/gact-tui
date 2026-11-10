@@ -80,6 +80,28 @@ It reports heap, DOM nodes, listeners and detached nodes after forced GC. Growth
 that scales with the cycle count is a leak; a fixed step after warm-up is a cache.
 Add `--snapshots` to save heap snapshots that name what grew.
 
+### Selectors that make every overlay slower
+
+Opening a menu, popover or picker writes inline `style` (floating-ui
+positions), `data-state`, `aria-expanded` and, for modal overlays,
+`aria-hidden` on most of the page (Radix `hideOthers`). Blink invalidates
+by selector feature, not by match, so two selector shapes turn those writes
+into restyles of unrelated subtrees:
+
+- An attribute that changes often, followed by a child or descendant combinator
+  ending in `*` or another featureless compound (`div[style*='row'] > *`). Any
+  write to that attribute, on any element, restyles the element's whole
+  subtree. Style the matched element itself instead (the a2ui row-stacking rules
+  in `web/src/index.css` stretch the row's children from the row for this
+  reason).
+- A descendant `:has()` that tests such an attribute (`:has(select[aria-hidden])`).
+  It makes `hideOthers` walk the ancestors of every element it hides. Scope it
+  to children (`:has(> select[aria-hidden])`).
+
+To find the source of forced style recalcs, record a trace with the
+`disabled-by-default-devtools.timeline.invalidationTracking` category. It names
+the invalidation that preceded each `UpdateLayoutTree`.
+
 ## `pnpm screens`
 
 `web/perf/screens.mjs` captures each catalogued surface and state at 1680,

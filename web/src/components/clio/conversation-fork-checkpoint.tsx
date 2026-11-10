@@ -24,7 +24,7 @@ export function ConversationForkCheckpoint({
       aria-label="Conversation branched here"
       role="separator"
       data-slot="fork-checkpoint"
-      className="my-1.5 min-w-0"
+      className="my-px min-w-0"
       title={`${copied} Files remain shared.`}
     >
       <StateView
