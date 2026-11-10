@@ -232,7 +232,7 @@ export function ProvidersSettings() {
         title="Providers"
       />
       {error ? (
-        <div className="max-w-[760px]">
+        <div className="max-w-[760px]" title={error.message}>
           <StateView
             action={{
               label: 'Retry',
@@ -243,7 +243,7 @@ export function ProvidersSettings() {
             }}
             kind="error"
             size="row"
-            title={error.message}
+            title="The agent could not load providers."
           />
         </div>
       ) : loading ? (

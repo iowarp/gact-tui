@@ -76,12 +76,12 @@ export function ModelsSettings() {
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
-        <div className="w-full @3xl:w-[60%]">
+        <div className="w-full @3xl:w-[60%]" title={configuration.error.message}>
           <StateView
             action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
             kind="error"
             size="row"
-            title={configuration.error.message}
+            title="The agent could not load models."
           />
         </div>
       ) : (

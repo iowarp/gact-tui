@@ -1,15 +1,18 @@
-import type { LanguageModelPreset } from '@clio/core/v3';
+﻿import type { LanguageModelPreset } from '@clio/core/v3';
 import { LoaderCircleIcon, ServerIcon } from 'lucide-react';
+import { Select as SelectPrimitive } from 'radix-ui';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import {
   CUSTOM_SERVER_PRESET_ID,
   normalizeServerAddress,
   savedCheckSentence,
 } from '@/lib/local-servers';
+import { SettingsSelectField } from './model-select-field';
 import { DialogFrame } from './primitives/dialog-frame';
-import { SettingsChoice, SettingsRow } from './settings-row';
+import { SettingsRow } from './settings-row';
 
 const OTHER = 'other';
 
@@ -40,7 +43,7 @@ export function SettingsAddServerDialog({
     ...runtimes
       .filter((preset) => preset.id !== CUSTOM_SERVER_PRESET_ID)
       .map((preset) => ({ value: preset.id, label: preset.label })),
-    { value: OTHER, label: 'Other', description: 'Any OpenAI-compatible address' },
+    { value: OTHER, label: 'Other' },
   ];
 
   function close(nextOpen: boolean) {
@@ -91,13 +94,24 @@ export function SettingsAddServerDialog({
             info="A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
             title="Kind"
           >
-            <SettingsChoice
-              id="add-server-kind"
-              label="Server kind"
-              onChange={setKind}
-              options={kinds}
-              value={kind}
-            />
+            <Select onValueChange={setKind} value={kind}>
+              <SelectPrimitive.Trigger asChild>
+                <SettingsSelectField
+                  aria-label="Server kind"
+                  className="w-full"
+                  icon={<ServerIcon />}
+                  id="add-server-kind"
+                  value={kinds.find((option) => option.value === kind)?.label}
+                />
+              </SelectPrimitive.Trigger>
+              <SelectContent>
+                {kinds.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </SettingsRow>
           {runtime ? null : (
             <SettingsRow fullWidth htmlFor="add-server-name" title="Name">
@@ -129,7 +143,7 @@ export function SettingsAddServerDialog({
           {save.isPending ? (
             <p className="flex items-center gap-1.5 pt-2 text-muted-foreground" role="status">
               <LoaderCircleIcon aria-hidden="true" className="size-4 motion-safe:animate-spin" />
-              Adding and checking…
+              Adding and checkingâ€¦
             </p>
           ) : save.error ? (
             <p className="truncate pt-2 text-destructive" role="alert" title={save.error.message}>
