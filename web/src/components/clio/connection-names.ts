@@ -1,3 +1,4 @@
+import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { vocab } from '@/lib/brand-vocabulary';
 
@@ -14,6 +15,14 @@ export function agentAvailabilityLabel(
   if (availability.state === 'unavailable') return 'Offline';
   return availability.label;
 }
+
+/** The dot beside an agent's word: green when it answers, a hollow ring when it does not. */
+export const AGENT_AVAILABILITY_TONE: Record<ConnectionAvailability['state'], StatusTone> = {
+  healthy: 'success',
+  degraded: 'warning',
+  unavailable: 'idle',
+  checking: 'running',
+};
 
 const GENERIC_LABELS = ['this computer', 'this device', 'local'];
 const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
