@@ -974,33 +974,8 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // The Timeline tab's Gantt: the conversation family's recorded turns, with
-    // delegated runs that finished, failed and are still running, and a fork.
-    s(
-      'canvas',
-      'work',
-      SESSION,
-      async (page) => {
-        await stripList(page, 'Activity');
-        await control(page, 'button', 'Open timeline and context', { exact: true }).click();
-        await page.waitForTimeout(600);
-        // The Timeline tab opens under the Activity list; close the list to give the
-        // Gantt the pane, as the vault and dashboard shots do.
-        await tabOnly(page, 'Activity');
-        await phoneTabBody(page, 'Activity');
-        await pickMode(page, ['Gantt']);
-        await page
-          .getByRole('region', { name: 'Conversation family Gantt' })
-          .filter({ visible: true })
-          .first()
-          .waitFor({ state: 'visible', timeout: 8000 });
-        await page.mouse.move(2, 2);
-        await page.waitForTimeout(800);
-      },
-      { fixtureDemo: 'conversation-family', settleMs: 1200 },
-    ),
-    // The Activity list's finished work (the former Work tab).
-    s('canvas', 'activity-finished', SESSION, async (page) => {
+    // The former Work tab is now the Activity list's finished work.
+    s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
       const show = page
         .getByRole('region', { name: 'Activity list' })
@@ -1010,6 +985,19 @@ function catalogue({ settings, infrastructure }) {
       if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
+    // Whatever Activity shows for a conversation family: delegated runs that finished,
+    // failed and are still running, and a fork.
+    s(
+      'canvas',
+      'activity-finished',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { fixtureDemo: 'conversation-family', settleMs: 1200 },
+    ),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
     s('canvas', 'agent-customize', SESSION, async (page) => {
       await press(page, 'button', 'Customize the agent');

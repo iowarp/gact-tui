@@ -1,10 +1,10 @@
 /**
- * Test-only conversation family for the Timeline tab's Gantt.
+ * Test-only conversation family for Activity.
  *
  * `POST /__test/conversation-family` gives the base conversation three
  * delegated child runs (completed, running, failed) and one fork, and turns on
- * a queryable native provenance provider whose recorded turns place them on the
- * Gantt. Reset removes the family; the execution route then answers with an
+ * a queryable native provenance provider with their recorded turns. Reset
+ * removes the family; the execution route then answers with an
  * empty, complete snapshot so the route stays served.
  */
 export function createConversationFamilyFixture({ session, workspaceId, sendJson }) {
