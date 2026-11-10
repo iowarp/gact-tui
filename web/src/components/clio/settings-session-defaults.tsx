@@ -47,7 +47,7 @@ const FIELDS =
 function SectionHeading() {
   return (
     <SettingsSectionHeading
-      title="New session defaults"
+      title="Session defaults"
       description="Choose how new sessions start."
     />
   );

@@ -12,30 +12,34 @@ import {
 } from '@/components/ui/select';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { vocab } from '@/lib/brand-vocabulary';
-import { ConfigureIcon } from '@/lib/icon-vocabulary';
+import { AdjustIcon } from '@/lib/icon-vocabulary';
 import {
   type AttentionSoundMode,
+  type FinishedWorkMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
 
 const SELECT_TRIGGER =
   'w-[150px] px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
-/** Sound, desktop alerts and where the bell's settings icon leads. */
+/** Sound, desktop alerts, finished work and where the bell's settings icon leads. */
 export function NotificationSettings() {
-  const { attentionSound, desktopNotifications, setAttentionSound, setDesktopNotifications } =
-    useNotificationPreferences();
+  const {
+    attentionSound,
+    desktopNotifications,
+    finishedWork,
+    setAttentionSound,
+    setDesktopNotifications,
+    setFinishedWork,
+  } = useNotificationPreferences();
   const supported = typeof Notification !== 'undefined';
   const blocked = supported && Notification.permission === 'denied';
 
-  const updateDesktopNotifications = async (enabled: boolean) => {
-    if (!enabled) {
-      setDesktopNotifications(false);
-      return;
-    }
+  // Both desktop choices need the browser's permission before they are kept.
+  const allowDesktopAlerts = async () => {
     if (!supported) {
       toast.error('Desktop notifications are not available in this browser');
-      return;
+      return false;
     }
     const permission =
       Notification.permission === 'default'
@@ -45,9 +49,15 @@ export function NotificationSettings() {
       toast.error('Desktop notifications were not enabled', {
         description: 'Allow notifications for this app in your browser or operating system.',
       });
-      return;
+      return false;
     }
-    setDesktopNotifications(true);
+    return true;
+  };
+  const updateDesktopNotifications = async (enabled: boolean) => {
+    if (!enabled || (await allowDesktopAlerts())) setDesktopNotifications(enabled);
+  };
+  const updateFinishedWork = async (mode: FinishedWorkMode) => {
+    if (mode !== 'desktop' || (await allowDesktopAlerts())) setFinishedWork(mode);
   };
 
   return (
@@ -108,6 +118,27 @@ export function NotificationSettings() {
           </SelectContent>
         </Select>
       </SettingsRow>
+      <SettingsRow
+        title="Finished work"
+        htmlFor="finished-work-notifications"
+        info="Where a finished or stopped run tells you. Desktop alert also shows a system notice while the app is in the background."
+      >
+        <Select
+          value={finishedWork}
+          onValueChange={(value) => void updateFinishedWork(value as FinishedWorkMode)}
+        >
+          <SelectTrigger className={SELECT_TRIGGER} id="finished-work-notifications">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectItem value="bell">Bell only</SelectItem>
+            <SelectItem disabled={!supported} value="desktop">
+              Desktop alert
+            </SelectItem>
+            <SelectItem value="off">Off</SelectItem>
+          </SelectContent>
+        </Select>
+      </SettingsRow>
       <p
         className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
         data-slot="settings-footnote"
@@ -115,7 +146,7 @@ export function NotificationSettings() {
         <BellIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
         <span className="flex min-w-0 items-center gap-1 truncate">
           {'The bell\u2019s'}
-          <ConfigureIcon
+          <AdjustIcon
             aria-label="Notification settings"
             role="img"
             className="size-[0.8125rem] shrink-0"

@@ -2,7 +2,7 @@ import type { PendingInteraction, Session } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { playAttentionSound } from '@/lib/attention-sound';
 import type { SessionAttention } from '@/lib/session-attention';
 import { NotificationPreferencesProvider } from '@/providers/notification-preferences-provider';
@@ -155,6 +155,74 @@ describe('ClioAttentionNotifier', () => {
         vi.mocked(toast.warning).mock.calls.some(([title]) => title !== 'Response needed'),
       ).toBe(true),
     );
+  });
+
+  describe('finished work', () => {
+    const notices: { title: string; options?: NotificationOptions }[] = [];
+    let hasFocus: MockInstance<() => boolean>;
+    beforeEach(() => {
+      notices.length = 0;
+      vi.stubGlobal(
+        'Notification',
+        Object.assign(
+          function Notification(title: string, options?: NotificationOptions) {
+            notices.push({ title, options });
+            return { addEventListener: vi.fn(), close: vi.fn() };
+          },
+          { permission: 'granted' },
+        ),
+      );
+      hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      hasFocus.mockRestore();
+    });
+
+    function runTo(finishedWork: string, from: Session['state'], to: Session['state']) {
+      window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork }));
+      const session: Session = { ...baseSession, id: 'sess_run', state: from };
+      const { rerender } = render(
+        <Notifier activeSessionId="other" attentions={{}} sessions={[session]} />,
+      );
+      rerender(
+        <Notifier
+          activeSessionId="other"
+          attentions={{}}
+          sessions={[{ ...session, state: to }]}
+        />,
+      );
+    }
+
+    it('alerts on the desktop when a background run finishes or stops', async () => {
+      runTo('desktop', 'running', 'completed');
+      await waitFor(() => expect(notices.map((notice) => notice.title)).toEqual(['Session One finished']));
+      cleanup();
+      runTo('desktop', 'running', 'failed');
+      await waitFor(() =>
+        expect(notices.map((notice) => notice.title)).toEqual([
+          'Session One finished',
+          'Session One stopped',
+        ]),
+      );
+    });
+
+    it('stays in the bell by default and says nothing for a run you cancelled', async () => {
+      runTo('bell', 'running', 'completed');
+      cleanup();
+      runTo('desktop', 'running', 'cancelled');
+      cleanup();
+      runTo('desktop', 'completed', 'completed');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(notices).toEqual([]);
+    });
+
+    it('says nothing while the app has focus', async () => {
+      hasFocus.mockReturnValue(true);
+      runTo('desktop', 'running', 'completed');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(notices).toEqual([]);
+    });
   });
 });
 
