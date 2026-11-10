@@ -12,7 +12,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -20,6 +22,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { copyText } from '@/lib/clipboard';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -204,8 +207,56 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
   );
 }
 
-/** Copy and Open as submenus of the … menu once the frame is too narrow for their buttons. */
-export function FoldedTakeRows({ copy, open }: { copy?: CopyTake; open?: OpenTake }) {
+/** Rows re-lettered so none reuses a letter the menu already gives another row. */
+function relettered(rows: readonly TakeRow[], used: Set<string>): TakeRow[] {
+  return rows.map((row) => {
+    const preferred = row.accelerator?.toLocaleUpperCase();
+    const accelerator =
+      preferred && !used.has(preferred)
+        ? preferred
+        : assignJumpLetters([row.label], used)[0] || undefined;
+    if (accelerator) used.add(accelerator);
+    return { ...row, accelerator };
+  });
+}
+
+/**
+ * Copy and Open in the … menu once the frame is too narrow for their buttons:
+ * submenus, or on a phone, where a submenu has no room beside the menu, the
+ * rows themselves under a heading. `taken` holds the letters of the menu's other rows.
+ */
+export function FoldedTakeRows({
+  copy,
+  open,
+  taken = '',
+}: {
+  copy?: CopyTake;
+  open?: OpenTake;
+  taken?: string;
+}) {
+  const inline = useMediaQuery('(max-width: 599px)');
+  if (inline) {
+    const used = new Set([...taken.toLocaleUpperCase()]);
+    const copyRows = copy ? relettered(copy.rows, used) : [];
+    const openRows = open ? relettered(otherOpenRows(open.rows), used) : [];
+    return (
+      <>
+        {copy ? (
+          <DropdownMenuGroup aria-label="Copy">
+            <DropdownMenuLabel>Copy</DropdownMenuLabel>
+            <TakeMenuRows rows={copyRows} />
+          </DropdownMenuGroup>
+        ) : null}
+        {copy && open ? <DropdownMenuSeparator /> : null}
+        {open ? (
+          <DropdownMenuGroup aria-label="Open">
+            <DropdownMenuLabel>Open</DropdownMenuLabel>
+            <TakeMenuRows rows={openRows} />
+          </DropdownMenuGroup>
+        ) : null}
+      </>
+    );
+  }
   return (
     <>
       {copy ? (
@@ -431,7 +482,11 @@ export function FrameTalkTake({
               />
             </DropdownMenuItem>
           ) : null}
-          <FoldedTakeRows copy={fold.copy ? copy : undefined} open={fold.open ? open : undefined} />
+          <FoldedTakeRows
+            copy={fold.copy ? copy : undefined}
+            open={fold.open ? open : undefined}
+            taken={`@${fold.letters.join('')}${menuLetters}`}
+          />
           {anyFolded && menu ? <DropdownMenuSeparator /> : null}
           {menu}
         </DropdownMenuContent>
