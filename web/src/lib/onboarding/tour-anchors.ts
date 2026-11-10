@@ -14,6 +14,12 @@ export const TOUR_ANCHORS = [
   'artifact-card',
   'interactive-surface',
   'tool-activity',
+  'conversation-area',
+  'model-picker',
+  'reasoning-effort',
+  'confirmation-policy',
+  'add-context',
+  'practice-artifact-viewer',
 ] as const;
 
 export type TourAnchorId = (typeof TOUR_ANCHORS)[number];

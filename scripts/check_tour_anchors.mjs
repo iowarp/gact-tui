@@ -10,6 +10,7 @@ import { join, relative, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const webSrc = resolve(root, 'web/src');
 const ANCHORS = resolve(webSrc, 'lib/onboarding/tour-anchors.ts');
+const STAGE = resolve(webSrc, 'components/clio/onboarding/tour-practice-stage.tsx');
 const SCRIPT = resolve(webSrc, 'lib/onboarding/tour-script.ts');
 const SOURCE = /\.[jt]sx?$/u;
 const EXCLUDED = /(?:\.test\.|\.spec\.|[\\/]test(?:-fixtures)?[\\/])/u;
@@ -28,18 +29,22 @@ function declaredAnchors() {
   return [...list.matchAll(/'([a-z][a-z-]*)'/gu)].map((match) => match[1]);
 }
 
+/** Anchors the step script points at, plus the ones the tour's own code follows. */
 function scriptAnchors() {
   const text = readFileSync(SCRIPT, 'utf8');
-  return [...new Set([...text.matchAll(/anchor:\s*'([a-z][a-z-]*)'/gu)].map((match) => match[1]))];
+  const stage = readFileSync(STAGE, 'utf8');
+  return [
+    ...new Set([
+      ...[...text.matchAll(/anchor:\s*'([a-z][a-z-]*)'/gu)].map((match) => match[1]),
+      ...[...stage.matchAll(/findTourAnchor\(\s*'([a-z][a-z-]*)'/gu)].map((match) => match[1]),
+    ]),
+  ];
 }
 
 const declared = declaredAnchors();
 const used = scriptAnchors();
 const placements = new Map(used.map((id) => [id, []]));
-const PLACEMENT = [
-  /tourAnchor\(\s*'([a-z][a-z-]*)'\s*\)/gu,
-  /data-tour="([a-z][a-z-\s]*)"/gu,
-];
+const PLACEMENT = [/tourAnchor\(\s*'([a-z][a-z-]*)'\s*\)/gu, /data-tour="([a-z][a-z-\s]*)"/gu];
 
 for (const file of sources(webSrc)) {
   if (file === ANCHORS) continue;
@@ -57,7 +62,8 @@ for (const file of sources(webSrc)) {
 
 const problems = [];
 for (const id of used) {
-  if (!declared.includes(id)) problems.push(`"${id}" is used by tour-script.ts but missing from TOUR_ANCHORS`);
+  if (!declared.includes(id))
+    problems.push(`"${id}" is used by tour-script.ts but missing from TOUR_ANCHORS`);
 }
 console.log('Onboarding tour anchors:');
 for (const [id, where] of placements) {

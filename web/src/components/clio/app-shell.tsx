@@ -446,7 +446,9 @@ export function ClioAppShell({
         )}
         <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden" {...tourAnchor('conversation-area')}>
+        {updating ? <UpdatePage /> : children}
+      </div>
     </section>
   );
 

@@ -1,7 +1,7 @@
 import type { A2UISurface, Artifact, Message, ToolInvocation } from '@clio/core/v3';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import type { ClioConversationProps } from '@/components/clio/conversation-types';
-import { TOUR_PRACTICE_SESSION_ID as SESSION } from './tour-transport';
+import { TOUR_PRACTICE_SESSION_ID as SESSION, TOUR_PRACTICE_WORKSPACE_ID } from './tour-transport';
 
 /*
  * The scripted practice conversation. Every id resolves to bundled sample data
@@ -85,7 +85,7 @@ const plotTool: ToolInvocation = {
 const plot: Artifact = {
   id: PLOT_ARTIFACT,
   session_id: SESSION,
-  workspace_id: 'tour',
+  workspace_id: TOUR_PRACTICE_WORKSPACE_ID,
   name: 'bkl1-vertical.png',
   media_type: 'image/png',
   uri: `artifact://${PLOT_ARTIFACT}`,
@@ -144,37 +144,85 @@ const surface: A2UISurface = {
   ],
 } as A2UISurface;
 
-export function practiceConversation(): ClioConversationProps {
+const PLOT_REPLY: Message['blocks'] = [
+  { id: 'plot-tool', type: 'tool', tool_id: plotTool.id },
+  {
+    id: 'plot-text',
+    type: 'text',
+    channel: 'answer',
+    text: 'BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70.',
+  },
+  { id: 'plot-artifact', type: 'artifact', artifact_id: PLOT_ARTIFACT },
+];
+
+const TRACKS_REPLY: Message['blocks'] = [
+  {
+    id: 'tracks-text',
+    type: 'text',
+    channel: 'answer',
+    text: 'Harvey, Maria and Dorian, 212 observations. The map and table share one selection.',
+  },
+  { id: 'tracks-surface', type: 'a2ui', surface_id: SURFACE_ID },
+];
+
+export interface PracticeProgress {
+  /** Exchanges started, 0 to 2. */
+  turns: number;
+  /** The newest exchange is still being answered. */
+  working: boolean;
+  /** What the learner sent for each exchange; empty uses the scripted request. */
+  sent: readonly string[];
+}
+
+/**
+ * The conversation after `progress.turns` scripted exchanges. While the newest
+ * one is working, the first shows its script running and the second has no
+ * answer yet.
+ */
+export function practiceConversation(progress: PracticeProgress): ClioConversationProps {
+  const { turns, working, sent } = progress;
+  const messages: Message[] = [];
+  const tools: Record<string, ToolInvocation> = {};
+  if (turns >= 1) {
+    const presentation = plotTool.presentation!;
+    const busy = working && turns === 1;
+    messages.push(user('plot', sent[0] || 'Plot the vertical displacement at station BKL1.', 0));
+    messages.push(assistant('plot_reply', 2, busy ? PLOT_REPLY.slice(0, 1) : PLOT_REPLY));
+    const {
+      output: _output,
+      completed_at: _completed,
+      duration_ms: _duration,
+      ...running
+    } = plotTool;
+    tools[plotTool.id] = busy
+      ? {
+          ...running,
+          state: 'running',
+          presentation: {
+            ...presentation,
+            summary: '',
+            blocks: presentation.blocks?.filter((block) => block.type !== 'terminal'),
+          },
+        }
+      : plotTool;
+  }
+  if (turns >= 2) {
+    messages.push(
+      user('tracks', sent[1] || 'Show the 2017 and 2019 Atlantic hurricane tracks.', 30),
+    );
+    if (!working) messages.push(assistant('tracks_reply', 32, TRACKS_REPLY));
+  }
   return {
     sessionId: SESSION,
-    workspaceId: 'tour',
-    messages: [
-      user('plot', 'Plot the vertical displacement at station BKL1.', 0),
-      assistant('plot_reply', 2, [
-        { id: 'plot-tool', type: 'tool', tool_id: plotTool.id },
-        {
-          id: 'plot-text',
-          type: 'text',
-          channel: 'answer',
-          text: 'BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70.',
-        },
-        { id: 'plot-artifact', type: 'artifact', artifact_id: PLOT_ARTIFACT },
-      ]),
-      user('tracks', 'Show the 2017 and 2019 Atlantic hurricane tracks.', 30),
-      assistant('tracks_reply', 32, [
-        {
-          id: 'tracks-text',
-          type: 'text',
-          channel: 'answer',
-          text: 'Harvey, Maria and Dorian, 212 observations. The map and table share one selection.',
-        },
-        { id: 'tracks-surface', type: 'a2ui', surface_id: SURFACE_ID },
-      ]),
-    ],
-    tools: { [plotTool.id]: plotTool },
+    workspaceId: TOUR_PRACTICE_WORKSPACE_ID,
+    messages,
+    tools,
     tasks: {},
     subagents: {},
-    artifacts: { [plot.id]: plot },
-    surfaces: { [surface.id]: surface },
+    artifacts: turns >= 1 && !(working && turns === 1) ? { [plot.id]: plot } : {},
+    surfaces: turns >= 2 ? { [surface.id]: surface } : {},
   };
 }
+
+/** The opened plot, for the practice viewer. */
+export const PRACTICE_PLOT: Artifact = plot;

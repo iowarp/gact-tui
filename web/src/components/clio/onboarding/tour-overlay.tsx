@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { CheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { findTourAnchor } from '@/lib/onboarding/tour-anchors';
 import { TOUR_SCRIPT_STATUS, type TourStep } from '@/lib/onboarding/tour-script';
@@ -41,6 +42,28 @@ function visibleBox(rect: DOMRect, bounds: DOMRect | undefined): Box | undefined
     : undefined;
 }
 
+/** Open menus and pickers (not tooltips), as boxes. */
+function openPopups(): Box[] {
+  const boxes: Box[] = [];
+  for (const wrapper of document.querySelectorAll('[data-radix-popper-content-wrapper]')) {
+    if (!wrapper.querySelector('[role="menu"], [role="dialog"], [role="listbox"]')) continue;
+    const box = visibleBox(wrapper.getBoundingClientRect(), undefined);
+    if (box) boxes.push(box);
+  }
+  return boxes;
+}
+
+function unionBox(a: Box, b: Box): Box {
+  const top = Math.min(a.top, b.top);
+  const left = Math.min(a.left, b.left);
+  return {
+    top,
+    left,
+    width: Math.max(a.left + a.width, b.left + b.width) - left,
+    height: Math.max(a.top + a.height, b.top + b.height) - top,
+  };
+}
+
 /** Follows the step's anchor every frame, so the spotlight tracks layout, scroll and resize. */
 function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, reduceMotion: boolean) {
   const [box, setBox] = useState<Box>();
@@ -52,7 +75,7 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
     const started = performance.now();
     let warned = false;
     const tick = () => {
-      const root = step.stage === 'practice' ? (scope.current ?? undefined) : document;
+      const root = step.practice ? (scope.current ?? undefined) : document;
       const element = step.anchor && root ? findTourAnchor(step.anchor, root) : undefined;
       if (element && !scrolled) {
         scrolled = true;
@@ -65,29 +88,12 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
             `Onboarding tour: anchor "${step.anchor}" is not on screen; showing a centred card.`,
           );
       }
-      const anchorRect = element?.getBoundingClientRect();
-      // The practice note answers what the learner just did, so it stays lit with the anchor.
-      const noteRect =
-        anchorRect && root instanceof HTMLElement
-          ? root.querySelector('[data-tour-note]')?.getBoundingClientRect()
-          : undefined;
-      const rect =
-        anchorRect && noteRect
-          ? DOMRect.fromRect({
-              x: Math.min(anchorRect.left, noteRect.left),
-              y: Math.min(anchorRect.top, noteRect.top),
-              width:
-                Math.max(anchorRect.right, noteRect.right) -
-                Math.min(anchorRect.left, noteRect.left),
-              height:
-                Math.max(anchorRect.bottom, noteRect.bottom) -
-                Math.min(anchorRect.top, noteRect.top),
-            })
-          : anchorRect;
       // A tall anchor inside the practice stage is clipped to what the stage shows.
       const bounds =
         root instanceof HTMLElement && root !== element ? root.getBoundingClientRect() : undefined;
-      const next = rect ? visibleBox(rect, bounds) : undefined;
+      const anchorBox = element ? visibleBox(element.getBoundingClientRect(), bounds) : undefined;
+      // A menu or picker the step opened stays lit with its control.
+      const next = anchorBox ? openPopups().reduce(unionBox, anchorBox) : undefined;
       if (current === null || !sameBox(current, next)) {
         current = next;
         setBox(next);
@@ -124,6 +130,8 @@ function cardPosition(
 
 export interface TourOverlayProps {
   step: TourStep;
+  /** The learner did what the step asked. */
+  done: boolean;
   index: number;
   count: number;
   stageRef: RefObject<HTMLElement | null>;
@@ -136,6 +144,7 @@ export interface TourOverlayProps {
 /** The one spotlight and step card every tour step uses. */
 export function TourOverlay({
   step,
+  done,
   index,
   count,
   stageRef,
@@ -166,40 +175,43 @@ export function TourOverlay({
     : 'transition-[top,left,width,height] duration-200 ease-out motion-reduce:transition-none';
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[45]" data-tour-overlay="">
-      {box ? (
-        <>
-          <div
-            className={cn('pointer-events-auto fixed inset-x-0 top-0 bg-scrim', transition)}
-            style={{ height: Math.max(0, box.top) }}
-          />
-          <div
-            className={cn('pointer-events-auto fixed inset-x-0 bottom-0 bg-scrim', transition)}
-            style={{ top: box.top + box.height }}
-          />
-          <div
-            className={cn('pointer-events-auto fixed left-0 bg-scrim', transition)}
-            style={{ top: box.top, height: box.height, width: Math.max(0, box.left) }}
-          />
-          <div
-            className={cn('pointer-events-auto fixed right-0 bg-scrim', transition)}
-            style={{ top: box.top, height: box.height, left: box.left + box.width }}
-          />
-          <div
-            aria-hidden="true"
-            className={cn('fixed rounded-lg ring-2 ring-primary', transition)}
-            style={box}
-          />
-        </>
-      ) : (
-        <div className="pointer-events-auto fixed inset-0 bg-scrim" />
-      )}
+    <>
+      <div className="pointer-events-none fixed inset-0 z-[45]" data-tour-overlay="">
+        {box ? (
+          <>
+            <div
+              className={cn('pointer-events-auto fixed inset-x-0 top-0 bg-scrim', transition)}
+              style={{ height: Math.max(0, box.top) }}
+            />
+            <div
+              className={cn('pointer-events-auto fixed inset-x-0 bottom-0 bg-scrim', transition)}
+              style={{ top: box.top + box.height }}
+            />
+            <div
+              className={cn('pointer-events-auto fixed left-0 bg-scrim', transition)}
+              style={{ top: box.top, height: box.height, width: Math.max(0, box.left) }}
+            />
+            <div
+              className={cn('pointer-events-auto fixed right-0 bg-scrim', transition)}
+              style={{ top: box.top, height: box.height, left: box.left + box.width }}
+            />
+            <div
+              aria-hidden="true"
+              className={cn('fixed rounded-lg ring-2 ring-primary', transition)}
+              style={box}
+            />
+          </>
+        ) : (
+          <div className="pointer-events-auto fixed inset-0 bg-scrim" />
+        )}
+      </div>
+      {/* Above menus and the model picker's dim (110), beside what they show. */}
       <div
         aria-describedby={bodyId}
         aria-labelledby={titleId}
         aria-modal="false"
         className={cn(
-          'pointer-events-auto fixed rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none',
+          'pointer-events-auto fixed z-[120] rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none',
           position ? undefined : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
         )}
         data-tour-card=""
@@ -223,12 +235,22 @@ export function TourOverlay({
         </h2>
         <div id={bodyId}>
           <p className="mt-1 text-muted-foreground">{step.body}</p>
-          {step.tryIt ? (
+          {step.tryIt && !done ? (
             <p className="mt-2">
               <span className="font-medium">Try it: </span>
               {step.tryIt}
             </p>
           ) : null}
+          <p aria-live="polite" className="mt-2 flex items-center gap-1.5 empty:hidden">
+            {done ? (
+              <>
+                <CheckIcon aria-hidden="true" className="size-4 text-primary" />
+                <span className="font-medium">
+                  {step.waitFor === 'interact' ? 'Nice. Keep exploring, or press Next.' : 'Done'}
+                </span>
+              </>
+            ) : null}
+          </p>
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           {last ? (
@@ -250,6 +272,6 @@ export function TourOverlay({
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
