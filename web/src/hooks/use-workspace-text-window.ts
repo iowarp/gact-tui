@@ -5,10 +5,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { retryRead } from '@/lib/connection-attempt';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
-import { TEXT_WINDOW_CHUNK_BYTES, TEXT_WINDOW_MAX_BYTES } from '@/lib/runtime-limits';
-
-/** Windows of a large file stay cached briefly; reopening it soon is cheap, the bytes do not linger. */
-const TEXT_WINDOW_GC_TIME_MS = 30_000;
+import {
+  TEXT_WINDOW_CHUNK_BYTES,
+  TEXT_WINDOW_MAX_BYTES,
+  VIEWER_BYTES_GC_TIME_MS as TEXT_WINDOW_GC_TIME_MS,
+} from '@/lib/runtime-limits';
 
 /** A refusal (a 4xx, such as a file past the server's read cap) won't change on retry. */
 function retryUnlessRefused(failures: number, error: Error): boolean {
