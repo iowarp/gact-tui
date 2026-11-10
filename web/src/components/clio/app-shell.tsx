@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useRegionShortcuts } from '@/lib/shortcuts/regions';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
@@ -342,6 +343,7 @@ export function ClioAppShell({
   }, [applyWorkbenchShare, hasWorkbench]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  useRegionShortcuts();
   useMenuAction('toggle-workbench', toggleWorkbench, hasWorkbench);
   const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
 
@@ -372,6 +374,7 @@ export function ClioAppShell({
     <section
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
+      data-keyboard-region=""
       data-slot="conversation-surface"
     >
       <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>

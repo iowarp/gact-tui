@@ -2,12 +2,52 @@ import * as React from "react"
 import { HoverCard as HoverCardPrimitive, Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { isBehindModal, subscribeToModals } from "./modal-focus"
 import { useOverlayContainer } from "./overlay-container"
 
+const HoverCardTriggerRef = React.createContext<React.RefObject<HTMLElement | null> | null>(null)
+
+/**
+ * A preview never opens behind a dialog, sheet or menu, and one already open
+ * closes when a dialog or sheet opens above it.
+ * Otherwise a row's hover timer or focus keeps it open under a dialog the
+ * row's menu just opened, and it takes that dialog's first Esc.
+ */
 function HoverCard({
+  open: openProp,
+  defaultOpen = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
-  return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />
+  const triggerRef = React.useRef<HTMLElement | null>(null)
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen)
+  const changeOpen = React.useCallback(
+    (next: boolean) => {
+      if (next && isBehindModal(triggerRef.current)) return
+      if (openProp === undefined) setUncontrolledOpen(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange, openProp]
+  )
+  const open = openProp ?? uncontrolledOpen
+  React.useEffect(() => {
+    if (!open) return
+    const closeIfBehindModal = () => {
+      if (isBehindModal(triggerRef.current)) changeOpen(false)
+    }
+    closeIfBehindModal()
+    return subscribeToModals(closeIfBehindModal)
+  }, [changeOpen, open])
+  return (
+    <HoverCardTriggerRef.Provider value={triggerRef}>
+      <HoverCardPrimitive.Root
+        data-slot="hover-card"
+        open={open}
+        onOpenChange={changeOpen}
+        {...props}
+      />
+    </HoverCardTriggerRef.Provider>
+  )
 }
 
 type TouchStartHandler = React.TouchEventHandler<HTMLAnchorElement>
@@ -32,10 +72,25 @@ function HoverCardTrigger({
   asChild = false,
   children,
   onTouchStart,
+  ref,
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Trigger>) {
+  const triggerRef = React.useContext(HoverCardTriggerRef)
+  const composedRef = React.useCallback(
+    (node: HTMLAnchorElement | null) => {
+      if (triggerRef) triggerRef.current = node
+      if (typeof ref === "function") return ref(node)
+      if (ref) ref.current = node
+    },
+    [ref, triggerRef]
+  )
   return (
-    <HoverCardPrimitive.Trigger asChild data-slot="hover-card-trigger" {...props}>
+    <HoverCardPrimitive.Trigger
+      asChild
+      data-slot="hover-card-trigger"
+      ref={composedRef}
+      {...props}
+    >
       <TouchPassiveSlot ownTouchStart={onTouchStart}>
         {asChild ? children : <a>{children}</a>}
       </TouchPassiveSlot>

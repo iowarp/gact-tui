@@ -196,7 +196,10 @@ export function ClioModelPicker({
   useShortcut(
     shortcut ?? 'model-picker',
     () => {
-      if (!triggerRef.current?.disabled) handleOpenChange(true);
+      const trigger = triggerRef.current;
+      if (!trigger?.disabled && trigger?.getAttribute('aria-disabled') !== 'true') {
+        handleOpenChange(true);
+      }
     },
     { enabled: Boolean(shortcut) && !open, allowInTextField: true },
   );
@@ -210,12 +213,14 @@ export function ClioModelPicker({
       <PopoverTrigger asChild ref={triggerRef}>
         {trigger}
       </PopoverTrigger>
-      {/* The spec's dim behind the anchored picker; below the picker (110), above a window (100). */}
+      {/* The spec's dim behind the anchored picker; below the picker (110), above a window (100).
+          It only dims: an outside press must reach the shield, because a React portal would
+          bubble the click to the composer, which focuses its field. */}
       {open
         ? createPortal(
             <div
               aria-hidden="true"
-              className="fixed inset-0 z-[105] bg-scrim/80 motion-safe:animate-in motion-safe:fade-in-0"
+              className="pointer-events-none fixed inset-0 z-[105] bg-scrim/80 motion-safe:animate-in motion-safe:fade-in-0"
               data-slot="model-picker-backdrop"
             />,
             document.body,

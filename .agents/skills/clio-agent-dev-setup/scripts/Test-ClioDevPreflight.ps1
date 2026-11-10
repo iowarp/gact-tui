@@ -10,7 +10,7 @@ param(
     [int]$CtePort = 9413,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
-    [string]$ExpectedTransport = "sdk",
+    [string]$ExpectedTransport = "websocket",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [ValidateRange(30, 900)]
     [int]$HealthTimeoutSec = 300,
@@ -75,7 +75,16 @@ function Get-OneListenerPid {
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
 $documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
-$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
+# Health reports the document processor as degraded while a restarted Docling
+# worker warms again, so wait within the health budget instead of sampling once.
+$healthDeadline = [DateTime]::UtcNow.AddSeconds($HealthTimeoutSec)
+do {
+    $health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
+    if (Test-ClioDevHealthReady -Health $health) {
+        break
+    }
+    Start-Sleep -Seconds 3
+} while ([DateTime]::UtcNow -lt $healthDeadline)
 $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
@@ -139,9 +148,18 @@ catch {
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
-if ($health.overall_status -ne "ready") {
-    throw "CLIO health is '$($health.overall_status)', not ready."
+if (-not (Test-ClioDevHealthReady -Health $health)) {
+    $blocking = @(
+        $health.integrations |
+            Where-Object { $_.status -ne "ready" } |
+            ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 4 }
+    ) -join ", "
+    throw "CLIO health is '$($health.overall_status)', not ready. Integrations: $blocking"
 }
+# Bundled agents, SPOTTER and the default marketplace serve particular campaigns.
+# A fresh generation without them still runs CLIO sessions, so report them as
+# warnings instead of refusing the whole installation.
+$warnings = [System.Collections.Generic.List[string]]::new()
 
 $integrations = @($health.integrations)
 $arc = $integrations | Where-Object { $_.name -eq "arc" }
@@ -203,15 +221,31 @@ if ($resourceDegradations.Count -gt 0) {
     throw "CLIO resource conversion is degraded: $($resourceDegradations -join '; ')."
 }
 $activeDocumentProcessorUrl = ([string]$configuredDocumentProcessor.endpoint).TrimEnd("/")
-$activeDocumentProcessorResponse = Invoke-ClioDevWebRequest `
-    -Uri "$activeDocumentProcessorUrl/readyz" `
-    -TimeoutSec 30
-$activeDocumentProcessorHealth = $activeDocumentProcessorResponse.Content | ConvertFrom-Json
-if (
-    $activeDocumentProcessorResponse.StatusCode -ne 200 -or
-    $activeDocumentProcessorHealth.checks.docling -ne "ready"
-) {
+# Docling's worker can briefly report loading again while the backend's first
+# conversions warm it. Give it a bounded window before failing. /readyz answers
+# 503 overall whenever the optional SearXNG or GROBID services are absent, so
+# judge the Docling check itself, as startup does.
+$activeDocumentProcessorDeadline = [DateTime]::UtcNow.AddSeconds(180)
+do {
+    try {
+        $activeDocumentProcessorResponse = Invoke-ClioDevWebRequest `
+            -Uri "$activeDocumentProcessorUrl/readyz" `
+            -TimeoutSec 30
+        $activeDocumentProcessorHealth = $activeDocumentProcessorResponse.Content | ConvertFrom-Json
+        $activeDocumentProcessorReady = $activeDocumentProcessorHealth.checks.docling -eq "ready"
+    }
+    catch {
+        $activeDocumentProcessorReady = $false
+    }
+    if (-not $activeDocumentProcessorReady) {
+        Start-Sleep -Seconds 3
+    }
+} while (-not $activeDocumentProcessorReady -and [DateTime]::UtcNow -lt $activeDocumentProcessorDeadline)
+if (-not $activeDocumentProcessorReady) {
     throw "The configured document processor at $activeDocumentProcessorUrl is not ready."
+}
+if ($activeDocumentProcessorUrl -eq $documentProcessorUrl) {
+    $documentProcessorHealth = $activeDocumentProcessorHealth
 }
 if ($documentProcessorHealth.checks.docling -ne "ready") {
     throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
@@ -221,36 +255,41 @@ $agents = @($catalog.agents)
 $installedRefs = @($agents.ref)
 $missingAgents = @($RequiredAgents | Where-Object { $_ -notin $installedRefs })
 if ($missingAgents.Count -gt 0) {
-    throw "Required bundled agents are missing: $($missingAgents -join ', ')."
+    $warnings.Add("Required bundled agents are missing: $($missingAgents -join ', ').")
 }
 
+$spotterConfigText = ""
 if (-not (Test-Path -LiteralPath $spotterImplRoot -PathType Container)) {
-    throw "SPOTTER implementation is missing: $spotterImplRoot"
+    $warnings.Add("SPOTTER implementation is missing: $spotterImplRoot")
 }
 if (-not (Test-Path -LiteralPath $spotterConfigFull -PathType Leaf)) {
-    throw "SPOTTER CLIO configuration is missing: $spotterConfigFull"
+    $warnings.Add("SPOTTER CLIO configuration is missing: $spotterConfigFull")
 }
-$spotterConfigText = Get-Content -Raw -LiteralPath $spotterConfigFull
-foreach ($requiredSetting in @(
-    "provenance.agentic.jsonl.path:",
-    "provenance.artifacts.native.workspace_root:"
-)) {
-    if (-not $spotterConfigText.Contains($requiredSetting)) {
-        throw "SPOTTER CLIO configuration omits '$requiredSetting'."
+else {
+    $spotterConfigText = Get-Content -Raw -LiteralPath $spotterConfigFull
+    foreach ($requiredSetting in @(
+        "provenance.agentic.jsonl.path:",
+        "provenance.artifacts.native.workspace_root:"
+    )) {
+        if (-not $spotterConfigText.Contains($requiredSetting)) {
+            $warnings.Add("SPOTTER CLIO configuration omits '$requiredSetting'.")
+        }
     }
 }
 
 $marketplaceRows = @($marketplaces.marketplaces)
 $bundledMarketplace = $marketplaceRows | Where-Object { $_.default -eq $true } | Select-Object -First 1
 if ($null -eq $bundledMarketplace) {
-    throw "The installed default marketplace is missing from /v1/plugins/marketplaces."
+    $warnings.Add("The installed default marketplace is missing from /v1/plugins/marketplaces.")
 }
-if (-not $bundledMarketplace.trusted) {
-    throw "The default marketplace '$($bundledMarketplace.name)' is not trusted."
-}
-$marketplaceErrors = @($bundledMarketplace.diagnostics | Where-Object { $_.severity -eq "error" })
-if ($marketplaceErrors.Count -gt 0) {
-    throw "The default marketplace reports errors: $(@($marketplaceErrors.message) -join '; ')."
+else {
+    if (-not $bundledMarketplace.trusted) {
+        $warnings.Add("The default marketplace '$($bundledMarketplace.name)' is not trusted.")
+    }
+    $marketplaceErrors = @($bundledMarketplace.diagnostics | Where-Object { $_.severity -eq "error" })
+    if ($marketplaceErrors.Count -gt 0) {
+        $warnings.Add("The default marketplace reports errors: $(@($marketplaceErrors.message) -join '; ').")
+    }
 }
 
 $readyMcpServers = @()
@@ -397,7 +436,6 @@ if ($webResponse.StatusCode -ne 200) {
 }
 
 $degraded = @($integrations | Where-Object { $_.status -eq "degraded" })
-$warnings = [System.Collections.Generic.List[string]]::new()
 foreach ($item in $degraded) {
     $warnings.Add("$($item.name): $($item.summary)")
 }

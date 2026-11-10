@@ -12,11 +12,19 @@ export interface SettingsSelectFieldProps
   /** The chosen value's words; `placeholder` shows muted when empty. */
   value?: ReactNode;
   placeholder?: ReactNode;
+  /**
+   * A save is in flight: the field reads as unavailable and won't open, but stays
+   * focusable, so a picker closing on its own choice can still return focus here.
+   */
+  busy?: boolean;
 }
 
 /** A select-shaped field (C): icon, value, chevron. Every select opens the one Picker. */
 export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectFieldProps>(
-  function SettingsSelectField({ icon, value, placeholder, className, ...props }, ref) {
+  function SettingsSelectField(
+    { icon, value, placeholder, busy, className, onClick, ...props },
+    ref,
+  ) {
     return (
       <button
         ref={ref}
@@ -26,11 +34,21 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
           'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-input/30 px-2.5 text-[0.78125rem] whitespace-nowrap text-foreground outline-none',
           // Inset like the row's text fields (the spec's dark field fill).
           'dark:bg-sidebar dark:hover:bg-input/30',
-          'hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60',
+          'hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
           'aria-expanded:border-ring aria-expanded:ring-2 aria-expanded:ring-ring/30',
           "[&_svg:not([class*='size-'])]:size-3.5",
           className,
         )}
+        aria-busy={busy || undefined}
+        aria-disabled={busy || undefined}
+        // Default-prevented, so an asChild trigger (Radix) doesn't open.
+        onClick={(event) => {
+          if (busy) {
+            event.preventDefault();
+            return;
+          }
+          onClick?.(event);
+        }}
         {...props}
       >
         {icon ? (
@@ -64,6 +82,7 @@ export function ModelSelectField({
   onRetryCatalog,
   onChange,
   disabled,
+  busy,
   label,
   inherited,
 }: {
@@ -82,6 +101,8 @@ export function ModelSelectField({
   onRetryCatalog: (providerId?: string) => void;
   onChange: (choice: ClioModelOption) => void;
   disabled?: boolean;
+  /** A save is pending: blocks opening but keeps the field focusable. */
+  busy?: boolean;
   /** The value is inherited: show it, but leave the picker without a current row so choosing it pins it. */
   inherited?: boolean;
 }) {
@@ -99,6 +120,7 @@ export function ModelSelectField({
       trigger={
         <SettingsSelectField
           aria-label={label}
+          busy={busy}
           disabled={disabled}
           icon={
             providerId ? (
