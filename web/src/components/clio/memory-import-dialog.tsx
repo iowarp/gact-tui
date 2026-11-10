@@ -81,7 +81,6 @@ export function MemoryImportDialog({
   };
   return (
     <DialogFrame
-      className="w-[clamp(500px,40vw,560px)]"
       confirm={{
         label: busy
           ? source === 'archive'

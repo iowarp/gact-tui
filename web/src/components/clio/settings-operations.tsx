@@ -1,4 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
 import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
@@ -276,7 +278,7 @@ export function SystemSettings() {
   // One list-width column, so the rows, counts and integrations share the ItemList edge.
   const list = (
     <UnofferedParts order={PARTS}>
-      <div className="@container min-w-0">
+      <div className={cn('@container min-w-0', !open && SETTINGS_COLUMN)}>
         {notOffered(health.error) ? null : (
           <SettingsGroupLabel
             className="mt-2"

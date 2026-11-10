@@ -11,7 +11,7 @@ const PARTS = ['configuration', 'session retention', 'compaction history'];
  */
 export function ExecutionHistorySettings({ initialSessionId }: { initialSessionId?: string }) {
   return (
-    <UnofferedParts order={PARTS}>
+    <UnofferedParts order={PARTS} placed>
       <RuntimeSettingsPanel
         exclude={['Memory']}
         insertBefore={{

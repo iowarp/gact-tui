@@ -1,7 +1,7 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
-import { getToolStatus } from './tool-presentation';
+import { getToolStatus, isToolStopped } from './tool-presentation';
 
 /** Keep entry disclosures about actions; numeric outcomes belong in the message footer. */
 export function transcriptActivitySummary(iterations: readonly ConversationIteration[]): {
@@ -62,9 +62,7 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   ];
   const description = actions.join(', ') || 'activity';
   const label = description[0].toUpperCase() + description.slice(1);
-  const interruptionOnTool = iterations.some((item) =>
-    item.tools.some((tool) => getToolStatus(tool) === 'interrupted'),
-  );
+  const interruptionOnTool = iterations.some((item) => item.tools.some(isToolStopped));
   return {
     label:
       !interruptionOnTool && iterations.some((item) => item.interrupted)
@@ -139,7 +137,7 @@ export function transcriptRunSummary(
   return {
     label: description[0]!.toUpperCase() + description.slice(1),
     failed: all.filter((tool) => getToolStatus(tool) === 'failed').length,
-    interrupted: all.filter((tool) => getToolStatus(tool) === 'interrupted').length,
+    interrupted: all.filter(isToolStopped).length,
   };
 }
 

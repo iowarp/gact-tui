@@ -20,11 +20,23 @@ function joined(nouns: readonly string[]) {
   return `${nouns.slice(0, -1).join(', ')} or ${nouns.at(-1)}`;
 }
 
+const UnofferedNouns = createContext<readonly string[] | undefined>(undefined);
+
 /**
  * Collects the parts of a page the agent does not offer and names them on one
- * empty line, instead of one "doesn't offer" line per part.
+ * empty line, instead of one "doesn't offer" line per part. The line leads the
+ * page body; a page whose heading sits inside it places `UnofferedLine` under
+ * that heading and passes `placed`.
  */
-export function UnofferedParts({ children, order }: { children: ReactNode; order: string[] }) {
+export function UnofferedParts({
+  children,
+  order,
+  placed = false,
+}: {
+  children: ReactNode;
+  order: string[];
+  placed?: boolean;
+}) {
   const [missing, setMissing] = useState<ReadonlySet<string>>(new Set());
   const report = useCallback<Report>((noun, off) => {
     setMissing((current) => {
@@ -44,21 +56,30 @@ export function UnofferedParts({ children, order }: { children: ReactNode; order
   );
   return (
     <UnofferedReport.Provider value={report}>
-      {children}
-      {nouns.length ? (
-        <StateView
-          kind="unavailable"
-          size="row"
-          // The whole page body at phone width, so it wraps rather than hiding behind an ellipsis.
-          className="h-auto min-h-7 py-1"
-          title={
-            <span className="whitespace-normal text-pretty">
-              This agent doesn’t offer {joined(nouns)}.
-            </span>
-          }
-        />
-      ) : null}
+      <UnofferedNouns.Provider value={nouns}>
+        {placed ? null : <UnofferedLine />}
+        {children}
+      </UnofferedNouns.Provider>
     </UnofferedReport.Provider>
+  );
+}
+
+/** The page's one "doesn't offer" line; nothing outside `UnofferedParts` or when all parts are offered. */
+export function UnofferedLine() {
+  const nouns = useContext(UnofferedNouns);
+  if (!nouns?.length) return null;
+  return (
+    <StateView
+      kind="unavailable"
+      size="row"
+      // The whole page body at phone width, so it wraps rather than hiding behind an ellipsis.
+      className="h-auto min-h-7 py-1"
+      title={
+        <span className="whitespace-normal text-pretty">
+          This agent doesn’t offer {joined(nouns)}.
+        </span>
+      }
+    />
   );
 }
 
