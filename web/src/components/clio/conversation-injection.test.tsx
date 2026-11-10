@@ -4,6 +4,7 @@ import { domAnimation, LazyMotion } from 'motion/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
+import { openActivityRuns } from '@/test/open-activity-runs';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
 
@@ -285,6 +286,7 @@ describe('ClioConversation harness injection', () => {
         />,
       );
       await waitFor(() => expect(screen.getByText('The manifest is available.')).toBeVisible());
+      openActivityRuns(container);
       expect(
         [...container.querySelectorAll('[data-turn-activity]')].map((item) =>
           item.getAttribute('data-turn-activity'),
@@ -340,6 +342,7 @@ describe('ClioConversation harness injection', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /^Activity/u })).toBeNull();
+    openActivityRuns(container);
     const reminder = container.querySelector<HTMLElement>(
       '[data-turn-activity="injection:reminder"]',
     )!;

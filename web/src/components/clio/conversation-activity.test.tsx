@@ -201,6 +201,8 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
+    // A finished run folds into one counted row; its calls are one press away.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, ran 1 task' }));
     const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
     if (!taskLine) throw new Error('the task activity line was not rendered');
     expect(taskLine).toHaveTextContent('Review station quality');

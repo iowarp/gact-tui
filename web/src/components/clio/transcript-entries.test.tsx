@@ -165,7 +165,7 @@ it('opens streaming thinking and folds it once it completes, unless the reader c
   );
 });
 
-it('keeps reasoning-only continuations and their tools in one ordered activity block', () => {
+it('folds a finished run into one counted row that opens to its ordered calls', () => {
   const first = iteration('one', 0);
   const second = { ...iteration('two', 1), nextThoughts: [] };
   const view = render(
@@ -181,7 +181,15 @@ it('keeps reasoning-only continuations and their tools in one ordered activity b
         'button[aria-label^="Thinking:"],button[aria-label^="Technical details"]',
       ),
     ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
-  // The first thought reads before its public update; the continuation's thought stays in the lane.
+  // The first thought reads before its public update; the rest of the run folds into one row.
+  expect(ordered(timeline)).toEqual([]);
+  const run = screen.getByRole('button', { name: 'Expand Called 2 tools' });
+  expect(timeline).toHaveAttribute('data-run-collapsed');
+  fireEvent.click(run);
+  expect(screen.getByRole('button', { name: 'Collapse Called 2 tools' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
   expect(ordered(view.container)).toEqual([
     'Thinking: Private recorded one reasoning.',
     'Technical details for Read file',
@@ -189,6 +197,26 @@ it('keeps reasoning-only continuations and their tools in one ordered activity b
     'Technical details for Read file',
   ]);
   expect(ordered(timeline)).toEqual(ordered(view.container).slice(1));
+});
+
+it('keeps a live run as flat rows until it settles', () => {
+  const view = render(
+    <ConversationTurn
+      followLiveActivity
+      iterations={[iteration('one', 0), { ...iteration('two', 1, true), nextThoughts: [] }]}
+      mode="chain"
+      subagents={{}}
+    />,
+  );
+  expect(view.container.querySelector('[data-run-summary]')).toBeNull();
+  view.rerender(
+    <ConversationTurn
+      iterations={[iteration('one', 0), { ...iteration('two', 1), nextThoughts: [] }]}
+      mode="chain"
+      subagents={{}}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Expand Called 2 tools' })).toBeInTheDocument();
 });
 
 it('retains an opened tool result across live updates and answer arrival', async () => {

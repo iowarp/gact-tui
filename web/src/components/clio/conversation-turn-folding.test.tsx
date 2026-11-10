@@ -42,7 +42,9 @@ describe('ConversationTurn activity lane', () => {
   }
 
   it('keeps live and finished activity visible as rows, without a folding header', () => {
-    const read = iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }]));
+    const read = iteration(
+      activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }]),
+    );
     const { rerender } = render(
       <ConversationTurn followLiveActivity iterations={[read]} mode="chain" subagents={{}} />,
     );
@@ -72,11 +74,14 @@ describe('ConversationTurn activity lane', () => {
         subagents={{}}
       />,
     );
-    expect(rows()).toHaveLength(4);
+    expect(rows()).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 8 tools' }));
+    // Opened, the run still shows its latest rows first, under its summary row.
+    expect(rows()).toHaveLength(5);
 
     fireEvent.click(screen.getByRole('button', { name: 'Show all 8' }));
 
-    expect(rows()).toHaveLength(8);
+    expect(rows()).toHaveLength(9);
     expect(screen.queryByRole('button', { name: /^Show all/u })).not.toBeInTheDocument();
   });
 });

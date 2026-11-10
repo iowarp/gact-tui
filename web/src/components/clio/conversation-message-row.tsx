@@ -34,6 +34,14 @@ import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
 import { ConversationSummonedWork } from './conversation-summoned-work';
 import { DiffusionCanvas } from './diffusion-canvas';
+import { ConversationModelDivider } from './transcript-divider';
+import type { ConversationModelBoundary } from './conversation-model-boundaries';
+
+function modelBoundaryKey(boundary: ConversationModelBoundary | undefined): string {
+  const id = (model: ConversationModelBoundary['model']) =>
+    model ? `${model.provider_id}/${model.model_id}` : '';
+  return boundary ? `${id(boundary.model)}<${id(boundary.previous)}` : '';
+}
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -46,6 +54,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   onDisplayModeChange,
   mcpAppResponse,
   messageCompactions,
+  modelBoundary,
   feedbackMessages,
   injectionMessages,
   injectionsGrouped = false,
@@ -120,6 +129,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
+  // Runs fold into their counted rows only once the whole turn has finished.
+  const turnLive =
+    active ||
+    (liveActivityId !== undefined &&
+      turn.iterations.some((iteration) => iteration.id === liveActivityId));
   const executionMode = specialMessageExecutionMode(message);
   const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
@@ -189,6 +203,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           workspaceId={entities.workspaceId}
         />
       ) : null}
+      {modelBoundary ? <ConversationModelDivider boundary={modelBoundary} /> : null}
       {message.role === 'assistant' && leadingDelegations.length > 0 ? (
         <ParentDelegationMessage message={{ ...message, blocks: leadingDelegations }} />
       ) : null}
@@ -351,6 +366,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               followLiveActivity={segment.iterations.some(
                                 (iteration) => iteration.id === liveActivityId,
                               )}
+                              turnLive={turnLive}
                               activeMcpAppId={entities.activeMcpAppId}
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
@@ -619,6 +635,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
+    modelBoundaryKey(left.modelBoundary) !== modelBoundaryKey(right.modelBoundary) ||
     left.forkOrigin !== right.forkOrigin ||
     left.agentName !== right.agentName ||
     left.attentionData !== right.attentionData ||

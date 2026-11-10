@@ -8,6 +8,7 @@ import '@/components/ai-elements/markdown';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ArchiveConnectionProvider } from '@/providers/connection-provider';
 import { RepositoryOverrideProvider } from '@/providers/repository-override';
+import { openActivityRuns } from '@/test/open-activity-runs';
 import { ArchiveConversation, type ArchiveTranscriptView } from './archive-conversation';
 import { ArchiveSessionHeader } from './archive-orchestration';
 import {
@@ -442,7 +443,8 @@ describe('exported subagent tree without subagent records', () => {
         view={views.sess_l1}
       />,
     );
-    // Each call's row names its child as a link, collapsed and expanded alike.
+    // The finished run opens to its calls; each call's row names its child as a link.
+    openActivityRuns();
     await user.click(screen.getByRole('button', { name: 'level 1~1' }));
     expect(onOpenSession).toHaveBeenLastCalledWith('sess_fork');
     await user.click(screen.getByRole('button', { name: 'Show result for fork' }));

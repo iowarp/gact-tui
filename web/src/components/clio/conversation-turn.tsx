@@ -1,4 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
+import { WrenchIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type {
@@ -26,7 +27,9 @@ import { questionInteractionsForTool, splitWaitingQuestion } from './agent-answe
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
-import { transcriptActivitySummary } from './transcript-activity-summary';
+import { transcriptActivitySummary, transcriptRunSummary } from './transcript-activity-summary';
+import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
+import { StatusIndicator } from './primitives/status-indicator';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { HarnessInjection } from './conversation-harness-injection';
@@ -62,6 +65,11 @@ interface ConversationTurnProps {
   answerStarted?: boolean;
   /** Open the last live group until a newer entry arrives, unless the reader chose otherwise. */
   followLiveActivity?: boolean;
+  /**
+   * The turn is still working. Its runs stay as rows while it works and fold
+   * into their counted rows once it finishes, so nothing moves while it is read.
+   */
+  turnLive?: boolean;
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -84,6 +92,7 @@ interface ConversationTurnProps {
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
   followLiveActivity = false,
+  turnLive = false,
   iterations,
   mode,
   onOpenSubagent,
@@ -211,6 +220,7 @@ export function ConversationTurn({
               key={section.iterations[0].id}
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
+              turnLive={turnLive}
               mode={mode}
               subagents={subagents}
               interactions={activityInteractions}
@@ -282,6 +292,8 @@ export function ConversationTurn({
                 group={[{ ...iteration, thinking: [] }, ...group.slice(1)]}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
+                turnLive={turnLive || followLiveActivity}
+                subagents={subagents}
               >
                 {(item) => (
                   <Fragment key={item.id}>
@@ -363,47 +375,122 @@ function laneTail(group: readonly ConversationIteration[], keep: number): Conver
  * A step's activity as flat rows in the conversation: thoughts, calls,
  * delegates and tasks, one 28px row each, in the order they happened. A long
  * step shows its latest rows; "Show all N" opens the rest and stays open.
+ * Once the run has finished, it folds into one row that counts what it did,
+ * "Called 3 tools, edited 2 files, delegated 1 task", and opens to the rows.
  */
 function ActivityLane({
   id,
   group,
   label,
   live,
+  turnLive,
+  subagents,
   children,
 }: {
   id: string;
   group: readonly ConversationIteration[];
   label: string;
   live: boolean;
+  turnLive: boolean;
+  subagents: Record<string, SubagentRun>;
   children: (item: ConversationIteration) => ReactNode;
 }) {
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
+  const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
   const folded = !all && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
+  // One call folds into nothing shorter; thoughts alone stay as they are.
+  const collapses =
+    !turnLive &&
+    !live &&
+    group.reduce((sum, item) => sum + item.activity.length, 0) > 1 &&
+    runSettled(group);
+  const showAll = folded ? (
+    <Button
+      variant="ghost"
+      onClick={() => setAll(true)}
+      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+      data-slot="activity-show-all"
+    >
+      {`Show all ${total}`}
+    </Button>
+  ) : null;
+  const run = collapses
+    ? transcriptRunSummary(group, (tool) =>
+        subagentsForTool(tool, subagents).map((subagent) => subagent.id),
+      )
+    : undefined;
   return (
     <div
       role="group"
-      aria-label={`Activity: ${label}`}
+      aria-label={`Activity: ${run?.label ?? label}`}
       aria-busy={live || undefined}
       // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
       // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
       className="-mt-1 min-w-0 [&_[data-slot=activity-row]:not([data-slot=activity-nest]_*):not([data-slot=activity-body]_*)]:mt-1"
       data-row-run=""
+      data-run-collapsed={run && !runOpen ? '' : undefined}
       data-slot="transcript-activity-timeline"
+      // A reader who opens something in a run while it works keeps it open
+      // when the run folds at the end of the turn.
+      onClickCapture={run || runOpen ? undefined : () => setRunOpen(true)}
+      onKeyDownCapture={
+        run || runOpen
+          ? undefined
+          : (event) => {
+              if (event.key === 'Enter' || event.key === ' ') setRunOpen(true);
+            }
+      }
     >
-      {folded ? (
-        <Button
-          variant="ghost"
-          onClick={() => setAll(true)}
-          className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
-          data-slot="activity-show-all"
-        >
-          {`Show all ${total}`}
-        </Button>
+      {run ? (
+        <ActivityRow
+          aria-expanded={runOpen}
+          data-run-summary=""
+          disclosure={
+            <ActivityDisclosure
+              label={`${runOpen ? 'Collapse' : 'Expand'} ${run.label}`}
+              open={runOpen}
+              onClick={() => setRunOpen(!runOpen)}
+            />
+          }
+          icon={<WrenchIcon aria-hidden="true" />}
+          name={run.label}
+          onOpenChange={setRunOpen}
+          open={runOpen}
+          outcome={
+            run.failed ? `${run.failed} failed` : run.interrupted ? 'interrupted' : undefined
+          }
+          outcomeTone={run.failed ? 'error' : 'warning'}
+          status={
+            <StatusIndicator
+              display="column"
+              label={run.failed ? 'Some calls failed' : run.interrupted ? 'Interrupted' : 'Done'}
+              mark="glyph"
+              tone={run.failed ? 'error' : run.interrupted ? 'stopped' : 'success'}
+            />
+          }
+        />
       ) : null}
-      {shown.map(children)}
+      {/* One parent in both shapes keeps each row's own state when the run folds. */}
+      {run && !runOpen ? null : (
+        <ActivityNest flat={!run} label={`Calls: ${run?.label ?? label}`}>
+          {showAll}
+          {shown.map(children)}
+        </ActivityNest>
+      )}
     </div>
+  );
+}
+
+/** Nothing in the run is still working or waiting, so it can fold. */
+function runSettled(group: readonly ConversationIteration[]): boolean {
+  return group.every(
+    (item) =>
+      !item.streaming &&
+      item.thinking.every((thought) => !thought.streaming) &&
+      item.tools.every((tool) => !['pending', 'running'].includes(tool.state)) &&
+      item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
   );
 }
 

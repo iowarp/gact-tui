@@ -323,6 +323,7 @@ export function ActivityNest({
   hidden = 0,
   onShowAll,
   showAllLabel,
+  flat = false,
 }: {
   children: ReactNode;
   label: string;
@@ -330,13 +331,18 @@ export function ActivityNest({
   hidden?: number;
   onShowAll?: () => void;
   showAllLabel?: string;
+  /**
+   * Render the rows in place, not one step in. The element stays the same, so
+   * rows keep their state when a parent starts or stops nesting them.
+   */
+  flat?: boolean;
 }) {
   return (
     <div
-      role="group"
-      aria-label={label}
-      data-slot="activity-nest"
-      className="ml-[15px] min-w-0 border-l border-border pl-1.5"
+      role={flat ? undefined : 'group'}
+      aria-label={flat ? undefined : label}
+      data-slot={flat ? undefined : 'activity-nest'}
+      className={flat ? 'contents' : 'ml-[15px] min-w-0 border-l border-border pl-1.5'}
     >
       {children}
       {hidden > 0 && onShowAll ? (
