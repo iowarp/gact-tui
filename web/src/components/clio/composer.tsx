@@ -632,7 +632,8 @@ export function ClioComposer({
             event.preventDefault();
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
-            if (submit?.disabled) return;
+            // No submit square (Stop shows while work runs with nothing typed): nothing to send.
+            if (!submit || submit.disabled) return;
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}

@@ -1,3 +1,4 @@
+import type { QueryKey } from '@tanstack/react-query';
 import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import type {
   ActionCardAction,
@@ -37,6 +38,11 @@ export interface EarlierMessagesControl {
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
+  /**
+   * A cached transcript query whose fetches also count as loading. Only the
+   * indicators that show it subscribe, so a background refetch leaves the turns alone.
+   */
+  loadingQueryKey?: QueryKey;
   /** No transcript page has arrived yet, so an empty list is not yet a fact. */
   awaitingFirstPage?: boolean;
   error?: string;

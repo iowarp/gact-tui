@@ -221,6 +221,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           error={statistics.error}
           onRetry={() => void statistics.refetch()}
           retrying={statistics.isFetching}
+          noun="session retention"
           title="Session retention unavailable."
         />
       ) : (
@@ -258,6 +259,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           error={events.error}
           onRetry={() => void events.refetch()}
           retrying={events.isFetching}
+          noun="compaction history"
           title="Compaction history unavailable."
         />
       ) : null}

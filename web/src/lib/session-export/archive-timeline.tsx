@@ -114,15 +114,6 @@ function RecordedList({ values, outputs }: { values: unknown[]; outputs: SavedTo
     </div>
   );
 }
-function LoadedInstructions({ value, outputs }: { value: unknown; outputs: SavedToolOutput[] }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer font-medium">Show loaded skill instructions</summary>
-      {open && <RecordedValue value={value} outputs={outputs} />}
-    </details>
-  );
-}
 
 export function RecordedValue({
   value,
@@ -204,60 +195,4 @@ export function RecordedValue({
     );
   }
   return <span>{value === undefined ? 'Not recorded' : JSON.stringify(value)}</span>;
-}
-
-/** Keep calls and results at their recorded positions, including parallel calls. */
-export function RecordedActivity({
-  part,
-  tools,
-  outputs = [],
-}: {
-  part: RecordedPart;
-  tools: RecordedTool[];
-  outputs?: SavedToolOutput[];
-}) {
-  if (part.type === 'thinking' || part.type === 'injection')
-    return (
-      <section
-        className="my-4 border-l-2 border-muted pl-4 text-sm text-muted-foreground"
-        data-part={part.type}
-      >
-        <p className="mb-1 text-xs">
-          {part.type === 'thinking' ? 'Recorded step' : 'Session instruction'}
-        </p>
-        <GroundedMessageResponse>{part.text ?? ''}</GroundedMessageResponse>
-      </section>
-    );
-  if (part.type !== 'tool_call' && part.type !== 'tool_result') return null;
-  const tool = tools.find((record) => record.call_id === part.call_id);
-  const result = part.type === 'tool_result';
-  const name = part.tool_title || part.tool_name || tool?.tool || 'Tool';
-  return (
-    <section className="my-3 border-l-2 border-primary/25 pl-4" data-part={part.type}>
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="text-sm font-semibold">{name.replaceAll('_', ' ')}</h4>
-        <p className="text-xs text-muted-foreground">
-          {result ? (tool?.status ?? (part.is_error ? 'Failed' : 'Returned')) : 'Request'}
-          {result && part.duration_ms ? `, ${(part.duration_ms / 1000).toFixed(2)} s` : ''}
-        </p>
-      </div>
-      <div
-        className="max-h-72 overflow-auto rounded-lg border bg-muted/20 p-3 text-sm"
-        tabIndex={0}
-        aria-label={`${name} ${result ? 'output' : 'input'}`}
-      >
-        {result && tool?.error && (
-          <p className="mb-2 whitespace-pre-wrap text-destructive">{tool.error}</p>
-        )}
-        {result && name === 'load_skill' ? (
-          <LoadedInstructions value={tool?.output ?? part.content} outputs={outputs} />
-        ) : (
-          <RecordedValue
-            value={result ? (tool?.output ?? part.content) : (tool?.input ?? part.input)}
-            outputs={outputs}
-          />
-        )}
-      </div>
-    </section>
-  );
 }

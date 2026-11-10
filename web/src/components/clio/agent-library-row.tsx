@@ -111,7 +111,7 @@ export function AgentRow({
             busyAction="Deleting…"
             onConfirm={onDelete}
             onKeep={() => setAsking(false)}
-            question="Delete this agent?"
+            question={`Delete ${name}?`}
           />
         ) : undefined
       }

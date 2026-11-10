@@ -7,6 +7,8 @@ export interface SettingsScope {
   group: SettingsScopeGroup;
   /** Where the page's settings apply, e.g. "CLIO local, applies to every conversation on this agent". */
   line: string;
+  /** The agent, workspace or "App" the line names, for a page that words its own line. */
+  place: string;
 }
 
 /** Where the page's settings apply, shown under every page title in the Settings window. */

@@ -36,6 +36,7 @@ vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: inTauriMock }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio: restartClioMock }));
 
 import { InfrastructurePage } from './infrastructure-page';
+import { vocab } from '@/lib/brand-vocabulary';
 
 beforeEach(() => {
   localStorage.clear();
@@ -301,7 +302,8 @@ describe('InfrastructurePage', () => {
 
     const builtin = await screen.findByRole('list', { name: 'Built in' });
     expect(within(builtin).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(builtin).getByText('Planning')).toBeInTheDocument();
+    // Each tool names its source; a built-in comes from the agent itself.
+    expect(within(builtin).getAllByTitle(vocab.agent)).toHaveLength(3);
     await user.click(screen.getByRole('button', { name: 'Tool source: All' }));
     expect(screen.getByRole('menuitem', { name: /^All/u })).toHaveTextContent('4');
     await user.keyboard('{Escape}');

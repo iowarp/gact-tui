@@ -368,7 +368,7 @@ describe('tool provider settings', () => {
     expect(saved).toHaveTextContent('Not started');
     await user.click(within(saved).getByRole('button', { name: 'Actions for colab-mcp' }));
     await user.click(screen.getByRole('menuitem', { name: /^Remove saved/ }));
-    const ask = within(saved).getByRole('group', { name: 'Remove this server?' });
+    const ask = within(saved).getByRole('group', { name: 'Remove colab-mcp?' });
     expect(within(ask).getByRole('button', { name: 'Keep' })).toHaveFocus();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await user.click(within(ask).getByRole('button', { name: 'Remove' }));
@@ -403,15 +403,15 @@ describe('tool provider settings', () => {
 
     await user.click(screen.getByRole('button', { name: 'Actions for Science tools' }));
     await user.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
-    const confirmation = screen.getByRole('group', { name: 'Disconnect this server?' });
+    const confirmation = screen.getByRole('group', { name: 'Disconnect Science tools?' });
     await user.click(within(confirmation).getByRole('button', { name: 'Keep' }));
-    expect(screen.queryByRole('group', { name: 'Disconnect this server?' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Disconnect Science tools?' })).toBeNull();
     expect(repository.deleteMcpServer).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Actions for Science tools' }));
     await user.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
     await user.click(
-      within(screen.getByRole('group', { name: 'Disconnect this server?' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Disconnect Science tools?' })).getByRole('button', {
         name: 'Disconnect',
       }),
     );

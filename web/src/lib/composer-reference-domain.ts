@@ -29,11 +29,6 @@ export function referenceIdentity(part: ReferencePart): string {
     : `${part.ref_kind}:${part.ref_id}:${part.revision ?? ''}`;
 }
 
-export function referenceLabel(part: ReferencePart): string {
-  if (part.type === 'summon') return part.target;
-  return part.type === 'resource_ref' ? part.name : part.label;
-}
-
 const SUMMON_KINDS: ReadonlySet<string> = new Set(['subagent', 'workflow', 'flow', 'server']);
 
 /** A subagent, workflow, flow or MCP server the person can `@`-summon, as the popover lists it. */
@@ -137,7 +132,11 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
  */
 export function summonReferences(targets?: SummonTargets): WorkspaceReference[] {
   if (!targets) return [];
-  const row = (kind: SummonPart['target_kind'], id: string, detail: string): WorkspaceReference => ({
+  const row = (
+    kind: SummonPart['target_kind'],
+    id: string,
+    detail: string,
+  ): WorkspaceReference => ({
     kind,
     id,
     label: id,

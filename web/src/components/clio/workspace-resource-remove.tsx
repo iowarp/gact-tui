@@ -1,6 +1,5 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -12,8 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -22,46 +19,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 const REMOVABLE_STATES: readonly WorkspaceResource['state'][] = ['failed', 'quarantined', 'ready'];
 
 /**
- * Removes one workspace resource from custody.
+ * Confirms removing one workspace resource from custody, from the common file menu.
  *
- * A resource the service quarantined or failed to register is otherwise
- * permanent: the delete endpoint existed with nothing in the product able to
- * reach it, so a rejected upload sat in the workspace forever. Removal is
- * destructive and irreversible, so it is confirmed, and a service refusal is
- * reported rather than swallowed — the resource is still there.
+ * Removal is destructive and irreversible, so it is confirmed, and a service
+ * refusal is reported rather than swallowed: the resource is still there.
  */
-export function WorkspaceResourceRemoveAction({
-  resource,
-  workspaceId,
-}: {
-  resource: WorkspaceResource;
-  workspaceId: string;
-}) {
-  const [open, setOpen] = useState(false);
-  if (!REMOVABLE_STATES.includes(resource.state)) return null;
-  return (
-    <>
-      <Button
-        aria-label={`Remove ${resource.name}`}
-        className="size-8 shrink-0"
-        size="icon-sm"
-        title="Remove from this workspace"
-        variant="ghost"
-        onClick={() => setOpen(true)}
-      >
-        <DeleteIcon aria-hidden="true" />
-      </Button>
-      <WorkspaceResourceRemoveDialog
-        resource={resource}
-        workspaceId={workspaceId}
-        open={open}
-        onOpenChange={setOpen}
-      />
-    </>
-  );
-}
-
-/** The same confirmation is available from the common file menu or a standalone resource action. */
 export function WorkspaceResourceRemoveDialog({
   resource,
   workspaceId,

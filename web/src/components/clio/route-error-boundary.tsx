@@ -1,5 +1,6 @@
-import { matchPath, useLocation } from 'react-router-dom';
+import { matchPath } from 'react-router-dom';
 import App from '@/App';
+import { useLiveLocation } from '@/lib/live-location';
 import { settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ComposerDraftSessionBoundary } from '@/components/ai-elements/composer-draft-session-boundary';
@@ -10,7 +11,7 @@ import { SelectionActionsProvider } from './selection-actions';
 
 /** Resets a failed route when the user deliberately navigates elsewhere. */
 export function RouteErrorBoundary() {
-  const location = useLocation();
+  const location = useLiveLocation();
   const { settings } = useConnectionSettings();
   // Settings opens as a window over the workspace: the workspace keeps its
   // route boundary and its own search owner underneath.

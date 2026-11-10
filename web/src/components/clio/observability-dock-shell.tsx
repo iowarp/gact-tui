@@ -28,7 +28,6 @@ import { artifactDeliverables } from '@/lib/artifact-presentation';
 import {
   BoxesIcon,
   LoaderCircleIcon,
-  MessageCircleQuestionIcon,
   PanelRightOpenIcon,
   PanelRightDashedIcon,
   TriangleAlertIcon,
@@ -200,7 +199,6 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           : activityCount
             ? 'Settled'
             : 'No active work';
-
 
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);
@@ -419,8 +417,6 @@ function RailButton({
           >
             {current.kind === 'running' ? (
               <LoaderCircleIcon className="size-3 text-primary motion-safe:animate-spin" />
-            ) : current.kind === 'waiting' ? (
-              <MessageCircleQuestionIcon className="size-3 text-warning" />
             ) : current.kind === 'failed' ? (
               <TriangleAlertIcon className="size-3 text-destructive" />
             ) : null}

@@ -1,10 +1,11 @@
 import type { CreateScheduledTurnInput, ScheduledTurn } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { isPrimarySession } from '@/lib/recent-sessions';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { recentSessionsWith } from '@/lib/session-pages';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { defineShortcuts } from '@/lib/shortcuts/registry';
@@ -28,6 +29,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const pageScope = useContext(SettingsScopeContext);
   const [sessionId, setSessionId] = useState(initialSessionId ?? '');
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -153,24 +155,35 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   const schedules = scheduledTurns.data?.schedules ?? [];
   const busy = toggle.isPending || remove.isPending || save.isPending;
   const serviceTimezone = scheduledTurns.data?.timezone ?? '';
+  // The list holds one conversation's schedules, so the line names that scope, not the whole agent.
+  const scope = useMemo(
+    () =>
+      pageScope && {
+        ...pageScope,
+        line: `${pageScope.place}, applies to the selected conversation`,
+      },
+    [pageScope],
+  );
 
   return (
     <div className="min-w-0" ref={rootRef}>
-      <SettingsSectionHeading
-        actions={
-          sessionOptions.length ? (
-            <ScheduleSelect
-              className="w-[clamp(10rem,32cqw,16rem)]"
-              label="Session"
-              onChange={setSessionId}
-              options={sessionOptions}
-              value={selectedSessionId}
-            />
-          ) : null
-        }
-        info="Ask an existing session to continue once or on a repeating schedule. Each instruction runs in that session with its existing agent, model, context and access rules. The connected service owns timing and execution, so closing this app does not cancel it."
-        title="Scheduled work"
-      />
+      <SettingsScopeContext.Provider value={scope}>
+        <SettingsSectionHeading
+          actions={
+            sessionOptions.length ? (
+              <ScheduleSelect
+                className="w-[clamp(10rem,32cqw,16rem)]"
+                label="Session"
+                onChange={setSessionId}
+                options={sessionOptions}
+                value={selectedSessionId}
+              />
+            ) : null
+          }
+          info="Ask an existing session to continue once or on a repeating schedule. Each instruction runs in that session with its existing agent, model, context and access rules. The connected service owns timing and execution, so closing this app does not cancel it."
+          title="Scheduled work"
+        />
+      </SettingsScopeContext.Provider>
       <SettingsGroupLabel
         actions={
           <IconButton
@@ -212,7 +225,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           />
         ) : null}
         {scheduledTurns.data && !schedules.length ? (
-          <StateView kind="empty" size="row" title="Nothing is scheduled for this session" />
+          <StateView
+            kind="empty"
+            size="row"
+            title={`Nothing is scheduled in ${selectedSession?.title || 'Untitled session'}`}
+          />
         ) : null}
         {schedules.map((schedule) => (
           <ScheduleRow
