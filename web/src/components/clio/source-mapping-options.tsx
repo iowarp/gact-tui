@@ -37,8 +37,8 @@ function AccessSelect({
 }) {
   const id = useId();
   return (
-    <div className="grid gap-1 text-xs">
-      <label htmlFor={id} className="font-medium">
+    <div className="grid min-w-0 gap-[5px]">
+      <label htmlFor={id} className="text-[11.5px] text-muted-foreground">
         {label}
       </label>
       <Select disabled={disabled} value={value} onValueChange={onChange}>
