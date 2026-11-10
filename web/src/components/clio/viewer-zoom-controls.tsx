@@ -17,6 +17,7 @@ export function ViewerZoomControls({
   label,
   disabledIn = false,
   disabledOut = false,
+  readout,
   children,
 }: {
   onIn: () => void;
@@ -25,6 +26,8 @@ export function ViewerZoomControls({
   label: string;
   disabledIn?: boolean;
   disabledOut?: boolean;
+  /** A position between the icons, as the document bar draws "3 / 12" (frame-bar 07). */
+  readout?: ReactNode;
   /** What a standalone row shows before the icons; in a frame these are facts. */
   children?: ReactNode;
 }) {
@@ -47,6 +50,14 @@ export function ViewerZoomControls({
         <ToolbarAction label="Zoom out" disabled={disabledOut} onClick={onOut}>
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>
+        {framed && readout ? (
+          <span
+            className="flex shrink-0 items-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums"
+            data-slot="viewer-zoom-readout"
+          >
+            {readout}
+          </span>
+        ) : null}
         <ToolbarAction label="Zoom in" disabled={disabledIn} onClick={onIn}>
           <ZoomInIcon aria-hidden="true" />
         </ToolbarAction>

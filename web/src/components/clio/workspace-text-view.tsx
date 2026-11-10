@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { TransportError } from '@clio/core/v3';
 import { useMemo, useState } from 'react';
 import { WorkspaceFileComments } from './comments/file-comments';
 import { FileTextView } from './file-text-view';
@@ -18,6 +19,7 @@ import {
 } from '@/lib/runtime-limits';
 import { SourceWindowContext } from '@/lib/source-window';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { FileWindowNoticeShown } from './file-window-context';
 
 function fileName(path: string): string {
   return (
@@ -26,6 +28,31 @@ function fileName(path: string): string {
       .filter(Boolean)
       .at(-1) ?? path
   );
+}
+
+/**
+ * The server refuses a whole-file read past its read cap, and a suffix read of
+ * such a file with it; the cap is server policy, so it is learned from the refusal.
+ */
+function serverCapSentence(error: Error | null, size?: number): string | undefined {
+  if (!(error instanceof TransportError)) return undefined;
+  if (
+    error.status !== 413 &&
+    error.code !== 'file_too_large' &&
+    !/exceeds policy cap/iu.test(error.message)
+  )
+    return undefined;
+  const [, reported, cap] = /\((\d+) > (\d+) bytes\)/u.exec(error.message) ?? [];
+  const bytes = size ?? (reported ? Number(reported) : undefined);
+  const file = bytes === undefined ? 'this file' : `this ${wholeBytes(bytes)} file`;
+  return cap
+    ? `The file server reads up to ${wholeBytes(Number(cap))}, so the end of ${file} can't be shown.`
+    : `The file server can't read the end of ${file}.`;
+}
+
+/** "1 GB", not "1.0 GB", for a round limit in a sentence. */
+function wholeBytes(bytes: number): string {
+  return formatBytes(bytes).replace(/\.0 /u, ' ');
 }
 
 export function WorkspaceTextView({
@@ -182,6 +209,16 @@ function WorkspaceTextWindowView({
     );
   const name = fileName(path);
   const total = size === undefined ? '' : ` of ${formatBytes(size)}`;
+  const capRefusal = (showEnd || !head) && serverCapSentence(textWindow.tailError, size);
+  if (capRefusal)
+    return (
+      <StateView
+        action={{ label: 'Show beginning', onClick: () => setShowEnd(false) }}
+        kind="too-large"
+        size="viewer"
+        title={capRefusal}
+      />
+    );
   const status =
     showEnd || !head
       ? textWindow.tailError
@@ -195,23 +232,27 @@ function WorkspaceTextWindowView({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="text-file-window">
       <div className="min-h-0 flex-1">
-        {showEnd || !head ? (
-          textWindow.tailError ? (
-            <ViewerReadError error={textWindow.tailError.message} where={path} />
-          ) : tail === undefined ? (
-            <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
+        <FileWindowNoticeShown.Provider value>
+          {showEnd || !head ? (
+            textWindow.tailError ? (
+              <ViewerReadError error={textWindow.tailError.message} where={path} />
+            ) : tail === undefined ? (
+              <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
+            ) : (
+              <FileTextView content={tail} mediaType={mediaType} name={name} />
+            )
           ) : (
-            <FileTextView content={tail} mediaType={mediaType} name={name} />
-          )
-        ) : (
-          <SourceWindowContext.Provider value={sourceWindow}>
-            <FileTextView content={head.text} mediaType={mediaType} name={name} />
-          </SourceWindowContext.Provider>
-        )}
+            <SourceWindowContext.Provider value={sourceWindow}>
+              <FileTextView content={head.text} mediaType={mediaType} name={name} />
+            </SourceWindowContext.Provider>
+          )}
+        </FileWindowNoticeShown.Provider>
       </div>
       <StateView
         action={{
-          label: showEnd ? 'Show beginning' : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
+          label: showEnd
+            ? 'Show beginning'
+            : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
           onClick: () => setShowEnd(!showEnd),
         }}
         className="shrink-0 border-t px-3"

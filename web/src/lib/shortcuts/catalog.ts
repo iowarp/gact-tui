@@ -117,6 +117,9 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
 
   def('render-source', 'Render, Source', 'tab', ['Ctrl+Shift+V']),
   def('lineage', 'Lineage', 'tab', ['Ctrl+Shift+L']),
+  def('show-end', 'Show the last part', 'tab', ['L'], {
+    when: 'On a file too large to show',
+  }),
   def('add-to-message', 'Add to message', 'tab', ['Ctrl+Shift+Enter']),
   def('comment', 'Comment on the selection', 'tab', ['Ctrl+Alt+M'], { mac: ['Alt+Cmd+A'] }),
   def('comments', 'Comments', 'tab', ['Ctrl+Shift+K']),

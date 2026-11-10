@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { ArrowUpToLineIcon, BoxIcon, CodeIcon, DownloadIcon, EyeIcon } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import {
   Empty,
   EmptyDescription,
@@ -11,6 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatBytes } from '@/lib/format';
 import { INLINE_PREVIEW_MAX_BYTES, TEXT_WINDOW_CHUNK_BYTES } from '@/lib/runtime-limits';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { FileViewerFactsRegistry, useFileViewerFacts } from './file-viewer-facts';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
@@ -206,7 +207,7 @@ export function ViewerTooLarge({
   const actions = useViewerFileActions(
     source,
     onShowEnd
-      ? { label: `Show ${tail}`, icon: <EyeIcon />, onClick: onShowEnd }
+      ? { label: `Show ${tail}`, icon: <EyeIcon />, onClick: onShowEnd, shortcut: 'show-end' }
       : onPreview
         ? { label: 'Show it anyway', icon: <EyeIcon />, onClick: onPreview }
         : undefined,
@@ -214,11 +215,20 @@ export function ViewerTooLarge({
       ? { label: 'Show the beginning', icon: <ArrowUpToLineIcon />, onClick: onPreview }
       : undefined,
   );
-  const ways = onShowEnd
-    ? `Show ${tail}, or open`
-    : onPreview
-      ? 'Show it anyway, or open'
-      : 'Open';
+  // L shows the last part while focus is anywhere in this file's viewer (workbench-lineage 04).
+  const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
+  const region = useMemo(
+    () => ({
+      current: anchor?.closest('[data-slot="file-viewer"]') ?? anchor?.parentElement ?? null,
+    }),
+    [anchor],
+  );
+  const showEnd = actions.find((entry) => entry.shortcut === 'show-end');
+  useShortcut('show-end', () => showEnd?.onClick(), {
+    enabled: Boolean(showEnd && !showEnd.disabled),
+    region,
+  });
+  const ways = onShowEnd ? `Show ${tail}, or open` : onPreview ? 'Show it anyway, or open' : 'Open';
   return (
     <StateView
       actions={actions}
@@ -241,7 +251,9 @@ export function ViewerTooLarge({
           ? "It's too large to show here"
           : `${formatBytes(bytes)} is too large to show here`
       }
-    />
+    >
+      <span ref={setAnchor} hidden />
+    </StateView>
   );
 }
 
