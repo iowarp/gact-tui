@@ -64,11 +64,14 @@ export function ManagedServiceHostSelector({
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={`Computer: ${selectedName}`}
-              className="h-7 w-[132px] justify-start gap-1.5 px-2 text-[12px] font-normal"
+              className="h-7 w-[132px] min-w-[52px] shrink justify-start gap-1.5 px-2 text-[12px] font-normal @max-[600px]/infra-page:w-auto @max-[600px]/infra-page:max-w-24"
               size="sm"
               variant="outline"
             >
-              <SelectedIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+              <SelectedIcon
+                aria-hidden="true"
+                className="size-3.5 text-muted-foreground @max-[600px]/infra-page:hidden"
+              />
               <span className="min-w-0 flex-1 truncate text-left">{selectedName}</span>
               <ChevronDownIcon aria-hidden="true" className="size-3 text-muted-foreground" />
             </Button>
