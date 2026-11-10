@@ -49,7 +49,6 @@ import { NamedTooltip } from './primitives/icon-button';
 import { focusEditorAtOffset } from './composer-editor-model';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
-import { focusQuietly } from './primitives/quiet-focus';
 import {
   nextTabRowFit,
   overflowTabs,
@@ -120,25 +119,6 @@ export function refocusActiveCanvasTab(region: Element | null) {
       focusEditorAtOffset(
         document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
       );
-  });
-}
-
-/**
- * After a list pick or Back unmounts the focused row, focus lands on the active
- * canvas tab rather than the page, without popping its hover name.
- */
-export function rescueLostCanvasFocus(region: Element | null) {
-  requestAnimationFrame(() => {
-    const active = document.activeElement;
-    // A sheet's focus trap catches the lost focus on its own container.
-    if (active && active !== document.body && !active.contains(region)) return;
-    focusQuietly(
-      region?.isConnected
-        ? region.querySelector<HTMLElement>(
-            '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
-          )
-        : null,
-    );
   });
 }
 
@@ -217,7 +197,8 @@ export function WorkbenchTabRow({
   }>({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   // Any change starts again from full names; the layout effect below then
   // steps down while the row still overflows, before the browser paints.
-  if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
+  if (measured.key !== fitKey)
+    setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   const fit = measured.key === fitKey ? measured.fit : 'full';
   // Tab ids, the most recently open first: the list at the end takes the least recent.
   const [recency, setRecency] = useState<string[]>([]);

@@ -49,7 +49,7 @@ export function NavigationHeader({
   attentionControl,
 }: NavigationHeaderProps) {
   // Collapsed, the toggle moves to the top bar beside the breadcrumb.
-  const { state: sidebarState } = useSidebar();
+  const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
   const commandKeyHeld = useCommandKeyHeld();
   return (
     <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
@@ -111,7 +111,11 @@ export function NavigationHeader({
           <SidebarMenuButton
             aria-label="Search work"
             className="h-[30px] gap-2.5 text-[13px]"
-            onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
+            onClick={() => {
+              // On a phone the command menu opens over the page, not over the sheet.
+              if (isMobile) setOpenMobile(false);
+              window.dispatchEvent(new Event('clio:open-command-menu'));
+            }}
             tooltip="Search work, files, and actions"
             type="button"
           >

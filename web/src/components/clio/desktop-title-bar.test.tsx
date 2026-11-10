@@ -1,4 +1,5 @@
 import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { StreamState } from '@clio/core/v3';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,12 @@ const listenForCloseRequested = vi.hoisted(() =>
 const listenForCloseFallbackHidden = vi.hoisted(() =>
   vi.fn(async (_onHidden: () => void) => () => undefined),
 );
+const ackQuitPromptShown = vi.hoisted(() =>
+  vi.fn(async (_seq: number, _showWindow: boolean) => undefined),
+);
+const listenForQuitRequested = vi.hoisted(() =>
+  vi.fn(async (_onQuitRequested: (seq: number) => void) => () => undefined),
+);
 const toastError = vi.hoisted(() => vi.fn());
 const isMacOS = vi.hoisted(() => vi.fn(() => false));
 const liveStreamState = vi.hoisted(() => ({ current: 'live' as StreamState }));
@@ -28,11 +35,13 @@ const capabilitiesService = vi.hoisted(() => ({
 vi.mock('@/tauri/desktop-window', () => ({
   runDesktopWindowAction,
   ackClosePromptShown,
+  ackQuitPromptShown,
 }));
 
 vi.mock('@/tauri/desktop-lifecycle', () => ({
   listenForCloseRequested,
   listenForCloseFallbackHidden,
+  listenForQuitRequested,
 }));
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
@@ -89,18 +98,25 @@ function MenuWorkflows({ actions }: { actions: Partial<Record<MenuAction, () => 
 }
 
 describe('DesktopTitleBar', () => {
+  let queryClient: QueryClient;
   const renderTitleBar = (workflows?: ReactNode) =>
     render(
-      <TooltipProvider>
-        {workflows}
-        <DesktopTitleBar />
-      </TooltipProvider>,
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          {workflows}
+          <DesktopTitleBar />
+        </TooltipProvider>
+      </QueryClientProvider>,
     );
 
   beforeEach(() => {
     mockDesktopHost();
+    queryClient = new QueryClient();
     runDesktopWindowAction.mockClear();
     ackClosePromptShown.mockClear();
+    ackQuitPromptShown.mockClear();
+    listenForQuitRequested.mockClear();
+    listenForQuitRequested.mockImplementation(async () => () => undefined);
     listenForCloseRequested.mockClear();
     listenForCloseRequested.mockImplementation(async () => () => undefined);
     listenForCloseFallbackHidden.mockClear();
@@ -254,6 +270,52 @@ describe('DesktopTitleBar', () => {
     act(() => onFallbackHidden?.());
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('macOS Cmd-Q with nothing running quits at once, leaving the window hidden', async () => {
+    isMacOS.mockReturnValue(true);
+    renderTitleBar();
+
+    await waitFor(() => expect(listenForQuitRequested).toHaveBeenCalledTimes(1));
+    const onQuitRequested = listenForQuitRequested.mock.calls[0]?.[0];
+    act(() => onQuitRequested?.(3));
+
+    expect(ackQuitPromptShown).toHaveBeenCalledWith(3, false);
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('macOS Cmd-Q confirms while a conversation is running, and quits only when confirmed', async () => {
+    isMacOS.mockReturnValue(true);
+    queryClient.setQueryData(
+      ['sessions', 'http://127.0.0.1', 'family', 'run-1'],
+      [
+        { id: 'run-1', state: 'running' },
+        { id: 'done-1', state: 'completed' },
+      ],
+    );
+    renderTitleBar();
+
+    await waitFor(() => expect(listenForQuitRequested).toHaveBeenCalledTimes(1));
+    const onQuitRequested = listenForQuitRequested.mock.calls[0]?.[0];
+    act(() => onQuitRequested?.(4));
+
+    expect(ackQuitPromptShown).toHaveBeenCalledWith(4, true);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('1 conversation is still running.');
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+
+    act(() => onQuitRequested?.(5));
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: `Quit ${brand.productName}`,
+      }),
+    );
+    expect(runDesktopWindowAction).toHaveBeenCalledWith('quit');
   });
 
   it('routes overflow actions through the existing application workflows', async () => {

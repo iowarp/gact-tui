@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLeftBarDialog } from '@/hooks/use-left-bar-dialog';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { canForkSession, isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
@@ -31,10 +32,12 @@ import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-ori
 import { KeyMenuItem } from './menu-key-items';
 import { selectMenuKey } from './select-menu-key';
 import { ClioRelativeTime } from './relative-time';
+import { holdPreviews, previewsHeld } from './row-preview-hold';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 import { SessionExportMenu } from './session-export-menu';
+import { SessionMoveMenu } from './session-move-menu';
 import {
   SessionHistoryConfirmDialog,
   type SessionHistoryConfirmation,
@@ -47,28 +50,6 @@ import {
   SessionShareMenuItem,
 } from './session-management-menu';
 import { ClioShareSessionDialog } from './share-session-dialog';
-
-/*
- * Opening a conversation can reorder the list (the draft row goes away), which
- * moves another row under a pointer that never moved. Previews stay closed
- * until the pointer really moves.
- */
-let previewsHeldAt: { x: number; y: number } | null = null;
-
-function releasePreviews(event: PointerEvent) {
-  if (
-    !previewsHeldAt ||
-    Math.hypot(event.clientX - previewsHeldAt.x, event.clientY - previewsHeldAt.y) > 3
-  ) {
-    previewsHeldAt = null;
-    window.removeEventListener('pointermove', releasePreviews);
-  }
-}
-
-function holdPreviews(x: number, y: number) {
-  previewsHeldAt = { x, y };
-  window.addEventListener('pointermove', releasePreviews);
-}
 
 interface SessionNavigationRowProps {
   session: Session;
@@ -175,41 +156,52 @@ function SessionRow({
     seenRevision !== sessionInteractionAt(session);
   const active = session.id === activeSessionId;
   const navigate = useNavigate();
-  const [sharing, setSharing] = useState(false);
+  // Share and history confirmations open outside the phone sheet, which closes first.
+  const [dialog, presentDialog] = useLeftBarDialog();
+  const closeDialog = () => presentDialog(null);
   // One menu for ⋯ and right-click; the hover card stays out of its way while open.
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
   // The phone sheet leaves no room beside it for the preview, and touch has no hover.
   const isMobile = useIsMobile();
-  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
-  const [historyPending, setHistoryPending] = useState(false);
   const { forkSession, shareSession, openSystemTerminal, compactSession, undoSession } = actions;
   const hasHistoryActions = Boolean(compactSession && undoSession);
-  const confirmHistory = async () => {
-    const action = confirmation === 'compact' ? compactSession : undoSession;
-    if (!action) return;
-    setHistoryPending(true);
-    try {
-      await action(session.id);
-      setConfirmation(undefined);
-    } catch (error) {
-      toast.error(
-        confirmation === 'compact'
-          ? 'Unable to compact this conversation'
-          : 'Unable to remove the last message',
-        { description: error instanceof Error ? error.message : String(error) },
-      );
-    } finally {
-      setHistoryPending(false);
-    }
-  };
+  const openShare = (share: NonNullable<ResourceActions['shareSession']>) =>
+    presentDialog(
+      <ClioShareSessionDialog
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
+        onShare={async (ttlSeconds) => {
+          try {
+            return await share(session.id, ttlSeconds);
+          } catch (error) {
+            toast.error('Unable to create a share link', {
+              description: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+          }
+        }}
+        open
+        title={session.title || 'Untitled session'}
+      />,
+    );
+  const openHistoryConfirm = (confirmation: SessionHistoryConfirmation) =>
+    presentDialog(
+      <HistoryConfirm
+        action={confirmation === 'compact' ? compactSession : undoSession}
+        confirmation={confirmation}
+        onClose={closeDialog}
+        sessionId={session.id}
+      />,
+    );
   const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <>
       <HoverCard
         closeDelay={100}
         onOpenChange={(next) => {
-          if (next && previewsHeldAt) return;
+          if (next && previewsHeld()) return;
           setHoverOpen(next);
         }}
         open={hoverOpen && !menuOpen && !isMobile}
@@ -263,7 +255,10 @@ function SessionRow({
                       }
                     />
                   ) : null}
-                  {shareSession ? <SessionShareMenuItem onSelect={() => setSharing(true)} /> : null}
+                  <SessionMoveMenu actions={actions} onAction={onAction} session={session} />
+                  {shareSession ? (
+                    <SessionShareMenuItem onSelect={() => openShare(shareSession)} />
+                  ) : null}
                   <SessionExportMenu
                     onExport={(mode) =>
                       onAction(
@@ -284,7 +279,7 @@ function SessionRow({
                     />
                   ) : null}
                   {hasHistoryActions ? (
-                    <SessionHistoryMenuItems onConfirm={setConfirmation} />
+                    <SessionHistoryMenuItems onConfirm={openHistoryConfirm} />
                   ) : null}
                   <DropdownMenuSeparator />
                   <SessionLifecycleMenuItems
@@ -436,32 +431,48 @@ function SessionRow({
           </div>
         </HoverCardContent>
       </HoverCard>
-      {sharing && shareSession ? (
-        <ClioShareSessionDialog
-          onOpenChange={setSharing}
-          onShare={async (ttlSeconds) => {
-            try {
-              return await shareSession(session.id, ttlSeconds);
-            } catch (error) {
-              toast.error('Unable to create a share link', {
-                description: error instanceof Error ? error.message : String(error),
-              });
-              throw error;
-            }
-          }}
-          open
-          title={session.title || 'Untitled session'}
-        />
-      ) : null}
-      {hasHistoryActions ? (
-        <SessionHistoryConfirmDialog
-          confirmation={confirmation}
-          onCancel={() => setConfirmation(undefined)}
-          onConfirm={() => void confirmHistory()}
-          pending={historyPending}
-        />
-      ) : null}
+      {dialog}
     </>
+  );
+}
+
+/** Compact or remove-last confirmation; it owns its pending state so it outlives the row. */
+function HistoryConfirm({
+  action,
+  confirmation,
+  sessionId,
+  onClose,
+}: {
+  action: ((sessionId: string) => Promise<unknown>) | undefined;
+  confirmation: SessionHistoryConfirmation;
+  sessionId: string;
+  onClose: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const confirm = async () => {
+    if (!action) return;
+    setPending(true);
+    try {
+      await action(sessionId);
+      onClose();
+    } catch (error) {
+      toast.error(
+        confirmation === 'compact'
+          ? 'Unable to compact this conversation'
+          : 'Unable to remove the last message',
+        { description: error instanceof Error ? error.message : String(error) },
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <SessionHistoryConfirmDialog
+      confirmation={confirmation}
+      onCancel={onClose}
+      onConfirm={() => void confirm()}
+      pending={pending}
+    />
   );
 }
 

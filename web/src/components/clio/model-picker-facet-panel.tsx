@@ -119,7 +119,13 @@ const FOOTER_HINTS: readonly PickerHint[] = [
 ];
 
 /** The spec's `.pcb`: a 13px box, filled with a check while on. */
-function FilterCheck({ checked, disabled = false }: { checked: boolean; disabled?: boolean }) {
+export function FilterCheck({
+  checked,
+  disabled = false,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -148,7 +154,7 @@ function RowTail({ count, enter }: { count?: ReactNode; enter: boolean }) {
   );
 }
 
-function ChipIcon({ chip }: { chip: FacetChip }) {
+export function ChipIcon({ chip }: { chip: FacetChip }) {
   if (chip.icon.kind === 'provider') {
     return (
       <ModelSelectorLogo className="size-[15px]" provider={providerLogoId(chip.icon.providerId)} />

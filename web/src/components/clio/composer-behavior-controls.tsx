@@ -1,6 +1,6 @@
 import type { MessageBehavior, ReasoningEffort, SpotterAvailability } from '@clio/core/v3';
 import type { LucideIcon } from 'lucide-react';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
 import { HelpIcon } from '@/lib/icon-vocabulary';
 import { REASONING_EFFORT_LABELS } from '@/lib/reasoning-levels';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -59,10 +59,21 @@ interface ClioComposerBehaviorControlsProps {
   beforeModel?: ReactNode;
   onChange: (behavior: MessageBehavior) => void;
   /**
+   * Move focus back to the composer's editor. Used after a choice, and when a
+   * menu opened from the keyboard shortcut is dismissed, so typing resumes.
+   */
+  onReturnFocus?: () => void;
+  /**
    * The thinking levels the selected model offers (from the provider catalog).
    * Empty hides the control: there is nothing a person could choose.
    */
   reasoningLevels: readonly ReasoningEffort[];
+  /**
+   * The model's thinking levels are not known yet (connecting, or the catalog
+   * is loading). The effort control holds its place, disabled, so the row does
+   * not shift when they arrive.
+   */
+  reasoningPending?: boolean;
   /** What the control shows when no level was picked (it sends nothing then). */
   defaultEffortLabel?: string;
   /**
@@ -92,7 +103,9 @@ export function ClioComposerBehaviorControls({
   modelControl,
   beforeModel,
   onChange,
+  onReturnFocus,
   reasoningLevels,
+  reasoningPending = false,
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
   spotterAvailability,
@@ -104,8 +117,21 @@ export function ClioComposerBehaviorControls({
   const [effortChosen, setEffortChosen] = useState(false);
   const [openMenu, setOpenMenu] = useState<BehaviorMenu>();
   const [confirmBypass, setConfirmBypass] = useState(false);
+  // Whether the closing menu hands focus to the editor rather than its trigger:
+  // after a choice, or when the menu was opened by the shortcut from the editor.
+  const toEditor = useRef(false);
   const setMenuOpen = (menu: BehaviorMenu, open: boolean) => {
+    if (open) toEditor.current = false;
     setOpenMenu((current) => (open ? menu : current === menu ? undefined : current));
+  };
+  const chose = () => {
+    toEditor.current = true;
+  };
+  const closeFocus = (event: Event) => {
+    if (!toEditor.current || !onReturnFocus) return;
+    event.preventDefault();
+    toEditor.current = false;
+    onReturnFocus();
   };
   const unknownEffort = effortChosen ? undefined : unrecognizedEffort;
   const selectedMode = SESSION_MODE_OPTIONS.find(
@@ -129,6 +155,7 @@ export function ClioComposerBehaviorControls({
     'mode',
     () => {
       if (openMenu !== 'mode') {
+        toEditor.current = true;
         setOpenMenu('mode');
         return;
       }
@@ -168,6 +195,7 @@ export function ClioComposerBehaviorControls({
         <DropdownMenuContent
           className="w-[24rem] max-w-[calc(100vw-1rem)]"
           collisionPadding={8}
+          onCloseAutoFocus={closeFocus}
           side="top"
         >
           <DropdownMenuLabel className={MENU_LABEL}>Confirmation policy</DropdownMenuLabel>
@@ -179,6 +207,7 @@ export function ClioComposerBehaviorControls({
                 setConfirmBypass(true);
                 return;
               }
+              chose();
               onChange({ ...behavior, confirmation_policy: option.value });
             }}
             value={selectedApproval?.value ?? ''}
@@ -234,7 +263,12 @@ export function ClioComposerBehaviorControls({
               type="button"
             />
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" collisionPadding={8} side="top">
+          <DropdownMenuContent
+            className="w-56"
+            collisionPadding={8}
+            onCloseAutoFocus={closeFocus}
+            side="top"
+          >
             <DropdownMenuLabel className={MENU_LABEL}>Reasoning effort</DropdownMenuLabel>
             {unknownEffort ? (
               <p className="px-2 pb-1.5 text-xs text-muted-foreground">
@@ -244,6 +278,7 @@ export function ClioComposerBehaviorControls({
             ) : null}
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
+                chose();
                 if (value === DEFAULT_EFFORT) {
                   setEffortChosen(true);
                   onChange({ ...behavior, reasoning_effort: undefined });
@@ -270,6 +305,15 @@ export function ClioComposerBehaviorControls({
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : reasoningPending ? (
+        <IconButton
+          disabled
+          icon={<ReasoningBars filled={0} />}
+          label="Reasoning effort"
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
       ) : null}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
@@ -291,11 +335,18 @@ export function ClioComposerBehaviorControls({
             type="button"
           />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[21rem]" collisionPadding={8} side="top">
+        <DropdownMenuContent
+          align="start"
+          className="w-[21rem]"
+          collisionPadding={8}
+          onCloseAutoFocus={closeFocus}
+          side="top"
+        >
           <DropdownMenuLabel className={MENU_LABEL}>Mode</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
               const option = SESSION_MODE_OPTIONS.find((candidate) => candidate.value === value);
+              chose();
               if (option) onChange({ ...behavior, execution_mode: toExecutionMode(option.value) });
             }}
             value={selectedMode?.value ?? ''}
@@ -324,7 +375,14 @@ export function ClioComposerBehaviorControls({
       {beforeModel}
       {modelControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            // Confirming is a choice: typing resumes in the editor. Keeping asking
+            // returns to the policy control.
+            if (!toEditor.current || !onReturnFocus) return;
+            closeFocus(event);
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Bypass protected-action checks?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -335,7 +393,10 @@ export function ClioComposerBehaviorControls({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep asking</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => onChange({ ...behavior, confirmation_policy: 'bypass' })}
+              onClick={() => {
+                chose();
+                onChange({ ...behavior, confirmation_policy: 'bypass' });
+              }}
               variant="destructive"
             >
               Bypass checks

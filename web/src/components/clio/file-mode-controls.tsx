@@ -60,6 +60,7 @@ export function FileModeTrigger({
   onClick?: () => void;
 }) {
   const { value, label, title, icon: Icon, shortcut } = mode;
+  const keys = useShortcutPresentation(shortcut);
   return (
     <NamedTooltip label={title || label} shortcut={shortcut}>
       {/* The tooltip trigger sets its own data-state; keep it off the tab. */}
@@ -68,6 +69,7 @@ export function FileModeTrigger({
           className={MODE_TRIGGER_CLASS}
           value={value}
           aria-label={label}
+          aria-keyshortcuts={keys?.aria}
           onClick={onClick}
           {...(inactive ? { 'aria-selected': false, 'data-state': 'inactive' } : {})}
         >

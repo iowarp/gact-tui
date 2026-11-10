@@ -156,6 +156,7 @@ export function ToolPermissionsSettings() {
             title: result.error.message,
             status: 'Not loaded',
             tone: 'error',
+            retry: () => void result.refetch(),
           },
         },
       ];

@@ -63,11 +63,8 @@ import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
 import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
-import {
-  refocusActiveCanvasTab,
-  rescueLostCanvasFocus,
-  WorkbenchTabRow,
-} from './workbench-tab-row';
+import { focusListRow, focusOpenedFrame } from './workbench-focus';
+import { refocusActiveCanvasTab, WorkbenchTabRow } from './workbench-tab-row';
 import {
   WorkbenchStrip,
   type WorkbenchListView,
@@ -427,8 +424,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const pickTab = (tab: WorkbenchTab) => {
       const shift = pickShiftRef.current;
       pickShiftRef.current = false;
-      rescueLostCanvasFocus(asideRef.current);
       const host = activeTab?.kind === 'list' ? activeTab : undefined;
+      focusOpenedFrame(asideRef.current);
       if (!host || shift || pinned.has(host.id) || !REPLACING_KINDS.has(tab.kind)) {
         openTab(tab);
         return;
@@ -450,7 +447,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         label: WORKBENCH_LIST_TITLES[backTo],
         onBack: () => {
           replaceTab(tab.id, listTab(backTo));
-          rescueLostCanvasFocus(asideRef.current);
+          focusListRow(
+            asideRef.current,
+            'path' in tab && tab.path ? tab.path.split(/[\\/]/u).at(-1) : tab.label,
+          );
         },
       };
     };

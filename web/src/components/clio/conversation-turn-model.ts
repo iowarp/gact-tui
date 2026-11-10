@@ -271,7 +271,13 @@ function fallbackIterations(
       continue;
     }
     if (block.type === 'tool') {
-      const tool = tools[block.tool_id];
+      const recorded = tools[block.tool_id];
+      // A call whose outcome went unrecorded when its turn ended was cut off with
+      // the turn: it reads as stopped, not as an unexplained unknown.
+      const tool =
+        recorded?.state === 'unknown' && (message.stop_reason || message.completed_at)
+          ? { ...recorded, state: 'cancelled' as const }
+          : recorded;
       // An unresolved invocation contributes nothing here; the block stays in the
       // residual lane so its typed unavailable state renders at its own position.
       if (!tool) {

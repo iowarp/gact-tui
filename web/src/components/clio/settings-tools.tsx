@@ -28,6 +28,7 @@ import {
 } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
+import { newItemKey } from '@/lib/settings-row-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ExtensionAddDialog, ExtensionAddMenu, type ExtensionAdd } from './extension-add-dialog';
 import { McpConnectionDetails } from './mcp-connection-details';
@@ -264,7 +265,11 @@ export function ToolsSettings({
           </SettingsRow>
         </div>
       ) : null}
-      <section aria-label={groupLabel} className="grid min-w-0">
+      <section
+        aria-label={groupLabel}
+        className="grid min-w-0"
+        onKeyDown={newItemKey(showAdd && addSupported ? startAdding : undefined)}
+      >
         <SettingsGroupLabel
           actions={
             showAdd ? (
@@ -443,9 +448,7 @@ function McpServerDetailPane({
       {view === 'tools' ? (
         <InventoryRows
           empty={
-            live
-              ? 'This server reported no tools.'
-              : 'No live inventory is available here; tools are listed when a conversation connects.'
+            live ? 'This server reported no tools.' : 'Tools appear when a conversation connects.'
           }
           icon={<WrenchIcon aria-hidden="true" />}
           label={`Tools of ${title}`}
@@ -456,7 +459,7 @@ function McpServerDetailPane({
           empty={
             live
               ? 'This server reported no resources.'
-              : 'No live resource inventory is available here.'
+              : 'Resources appear when a conversation connects.'
           }
           label={`Resources of ${title}`}
           rows={resourceInventory.data ?? []}

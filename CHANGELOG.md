@@ -6,6 +6,11 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Changed
+
+- On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
+  only while a conversation is still running
+
 ## [0.11.3] - 2026-10-28
 
 ### Changed

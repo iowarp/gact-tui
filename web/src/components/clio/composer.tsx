@@ -116,6 +116,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
   /** Keep the draft editable while the first session catalog is registering. */
   catalogPreparing?: boolean;
   contextReferences?: boolean;
+  /**
+   * The service's capabilities are still loading, so `attachments` and
+   * `contextReferences` aren't known yet. `+` and `@` hold their place, disabled.
+   */
+  capabilitiesPending?: boolean;
   workspaceId?: string;
   sessionId?: string;
   commands?: CommandDefinition[];
@@ -170,6 +175,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
   annotations?: readonly CommentAttachment[];
   onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
+  /**
+   * Place the caret in the editor on mount when nothing else holds focus. Skipped
+   * on touch screens so arriving on the page doesn't raise the on-screen keyboard.
+   */
+  autoFocus?: boolean;
   variant?: 'docked' | 'welcome';
   /**
    * Hint shown in the empty editor. Defaults to steering copy in a conversation
@@ -195,6 +205,7 @@ export function ClioComposer({
   connecting = false,
   catalogPreparing = false,
   contextReferences = false,
+  capabilitiesPending = false,
   workspaceId = '',
   sessionId,
   commands = [],
@@ -230,6 +241,7 @@ export function ClioComposer({
   annotations = [],
   onAnnotationsChange,
   focusRequestKey,
+  autoFocus = false,
   variant = 'docked',
   placeholder = variant === 'welcome'
     ? `Ask ${brand.name} anything, or describe a task…`
@@ -356,12 +368,12 @@ export function ClioComposer({
   );
   const [commandMenuOpen, setCommandMenuOpen] = useState(true);
   const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
-  // Esc (or âŒ˜ . on a Mac) stops the run while focus is in the composer or its queue.
+  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
   useShortcut('stop', () => onStop?.(), {
     enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
     region: rootRef,
   });
-  // Ctrl+S (âŒ˜S) puts the draft aside in the dash; Up in an empty editor brings
+  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
   // the newest back. Restoring over a draft puts that one aside first.
   const savedDraftKey = sessionId ?? `new:${workspaceId}`;
   const savedDrafts = useSavedDrafts(savedDraftKey);
@@ -418,6 +430,18 @@ export function ClioComposer({
     const frame = window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
+
+  const autoFocusRef = useRef(autoFocus);
+  useEffect(() => {
+    if (!autoFocusRef.current) return undefined;
+    if (window.matchMedia?.('(pointer: coarse)').matches) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      focusComposerEditor(inputRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (disabled || !restoreFocusAfterSubmitRef.current) return;
@@ -713,13 +737,16 @@ export function ClioComposer({
             className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
             data-slot="composer-toolbar"
           >
-            {attachments || contextReferences ? (
+            {attachments || contextReferences || capabilitiesPending ? (
               <ComposerAddContextButtons
                 attachments={attachments}
                 contextReferences={contextReferences}
+                pending={capabilitiesPending}
+                sourcesPending={connectedSources.probing}
                 disabled={controlsDisabled}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
+                onReturnFocus={focusEditorSoon}
               />
             ) : null}
             <ClioComposerBehaviorControls
@@ -742,6 +769,10 @@ export function ClioComposer({
                 />
               }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
+              reasoningPending={
+                (connecting || modelCatalogStatus === 'loading') &&
+                !selectedOption?.reasoning?.levels?.length
+              }
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
                 selectedOption?.reasoning,
@@ -756,10 +787,12 @@ export function ClioComposer({
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
+                  returnFocus={focusEditorSoon}
                   selected={selectedOption}
                 />
               }
               onChange={choose}
+              onReturnFocus={focusEditorSoon}
               unrecognizedEffort={unrecognizedEffort}
             />
             <ComposerToolbarStatus

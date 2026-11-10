@@ -2,6 +2,7 @@ import { memo, type ReactNode } from 'react';
 import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RingSpinner } from './ring-spinner';
+import { statusWordClass } from './status-word-tone';
 
 export type StatusTone =
   | 'running'
@@ -60,8 +61,9 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
 };
 
 /**
- * The one status word: a mark carrying the colour and a 12px muted word, so a
- * state reads the same in every list, menu and panel. Aligns in a fixed column.
+ * The one status word: a mark carrying the colour and a 12px word, muted except
+ * for an error or warning, so a state reads the same in every list, menu and
+ * panel. Aligns in a fixed column.
  */
 export const StatusIndicator = memo(function StatusIndicator({
   tone,
@@ -105,6 +107,7 @@ export const StatusIndicator = memo(function StatusIndicator({
       data-tone={tone}
       className={cn(
         'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
+        statusWordClass(tone),
         className,
       )}
     >

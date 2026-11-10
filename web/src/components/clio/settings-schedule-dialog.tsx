@@ -199,6 +199,7 @@ export function ScheduleDialog({
           >
             <div className={fieldWithoutLabel}>
               <DateTimeField
+                compact
                 id="schedule-once-at"
                 label="Date and time"
                 onChange={(value) => update({ onceAt: value })}

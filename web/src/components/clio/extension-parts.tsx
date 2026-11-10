@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { ExtensionMetaPart, ExtensionStatus } from '@/lib/extension-library-entries';
 import { MoreIcon } from '@/lib/icon-vocabulary';
+import { handleRowMenuKey, ROW_MENU_OPEN_VISIBLE } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
@@ -134,6 +135,7 @@ export function ExtensionRow({
   menu,
   slot,
   confirm,
+  onDelete,
   selected = false,
   size = 'default',
   aligned = false,
@@ -154,6 +156,8 @@ export function ExtensionRow({
   slot?: ReactNode;
   /** An inline confirm (`RowConfirm`) over the status, actions and slot. */
   confirm?: ReactNode;
+  /** Delete (⌫) on the row asks to remove it, as its remove action does. */
+  onDelete?: () => void;
   selected?: boolean;
   size?: 'default' | 'sm';
   /** Keep the status and slot columns on a row without them, so a mixed list lines up. */
@@ -168,25 +172,26 @@ export function ExtensionRow({
     onExplore?.();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || event.key !== 'Enter' || !onExplore || confirm)
-      return;
-    event.preventDefault();
-    onExplore();
+    if (event.target !== event.currentTarget || confirm) return;
+    if (handleRowMenuKey(event)) return;
+    if (event.key === 'Enter' && onExplore) {
+      event.preventDefault();
+      onExplore();
+    } else if ((event.key === 'Delete' || event.key === 'Backspace') && onDelete) {
+      event.preventDefault();
+      onDelete();
+    }
   };
   const hasActions = Boolean(onExplore || actions || menu);
   return (
     <ItemRow
       aria-current={selected || undefined}
-      className={cn(
-        onExplore && 'cursor-default',
-
-        className,
-      )}
+      className={cn(onExplore && 'cursor-default', ROW_MENU_OPEN_VISIBLE, className)}
       confirm={confirm}
       icon={icon}
       meta={meta?.length ? <MetaLine parts={meta} /> : undefined}
       onClick={onExplore ? open : undefined}
-      onKeyDown={onExplore ? onKeyDown : undefined}
+      onKeyDown={onKeyDown}
       selected={selected}
       size={size}
       slot={slot ?? (aligned ? null : undefined)}

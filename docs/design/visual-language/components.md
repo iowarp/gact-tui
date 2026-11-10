@@ -191,7 +191,9 @@ above while redesigning the surface; the change is not mechanical.
   (12 discrete steps), not a smooth `animate-spin`: a smooth spinner keeps the
   compositor drawing every frame and alone costs a few percent of idle CPU.
 - `StatusIndicator` is the one status word (cross-surface X4): a mark that
-  carries the color and a 12px muted word, in every state. Use it for
+  carries the color and a 12px word, muted except that an error or warning
+  colours the word itself (the spec's `.xst.err` / `.xst.warn`; a place that
+  repeats the word uses `statusWordClass`). Use it for
   Ready, Connected, Running, Completed, Failed and the like in lists, menus,
   panels and dialogs. Don't draw state words as pills, badges, colored text or
   other sizes, and don't override its size or color. Settings, transcript and
