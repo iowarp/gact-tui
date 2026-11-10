@@ -263,7 +263,7 @@ it('opens the agent menu from Alt Space in a browser', async () => {
   expect(screen.queryByText('Talking to')).toBeNull();
   await user.keyboard('{Alt>}[Space]{/Alt}');
   expect(await screen.findByText('Talking to')).toBeVisible();
-  expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+  expect(screen.queryByRole('searchbox', { name: 'Search agents' })).toBeNull();
 });
 
 it('opens the agent menu when the native Switch agent command asks for it', async () => {

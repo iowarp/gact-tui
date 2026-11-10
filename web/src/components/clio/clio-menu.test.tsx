@@ -108,6 +108,39 @@ it('shows the runtime version with a v prefix', () => {
   expect(screen.getByText('v0.9.5')).toBeVisible();
 });
 
+it('opens the ways to add an agent in place on a phone, with Back', async () => {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query) =>
+      ({
+        matches: query === '(max-width: 599px)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as MediaQueryList,
+  );
+  const user = userEvent.setup();
+  renderMenu();
+
+  await user.click(screen.getByRole('menuitem', { name: /Add an agent/u }));
+  expect(screen.getByRole('menuitem', { name: /Connect by address/u })).toBeVisible();
+  expect(screen.queryByText('Talking to')).toBeNull();
+  expect(screen.getByRole('menuitem', { name: /^Add an agent$/u })).toHaveFocus();
+
+  await user.keyboard('{ArrowLeft}');
+  expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: /Add an agent/u })).toHaveFocus();
+
+  await user.keyboard('{ArrowRight}');
+  expect(screen.getByRole('menuitem', { name: /^Add an agent$/u })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(screen.getByText('Talking to')).toBeVisible();
+  vi.restoreAllMocks();
+});
+
 it('copies the agent address and keeps the menu open', async () => {
   const user = userEvent.setup();
   renderMenu();
@@ -120,11 +153,29 @@ it('copies the agent address and keeps the menu open', async () => {
   ).toBeVisible();
 });
 
+it('opens straight onto Talking to, with search only for many saved agents', async () => {
+  renderMenu([
+    { endpoint: 'https://ares.iit.edu:8100', label: 'ares-genesis' },
+    { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+  ]);
+
+  expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.queryByRole('searchbox', { name: 'Search agents' })).toBeNull();
+  expect(screen.getByRole('menuitem', { name: /^Infrastructure/u })).toHaveAttribute(
+    'href',
+    '/infrastructure',
+  );
+});
+
 it('filters saved agents as you type anywhere in the menu', async () => {
   const user = userEvent.setup();
   renderMenu([
     { endpoint: 'https://ares.iit.edu:8100', label: 'ares-genesis' },
     { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+    ...['b1', 'b2', 'b3', 'b4', 'b5'].map((name, index) => ({
+      endpoint: `http://10.0.5.${index + 1}:8100`,
+      label: `bench-${name}`,
+    })),
   ]);
 
   screen.getByRole('menuitem', { name: /Connection settings/u }).focus();
