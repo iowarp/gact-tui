@@ -75,6 +75,11 @@ export interface IconButtonProps
   /** Skip the tooltip when the name is already visible next to the icon. */
   tooltip?: boolean;
   /**
+   * A shorter one-line hover name when the accessible name is a sentence
+   * (the bell's). Replaces the `label, count` hover name.
+   */
+  hoverLabel?: string;
+  /**
    * Unavailable here, and why: the button reads as disabled but keeps its
    * hover name, which adds the reason (a disabled button shows no tooltip).
    */
@@ -93,6 +98,7 @@ export const IconButton = memo(function IconButton({
   countTone = 'muted',
   tooltipSide,
   tooltip = true,
+  hoverLabel,
   disabledReason,
   variant = 'ghost',
   className,
@@ -143,7 +149,7 @@ export const IconButton = memo(function IconButton({
     </Button>
   );
   if (!tooltip) return button;
-  const named = count ? `${label}, ${count}` : label;
+  const named = hoverLabel ?? (count ? `${label}, ${count}` : label);
   return (
     <NamedTooltip
       label={disabledReason ? `${named}: ${disabledReason}` : named}
