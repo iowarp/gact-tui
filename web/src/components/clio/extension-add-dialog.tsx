@@ -1,12 +1,11 @@
 import type { LocalExtensionInput } from '@clio/core/v3';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { PackageIcon, BoxesIcon, CableIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { CapabilitySelection } from './capability-picker';
 import { toast } from 'sonner';
 import { DialogFrame } from './primitives/dialog-frame';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { usePluginCatalog, useExtensionsSupported } from '@/hooks/use-session-agent';
@@ -14,6 +13,7 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SplitButton } from './primitives/split-button';
 import type { SavedMcpService } from '@clio/core/v3';
 import { McpConnectionDialog } from './mcp-connection-dialog';
+import { SettingsRow } from './settings-row';
 
 export type ExtensionAdd = {
   kind: 'remote' | 'local' | 'import' | 'skill' | 'plugin' | 'upload';
@@ -26,6 +26,9 @@ export type ExtensionAdd = {
 };
 
 const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
+// The same field size as the other Settings dialogs' setting rows.
+const FIELD = 'h-[1.875rem] text-[0.78125rem]';
+
 const ADD_LABELS = {
   remote: 'MCP server URL',
   local: 'Local MCP command',
@@ -155,6 +158,7 @@ function ExtensionSourceDialog({
 }) {
   const repository = useRepository();
   const supported = useExtensionsSupported();
+  const ids = useId();
 
   const [name, setName] = useState(choice.title ?? '');
   const [source, setSource] = useState(choice.source ?? '');
@@ -260,16 +264,17 @@ function ExtensionSourceDialog({
       }
     >
       <form
-        className="clio-scrollbar grid max-h-[min(62dvh,34rem)] gap-4 overflow-y-auto"
+        className="clio-scrollbar grid max-h-[min(62dvh,34rem)] overflow-y-auto"
         onSubmit={(event) => {
           event.preventDefault();
           if (!busy && !missing && supported === true) void save();
         }}
       >
-        <Label className="grid gap-2">
-          {importing ? 'Local name (optional)' : 'Name'}
+        <SettingsRow htmlFor={`${ids}-name`} title={importing ? 'Local name (optional)' : 'Name'}>
           <Input
+            className={FIELD}
             data-initial-focus=""
+            id={`${ids}-name`}
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={
@@ -281,17 +286,18 @@ function ExtensionSourceDialog({
             }
             required={!importing}
           />
-        </Label>
+        </SettingsRow>
         {importing ? (
-          <Label className="grid gap-2">
-            Repository URL or folder on the agent host
+          <SettingsRow htmlFor={`${ids}-source`} title="Repository URL or folder on the agent host">
             <Input
+              className={FIELD}
+              id={`${ids}-source`}
               value={source}
               onChange={(event) => setSource(event.target.value)}
               placeholder="https://github.com/homeassistant-ai/skills"
               required
             />
-          </Label>
+          </SettingsRow>
         ) : null}
         {choice.kind === 'upload' ? (
           <div className="grid gap-2">
@@ -336,26 +342,27 @@ function ExtensionSourceDialog({
           </div>
         ) : null}
         {choice.kind === 'skill' || choice.kind === 'plugin' ? (
-          <Label className="grid gap-2">
-            Description
+          <SettingsRow htmlFor={`${ids}-description`} title="Description">
             <Input
+              className={FIELD}
+              id={`${ids}-description`}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               required
             />
-          </Label>
+          </SettingsRow>
         ) : null}
         {choice.kind === 'skill' ? (
-          <Label className="grid gap-2">
-            Instructions
+          <SettingsRow htmlFor={`${ids}-instructions`} title="Instructions">
             <Textarea
-              className="min-h-52"
+              className="min-h-52 text-[0.78125rem]"
+              id={`${ids}-instructions`}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
               placeholder="When to use this skill, what to do, and how to verify the outcome."
               required
             />
-          </Label>
+          </SettingsRow>
         ) : null}
         {choice.kind === 'plugin' ? (
           <>
@@ -364,12 +371,12 @@ function ExtensionSourceDialog({
           </>
         ) : null}
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="pt-2 text-xs text-destructive" role="alert">
             {error}
           </p>
         ) : null}
         {!importing ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="pt-2 text-xs text-faint">
             Saves to your Private local marketplace on this agent host. GitHub backup is available
             from Marketplaces.
           </p>
