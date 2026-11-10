@@ -168,7 +168,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const draftRef = agentChoice || defaultRef || '';
   const openAgent = () => revealWorkbench({ kind: 'resources', section: 'agent' });
   const agentsSupported = useAgentPluginsSupported();
-  const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
+  // Only a first load that failed blocks the draft. A later refetch that fails (the agent
+  // dropped) keeps the cached workspace on screen; the line under CLIO reports the drop.
+  const loadError = (query: { data: unknown; error: Error | null }) =>
+    query.data === undefined ? query.error : null;
+  const error = loadError(data.workspaces) ?? loadError(data.capabilities) ?? loadError(defaults);
   if (error || (!data.workspaces.isPending && !workspace)) {
     return (
       <WorkspaceUnavailable
