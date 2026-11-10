@@ -69,6 +69,9 @@ const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkKnowledgeW
 /** Wide tables scroll in place: a thin visible scrollbar and a right-edge fade while more columns follow. */
 const TABLE_SCROLL =
   '[&_[data-knowledge-table-scroll]]:[scrollbar-width:thin] [&_[data-knowledge-table-scroll]]:[scrollbar-color:color-mix(in_oklch,var(--muted-foreground)_36%,transparent)_transparent] [&_[data-scroll-more]]:[mask-image:linear-gradient(to_left,transparent,#000_32px)]';
+/** The spec's document table cells (`.ttab`): 10px either side, so a short table fits a phone. */
+const TABLE_CELLS =
+  '[&_[data-streamdown=table-cell]]:px-2.5 [&_[data-streamdown=table-header-cell]]:px-2.5';
 
 /** Marks each table's scroller while columns remain to its right. */
 function useTableScrollCue(root: RefObject<HTMLDivElement | null>) {
@@ -144,7 +147,7 @@ export function KnowledgeNoteMarkdown({
             <CodeBlock code={frontmatter[1]} language="yaml" />
           </details>
         ) : null}
-        <div ref={reading} className={TABLE_SCROLL}>
+        <div ref={reading} className={cn(TABLE_SCROLL, TABLE_CELLS)}>
           <KnowledgeWikiNavigation.Provider value={{ resolve, open: onOpen }}>
             <ContentMarkdown
               className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}

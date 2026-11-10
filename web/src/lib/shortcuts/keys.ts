@@ -110,8 +110,26 @@ export function gestureModifiers(platform: KeyPlatform) {
 }
 
 const KEY_LABELS: Record<KeyPlatform, Record<string, string>> = {
-  windows: { Enter: '↵', Up: '↑', Down: '↓', Left: '←', Right: '→' },
-  mac: { Enter: '↩', Up: '↑', Down: '↓', Left: '←', Right: '→', Delete: '⌫', Backspace: '⌫' },
+  windows: {
+    Enter: '↵',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
+  mac: {
+    Enter: '↩',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    Delete: '⌫',
+    Backspace: '⌫',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
 };
 
 /** The labels of one chord, one per key cap, in the platform's order. */
