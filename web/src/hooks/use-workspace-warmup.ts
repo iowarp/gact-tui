@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
+import { readRetryDelayMs, serviceStillStarting } from '@/lib/connection-attempt';
+import { STARTING_READ_RETRIES } from '@/lib/runtime-limits';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
@@ -17,6 +19,10 @@ export function useWorkspaceWarmup(workspaceId: string, enabled: boolean, agentR
     refetchOnWindowFocus: false,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
-    retry: false,
+    // An agent that is restarting (503 `task_runtime_starting`) is waited out with the
+    // connect backoff instead of reporting that tools could not be prepared. Any other
+    // failure is shown at once: preparing again only repeats the same work.
+    retry: (failures, error) => serviceStillStarting(error) && failures < STARTING_READ_RETRIES,
+    retryDelay: readRetryDelayMs,
   });
 }
