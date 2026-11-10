@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { FileTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -160,6 +161,7 @@ export function BoundedResult({
             </Button>
           </DialogTrigger>
           <ResultDialogContent
+            icon={<FileTextIcon />}
             title={title}
             footer={
               <>
