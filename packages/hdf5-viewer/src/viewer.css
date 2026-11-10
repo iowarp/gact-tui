@@ -20,3 +20,58 @@ body,
 .viewer-root [role='tablist'][aria-label='Visualization'] {
   display: none;
 }
+
+/*
+ * h5web's tree and data share a resizable split whose data side needs 500px
+ * and tree 150px. A workbench pane is usually narrower, so h5web sizes the tree
+ * to nothing (or collapses it) and the Explorer toggle cannot bring it back.
+ * While the host's Explorer toggle says open (modes.ts), keep the tree beside
+ * the data, as the workbench's Array view draws it. Wider panes keep h5web's
+ * own draggable split.
+ */
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar,
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar > * {
+  display: flex !important;
+}
+
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar {
+  flex: 0 0 min(16rem, 44%) !important;
+}
+
+.viewer-root[data-explorer='open'] #h5w-sidebar > * {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 680px) {
+  .viewer-root[data-explorer='open'] [data-fullscreen-root] > #h5w-sidebar {
+    flex: 0 0 min(16rem, 44%) !important;
+  }
+
+  .viewer-root[data-explorer='open'] [data-fullscreen-root] > #h5w-main-area {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+
+  /* The dimension mapper moves above the plot so the plot keeps the width. */
+  .viewer-root [class*='_visArea_'] {
+    grid-template: 'dimMapper' auto 'bar' auto 'vis' minmax(0, 1fr) / minmax(0, 1fr) !important;
+  }
+
+  .viewer-root [class*='_dimMapper_'] {
+    flex-flow: row wrap !important;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding: 0.375rem 0.5rem !important;
+    overflow: visible !important;
+  }
+
+  .viewer-root [class*='_dimMapper_'] > [class*='_axisMapperWrapper_'] {
+    flex-flow: row wrap !important;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .viewer-root [class*='_dimMapper_'] > [class*='_sliders_']:empty {
+    display: none;
+  }
+}

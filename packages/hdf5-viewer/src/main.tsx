@@ -1,7 +1,7 @@
 import '@h5web/app/styles.css';
 import './viewer.css';
 
-import { App, H5GroveProvider, useEntity, type ProvidedEntity } from '@h5web/app';
+import { App, H5GroveProvider, useDataContext, useEntity, type ProvidedEntity } from '@h5web/app';
 import {
   Component,
   StrictMode,
@@ -15,8 +15,8 @@ import {
 import { createRoot } from 'react-dom/client';
 import { HostBridge, createExportURL, observeSelection } from './bridge';
 import { hostOriginFor } from './host-origin';
-import { dtypeName, entityKind, observeView, shapeOf } from './modes';
-import { applyTheme } from './theme';
+import { dtypeName, entityKind, firstArrayDataset, observeView, shapeOf } from './modes';
+import { applyPalette, applyTheme } from './theme';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
 
 type Init = Extract<HostMessage, { type: 'init' }>;
@@ -48,7 +48,8 @@ function Viewer() {
 
   useEffect(() => {
     if (init?.theme) applyTheme(document, init.theme);
-  }, [init?.theme]);
+    if (init?.palette) applyPalette(document, init.palette, init.theme);
+  }, [init?.theme, init?.palette]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -102,16 +103,38 @@ function Viewer() {
             />
           </Suspense>
         </ReportBoundary>
-        <App
-          initialPath={init.locator ?? '/'}
-          sidebarOpen
-          // With a host theme, applyTheme() owns dark mode; without one,
-          // h5web's own OS-following dark mode stays on.
-          disableDarkMode={init.theme !== undefined}
-        />
+        <Suspense fallback={null}>
+          <StartPath requested={init.locator}>
+            {(start) => (
+              <App
+                initialPath={start}
+                sidebarOpen
+                // With a host theme, applyTheme() owns dark mode; without one,
+                // h5web's own OS-following dark mode stays on.
+                disableDarkMode={init.theme !== undefined}
+              />
+            )}
+          </StartPath>
+        </Suspense>
       </H5GroveProvider>
     </div>
   );
+}
+
+/**
+ * The object to open: the one asked for, or else the file's first array
+ * dataset, so a file opens on its data rather than on a root group h5web has
+ * nothing to show for. A root with a NeXus `default` keeps h5web's own pick.
+ */
+function StartPath({
+  requested,
+  children,
+}: {
+  requested?: string;
+  children: (path: string) => ReactNode;
+}) {
+  const { entitiesStore } = useDataContext();
+  return children(requested ?? firstArrayDataset((path) => entitiesStore.get(path)));
 }
 
 /**
@@ -147,8 +170,26 @@ class ReportBoundary extends Component<{ children: ReactNode }, { failed: boolea
   }
 }
 
+/**
+ * A heatmap fills its pane, as the workbench's Array view draws it, until the
+ * reader turns h5web's Keep ratio on; that choice then persists as usual.
+ */
+function seedHeatmapDefaults(): void {
+  try {
+    if (localStorage.getItem('h5web:heatmap') === null) {
+      localStorage.setItem(
+        'h5web:heatmap',
+        JSON.stringify({ state: { keepRatio: false }, version: 12 }),
+      );
+    }
+  } catch {
+    // Storage blocked: h5web keeps its own default.
+  }
+}
+
 const container = document.getElementById('root');
 if (container) {
+  seedHeatmapDefaults();
   createRoot(container).render(
     <StrictMode>
       <Viewer />
