@@ -53,7 +53,6 @@ export function SettingsSourceConnect({
   return (
     <DialogFrame
       confirm={{ label: 'Continue', onConfirm: proceed, disabled: !selected }}
-      className="w-[clamp(360px,44vw,720px)]"
       icon={<LinkIcon className="size-3.5" />}
       onOpenChange={(open) => {
         if (!open) onClose();

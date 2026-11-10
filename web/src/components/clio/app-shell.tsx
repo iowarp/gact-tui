@@ -42,6 +42,7 @@ import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { fitWorkbenchWidthTo } from './workbench-list-fit';
+import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -190,8 +191,6 @@ const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
 const OPEN_NAVIGATION_WIDTH = 292;
-/** Under this the workbench slides over the conversation instead of sitting beside it. */
-const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
 
 /** The workbench width as a share of the window: 40% to start, then what the user dragged. */
 function storedWorkbenchShare(): number {
