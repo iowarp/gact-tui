@@ -89,6 +89,7 @@ describe('session attention', () => {
       mcpTaskInputIds: [],
       a2uiIds: [],
       unknownIds: [],
+      requests: [expect.objectContaining({ id: 'permission:perm_1', kind: 'permission' })],
       total: 1,
     });
     expect(attentions[child.id]).toBeUndefined();

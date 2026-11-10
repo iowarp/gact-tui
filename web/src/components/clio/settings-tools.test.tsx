@@ -368,7 +368,10 @@ describe('tool provider settings', () => {
     expect(saved).toHaveTextContent('Not started');
     await user.click(within(saved).getByRole('button', { name: 'Actions for colab-mcp' }));
     await user.click(screen.getByRole('menuitem', { name: /^Remove saved/ }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Remove/ }));
+    const ask = within(saved).getByRole('group', { name: 'Remove this server?' });
+    expect(within(ask).getByRole('button', { name: 'Keep' })).toHaveFocus();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(within(ask).getByRole('button', { name: 'Remove' }));
     await waitFor(() =>
       expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('colab-mcp'),
     );
@@ -400,9 +403,18 @@ describe('tool provider settings', () => {
 
     await user.click(screen.getByRole('button', { name: 'Actions for Science tools' }));
     await user.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
-    const confirmation = screen.getByRole('dialog');
-    expect(within(confirmation).getByText(/transcript evidence remains readable/i)).toBeVisible();
-    await user.click(within(confirmation).getByRole('button', { name: /^Disconnect/ }));
+    const confirmation = screen.getByRole('group', { name: 'Disconnect this server?' });
+    await user.click(within(confirmation).getByRole('button', { name: 'Keep' }));
+    expect(screen.queryByRole('group', { name: 'Disconnect this server?' })).toBeNull();
+    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Science tools' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
+    await user.click(
+      within(screen.getByRole('group', { name: 'Disconnect this server?' })).getByRole('button', {
+        name: 'Disconnect',
+      }),
+    );
     expect(repository.deleteMcpServer).toHaveBeenCalledWith('mcp_ext_science');
   });
 });

@@ -251,7 +251,7 @@ export function UsageSettings() {
             ) : undefined
           }
           list={
-            <div className="grid gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <div className="max-w-[760px]">
                 <SettingsGroupLabel
                   actions={
@@ -365,12 +365,12 @@ function EstimatedNote({ count }: { count: number }) {
   const text = `${count} older conversation${count === 1 ? ' is' : 's are'} counted under the model ${count === 1 ? 'it was' : 'they were'} set to: they predate per-model usage.`;
   return (
     <p
-      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"
       data-slot="settings-footnote"
       title={text}
     >
-      <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-      <span className="min-w-0 truncate">{text}</span>
+      <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0 max-[599px]:mt-px" />
+      <span className="min-w-0 truncate max-[599px]:whitespace-normal">{text}</span>
     </p>
   );
 }

@@ -22,7 +22,13 @@ type VaultMode = 'note' | 'markdown' | 'graph';
 
 const MODES: readonly FileMode[] = [
   { value: 'note', label: 'Note', title: 'The selected note', icon: EyeIcon },
-  { value: 'markdown', label: 'Markdown', title: 'The note’s Markdown', icon: CodeIcon },
+  {
+    value: 'markdown',
+    label: 'Markdown',
+    title: 'The note’s Markdown',
+    icon: CodeIcon,
+    shortcut: 'render-source',
+  },
   { value: 'graph', label: 'Note graph', title: 'How the notes link', icon: GitBranchIcon },
 ];
 

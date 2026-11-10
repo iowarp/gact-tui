@@ -58,8 +58,14 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
    * the time it explains. Empty columns keep their width; below 600px the row
    * drops its hover actions, elapsed and an empty badge so the text keeps room.
+   *
+   * `notice` is a notification (the bell): the icon, the title and a faint
+   * 11px `meta` time on the first line; the `description` under the title runs
+   * to the row's right edge, or stops before a `primaryAction` word pinned to
+   * the bottom right. It carries no padding or fill; its container owns both,
+   * so actions under it share the row.
    */
-  variant?: 'list' | 'activity';
+  variant?: 'list' | 'activity' | 'notice';
   /** The 12px column before the icon (an expand chevron) in `activity` rows. */
   leading?: ReactNode;
   selected?: boolean;
@@ -105,6 +111,45 @@ export const ListRow = memo(
     },
     ref,
   ) {
+    if (variant === 'notice') {
+      return (
+        <div
+          ref={ref}
+          data-slot="list-row"
+          data-variant="notice"
+          style={style}
+          className={cn(
+            'grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] gap-x-2.5 text-[12.5px] whitespace-nowrap',
+            className,
+          )}
+          {...rest}
+        >
+          <span
+            aria-hidden="true"
+            className="mt-px grid size-4 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-[15px]"
+          >
+            {icon}
+          </span>
+          <span className="min-w-0 truncate leading-[1.4] text-muted-foreground">{title}</span>
+          <span className="pt-px text-[11px] text-faint tabular-nums">{meta}</span>
+          {description ? (
+            <span
+              className={cn(
+                'col-start-2 mt-0.5 min-w-0 truncate leading-[1.45] text-muted-foreground',
+                primaryAction === undefined && 'col-span-2',
+              )}
+            >
+              {description}
+            </span>
+          ) : null}
+          {primaryAction !== undefined ? (
+            <span className="col-start-3 self-end pl-2.5 text-right text-[12px] font-medium text-accent-foreground">
+              {primaryAction}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
     if (variant === 'activity') {
       return (
         <div
@@ -162,7 +207,7 @@ export const ListRow = memo(
           {meta !== undefined ? (
             <span
               className={cn(
-                'flex w-11 shrink-0 justify-end @max-[280px]/activity:hidden',
+                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[280px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
             >

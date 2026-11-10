@@ -2,7 +2,7 @@
 // `tool-invocation.test.tsx`; this file covers status semantics, the
 // skill/workflow/diff surfaces, and process/child/terminal lifecycle
 // rendering.
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PresentationNavigation } from './presentation-navigation';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,9 +81,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'evidence.txt' }));
     expect(openFile).toHaveBeenCalledWith(path);
     expect(screen.queryByText(path)).not.toBeInTheDocument();
-    expect(
-      screen.getByText('12 bytes').closest('[data-slot="activity-metadata"]'),
-    ).not.toBeNull();
+    expect(screen.getByText('12 bytes').closest('[data-slot="activity-metadata"]')).not.toBeNull();
     expect(screen.getByText('12 bytes').closest('[data-slot="tool-human-result"]')).toBeNull();
   });
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
@@ -187,7 +185,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(screen.queryByText('null')).not.toBeInTheDocument();
   });
 
-  it('shows a loaded skill as a bounded file and opens its declared source path', async () => {
+  it('shows a loaded skill as a bounded file and opens its loaded text read-only', async () => {
     const openFile = vi.fn();
     const path = 'D:/workspace/.clio/skills/ai-elements/SKILL.md';
     const { container } = render(
@@ -234,7 +232,10 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     await userEvent.setup().click(screen.getByText('Source', { exact: true }));
     const skill = screen.getByRole('button', { name: 'SKILL.md' });
     await userEvent.setup().click(skill);
-    expect(openFile).toHaveBeenCalledWith(path);
+    // Skill files are read from the text this call loaded, not the workspace reader.
+    const dialog = screen.getByRole('dialog', { name: 'SKILL.md' });
+    expect(within(dialog).getByRole('heading', { name: 'Loaded skill body' })).toBeVisible();
+    expect(openFile).not.toHaveBeenCalled();
   });
 
   it('renders an exact file edit as a visible diff beneath the tool row', () => {
