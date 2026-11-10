@@ -14,6 +14,7 @@ import {
   getShortcut,
   listShortcuts,
   registerShortcutHandler,
+  shortcutAlternatives,
   shortcutAria,
   shortcutDefinitionsVersion,
   shortcutLabels,
@@ -45,7 +46,7 @@ export function useShortcutDefinition(id: string | undefined): ShortcutDefinitio
 export function useKeysPresentation(
   keys: readonly string[] | undefined,
   mac?: readonly string[],
-): { text: string; aria: string | undefined } | undefined {
+): { text: string; alternatives: string[]; aria: string | undefined } | undefined {
   const platform = useKeyPlatform();
   const keyList = keys?.join('\n');
   const macList = mac?.join('\n');
@@ -60,6 +61,7 @@ export function useKeysPresentation(
     };
     return {
       text: shortcutText(definition, platform),
+      alternatives: shortcutAlternatives(definition, platform),
       aria: shortcutAria(definition, platform),
     };
   }, [keyList, macList, platform]);
@@ -93,6 +95,8 @@ export interface ShortcutPresentation {
   definition: ShortcutDefinition;
   /** One line: `Ctrl Shift L` or `⇧⌘L`. */
   text: string;
+  /** Each alternative's text, for one chip apiece with "or" between. */
+  alternatives: string[];
   /** Key caps per chord. */
   labels: string[][];
   /** For `aria-keyshortcuts`. */
@@ -132,6 +136,7 @@ export function useShortcutPresentation(
     return {
       definition,
       text: shortcutText(definition, platform),
+      alternatives: shortcutAlternatives(definition, platform),
       labels: shortcutLabels(definition, platform),
       aria: shortcutAria(definition, platform),
     };
