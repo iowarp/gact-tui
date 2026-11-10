@@ -587,9 +587,14 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   // attachment and Activity rows above it.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await settleConversationAtLatest(page);
+  // The outline is a popover now; open it to confirm the reader is at the latest turn.
+  await page.getByRole('button', { name: 'Open transcript outline' }).click();
+  const outline = page.getByRole('dialog', { name: 'Transcript outline' });
   await expect(
-    page.getByRole('button', { name: 'Jump to assistant message 1001' }),
+    outline.getByRole('button', { name: 'Jump to assistant message 1001' }),
   ).toHaveAttribute('aria-current', 'location');
+  await page.keyboard.press('Escape');
+  await expect(outline).toHaveCount(0);
   await alignLatestActivityAtTop(page);
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
