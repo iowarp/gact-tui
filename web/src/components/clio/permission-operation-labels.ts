@@ -10,6 +10,7 @@ const OPERATIONS: Record<string, string> = {
   'workspace.move': 'Move file',
   connected_data_connect: 'Connect source',
   connected_data_download: 'Download source',
+  connected_data_ndp_endpoint_connect: 'Connect NDP endpoint',
   web_fetch: 'Read web source',
   web_search: 'Search the web',
   browser_host: 'Open a website in the shared browser',

@@ -7,9 +7,10 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 
 /**
- * The connect dialog frame: 460 px, header, body and footer. On a page (first
- * run) it is drawn in place without a scrim; over the app (`dialog`) it is the
- * modal's content and a bottom sheet with a grab handle below 600 px.
+ * The connect dialog frame: header, body and footer. On a page (first run) it is
+ * 460 px, drawn in place without a scrim; over the app (`dialog`) it fills the
+ * modal (36% of the window, 340 to 640 px) and is a bottom sheet with a grab
+ * handle below 600 px.
  */
 export function ConnectFrame({
   icon,

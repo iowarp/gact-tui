@@ -4,6 +4,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import type { ActivityKind } from './workbench-activity-model';
 import type { WorkbenchListView, WorkbenchTabListView } from './workbench-strip';
 
@@ -106,6 +107,8 @@ type WorkbenchTabKind =
       sessionId: string;
       workspaceId: string;
     }
+  /** Ctrl K's results for `query`, moved into a tab (All results). */
+  | { id: string; kind: 'search'; label: string; query: string; scope?: CommandMenuScope }
   /** One try of a variant run (BestOfN / Refine); the run's pick card picks between them. */
   | {
       id: string;

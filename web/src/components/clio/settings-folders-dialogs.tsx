@@ -8,12 +8,6 @@ import { IconButton } from './primitives/icon-button';
 import { SettingsRow } from './settings-row';
 import { folderName, folderPathProblem, samePath } from './settings-folders-model';
 
-/**
- * The spec's dialog frame is 44% of the window up to 600 px. These dialogs keep at least
- * 440 px, so each value stays on one line beside its label until the frame becomes a sheet.
- */
-const FOLDER_DIALOG_WIDTH = 'w-[clamp(440px,44vw,600px)]';
-
 /** A plain value row (the spec's `.zv`): right-aligned, wrapping only when it doesn't fit. */
 function ValueRow({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -144,7 +138,6 @@ export function AllowFolderDialog({
         onConfirm: () => void allow(),
         disabled: request.pending || !path.trim() || Boolean(problem),
       }}
-      className={FOLDER_DIALOG_WIDTH}
       icon={<ShieldIcon className="size-4" />}
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}
@@ -198,7 +191,6 @@ export function ChangePrimaryDialog({
         onConfirm: () => void change(),
         disabled: request.pending || unchanged,
       }}
-      className={FOLDER_DIALOG_WIDTH}
       icon={<FolderIcon className="size-4" />}
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}

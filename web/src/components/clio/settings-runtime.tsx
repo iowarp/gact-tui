@@ -15,7 +15,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { IconButton } from './primitives/icon-button';
 import { SaveBar } from './primitives/save-bar';
 import { StateView } from './primitives/state-view';
-import { SettingsLoadError } from './settings-health-load-error';
+import { SettingsLoadError, UnofferedLine } from './settings-health-load-error';
 import { plainReason } from './settings-health-reason';
 import { RuntimeSettingControl } from './settings-runtime-control';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
@@ -187,6 +187,7 @@ export function RuntimeSettingsPanel({
     return (
       <div className="grid gap-1">
         {heading}
+        <UnofferedLine />
         <SettingsLoadError
           error={current.error}
           onRetry={() => void reload()}
@@ -201,6 +202,7 @@ export function RuntimeSettingsPanel({
     return (
       <div className="grid gap-1">
         {heading}
+        <UnofferedLine />
         <StateView kind="loading" size="row" title="Loading configuration…" />
         {trailing}
       </div>
@@ -258,6 +260,7 @@ export function RuntimeSettingsPanel({
   return (
     <div className="grid">
       {heading}
+      <UnofferedLine />
       {groups.map((group) => (
         <Fragment key={group}>
           {inserted && insertBefore.group === group ? <div>{insertBefore.content}</div> : null}

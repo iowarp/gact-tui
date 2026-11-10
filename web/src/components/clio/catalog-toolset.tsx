@@ -32,6 +32,8 @@ import { TechnicalDetails } from '@/components/clio/technical-details';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { permissionOperationLabel } from './permission-operation-labels';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import {
   domainDescription,
   humanize,
@@ -255,7 +257,19 @@ function McpProvenance({ server }: { server: McpServerDefinition }) {
 
 function ToolContract({ entry }: { entry: ToolEntry }) {
   const { tool, server } = entry;
-  const title = tool.title?.trim() || humanize(tool.name);
+  // Some providers send the id title-cased as the title; a known label reads better.
+  const supplied = tool.title?.trim();
+  const plain = (text: string) =>
+    text
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/gu, ' ')
+      .trim();
+  const title =
+    (supplied && plain(supplied) !== plain(tool.name) ? supplied : undefined) ||
+    permissionOperationLabel(tool.name) ||
+    TOOL_OPERATIONS[tool.name]?.action ||
+    supplied ||
+    humanize(tool.name);
   const [expanded, setExpanded] = useState(false);
   const description = tool.description?.trim() || 'This provider did not supply a description.';
   return (
@@ -263,7 +277,6 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
       <SheetHeader className="gap-1 p-0">
         <SheetTitle className="text-lg">{title}</SheetTitle>
         <SheetDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <code className="break-all text-xs">{tool.name}</code>
           <span className="text-xs">{entry.group}</span>
           {server ? <McpOriginBadge server={server} /> : null}
         </SheetDescription>
@@ -307,6 +320,7 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
         title="Provider metadata and raw schemas"
       >
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Metadata label="Tool id" value={tool.name} />
           <Metadata label="Source" value={tool.source || 'Not reported'} />
           <Metadata label="MCP or domain" value={tool.server_id || vocab.agent} />
           <Metadata label="Owner" value={tool.owner || 'Not reported'} />
