@@ -14,6 +14,8 @@ import { copyText } from '@/lib/clipboard';
 import { agentSearchTarget } from '@/lib/global-search-commands';
 import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { agentDisplayName } from '@/lib/plugin-presentation';
+import { handleRowMenuKey, ROW_MENU_OPEN_VISIBLE } from '@/lib/settings-row-keys';
+import { cn } from '@/lib/utils';
 import { DraftAgentCompositionView } from './agent-composition-view';
 import { DetailPane } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
@@ -92,6 +94,7 @@ export function AgentRow({
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget || confirming) return;
+    if (handleRowMenuKey(event)) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       onPreview();
@@ -103,7 +106,7 @@ export function AgentRow({
   return (
     <ItemRow
       aria-current={selected || undefined}
-      className="cursor-default target:bg-primary/10"
+      className={cn('cursor-default target:bg-primary/10', ROW_MENU_OPEN_VISIBLE)}
       confirm={
         confirming && onDelete ? (
           <RowConfirm

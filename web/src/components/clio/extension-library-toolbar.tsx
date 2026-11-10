@@ -10,7 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { EXTENSION_TYPE_LABELS, type ExtensionType } from '@/lib/extension-library-entries';
+import {
+  defaultAdd,
+  EXTENSION_TYPE_LABELS,
+  type ExtensionType,
+} from '@/lib/extension-library-entries';
 import { AddIcon, CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import type { ExtensionAdd } from './extension-add-dialog';
 import { InfoTip } from './info-tip';
@@ -42,14 +46,6 @@ const ADD_CHOICES: { kind: ExtensionAdd['kind']; label: string }[] = [
   { kind: 'skill', label: 'Create a skill' },
   { kind: 'plugin', label: 'Compose a plugin' },
 ];
-
-/** What Add does for the type in view. */
-function defaultAdd(type: ExtensionType): ExtensionAdd {
-  if (type === 'mcp') return { kind: 'remote', category: 'mcp' };
-  if (type === 'skills') return { kind: 'skill', category: 'skills' };
-  if (type === 'plugins') return { kind: 'plugin', category: 'plugins' };
-  return { kind: 'import' };
-}
 
 /** Type tabs, Yours | Discover, search and Add, on one line that folds with the list's width. */
 export function ExtensionToolbar({
