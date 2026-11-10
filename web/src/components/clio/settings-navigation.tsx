@@ -32,8 +32,6 @@ export interface SettingsNavigationProps {
   scopeLabels: Record<string, string>;
   /** Items waiting on a section (e.g. memory changes to review), shown as a count. */
   badges?: Record<string, { count: number; label: string }>;
-  /** Sections the connected agent does not offer, dimmed with the reason as their hover name. */
-  dimmed?: Record<string, string>;
   /** A search from the global search (`?q=`): only matching sections are listed. */
   filter?: string;
   /** Lists every section again. */
@@ -51,7 +49,6 @@ export function SettingsNavigation({
   linkState,
   scopeLabels,
   badges = {},
-  dimmed = {},
   filter = '',
   onClearFilter,
 }: SettingsNavigationProps) {
@@ -82,13 +79,12 @@ export function SettingsNavigation({
               className={cn(
                 'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                dimmed[id] && 'text-faint',
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
               replace
               state={linkState}
-              title={dimmed[id] ? `${label}: ${dimmed[id]}` : label}
+              title={label}
               to={`/settings/${id}${search}`}
             >
               <span className="min-w-0 truncate">{label}</span>
@@ -131,7 +127,6 @@ export function SettingsSectionPicker({
   linkState,
   scopeLabels,
   badges = {},
-  dimmed = {},
   filter = '',
   onClearFilter,
 }: SettingsNavigationProps) {
@@ -229,10 +224,7 @@ export function SettingsSectionPicker({
                     value={id}
                   >
                     <Icon aria-hidden="true" className="text-muted-foreground" />
-                    <span
-                      className={cn('min-w-0 flex-1 truncate', dimmed[id] && 'text-faint')}
-                      title={dimmed[id] ? `${label}: ${dimmed[id]}` : label}
-                    >
+                    <span className="min-w-0 flex-1 truncate" title={label}>
                       {label}
                     </span>
                     <NavBadge badge={badges[id]} />

@@ -4,7 +4,6 @@ import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from '
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
-import { useUnofferedSections } from '@/components/clio/settings-unoffered-sections';
 import {
   SettingsNavigation,
   SettingsSearchButton,
@@ -67,7 +66,6 @@ export function SettingsWindow() {
     retry: false,
   });
   const inbox = memory.data?.inbox ?? 0;
-  const dimmed = useUnofferedSections();
   const content = useRef<HTMLDivElement>(null);
   // A prefetched chunk renders at once; otherwise the section suspends.
   const [SettingsSection] = useState(
@@ -169,7 +167,6 @@ export function SettingsWindow() {
     linkState,
     scopeLabels,
     badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
-    dimmed,
     filter,
     onClearFilter: () =>
       void navigate(
