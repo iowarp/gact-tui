@@ -123,6 +123,7 @@ export function ExtensionRow({
   actions,
   menu,
   slot,
+  confirm,
   selected = false,
   size = 'default',
   aligned = false,
@@ -141,6 +142,8 @@ export function ExtensionRow({
   /** ⋯ menu items; the ⋯ appears only with some. */
   menu?: ReactNode;
   slot?: ReactNode;
+  /** An inline confirm (`RowConfirm`) over the status, actions and slot. */
+  confirm?: ReactNode;
   selected?: boolean;
   size?: 'default' | 'sm';
   /** Keep the status and slot columns on a row without them, so a mixed list lines up. */
@@ -151,10 +154,12 @@ export function ExtensionRow({
     // Buttons and menu items (portaled, but still bubbling through React) do their own thing.
     if ((event.target as Element).closest('button, a, input, [role="menuitem"], [role="menu"]'))
       return;
+    if (confirm) return;
     onExplore?.();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || event.key !== 'Enter' || !onExplore) return;
+    if (event.target !== event.currentTarget || event.key !== 'Enter' || !onExplore || confirm)
+      return;
     event.preventDefault();
     onExplore();
   };
@@ -167,6 +172,7 @@ export function ExtensionRow({
 
         className,
       )}
+      confirm={confirm}
       icon={icon}
       meta={meta?.length ? <MetaLine parts={meta} /> : undefined}
       onClick={onExplore ? open : undefined}
