@@ -75,6 +75,7 @@ export function ClioCommandMenu({
   );
   useEffect(() => () => setVisible(false), [setVisible]);
   const searchInput = useRef<HTMLInputElement>(null);
+  const handOffFocus = useRef(false);
   const { text: searchText, prefixScope } = parseCommandMenuQuery(query);
   const activeScope = prefixScope ?? scope;
   const compactTabs = useMediaQuery('(max-width: 899px)');
@@ -201,10 +202,14 @@ export function ClioCommandMenu({
     const route = first && 'route' in first ? first.route : '/settings/agents';
     return `${route.split('#')[0]}?q=${encodeURIComponent(searchText.trim())}`;
   };
-  // Mixed results: Ctrl Enter moves the whole list into a workbench tab.
+  // Mixed results: Ctrl Enter moves the whole list into a workbench tab, which
+  // takes focus from here on (the palette does not hand it back to its opener).
   const allResultsAction = (counts: Record<CommandMenuScope, number>, settingsRoute?: string) =>
     searching && counts.all > 0 && !settingsRoute
-      ? () => void openResource({ kind: 'search', query: searchText.trim(), scope: activeScope })
+      ? () => {
+          handOffFocus.current = true;
+          void openResource({ kind: 'search', query: searchText.trim(), scope: activeScope });
+        }
       : undefined;
   const searchKeyDown = (
     event: KeyboardEvent<HTMLInputElement>,
@@ -257,7 +262,12 @@ export function ClioCommandMenu({
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
+          handOffFocus.current = false;
           searchInput.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (handOffFocus.current) event.preventDefault();
+          handOffFocus.current = false;
         }}
         onEscapeKeyDown={(event) => {
           if (aiMode) {

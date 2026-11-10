@@ -107,12 +107,17 @@ export function SettingsRow({
               <Label
                 htmlFor={htmlFor}
                 className="block min-w-0 truncate text-[0.8125rem] leading-normal font-normal"
+                data-slot="settings-label"
                 title={title}
               >
                 {name}
               </Label>
             ) : (
-              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal" title={title}>
+              <h2
+                className="min-w-0 truncate text-[0.8125rem] font-normal"
+                data-slot="settings-label"
+                title={title}
+              >
                 {name}
               </h2>
             )}
