@@ -34,7 +34,8 @@ import {
   RefreshIcon,
   SettingsIcon,
 } from '@/lib/icon-vocabulary';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -75,7 +76,12 @@ import { isMacOS } from '@/lib/platform';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
-import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
+import { countRunningSessions } from '@/lib/running-sessions';
+import {
+  listenForCloseFallbackHidden,
+  listenForCloseRequested,
+  listenForQuitRequested,
+} from '@/tauri/desktop-lifecycle';
 import {
   dispatchMenuAction,
   useMenuAction,
@@ -84,6 +90,7 @@ import {
 } from '@/tauri/menu-actions';
 import {
   ackClosePromptShown,
+  ackQuitPromptShown,
   runDesktopWindowAction,
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
@@ -211,11 +218,41 @@ export function DesktopTitleBar() {
   const setWorkspaceToolbarHost = useDesktopWorkspaceToolbar((state) => state.setHost);
   const setWorkspaceNavigationHost = useDesktopWorkspaceToolbar((state) => state.setNavigationHost);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const [runningAtQuit, setRunningAtQuit] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
   const desktopZoom = useDesktopZoom();
+  const queryClient = useQueryClient();
 
-  // Native close (Alt+F4, the OS close box, the traffic light) opens the
+  // macOS quits like a Mac app: at once, unless a conversation is still
+  // running, in which case it asks first.
+  const quitOrConfirm = useCallback((running: number) => {
+    if (running > 0) setRunningAtQuit(running);
+    else void runWindowAction('quit');
+  }, []);
+
+  // macOS Cmd-Q and the app or menu bar Quit arrive from the native side,
+  // which brings the window forward when a confirmation is needed.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listenForQuitRequested((seq) => {
+      const running = countRunningSessions(queryClient);
+      void ackQuitPromptShown(seq, running > 0).finally(() => quitOrConfirm(running));
+    }).then(
+      (dispose) => {
+        if (disposed) dispose();
+        else unlisten = dispose;
+      },
+      () => undefined,
+    );
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [queryClient, quitOrConfirm]);
+
+  // Windows and Linux: native close (Alt+F4, the OS close box) opens the
   // same confirmation prompt as the title-bar close button and hamburger
   // Quit, rather than auto-hiding or auto-quitting. `listenForCloseRequested`
   // no-ops outside Tauri, so this effect is safe to run unconditionally
@@ -456,7 +493,13 @@ export function DesktopTitleBar() {
               Settings
             </MenuActionItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void runWindowAction('quit')}>
+            <DropdownMenuItem
+              onSelect={() =>
+                macOS
+                  ? quitOrConfirm(countRunningSessions(queryClient))
+                  : void runWindowAction('quit')
+              }
+            >
               <CloseIcon aria-hidden="true" />
               Quit {brand.wordmark}
             </DropdownMenuItem>
@@ -556,6 +599,26 @@ export function DesktopTitleBar() {
             <AlertDialogCancel onClick={() => void runWindowAction('hide')}>
               Keep running
             </AlertDialogCancel>
+            <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
+              Quit {vocab.product}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog onOpenChange={(open) => !open && setRunningAtQuit(0)} open={runningAtQuit > 0}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Quit {vocab.product}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {runningAtQuit === 1
+                ? '1 conversation is still running.'
+                : `${runningAtQuit} conversations are still running.`}{' '}
+              Quitting stops {runningAtQuit === 1 ? 'it' : 'them'} and {vocab.product}'s local
+              services.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
               Quit {vocab.product}
             </AlertDialogAction>
