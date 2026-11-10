@@ -73,27 +73,21 @@ export function RelaySettings() {
 
   let list;
   if (servers.isPending || saved.isPending)
-    list = <StateView className="min-h-40" kind="loading" title="Loading remote servers" />;
+    list = <StateView kind="loading" size="row" title="Loading remote servers…" />;
   else if (servers.error)
     list = (
-      <StateView
-        action={{ label: 'Retry', onClick: () => void servers.refetch() }}
-        className="min-h-48"
-        detail={servers.error.message}
-        kind="error"
-        title="Remote servers could not be listed"
-      />
+      <div title={servers.error.message}>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+          kind="error"
+          size="row"
+          title="Remote servers couldn’t be listed."
+        />
+      </div>
     );
+  // The group label's + adds by URL, as in every other Settings list.
   else if (!entries.length)
-    list = (
-      <StateView
-        action={{ label: 'Add by URL', onClick: () => setAdding(true) }}
-        className="min-h-48"
-        detail="Add an MCP server by URL to run its tools there."
-        kind="empty"
-        title="No remote tools yet"
-      />
-    );
+    list = <StateView kind="empty" size="row" title="No remote tools yet" />;
   else
     list = (
       <McpServiceList
