@@ -54,13 +54,14 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
  */
 export function WaitingForYou({ interaction }: { interaction: PendingInteraction }) {
   const label = interaction.prompt ?? interaction.title;
+  const verb = interaction.kind === 'permission' ? 'Review below' : 'Answer below';
   return (
     <button
-      aria-label={`Answer below: ${label}`}
+      aria-label={`${verb}: ${label}`}
       className="rounded-[4px] text-warning outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
       data-slot="activity-waiting"
       onClick={() => revealPendingInteraction(interaction.id)}
-      title="Answer below"
+      title={verb}
       type="button"
     >
       waiting for you

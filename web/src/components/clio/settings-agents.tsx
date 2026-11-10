@@ -99,7 +99,11 @@ export function AgentSettings() {
       selected={agent.ref === previewRef}
       slot={
         agent.ref === defaultRef ? (
-          <Tag tone="chip" width="auto">
+          <Tag
+            className="h-[22px] rounded-[7px] bg-hover px-2 text-xs font-normal text-foreground"
+            tone="chip"
+            width="auto"
+          >
             Default
           </Tag>
         ) : null

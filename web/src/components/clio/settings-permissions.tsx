@@ -17,6 +17,7 @@ import {
   draftForPolicy,
   emptyDraft,
   policyFromDraft,
+  priorityRanks,
   RULE_COLUMNS,
   type PolicyDraft,
 } from './settings-access-rule-model';
@@ -67,6 +68,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
   const changed = rules.filter((rule) => rule.origin !== undefined && rule.changed).length;
   const removed = staged ? saved.length - (rules.length - added) : 0;
   const count = added + changed + removed;
+  const ranks = priorityRanks(rules.map((rule) => rule.policy));
 
   const stage = (next: StagedRule[]) => {
     setStaged(next);
@@ -131,6 +133,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
             }}
             policy={rule.policy}
             position={index + 1}
+            rank={ranks[index]}
             workspaces={workspaces.data}
           />
         ))}

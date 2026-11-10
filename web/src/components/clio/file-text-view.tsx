@@ -2,6 +2,7 @@ import { lazy, Suspense, useContext, useMemo, useRef, useState, type Ref } from 
 import {
   BookOpenIcon,
   FileCode2Icon,
+  FileDiffIcon,
   GitBranchIcon,
   NotebookTextIcon,
   Table2Icon,
@@ -41,6 +42,8 @@ import { FileDataGrid } from './file-data-grid';
 import { readDenseGridText } from './primitives/dense-grid-data';
 import { tabularJsonDataset } from './json-resource-data';
 import { ResourceLoading } from './resource-states';
+import { DiffLines } from './diff-lines';
+import { patchSummary } from './diff-rows';
 
 // Mermaid loads with the first diagram file opened.
 const ClioMermaidDiagram = lazy(() =>
@@ -56,6 +59,20 @@ const ClioCsvView = lazy(() =>
 const NotebookView = lazy(() =>
   import('./notebook-view').then((module) => ({ default: module.NotebookView })),
 );
+
+/**
+ * A plan's steps, the frame fact the spec gives a Markdown document ("4 steps"): its
+ * top-level numbered and task-list items, outside code fences.
+ */
+function markdownSteps(content: string) {
+  let fenced = false;
+  let steps = 0;
+  for (const line of content.split('\n')) {
+    if (/^ {0,3}(?:```|~~~)/u.test(line)) fenced = !fenced;
+    else if (!fenced && /^(?:\d{1,9}[.)]|[-*+] \[[ xX]\]) /u.test(line)) steps += 1;
+  }
+  return steps;
+}
 
 /** A file's content contributes representations and Copy to one owning toolbar. */
 export function FileTextView({
@@ -82,11 +99,18 @@ export function FileTextView({
     [content, format, name],
   );
   const diagram = !explicitFormat && /\.(?:mmd|mermaid)$/i.test(name);
+  // A patch reads as its changed lines, like the workbench's diff view.
+  const patch = !explicitFormat && /\.(?:patch|diff)$/i.test(name);
+  const changes = useMemo(() => (patch ? patchSummary(content) : undefined), [content, patch]);
   const notebook = useMemo(
     () => (format === 'notebook' ? readNotebook(content) : undefined),
     [content, format],
   );
   const lines = useMemo(() => content.split('\n').length, [content]);
+  const steps = useMemo(
+    () => (format === 'markdown' ? markdownSteps(content) : 0),
+    [content, format],
+  );
   // A code file's one view is its source; the frame names its language (frame-bar 05).
   const formatLabel = fileFormatLabel(name, mediaType ?? '');
   const language =
@@ -99,13 +123,18 @@ export function FileTextView({
         ]
       : format === 'csv' || dataset
         ? undefined
-        : language
-          ? [language]
-          : [`${lines.toLocaleString()} lines`],
+        : changes
+          ? [changes]
+          : language
+            ? [language]
+            : steps
+              ? [`${steps.toLocaleString()} ${steps === 1 ? 'step' : 'steps'}`]
+              : [`${lines.toLocaleString()} lines`],
   );
   const modes: FileMode[] = [
     ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),
     ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: GitBranchIcon }] : []),
+    ...(changes ? [{ value: 'changes', label: 'Changes', icon: FileDiffIcon }] : []),
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
       : []),
@@ -122,7 +151,7 @@ export function FileTextView({
       : modes[0].value;
   const reading = useRef<HTMLDivElement>(null);
   const readText = () =>
-    selected === 'source' || selected === 'diagram'
+    selected === 'source' || selected === 'diagram' || selected === 'changes'
       ? content
       : selected === 'data'
         ? (readDenseGridText(reading.current) ?? renderedFileText(reading.current, true))
@@ -197,6 +226,14 @@ export function FileTextView({
             <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
               <ClioMermaidDiagram framed source={content} title={name} />
             </Suspense>
+          </TabsContent>
+        ) : null}
+        {changes ? (
+          <TabsContent
+            value="changes"
+            className="m-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          >
+            <DiffLines className="flex-1" unified={content} />
           </TabsContent>
         ) : null}
         {format === 'csv' || dataset ? (

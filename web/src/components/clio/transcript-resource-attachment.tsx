@@ -1,27 +1,18 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { DownloadIcon, FolderIcon, PaperclipIcon } from 'lucide-react';
+import { DownloadIcon, FolderIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Attachment,
   AttachmentHoverCard,
   AttachmentHoverCardContent,
   AttachmentHoverCardTrigger,
-  AttachmentInfo,
-  AttachmentPreview,
-  Attachments,
 } from '@/components/ai-elements/attachments';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
-import { cn } from '@/lib/utils';
 import { formatBytes } from '@/lib/format';
-import { fileFormatLabel } from '@/lib/media-types';
-import { Button } from '@/components/ui/button';
-import { FileIdentityRow } from './file-identity-row';
-import { ClioRelativeTime } from './relative-time';
+import { FileTypeIcon } from './file-type-icon';
 import { downloadBytes } from './surface-export';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
@@ -46,9 +37,8 @@ export interface TranscriptResourceAttachmentsProps {
 }
 
 /**
- * A run of adjacent resource blocks as one attachment grid, mirroring how
- * adjacent artifact blocks group. The grid is only a visual group: each tile
- * keeps its own block identity and its position in the transcript.
+ * A run of adjacent resource blocks as one row of attachment chips above the
+ * prompt. The row is only a visual group: each chip keeps its own block identity.
  */
 export function TranscriptResourceAttachments({
   blocks,
@@ -61,31 +51,24 @@ export function TranscriptResourceAttachments({
   });
 
   return (
-    <ScrollArea className="mb-2 h-auto w-full max-w-full rounded-2xl" type="auto">
-      <p className="mb-1.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground group-[.is-user]:justify-end">
-        <PaperclipIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        Attached to this message
-      </p>
-      <Attachments
-        aria-label={
-          blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
-        }
-        className="w-full min-w-0 flex-wrap justify-start gap-2 pb-3 group-[.is-user]:justify-end"
-        role="group"
-        variant="composer"
-      >
-        {blocks.map((block) => (
-          <TranscriptResourceAttachmentItem
-            block={block}
-            key={block.id}
-            onOpen={onOpen}
-            relatedResources={relatedResources}
-            resource={resources?.[block.resource_id]}
-          />
-        ))}
-      </Attachments>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+    <div
+      aria-label={
+        blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
+      }
+      className="mb-1.5 flex w-full min-w-0 flex-wrap items-end justify-start gap-1.5 group-[.is-user]:justify-end"
+      data-slot="message-attachments"
+      role="group"
+    >
+      {blocks.map((block) => (
+        <TranscriptResourceAttachmentItem
+          block={block}
+          key={block.id}
+          onOpen={onOpen}
+          relatedResources={relatedResources}
+          resource={resources?.[block.resource_id]}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -173,6 +156,9 @@ function TranscriptResourceAttachmentDisplay({
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
   const stages = resourcePipelineStages(resource, availability);
+  // A ready attachment needs no status; anything else says what it is waiting on. Until the
+  // workspace resource list resolves, the chip shows only its name.
+  const pending = Boolean(resource) && stages.overall !== 'complete';
 
   const open = () => {
     if (resource) onOpen?.(resource, relatedResources);
@@ -198,73 +184,85 @@ function TranscriptResourceAttachmentDisplay({
   return (
     <AttachmentHoverCard closeDelay={100} openDelay={220}>
       <AttachmentHoverCardTrigger asChild>
-        {!visual ? (
-          <FileIdentityRow
-            name={filename}
-            mediaType={mediaType}
-            disabled={!resource || !onOpen}
-            onOpen={open}
-            icon={
-              folder ? (
-                <FolderIcon
-                  aria-label="Folder"
-                  className="size-8 text-amber-600 dark:text-amber-400"
-                />
-              ) : undefined
-            }
-            metadata={
-              <span className="flex items-center gap-2">
-                <span>{folder ? 'Folder' : fileFormatLabel(filename, mediaType)}</span>
-                {resource ? <span>{formatBytes(resource.received_size)}</span> : null}
-                <ResourcePipelineSummaryIcon stages={stages} />
-                <span>{stages.overallLabel}</span>
-                {resource?.created_at ? (
-                  <ClioRelativeTime timestamp={resource.created_at} label="Attached" compact />
-                ) : null}
-              </span>
-            }
-            actions={
-              resource?.state === 'ready' && !folder ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Download ${filename}`}
-                  disabled={downloading}
-                  onClick={() => void download()}
-                >
-                  <DownloadIcon className="size-4" />
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <Attachment
-            data={{ filename, id: block.id, mediaType, type: 'file', url: previewUrl ?? '' }}
-            title={filename}
+        {visual ? (
+          <span
+            className="relative inline-flex size-16 shrink-0 overflow-hidden rounded-[8px] border border-border bg-hover"
+            data-file-row
           >
             <button
               aria-label={`Open ${filename}`}
-              className={cn(
-                'text-left',
-                visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
+              className="grid size-full place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              disabled={!resource || !onOpen}
+              onClick={open}
+              title={filename}
+              type="button"
+            >
+              {previewUrl ? (
+                <img
+                  alt={filename}
+                  className="size-full object-cover"
+                  height={64}
+                  src={previewUrl}
+                  width={64}
+                />
+              ) : (
+                <FileTypeIcon className="size-5" mediaType={mediaType} name={filename} />
               )}
+            </button>
+            {pending ? (
+              <span className="pointer-events-none absolute right-1 bottom-1">
+                <ResourcePipelineSummaryIcon overlay stages={stages} />
+              </span>
+            ) : null}
+          </span>
+        ) : (
+          <span
+            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-[7px] bg-hover pr-1 pl-2 text-[13px] text-foreground"
+            data-file-row
+          >
+            <button
+              aria-label={`Open ${filename}`}
+              className="flex min-w-0 items-center gap-1.5 rounded-[5px] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
               disabled={!resource || !onOpen}
               onClick={open}
               type="button"
             >
-              <AttachmentPreview
-                fallbackIcon={
-                  folder ? (
-                    <FolderIcon aria-label="Folder" className="size-7 text-muted-foreground" />
-                  ) : undefined
-                }
-              />
-              <AttachmentInfo className="text-xs" showMediaType={!folder} />
-              <span className="absolute right-2 bottom-2 shrink-0">
-                <ResourcePipelineSummaryIcon overlay stages={stages} />
-              </span>
+              {folder ? (
+                <FolderIcon
+                  aria-label="Folder"
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+              ) : (
+                <FileTypeIcon className="size-3.5 shrink-0" mediaType={mediaType} name={filename} />
+              )}
+              <span className="min-w-0 truncate">{filename}</span>
+              {resource && !folder ? (
+                <span className="shrink-0 text-[11.5px] text-muted-foreground">
+                  {formatBytes(resource.received_size)}
+                </span>
+              ) : null}
             </button>
-          </Attachment>
+            {pending ? (
+              <span className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground">
+                <ResourcePipelineSummaryIcon stages={stages} />
+                <span aria-hidden="true">{stages.overallLabel}</span>
+              </span>
+            ) : null}
+            {resource?.state === 'ready' && !folder ? (
+              <button
+                aria-label={`Download ${filename}`}
+                className="grid size-[22px] shrink-0 place-items-center rounded-[5px] text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-50"
+                disabled={downloading}
+                onClick={() => void download()}
+                title={`Download ${filename}`}
+                type="button"
+              >
+                <DownloadIcon aria-hidden="true" className="size-3.5" />
+              </button>
+            ) : (
+              <span className="w-1" />
+            )}
+          </span>
         )}
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">

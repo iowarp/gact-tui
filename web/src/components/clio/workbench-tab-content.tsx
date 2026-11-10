@@ -29,6 +29,9 @@ import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 const BrowserSurface = lazy(() =>
   import('./browser-surface').then((module) => ({ default: module.BrowserSurface })),
 );
+const SearchResultsTab = lazy(() =>
+  import('./search-results-tab').then((module) => ({ default: module.SearchResultsTab })),
+);
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
@@ -391,6 +394,18 @@ export function WorkbenchTabContent({
       );
     case 'list':
       return renderList(tab.view);
+    case 'search':
+      return (
+        <Suspense fallback={<CanvasLoading label="Searching" />}>
+          <SearchResultsTab
+            onOpenTab={onOpenTab}
+            onReplaceTab={onReplaceTab}
+            sessionId={sessionId}
+            tab={tab}
+            workspaceId={workspaceId}
+          />
+        </Suspense>
+      );
     case 'variant-try':
       return <WorkbenchVariantTryTab tab={tab} />;
     default:

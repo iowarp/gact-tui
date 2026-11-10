@@ -81,9 +81,10 @@ export function WorkspaceFileView({
   /** The open conversation, whose recorded artifacts give the file its Lineage. */
   sessionId?: string;
 }) {
-  // A listing's generic octet-stream says nothing: the name decides (a .tex is text).
+  // A listing's generic octet-stream says nothing: the name decides (a .tex is text), as it
+  // does for NetCDF, whose version 4 files are HDF5.
   const detected =
-    (mediaType && mediaType !== 'application/octet-stream' ? mediaType : '') ||
+    (mediaType && !NAME_DECIDES.has(mediaType) ? mediaType : '') ||
     inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
   const [previewAnyway, setPreviewAnyway] = useState(false);
@@ -140,7 +141,17 @@ export function WorkspaceFileView({
     />
   ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
     <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
-      <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
+      {/\.nc$/iu.test(path) ? (
+        <WorkspaceNetcdfView
+          locator={locator}
+          path={path}
+          size={size}
+          source={source}
+          workspaceId={workspaceId}
+        />
+      ) : (
+        <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
+      )}
     </Suspense>
   ) : officeMediaType(path) ? (
     <WorkspaceDocumentView
@@ -177,10 +188,65 @@ export function WorkspaceFileView({
 }
 
 const HDF5_MEDIA_TYPE = 'application/x-hdf5';
+const NAME_DECIDES = new Set([
+  'application/octet-stream',
+  'application/x-netcdf',
+  'application/netcdf',
+]);
 
 const Hdf5ViewerFrame = lazy(() =>
   import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),
 );
+
+/** Classic NetCDF's magic: "CDF" then version 1, 2 (64-bit offsets) or 5 (CDF-5). */
+function isClassicNetcdf(bytes: Uint8Array | undefined) {
+  return (
+    bytes !== undefined &&
+    bytes[0] === 0x43 &&
+    bytes[1] === 0x44 &&
+    bytes[2] === 0x46 &&
+    [1, 2, 5].includes(bytes[3] ?? 0)
+  );
+}
+
+/**
+ * A `.nc` is NetCDF-4 (HDF5, read by the array viewer) or classic NetCDF, which it
+ * can't read: its first four bytes decide, before the viewer tries the file.
+ */
+function WorkspaceNetcdfView({
+  workspaceId,
+  path,
+  locator,
+  size,
+  source,
+}: {
+  workspaceId: string;
+  path: string;
+  locator?: string;
+  size?: number;
+  source: FileViewerSource;
+}) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const magic = useQuery({
+    queryKey: ['workspace-file-magic', settings.endpoint, workspaceId, path, size],
+    queryFn: ({ signal }) =>
+      repository.readWorkspaceFileRange(workspaceId, path, { start: 0, end: 3 }, signal),
+    retry: false,
+    staleTime: Infinity,
+  });
+  if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
+  if (isClassicNetcdf(magic.data?.subarray(0, 4)))
+    return (
+      <ViewerNoPreview
+        format="classic NetCDF"
+        reason="This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
+        source={source}
+      />
+    );
+  // NetCDF-4, or a read the viewer reports itself.
+  return <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />;
+}
 
 function WorkspacePdfView({
   workspaceId,
@@ -586,6 +652,9 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'bst',
       'cls',
       'sty',
+      // Patches read as their changed lines.
+      'patch',
+      'diff',
     ].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
   );
 }
@@ -656,9 +725,9 @@ function inferredWorkspaceMediaType(path: string): string {
   if (extension === 'ipynb') return NOTEBOOK_MEDIA_TYPE;
   if (extension === 'xml') return 'application/xml';
   if (extension === 'mmd' || extension === 'mermaid') return 'text/vnd.mermaid';
-  // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is
-  // usually HDF4.
-  if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
+  // HDF5 and formats built on it (HDF-EOS5, NeXus, NetCDF-4). `.hdf` is left out: it is
+  // usually HDF4. A classic NetCDF `.nc` is recognised by its first bytes and has no viewer.
+  if (['h5', 'hdf5', 'he5', 'nxs', 'nc', 'nc4'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
 }

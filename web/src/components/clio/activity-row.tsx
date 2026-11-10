@@ -107,6 +107,7 @@ export const ActivityRow = memo(
     // transcript does not carry every row's hidden buttons. Focus arms them before a
     // key press, so Ctrl+C and Alt+Enter still find them.
     const [armed, setArmed] = useState(() => !canDeferHoverControls());
+    const hasOutcome = outcome !== undefined && outcome !== null && outcome !== '';
     const handlePointerEnter = useCallback(
       (event: PointerEvent<HTMLDivElement>) => {
         onPointerEnter?.(event);
@@ -214,6 +215,8 @@ export const ActivityRow = memo(
                   title={argumentTitle}
                   className={cn(
                     'min-w-0 shrink truncate',
+                    // Too narrow to show any of it: the outcome keeps the room instead.
+                    hasOutcome && '@max-[64px]/desc:hidden',
                     argumentStyle === 'code'
                       ? 'font-mono text-[11.5px] text-muted-foreground'
                       : 'text-[12.5px] text-foreground/85',
@@ -222,7 +225,7 @@ export const ActivityRow = memo(
                   {argument}
                 </span>
               ) : null}
-              {outcome !== undefined && outcome !== null && outcome !== '' ? (
+              {hasOutcome ? (
                 <span
                   data-slot="activity-outcome"
                   title={outcomeTitle}

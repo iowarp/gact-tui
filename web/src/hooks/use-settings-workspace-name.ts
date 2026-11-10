@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -32,7 +33,8 @@ export function useSettingsWorkspaceName(workspaceId: string | undefined): Setti
   const listed = workspaceId
     ? workspaces.data?.find((item) => item.id === workspaceId)
     : workspaces.data?.[0];
-  const name = live?.display_name || live?.name || listed?.display_name;
+  const entry = live?.display_name || live?.name ? live : listed;
+  const name = entry ? workspaceName(entry) : undefined;
   if (name) return { label: name, line: workspaceScopeLine(name), known: true };
   if (workspaces.isPending)
     return { label: 'Loading…', line: 'Loading this workspace…', known: false };

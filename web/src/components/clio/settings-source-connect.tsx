@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -74,12 +75,12 @@ export function SettingsSourceConnect({
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild disabled={!workspaces.data?.length}>
             <SettingsSelectField
-              aria-label={`Workspace: ${selected?.display_name ?? 'none chosen'}`}
+              aria-label={`Workspace: ${selected ? workspaceName(selected) : 'none chosen'}`}
               data-initial-focus=""
               icon={<FolderIcon />}
               id={`${id}-workspace`}
               placeholder={workspaces.isPending ? 'Loading workspaces…' : 'Choose a workspace'}
-              value={selected?.display_name}
+              value={selected ? workspaceName(selected) : undefined}
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -89,7 +90,7 @@ export function SettingsSourceConnect({
             <DropdownMenuRadioGroup onValueChange={setWorkspaceId} value={selected?.id ?? ''}>
               {workspaces.data?.map((row) => (
                 <DropdownMenuRadioItem key={row.id} value={row.id}>
-                  {row.display_name}
+                  {workspaceName(row)}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>

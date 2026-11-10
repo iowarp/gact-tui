@@ -35,6 +35,10 @@ interface EntryNodeData extends Record<string, unknown> {
 type EntryNode = Node<EntryNodeData, 'science-entry'>;
 const nodeTypes = { 'science-entry': EntryCard };
 const { width, height } = STUDY_GRAPH_NODE;
+/** Opens readable: an 11.5px title at no less than 10px, top-left, the rest a pan away. */
+const OPEN_FLOOR = 10 / 11.5;
+/** Fit (the controls' frame button) zooms out this far so the whole study is in view. */
+const FIT_FLOOR = 0.12;
 
 export interface StudyGraphProps {
   graph: StudyGraphLayout;
@@ -45,13 +49,13 @@ export interface StudyGraphProps {
 /**
  * The study's recorded links, left to right from the question to its conclusions,
  * full-bleed and laid out from the top-left. The column gap and then the scale
- * shrink to fit the pane, never below a readable size; past that the reader pans,
- * an edge fade shows where the study continues and fit gives the overview.
+ * shrink toward the pane, but never below a readable title; an edge fade and chevron
+ * show where the study continues, and Fit in the controls brings all of it into view.
  */
 export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphProps) {
   const container = useRef<HTMLDivElement>(null);
   const size = usePaneSize(container);
-  const fit = fitColumns(size?.w, studyGraphColumns(graph.nodes), width);
+  const fit = fitColumns(size?.w, studyGraphColumns(graph.nodes), width, OPEN_FLOOR);
   const placed = withColumnGap(graph.nodes, fit.gap);
   const wide = placed.length ? Math.max(...placed.map((node) => node.position.x)) + width : 0;
   const tall = placed.length ? Math.max(...placed.map((node) => node.position.y)) + height : 0;
@@ -65,7 +69,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
       onSelect: onSelectEntry,
     },
   }));
-  const viewport = topLeftViewport(fitHeight(fit, size?.h, tall));
+  const viewport = topLeftViewport(fitHeight(fit, size?.h, tall, OPEN_FLOOR));
   return (
     <section
       aria-label="Study relationship graph"
@@ -78,7 +82,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         nodes={nodes}
         edges={graph.edges}
         nodeTypes={nodeTypes}
-        minZoom={0.12}
+        minZoom={FIT_FLOOR}
         maxZoom={1.8}
         nodesDraggable={false}
         nodesConnectable={false}

@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import type { Workspace, WorkspaceSourceFolder } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, FolderIcon, LockIcon } from 'lucide-react';
@@ -61,8 +62,8 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
     pageScope && workspace
       ? {
           ...pageScope,
-          line: workspaceScopeLine(workspace.display_name),
-          place: workspace.display_name,
+          line: workspaceScopeLine(workspaceName(workspace)),
+          place: workspaceName(workspace),
         }
       : pageScope;
 
@@ -109,14 +110,14 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
                   id="folders-workspace"
                   placeholder="Choose a workspace"
                   title={workspace?.path}
-                  value={workspace?.display_name}
+                  value={workspace ? workspaceName(workspace) : undefined}
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-w-80">
                 <DropdownMenuRadioGroup onValueChange={setPickedId} value={workspaceId}>
                   {list.map((item) => (
                     <DropdownMenuRadioItem key={item.id} title={item.path} value={item.id}>
-                      <span className="truncate">{item.display_name}</span>
+                      <span className="truncate">{workspaceName(item)}</span>
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
@@ -172,6 +173,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
   };
   const [removing, setRemoving] = useState<string[]>([]);
 
+  // The default workspace is the fixed Conversations section: shown, never renamed.
+  const fixedName = workspace.id === DEFAULT_WORKSPACE_ID ? workspaceName(workspace) : undefined;
   const name = draft.name ?? workspace.display_name;
   const colour = draft.colour ?? appearance.colour;
   const icon = draft.icon ?? appearance.icon;
@@ -254,17 +257,28 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="min-w-0">
-      <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
-        <Input
-          aria-invalid={nameDirty && !name.trim() ? true : undefined}
-          className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
-          disabled={save.isPending}
-          id="folders-name"
-          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-          title={name}
-          value={name}
-        />
-      </SettingsRow>
+      {fixedName ? (
+        <SettingsRow
+          info="Conversations started outside a project folder. This workspace can’t be renamed."
+          title="Name"
+        >
+          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
+            {fixedName}
+          </span>
+        </SettingsRow>
+      ) : (
+        <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
+          <Input
+            aria-invalid={nameDirty && !name.trim() ? true : undefined}
+            className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
+            disabled={save.isPending}
+            id="folders-name"
+            onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+            title={name}
+            value={name}
+          />
+        </SettingsRow>
+      )}
       <SettingsRow dirty={colourDirty} title="Colour">
         <ColourSwatches
           disabled={save.isPending}
