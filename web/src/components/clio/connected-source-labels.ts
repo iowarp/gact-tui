@@ -1,5 +1,12 @@
-import type { ConnectedSourceState, SourceProviderId } from '@clio/core/v3';
+import type { ConnectedSourceState, SourceMode, SourceProviderId } from '@clio/core/v3';
 import type { StatusTone } from './primitives/status-indicator';
+
+/** A source's configured access, named as the Access choice names it. */
+export const sourceModeNames: Record<SourceMode, string> = {
+  read_only: 'Read only',
+  working_copy: 'Editable download',
+  write_enabled: 'Read and write link',
+};
 
 export type LinkAccess = 'read_only' | 'publish_later' | 'write_through';
 export type DownloadAccess = 'read_only' | 'editable';
@@ -11,17 +18,10 @@ export const linkAccessNames: Record<LinkAccess, string> = {
 };
 
 /** The access choice's own name (spec Access: Read only, Editable download, Read and write link). */
-const accessNames: Record<LinkAccess, string> = {
+export const sourceAccessNames: Record<LinkAccess, string> = {
   read_only: 'Read only',
   publish_later: 'Editable download',
   write_through: 'Read and write link',
-};
-
-/** The configured mode's access name, for a source with neither a link nor a copy yet. */
-const modeNames: Record<NonNullable<ConnectedSourceState['mode']>, string> = {
-  read_only: 'Read only',
-  working_copy: 'Editable download',
-  write_enabled: 'Read and write link',
 };
 
 export const sourceProviderNames: Record<SourceProviderId, string> = {
@@ -37,12 +37,12 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
 /** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */
 export function sourceSublineParts(source: ConnectedSourceState): string[] {
   const access = source.linked
-    ? accessNames[source.link_access ?? 'read_only']
+    ? sourceAccessNames[source.link_access ?? 'read_only']
     : source.local_path
       ? source.download_access === 'editable'
         ? 'Editable download'
         : 'Read only'
-      : modeNames[source.mode ?? 'read_only'];
+      : sourceModeNames[source.mode ?? 'read_only'];
   return [
     sourceProviderNames[source.provider] ?? source.provider,
     source.provider === 'github' ? source.configuration.github_ref || undefined : undefined,
