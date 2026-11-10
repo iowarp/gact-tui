@@ -28,7 +28,10 @@ export function contextComposition(
       0,
     );
   const summaryEstimate = Math.ceil(summaryCharacters / 4);
-  const used = context?.used_tokens ?? (context?.live_tokens || summaryEstimate);
+  const used =
+    typeof context?.used_tokens === 'number'
+      ? promptTokens(context, context.used_tokens)
+      : context?.live_tokens || summaryEstimate;
   const limit = context?.limit_tokens ?? 0;
   const breakdown = context?.prompt_breakdown;
   const sections: ContextPromptSection[] =
@@ -73,6 +76,17 @@ export function contextComposition(
     estimated: context?.used_tokens_source !== 'provider',
     estimateMismatch: Boolean(breakdown && attributed > used),
   };
+}
+
+/**
+ * The whole prompt of the last request. OpenAI-style usage counts cached tokens inside the
+ * prompt total; Anthropic-style usage (Claude Code) reports them beside an uncached input
+ * count. Cached tokens exceeding the reported total can only mean the latter, so add them.
+ */
+function promptTokens(context: ContextSnapshot, reported: number): number {
+  if (!context.cache_tokens_measured) return reported;
+  const cached = (context.cache_read_tokens ?? 0) + (context.cache_write_tokens ?? 0);
+  return cached > reported ? reported + cached : reported;
 }
 
 export function contextTokens(value: number): string {

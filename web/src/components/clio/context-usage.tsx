@@ -158,7 +158,8 @@ export function ContextUsage({
       ) : null}
       {context?.cache_tokens_measured && used ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Prompt cache: {contextTokens(cacheRead)} reused ({contextPercent(cacheRead, used)})
+          Prompt cache: {contextTokens(cacheRead)} reused (
+          {contextPercent(Math.min(cacheRead, used), used)} of the prompt)
           {context.cache_write_tokens
             ? `, ${contextTokens(context.cache_write_tokens)} written`
             : ''}
