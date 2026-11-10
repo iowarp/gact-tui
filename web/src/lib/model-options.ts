@@ -399,13 +399,33 @@ function conciseModelName(modelId: string): string {
   return segments.at(-1) || modelId;
 }
 
-/** The short family name (gpt-5.6-luna → Luna) when a catalog label is only the raw id. */
-export function compactModelName(provider: string, modelId: string, label: string): string {
-  if (provider === 'codex') {
-    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
-    if (familyName)
-      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
-  }
-  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
+const GPT_FAMILY = /^gpt-(\d+(?:\.\d+)*)-(luna|sol|terra)$/;
+const CLAUDE_FAMILY = /^claude-(opus|sonnet|haiku)-(\d+)(?:[-.](\d{1,2}))?(?:-\d{8})?$/;
+const CLAUDE_FAMILY_LEGACY = /^claude-(\d+)(?:[-.](\d{1,2}))?-(opus|sonnet|haiku)(?:-\d{8})?$/;
+
+/**
+ * The model's family and version (gpt-6.1-luna → luna 6.1, claude-sonnet-5-5 →
+ * sonnet 5.5), so variants of one family stay apart. Other models keep their label.
+ */
+export function compactModelName(modelId: string, label: string): string {
+  const id = conciseModelName(modelId).toLowerCase();
+  const gpt = id.match(GPT_FAMILY);
+  if (gpt) return `${gpt[2]} ${gpt[1]}`;
+  const claude = id.match(CLAUDE_FAMILY);
+  if (claude) return `${claude[1]} ${claude[2]}${claude[3] ? `.${claude[3]}` : ''}`;
+  const legacy = id.match(CLAUDE_FAMILY_LEGACY);
+  if (legacy) return `${legacy[3]} ${legacy[1]}${legacy[2] ? `.${legacy[2]}` : ''}`;
   return label;
+}
+
+/** The provider that is the model maker's own API, where naming the route adds nothing. */
+const VENDOR_API: readonly [RegExp, string][] = [
+  [/^(?:gpt|o\d|chatgpt|codex)\b/, 'openai'],
+  [/^claude\b/, 'anthropic'],
+];
+
+/** Whether the model is reached through its maker's own API (gpt-* through OpenAI). */
+export function isVendorApi(providerId: string, modelId: string): boolean {
+  const id = conciseModelName(modelId).toLowerCase();
+  return VENDOR_API.some(([family, vendor]) => family.test(id) && providerId === vendor);
 }

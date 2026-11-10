@@ -265,6 +265,14 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
           value={tab}
         />
         <span className="flex-1" />
+        {tab === 'review' ? (
+          <IconButton
+            icon={<UploadIcon />}
+            label="Import memory"
+            onClick={() => setImporting(true)}
+            shortcut={IMPORT_SHORTCUT}
+          />
+        ) : null}
         <IconButton
           disabled={exportAll.isPending || !documents.data?.length}
           icon={<DownloadIcon />}

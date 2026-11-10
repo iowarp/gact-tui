@@ -44,6 +44,11 @@ function entryFile(report: LatexReport): string {
 
 const NO_TEXTS: Record<string, string> = {};
 const PANE = 'm-0 min-h-0 min-w-0 flex-1';
+
+function paneName(view: LatexView) {
+  const label = latexModes(true).find((mode) => mode.value === view)?.label ?? view;
+  return { 'aria-label': label, 'aria-labelledby': undefined };
+}
 /** The section width below which Side by side gives way to one pane. */
 const BOTH_MIN_WIDTH = 480;
 
@@ -290,14 +295,16 @@ export function LatexWorkspace({
     body = (
       <>
         {/* Only the shown mode renders its panes: the PDF puts its own facts and
-            controls in the frame bar, and a hidden copy would add a second set. */}
-        <TabsContent className={PANE} value="pdf">
+            controls in the frame bar, and a hidden copy would add a second set.
+            The mode switch lives in the frame, so each pane names its own mode. */}
+        <TabsContent {...paneName('pdf')} className={PANE} value="pdf">
           {pdfPane}
         </TabsContent>
-        <TabsContent className={PANE} value="source">
+        <TabsContent {...paneName('source')} className={PANE} value="source">
           {sourcePane}
         </TabsContent>
         <TabsContent
+          {...paneName('both')}
           className={`${PANE} grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)]`}
           value="both"
         >

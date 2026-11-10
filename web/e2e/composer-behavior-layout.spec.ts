@@ -27,7 +27,7 @@ for (const width of [320, 390, 1280]) {
     );
     await page.goto('/workspaces/ws_flat_ndp/new');
 
-    for (const name of ['Confirmation policy: Ask first', 'Execution mode: Execute']) {
+    for (const name of ['Confirmation policy: Ask first', 'Mode: Execute']) {
       await page.getByRole('button', { name, exact: true }).click();
       const menu = page.getByRole('menu');
       await expect(menu).toBeVisible();

@@ -60,7 +60,6 @@ import { buildFileTree } from './workbench-file-tree-model';
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
 );
-export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   directory?: string;

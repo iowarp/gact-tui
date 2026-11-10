@@ -301,19 +301,9 @@ export function A2uiDemo({ name, variant, demoSelection, onInteract }: { name: C
   return <div className="space-y-4" onPointerDownCapture={onInteract}><div data-slot="a2ui-surface-root"><MarkdownContext.Provider value={renderMarkdown}><A2uiReferenceSessionProvider value="sess_flat_ndp"><AutoDatasetSelectionProvider><A2uiRegionCaptureProvider allowDemoCapture surface={captureSurface}><A2uiSurface surface={surface} /></A2uiRegionCaptureProvider></AutoDatasetSelectionProvider></A2uiReferenceSessionProvider></MarkdownContext.Provider></div>{lastAction ? <p className="rounded-md bg-muted px-3 py-2 text-xs">Demo action: {lastAction}</p> : null}{capturePreview ? <aside aria-label="Capture preview" className="space-y-3 rounded-md border p-3 text-sm"><div className="flex items-center justify-between gap-3"><p className="font-medium">Capture preview</p><button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCapturePreview(undefined)} type="button">Close</button></div><img alt="Captured surface with labelled selection boxes" className="max-h-80 max-w-full rounded border object-contain" src={capturePreview.imageUrl} /><details><summary className="cursor-pointer text-xs text-muted-foreground">View agent payload</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-muted/30 p-2 text-xs">{capturePreview.text}</pre></details></aside> : null}</div>;
 }
 
-/** A small three-view example showing one selection shared by chart, map, and table. */
-export function LinkedViewsDemo() {
-  return <A2uiDemo name="linked" variant="scatter" />;
-}
-
 /** Two charts and a table using the same earthquake rows. */
 export function LinkedChartDemo() {
   return <A2uiDemo name="linked-regions" variant="scatter" />;
-}
-
-/** A combined status, progress, warning, and next-action surface. */
-export function ReportReviewDemo() {
-  return <A2uiDemo name="report-review" variant="scatter" />;
 }
 
 function catalogDescription(name: string): string {

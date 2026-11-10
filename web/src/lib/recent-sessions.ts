@@ -34,20 +34,6 @@ export function isPrimarySession(session: Session): boolean {
   );
 }
 
-/**
- * Titles shared by more than one of `sessions`, so their rows can be told apart.
- * Every session is listed, including ones without messages yet; two with the
- * same name are otherwise indistinguishable in the sidebar.
- */
-export function duplicateSessionTitles(sessions: readonly Session[]): Set<string> {
-  const counts = new Map<string, number>();
-  for (const session of sessions) {
-    const title = session.title.trim();
-    counts.set(title, (counts.get(title) ?? 0) + 1);
-  }
-  return new Set([...counts].filter(([, count]) => count > 1).map(([title]) => title));
-}
-
 export function sessionInteractionAt(session: Session): string {
   return session.last_interaction_at || session.updated_at;
 }
