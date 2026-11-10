@@ -1,8 +1,10 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { ExecutionProvenanceResult, ToolInvocation } from '@clio/core/v3';
 import type { ObservabilityActivityItem } from './observability-activity';
 import { provenanceFileFact } from './session-evidence-projection';
 import { toolOperationLabel } from './tool-presentation';
-import { toolActivityName } from './workbench-activity-model';
+import { compactDuration, toolActivityName } from './workbench-activity-model';
+
+type ProvenanceSpan = ExecutionProvenanceResult['spans'][number];
 
 /*
  * How a provenance span reads as one Activity row: its kind, its humane label
@@ -79,6 +81,38 @@ export function permissionActivityLabel(
   const action = tool ? toolActivityName(tool) : toolName ? toolOperationLabel(toolName) : '';
   if (!action) return `${verb} a permission request`;
   return `${verb} ${action.charAt(0).toLocaleLowerCase()}${action.slice(1)}`;
+}
+
+/**
+ * The fact for a permission row: how long the approved action ran ("Approved
+ * sbatch on ares 11m"). Decisions resolve within milliseconds of the call, so
+ * the action's own run time is the one number that says something.
+ */
+export function permittedActionFact(
+  spans: readonly ProvenanceSpan[],
+  permission: ProvenanceSpan,
+  toolName: string | undefined,
+  call: ToolInvocation | undefined,
+): string | undefined {
+  const started = Date.parse(call?.started_at ?? '');
+  const ended = Date.parse(call?.completed_at ?? '');
+  if (Number.isFinite(started) && Number.isFinite(ended) && ended >= started) {
+    return compactDuration(ended - started);
+  }
+  if (!toolName || permission.start_time === null) return undefined;
+  const owner = permission.owner_session_id ?? permission.session_id;
+  const run = spans.find(
+    (span) =>
+      span.kind === 'tool' &&
+      span.event_type !== 'react.step.completed' &&
+      projectedToolName(span.tool_name, span.label) === toolName &&
+      (span.owner_session_id ?? span.session_id) === owner &&
+      span.start_time !== null &&
+      Math.abs(span.start_time - permission.start_time!) * 1_000 <= SPAN_MATCH_WINDOW_MS &&
+      span.duration_ms !== null &&
+      span.duration_ms > 0,
+  );
+  return run?.duration_ms ? compactDuration(run.duration_ms) : undefined;
 }
 
 export function projectedActivityLabel(
