@@ -35,6 +35,8 @@ import { ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StatusIndicator } from './primitives/status-indicator';
+import { AnnounceStates } from './settings-a11y';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 
@@ -240,7 +242,8 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     ),
   }[tab];
   return (
-    <div className="grid min-w-0" ref={rootRef}>
+    <div className="grid min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+      <AnnounceStates />
       <SettingsSectionHeading
         info="Saved facts and preferences the agent can use in later conversations."
         title="Memory and instructions"

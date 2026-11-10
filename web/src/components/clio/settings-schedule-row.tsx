@@ -15,6 +15,7 @@ import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { ShortcutKeys } from './primitives/key-chip';
+import { JumpLabel, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { MetaGap, ScheduleWords } from './settings-schedule-fields';
 import { formatDateTime } from './settings-schedule-time';
@@ -172,7 +173,11 @@ export const ScheduleRow = memo(function ScheduleRow({
                 <IconButton icon={<MoreIcon />} label="More" size="sm" tooltip={false} />
               </DropdownMenuTrigger>
             </NamedTooltip>
-            <DropdownMenuContent align="end" className="max-w-80">
+            <DropdownMenuContent
+              align="end"
+              className="max-w-80"
+              onKeyDown={menuAcceleratorKeyDown}
+            >
               <DropdownMenuLabel className="grid gap-0.5 font-normal">
                 {scheduleDetails(schedule, serviceTimezone).map((line) => (
                   <span className="truncate" key={line} title={line}>
@@ -186,25 +191,29 @@ export const ScheduleRow = memo(function ScheduleRow({
                 ) : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={busy} onSelect={() => onToggle(schedule)}>
+              <DropdownMenuItem
+                data-accelerator={pauseLabel[0]}
+                disabled={busy}
+                onSelect={() => onToggle(schedule)}
+              >
                 {schedule.enabled ? (
                   <PauseIcon aria-hidden="true" />
                 ) : (
                   <PlayIcon aria-hidden="true" />
                 )}
-                {pauseLabel}
+                <JumpLabel label={pauseLabel} letter={pauseLabel[0]} />
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onEdit(schedule)}>
+              <DropdownMenuItem data-accelerator="E" onSelect={() => onEdit(schedule)}>
                 <EditIcon aria-hidden="true" />
-                Edit
+                <JumpLabel label="Edit" letter="E" />
                 <DropdownMenuShortcut>
                   <ShortcutKeys keys={['Enter']} variant="menu" />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setConfirming(true)}>
+              <DropdownMenuItem data-accelerator="D" onSelect={() => setConfirming(true)}>
                 <DeleteIcon aria-hidden="true" />
-                Delete
+                <JumpLabel label="Delete" letter="D" />
                 <DropdownMenuShortcut>
                   <ShortcutKeys keys={['Delete']} mac={['Backspace']} variant="menu" />
                 </DropdownMenuShortcut>
