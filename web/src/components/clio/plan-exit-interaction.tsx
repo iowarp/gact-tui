@@ -1,7 +1,8 @@
 import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
+import { PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AskButton, AskCard, AskError, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
@@ -12,7 +13,9 @@ import { PlanDecision, PlanDecisionControls } from './plan-decision-controls';
 import { planArtifact } from './plan-artifact';
 import { planModeLabel } from './plan-mode-label';
 import { planOutline, planSections } from './plan-outline';
-import { IconButton } from './primitives/icon-button';
+import { NamedTooltip } from './primitives/icon-button';
+import { ActivityBody } from './activity-row';
+import { CopyAction } from './tool-compact-row';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
 
@@ -82,11 +85,14 @@ function PlanPreview({
   interaction,
   artifact,
   onOpenArtifact,
+  keys = true,
   className,
 }: {
   interaction: PendingInteraction;
   artifact?: Artifact;
   onOpenArtifact?: (artifact: Artifact) => void;
+  /** The card's O key; an answered row's preview has no card keys. */
+  keys?: boolean;
   className?: string;
 }) {
   const plan = interaction.payload?.plan_exit;
@@ -156,7 +162,7 @@ function PlanPreview({
           </span>
           {opens || toggles ? (
             <AskButton
-              {...askKeyAttributes(['o'])}
+              {...(keys ? askKeyAttributes(['o']) : {})}
               aria-expanded={opens ? undefined : expanded}
               className="ml-auto h-6 px-2 text-[12px]"
               onClick={() =>
@@ -166,7 +172,7 @@ function PlanPreview({
               <span className="inline-flex items-center gap-1.5">
                 {opens ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
                 {opens ? 'Open plan' : expanded ? 'Show less' : 'Show all'}
-                <AskKeyChip askKey="o" />
+                {keys ? <AskKeyChip askKey="o" /> : null}
               </span>
             </AskButton>
           ) : null}
@@ -219,7 +225,10 @@ export function InlinePlanExitResponse({
   );
 }
 
-/** The plan decision folded into its row; the plan stays one click away. */
+/**
+ * The plan decision folded into its activity row: the chevron shows the plan
+ * that was decided under it; hover copies it or opens it in the right pocket.
+ */
 function AnsweredPlan({
   artifact,
   interaction,
@@ -230,8 +239,8 @@ function AnsweredPlan({
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const [shown, setShown] = useAttentionDraft(`${interaction.id}:plan-shown`, false);
-  const opens = artifact && onOpenArtifact;
-  const hasPlan = Boolean(interaction.payload?.plan_exit?.plan_content?.trim());
+  const opens = artifact && onOpenArtifact ? artifact : undefined;
+  const content = interaction.payload?.plan_exit?.plan_content?.trim();
   return (
     <div
       className="min-w-0"
@@ -239,27 +248,44 @@ function AnsweredPlan({
       id={pendingInteractionDomId(interaction.id)}
     >
       <PlanDecision
-        action={
-          opens ? (
-            <IconButton
-              icon={<PanelRightIcon aria-hidden="true" />}
-              label="Open plan"
-              onClick={() => onOpenArtifact(artifact)}
-              size="sm"
-            />
-          ) : hasPlan ? (
-            <IconButton
-              aria-expanded={shown}
-              icon={<NotebookTextIcon aria-hidden="true" />}
-              label={shown ? 'Hide plan' : 'Show plan'}
-              onClick={() => setShown((value) => !value)}
-              size="sm"
-            />
+        actions={
+          content || opens ? (
+            <>
+              {content ? (
+                <CopyAction label="Copy plan" value={content} />
+              ) : (
+                <span className="w-[22px]" />
+              )}
+              {opens ? (
+                <NamedTooltip label="Open plan">
+                  <Button
+                    aria-label="Open plan"
+                    className="size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]"
+                    data-activity-action="open"
+                    onClick={() => onOpenArtifact?.(opens)}
+                    variant="ghost"
+                  >
+                    <PanelRightIcon aria-hidden="true" />
+                  </Button>
+                </NamedTooltip>
+              ) : null}
+            </>
           ) : null
         }
         interaction={interaction}
+        onOpenChange={content ? setShown : undefined}
+        open={content ? shown : undefined}
       />
-      {shown && !opens ? <PlanPreview className="mt-1" interaction={interaction} /> : null}
+      {shown && content ? (
+        <ActivityBody framed={false} label="Plan">
+          <PlanPreview
+            artifact={opens}
+            interaction={interaction}
+            keys={false}
+            onOpenArtifact={onOpenArtifact}
+          />
+        </ActivityBody>
+      ) : null}
     </div>
   );
 }

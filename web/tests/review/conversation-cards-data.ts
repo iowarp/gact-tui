@@ -490,6 +490,13 @@ export const SCENARIOS: Record<string, CardScenario> = {
     interactions: [plan('truncated', PLAN.split('## Execution')[0]!)],
   },
   answered: { spec: 'Once answered', interactions: [], view: 'answered-rows' },
+  'answered-open': {
+    spec: 'Once answered',
+    closest: true,
+    interactions: [],
+    view: 'answered-rows',
+    open: 'Expand Plan approved',
+  },
   'narrow-third': {
     spec: 'A third of the window',
     interactions: [runCommand, submitArray],
@@ -507,3 +514,12 @@ export const SCENARIOS: Record<string, CardScenario> = {
 export const REVIEW_SESSION = ROOT;
 export const ANSWERED_COMMAND = COMMAND;
 export const CANCELLED_PLAN: PendingInteraction = { ...plan('complete'), status: 'cancelled' };
+export const APPROVED_PLAN: PendingInteraction = {
+  ...plan('complete'),
+  id: 'question:plan_exit:approved',
+  status: 'resolved',
+  payload: {
+    ...plan('complete').payload,
+    answer_metadata: { selected_options: ['interactive', 'clear_context'] },
+  },
+};

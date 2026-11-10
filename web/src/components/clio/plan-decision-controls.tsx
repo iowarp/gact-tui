@@ -267,12 +267,17 @@ function selectedOptions(interaction: PendingInteraction): string[] {
 /** Once decided, the plan folds into one row: "Plan approved  Interactive, context cleared". */
 export function PlanDecision({
   interaction,
-  action,
+  actions,
+  open,
+  onOpenChange,
   className,
 }: {
   interaction: PendingInteraction;
-  /** A control after the row: open or show the plan that was decided. */
-  action?: ReactNode;
+  /** Hover actions: copy the plan, open it in the right pocket. */
+  actions?: ReactNode;
+  /** With `onOpenChange`, the chevron shows the plan that was decided. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }) {
   const selected = selectedOptions(interaction);
@@ -292,17 +297,17 @@ export function PlanDecision({
               ? ['Plan review expired', undefined, 'neutral']
               : ['Plan decision recorded', undefined, 'neutral'];
   return (
-    <div className={cn('flex min-w-0 items-center gap-1', className)}>
-      <AskAnsweredRow
-        className="min-w-0 flex-1"
-        data-plan-decision={decision || interaction.status}
-        detail={detail}
-        icon={NotebookTextIcon}
-        title={detail}
-        tone={tone}
-        verb={verb}
-      />
-      {action}
-    </div>
+    <AskAnsweredRow
+      actions={actions}
+      className={className}
+      data-plan-decision={decision || interaction.status}
+      detail={detail}
+      icon={NotebookTextIcon}
+      onOpenChange={onOpenChange}
+      open={open}
+      title={detail}
+      tone={tone}
+      verb={verb}
+    />
   );
 }
