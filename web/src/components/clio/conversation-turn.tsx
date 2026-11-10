@@ -80,6 +80,11 @@ interface ConversationTurnProps {
    * rows until it moves past them, then fold into their counted row.
    */
   turnLive?: boolean;
+  /**
+   * The live message's latest calls: a call held for approval before the service
+   * projects it is shown here, even when a context injection follows these calls.
+   */
+  holdsWaitingCalls?: boolean;
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -185,6 +190,7 @@ function withWaitingCalls(
 export function ConversationTurn({
   followLiveActivity = false,
   turnLive = false,
+  holdsWaitingCalls = turnLive,
   iterations: recordedIterations,
   mode,
   onOpenSubagent,
@@ -202,7 +208,7 @@ export function ConversationTurn({
 }: ConversationTurnProps) {
   const iterations = withWaitingCalls(
     withoutRestatedAnswers(recordedIterations, interactions),
-    turnLive ? interactions : undefined,
+    holdsWaitingCalls ? interactions : undefined,
     messageSessionId,
   );
   if (iterations.length === 0) return null;
@@ -319,6 +325,7 @@ export function ConversationTurn({
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
               turnLive={turnLive && index === sections.length - 1}
+              holdsWaitingCalls={false}
               mode={mode}
               subagents={subagents}
               interactions={activityInteractions}
