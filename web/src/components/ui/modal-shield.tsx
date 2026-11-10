@@ -51,6 +51,26 @@ export function useShieldFocusReturn(
   return shielded ? close : onCloseAutoFocus;
 }
 
+/**
+ * Focus leaving a shielded layer doesn't dismiss it, as in Radix's modal mode.
+ * Non-modal Radix closes on any focus outside, so a focus blip to `<body>`
+ * (opening a submenu, an item that re-renders) would shut the whole menu.
+ * Outside presses still dismiss through the shield.
+ */
+export function useShieldFocusOutside<E extends Event>(
+  shielded: boolean,
+  onFocusOutside: ((event: E) => void) | undefined,
+) {
+  const keep = useCallback(
+    (event: E) => {
+      onFocusOutside?.(event);
+      event.preventDefault();
+    },
+    [onFocusOutside],
+  );
+  return shielded ? keep : onFocusOutside;
+}
+
 /** Points `trigger` at the element while also forwarding the caller's ref. */
 export function useTriggerRef<T extends HTMLElement>(
   trigger: RefObject<HTMLElement | null>,

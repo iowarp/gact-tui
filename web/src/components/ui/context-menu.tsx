@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { ModalShield } from "./modal-shield"
+import { ModalShield, useShieldFocusOutside } from "./modal-shield"
 import { useOverlayContainer } from "./overlay-container"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
@@ -69,12 +69,14 @@ function ContextMenuRadioGroup({
 
 function ContextMenuContent({
   className,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
   const container = useOverlayContainer()
   const modal = React.useContext(ContextMenuModal)
+  const focusOutside = useShieldFocusOutside(modal, onFocusOutside)
   return (
     <>
       {modal ? (
@@ -89,6 +91,7 @@ function ContextMenuContent({
           // near the edge of a narrow window it narrows to the room it has instead.
           collisionPadding={8}
           className={cn("z-50 max-h-(--radix-context-menu-content-available-height) max-w-(--radix-context-menu-content-available-width) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          onFocusOutside={focusOutside}
           {...props}
         />
       </ContextMenuPrimitive.Portal>

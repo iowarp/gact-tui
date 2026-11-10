@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ModalShield, useShieldFocusReturn, useTriggerRef } from "./modal-shield"
+import { ModalShield, useShieldFocusOutside, useShieldFocusReturn, useTriggerRef } from "./modal-shield"
 import { useOverlayContainer } from "./overlay-container"
 import { Popover as PopoverPrimitive } from "radix-ui"
 
@@ -39,12 +39,14 @@ function PopoverContent({
   align = "center",
   sideOffset = 4,
   onCloseAutoFocus,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   const container = useOverlayContainer()
   const modal = React.useContext(PopoverModal)
   const trigger = React.useContext(PopoverTriggerRef)
   const closeFocus = useShieldFocusReturn(modal, trigger, onCloseAutoFocus)
+  const focusOutside = useShieldFocusOutside(modal, onFocusOutside)
   return (
     <>
       {modal ? (
@@ -62,6 +64,7 @@ function PopoverContent({
             className
           )}
           onCloseAutoFocus={closeFocus}
+          onFocusOutside={focusOutside}
           {...props}
         />
       </PopoverPrimitive.Portal>

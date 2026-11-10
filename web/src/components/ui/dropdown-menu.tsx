@@ -1,7 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { ModalShield, useShieldFocusReturn, useTriggerRef } from './modal-shield';
+import {
+  ModalShield,
+  useShieldFocusOutside,
+  useShieldFocusReturn,
+  useTriggerRef,
+} from './modal-shield';
 import { useOverlayContainer } from './overlay-container';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 
@@ -112,12 +117,14 @@ function DropdownMenuContent({
   sideOffset = 4,
   onKeyDown,
   onCloseAutoFocus,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   const container = useOverlayContainer();
   const modal = React.useContext(DropdownMenuModal);
   const trigger = React.useContext(DropdownMenuTriggerRef);
   const closeFocus = useShieldFocusReturn(modal, trigger, onCloseAutoFocus);
+  const focusOutside = useShieldFocusOutside(modal, onFocusOutside);
   return (
     <>
       {modal ? (
@@ -139,6 +146,7 @@ function DropdownMenuContent({
             runMenuKey(event);
           }}
           onCloseAutoFocus={closeFocus}
+          onFocusOutside={focusOutside}
           {...props}
         />
       </DropdownMenuPrimitive.Portal>
