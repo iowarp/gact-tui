@@ -61,6 +61,11 @@ export const WAITING_SESSIONS_POLL_MS = 10_000;
 export const INFRASTRUCTURE_POLL_MS = 20_000;
 /** How often a server list is re-read while one of its MCP servers is being prepared. */
 export const MCP_PREPARING_POLL_MS = 2_000;
+/**
+ * Re-read cadence for the service's capabilities while reading them fails for a reason
+ * other than "not offered" (a restart, a dropped request). Unit: milliseconds.
+ */
+export const CAPABILITIES_RETRY_MS = 2_000;
 
 /**
  * Refetch cadence for operations/administration panels (schedules, health,
