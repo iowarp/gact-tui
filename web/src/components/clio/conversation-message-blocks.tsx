@@ -1,11 +1,7 @@
 import { ActionAlertCard } from './action-alert-card';
 import { responseArtifactBlocks } from '@/lib/artifact-presentation';
 import type { A2UIActionLifecycle, A2UISurface, Artifact, MessageBlock } from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  ExternalLinkIcon,
-  RouteIcon,
-} from 'lucide-react';
+import { AlertTriangleIcon, ExternalLinkIcon, RouteIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Plan,
@@ -32,7 +28,7 @@ import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { TranscriptTextBlock } from './transcript-text-block';
-import { toolOutputDiffKey } from './declared-diff-key';
+import { toolOutputDiffKey, toolShowsDiff } from './declared-diff-key';
 import { TranscriptDiffCard } from './transcript-diff-card';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { AnswerHookNotice } from './answer-hook-notice';
@@ -448,13 +444,11 @@ export function MessageBlockSequence({
       ]
     : uniqueBlocks;
   const rendered: ReactNode[] = [];
-  const inlineDiffs = new Set(
-    orderedBlocks.flatMap((block) => {
-      if (block.type !== 'tool') return [];
-      const key = toolOutputDiffKey(props.tools[block.tool_id]);
-      return key ? [key] : [];
-    }),
-  );
+  const inlineDiffTools = orderedBlocks.flatMap((block) => {
+    if (block.type !== 'tool') return [];
+    const tool = props.tools[block.tool_id];
+    return tool && toolOutputDiffKey(tool) ? [tool] : [];
+  });
   // An answer a hook revised folds behind the hook's `revised` notice.
   const revisions = answerRevisions(messageBlocks ?? orderedBlocks);
   // A sent message shows each reference where it was typed; the rest stay below it.
@@ -507,7 +501,7 @@ export function MessageBlockSequence({
       continue;
     }
 
-    if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
+    if (block.type === 'diff' && inlineDiffTools.some((tool) => toolShowsDiff(tool, block))) {
       index += 1;
       continue;
     }

@@ -49,57 +49,47 @@ const TOAST_CLASSES = {
   loading: '[&_[data-icon]]:text-muted-foreground',
 } satisfies NonNullable<ToasterProps['toastOptions']>['classNames'];
 
-/** A title clamped to two lines shows its full text on hover. */
-function showClampedTitle(event: React.PointerEvent<HTMLElement>) {
-  if (!(event.target instanceof Element)) return;
-  const title = event.target.closest<HTMLElement>('[data-title]');
-  if (!title) return;
-  if (title.scrollHeight > title.clientHeight + 1) title.title = title.textContent ?? '';
-  else title.removeAttribute('title');
-}
-
+// A clamped title or description reads whole through the app-wide truncation hint.
 const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
   const { resolvedTheme } = useTheme();
 
   return (
-    <div className="contents" onPointerOver={showClampedTitle}>
-      <Sonner
-        theme={resolvedTheme.dark ? 'dark' : 'light'}
-        className="toaster group"
-        position="top-center"
-        offset={TOAST_OFFSET}
-        mobileOffset={TOAST_MOBILE_OFFSET}
-        visibleToasts={VISIBLE_TOASTS}
-        gap={TOAST_GAP}
-        duration={TOAST_DURATION}
-        expand
-        closeButton
-        icons={{
-          success: <CheckIcon className={ICON} />,
-          info: <InfoIcon className={ICON} />,
-          warning: <TriangleAlertIcon className={ICON} />,
-          error: <CircleAlertIcon className={ICON} />,
-          loading: <Loader2Icon className={`${ICON} motion-safe:animate-spin`} />,
-          close: <CloseIcon className={ICON} />,
-        }}
-        style={
-          {
-            // Sonner's dark theme paints its close button from these; keep it a ghost icon.
-            '--normal-bg': 'transparent',
-            '--normal-bg-hover': 'var(--hover)',
-            '--normal-border': 'transparent',
-            '--normal-border-hover': 'transparent',
-            '--normal-text': 'var(--muted-foreground)',
-          } as React.CSSProperties
-        }
-        toastOptions={{
-          ...toastOptions,
-          unstyled: true,
-          classNames: { ...TOAST_CLASSES, ...toastOptions?.classNames },
-        }}
-        {...props}
-      />
-    </div>
+    <Sonner
+      theme={resolvedTheme.dark ? 'dark' : 'light'}
+      className="toaster group"
+      position="top-center"
+      offset={TOAST_OFFSET}
+      mobileOffset={TOAST_MOBILE_OFFSET}
+      visibleToasts={VISIBLE_TOASTS}
+      gap={TOAST_GAP}
+      duration={TOAST_DURATION}
+      expand
+      closeButton
+      icons={{
+        success: <CheckIcon className={ICON} />,
+        info: <InfoIcon className={ICON} />,
+        warning: <TriangleAlertIcon className={ICON} />,
+        error: <CircleAlertIcon className={ICON} />,
+        loading: <Loader2Icon className={`${ICON} motion-safe:animate-spin`} />,
+        close: <CloseIcon className={ICON} />,
+      }}
+      style={
+        {
+          // Sonner's dark theme paints its close button from these; keep it a ghost icon.
+          '--normal-bg': 'transparent',
+          '--normal-bg-hover': 'var(--hover)',
+          '--normal-border': 'transparent',
+          '--normal-border-hover': 'transparent',
+          '--normal-text': 'var(--muted-foreground)',
+        } as React.CSSProperties
+      }
+      toastOptions={{
+        ...toastOptions,
+        unstyled: true,
+        classNames: { ...TOAST_CLASSES, ...toastOptions?.classNames },
+      }}
+      {...props}
+    />
   );
 };
 

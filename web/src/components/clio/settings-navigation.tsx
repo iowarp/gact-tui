@@ -122,7 +122,7 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-left">Search</span>
-      <ShortcutKeys id="search" variant="inline" className="max-[599px]:hidden" />
+      <ShortcutKeys id="search" variant="caps" capSize="sm" className="max-[599px]:hidden" />
     </button>
   );
 }
@@ -201,7 +201,7 @@ export function SettingsQueryField({
       >
         {count === 1 ? '1 row' : `${count} rows`}
       </span>
-      <ShortcutKeys id="menu-close" variant="inline" className="max-[599px]:hidden" />
+      <ShortcutKeys id="menu-close" variant="caps" capSize="sm" className="max-[599px]:hidden" />
       <IconButton
         className="min-[600px]:hidden"
         icon={<CloseIcon />}

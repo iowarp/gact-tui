@@ -98,6 +98,11 @@
   [data-slot='tooltip-content'][data-state] {
     z-index: 120;
   }
+  /* The truncation hint reads cut text on any surface, toasts included. It
+     takes no pointer and closes on any input, so it may cover everything. */
+  [data-slot='truncation-hint'] {
+    z-index: 2147483647;
+  }
   /* Task cancellation can originate inside a popover. Its confirmation must
      cover that originating surface, including the popper wrapper's layer. */
   [data-slot='alert-dialog-overlay'][data-state][data-overlay-layer='task-confirmation'] {
@@ -823,6 +828,48 @@ html[data-clio-motion='reduced'] *::after {
 [data-slot='tool-human-result'] [data-language] pre {
   background: transparent !important;
 }
+/* In a tool row's frame a code result is the frame's body, as the spec's `.xbody .code`:
+   edge to edge, no second fill, transcript code size. */
+[data-slot='activity-body'] [data-slot='tool-result-panel']:has([data-language]) {
+  margin-inline: -0.75rem;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] [data-language] {
+  background: transparent;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] :is(pre, code) {
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] pre {
+  padding: 0.25rem 0.75rem;
+}
+/* Numbered code starts at the frame edge: a 34px right-aligned number, then 12px. */
+[data-slot='activity-body']
+  [data-slot='tool-result-panel']
+  pre:has(> code[class*='counter-reset']) {
+  padding-left: 0;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] pre > code > span::before {
+  width: 34px;
+  margin-right: 12px;
+}
+/* The frame's padding is the text's only inset: labels, text and code share one left edge. */
+[data-slot='activity-body'] [data-slot='tool-result-panel'] > p:first-child,
+[data-slot='activity-body'] [data-slot='tool-result-panel-text'],
+[data-slot='activity-body'] [data-slot='tool-result-panel-text'] > p {
+  padding-inline: 0;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel']:has([data-language]) > p:first-child {
+  padding-inline: 0.75rem;
+}
+[data-slot='activity-body'] .tool-presentation-body,
+[data-slot='activity-body'] [data-slot='tool-result-panel'] .tool-presentation-body > p,
+[data-slot='activity-body']
+  [data-slot='tool-result-panel']
+  .tool-presentation-body
+  > [data-streamdown] {
+  padding-inline: 0;
+}
 /* The session plan sits in a rail section: its headings mark structure at body
    size instead of opening a document. */
 [data-slot='session-plan'] :is(h1, h2, h3, h4, h5, h6) {
@@ -947,7 +994,9 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0;
   backdrop-filter: none;
 }
-[data-slot='message-text'] :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child) button {
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button {
   display: grid;
   place-items: center;
   width: 24px;
