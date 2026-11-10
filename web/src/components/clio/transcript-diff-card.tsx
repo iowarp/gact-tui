@@ -22,32 +22,34 @@ export function TranscriptDiffCard({
 }) {
   const previewLines = useTranscriptPreviewLines();
   return (
-    <BoundedResult lines={previewLines} title="File changes">
-      <CodeBlock code={withoutFileHeaders(block.unified_diff)} language="diff" showLineNumbers>
-        <CodeBlockHeader>
-          <CodeBlockTitle>
-            <FileCode2Icon aria-hidden="true" className="size-3.5" />
-            <CodeBlockFilename>{block.path}</CodeBlockFilename>
-          </CodeBlockTitle>
-          <CodeBlockActions>
-            {onOpenFile ? (
-              <Button
-                aria-label={`Open ${block.path} in workspace`}
-                onClick={() => onOpenFile(block.path)}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <PanelsTopLeftIcon aria-hidden="true" />
-              </Button>
-            ) : null}
-            <CodeBlockCopyButton
-              aria-label={`Copy diff for ${block.path}`}
-              value={block.unified_diff}
-            />
-          </CodeBlockActions>
-        </CodeBlockHeader>
-      </CodeBlock>
-    </BoundedResult>
+    <div className="min-w-0" data-slot="transcript-diff-card">
+      <BoundedResult lines={previewLines} title="File changes">
+        <CodeBlock code={withoutFileHeaders(block.unified_diff)} language="diff" showLineNumbers>
+          <CodeBlockHeader>
+            <CodeBlockTitle>
+              <FileCode2Icon aria-hidden="true" className="size-3.5" />
+              <CodeBlockFilename>{block.path}</CodeBlockFilename>
+            </CodeBlockTitle>
+            <CodeBlockActions>
+              {onOpenFile ? (
+                <Button
+                  aria-label={`Open ${block.path} in workspace`}
+                  onClick={() => onOpenFile(block.path)}
+                  size="icon-xs"
+                  variant="ghost"
+                >
+                  <PanelsTopLeftIcon aria-hidden="true" />
+                </Button>
+              ) : null}
+              <CodeBlockCopyButton
+                aria-label={`Copy diff for ${block.path}`}
+                value={block.unified_diff}
+              />
+            </CodeBlockActions>
+          </CodeBlockHeader>
+        </CodeBlock>
+      </BoundedResult>
+    </div>
   );
 }
 

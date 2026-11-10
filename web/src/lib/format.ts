@@ -83,9 +83,16 @@ export function formatDuration(milliseconds: number, style: DurationStyle = 'uni
     if (seconds < 9.95) return `${seconds.toFixed(1)}s`;
     const whole = Math.round(seconds);
     if (whole < 60) return `${whole}s`;
+    // The row's elapsed column holds six characters ("12m 4s"); a longer reading keeps its
+    // larger unit only ("23m", "10h").
     const minutes = Math.floor(whole / 60);
-    if (minutes < 60) return whole % 60 ? `${minutes}m ${whole % 60}s` : `${minutes}m`;
-    return minutes % 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes / 60}h`;
+    if (minutes < 60) {
+      const reading = whole % 60 ? `${minutes}m ${whole % 60}s` : `${minutes}m`;
+      return reading.length > 6 ? `${minutes}m` : reading;
+    }
+    const hours = Math.floor(minutes / 60);
+    const reading = minutes % 60 ? `${hours}h ${minutes % 60}m` : `${hours}h`;
+    return reading.length > 6 ? `${hours}h` : reading;
   }
   if (style === 'compact') {
     if (elapsed < MILLISECONDS_PER_MINUTE) {

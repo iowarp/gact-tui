@@ -48,7 +48,9 @@ export function replyDuration(message: Message): string | undefined {
   const elapsed = Date.parse(message.completed_at) - Date.parse(message.created_at);
   if (!Number.isFinite(elapsed) || elapsed < 0) return undefined;
   const seconds = Math.round(elapsed / 1000);
-  if (seconds < 60) return `${Math.max(seconds, elapsed > 0 ? 1 : 0)}s`;
+  // Some producers stamp the message when it completes; a zero span is no measurement.
+  if (seconds === 0) return undefined;
+  if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return seconds % 60 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
   return minutes % 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes / 60}h`;

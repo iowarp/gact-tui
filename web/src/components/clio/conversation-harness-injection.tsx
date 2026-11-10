@@ -175,11 +175,11 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                     {presentation.text}
                   </GroundedMessageResponse>
                 ) : presentation?.format === 'text' ? (
-                  <div className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
+                  <div className="whitespace-pre-wrap text-[13px] leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation.text}
                   </div>
                 ) : (
-                  <pre className="min-w-0 max-w-full whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
+                  <pre className="min-w-0 max-w-full whitespace-pre-wrap font-mono !text-[11.5px] !leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation?.text ??
                       (['task_result', 'peer', 'attention', 'question_answer'].includes(
                         block.source,
@@ -210,8 +210,12 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
             ))}
           </div>
         ) : null}
-        <ToolDetailsContent inline={false} title={`${label}: Technical details`}>
-          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-6 [overflow-wrap:anywhere]">
+        <ToolDetailsContent
+          description="The exact text added to the agent's context."
+          inline={false}
+          title={`${label}: Technical details`}
+        >
+          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-[11.5px] leading-[1.55] [overflow-wrap:anywhere]">
             {block.text}
           </pre>
         </ToolDetailsContent>

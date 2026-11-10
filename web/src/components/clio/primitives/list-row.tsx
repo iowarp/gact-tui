@@ -203,7 +203,9 @@ export const ListRow = memo(
           <span
             className={cn(
               'flex flex-1 items-center gap-2 overflow-hidden',
-              titleCollapses ? 'min-w-0' : 'min-w-fit',
+              // A container, so a collapsing argument can leave whole (gap and all)
+              // when there is no room left to show any of it.
+              titleCollapses ? '@container/desc min-w-0' : 'min-w-fit',
             )}
           >
             {description}

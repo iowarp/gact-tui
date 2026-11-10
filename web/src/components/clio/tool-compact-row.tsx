@@ -57,6 +57,7 @@ export function ToolCompactRow({
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
   const interrupted = status === 'interrupted';
+  const cancelled = status === 'cancelled';
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   const action = operation.action || getToolActionLabel(tool);
@@ -66,12 +67,14 @@ export function ToolCompactRow({
     ? 'Waiting for you'
     : interrupted
       ? failure || clioStatusLabel(status)
-      : failure
-        ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
-        : clioStatusLabel(status);
+      : cancelled
+        ? 'Stopped'
+        : failure
+          ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+          : clioStatusLabel(status);
   const tone: StatusTone = waiting
     ? 'running'
-    : interrupted
+    : interrupted || cancelled
       ? 'stopped'
       : active
         ? 'running'
@@ -137,8 +140,14 @@ export function ToolCompactRow({
   // A failure is named in words, not only by its mark's colour; success stays quiet and a
   // partial outcome is counted in words by the operation's own metadata.
   const failureWord =
-    !active && !success && !interrupted && !(status === 'degraded' && operation.metadata)
-      ? (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
+    !waiting &&
+    !active &&
+    !success &&
+    !interrupted &&
+    !(status === 'degraded' && operation.metadata)
+      ? cancelled
+        ? 'stopped'
+        : (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
       : undefined;
   const metadata = operation.metadata ? (
     <span data-slot="activity-metadata" className="text-muted-foreground">
@@ -154,7 +163,11 @@ export function ToolCompactRow({
           <span
             data-slot="tool-outcome"
             className={
-              status === 'unknown' || status === 'degraded' ? 'text-warning' : 'text-destructive'
+              cancelled
+                ? 'text-muted-foreground'
+                : status === 'unknown' || status === 'degraded'
+                  ? 'text-warning'
+                  : 'text-destructive'
             }
           >
             {failureWord}
