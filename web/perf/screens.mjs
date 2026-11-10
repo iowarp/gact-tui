@@ -984,6 +984,9 @@ function catalogue({ settings, infrastructure }) {
         await stripList(page, 'Activity');
         await control(page, 'button', 'Open timeline and context', { exact: true }).click();
         await page.waitForTimeout(600);
+        // The Timeline tab opens under the Activity list; close the list to give the
+        // Gantt the pane, as the vault and dashboard shots do.
+        await tabOnly(page, 'Activity');
         await phoneTabBody(page, 'Activity');
         await pickMode(page, ['Gantt']);
         await page
@@ -1013,15 +1016,10 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(800);
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
-      await openCanvas(page);
-      // Under ~1100px the list is a sheet over the tab and covers the row's Maximize;
-      // opening a file closes the sheet, as a tap on a narrow window does.
-      if (
-        await listSheet(page)
-          .isVisible()
-          .catch(() => false)
-      )
-        await openFile(page, 'results/stations.csv');
+      // Maximize a real tab at every width. Where the list is a sheet over the tab it
+      // covers the row's Maximize; opening a file closes the sheet, as a tap does.
+      await openFile(page, 'results/stations.csv');
+      await phoneTabBody(page, 'Files');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
