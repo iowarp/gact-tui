@@ -33,7 +33,7 @@ import {
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
-import { agentIdentity } from '@/components/clio/connection-names';
+import { agentAvailabilityLabel, agentIdentity } from '@/components/clio/connection-names';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
@@ -476,7 +476,13 @@ export function ConnectionPage() {
                               />
                             ) : (
                               <ConnectionAvailabilityIndicator
-                                availability={availability}
+                                availability={{
+                                  ...availability,
+                                  label: agentAvailabilityLabel(
+                                    availability,
+                                    connection.endpoint === settings.endpoint,
+                                  ),
+                                }}
                                 compact
                                 endpoint={connection.endpoint}
                               />

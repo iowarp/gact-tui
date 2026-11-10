@@ -11,6 +11,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
 import { THEMES } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
+import { agentAvailabilityLabel } from './connection-names';
 import { KeyCap, ShortcutKeys } from './primitives/key-chip';
 import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
 
@@ -262,7 +263,9 @@ export function GlobalSearchGroups({
               </span>
               {item.location ? <ResultDetail>{item.location}</ResultDetail> : null}
               <ResultTrail>
-                {item.endpoint === settings.endpoint ? 'Current' : item.availability.label}
+                {item.endpoint === settings.endpoint
+                  ? 'Current'
+                  : agentAvailabilityLabel(item.availability, false)}
               </ResultTrail>
             </CommandItem>
           ))}

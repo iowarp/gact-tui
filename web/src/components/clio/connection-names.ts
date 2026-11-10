@@ -1,4 +1,19 @@
+import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { vocab } from '@/lib/brand-vocabulary';
+
+/**
+ * An agent's state word (connect-infrastructure "Switch to"): "Live" for the one the
+ * app talks to, "Online" for another that answers, "Offline" when it does not. "Ready"
+ * belongs to services and models, never to an agent. Other states keep their own word.
+ */
+export function agentAvailabilityLabel(
+  availability: Pick<ConnectionAvailability, 'state' | 'label'>,
+  current: boolean,
+): string {
+  if (availability.state === 'healthy') return current ? 'Live' : 'Online';
+  if (availability.state === 'unavailable') return 'Offline';
+  return availability.label;
+}
 
 const GENERIC_LABELS = ['this computer', 'this device', 'local'];
 const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];

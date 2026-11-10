@@ -270,7 +270,9 @@ it('separates saved services from new connection fields and exposes the endpoint
   expect(screen.getByText('Contained campaign qualification')).toBeVisible();
   expect(screen.getByText('127.0.0.1:8788')).toBeVisible();
   expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
-  expect(await screen.findAllByText('Ready')).not.toHaveLength(0);
+  // The agent the app talks to reads Live; "Ready" is a service's or a model's word.
+  expect(await screen.findAllByText('Live')).not.toHaveLength(0);
+  expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: 'Add an agent…' }));
 

@@ -13,12 +13,5 @@ export function LocalStartupProgress({
 }) {
   const log = useStartupLog(true, active);
   const stage = status?.kind === 'ready' ? 'opening_workspace' : managedBootStage(status);
-  return (
-    <LocalStartupSteps
-      current={STARTUP_STEP_OF[stage]}
-      failed={!active}
-      log={log}
-      running={active}
-    />
-  );
+  return <LocalStartupSteps current={STARTUP_STEP_OF[stage]} failed={!active} log={log} />;
 }
