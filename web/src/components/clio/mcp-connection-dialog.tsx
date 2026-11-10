@@ -42,6 +42,9 @@ const AUTHENTICATION = {
 } as const;
 type Authentication = keyof typeof AUTHENTICATION;
 
+const TRANSPORT = { http: 'Streamable HTTP', sse: 'SSE (legacy)' } as const;
+type Transport = keyof typeof TRANSPORT;
+
 const FIELD = 'h-[1.875rem] text-[0.78125rem]';
 
 const slug = (text: string) =>
@@ -337,16 +340,34 @@ export function McpConnectionDialog({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </SettingsRow>
-                <SettingsRow title="Transport">
-                  <SegmentedControl
-                    label="Transport"
-                    onValueChange={setTransport}
-                    options={[
-                      { value: 'http', label: 'Streamable HTTP' },
-                      { value: 'sse', label: 'SSE (legacy)' },
-                    ]}
-                    value={transport}
-                  />
+                {/* Spec Transport (settings.html connection): a 150px select, so the
+                    two long names never push past a 340px frame. */}
+                <SettingsRow htmlFor={`${ids}-transport`} title="Transport">
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <SettingsSelectField
+                        aria-label={`Transport: ${TRANSPORT[transport]}`}
+                        className="w-[150px] max-w-full flex-none"
+                        id={`${ids}-transport`}
+                        value={TRANSPORT[transport]}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+                    >
+                      <DropdownMenuRadioGroup
+                        onValueChange={(value) => setTransport(value as Transport)}
+                        value={transport}
+                      >
+                        {(Object.keys(TRANSPORT) as Transport[]).map((value) => (
+                          <DropdownMenuRadioItem key={value} value={value}>
+                            {TRANSPORT[value]}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </SettingsRow>
                 <HeaderRows
                   onAdd={addHeader}

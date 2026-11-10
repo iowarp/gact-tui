@@ -10,6 +10,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { RULE_COLUMNS } from './settings-access-rule-model';
 import { GroupEmptyLine, GroupErrorLine } from './settings-permissions-lines';
+import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
@@ -102,6 +103,9 @@ export function PermissionRequests() {
             />
           );
         })}
+        {permissions.isPending ? (
+          <StateView kind="loading" size="row" title="Loading requests…" />
+        ) : null}
         {permissions.data?.length === 0 ? (
           <GroupEmptyLine>No pending or recorded requests on this connection.</GroupEmptyLine>
         ) : null}

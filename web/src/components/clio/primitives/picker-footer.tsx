@@ -79,7 +79,7 @@ export const PickerFooter = memo(function PickerFooter({
               >
                 {hint.label}
               </span>{' '}
-              <ShortcutKeys id={hint.shortcut} variant="inline" />
+              <ShortcutKeys capSize="sm" id={hint.shortcut} variant="caps" />
             </>
           );
           const visibility = cn(

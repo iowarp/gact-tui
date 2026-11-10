@@ -10,7 +10,7 @@ import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
 import { isParentDelegation } from './parent-delegation';
-import { toolOutputDiffKey } from './declared-diff-key';
+import { toolShowsDiff } from './declared-diff-key';
 
 /**
  * One correlated unit of work inside an iteration, carrying the kind so the
@@ -360,9 +360,8 @@ function fallbackIterations(
           ? lastSegment.iterations.at(-1)
           : undefined;
       if (lane?.activity.some((entry) => entry.kind === 'tool')) {
-        const key = `${block.path}\u0000${block.unified_diff}`;
         const shown = lane.activity.some(
-          (entry) => entry.kind === 'tool' && toolOutputDiffKey(entry.tool) === key,
+          (entry) => entry.kind === 'tool' && toolShowsDiff(entry.tool, block),
         );
         if (!shown && !alreadyInLane(lane, 'diff', block.id))
           lane.activity.push({ kind: 'diff', id: block.id, block });

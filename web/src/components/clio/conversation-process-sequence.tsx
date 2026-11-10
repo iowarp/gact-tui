@@ -113,6 +113,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     const tool = entities.tools[block.tool_id];
     const { waiting: question, rest: questions } = splitWaitingQuestion(
       questionInteractionsForTool(entities.interactions, block.tool_id),
+      tool?.name,
     );
     const waiting = question ?? permissionInteractionForTool(entities.interactions, tool);
     const attentionEntries = entities.messageAttentionIndex?.toolStepsByToolId.get(block.tool_id);
