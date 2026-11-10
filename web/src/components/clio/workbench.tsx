@@ -74,7 +74,7 @@ import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
 import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
-import { WorkbenchTabRow } from './workbench-tab-row';
+import { refocusActiveCanvasTab, WorkbenchTabRow } from './workbench-tab-row';
 import {
   WorkbenchStrip,
   type WorkbenchListView,
@@ -418,6 +418,20 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           document.body,
       );
       setMaximized((value) => !value);
+      // The canvas remounts in its new host, so a focused control inside it is gone:
+      // return to the active tab when a tab had focus, else to Maximize/Restore.
+      const fromTab = document.activeElement?.closest('[data-slot=canvas-tab-row] [role=tab]');
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        let canvas = maximizeButtonRef.current?.parentElement;
+        while (canvas && !canvas.querySelector('[data-slot=canvas-tab-row]')) {
+          canvas = canvas.parentElement;
+        }
+        const activeTab = canvas?.querySelector<HTMLElement>(
+          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
+        );
+        focusQuietly(fromTab && activeTab ? activeTab : maximizeButtonRef.current);
+      });
     };
 
     const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
@@ -498,8 +512,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     };
     useShortcut('terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
     useShortcut('new-terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
-    useShortcut('previous-tab', () => stepTab(-1), { region: asideRef });
-    useShortcut('next-tab', () => stepTab(1), { region: asideRef });
+    const stepTabByKey = (delta: -1 | 1) => {
+      stepTab(delta);
+      refocusActiveCanvasTab(asideRef.current);
+    };
+    useShortcut('previous-tab', () => stepTabByKey(-1), { region: asideRef });
+    useShortcut('next-tab', () => stepTabByKey(1), { region: asideRef });
     useShortcut('maximize', () => toggleMaximized(maximizeButtonRef.current), {
       region: asideRef,
     });
@@ -624,6 +642,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const canvas = (
       <aside
         aria-label="Workspace canvas"
+        data-keyboard-region=""
         data-maximized={maximized || undefined}
         ref={asideRef}
         className={cn(

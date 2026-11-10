@@ -139,7 +139,11 @@ export function ClioNavigation({
         sessions={sessions}
       />
       <Sidebar collapsible="icon" contained>
-        <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
+        <nav
+          aria-label="Workspace navigation"
+          data-keyboard-region=""
+          className="flex h-full min-w-0 flex-1 flex-col"
+        >
           <NavigationHeader
             activeLabel={settings.label}
             activeLocation={settings.location}
@@ -232,6 +236,7 @@ export function ClioNavigation({
       <StableInput
         accept="application/json,.json"
         aria-label="Import session file"
+        tabIndex={-1}
         className="sr-only"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];

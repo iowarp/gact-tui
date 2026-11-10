@@ -45,6 +45,7 @@ import { FileTypeIcon } from './file-type-icon';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
+import { focusEditorAtOffset } from './composer-editor-model';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
@@ -89,6 +90,27 @@ function workbenchTabReference(
   if (tab.kind === 'resource')
     return fileViewerReference({ kind: 'resource', resource: tab.resource, workspaceId });
   return undefined;
+}
+
+/**
+ * A tab shortcut that unmounts the focused tab or its body lands focus on the new
+ * active tab, or on the composer when the last tab closed the canvas.
+ */
+export function refocusActiveCanvasTab(region: Element | null) {
+  requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    const tab = region?.isConnected
+      ? region.querySelector<HTMLElement>(
+          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
+        )
+      : null;
+    if (tab) tab.focus();
+    else
+      focusEditorAtOffset(
+        document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
+      );
+  });
 }
 
 export interface WorkbenchTabRowProps {
@@ -208,10 +230,17 @@ export function WorkbenchTabRow({
   }, [activeTabId, fit, fitKey, measured.shown, recency, tabs]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
-  useShortcut('close-tab', () => onClose(activeTabId), {
-    region: stripRef,
-    enabled: Boolean(activeTabId),
-  });
+  useShortcut(
+    'close-tab',
+    () => {
+      onClose(activeTabId);
+      refocusActiveCanvasTab(stripRef.current?.closest('aside') ?? null);
+    },
+    {
+      region: stripRef,
+      enabled: Boolean(activeTabId),
+    },
+  );
 
   const menuTab = tabs.find((tab) => tab.id === menuTabId);
   const menuIndex = menuTab ? tabs.indexOf(menuTab) : -1;
