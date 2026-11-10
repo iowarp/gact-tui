@@ -57,6 +57,7 @@ export function foundationSummary(integration: ServiceIntegrationHealth): string
     arc: 'Conversation memory is using a limited local fallback.',
     sandbox: `Extra operating-system confinement is not enabled. ${vocab.agent} still applies ${vocab.workspace} access rules and records out-of-${vocab.workspace} attempts.`,
     child_parentage: 'Some background processes are no longer attached to this agent service.',
+    store_migrations: 'Data upgrades ran at startup because installation skipped them.',
   };
   if (integrationStatus(integration.status) === 'healthy') return undefined;
   if (integration.name === 'lm_provider') {
@@ -64,8 +65,22 @@ export function foundationSummary(integration: ServiceIntegrationHealth): string
   }
   return (
     degraded[integration.name] ??
-    (integration.summary || 'This supporting service needs attention.')
+    (plainSentence(integration.summary) || 'This supporting service needs attention.')
   );
+}
+
+/**
+ * A server summary as one plain sentence for the row: code quotes become words and
+ * the first clause stands alone. The full text stays in the row's technical details.
+ */
+function plainSentence(text: string | undefined): string {
+  const plain = (text ?? '')
+    .replace(/``(.+?)``/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  const first = plain.split(/;\s|(?<=[.!?])\s/u)[0]?.trim() ?? '';
+  return first && !/[.!?]$/u.test(first) ? `${first}.` : first;
 }
 
 /** Group every displayed row once, using the same status mapping as its badge. */
