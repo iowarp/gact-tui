@@ -1,6 +1,6 @@
 import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { PanelRightIcon } from 'lucide-react';
+import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

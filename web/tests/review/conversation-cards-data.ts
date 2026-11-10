@@ -467,6 +467,12 @@ export const SCENARIOS: Record<string, CardScenario> = {
   },
   'question-single': { spec: 'Question', interactions: [regridYears, gridSize] },
   'question-multi': { spec: 'Question', closest: true, interactions: [networks] },
+  'question-multi-chosen': {
+    spec: 'Question',
+    closest: true,
+    interactions: [networks],
+    open: 'USCRN',
+  },
   'question-freeform': { spec: 'Question', closest: true, interactions: [summaryText] },
   'question-bundle': { spec: 'Question', closest: true, interactions: [bundle] },
   'question-surface': {
