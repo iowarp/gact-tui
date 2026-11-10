@@ -1,7 +1,6 @@
 import type { ModelAcquisition } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ClockIcon,
   CpuIcon,
@@ -31,10 +30,11 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { ClioRelativeTime } from './relative-time';
 import { TechnicalDetails } from './technical-details';
 import { ModelCapabilityTags } from './model-capability-tags';
@@ -159,23 +159,9 @@ export function ModelInventoryRow({
   ) : null;
   // A ready model needs nothing; serving it is offered with the row's other actions.
   const setUpRuntime =
-    ready && !runtimeUnavailable ? (
-      <NamedTooltip label="Set up runtime">
-        <Button
-          asChild
-          className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
-          size="icon-xs"
-          variant="ghost"
-        >
-          <Link
-            aria-label="Set up runtime"
-            to={`/infrastructure/services?target=${encodeURIComponent(targetId)}&model=${encodeURIComponent(model.id)}`}
-          >
-            <RocketIcon aria-hidden="true" />
-          </Link>
-        </Button>
-      </NamedTooltip>
-    ) : null;
+    ready && !runtimeUnavailable
+      ? `/infrastructure/services?target=${encodeURIComponent(targetId)}&model=${encodeURIComponent(model.id)}`
+      : undefined;
   const facts: KeyValueItem[] = [
     {
       label: 'Revision',
@@ -228,26 +214,29 @@ export function ModelInventoryRow({
     <>
       <InfraRow
         actions={
-          <span className="flex items-center gap-0.5" onClick={stop} onKeyDown={stop}>
-            {setUpRuntime}
-            <IconButton
-              aria-expanded={expanded}
-              icon={<InfoIcon />}
-              label={expanded ? 'Hide details' : 'Show details'}
-              onClick={() => setExpanded((open) => !open)}
-              size="sm"
-            />
-            <IconButton
-              disabled={active || shared || disabled}
-              icon={<DeleteIcon />}
-              label="Delete model"
-              onClick={() => {
-                remove.reset();
-                setRemoveOpen(true);
-              }}
-              size="sm"
-            />
-          </span>
+          <InfraRowMenu
+            actions={[
+              ...(setUpRuntime
+                ? [{ icon: <RocketIcon />, label: 'Set up runtime', to: setUpRuntime }]
+                : []),
+              {
+                icon: <InfoIcon />,
+                label: expanded ? 'Hide details' : 'Show details',
+                expanded,
+                onSelect: () => setExpanded((open) => !open),
+              },
+              {
+                icon: <DeleteIcon />,
+                label: 'Delete model',
+                disabled: active || shared || disabled,
+                onSelect: () => {
+                  remove.reset();
+                  setRemoveOpen(true);
+                },
+              },
+            ]}
+            label={`More for ${model.repository}`}
+          />
         }
         className="cursor-pointer"
         description={description}

@@ -13,29 +13,16 @@ import {
 } from 'lucide-react';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { vocab } from '@/lib/brand-vocabulary';
-import {
-  AddIcon,
-  ConfigureIcon,
-  EditIcon,
-  ManageIcon,
-  MoreIcon,
-  RefreshIcon,
-} from '@/lib/icon-vocabulary';
+import { AddIcon, ConfigureIcon, EditIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { deploymentDevices } from './managed-service-gpus';
 import { SERVICE_GROUPS } from './managed-service-groups';
 import { VerificationState } from './managed-service-identity';
-import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { MenuRow } from './primitives/menu-row';
 import { StateView } from './primitives/state-view';
@@ -216,27 +203,11 @@ export function ManagedServiceInventoryRow({
   return (
     <InfraRow
       actions={
-        <span className="flex items-center gap-0.5" onClick={stop} onKeyDown={stop}>
-          <IconButton
-            icon={<ManageIcon />}
-            label={`Manage ${service.label}`}
-            onClick={onManage}
-            size="sm"
-          />
-          <DropdownMenu modal={false}>
-            <NamedTooltip label={`More actions for ${service.label}`}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={`More actions for ${service.label}`}
-                  className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
-                  size="icon-xs"
-                  variant="ghost"
-                >
-                  <MoreIcon aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-            </NamedTooltip>
-            <DropdownMenuContent align="end" className="w-60">
+        <InfraRowMenu
+          actions={[{ icon: <ManageIcon />, label: `Manage ${service.label}`, onSelect: onManage }]}
+          label={`More actions for ${service.label}`}
+          menu={
+            <>
               {connectionItem}
               {onEditWebSearch ? (
                 <DropdownMenuItem onSelect={onEditWebSearch}>
@@ -265,9 +236,9 @@ export function ManagedServiceInventoryRow({
               <DropdownMenuItem onSelect={() => onOpenTab('storage')}>
                 <MenuRow icon={<HardDriveIcon />} label="Storage and removal" />
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </span>
+            </>
+          }
+        />
       }
       className="cursor-pointer"
       description={

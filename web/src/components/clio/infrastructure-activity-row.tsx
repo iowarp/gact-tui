@@ -34,7 +34,8 @@ import {
 } from './infrastructure-operation-presentation';
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
-import { IconButton } from './primitives/icon-button';
+import { InfraRowMenu } from './infrastructure-row-menu';
+import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
 import { ClioRelativeTime } from './relative-time';
@@ -152,25 +153,20 @@ export function InfrastructureActivityRow({
           </InfraRowToggle>
         }
         actions={
-          <InfraRowActions className="flex items-center">
-            {canRetry ? (
-              <IconButton
-                disabled={act.isPending}
-                icon={<RetryIcon />}
-                label={`Retry ${title}`}
-                onClick={() => act.mutate('retry')}
-                size="sm"
-              />
-            ) : null}
-            {raw ? (
-              <IconButton
-                icon={<CopyIcon />}
-                label={`Copy log for ${title}`}
-                onClick={() => void copyText(raw)}
-                size="sm"
-              />
-            ) : null}
-          </InfraRowActions>
+          <InfraRowMenu
+            actions={
+              raw
+                ? [
+                    {
+                      icon: <CopyIcon />,
+                      label: `Copy log for ${title}`,
+                      onSelect: () => void copyText(raw),
+                    },
+                  ]
+                : []
+            }
+            label={`More for ${title}`}
+          />
         }
         primaryAction={
           canCancel ? (
@@ -188,6 +184,38 @@ export function InfrastructureActivityRow({
                 onClick={() => act.mutate('cancel')}
                 size="sm"
               />
+            </InfraRowActions>
+          ) : canRetry ? (
+            <InfraRowActions>
+              <IconButton
+                disabled={act.isPending}
+                icon={
+                  act.isPending ? (
+                    <LoaderCircleIcon className="motion-safe:animate-spin" />
+                  ) : (
+                    <RetryIcon />
+                  )
+                }
+                label={`Retry ${title}`}
+                onClick={() => act.mutate('retry')}
+                size="sm"
+              />
+            </InfraRowActions>
+          ) : failed ? (
+            // A service operation is retried from its service, which holds the variant and settings.
+            <InfraRowActions>
+              <NamedTooltip label={`Retry ${title} from Services`}>
+                <Button
+                  asChild
+                  className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
+                  size="icon-xs"
+                  variant="ghost"
+                >
+                  <Link aria-label={`Retry ${title} from Services`} to={destination}>
+                    <RetryIcon />
+                  </Link>
+                </Button>
+              </NamedTooltip>
             </InfraRowActions>
           ) : (
             <InfraRowChevron expanded={expanded} />

@@ -1,12 +1,15 @@
 import type { InfrastructureInventory } from '@clio/core/v3';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
 import { InfrastructureActivityRow } from './infrastructure-activity-row';
 import { InfraFilterMenu, InfraSearchField } from './infrastructure-filter-menu';
 import { InfraList } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
+import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 
 type ActivityFilter = 'all' | 'active' | 'failed' | 'completed';
@@ -33,6 +36,9 @@ const sentence = (text: string) => text.charAt(0).toLocaleUpperCase() + text.sli
 /** Recent operations in one timeline; host and result stay visible before opening details. */
 export function InfrastructureActivity({ data }: { data: InfrastructureInventory }) {
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchGroup = useRef<HTMLSpanElement>(null);
+  const searchShown = searchOpen || Boolean(search);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const hosts = new Map(
     data.targets.map((host) => [host.id, host.kind === 'local' ? 'Local' : host.label]),
@@ -81,25 +87,44 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
   return (
     <>
       <InfraTabActions>
-        <InfraSearchField
-          label="Search activity"
-          onValueChange={setSearch}
-          placeholder="Search activity"
-          value={search}
-        />
-        <InfraFilterMenu
-          label="Activity filter"
-          onValueChange={setFilter}
-          options={(['all', 'active', 'failed', 'completed'] as const).map((value) => ({
-            value,
-            label: filterLabels[value],
-            count: history.filter((row) => matchesFilter(row.state, value)).length,
-          }))}
-          value={filter}
-        />
+        {/* One group, so a narrow tab bar keeps it beside the tabs; there, search opens from its icon. */}
+        <span className="flex min-w-0 items-center gap-1.5" ref={searchGroup}>
+          <InfraSearchField
+            className={cn(
+              '@max-[600px]/infra-page:w-[160px]',
+              !searchShown && '@max-[600px]/infra-page:hidden',
+            )}
+            label="Search activity"
+            onEscape={() => setSearchOpen(false)}
+            onValueChange={setSearch}
+            placeholder="Search activity"
+            value={search}
+          />
+          {searchShown ? null : (
+            <IconButton
+              className="hidden @max-[600px]/infra-page:inline-flex"
+              icon={<SearchIcon />}
+              label="Search activity"
+              onClick={() => {
+                setSearchOpen(true);
+                requestAnimationFrame(() => searchGroup.current?.querySelector('input')?.focus());
+              }}
+            />
+          )}
+          <InfraFilterMenu
+            label="Activity filter"
+            onValueChange={setFilter}
+            options={(['all', 'active', 'failed', 'completed'] as const).map((value) => ({
+              value,
+              label: filterLabels[value],
+              count: history.filter((row) => matchesFilter(row.state, value)).length,
+            }))}
+            value={filter}
+          />
+        </span>
       </InfraTabActions>
       {rows.length ? (
-        <InfraList hover={52} label="Infrastructure activity">
+        <InfraList hover={26} label="Infrastructure activity">
           {rows.map((row) => (
             <InfrastructureActivityRow
               key={row.target + ':' + row.id}

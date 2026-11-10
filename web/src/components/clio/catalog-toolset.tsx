@@ -126,7 +126,8 @@ function ToolRow({
       className="cursor-pointer"
       description={toolSummary(tool)}
       icon={<ToolIcon tool={tool} />}
-      meta={entry.group}
+      // The meta column names where the tool comes from: the agent itself or its server.
+      meta={tool.server_id ? entry.group : vocab.agent}
       onClick={() => onInspect(entry)}
       status={toolStatus(tool)}
       title={
@@ -135,7 +136,14 @@ function ToolRow({
         </button>
       }
       actions={
-        <IconButton icon={<EyeIcon />} label={`Inspect ${tool.name}`} onClick={inspect} size="sm" />
+        // On a narrow list the row itself is the only inspect control it needs.
+        <IconButton
+          className="@max-[480px]/infra:hidden"
+          icon={<EyeIcon />}
+          label={`Inspect ${tool.name}`}
+          onClick={inspect}
+          size="sm"
+        />
       }
     />
   );
