@@ -445,6 +445,14 @@ export const A2UI_CATALOG_STALE_TIME_MS = 10 * 60_000;
 export const QUERY_RETRY_COUNT = 1;
 
 /**
+ * Retries for a read the service refused because it is still starting (503
+ * `task_runtime_starting`). Unit: attempts after the first. At the 2 s backoff ceiling
+ * this waits about three minutes, longer than a slow agent start, before showing the
+ * failure and its Retry.
+ */
+export const STARTING_READ_RETRIES = 90;
+
+/**
  * Retries for one service availability probe. Unit: attempts after the first.
  * One more than an ordinary read because a probe's own timeout is short enough
  * that a briefly busy service can miss it; the label should say "Unavailable"
