@@ -144,7 +144,7 @@ describe('AgentSettings', () => {
     const yours = await screen.findByRole('group', { name: 'Your agents' }, { timeout: 5000 });
     expect(await within(yours).findByText('My analyst')).toBeVisible();
     expect(within(yours).getByText('Based on CLIO and clio/hdf5, without xlsx')).toBeVisible();
-    expect(within(yours).getByText('0 plugins')).toBeVisible();
+    expect(within(yours).getByText('0 packages')).toBeVisible();
     const installed = screen.getByRole('group', { name: 'Installed agents' });
     expect(within(installed).getByText('CLIO')).toBeVisible();
     expect(await within(installed).findByText('Default')).toBeVisible();

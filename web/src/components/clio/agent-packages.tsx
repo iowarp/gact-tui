@@ -25,7 +25,7 @@ import {
 } from './agent-package-items';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
-import { SegmentedControl } from './primitives/segmented-control';
+import { AgentPackageFilter } from './agent-package-filter';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
 
@@ -108,22 +108,16 @@ export function AgentPackages({
           )
         }
         className="mt-1"
-        info="The plugins this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here."
+        info="The packages this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here."
       >
         <span id="agent-packages">Packages</span>
       </SettingsGroupLabel>
       {categories.length ? (
-        <div className="clio-scrollbar -mx-0.5 overflow-x-auto px-0.5 pt-1 pb-2">
-          <SegmentedControl
-            label="Show what packages bring"
-            onValueChange={(value) => onViewChange({ category: value, open: view.open })}
-            options={[
-              { value: 'all', label: 'All' },
-              ...categories.map((info) => ({ value: info.value, label: info.label })),
-            ]}
-            value={category}
-          />
-        </div>
+        <AgentPackageFilter
+          categories={categories}
+          onValueChange={(value) => onViewChange({ category: value, open: view.open })}
+          value={category}
+        />
       ) : null}
       <ItemList label="Packages">
         {shown.length === 0 ? (
@@ -201,6 +195,7 @@ function PackageRow({
   onRemove?: () => void;
 }) {
   const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
+  const provenance = provenanceLabel(plugin.provenance);
   const expandable =
     category === 'all'
       ? Object.values(items).some((rows) => rows.length > 0)
@@ -231,15 +226,22 @@ function PackageRow({
       className="cursor-default"
       data-agent-package={plugin.id}
       icon={<Icon />}
-      meta={<span title={meta}>{meta}</span>}
+      // A narrow list stacks the status under the meta; there provenance
+      // joins the counts line instead, so a package stays two lines.
+      meta={
+        <span className="flex min-w-0" title={`${meta}. ${provenance}`}>
+          <span className="min-w-0 truncate">{meta}</span>
+          <span className="hidden shrink-0 @max-sm:inline">, {provenance.toLowerCase()}</span>
+        </span>
+      }
       onClick={click}
       selected={open}
       status={
         <span
-          className="min-w-0 truncate text-xs text-muted-foreground"
+          className="min-w-0 truncate text-xs text-muted-foreground @max-sm:hidden"
           title={provenanceDetail(plugin.provenance)}
         >
-          {provenanceLabel(plugin.provenance)}
+          {provenance}
         </span>
       }
       title={

@@ -282,40 +282,43 @@ function AgentComposition({
       data-slot="agent-tab"
       ref={rows}
     >
-      <AgentTabHeader
-        actions={
-          library && !view && !item ? (
-            <Button
-              className="-my-1 shrink-0"
-              data-agent-use="instructions"
-              onClick={() => setView('instructions')}
-              size="xs"
-              title="The agent’s full prompt, composed from its packages"
-              variant="outline"
-            >
-              <ScrollTextIcon aria-hidden="true" /> Prompt
-            </Button>
-          ) : undefined
-        }
-        className={library && !embedded ? 'pr-12' : undefined}
-        reset={
-          changed && !readOnly
-            ? {
-                label: 'Reset to setup',
-                description: summary,
-                disabled: update.isPending,
-                onReset: () =>
-                  change(emptyAgentDelta, {
-                    summary: `Restores ${parentName}’s plugins in this conversation.`,
-                    success: `Restored ${parentName}`,
-                    failure: `${parentName} was not restored`,
-                  }),
-              }
-            : undefined
-        }
-        title={title}
-        titleShown={!embedded}
-      />
+      {/* In a library pane's sub-views the header would hold only the legend: drop it. */}
+      {library && embedded && (view || item) && !(changed && !readOnly) ? null : (
+        <AgentTabHeader
+          actions={
+            library && !view && !item ? (
+              <Button
+                className="-my-1 shrink-0"
+                data-agent-use="instructions"
+                onClick={() => setView('instructions')}
+                size="xs"
+                title="The agent’s full prompt, composed from its packages"
+                variant="outline"
+              >
+                <ScrollTextIcon aria-hidden="true" /> Prompt
+              </Button>
+            ) : undefined
+          }
+          className={library && !embedded ? 'pr-12' : undefined}
+          reset={
+            changed && !readOnly
+              ? {
+                  label: 'Reset to setup',
+                  description: summary,
+                  disabled: update.isPending,
+                  onReset: () =>
+                    change(emptyAgentDelta, {
+                      summary: `Restores ${parentName}’s plugins in this conversation.`,
+                      success: `Restored ${parentName}`,
+                      failure: `${parentName} was not restored`,
+                    }),
+                }
+              : undefined
+          }
+          title={title}
+          titleShown={!embedded}
+        />
+      )}
       {library && !view && !item ? (
         <AgentPackages
           delta={delta}

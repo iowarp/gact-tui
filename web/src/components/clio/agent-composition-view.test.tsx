@@ -56,7 +56,7 @@ describe('AgentCompositionView', () => {
     renderView();
     await openUse(user);
     const active = await screen.findByRole('list', { name: 'Active plugins' });
-    expect(within(active).getByText('Core')).toBeVisible();
+    expect(within(active).getByText('Built in')).toBeVisible();
     expect(within(active).getAllByText('From standard')).toHaveLength(2);
     expect(within(active).getByText('Required by pdf')).toBeVisible();
     const members = within(active).getByRole('list', { name: 'Members of documents' });
@@ -681,6 +681,63 @@ describe('an agent explored from the library', () => {
     await user.click(within(detail).getByRole('button', { name: 'Back to packages' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'pdf-reviewer' })).toHaveFocus());
     expect(screen.getByRole('radio', { name: 'Subagents' })).toBeChecked();
+  });
+
+  it('folds a narrow category filter to the current category and ⋯', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly report: ResizeObserverCallback) {}
+        observe() {
+          const box = [{ inlineSize: 150, blockSize: 28 }];
+          this.report(
+            [{ contentRect: { width: 150 }, borderBoxSize: box, contentBoxSize: box }] as never,
+            this as never,
+          );
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      renderLibrary();
+      await screen.findByRole('group', { name: 'Packages' });
+      const filter = screen.getByRole('radiogroup', { name: 'Show what packages bring' });
+      expect(
+        within(filter)
+          .getAllByRole('radio')
+          .map((radio) => radio.textContent),
+      ).toEqual(['All']);
+      await user.click(screen.getByRole('button', { name: 'Other categories' }));
+      await user.click(await screen.findByRole('menuitemradio', { name: 'Subagents' }));
+      expect(await screen.findByRole('radio', { name: 'Subagents' })).toBeChecked();
+      expect(
+        within(screen.getByRole('group', { name: 'Packages' })).queryByRole('button', {
+          name: 'documents',
+        }),
+      ).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('opens the prompt in a pane without an empty header, Back focused without its name', async () => {
+    const user = userEvent.setup();
+    renderView(
+      <DraftAgentCompositionView
+        draft={{ ref: 'clio/standard', delta: { add: [], remove: [] } }}
+        embedded
+        library
+        onChange={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText('Changed settings are teal')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    expect(await screen.findByText('You are the standard agent.')).toBeVisible();
+    expect(screen.queryByText('Changed settings are teal')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back to the agent' })).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
   it('adds and removes packages from the list', async () => {
