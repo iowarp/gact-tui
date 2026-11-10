@@ -1,13 +1,11 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type ComponentType,
   type ReactNode,
 } from 'react';
-import { toast } from 'sonner';
 import { GitBranchIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -43,6 +41,7 @@ import {
 import { fileViewerReference } from './file-viewer-location';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
+import { useElementFullscreen } from './use-element-fullscreen';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
@@ -259,25 +258,8 @@ export function FileViewerShell({
           : [{ label: titled.collection }, { label: titled.title }],
     [pathCrumbs, titled],
   );
-  const [fullscreenHost, setFullscreenHost] = useState<HTMLElement>();
-  const fullscreen = Boolean(fullscreenHost);
+  const { fullscreenHost, fullscreen, toggle: toggleFullscreen } = useElementFullscreen(hostRef);
   const addToMessage = useAddToMessage(fileViewerReference(source), source.workspaceId, hostRef);
-  useEffect(() => {
-    const update = () =>
-      setFullscreenHost(
-        document.fullscreenElement === hostRef.current ? (hostRef.current ?? undefined) : undefined,
-      );
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, []);
-  const toggleFullscreen = async () => {
-    try {
-      if (fullscreen) await document.exitFullscreen();
-      else await hostRef.current?.requestFullscreen();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not open fullscreen.');
-    }
-  };
   const rendererFacts = (
     selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat()
   ).flatMap((fact) =>

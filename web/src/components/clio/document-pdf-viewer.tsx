@@ -3,6 +3,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ViewerZoomControls } from './viewer-zoom-controls';
+import { frameKeyRegion } from './file-viewer-modes';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
 import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
 import {
@@ -69,6 +71,10 @@ export function ClioDocumentPdfViewer({
     if (scale > MIN_ZOOM + 1e-6) setScale(Math.max(MIN_ZOOM, scale - ZOOM_STEP));
     else setFitOverride('page');
   }, [scale]);
+  const resetZoom = useCallback(() => {
+    setScale(MIN_ZOOM);
+    setFitOverride(undefined);
+  }, []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
   const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
   // pdf.js transfers a typed array it is handed to its worker thread, which
@@ -208,6 +214,32 @@ export function ClioDocumentPdfViewer({
         ),
       );
   const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
+  // PgUp and PgDn turn whole pages, wherever focus is in the frame showing this PDF.
+  const pageRegion = useMemo(
+    () => ({
+      get current(): Element | null {
+        const host = hostRef.current;
+        if (!host?.isConnected || !host.getClientRects().length) return null;
+        const frame = host.closest('[data-slot="file-viewer"]');
+        return frame ? frameKeyRegion(frame) : host;
+      },
+    }),
+    [],
+  );
+  useShortcut(
+    'pdf-page',
+    (event) => {
+      const container = scrollRef.current;
+      if (!container || !pageCount) return;
+      // Back from partway down a page goes to its own top first.
+      const partway = container.scrollTop > (currentPage - 1) * pageStride + 4;
+      const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
+      const target = Math.min(pageCount, Math.max(1, currentPage + step));
+      container.scrollTop = (target - 1) * pageStride;
+      readScroll();
+    },
+    { region: pageRegion, enabled: pageCount > 0 },
+  );
   useFileViewerFacts(
     pageFacts && pageCount
       ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`, FILE_SIZE_FACT]
@@ -258,6 +290,7 @@ export function ClioDocumentPdfViewer({
         label="PDF zoom"
         onIn={zoomIn}
         onOut={zoomOut}
+        onReset={resetZoom}
         disabledIn={scale >= MAX_ZOOM}
         disabledOut={atFit}
         readout={
@@ -281,10 +314,13 @@ export function ClioDocumentPdfViewer({
           owns its scroll region rather than riding whichever ancestor happens
           to scroll — every host has to give it a bounded box. */}
       <div
-        className="min-h-0 flex-1 overflow-auto px-3 py-3"
+        aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
+        className="min-h-0 flex-1 overflow-auto px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
+        role="region"
+        tabIndex={0}
       >
         <Document
           error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
@@ -309,6 +345,7 @@ export function ClioDocumentPdfViewer({
                 onPagePoint={onPagePoint}
                 onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
                 onMouseUp={captureSelection}
+                pageCount={pageCount}
                 pageNumber={visiblePage}
                 scale={scale}
                 width={hostWidth}
@@ -336,6 +373,7 @@ function PdfPage({
   onMeasure,
   onMouseUp,
   onPagePoint,
+  pageCount,
   pageNumber,
   scale,
   width,
@@ -346,6 +384,7 @@ function PdfPage({
   onMeasure?: (element: HTMLDivElement | null) => void;
   onMouseUp: () => void;
   onPagePoint?: (page: number, x: number, y: number) => void;
+  pageCount: number;
   pageNumber: number;
   scale: number;
   width: number;
@@ -358,8 +397,10 @@ function PdfPage({
 
   return (
     <div
+      aria-label={`Page ${pageNumber} of ${pageCount}`}
       className="relative mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
+      role="group"
       onDoubleClick={
         onPagePoint
           ? (event) => {

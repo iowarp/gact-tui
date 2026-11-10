@@ -15,7 +15,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { eventKey } from '@/lib/shortcuts/keys';
 import { cn } from '@/lib/utils';
 import { EntryKindIcon, ScienceStatus } from './science-log-icons';
 import { ENTRY_TYPE_LABELS } from './science-log-model';
@@ -96,7 +98,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
         <Controls
           aria-label="Study graph controls"
-          className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!text-foreground [&_svg]:!size-3.5 [&_svg]:!max-h-none [&_svg]:!max-w-none [&_svg]:!fill-none"
+          className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!text-foreground [&_button:focus-visible]:!text-foreground [&_button:focus-visible]:!outline-none [&_button:focus-visible]:!ring-2 [&_button:focus-visible]:!ring-ring [&_svg]:!size-3.5 [&_svg]:!max-h-none [&_svg]:!max-w-none [&_svg]:!fill-none"
           orientation="horizontal"
           position="bottom-right"
           showFitView={false}
@@ -105,6 +107,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         >
           <GraphZoomButtons />
         </Controls>
+        <GraphZoomKeys region={container} />
       </ReactFlow>
     </section>
   );
@@ -126,6 +129,18 @@ function GraphZoomButtons() {
       </ControlButton>
     </>
   );
+}
+
+/** + − 0 zoom in, out and fit while focus is in the graph (a node or a control). */
+function GraphZoomKeys({ region }: { region: RefObject<Element | null> }) {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  useShortcut(
+    'graph-zoom',
+    (event) => void (eventKey(event) === '-' ? zoomOut() : zoomIn()),
+    { region },
+  );
+  useShortcut('graph-fit', () => void fitView(), { region });
+  return null;
 }
 
 /** Re-anchor when the pane's fit changes; selection keeps the reader's zoom and pan. */
