@@ -6,6 +6,7 @@ import {
   HardDriveIcon,
   LinkIcon,
   MonitorIcon,
+  PackageIcon,
   PlayIcon,
   PlugIcon,
   SquareIcon,
@@ -59,12 +60,15 @@ function servicePort(service: ManagedServiceDefinition): string | undefined {
   return service.configuration.port || undefined;
 }
 
+function installedAs(service: ManagedServiceDefinition): string {
+  const variant = service.variants.find((row) => row.id === service.recommended_variant);
+  if (!variant || !service.owned_resources.length) return '';
+  return [variant.label, variant.version].filter(Boolean).join(' ');
+}
+
 function serviceSummary(service: ManagedServiceDefinition): string {
   if (service.configuration.model) return service.configuration.model;
-  const variant = service.variants.find((row) => row.id === service.recommended_variant);
-  if (variant && service.owned_resources.length)
-    return [variant.label, variant.version].filter(Boolean).join(' ');
-  return service.description;
+  return installedAs(service) || service.description;
 }
 
 /** One managed service: state, port, a pinned lifecycle verb and the rest behind hover. */
@@ -178,6 +182,9 @@ export function ManagedServiceInventoryRow({
           },
         ]
       : []),
+    ...(service.id === 'searxng' && installedAs(service)
+      ? [{ label: 'Installed as', icon: <PackageIcon />, value: installedAs(service), mono: true }]
+      : []),
   ];
   const error = feedback?.error ? feedback.text : undefined;
   const showDetails = expanded || Boolean(error) || Boolean(addInstanceForm);
@@ -243,7 +250,10 @@ export function ManagedServiceInventoryRow({
       className="cursor-pointer"
       description={
         <>
-          <span title={service.description}>{status.reason ?? serviceSummary(service)}</span>
+          <span title={service.description}>
+            {status.reason ??
+              (service.id === 'searxng' ? 'Built-in search engine' : serviceSummary(service))}
+          </span>
           {devices ? (
             <span className="ml-2" title="The GPUs this deployment may use">
               {devices}
