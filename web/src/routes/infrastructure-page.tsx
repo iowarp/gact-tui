@@ -38,10 +38,11 @@ import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent
  * Narrow (under 600px), a section with more than one tab action (the host and the
  * section's main verb, a search and its filter) gives them their own row under the
  * tabs, so they stay reachable instead of running off the edge. A lone action
- * (refresh) stays beside the tabs.
+ * (refresh) stays beside the tabs. A main verb that folds into ⋯ (Services,
+ * Models) keeps the host beside the tabs; the open tab's name truncates first.
  */
 const TAB_ROW =
-  'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
+  'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
 const TAB_ACTIONS =
   'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
 
