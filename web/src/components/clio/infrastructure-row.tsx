@@ -6,11 +6,13 @@ import {
   useId,
   useMemo,
   type ComponentPropsWithoutRef,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { statusWordClass } from '@/components/clio/primitives/status-word-tone';
+import { isRowMenuKey } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 
 /**
@@ -123,10 +125,37 @@ const NARROW_STATUS =
 const NARROW_ACTIONS =
   '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
 
+/** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
+function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
+  if (!isRowMenuKey(event)) return;
+  const triggers = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>('[aria-haspopup=menu]'),
+  ].filter((trigger) => trigger.offsetParent !== null && !trigger.matches(':disabled'));
+  const trigger = triggers[triggers.length - 1];
+  if (!trigger) return;
+  event.preventDefault();
+  trigger.focus();
+  trigger.dispatchEvent(
+    new globalThis.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+  );
+}
+
 /** A two-line inventory row with fixed status, meta and action columns. */
 export const InfraRow = memo(
   forwardRef<HTMLDivElement, InfraRowProps>(function InfraRow(
-    { icon, title, description, status, meta, actions, primaryAction, details, className, ...rest },
+    {
+      icon,
+      title,
+      description,
+      status,
+      meta,
+      actions,
+      primaryAction,
+      details,
+      className,
+      onKeyDown,
+      ...rest
+    },
     ref,
   ) {
     const columns = useContext(InfraColumnsContext);
@@ -182,6 +211,10 @@ export const InfraRow = memo(
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
           className={cn(columns.hover && NARROW_ACTIONS, className)}
+          onKeyDown={(event) => {
+            onKeyDown?.(event);
+            if (!event.defaultPrevented) openInfraRowMenu(event);
+          }}
           {...rest}
         />
         {details ? <InfraRowDetails>{details}</InfraRowDetails> : null}

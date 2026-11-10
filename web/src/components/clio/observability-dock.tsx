@@ -169,6 +169,7 @@ export function ClioObservabilityView({
           {
             id: tool.id,
             kind: 'tool',
+            toolName: tool.name,
             label: toolActivityName(tool),
             detail: getToolSummary(tool),
             fact: duration === undefined ? undefined : compactDuration(duration),

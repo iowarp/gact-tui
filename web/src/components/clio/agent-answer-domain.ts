@@ -178,6 +178,24 @@ export function splitWaitingQuestion(
   };
 }
 
+/**
+ * The call is paused on the person: the server holds it `pending`, or an approval
+ * or question linked to it is still open. An async ask_user has already
+ * `succeeded` with a task handle while its question waits, so the link decides.
+ */
+export function toolWaitsForYou(
+  tool: ToolInvocation,
+  interactions: readonly PendingInteraction[] | undefined,
+): boolean {
+  return (
+    tool.state === 'pending' ||
+    Boolean(permissionInteractionForTool(interactions, tool)) ||
+    questionInteractionsForTool(interactions, tool.id).some(
+      (interaction) => interaction.status === 'pending',
+    )
+  );
+}
+
 /** Human-readable identity that stays honest about request versus protocol round. */
 export function questionInteractionRequestLabel(interaction: PendingInteraction): string {
   const kind =

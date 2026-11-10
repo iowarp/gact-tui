@@ -220,7 +220,12 @@ export function PluginDetailPane({
     setTab('files');
   };
   const needsTrust = Boolean(plugin && (!plugin.trusted || plugin.pending_trust));
-  const title = selected.skill || plugin?.id || selected.reference;
+  // Until the plugin loads, its reference (marketplace/name) gives the name the row showed.
+  const title =
+    selected.skill ||
+    plugin?.id ||
+    selected.reference.slice(selected.reference.lastIndexOf('/') + 1) ||
+    selected.reference;
   const tabs: { value: Tab; label: string }[] = [
     { value: 'capabilities', label: 'Capabilities' },
     ...(hasTools ? [{ value: 'tools' as const, label: 'Tools' }] : []),
