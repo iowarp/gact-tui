@@ -33,7 +33,6 @@ export const jsdomTsTests = [
   'src/hooks/use-composer-draft.test.ts',
   'src/hooks/use-context-target-selection.test.ts',
   'src/hooks/use-dashboard-review-opening.test.ts',
-  'src/hooks/use-desktop-title-sync.test.ts',
   'src/hooks/use-desktop-zoom.test.ts',
   'src/hooks/use-observability-navigation.test.ts',
   'src/hooks/use-requested-flow.test.ts',
