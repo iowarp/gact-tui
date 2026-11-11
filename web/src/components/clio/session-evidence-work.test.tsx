@@ -18,7 +18,7 @@ it('keeps a directly spawned workflow in the single Work history and opens its r
     live_state: 'completed',
     status: 'completed',
     metadata: {},
-    flow: { id: 'deep-research' },
+    flow: { id: 'deep-research', status: 'completed' },
   };
   const child: SubagentRun = {
     id: 'spawn_observation',
@@ -59,7 +59,7 @@ it('keeps a directly spawned workflow in the single Work history and opens its r
   render(<>{background[0]!.content}</>);
   expect(screen.getAllByRole('button', { name: 'Completed work' })).toHaveLength(1);
   expect(screen.getAllByRole('button', { name: `Task details: ${task.title}` })).toHaveLength(1);
-  expect(screen.getByText('Deep research run')).toBeVisible();
+  expect(screen.getByText(task.title)).toBeVisible();
   expect(screen.queryByText('No completed work.')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: `Task details: ${task.title}` }));
   await userEvent.click(screen.getByRole('button', { name: /^Open the deep research run:/ }));
