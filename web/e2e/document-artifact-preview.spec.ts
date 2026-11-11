@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { downloadFromFrame, openFrameOpenMenu, selectFileView } from './file-viewer-setup';
+import {
+  downloadFromFrame,
+  frameSettled,
+  openFrameOpenMenu,
+  selectFileView,
+} from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
@@ -284,10 +289,14 @@ for (const layout of [
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe('rgba(0, 0, 0, 0)');
-        // At this width the frame bar is at its narrowest fold (workbench-lineage
-        // step 6): the format icons, Zoom out and Zoom in, are rows in ⋯.
-        await expect(toolbar).toHaveAttribute('data-fold-modes-menu');
-        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeHidden();
+        // An opened file widens the canvas, so on a desktop the zoom icons stay in
+        // the bar; at its narrowest fold (workbench-lineage step 6) they are rows in ⋯.
+        await expect(toolbar.locator('[data-slot="viewer-zoom-controls"]')).toBeAttached();
+        await frameSettled(toolbar);
+        const zoomInMenu = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible({
+          visible: !zoomInMenu,
+        });
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
           width: element.clientWidth,
@@ -296,8 +305,10 @@ for (const layout of [
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-        await expect(page.getByRole('menuitem', { name: /^Zoom out/u })).toBeVisible();
-        await expect(page.getByRole('menuitem', { name: /^Zoom in/u })).toBeVisible();
+        if (zoomInMenu) {
+          await expect(page.getByRole('menuitem', { name: /^Zoom out/u })).toBeVisible();
+          await expect(page.getByRole('menuitem', { name: /^Zoom in/u })).toBeVisible();
+        }
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
@@ -341,11 +352,16 @@ for (const layout of [
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
         // Maximized on a phone the bar stays at its narrowest fold, so the zoom
         // icons are rows in its ? menu rather than buttons in the bar.
+        await frameSettled(toolbar);
         const zoomFolded = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
         const zoomRow = (name: string) =>
           page.getByRole('menuitem', { name: new RegExp(`^${name}`, 'u') });
-        const openFrameMenu = () =>
-          toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        // The bar refolds as the zoom fact comes and goes; open … once it holds still.
+        const openFrameMenu = async () => {
+          await frameSettled(toolbar);
+          await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+          await expect(page.getByRole('menu', { name: 'File actions', exact: true })).toBeVisible();
+        };
         if (zoomFolded) {
           await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
           await openFrameMenu();
@@ -483,6 +499,7 @@ for (const layout of [
         await refreshAction.click();
         const refreshing = fileActions;
         await expect(refreshing).toHaveAttribute('aria-busy', 'true');
+        await frameSettled(toolbar);
         await fileActions.click();
         await expect(
           page.getByRole('menuitem', {
