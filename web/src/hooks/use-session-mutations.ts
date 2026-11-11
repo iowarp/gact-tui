@@ -304,6 +304,28 @@ export function useSessionMutations({
       : {}),
   });
 
+  function openStartedSession(
+    created: Session,
+    controller: AbortController | null,
+    state?: Record<string, unknown>,
+  ) {
+    // The new conversation is its own family and the newest row of its workspace's rail.
+    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
+      created,
+    ]);
+    invalidateQueriesInBackground(queryClient, [
+      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
+    ]);
+    // A submitted turn may finish after navigation. Preserve its real session,
+    // but never pull the person back from Settings or another conversation.
+    if (!controller || controller.signal.aborted) return;
+    rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
+    void navigate(
+      `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
+      { replace: true, ...(state ? { state } : {}) },
+    );
+  }
+
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
       const prepared = await prepareSend(value);
@@ -444,28 +466,6 @@ export function useSessionMutations({
     };
     openStartedSession(target, controller, { browserPage });
   });
-
-  function openStartedSession(
-    created: Session,
-    controller: AbortController | null,
-    state?: Record<string, unknown>,
-  ) {
-    // The new conversation is its own family and the newest row of its workspace's rail.
-    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
-      created,
-    ]);
-    invalidateQueriesInBackground(queryClient, [
-      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
-    ]);
-    // A submitted turn may finish after navigation. Preserve its real session,
-    // but never pull the person back from Settings or another conversation.
-    if (!controller || controller.signal.aborted) return;
-    rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
-    void navigate(
-      `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
-      { replace: true, ...(state ? { state } : {}) },
-    );
-  }
 
   const cancelPendingSteer = useMutation({
     mutationFn: (messageId: string) => repository.cancelPendingSteer(sessionId, messageId),
