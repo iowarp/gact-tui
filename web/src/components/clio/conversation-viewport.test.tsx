@@ -765,8 +765,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, thought once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Called 1 tool, thought once' }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });
