@@ -23,8 +23,9 @@ interface LoadState {
 /**
  * Loads the messages before the oldest one on screen, a page at a time.
  *
- * Opening a conversation reads only its newest page; each older page merges into
- * the live store, where the conversation already reads its messages. The cursor is
+ * Opening a conversation reads only its newest page; each older page is added to
+ * the live store, where the conversation already reads its messages, without
+ * dropping the newer messages already held. The cursor is
  * the oldest message held, so a reconcile that drops older pages resumes from what
  * is left rather than from a stale position.
  */
@@ -34,7 +35,7 @@ export function useEarlierMessages(
   oldestMessageId: string | undefined,
 ): EarlierMessages {
   const repository = useRepository();
-  const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
+  const addSnapshots = useLiveStore((state) => state.addSnapshots);
   const [raw, setState] = useState<LoadState>({ sessionId: sessionId ?? '', loading: false });
   const state = useMemo<LoadState>(
     () => (raw.sessionId === sessionId ? raw : { sessionId: sessionId ?? '', loading: false }),
@@ -56,7 +57,7 @@ export function useEarlierMessages(
         // cursor: stop here instead of requesting the same page again.
         const held = useLiveStore.getState().entities.messages;
         const adds = page.messages.some((message) => !(message.id in held));
-        mergeSnapshots({
+        addSnapshots({
           messages: recordById(page.messages),
           tools: recordById(page.tools),
           tasks: recordById(page.tasks),
@@ -81,6 +82,6 @@ export function useEarlierMessages(
           error: error instanceof Error ? error.message : String(error),
         });
       });
-  }, [hasEarlier, loading, mergeSnapshots, oldestMessageId, repository, sessionId, state]);
+  }, [addSnapshots, hasEarlier, loading, oldestMessageId, repository, sessionId, state]);
   return { hasEarlier, loading, error: state.error, load };
 }
