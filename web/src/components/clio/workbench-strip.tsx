@@ -1,5 +1,13 @@
 import { memo, type ReactNode } from 'react';
+import { ListIcon } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { IconButton } from './primitives/icon-button';
+import { MenuRow } from './primitives/menu-row';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 export type WorkbenchListView =
@@ -25,19 +33,29 @@ export interface WorkbenchStripItem {
   count?: number;
 }
 
+/** The list a tool's right-click (or the context-menu key) shows. */
+const TOOL_LISTS: Record<'terminal' | 'browser', string> = {
+  terminal: 'Show open terminals',
+  browser: 'Show browser pages',
+};
+
 /**
  * The workbench's outer edge, a launcher: each icon opens or focuses its list
- * as a tab, then Terminal and Browser pages. It sits on the window edge so it
- * never moves when the panel is resized. Clicking the lit icon goes back to
- * the tab before.
+ * as a tab (clicking the lit icon goes back to the tab before). Terminal and
+ * Browser, after them, open one more terminal or new page on every press; their
+ * right-click menu shows the list of those already open. It sits on the window
+ * edge so it never moves when the panel is resized.
  */
 export const WorkbenchStrip = memo(function WorkbenchStrip({
   items,
   onSelect,
+  onShowList,
   trailing,
 }: {
   items: readonly WorkbenchStripItem[];
   onSelect: (id: WorkbenchStripItem['id']) => void;
+  /** Shows Terminal's or Browser's list, from its right-click menu. */
+  onShowList?: (view: 'terminal' | 'browser') => void;
   /** Controls pinned to the strip's foot (none yet; the gear is a follow-up). */
   trailing?: ReactNode;
 }) {
@@ -63,6 +81,23 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       className="h-9 w-full rounded-none hover:bg-transparent aria-pressed:bg-transparent aria-pressed:after:absolute aria-pressed:after:inset-y-2 aria-pressed:after:right-0 aria-pressed:after:w-0.5 aria-pressed:after:rounded-full aria-pressed:after:bg-primary"
     />
   );
+  const tool = (item: WorkbenchStripItem) => {
+    const view = item.id;
+    if (!onShowList || (view !== 'terminal' && view !== 'browser')) return button(item);
+    return (
+      <ContextMenu key={item.id} modal={false}>
+        <ContextMenuTrigger asChild>
+          {/* `contents`: the cell stays the strip's own flex item. */}
+          <div className="contents">{button(item)}</div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52">
+          <ContextMenuItem onSelect={() => onShowList(view)}>
+            <MenuRow icon={<ListIcon />} label={TOOL_LISTS[view]} />
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
   return (
     <div
       role="toolbar"
@@ -76,7 +111,7 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       {tools.length ? (
         <span aria-hidden="true" className="my-[5px] h-px w-5 shrink-0 bg-border" />
       ) : null}
-      {tools.map(button)}
+      {tools.map(tool)}
       {trailing ? <div className="mt-auto flex flex-col items-center gap-1">{trailing}</div> : null}
     </div>
   );
