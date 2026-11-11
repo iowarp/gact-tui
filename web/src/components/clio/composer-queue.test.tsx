@@ -376,11 +376,15 @@ describe('ClioComposerQueue', () => {
 
     renderQueue({ messages: [message] });
 
-    const problem = screen.getByRole('button', { name: 'Needs attention' });
+    const problem = screen.getByRole('button', { name: 'Not sent' });
     expect(problem).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText(/run ended before/)).not.toBeInTheDocument();
     await user.click(problem);
     expect(problem).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('The run ended before this message was delivered.')).toBeVisible();
+    expect(
+      screen.getByText(
+        'The run ended before this message was delivered. Send it again, edit it or delete it.',
+      ),
+    ).toBeVisible();
   });
 });

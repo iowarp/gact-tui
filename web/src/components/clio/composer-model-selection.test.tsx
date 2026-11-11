@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 const repositoryMocks = vi.hoisted(() => ({ workspaceReferences: vi.fn() }));
@@ -84,7 +85,7 @@ function renderComposer({
       </PromptInputProvider>
     </QueryClientProvider>
   );
-  const view = render(build({ effort }));
+  const view = render(build({ effort }), { wrapper: LiveConnection });
   // Same element identity, new props: the no-remount path workspace-page uses.
   return {
     rerenderWith: (next: { effort?: string; model?: string; provider?: string }) =>

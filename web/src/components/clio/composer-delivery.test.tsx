@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 vi.mock('@/hooks/use-repository', () => ({
@@ -20,16 +21,18 @@ function show(state: RunState) {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <PromptInputProvider>
-        <ClioComposer
-          attachments={false}
-          contextReferences={false}
-          state={state}
-          model="test"
-          provider="test"
-          onSubmit={onSubmit}
-        />
-      </PromptInputProvider>
+      <LiveConnection>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            contextReferences={false}
+            state={state}
+            model="test"
+            provider="test"
+            onSubmit={onSubmit}
+          />
+        </PromptInputProvider>
+      </LiveConnection>
     </QueryClientProvider>,
   );
   return onSubmit;

@@ -1,11 +1,17 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { AttentionDraftContext, createAttentionDraftStore } from './attention-drafts';
 
 afterEach(cleanup);
+// The bundle pages its questions in the header; the footer's Next question advances.
+const questionPager = () => screen.getByRole('navigation', { name: 'Questions' });
+const nextQuestion = () =>
+  within(screen.getByRole('group', { name: 'Answers' })).getByRole('button', {
+    name: 'Next question',
+  });
 const bundle: PendingInteraction = {
   id: 'question:presentation',
   kind: 'question',
@@ -52,20 +58,20 @@ it('keeps bundle answers across paging and a responsive remount, then sends them
     </AttentionDraftContext.Provider>
   );
   const view = render(content('desktop'));
-  expect(screen.getByRole('status')).toHaveTextContent('Question 1 of 2');
+  expect(questionPager()).toHaveTextContent('1/2');
   expect(screen.getByRole('heading', { name: 'Which view?' })).toBeVisible();
   expect(screen.getByRole('radio', { name: /^Table/ })).toHaveTextContent('Sortable rows');
   await user.click(screen.getByRole('radio', { name: /^Table/ }));
   expect(screen.getByRole('radio', { name: /^Table/ })).toBeChecked();
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   await user.click(screen.getByRole('radio', { name: 'Other answer' }));
   await user.type(screen.getByRole('textbox', { name: 'Which region?' }), 'California');
   view.rerender(content('phone'));
-  expect(screen.getByRole('status')).toHaveTextContent('Question 2 of 2');
+  expect(questionPager()).toHaveTextContent('2/2');
   expect(screen.getByRole('textbox', { name: 'Which region?' })).toHaveValue('California');
   await user.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('radio', { name: /^Table/ })).toBeChecked();
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   expect(onResponse).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: 'Submit all answers' }));
   await waitFor(() => expect(onResponse).toHaveBeenCalledOnce());
@@ -85,7 +91,7 @@ it('keeps the write-in answer when visiting an offered choice', async () => {
   const onResponse = vi.fn();
   render(<QuestionResponse interaction={bundle} showOwner={false} onResponse={onResponse} />);
   await user.click(screen.getByRole('radio', { name: /^Plot/ }));
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   await user.click(screen.getByRole('radio', { name: 'Other answer' }));
   await user.type(screen.getByRole('textbox'), 'California');
   await user.click(screen.getByRole('radio', { name: 'Alaska' }));

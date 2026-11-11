@@ -18,7 +18,9 @@ function question(id = 'q1', payload: PendingInteraction['payload'] = {}): Pendi
     prompt: 'Choose the sample.',
     created_at: '2026-10-16T00:00:00Z',
     actions: ['answer', 'cancel'],
-    source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_' + id },
+    // An MCP question keeps its written answer on the card; a native one is answered
+    // in the composer, so only the card's own field exercises these drafts.
+    source: { protocol: 'mcp', tool_name: 'ask_user', invocation_id: 'call_' + id },
     payload: { question_kind: 'freeform', allow_freeform: true, ...payload },
   };
 }

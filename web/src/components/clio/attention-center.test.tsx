@@ -477,7 +477,7 @@ describe('ClioAttentionCenter', () => {
       updateAll: vi.fn(),
     };
     render(<Center attentions={{}} sessions={[baseSession]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications: update ready' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Update ready')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Update' })).toBeInTheDocument();

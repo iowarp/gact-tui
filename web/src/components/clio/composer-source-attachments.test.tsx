@@ -3,6 +3,8 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer } from './composer';
 
 const repository = vi.hoisted(() => ({
@@ -89,19 +91,22 @@ function renderComposer() {
   const onSubmit = vi.fn(async () => undefined);
   render(
     <QueryClientProvider client={client}>
-      <PromptInputProvider>
-        <ClioComposer
-          attachments
-          contextReferences
-          workspaceId="w"
-          sessionId="sess_attachments"
-          state="completed"
-          provider="codex"
-          model="gpt-5.6-luna"
-          onSubmit={onSubmit}
-        />
-      </PromptInputProvider>
+      <TooltipProvider>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments
+            contextReferences
+            workspaceId="w"
+            sessionId="sess_attachments"
+            state="completed"
+            provider="codex"
+            model="gpt-5.6-luna"
+            onSubmit={onSubmit}
+          />
+        </PromptInputProvider>
+      </TooltipProvider>
     </QueryClientProvider>,
+    { wrapper: LiveConnection },
   );
   return { client, onSubmit, user: userEvent.setup() };
 }
@@ -215,6 +220,8 @@ describe('source attachments in the composer', () => {
     });
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
+    // Access is one choice for the source; an editable copy is asked for explicitly.
+    await user.click(screen.getByRole('radio', { name: /^Editable download/ }));
     await user.click(await screen.findByRole('button', { name: 'Download file' }));
     expect(
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
@@ -285,7 +292,7 @@ describe('source attachments in the composer', () => {
   it('keeps a download visible after closing Attach, preserves typed text, and sends only when ready', async () => {
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(screen.getByRole('button', { name: 'Download a copy' }));
     expect(
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
     ).toHaveTextContent('Research inputs');
@@ -322,7 +329,7 @@ describe('source attachments in the composer', () => {
         }),
     );
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(screen.getByRole('button', { name: 'Download a copy' }));
     await screen.findByRole('group', { name: 'Preparing source attachments' });
     repository.sourceOperations.mockResolvedValue([{ ...running, state: 'completed' }]);
     await client.invalidateQueries();

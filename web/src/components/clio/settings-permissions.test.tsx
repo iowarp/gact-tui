@@ -89,7 +89,9 @@ describe('access rules', { timeout: 15_000 }, () => {
     expect(await rows().findByText('*.untrusted.test')).toBeVisible();
     expect(await rows().findByText('Science campaign')).toBeVisible();
     expect(rows().getByText('Internet domain')).toBeVisible();
-    expect(rows().getByText('Priority 90')).toBeVisible();
+    // Rows show each rule's rank among the priorities (90, 40, 1), never the raw number.
+    expect(rows().getByText('Priority 3')).toBeVisible();
+    expect(rows().queryByText(/Priority 90/)).toBeNull();
     expect(rows().getByText('Blocked')).toBeVisible();
     expect(rows().getByText('Ask every time')).toBeVisible();
     expect(rows().getByText('Allowed')).toBeVisible();
@@ -156,6 +158,8 @@ describe('access rules', { timeout: 15_000 }, () => {
   it('explains a missing tool name inline once the field is left', async () => {
     const user = userEvent.setup();
     renderPanel(<PermissionPoliciesPanel />);
+    // New access rule is offered once the saved rules have loaded.
+    await rows().findByText('shell_*');
 
     await user.click(screen.getByRole('button', { name: 'New access rule' }));
     const dialog = screen.getByRole('dialog', { name: 'New access rule' });
@@ -163,8 +167,10 @@ describe('access rules', { timeout: 15_000 }, () => {
     await user.click(within(dialog).getByLabelText('Tool name'));
     await user.tab();
     expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter a tool name or pattern.');
-    fireEvent.change(within(dialog).getByLabelText('Priority'), { target: { value: 'high' } });
-    expect(within(dialog).getByText('Use a whole number.')).toBeVisible();
+    // Priority picks a rank, so there is no raw number to get wrong.
+    expect(within(dialog).getByRole('combobox', { name: 'Priority' })).toHaveTextContent(
+      'After existing rules',
+    );
   });
 
   it('edits a rule in the same dialog and marks the change in the save bar', async () => {
