@@ -166,28 +166,6 @@ export function ClioDocumentPdfViewer({
     return () => container.removeEventListener('wheel', onWheel);
   }, [zoomIn, zoomOut]);
 
-  // The scroll position alone decides the page window. An initial-page anchor
-  // jumps the scroll container once a real rendered page supplies its height.
-  // The first page to mount (page 1, at the initial scrollTop of 0) renders before any
-  // page after it can, so waiting for `measured` before computing the jump
-  // trades one page-1 flash for a jump built on this document's true page
-  // height rather than the generic aspect-ratio estimate. Guarded by a ref,
-  // not state, so it fires exactly once and never fights a later resize/zoom
-  // remeasurement or the reader's own scrolling.
-  const scrolledToInitialPageRef = useRef(false);
-  useEffect(() => {
-    if (scrolledToInitialPageRef.current) return;
-    if (!initialPage || initialPage <= 1) {
-      scrolledToInitialPageRef.current = true;
-      return;
-    }
-    if (!measured) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    scrolledToInitialPageRef.current = true;
-    jumpTo(container, Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height));
-  }, [initialPage, jumpTo, measured, pageCount]);
-
   // A new highlight scrolls its page into view, then its box within the page.
   useEffect(() => {
     if (!highlight) return;
@@ -224,6 +202,34 @@ export function ClioDocumentPdfViewer({
   );
   const pageHeightPx =
     measured?.geometry === geometry ? measured.height : estimatedPdfPageHeight(pageWidth * scale);
+
+  // The scroll position alone decides the page window. An initial-page anchor
+  // jumps the scroll container once a real rendered page supplies its height at
+  // the current geometry. The first page to mount (page 1, at the initial
+  // scrollTop of 0) renders before any page after it can, so waiting for that
+  // measurement trades one page-1 flash for a jump built on this document's
+  // true page height rather than the generic aspect-ratio estimate. Until the
+  // reader scrolls away from it, the anchor holds: a host still settling its
+  // size (a transcript card laying out) changes the page height, and the jump is
+  // redone at the new height instead of leaving the view dozens of pages early.
+  const initialJumpRef = useRef<{ top: number } | 'done'>(undefined);
+  useEffect(() => {
+    const jumped = initialJumpRef.current;
+    if (jumped === 'done') return;
+    if (!initialPage || initialPage <= 1) {
+      initialJumpRef.current = 'done';
+      return;
+    }
+    if (!pageCount || measured?.geometry !== geometry) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    if (jumped && Math.abs(container.scrollTop - jumped.top) > 1) {
+      initialJumpRef.current = 'done';
+      return;
+    }
+    jumpTo(container, Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height));
+    initialJumpRef.current = { top: container.scrollTop };
+  }, [geometry, initialPage, jumpTo, measured, pageCount]);
   const pageWindow = pdfPageWindow({
     pageCount,
     pageHeightPx,

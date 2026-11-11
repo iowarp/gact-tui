@@ -111,6 +111,7 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
     expectedSha256: block.sha256,
   });
   const isImage = (block.media_type ?? '').startsWith('image/');
+  const isPdf = block.media_type === 'application/pdf' || /\.pdf$/iu.test(path);
   const imageSource = useMemo(
     () => (isImage && bytes ? bytesToBase64(bytes) : undefined),
     [isImage, bytes],
@@ -224,7 +225,10 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
             )}
           </div>
         ) : (
-          <div className="max-h-72 min-h-36 overflow-hidden">
+          // A PDF scrolls inside its own viewer, which needs a definite height: under a
+          // max-height alone it grows to the whole document, painting every page and
+          // leaving no scroller to land on the cited page.
+          <div className={cn('overflow-hidden', isPdf ? 'h-72' : 'max-h-72 min-h-36')}>
             <WorkspaceFileView
               embedded
               initialPage={block.pages?.[0]}
