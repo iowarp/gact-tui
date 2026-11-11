@@ -7,6 +7,7 @@ import {
 } from './comments/file-comments';
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
+import { keepEqualBytes } from '@/lib/keep-equal-bytes';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { CodeIcon, EyeIcon } from 'lucide-react';
@@ -279,6 +280,7 @@ function WorkspacePdfView({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
     gcTime: VIEWER_BYTES_GC_TIME_MS,
+    structuralSharing: keepEqualBytes,
   });
   return (
     <WorkspaceFileComments
@@ -317,6 +319,7 @@ function WorkspaceImageView({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
     gcTime: VIEWER_BYTES_GC_TIME_MS,
+    structuralSharing: keepEqualBytes,
   });
   return (
     <WorkspaceFileComments

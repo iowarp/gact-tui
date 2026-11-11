@@ -30,6 +30,7 @@ export type ClioWorkbenchOpenRequest =
       line?: number;
       find?: string;
       locator?: string;
+      page?: number;
     }
   | { kind: 'workspace-folder'; path: string; workspaceId?: string }
   | { kind: 'diff'; diff: SessionDiff }
@@ -108,6 +109,7 @@ export function tabForOpenRequest(
         line: request.line,
         find: request.find,
         locator: request.locator,
+        page: request.page,
       };
     }
     case 'diff':

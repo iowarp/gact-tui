@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { keepEqualBytes } from '@/lib/keep-equal-bytes';
 import { TransportError, type ToolPresentationBlock } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { FileClockIcon, FileXIcon } from 'lucide-react';
@@ -58,6 +59,7 @@ function useWorkspaceFileIntegrity({
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
     enabled: Boolean(workspaceId && path),
     gcTime: VIEWER_BYTES_GC_TIME_MS,
+    structuralSharing: keepEqualBytes,
     retry: (failureCount, error) =>
       !(error instanceof TransportError && error.status === 404) && failureCount < 2,
   });
@@ -160,8 +162,8 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
           </EmptyMedia>
           <EmptyTitle>{name}</EmptyTitle>
           <EmptyDescription>
-            No longer available in the workspace. The agent viewed this file, but it has since
-            been removed or moved.
+            No longer available in the workspace. The agent viewed this file, but it has since been
+            removed or moved.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -176,7 +178,12 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
           aria-label={`Open ${name}`}
           className="min-w-0 shrink truncate rounded-[4px] px-0.5 text-[12.5px] font-medium text-foreground outline-none group-data-[fold-where]/frame:hidden hover:underline focus-visible:ring-1 focus-visible:ring-ring"
           data-frame-fit="name"
-          onClick={() => navigation?.onOpenFile?.(path)}
+          onClick={() => {
+            const page = block.pages?.[0];
+            if (page && navigation?.onOpenFileReference) {
+              navigation.onOpenFileReference(path, { page });
+            } else navigation?.onOpenFile?.(path);
+          }}
           title={`${path}\nOpen in the workbench`}
           type="button"
         >
