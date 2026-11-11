@@ -108,6 +108,8 @@ export interface WorkbenchListColumnProps {
   // Terminal and Browser
   onOpenTerminal?: () => void;
   onOpenBrowserPage: (page: BrowserPage) => void;
+  /** A new conversation's address: starts the conversation with the page open in it. */
+  onOpenDraftBrowserPage?: (url: string) => Promise<void>;
 }
 
 /**
@@ -653,30 +655,53 @@ function BrowserList({
   tabs,
   activeTabId,
   onOpenBrowserPage,
+  onOpenDraftBrowserPage,
 }: WorkbenchListColumnProps) {
   // Mounted only while this list shows, so its poll runs only then.
   const pages = useBrowserPages(sessionId);
   const rows = (pages.data ?? []).filter((page) => !page.closed);
+  // The browser is the person's too: an address can always be opened, before the
+  // conversation's first message (it starts the conversation) and when the list fails.
+  const draftOpen = !sessionId && onOpenDraftBrowserPage ? onOpenDraftBrowserPage : undefined;
+  const newPage =
+    sessionId || draftOpen ? (
+      <BrowserNewPage
+        onOpened={onOpenBrowserPage}
+        open={
+          draftOpen
+            ? async (url) => {
+                await draftOpen(url);
+                return undefined;
+              }
+            : undefined
+        }
+        sessionId={sessionId}
+        startOpen={!rows.length}
+      />
+    ) : null;
   if (pages.isPending && sessionId)
     return <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />;
   if (!sessionId || (pages.error && !rows.length))
     return (
-      <StateView
-        action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
-        className="p-4"
-        detail={
-          pages.error
-            ? serviceErrorDetail(pages.error.message)
-            : 'Pages the agent opens appear here.'
-        }
-        kind={pages.error ? 'error' : 'empty'}
-        size="panel"
-        title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
-      />
+      <>
+        {newPage ? <Rows label="Browser pages">{newPage}</Rows> : null}
+        <StateView
+          action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
+          className="p-4"
+          detail={
+            pages.error
+              ? serviceErrorDetail(pages.error.message)
+              : 'Pages you or the agent open appear here.'
+          }
+          kind={pages.error ? 'error' : 'empty'}
+          size="panel"
+          title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
+        />
+      </>
     );
   return (
     <Rows label="Browser pages">
-      <BrowserNewPage onOpened={onOpenBrowserPage} sessionId={sessionId} startOpen={!rows.length} />
+      {newPage}
       {rows.map((page) => {
         const id = `browser:${page.id}`;
         const open = tabs.some((tab) => tab.id === id);

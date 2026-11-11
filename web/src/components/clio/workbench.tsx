@@ -103,6 +103,8 @@ export interface ClioWorkbenchProps {
   /** The Agent tab before the conversation exists (a new conversation's draft agent). */
   agentView?: ReactNode;
   onOpenTerminal?: () => void;
+  /** A new conversation's Browser address: starts the conversation with the page open in it. */
+  onOpenDraftBrowserPage?: (url: string) => Promise<void>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
@@ -167,6 +169,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       sessionView,
       agentView,
       onOpenTerminal,
+      onOpenDraftBrowserPage,
       onOpenSubagent,
       onUndoDiff,
       subagents = [],
@@ -495,6 +498,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onOpenResource: (resource) =>
         pickRequest({ kind: 'resource', resource, relatedResources: resources }),
       onOpenSubagent: (subagent) => pickTab(subagentTab(subagent, workspaceId)),
+      onOpenDraftBrowserPage,
       onOpenTerminal,
       onRefreshFiles,
       onSelectTab: setActiveTabId,
