@@ -264,6 +264,7 @@
   --key-border: oklch(0.8 0.022 225);
   --accent: oklch(0.92 0.035 210);
   --accent-foreground: oklch(0.21 0.04 230);
+  --accent-border: color-mix(in oklab, var(--accent-foreground) 30%, var(--accent));
   --border: oklch(0.87 0.024 225);
   --input: oklch(0.87 0.024 225);
   --ring: oklch(0.63 0.14 205);
@@ -372,6 +373,7 @@
   --key-border: oklch(0.37 0 0);
   --accent: oklch(0.245 0 0);
   --accent-foreground: oklch(0.96 0 0);
+  --accent-border: color-mix(in oklab, var(--accent-foreground) 30%, var(--accent));
   --border: oklch(0.34 0 0 / 60%);
   --input: oklch(0.38 0 0 / 70%);
   --ring: oklch(0.77 0.145 198);
@@ -484,6 +486,7 @@
   --key-border: #cc0000;
   --accent: #ffb3b3;
   --accent-foreground: #7a0000;
+  --accent-border: color-mix(in oklab, var(--accent-foreground) 30%, var(--accent));
   --border: #ff8080;
   --input: #ff8080;
   --ring: #ff0000;

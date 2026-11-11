@@ -1,4 +1,4 @@
-import { toolSettingsSchema } from '@clio/core/v3';
+import { pluginEntrySchema, toolSettingsSchema } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,6 +18,22 @@ const catalog = vi.hoisted(() => ({
   supported: true as boolean | undefined,
   result: {} as Record<string, unknown>,
 }));
+// The Tools tab reads a plugin's settings once its group comes into view. By default every
+// observed group reports itself in view at once; a test can hold them all out of view.
+const viewport = vi.hoisted(() => ({ inView: true }));
+class InViewObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe(target: Element) {
+    if (!viewport.inView) return;
+    const entry = { isIntersecting: true, target } as unknown as IntersectionObserverEntry;
+    queueMicrotask(() => this.callback([entry], this as unknown as IntersectionObserver));
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://test' } }),
@@ -132,13 +148,22 @@ function renderTabs(path: string, children?: ReactNode) {
   );
 }
 
+// Parsed as the repository returns them: every contribution list is present.
 const PLUGINS = [
-  { ref: 'clio-builtin/home', id: 'home', description: 'Home lights' },
+  {
+    ref: 'clio-builtin/home',
+    id: 'home',
+    description: 'Home lights',
+    tools: ['home_light_list', 'home_light_set'],
+    mcp_servers: ['home', 'calendar'],
+  },
   { ref: 'clio-builtin/empty', id: 'empty-pack', description: '' },
-  { ref: 'clio-builtin/postgres', id: 'postgres-tools', description: '' },
-];
+  { ref: 'clio-builtin/postgres', id: 'postgres-tools', description: '', mcp_servers: ['postgres'] },
+].map((plugin) => pluginEntrySchema.parse(plugin));
 
 beforeEach(() => {
+  viewport.inView = true;
+  vi.stubGlobal('IntersectionObserver', InViewObserver);
   repository.toolSettings.mockImplementation(async (ref: string) => {
     if (ref === 'clio-builtin/home') return VIEW;
     return {
@@ -160,6 +185,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -301,7 +327,7 @@ it("lists every plugin's tools on the Tools tab and sets a plugin at once", asyn
   renderTabs('/settings/tool-permissions');
   expect(screen.getByRole('heading', { name: 'Tools and MCP servers' })).toBeVisible();
   const home = await screen.findByRole('region', { name: 'home' });
-  expect(within(home).getAllByText('home server').length).toBeGreaterThan(0);
+  expect((await within(home).findAllByText('home server')).length).toBeGreaterThan(0);
   expect(within(home).getByText('2 tools')).toBeVisible();
   expect(screen.queryByRole('region', { name: 'empty-pack' })).toBeNull();
   const postgres = screen.getByRole('region', { name: 'postgres-tools' });
@@ -316,6 +342,15 @@ it("lists every plugin's tools on the Tools tab and sets a plugin at once", asyn
     permission: 'ask',
   });
 }, 15_000);
+
+it('lays a group out from the catalog and reads its settings only once it comes into view', async () => {
+  viewport.inView = false;
+  renderTabs('/settings/tool-permissions');
+  const home = await screen.findByRole('region', { name: 'home' });
+  expect(within(home).getByText('Loading')).toBeVisible();
+  expect(screen.getByRole('region', { name: 'postgres-tools' })).toBeVisible();
+  expect(repository.toolSettings).not.toHaveBeenCalled();
+});
 
 it('filters the Tools tab from the / key', async () => {
   const user = userEvent.setup();

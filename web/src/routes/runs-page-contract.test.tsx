@@ -104,6 +104,16 @@ function show() {
   );
 }
 
+// The run tab never repeats a reported issue as the run's step; it is kept once, under Details.
+async function expectIssueOnceUnderDetails(issue: string) {
+  await userEvent.click(screen.getByRole('button', { name: 'Convert images' }));
+  const tab = await screen.findByRole('complementary', { name: 'Run: Convert images' });
+  expect(within(tab).queryByText(issue, { exact: true })).toBeNull();
+  await userEvent.click(within(tab).getByRole('button', { name: /^Details/u }));
+  expect(within(tab).getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
+  expect(within(tab).getByText(`Reported issue: ${issue}`)).toBeVisible();
+}
+
 it('discloses a lost-visibility issue once in the run tab rather than repeating it as progress', async () => {
   const issue = 'Server returned an error response';
   const lost = task('task-lost', 'MCP');
@@ -114,9 +124,7 @@ it('discloses a lost-visibility issue once in the run tab rather than repeating 
   show();
   expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
   expect(screen.queryByText(issue, { exact: true })).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: 'Convert images' }));
-  expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
-  expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
+  await expectIssueOnceUnderDetails(issue);
 });
 
 it.each([
@@ -141,9 +149,7 @@ it.each([
     show();
     expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
     expect(screen.queryByText(issue, { exact: true })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Convert images' }));
-    expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
-    expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
+    await expectIssueOnceUnderDetails(issue);
   },
 );
 
@@ -194,7 +200,7 @@ it('continues an empty sparse page and labels an unknown total without inventing
   expect(screen.queryByRole('button', { name: 'Load more tasks' })).not.toBeInTheDocument();
 });
 
-it('opens a run beside the list and keeps backend details under Technical details', async () => {
+it('opens a run beside the list and keeps its assignment and backend ids under Details', async () => {
   repository.queryTasks.mockResolvedValue({
     tasks: [task('task-one', 'Shell')],
     total: 1,
@@ -204,9 +210,12 @@ it('opens a run beside the list and keeps backend details under Technical detail
   show();
   await userEvent.click(await screen.findByRole('button', { name: 'Convert images' }));
   const details = await screen.findByRole('complementary', { name: 'Run: Convert images' });
-  expect(within(details).getByText(description)).toBeVisible();
+  expect(within(details).getByText('Working')).toBeVisible();
+  expect(within(details).getByText('2 / 10 files')).toBeVisible();
+  expect(within(details).queryByText(description)).not.toBeInTheDocument();
   expect(within(details).queryByText('task-one')).not.toBeInTheDocument();
-  await userEvent.click(within(details).getByRole('button', { name: /Technical details/u }));
+  await userEvent.click(within(details).getByRole('button', { name: /^Details/u }));
+  expect(within(details).getByText(description)).toBeVisible();
   expect(within(details).getByText('task-one')).toBeVisible();
   expect(within(details).getByText('Backend status')).toBeVisible();
   expect(within(details).getByText('working')).toBeVisible();

@@ -147,8 +147,11 @@ function RunSummary({
   stop?: { onStop: () => void; stopping: boolean };
 }) {
   const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
+  // A lost or failed run's last message is its reported issue, kept once under Details.
   const message =
-    typeof row.progress?.message === 'string' && row.progress.message.trim()
+    typeof row.progress?.message === 'string' &&
+    row.progress.message.trim() &&
+    row.progress.message.trim() !== row.statusDetail?.trim()
       ? row.progress.message.trim()
       : undefined;
   const reason =
@@ -193,9 +196,7 @@ function RunSummary({
   const settled = row.state === 'cancelled' || row.state === 'stopped' || row.state === 'paused';
   const headline =
     row.state === 'failed'
-      ? message && message !== row.statusDetail
-        ? message
-        : 'The run stopped with an error'
+      ? (message ?? 'The run stopped with an error')
       : settled
         ? stateLabel
         : (message ?? (RUNNING.includes(row.state) ? 'Working' : stateLabel));

@@ -567,6 +567,12 @@ it('keeps a service the probe cannot reach closed, and lets Retry make the real 
 
 afterEach(cleanup);
 
+// The address field starts empty under an example placeholder; the person types the address.
+async function connectByAddress(user: ReturnType<typeof userEvent.setup>, address: string) {
+  await user.type(screen.getByRole('textbox', { name: 'Connection address' }), address);
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
+}
+
 it('opens an existing workspace session after a successful connection', async () => {
   rememberWorkspaceRoute('http://127.0.0.1:8788', 'ws_default', 'sess_empty');
   const user = userEvent.setup();
@@ -587,7 +593,7 @@ it('opens an existing workspace session after a successful connection', async ()
     </QueryClientProvider>,
   );
 
-  await user.click(screen.getByRole('button', { name: 'Connect' }));
+  await connectByAddress(user, 'http://127.0.0.1:8788');
 
   expect(await screen.findByText('Connected workspace session')).toBeVisible();
   expect(mocks.connect).toHaveBeenCalledOnce();
@@ -628,7 +634,7 @@ it.each([undefined, 0, 4])(
       </QueryClientProvider>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Connect' }));
+    await connectByAddress(user, 'http://127.0.0.1:8788');
 
     expect(await screen.findByText('Presentation-only draft')).toBeVisible();
     expect(mocks.repository.createSession).not.toHaveBeenCalled();
@@ -660,7 +666,7 @@ it('offers setup instead of the bare form when a connection resolves no target',
     </QueryClientProvider>,
   );
 
-  await user.click(screen.getByRole('button', { name: 'Connect' }));
+  await connectByAddress(user, 'http://127.0.0.1:8788');
 
   // The connection succeeded; there is simply nothing openable on the far side.
   // Re-rendering the connect form strands the person on a button that already
