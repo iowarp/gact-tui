@@ -31,7 +31,6 @@ UI aren't tracked.
   they form
 - Attention heat paints by line, word or token, and you can choose the model SPOTTER
   runs on
-- A short tutorial runs on first launch and can be replayed from Settings > General
 - When the OS sandbox is off, a banner asks you to acknowledge starting without
   protection; a blocked write names its folder and offers to allow it
 
