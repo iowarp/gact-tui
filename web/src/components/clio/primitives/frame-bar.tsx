@@ -37,9 +37,11 @@ import { IconButton } from './icon-button';
  * so the original bytes are one click away). Modes and icons leave only a bar
  * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
  * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
- * or ⌘ with the wheel still zooms, and the … menu lists them). The name is
- * never cut while any of those still shows. Last, a name still cut short of
- * `FRAME_NAME_MIN` goes too (`where`): the tab names it, and "o…" says nothing,
+ * or ⌘ with the wheel still zooms, and the … menu lists them), keeping the
+ * position readout between them ("200 / 250"). The name is
+ * never cut while any of those still shows. A name cut short of `FRAME_NAME_MIN`
+ * then takes the readout's room (`readout`), and last, one still that short goes
+ * too (`where`): the tab names it, and "o…" says nothing,
  * so Download and … are never cut. Children hide on the
  * bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
@@ -55,6 +57,7 @@ const FRAME_FOLDS = [
   'modes-menu',
   'rules',
   'zoom',
+  'readout',
   'where',
 ] as const;
 
@@ -221,7 +224,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
           {format}
         </div>

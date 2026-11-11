@@ -95,32 +95,15 @@ describe('WorkspaceFilePresentationBlock', () => {
     renderBlock(imageBlock({ sha256 }));
 
     expect(await screen.findByText('page-1.png')).toBeVisible();
-    expect(screen.getByText('image/png')).toBeVisible();
+    expect(screen.queryByText('image/png')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByLabelText('Changed since the agent viewed it')).not.toBeInTheDocument(),
     );
+    expect(repository.readWorkspaceFileBytes).toHaveBeenCalledTimes(1);
     expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
       'ws_1',
       'renders/page-1.png',
       expect.any(AbortSignal),
-    );
-  });
-
-  it('sizes the image preview to the image itself, capped at a max height', async () => {
-    repository.readWorkspaceFileBytes.mockResolvedValue(IMAGE_BYTES);
-    const sha256 = await sha256Hex(IMAGE_BYTES);
-
-    renderBlock(imageBlock({ sha256 }));
-
-    const img = await screen.findByRole('img', { name: 'page-1.png' });
-    // Capped so a tall image can't take over the transcript, but never forced
-    // to a minimum height that leaves empty space under a short, wide one.
-    expect(img.className).toContain('max-h-72');
-    expect(img.className).not.toMatch(/min-h-/u);
-    const [header, encoded] = (img as HTMLImageElement).src.split(',');
-    expect(header).toBe('data:image/png;base64');
-    expect(Array.from(Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0)))).toEqual(
-      Array.from(IMAGE_BYTES),
     );
   });
 

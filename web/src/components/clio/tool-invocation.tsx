@@ -10,6 +10,7 @@ import { lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode
 import { Collapsible } from '@/components/ui/collapsible';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
+import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
 import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
 import { DelegateCalls } from './delegate-calls';
 import { delegateTone } from './delegate-tone';
@@ -225,7 +226,12 @@ export function ClioToolInvocation({
         contentBlocks[0]!.type === 'diff' &&
         contentBlocks[0]!.text
         ? ({ kind: 'diff', block: contentBlocks[0]! } as const)
-        : terminalBlocks.length === 1 &&
+        : !failure &&
+            !declaredFailure &&
+            contentBlocks.length === 1 &&
+            contentBlocks[0]!.type === 'workspace_file'
+          ? ({ kind: 'file', block: contentBlocks[0]! } as const)
+          : terminalBlocks.length === 1 &&
             contentBlocks.every((block) => block.type === 'terminal' || outcomeBlock(block))
           ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
           : undefined
@@ -297,6 +303,8 @@ export function ClioToolInvocation({
           <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
             {compactBody.kind === 'diff' ? (
               <TranscriptDiffBody block={compactBody.block} subject={subject} />
+            ) : compactBody.kind === 'file' ? (
+              <WorkspaceFilePresentationBlock block={compactBody.block} />
             ) : (
               <TranscriptTerminalBody
                 tool={presentedTool}
