@@ -48,7 +48,7 @@ function sameFields(a: object, b: object): boolean {
 
 /**
  * The parts of a step the lane reads. A streamed token rebuilds the step, but
- * its public text is read above the lane and the first step's thinking too.
+ * its public text is read above the lane.
  */
 function sameLaneSteps(
   a: readonly ConversationIteration[],
@@ -63,9 +63,8 @@ function sameLaneSteps(
         (step.id === other.id &&
           step.streaming === other.streaming &&
           step.interrupted === other.interrupted &&
-          (index === 0 ||
-            (step.thinking.length === other.thinking.length &&
-              step.thinking.every((thought, at) => sameFields(thought, other.thinking[at])))) &&
+          step.thinking.length === other.thinking.length &&
+          step.thinking.every((thought, at) => sameFields(thought, other.thinking[at])) &&
           step.activity.length === other.activity.length &&
           step.activity.every((entry, at) => sameFields(entry, other.activity[at])))
       );
@@ -126,10 +125,11 @@ function laneTail(group: readonly ConversationIteration[], keep: number): Conver
  * step shows its latest rows; "Show N earlier" opens the rest and stays open.
  * Once the run has finished, it folds into one row that counts what it did,
  * "Called 3 tools, edited 2 files, delegated 1 task", and opens to all its rows.
+ * The steps arrive without the thinking that is read above the lane.
  */
 function ActivityLaneView({
   id,
-  group: steps,
+  group,
   label,
   live,
   turnLive,
@@ -137,26 +137,30 @@ function ActivityLaneView({
   interactions,
   children,
 }: ActivityLaneProps) {
-  // The first step's thinking is read above the lane, with its public update.
-  const group = [{ ...steps[0], thinking: [] }, ...steps.slice(1)];
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
-  // Steps after the last call that only think are the agent moving on; they
-  // stay below the run rather than inside it.
+  // While the turn works, steps after the last call that only think are the
+  // agent moving on; they stay below the run. Once it has settled, the whole
+  // block between two updates is the run.
   let headEnd = group.length;
-  while (headEnd > 0 && !group[headEnd - 1].activity.length && !group[headEnd - 1].interrupted)
+  while (
+    turnLive &&
+    headEnd > 0 &&
+    !group[headEnd - 1].activity.length &&
+    !group[headEnd - 1].interrupted
+  )
     headEnd -= 1;
   const head = group.slice(0, headEnd);
   const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
-  // A settled run folds once the agent has moved past it; one call folds into
-  // nothing shorter, and thoughts alone stay as they are.
+  // A settled run folds once the agent has moved past it, a single call too, so
+  // the work reads as one row between updates; thoughts alone stay as they are.
   const headCalls = head.reduce(
     (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
     0,
   );
   const collapses =
-    (!turnLive || afterIds.size > 0) && headCalls > 1 && runSettled(head, interactions);
+    (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
   // A folded run already counts its rows, so opening it shows every one of them.
   const folded = !all && !collapses && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
