@@ -94,9 +94,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    */
   metaYields?: boolean;
   /**
-   * `activity` rows with a description: the name keeps its width (up to half
-   * the row) and the description gives up its room first, so a long input or
-   * outcome ends in … instead of squeezing the name.
+   * `activity` rows with a target: the name keeps its width (up to half the
+   * row), and the target and any recap give up their room first.
    */
   titleHolds?: boolean;
   selected?: boolean;
@@ -239,15 +238,10 @@ export const ListRow = memo(
           >
             {title}
           </span>
-          {/* An argument (no intrinsic width) gives up its room first. A holding name
-              then keeps its width and the outcome ends in …; otherwise the description
-              stays at least as wide as its outcome and the name gives way. */}
-          <span
-            className={cn(
-              'flex flex-1 items-center gap-2 overflow-hidden',
-              titleHolds ? 'min-w-0' : 'min-w-min',
-            )}
-          >
+          {/* At least as wide as its outcome: an argument or recap (no intrinsic width)
+              gives up its room first. Then a holding name keeps its width; any other
+              name gives way, so the outcome stays whole. */}
+          <span className="flex min-w-min flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
           {columns}
