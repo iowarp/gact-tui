@@ -2,6 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
 import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
+import { TransportError } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquareIcon } from 'lucide-react';
 import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -32,7 +33,7 @@ import { DocumentViewControls } from './document-view-controls';
 import { useDocumentOpenActions, type DocumentOpenTarget } from './document-open-menu';
 import { openDocumentTarget } from './document-launch';
 import { isDocumentSourceProfile } from './document-open-policy';
-import { prepareDocumentPdf } from './document-pdf';
+import { documentPdfFileName, prepareDocumentPdf } from './document-pdf';
 import { DocumentSourceView } from './document-source-view';
 import { WorkingCopyState } from './document-working-copy';
 import { type FileViewerAction, useFileViewerActions } from './file-viewer-action-context';
@@ -63,10 +64,13 @@ export function ClioDocumentWorkspace({
   artifact,
   fallbackPreview,
   fallbackSource,
+  unavailablePreview,
 }: {
   artifact: Artifact;
   fallbackPreview: ReactNode;
   fallbackSource?: string;
+  /** Shown instead of the PDF preview when the server has no document runtime to make it. */
+  unavailablePreview?: ReactNode;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -106,6 +110,9 @@ export function ClioDocumentWorkspace({
     refetchOnReconnect: false,
   });
   const effectiveManifest = (needsPdfPreview ? pdfPreview.data : undefined) ?? manifest.data;
+  // Without the document runtime (LibreOffice) there is no PDF to show or export: the
+  // file reads as any file with no viewer, and Export to PDF says why it is off.
+  const runtimeMissing = renditionUnavailable(pdfPreview.error);
   const commentSurface = useMemo<CommentSurface>(
     () => documentCommentSurface(artifact, effectiveManifest, manifest.data),
     [artifact, effectiveManifest, manifest.data],
@@ -126,7 +133,7 @@ export function ClioDocumentWorkspace({
     mutationFn: async () => {
       const pdf = await preparePdf();
       const bytes = await repository.documentContent(pdf.artifact_id);
-      downloadBytes(bytes, 'application/pdf', pdf.name);
+      downloadBytes(bytes, 'application/pdf', documentPdfFileName(artifact.name));
     },
     onSuccess: () => setStatus('PDF downloaded.'),
   });
@@ -190,6 +197,7 @@ export function ClioDocumentWorkspace({
     manifest: manifest.data,
     openPending: createWorkingCopy.isPending,
     pdfPending: rendition.isPending,
+    pdfUnavailable: runtimeMissing ? 'Needs the document runtime' : undefined,
     revealPending: revealSource.isPending,
     workingCopyActive: workingCopy?.status === 'active',
     closePending: closeWorkingCopy.isPending,
@@ -240,7 +248,8 @@ export function ClioDocumentWorkspace({
   const decision =
     workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? workingCopy : undefined;
   // The version that moved on while the copy was open, so the conflict can name it.
-  const conflictHeadId = decision?.status === 'conflict' ? decision.conflict_head_artifact_id : undefined;
+  const conflictHeadId =
+    decision?.status === 'conflict' ? decision.conflict_head_artifact_id : undefined;
   const conflictHead = useQuery({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, conflictHeadId),
     queryFn: ({ signal }) => repository.documentManifest(conflictHeadId!, signal),
@@ -396,12 +405,18 @@ export function ClioDocumentWorkspace({
                         }
                         fit="page"
                         manifest={effectiveManifest}
+                        manifestPending={manifest.isPending}
                         previewError={
-                          (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
-                          (effectiveManifest?.profile === 'pdf'
-                            ? content.error?.message
-                            : undefined)
+                          runtimeMissing
+                            ? undefined
+                            : ((needsPdfPreview ? pdfPreview.error?.message : undefined) ??
+                              (effectiveManifest?.profile === 'pdf'
+                                ? content.error?.message
+                                : undefined))
                         }
+                        runtimeMissing={runtimeMissing}
+                        unavailable={unavailablePreview}
+                        pdfName={documentPdfFileName(artifact.name)}
                         previewPending={
                           needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)
                         }
@@ -504,23 +519,34 @@ function DocumentPreview({
   fallback,
   fit,
   manifest,
+  manifestPending,
   previewError,
   previewPending,
   previewLabel,
   onRetryPreview,
+  runtimeMissing,
   text,
+  unavailable,
+  pdfName,
 }: {
   content?: Uint8Array;
   fallback: ReactNode;
   fit: 'page' | 'width';
   manifest?: DocumentManifest;
+  manifestPending: boolean;
   previewError?: string;
   previewPending: boolean;
   previewLabel: string;
   onRetryPreview: () => void;
+  runtimeMissing: boolean;
   text?: string;
+  unavailable?: ReactNode;
+  /** The PDF's name as people know it, not the rendition's registry key. */
+  pdfName?: string;
 }) {
-  if (!manifest) return fallback;
+  if (!manifest)
+    return manifestPending ? <ResourceLoading label="Opening the document…" /> : fallback;
+  if (runtimeMissing && (unavailable ?? fallback)) return unavailable ?? fallback;
   if (previewError && !previewPending) {
     return (
       <StateView
@@ -538,7 +564,7 @@ function DocumentPreview({
       // The viewer owns its own scroll region so it can mount only the pages in
       // view, which needs a bounded box to scroll inside.
       <div className="h-full min-h-0 w-full">
-        <ClioPdfPreview bytes={content} fit={fit} name={manifest.name} />
+        <ClioPdfPreview bytes={content} fit={fit} name={pdfName ?? manifest.name} />
       </div>
     );
   }
@@ -561,6 +587,7 @@ function DocumentPreview({
     );
   }
   if (!directProfiles.has(manifest.profile)) {
+    if (fallback) return fallback;
     return (
       <ResourceUnavailable
         label="Preview unavailable"
@@ -569,6 +596,14 @@ function DocumentPreview({
     );
   }
   return fallback;
+}
+
+/** The server could not make a PDF because its document runtime is missing or still preparing. */
+function renditionUnavailable(error: unknown): boolean {
+  return (
+    error instanceof TransportError &&
+    (error.code === 'rendition_unavailable' || error.status === 501)
+  );
 }
 
 function profileLabel(manifest?: DocumentManifest) {
