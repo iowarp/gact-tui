@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
@@ -24,7 +24,7 @@ import { listState } from '@/lib/list-state';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { TopBarEnd } from '@/components/clio/top-bar-end';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
-import { ClioWorkbench } from '@/components/clio/workbench';
+import { ClioWorkbench, type ClioWorkbenchProps } from '@/components/clio/workbench';
 import {
   WorkspaceActionAlerts,
   WorkspaceUnavailable,
@@ -68,6 +68,18 @@ export function NewConversationPage() {
   return <WorkspaceDraft key={`${settings.endpoint}:${workspaceId}`} workspaceId={workspaceId} />;
 }
 
+/**
+ * The workbench reads the Files fetch flag itself: each 5 s Files poll then
+ * re-renders the workbench, not the whole draft page around it.
+ */
+function DraftWorkbench({
+  filesKey,
+  ...props
+}: Omit<ClioWorkbenchProps, 'filesFetching'> & { filesKey: QueryKey }) {
+  const filesFetching = useQueryFetching(filesKey);
+  return <ClioWorkbench {...props} filesFetching={filesFetching} />;
+}
+
 type DraftComposerProps = Omit<
   ComponentProps<typeof ClioComposer>,
   'value' | 'onValueChange' | 'references' | 'onReferencesChange'
@@ -107,7 +119,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     workspaceId,
     filesViewActive,
   });
-  const filesFetching = useQueryFetching(data.workspaceFilesKey);
   const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const diffActions = useSessionDiffActions();
   const defaults = useQuery({
@@ -288,13 +299,13 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
       workbenchReveal={requests}
       workbench={
-        <ClioWorkbench
+        <DraftWorkbench
+          filesKey={data.workspaceFilesKey}
           workspaceId={workspaceId}
           sessionId=""
           files={data.workspaceFiles.data?.entries ?? []}
           filesError={data.workspaceFiles.error?.message}
           filesPending={data.workspaceFiles.isPending}
-          filesFetching={filesFetching}
           filesTruncated={data.workspaceFiles.data?.truncated ?? false}
           filesNextOffset={data.workspaceFiles.data?.next_offset}
           onFilesViewActiveChange={setFilesViewActive}

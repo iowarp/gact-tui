@@ -326,6 +326,7 @@ export function RunTab({
         }
         label="Run actions"
         format={stopButton}
+        rule={Boolean(stopButton)}
         what={
           <>
             <span className="shrink-0" data-frame-position="">

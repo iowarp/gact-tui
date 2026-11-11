@@ -4,6 +4,7 @@ import { RUNS_POLL_MS } from '@/lib/runtime-limits';
 import type { Session } from '@clio/core/v3';
 import {
   keepPreviousData,
+  replaceEqualDeep,
   useInfiniteQuery,
   useMutation,
   useQueries,
@@ -21,7 +22,7 @@ import {
   WorkflowIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FilterChips } from '@/components/clio/primitives/filter-chips';
@@ -100,6 +101,56 @@ const SOURCE_CHIPS = [
   { value: 'agent_task', label: 'Agents', icon: <BotIcon aria-hidden="true" /> },
   { value: 'mcp_task', label: 'Tools', icon: <WrenchIcon aria-hidden="true" /> },
 ];
+/**
+ * One list row with its actions built from stable inputs, so a poll that leaves a
+ * run unchanged doesn't re-render its row, menu and tooltips.
+ */
+const RunsPageRow = memo(function RunsPageRow({
+  row,
+  cancelRequested,
+  canStop,
+  pending,
+  selected,
+  onSelect,
+  onCancel,
+}: {
+  row: RunRow;
+  cancelRequested: boolean;
+  canStop: boolean;
+  pending: boolean;
+  selected: boolean;
+  onSelect: (row: RunRow) => void;
+  onCancel: (row: RunRow) => void;
+}) {
+  return (
+    <RunListRow
+      actions={
+        <RunActions
+          onCancel={() => onCancel(row)}
+          pending={pending}
+          row={{ ...row, cancelRequested }}
+        />
+      }
+      cancelRequested={cancelRequested}
+      onSelect={onSelect}
+      onTitleKeyDown={(event) => {
+        if (event.key !== 'Delete' || !canStop) return;
+        event.preventDefault();
+        onCancel(row);
+      }}
+      row={row}
+      selected={selected}
+    />
+  );
+}, sameRowProps);
+/** Props are equal by identity, except the row: a poll rebuilds it, so compare its data. */
+function sameRowProps<P extends { row: RunRow }>(previous: P, next: P): boolean {
+  return (Object.keys(next) as (keyof P)[]).every((key) =>
+    key === 'row'
+      ? replaceEqualDeep(previous.row, next.row) === previous.row
+      : Object.is(previous[key], next[key]),
+  );
+}
 export function RunsPage() {
   const location = useLocation();
   const repository = useRepository();
@@ -153,7 +204,9 @@ export function RunsPage() {
     queryFn: ({ signal, pageParam }) =>
       repository.queryTasks({ cursor: pageParam, activeOnly }, signal),
     getNextPageParam: (page) => page.cursor ?? undefined,
-    refetchInterval: RUNS_POLL_MS,
+    // A refetch re-reads every loaded page; spacing it by the page count keeps the
+    // list's reads per minute the same however far it has been paged.
+    refetchInterval: (query) => RUNS_POLL_MS * Math.max(1, query.state.data?.pages.length ?? 1),
   });
   const tasks = useMemo(
     () => [
@@ -357,6 +410,10 @@ export function RunsPage() {
     !row.cancelRequested &&
     !requestedCancellation.has(row.handleId) &&
     !(cancel.isPending && cancel.variables?.handleId === row.handleId);
+  const confirmCancel = useCallback(
+    (row: RunRow) => setConfirmedAction({ kind: 'cancel', row }),
+    [],
+  );
   const runActions = (row: RunRow, part?: 'menu') => {
     const cancelRequested = Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId);
     return (
@@ -588,18 +645,15 @@ export function RunsPage() {
               <span className="font-normal tabular-nums">{groupRows.length}</span>
             </h2>
             {groupRows.map((row) => (
-              <RunListRow
-                actions={runActions(row)}
+              <RunsPageRow
+                canStop={Boolean(canStopRow(row))}
                 cancelRequested={
                   Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId)
                 }
                 key={row.handleId}
+                onCancel={confirmCancel}
                 onSelect={selectRun}
-                onTitleKeyDown={(event) => {
-                  if (event.key !== 'Delete' || !canStopRow(row)) return;
-                  event.preventDefault();
-                  setConfirmedAction({ kind: 'cancel', row });
-                }}
+                pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
                 row={row}
                 selected={row.handleId === selectedHandle}
               />
