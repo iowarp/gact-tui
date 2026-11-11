@@ -1,4 +1,4 @@
-import type { RunState, WorkspaceReference } from '@clio/core/v3';
+import type { AgentEntry, RunState, Workspace, WorkspaceReference } from '@clio/core/v3';
 import type { ObservabilityView } from '@/components/clio/observability-view-storage';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -54,6 +54,9 @@ import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
+
+const NO_AGENTS: readonly AgentEntry[] = [];
+const NO_WORKSPACES: readonly Workspace[] = [];
 
 /**
  * One session in its workspace: loads the session's data and runtimes, then
@@ -235,19 +238,58 @@ export function WorkspacePage() {
     });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, sessionId);
   const work = { runs: data.runs, tasks: data.tasks, tools: data.tools, processes: data.processes };
-  const sideNavigation = (
-    <ClioNavigation
-      activeSessionId={sessionId}
-      activeWorkspaceId={workspaceId}
-      actions={navigationActions}
-      attentions={sessionAttentions}
-      agents={installedAgents.data ?? []}
-      endpoint={settings.endpoint}
-      onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-      sessions={navigationSessions}
-      workspaces={workspaces.data ?? []}
-      workspacesState={listState(workspaces)}
-    />
+  const openWorkspaceFiles = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'files' }),
+    [revealWorkbench],
+  );
+  const {
+    data: workspaceList,
+    isLoading: workspacesLoading,
+    isError: workspacesFailed,
+    error: workspacesError,
+    refetch: refetchWorkspaces,
+  } = workspaces;
+  const workspacesState = useMemo(
+    () =>
+      listState({
+        data: workspaceList,
+        isLoading: workspacesLoading,
+        isError: workspacesFailed,
+        error: workspacesError,
+        refetch: refetchWorkspaces,
+      }),
+    [refetchWorkspaces, workspaceList, workspacesError, workspacesFailed, workspacesLoading],
+  );
+  const agentList = installedAgents.data ?? NO_AGENTS;
+  // Same element while its inputs hold, so a streamed reply's page render
+  // does not re-render the whole left bar.
+  const sideNavigation = useMemo(
+    () => (
+      <ClioNavigation
+        activeSessionId={sessionId}
+        activeWorkspaceId={workspaceId}
+        actions={navigationActions}
+        attentions={sessionAttentions}
+        agents={agentList}
+        endpoint={settings.endpoint}
+        onOpenWorkspaceFiles={openWorkspaceFiles}
+        sessions={navigationSessions}
+        workspaces={workspaceList ?? NO_WORKSPACES}
+        workspacesState={workspacesState}
+      />
+    ),
+    [
+      agentList,
+      navigationActions,
+      navigationSessions,
+      openWorkspaceFiles,
+      sessionAttentions,
+      sessionId,
+      settings.endpoint,
+      workspaceId,
+      workspaceList,
+      workspacesState,
+    ],
   );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
   // Loading and unavailable keep the hydrated tree's providers and shell key, so

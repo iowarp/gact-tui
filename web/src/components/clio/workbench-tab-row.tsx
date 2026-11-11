@@ -263,7 +263,10 @@ export function WorkbenchTabRow({
       }
       return current.shown > 0 ? { ...current, shown: current.shown - 1 } : current;
     });
-  }, [activeTabId, compactOrder, fit, fitKey, measured.compacted, measured.shown, recency, tabs]);
+    // Keyed on the fit inputs, not the rebuilt `compactOrder` array: reading
+    // scrollWidth forces a style and layout pass, too costly on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit, fitKey, measured.compacted, measured.shown, recency]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
   useShortcut(

@@ -370,8 +370,13 @@ function ConversationBody({
       const declaredHeight = virtualizer.getTotalSize();
       setVirtualizedRowsOverflow(Math.max(0, realBottom - containerTop - declaredHeight));
     };
-    recompute();
-    if (typeof ResizeObserver === 'undefined') return undefined;
+    // The observer reports each target once after the next layout, so the
+    // first reading needs no forced layout inside the commit; a streaming row
+    // changes the range key with every chunk.
+    if (typeof ResizeObserver === 'undefined') {
+      recompute();
+      return undefined;
+    }
     const observer = new ResizeObserver(recompute);
     observer.observe(container);
     if (container.lastElementChild) observer.observe(container.lastElementChild);
