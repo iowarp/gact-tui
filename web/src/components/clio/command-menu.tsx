@@ -1,6 +1,13 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { LoaderCircleIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -61,7 +68,6 @@ export function ClioCommandMenu({
   const [aiMode, setAiMode] = useState(false);
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<CommandMenuScope>('all');
-  const [serverQuery, setServerQuery] = useState('');
   const setVisible = useCommandMenuVisibility((state) => state.setOpen);
   const changeOpen = useCallback(
     (value: boolean) => {
@@ -78,6 +84,92 @@ export function ClioCommandMenu({
   useEffect(() => () => setVisible(false), [setVisible]);
   const searchInput = useRef<HTMLInputElement>(null);
   const handOffFocus = useRef(false);
+
+  useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
+  useMenuAction('search', () => changeOpen(true));
+  useEffect(() => {
+    const openMenu = () => changeOpen(true);
+    window.addEventListener('clio:open-command-menu', openMenu);
+    return () => window.removeEventListener('clio:open-command-menu', openMenu);
+  }, [changeOpen]);
+  useEffect(() => {
+    if (open && !aiMode) searchInput.current?.focus();
+  }, [open, aiMode]);
+  // Ctrl Enter may move the list into a tab: have its code ready before then.
+  useEffect(() => {
+    if (open) void import('./search-results-tab');
+  }, [open]);
+
+  return (
+    <Dialog onOpenChange={changeOpen} open={open}>
+      <DialogContent
+        className={`top-[10dvh] max-h-[80dvh] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] ${aiMode ? 'w-[min(max(30rem,60vw),48rem)]' : 'w-[clamp(420px,50vw,720px)]'} max-[480px]:w-[98vw] max-[480px]:max-w-[98vw]`}
+        showCloseButton={false}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          handOffFocus.current = false;
+          searchInput.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (handOffFocus.current) event.preventDefault();
+          handOffFocus.current = false;
+        }}
+        onEscapeKeyDown={(event) => {
+          if (aiMode) {
+            event.preventDefault();
+            setAiMode(false);
+          }
+        }}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>{brand.name} search</DialogTitle>
+          <DialogDescription>
+            Search conversations, matching passages, files, settings, or ask the search assistant.
+          </DialogDescription>
+        </DialogHeader>
+        {/* Mounted only while the dialog is present, so its route, query and
+            live-store subscriptions are released on close and cost nothing while hidden. */}
+        <CommandMenuBody
+          aiMode={aiMode}
+          changeOpen={changeOpen}
+          handOffFocus={handOffFocus}
+          onOpenResource={onOpenResource}
+          query={query}
+          scope={scope}
+          searchInput={searchInput}
+          setAiMode={setAiMode}
+          setQuery={setQuery}
+          setScope={setScope}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CommandMenuBody({
+  aiMode,
+  changeOpen,
+  handOffFocus,
+  onOpenResource,
+  query,
+  scope,
+  searchInput,
+  setAiMode,
+  setQuery,
+  setScope,
+}: {
+  aiMode: boolean;
+  changeOpen: (value: boolean) => void;
+  handOffFocus: RefObject<boolean>;
+  onOpenResource?: (request: ClioWorkbenchOpenRequest) => void;
+  query: string;
+  scope: CommandMenuScope;
+  searchInput: RefObject<HTMLInputElement | null>;
+  setAiMode: (value: boolean) => void;
+  setQuery: (value: string) => void;
+  setScope: (value: CommandMenuScope) => void;
+}) {
+  const [serverQuery, setServerQuery] = useState('');
   const { text: searchText, prefixScope } = parseCommandMenuQuery(query);
   const activeScope = prefixScope ?? scope;
   const compactTabs = useMediaQuery('(max-width: 899px)');
@@ -99,7 +191,7 @@ export function ClioCommandMenu({
       '',
   );
   const results = useCommandMenuResults({
-    enabled: open && credentialsReady,
+    enabled: credentialsReady,
     local: !aiMode,
     searchText,
     serverQuery,
@@ -109,24 +201,10 @@ export function ClioCommandMenu({
   });
   const { workspaces } = results;
 
-  useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
-  useMenuAction('search', () => changeOpen(true));
-  useEffect(() => {
-    const openMenu = () => changeOpen(true);
-    window.addEventListener('clio:open-command-menu', openMenu);
-    return () => window.removeEventListener('clio:open-command-menu', openMenu);
-  }, [changeOpen]);
   useEffect(() => {
     const timer = window.setTimeout(() => setServerQuery(searchText.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [searchText]);
-  useEffect(() => {
-    if (open && !aiMode) searchInput.current?.focus();
-  }, [open, aiMode]);
-  // Ctrl Enter may move the list into a tab: have its code ready before then.
-  useEffect(() => {
-    if (open) void import('./search-results-tab');
-  }, [open]);
 
   const searchWorkspaceId = workspaceId || workspaces.data?.[0]?.id;
 
@@ -267,46 +345,19 @@ export function ClioCommandMenu({
   ).filter(([query]) => query.isError && query.data === undefined);
   const canAsk = credentialsReady && Boolean(searchWorkspaceId);
 
-  return (
-    <Dialog onOpenChange={changeOpen} open={open}>
-      <DialogContent
-        className={`top-[10dvh] max-h-[80dvh] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] ${aiMode ? 'w-[min(max(30rem,60vw),48rem)]' : 'w-[clamp(420px,50vw,720px)]'} max-[480px]:w-[98vw] max-[480px]:max-w-[98vw]`}
-        showCloseButton={false}
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          handOffFocus.current = false;
-          searchInput.current?.focus();
-        }}
-        onCloseAutoFocus={(event) => {
-          if (handOffFocus.current) event.preventDefault();
-          handOffFocus.current = false;
-        }}
-        onEscapeKeyDown={(event) => {
-          if (aiMode) {
-            event.preventDefault();
-            setAiMode(false);
-          }
-        }}
-      >
-        <DialogHeader className="sr-only">
-          <DialogTitle>{brand.name} search</DialogTitle>
-          <DialogDescription>
-            Search conversations, matching passages, files, settings, or ask the search assistant.
-          </DialogDescription>
-        </DialogHeader>
-        {aiMode && searchWorkspaceId ? (
-          <ClioSearchAssistant
-            key={connectionScope(settings)}
-            workspaceId={searchWorkspaceId}
-            parentSessionId={sessionId || undefined}
-            query={searchText}
-            onQueryChange={setQuery}
-            onBack={() => setAiMode(false)}
-            onClose={() => finish(() => {})}
-            onOpenResource={openResource}
-          />
-        ) : (
-          <Command shouldFilter={false}>
+  return aiMode && searchWorkspaceId ? (
+    <ClioSearchAssistant
+      key={connectionScope(settings)}
+      workspaceId={searchWorkspaceId}
+      parentSessionId={sessionId || undefined}
+      query={searchText}
+      onQueryChange={setQuery}
+      onBack={() => setAiMode(false)}
+      onClose={() => finish(() => {})}
+      onOpenResource={openResource}
+    />
+  ) : (
+    <Command shouldFilter={false}>
             <GlobalSearchMatchesScope
               query={searchText}
               scope={activeScope}
@@ -451,9 +502,6 @@ export function ClioCommandMenu({
                 );
               }}
             </GlobalSearchMatchesScope>
-          </Command>
-        )}
-      </DialogContent>
-    </Dialog>
+    </Command>
   );
 }
