@@ -61,8 +61,9 @@ export function useBrowserPageTabs({
     const labels = new Map(open.map((page) => [`browser:${page.id}`, browserPageLabel(page)]));
     setTabs((current) => {
       let changed = false;
-      const next = current.map((tab) => {
-        const label = tab.kind === 'browser' ? labels.get(tab.id) : undefined;
+      const next = current.map((tab): WorkbenchTab => {
+        if (tab.kind !== 'browser') return tab;
+        const label = labels.get(tab.id);
         if (!label || label === tab.label) return tab;
         changed = true;
         return { ...tab, label };
