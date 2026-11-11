@@ -41,7 +41,12 @@ impl Case {
     }
 
     fn unpack(&self, archive: &Path, expected: Option<u64>) -> Result<UnpackReport, String> {
-        unpack_runtime(archive, &self.0.join("staging"), expected, &|_| {})
+        unpack_runtime(
+            super::PackSource::File(archive.to_path_buf()),
+            &self.0.join("staging"),
+            expected,
+            &|_| {},
+        )
     }
 }
 

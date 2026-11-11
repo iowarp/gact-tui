@@ -51,7 +51,7 @@ pub(crate) struct UnpackReport {
 
 /// Hashes every byte the decompressor reads from the archive file.
 struct HashingReader {
-    inner: File,
+    inner: Box<dyn Read>,
     hasher: Rc<RefCell<Sha256>>,
     consumed: Rc<Cell<u64>>,
 }
@@ -84,25 +84,63 @@ fn finish_hash(path: &Path, hasher: &RefCell<Sha256>, consumed: u64) -> Result<S
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// Where a Windows runtime pack's bytes come from.
+pub(crate) enum PackSource {
+    /// A complete archive on disk (the setup's own resource).
+    File(PathBuf),
+    /// Bytes still arriving (`install.ps1`'s download, or HTTP). `bytes` is the
+    /// manifest's archive size; the hash covers exactly what the reader yields.
+    Stream {
+        reader: Box<dyn Read + Send>,
+        bytes: u64,
+    },
+}
+
 /// Extract a verified Windows pack. The staging directory must be newly made
 /// and empty; the caller owns cleanup and activation after this succeeds.
 pub(crate) fn unpack_runtime(
-    archive_path: &Path,
+    source: PackSource,
     staging: &Path,
     expected_files: Option<u64>,
     progress: &dyn Fn(&str),
 ) -> Result<UnpackReport, String> {
     #[cfg(windows)]
     if let Some(tar) = system_tar() {
+        let (reader, archive_bytes): (Box<dyn Read>, u64) = match source {
+            PackSource::File(path) => {
+                let file = File::open(&path)
+                    .map_err(|error| format!("open runtime archive {path:?}: {error}"))?;
+                let bytes = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+                (Box::new(file), bytes)
+            }
+            PackSource::Stream { reader, bytes } => (reader, bytes),
+        };
         return unpack_runtime_with_system_tar(
             &tar,
-            archive_path,
+            reader,
+            archive_bytes,
             staging,
             expected_files,
             progress,
         );
     }
-    unpack_runtime_with_workers(archive_path, staging, expected_files, progress, WRITERS)
+    match source {
+        PackSource::File(path) => {
+            unpack_runtime_with_workers(&path, staging, expected_files, progress, WRITERS)
+        }
+        PackSource::Stream { mut reader, .. } => {
+            // The built-in writer reads a file; keep the download beside staging.
+            let spool = staging.with_extension("download");
+            let copied = File::create(&spool)
+                .and_then(|mut file| io::copy(&mut reader, &mut file))
+                .map_err(|error| format!("download runtime archive: {error}"));
+            let result = copied.and_then(|_| {
+                unpack_runtime_with_workers(&spool, staging, expected_files, progress, WRITERS)
+            });
+            let _ = fs::remove_file(&spool);
+            result
+        }
+    }
 }
 
 /// The inbox Windows bsdtar. Real-time antivirus scans every new file; files
@@ -120,39 +158,73 @@ fn system_tar() -> Option<PathBuf> {
     tar.is_file().then_some(tar)
 }
 
-/// Passes every byte the tar reader consumes on to the extracting process.
+/// Concurrent `tar.exe` writers. One scan-bound writer creates about 1,400
+/// files/s; four reach about 2,100 on an 8-core host.
 #[cfg(windows)]
-struct TeeReader<R: Read, W: Write> {
-    inner: R,
-    sink: W,
+const TAR_WRITERS: usize = 4;
+#[cfg(windows)]
+const CHUNK: usize = 256 * 1024;
+
+#[cfg(windows)]
+enum Piece {
+    Start(tar::Header, PathBuf),
+    Chunk(Vec<u8>),
+    End,
+}
+
+/// One entry's data as it arrives from the reading thread.
+#[cfg(windows)]
+struct PieceReader<'a> {
+    pieces: &'a mpsc::Receiver<Piece>,
+    current: Vec<u8>,
+    offset: usize,
+    ended: bool,
 }
 
 #[cfg(windows)]
-impl<R: Read, W: Write> Read for TeeReader<R, W> {
+impl Read for PieceReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let read = self.inner.read(buf)?;
-        self.sink.write_all(&buf[..read])?;
-        Ok(read)
+        while self.offset == self.current.len() {
+            if self.ended {
+                return Ok(0);
+            }
+            match self.pieces.recv() {
+                Ok(Piece::Chunk(data)) => {
+                    self.current = data;
+                    self.offset = 0;
+                }
+                Ok(Piece::End) => self.ended = true,
+                Ok(Piece::Start(..)) | Err(_) => {
+                    return Err(io::Error::other("runtime entry ended early"))
+                }
+            }
+        }
+        let count = buf.len().min(self.current.len() - self.offset);
+        buf[..count].copy_from_slice(&self.current[self.offset..self.offset + count]);
+        self.offset += count;
+        Ok(count)
     }
 }
 
-/// Decompress and check the pack here, and stream the checked tar bytes to
-/// `tar.exe` which creates the files. Entry checks match the built-in writer:
-/// only plain files and directories under `gact-runtime/` with valid Windows
-/// names, no duplicates, and the manifest's file count. bsdtar additionally
-/// refuses absolute and `..` paths on its own. As with the built-in writer,
-/// the caller compares the hash before activating, and removes the staging
-/// directory on any error.
+/// Decompress and check the pack here, and hand the checked entries to
+/// `TAR_WRITERS` `tar.exe` processes that create the files. Entry checks match
+/// the built-in writer: only plain files and directories under `gact-runtime/`
+/// with valid Windows names, no duplicates, and the manifest's file count.
+/// bsdtar additionally refuses absolute and `..` paths on its own, and creates
+/// a parent another writer is creating at the same time. As with the built-in
+/// writer, the caller compares the hash before activating, and removes the
+/// staging directory on any error.
 #[cfg(windows)]
 fn unpack_runtime_with_system_tar(
     tar_exe: &Path,
-    archive_path: &Path,
+    source: Box<dyn Read>,
+    archive_bytes: u64,
     staging: &Path,
     expected_files: Option<u64>,
     progress: &dyn Fn(&str),
 ) -> Result<UnpackReport, String> {
     use std::os::windows::process::CommandExt;
-    use std::process::{Command, Stdio};
+    use std::process::{Child, Command, Stdio};
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
     if fs::read_dir(staging)
@@ -162,120 +234,214 @@ fn unpack_runtime_with_system_tar(
     {
         return Err("runtime extraction requires an empty staging directory".into());
     }
-    let file = File::open(archive_path)
-        .map_err(|error| format!("open runtime archive {archive_path:?}: {error}"))?;
-    let archive_bytes = file.metadata().map(|meta| meta.len()).unwrap_or(0);
     let hasher = Rc::new(RefCell::new(Sha256::new()));
     let consumed = Rc::new(Cell::new(0_u64));
     let reader = HashingReader {
-        inner: file,
+        inner: source,
         hasher: Rc::clone(&hasher),
         consumed: Rc::clone(&consumed),
     };
     let decoder = zstd::stream::read::Decoder::new(reader)
         .map_err(|error| format!("open compressed runtime archive: {error}"))?;
 
-    // -m: modification times have no runtime meaning (see the module notes).
-    let mut child = Command::new(tar_exe)
-        .args(["-x", "-m", "-f", "-", "-C"])
-        .arg(staging)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .creation_flags(CREATE_NO_WINDOW)
-        .spawn()
-        .map_err(|error| format!("start {tar_exe:?}: {error}"))?;
-    let stdin = child.stdin.take().ok_or("tar.exe has no input pipe")?;
-    let mut stderr = child.stderr.take().ok_or("tar.exe has no error pipe")?;
-    let stderr_reader = thread::spawn(move || {
-        let mut text = String::new();
-        let _ = stderr.read_to_string(&mut text);
-        text
-    });
-
-    let mut archive = tar::Archive::new(TeeReader {
-        inner: decoder,
-        sink: io::BufWriter::with_capacity(1024 * 1024, stdin),
-    });
-    let scanned = (|| -> Result<(u64, u64), String> {
-        let mut seen = HashSet::new();
-        let mut files = 0_u64;
-        let mut bytes = 0_u64;
-        let mut last_progress = Instant::now();
-        for entry in archive
-            .entries()
-            .map_err(|e| format!("read runtime archive: {e}"))?
+    let mut children: Vec<Child> = Vec::new();
+    let stop_children = |children: &mut Vec<Child>| {
+        for child in children.iter_mut() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    };
+    for _ in 0..TAR_WRITERS {
+        // -m: modification times have no runtime meaning (see the module notes).
+        match Command::new(tar_exe)
+            .args(["-x", "-m", "-f", "-", "-C"])
+            .arg(staging)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
         {
-            let entry = entry.map_err(|e| format!("read runtime entry: {e}"))?;
-            let relative = entry
-                .path()
-                .map_err(|e| format!("read runtime path: {e}"))?
-                .into_owned();
-            checked_destination(staging, &relative)?;
-            let kind = entry.header().entry_type();
-            if kind.is_dir() {
-                continue;
+            Ok(child) => children.push(child),
+            Err(error) => {
+                stop_children(&mut children);
+                return Err(format!("start {tar_exe:?}: {error}"));
             }
-            if !kind.is_file() {
+        }
+    }
+
+    let mut archive = tar::Archive::new(decoder);
+    let outcome = thread::scope(|scope| -> Result<(u64, u64), String> {
+        let mut senders = Vec::new();
+        let mut writers = Vec::new();
+        for (index, child) in children.iter_mut().enumerate() {
+            let stdin = child.stdin.take().ok_or("tar.exe has no input pipe")?;
+            let mut stderr = child.stderr.take().ok_or("tar.exe has no error pipe")?;
+            let (sender, pieces) = mpsc::sync_channel::<Piece>(32);
+            senders.push(sender);
+            writers.push(
+                thread::Builder::new()
+                    .name(format!("runtime-tar-{index}"))
+                    .spawn_scoped(scope, move || -> Result<(), String> {
+                        let errors = thread::spawn(move || {
+                            let mut text = String::new();
+                            let _ = stderr.read_to_string(&mut text);
+                            text
+                        });
+                        let written = (|| -> io::Result<()> {
+                            let mut builder =
+                                tar::Builder::new(io::BufWriter::with_capacity(1024 * 1024, stdin));
+                            while let Ok(piece) = pieces.recv() {
+                                let Piece::Start(mut header, path) = piece else {
+                                    return Err(io::Error::other("runtime entry out of order"));
+                                };
+                                let mut data = PieceReader {
+                                    pieces: &pieces,
+                                    current: Vec::new(),
+                                    offset: 0,
+                                    ended: false,
+                                };
+                                builder.append_data(&mut header, &path, &mut data)?;
+                            }
+                            builder.into_inner()?.flush()
+                        })();
+                        // Dropping the pipe ends tar.exe's input either way.
+                        let detail = errors.join().unwrap_or_default();
+                        written.map_err(|error| match detail.trim() {
+                            "" => format!("send runtime archive to tar.exe: {error}"),
+                            detail => {
+                                format!("send runtime archive to tar.exe: {error} ({detail})")
+                            }
+                        })?;
+                        if !detail.trim().is_empty() {
+                            return Err(format!("tar.exe: {}", detail.trim()));
+                        }
+                        Ok(())
+                    })
+                    .map_err(|error| format!("start runtime writer: {error}"))?,
+            );
+        }
+
+        let scanned = (|| -> Result<(u64, u64), String> {
+            let closed = || "a tar.exe writer stopped early".to_string();
+            let mut seen = HashSet::new();
+            let mut files = 0_u64;
+            let mut bytes = 0_u64;
+            let mut last_progress = Instant::now();
+            for entry in archive
+                .entries()
+                .map_err(|e| format!("read runtime archive: {e}"))?
+            {
+                let mut entry = entry.map_err(|e| format!("read runtime entry: {e}"))?;
+                let relative = entry
+                    .path()
+                    .map_err(|e| format!("read runtime path: {e}"))?
+                    .into_owned();
+                checked_destination(staging, &relative)?;
+                let kind = entry.header().entry_type();
+                let target = if kind.is_dir() {
+                    0
+                } else if kind.is_file() {
+                    if !seen.insert(relative.to_string_lossy().to_lowercase()) {
+                        return Err(format!("runtime pack repeats the file {relative:?}"));
+                    }
+                    files += 1;
+                    bytes += entry.size();
+                    (files as usize) % senders.len()
+                } else {
+                    return Err(format!(
+                        "runtime pack contains a link or special entry: {relative:?}"
+                    ));
+                };
+                let sender = &senders[target];
+                sender
+                    .send(Piece::Start(entry.header().clone(), relative))
+                    .map_err(|_| closed())?;
+                let mut left = entry.size();
+                while left > 0 {
+                    let mut chunk = vec![0_u8; left.min(CHUNK as u64) as usize];
+                    entry
+                        .read_exact(&mut chunk)
+                        .map_err(|e| format!("read runtime entry: {e}"))?;
+                    left -= chunk.len() as u64;
+                    sender.send(Piece::Chunk(chunk)).map_err(|_| closed())?;
+                }
+                sender.send(Piece::End).map_err(|_| closed())?;
+                if last_progress.elapsed() >= Duration::from_secs(3) {
+                    let read_mb = consumed.get() / (1024 * 1024);
+                    let total_mb = archive_bytes / (1024 * 1024);
+                    progress(&match expected_files {
+                        Some(total) => format!(
+                            "Unpacking and checking CLIO runtime: {files} of {total} files, \
+                             {read_mb} of {total_mb} MB read..."
+                        ),
+                        None => format!(
+                            "Unpacking and checking CLIO runtime: {files} files, \
+                             {read_mb} of {total_mb} MB read..."
+                        ),
+                    });
+                    last_progress = Instant::now();
+                }
+            }
+            if expected_files.is_some_and(|expected| expected != files) {
                 return Err(format!(
-                    "runtime pack contains a link or special entry: {relative:?}"
+                    "runtime pack file count mismatch: expected {expected_files:?}, read {files}"
                 ));
             }
-            if !seen.insert(relative.to_string_lossy().to_lowercase()) {
-                return Err(format!("runtime pack repeats the file {relative:?}"));
-            }
-            files += 1;
-            bytes += entry.size();
-            if last_progress.elapsed() >= Duration::from_secs(3) {
-                let read_mb = consumed.get() / (1024 * 1024);
-                let total_mb = archive_bytes / (1024 * 1024);
-                progress(&match expected_files {
-                    Some(total) => format!(
-                        "Unpacking and checking CLIO runtime: {files} of {total} files, \
-                         {read_mb} of {total_mb} MB read..."
-                    ),
-                    None => format!(
-                        "Unpacking and checking CLIO runtime: {files} files, \
-                         {read_mb} of {total_mb} MB read..."
-                    ),
-                });
-                last_progress = Instant::now();
+            Ok((files, bytes))
+        })();
+        drop(senders);
+        let mut writer_error = None;
+        for writer in writers {
+            match writer.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    writer_error.get_or_insert(error);
+                }
+                Err(_) => {
+                    writer_error.get_or_insert("runtime tar writer panicked".into());
+                }
             }
         }
-        if expected_files.is_some_and(|expected| expected != files) {
-            return Err(format!(
-                "runtime pack file count mismatch: expected {expected_files:?}, read {files}"
-            ));
+        // A reader error usually explains why a writer's pipe broke.
+        let counts = scanned?;
+        match writer_error {
+            Some(error) => Err(error),
+            None => Ok(counts),
         }
-        Ok((files, bytes))
-    })();
-    let mut tee = archive.into_inner();
-    // Forward the end-of-archive blocks, then close tar.exe's input.
-    let forwarded = scanned.and_then(|counts| {
-        io::copy(&mut tee, &mut io::sink())
-            .and_then(|_| tee.sink.flush())
-            .map(|_| counts)
-            .map_err(|e| format!("send runtime archive to tar.exe: {e}"))
     });
-    drop(tee);
-    if forwarded.is_err() {
-        let _ = child.kill();
-    }
-    let status = child
-        .wait()
-        .map_err(|error| format!("wait for tar.exe: {error}"))?;
-    let tar_errors = stderr_reader.join().unwrap_or_default();
-    let (files, bytes) = forwarded.map_err(|error| match tar_errors.trim() {
-        "" => error,
-        detail => format!("{error} ({detail})"),
-    })?;
-    if !status.success() {
+    let outcome = outcome.and_then(|counts| {
+        for child in children.iter_mut() {
+            let status = child
+                .wait()
+                .map_err(|error| format!("wait for tar.exe: {error}"))?;
+            if !status.success() {
+                return Err(format!("tar.exe failed to unpack the runtime ({status})"));
+            }
+        }
+        Ok(counts)
+    });
+    let (files, bytes) = match outcome {
+        Ok(counts) => counts,
+        Err(error) => {
+            stop_children(&mut children);
+            return Err(error);
+        }
+    };
+    // Hash what the tar reader left unread: its end blocks and the zstd trailer.
+    let mut decoder = archive.into_inner();
+    io::copy(&mut decoder, &mut io::sink())
+        .map_err(|e| format!("read runtime archive end: {e}"))?;
+    let mut rest = decoder.finish();
+    io::copy(&mut rest, &mut io::sink()).map_err(|e| format!("read runtime archive end: {e}"))?;
+    drop(rest);
+    if archive_bytes != 0 && consumed.get() != archive_bytes {
         return Err(format!(
-            "tar.exe failed to unpack the runtime ({status}): {}",
-            tar_errors.trim()
+            "runtime archive has {} bytes, expected {archive_bytes}",
+            consumed.get()
         ));
     }
-    let sha256 = finish_hash(archive_path, &hasher, consumed.get())?;
+    let sha256 = format!("{:x}", hasher.borrow().clone().finalize());
     Ok(UnpackReport {
         files,
         bytes,
@@ -306,7 +472,7 @@ pub(crate) fn unpack_runtime_with_workers(
     let hasher = Rc::new(RefCell::new(Sha256::new()));
     let consumed = Rc::new(Cell::new(0_u64));
     let reader = HashingReader {
-        inner: file,
+        inner: Box::new(file),
         hasher: Rc::clone(&hasher),
         consumed: Rc::clone(&consumed),
     };

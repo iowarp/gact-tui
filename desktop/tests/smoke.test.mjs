@@ -292,10 +292,9 @@ test('bundled installer stops only its managed process tree before replacement o
   const windowsPack = JSON.parse(
     readFileSync(resolve(root, 'src-tauri', 'tauri.bundled.windows-pack.conf.json'), 'utf8'),
   );
-  assert.deepEqual(windowsPack.bundle.resources, [
-    'gact-runtime.tar.zst',
-    'gact-runtime.pack.json',
-  ]);
+  // The setup carries only the manifest; the archive is a release asset that
+  // install.ps1 downloads while the setup unpacks it.
+  assert.deepEqual(windowsPack.bundle.resources, ['gact-runtime.pack.json']);
 
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
