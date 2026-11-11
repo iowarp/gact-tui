@@ -58,7 +58,11 @@ it('shows a folder access failure without pretending it granted access', async (
       <WorkspaceDirectoryTree workspaceId="workspace" directory="private" onSelect={vi.fn()} />
     </QueryClientProvider>,
   );
-  expect(await screen.findByText(/Folder is outside the permitted roots/)).toBeVisible();
+  // The row names the failure; the server's reason is its hover detail.
+  const failure = await screen.findByText("Couldn't list this folder");
+  expect(failure).toBeVisible();
+  expect(failure).toHaveAttribute('title', 'Folder is outside the permitted roots');
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   expect(files).toHaveBeenCalledTimes(1);
 });
 

@@ -458,8 +458,8 @@ describe('ClioObservabilityView provenance and section states', () => {
     expect(labels).toEqual([
       'Open transcript event Researcher A',
       'Open transcript event Reviewer B',
-      'Open transcript event Reviewer B',
-      'Open transcript event Researcher A',
+      'Open transcript event Reviewer B returned',
+      'Open transcript event Researcher A returned',
       'Open transcript event Wait',
       'Open transcript event Collect Reviewer B',
       'Open transcript event Collect Researcher A',

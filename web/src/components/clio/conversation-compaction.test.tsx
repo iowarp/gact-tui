@@ -258,9 +258,9 @@ describe('ClioConversation summarization injection', () => {
     // The summary opens with the record; parts the record lacks say so instead.
     expect(within(record).getByText(/unique-marker-tail/u)).toBeInTheDocument();
     expect(within(record).getByText('System prompt')).toBeInTheDocument();
-    expect(within(record).getByText('Unchanged')).toBeInTheDocument();
     expect(within(record).getByText('Recent turns kept verbatim')).toBeInTheDocument();
-    expect(within(record).getByText('Not recorded')).toBeInTheDocument();
+    // Neither the system prompt nor the kept turns were sent with this record.
+    expect(within(record).getAllByText('Not recorded')).toHaveLength(2);
   });
 });
 

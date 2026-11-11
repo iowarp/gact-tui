@@ -158,9 +158,9 @@ describe('readable compact tool results', () => {
     row.focus();
     await user.keyboard('{Enter}');
     const result = screen.getByRole('region', { name: 'Run command: Result' });
-    expect(within(result).getByRole('alert')).toHaveTextContent(
-      'CreateProcessWithLogonW failed: 2',
-    );
+    // The command body's output already carries the error, so it is not repeated below it.
+    expect(within(result).getAllByText(/CreateProcessWithLogonW failed: 2/u)).toHaveLength(1);
+    expect(within(result).queryByRole('alert')).not.toBeInTheDocument();
     expect(within(result).queryByRole('heading', { name: 'Arguments' })).not.toBeInTheDocument();
   });
 

@@ -42,6 +42,13 @@ function framed(setFacts: ReturnType<typeof vi.fn> | null = vi.fn()) {
   };
 }
 
+/** A state's ways out are labelled buttons, named by their visible label. */
+function actionNames(state: HTMLElement) {
+  return within(state)
+    .getAllByRole('button')
+    .map((button) => button.textContent);
+}
+
 const binary = {
   kind: 'workspace',
   workspaceId: 'workspace_1',
@@ -109,14 +116,10 @@ describe('viewer states', () => {
     const onPreview = vi.fn();
     render(<ViewerTooLarge onPreview={onPreview} source={binary} />, { wrapper: framed() });
     const state = document.querySelector('[data-kind="too-large"]') as HTMLElement;
-    expect(state).toHaveTextContent('2.1 GB');
-    expect(state).toHaveTextContent('Too large to preview');
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.ariaLabel),
-    ).toEqual(['Preview', 'Download']);
-    await userEvent.click(within(state).getByRole('button', { name: 'Preview' }));
+    // Binary units with the spec labels: 2,100,000,000 bytes is 1.96 GiB.
+    expect(state).toHaveTextContent('2.0 GB is too large to show here');
+    expect(actionNames(state)).toEqual(['Show it anyway', 'Download']);
+    await userEvent.click(within(state).getByRole('button', { name: 'Show it anyway' }));
     expect(onPreview).toHaveBeenCalledTimes(1);
     await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
@@ -131,15 +134,10 @@ describe('viewer states', () => {
     const setFacts = vi.fn();
     render(<ViewerNoPreview source={binary} />, { wrapper: framed(setFacts) });
     const state = document.querySelector('[data-kind="no-preview"]') as HTMLElement;
-    expect(state).toHaveTextContent('.grib2');
-    expect(state).toHaveTextContent('No preview for this format');
+    expect(state).toHaveTextContent('No viewer for .grib2 yet');
     // A browser has no app for the format, so Download is the way out.
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.ariaLabel),
-    ).toEqual(['Download']);
-    expect(setFacts).toHaveBeenCalledWith(expect.any(String), ['.grib2']);
+    expect(actionNames(state)).toEqual(['Download']);
+    expect(setFacts).toHaveBeenCalledWith(expect.any(String), ['.grib2', '2.0 GB']);
   });
 
   it('offers Open beside Download when the browser can show the file', () => {
@@ -147,10 +145,6 @@ describe('viewer states', () => {
       wrapper: framed(),
     });
     const state = document.querySelector('[data-kind="no-preview"]') as HTMLElement;
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.ariaLabel),
-    ).toEqual(['Open in a browser tab', 'Download']);
+    expect(actionNames(state)).toEqual(['Open in a browser tab', 'Download']);
   });
 });

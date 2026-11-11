@@ -14,7 +14,10 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://agent.test' } }),
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function DocumentControls({ refresh }: { refresh: () => Promise<void> }) {
   const [view, setView] = useState('preview');
@@ -110,6 +113,13 @@ it('opens secondary file views with accessible names and returns to the preview'
 
 it('keeps focus in the frame when ⇧V or ⇧L replaces the focused view', async () => {
   const user = userEvent.setup();
+  // The mode keys answer only while the frame is laid out; jsdom lays out nothing.
+  const original = Element.prototype.getClientRects;
+  vi.spyOn(Element.prototype, 'getClientRects').mockImplementation(function (this: Element) {
+    return this instanceof HTMLElement && this.dataset.slot === 'file-viewer'
+      ? ([{ x: 0, y: 0, width: 800, height: 600 }] as unknown as DOMRectList)
+      : original.call(this);
+  });
   render(
     <QueryClientProvider client={new QueryClient()}>
       <FileViewerShell

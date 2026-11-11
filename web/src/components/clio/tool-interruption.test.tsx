@@ -71,14 +71,12 @@ function iteration(tool: ToolInvocation): ConversationIteration {
 it.each([
   ['mail_received', 'Interrupted by mail'],
   ['stopped', 'Interrupted by a stop request'],
-])('shows a stopped wait as one yellow stop icon with its %s reason on hover', (cause, reason) => {
+])('shows a stopped wait as one stop icon with its %s reason on hover', (cause, reason) => {
   const tool = wait(cause);
   const before = JSON.stringify(tool);
   const view = render(<ClioToolInvocation compact tool={tool} />);
   expect(getToolStatus(tool)).toBe('interrupted');
   expect(getToolFailureDetail(tool)).toBeUndefined();
-  const mark = view.container.querySelector('[data-slot="status-indicator"][data-tone="stopped"]');
-  expect(mark?.querySelector('.text-warning')).not.toBeNull();
   expect(
     view.container.querySelectorAll('[data-slot="status-indicator"][data-tone="stopped"]'),
   ).toHaveLength(1);

@@ -145,7 +145,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
           />
         </AskSection>
       ) : null}
-      <AskOptions aria-label={`Pick a ${noun}`}>
+      <AskOptions aria-label="Answer">
         <AskButton
           disabled={responding}
           hint="Enter"

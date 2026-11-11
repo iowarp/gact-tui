@@ -125,7 +125,7 @@ function conversation(text: string): ReactElement {
 
 const scrollButton = () => screen.queryByRole('button', { name: 'Jump to latest' });
 
-it('keeps a disclosure press clear of the scroll control while the transcript fits', () => {
+it('keeps a disclosure press clear of the scroll control while the transcript fits', async () => {
   const geometry = stubScrollGeometry();
   geometry.resizeContent(-1700);
   render(conversation('Short recorded update'));
@@ -136,6 +136,12 @@ it('keeps a disclosure press clear of the scroll control while the transcript fi
   fireEvent.pointerDown(disclosure);
   expect(scrollButton()).toBeNull();
   geometry.grow(600);
+  // The lane waits for the press to end, so the click lands on the disclosure.
+  expect(scrollButton()).toBeNull();
+  await act(async () => {
+    fireEvent.pointerUp(disclosure);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   expect(scrollButton()).toBeVisible();
   geometry.grow(-600);
   expect(scrollButton()).toBeNull();

@@ -122,7 +122,7 @@ describe('WorkspaceTranscriptAlerts', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Remove conversation' }));
     expect(deleteSession).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove session' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete permanently' }));
 
     await waitFor(() => expect(deleteSession).toHaveBeenCalledWith('sess_1'));
   });

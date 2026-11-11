@@ -75,7 +75,8 @@ describe('ClioConversation variant runs', () => {
 
     const row = document.getElementById('message-msg_assistant_1')!;
     const record = row.querySelector<HTMLElement>('[data-slot="variant-run"]')!;
-    expect(within(record).getByRole('status')).toHaveTextContent('Draft 3 selected');
+    expect(record).toHaveTextContent('Draft 3 selected');
+    expect(within(record).getByRole('img', { name: 'Done' })).toBeInTheDocument();
     // The turn keeps its own injection; the try's advice belongs to the try's tab.
     expect(within(row).getAllByText('Drafting alternatives')).toHaveLength(1);
     expect(within(row).queryByText('Advice for this draft')).toBeNull();
@@ -208,7 +209,8 @@ describe('ClioConversation variant runs', () => {
       />,
     );
 
-    const options = screen.getByRole('group', { name: 'Pick a draft' });
+    const card = screen.getByRole('group', { name: 'Pick a draft' });
+    const options = within(card).getByRole('group', { name: 'Answer' });
     await userEvent.click(within(options).getByRole('button', { name: 'Pick Draft 1' }));
     expect(onInteractionResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',

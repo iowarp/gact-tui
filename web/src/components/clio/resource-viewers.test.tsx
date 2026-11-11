@@ -332,7 +332,7 @@ describe('WorkspaceFileView', () => {
     expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(1);
     expect(document.querySelector('[data-slot="virtual-source"]')).toBeInTheDocument();
     expect(document.querySelector('pre')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Show end' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show the last 512 KB' }));
     expect(await screen.findByText(/^Showing the last [\d.]+ [KM]i?B\.$/u)).toBeVisible();
     expect(repository.readWorkspaceFileRange).toHaveBeenCalledWith(
       'workspace_1',
@@ -354,7 +354,12 @@ describe('WorkspaceFileView', () => {
     );
 
     expect(await screen.findByText("Couldn't read it")).toBeVisible();
-    expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
+    // The server's own words are the reason, never a bare status line.
+    expect(
+      screen.getByText(
+        'The file server said "file not found: missing.pdf". Nothing in the file changed.',
+      ),
+    ).toBeVisible();
   });
 
   it('offers an image too large to read inline instead of reading it', async () => {
@@ -389,7 +394,7 @@ describe('WorkspaceFileView', () => {
     const frame = screen.getByRole('toolbar', { name: 'File' });
     expect(within(frame).getByLabelText('Location')).toHaveTextContent('run.grib2');
     expect(await within(frame).findByText('.grib2')).toBeVisible();
-    expect(within(frame).getByText('4.1 KB')).toBeVisible();
+    expect(within(frame).getByText('4.0 KB')).toBeVisible();
     const state = document.querySelector<HTMLElement>(
       '[data-slot="state-view"][data-kind="no-preview"]',
     )!;

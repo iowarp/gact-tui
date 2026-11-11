@@ -78,7 +78,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   );
 
   const disclosure = screen.getByRole('button', { name: 'Collapse workspace Reports' });
-  expect(screen.getByText('No conversations yet')).toBeVisible();
+  expect(await screen.findByText('No conversations yet')).toBeVisible();
   await user.click(disclosure);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
 
