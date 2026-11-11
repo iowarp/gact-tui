@@ -12,9 +12,11 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
-  'web/src/components/clio/conversation-model-boundary.tsx': ['./primitives/state-view'],
+  // RC1 transcript: the per-turn model checkpoint line (conversation-model-boundary)
+  // is gone; the model shows in the reply footer. A run's diff renders as the
+  // shared TranscriptDiffCard rather than an inline CodeBlock.
   'web/src/components/clio/conversation-message-blocks.tsx': [
-    '@/components/ai-elements/code-block',
+    './transcript-diff-card',
     '@/components/ai-elements/plan',
     './artifact-card',
     './transcript-text-block',

@@ -172,18 +172,25 @@ test('desktop close, reopen, and quit lifecycle route through one guarded reques
   );
 });
 
-test('tray Quit routes through the single guarded request_quit path', () => {
+test('tray Quit routes through the user Quit that ends in request_quit', () => {
   // Secondary/lightweight: the primary coverage is the pure
   // tray_action_for() mapping unit-tested in tray.rs (cargo test), which
   // together with the closure's two-arm match (visible by inspection) is
   // what actually guarantees this wiring. This just double-checks the
   // literal call site didn't regress to an inline shutdown_owned_services
-  // call.
+  // call. Tray Quit is the same user Quit as Cmd-Q (request_user_quit), which
+  // confirms on macOS while a conversation runs and then ends in request_quit.
   const trayRs = readFileSync(resolve(root, 'src-tauri', 'src', 'tray.rs'), 'utf8');
   assert.match(
     trayRs,
-    /TrayAction::Quit\)\s*=>\s*crate::request_quit\(app\)/,
-    'tray Quit must route through crate::request_quit',
+    /TrayAction::Quit\)\s*=>\s*crate::request_user_quit\(app\)/,
+    'tray Quit must route through crate::request_user_quit',
+  );
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(
+    libRs,
+    /fn request_user_quit[\s\S]*?request_quit\(&app_handle\)/,
+    'request_user_quit must end in the guarded request_quit',
   );
 });
 

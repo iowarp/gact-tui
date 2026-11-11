@@ -1,9 +1,7 @@
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
@@ -101,14 +99,6 @@ export function SuggestionDetail({
       </p>
     </div>
   );
-}
-
-/** The row the pointer is over, which the detail strip follows ahead of the highlight. */
-export function useHoveredRow() {
-  const [hovered, setHovered] = useState<string>();
-  const onHover = useCallback((key: string) => setHovered(key), []);
-  const onLeave = useCallback(() => setHovered(undefined), []);
-  return { hovered, onHover, onLeave };
 }
 
 /** The field's faint count, a bare number as drawn; the word is for screen readers. */

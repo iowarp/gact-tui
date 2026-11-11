@@ -47,6 +47,8 @@ const allowed = new Map([
   [`web${sep}src${sep}components${sep}clio${sep}attention-center.tsx`, new Set(['XIcon'])],
   [`web${sep}src${sep}components${sep}clio${sep}deploy-progress.tsx`, new Set(['XIcon'])],
   [`web${sep}src${sep}components${sep}clio${sep}operation-progress.tsx`, new Set(['XIcon'])],
+  // Marks the answer the person wrote, not an edit action.
+  [`web${sep}src${sep}components${sep}clio${sep}question-answer-reader.tsx`, new Set(['PencilIcon'])],
 ]);
 
 function filesUnder(directory) {

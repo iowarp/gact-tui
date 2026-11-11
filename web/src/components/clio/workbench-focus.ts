@@ -1,5 +1,5 @@
 import { keepFocusInFrame } from './file-viewer-modes';
-import { refocusActiveCanvasTab } from './workbench-tab-row';
+import { focusEditorAtOffset } from './composer-editor-model';
 
 /** Frames to wait for a picked tab's body to mount (a lazy viewer) before settling on its tab. */
 const MOUNT_FRAMES = 20;
@@ -44,4 +44,31 @@ export function focusListRow(region: Element | null, name: string | undefined) {
     else refocusActiveCanvasTab(region);
   };
   requestAnimationFrame(step);
+}
+
+/**
+ * After a tab shortcut, focus follows the active tab: when focus was lost (the
+ * focused tab or its body unmounted) or sat on another canvas tab, it lands on the
+ * new active tab, or on the composer when the last tab closed the canvas.
+ */
+export function refocusActiveCanvasTab(region: Element | null) {
+  requestAnimationFrame(() => {
+    const active = document.activeElement;
+    const onCanvasTab =
+      active instanceof HTMLElement &&
+      active.matches('[data-slot=canvas-tab-row] [role=tab]') &&
+      Boolean(region?.contains(active));
+    if (active && active !== document.body && !onCanvasTab) return;
+    const tab = region?.isConnected
+      ? region.querySelector<HTMLElement>(
+          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
+        )
+      : null;
+    if (tab) {
+      if (tab !== active) tab.focus();
+    } else if (!onCanvasTab)
+      focusEditorAtOffset(
+        document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
+      );
+  });
 }

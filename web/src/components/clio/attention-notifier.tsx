@@ -10,6 +10,7 @@ import { markConversationSeen } from '@/lib/notification-reads';
 import { queryKeys } from '@/lib/query-keys';
 import { ATTENTION_NOTICE_THROTTLE_MS, WAITING_SESSIONS_POLL_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
+import { sessionPath } from './session-path';
 import {
   listenForNotificationOpen,
   notificationPermission,
@@ -29,10 +30,6 @@ interface NotifierProps {
   activeSessionId: string;
   attentions: Readonly<Record<string, SessionAttention>>;
   sessions: readonly Session[];
-}
-
-export function sessionPath(session: Session): string {
-  return `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
 }
 
 const notifiedAttentionIds = new Set<string>();
@@ -162,6 +159,8 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
       .filter(([id, state]) => !listed.has(id) && ACTIVE_RUN_STATES.has(state))
       .map(([id]) => id)
       .sort();
+    // The watched set follows the run-state ref this effect owns, so it updates here.
+    // oxlint-disable-next-line react/set-state-in-effect
     setWatchedIds((current) =>
       current.length === stillWatched.length && current.every((id, i) => id === stillWatched[i])
         ? current

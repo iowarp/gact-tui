@@ -56,7 +56,7 @@ function resultFacts(model: RepositoryModel) {
     fullDetail.push(`${model.downloads.toLocaleString()} downloads`);
   }
   if (model.gated) fullDetail.push('Requires access');
-  return { meta, detail: detail.join(' · '), fullDetail: fullDetail.join(' · ') };
+  return { meta, detail: detail.join(', '), fullDetail: fullDetail.join(', ') };
 }
 
 /** One result row; unchanged rows keep their render while the query is typed. */

@@ -48,7 +48,7 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
-import { responseReadFailure } from '@/components/clio/pending-interaction-notices';
+import { responseReadFailure } from '@/components/clio/response-read-failure';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
