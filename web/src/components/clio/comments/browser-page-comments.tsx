@@ -37,12 +37,19 @@ function markPage(mark: DraftMark): { id?: unknown; url?: unknown } {
   return source.page ?? {};
 }
 
-/** A mark the page itself can find again: a picked element or a text selection. */
+/** A mark the page itself follows: a picked element, a text selection, or a region, which holds
+ * to the element it was drawn over. */
 function followed(mark: DraftMark, pageId: string): boolean {
   return (
-    (mark.anchor.profile === 'dom' || mark.anchor.profile === 'text-quote') &&
+    (mark.anchor.profile === 'dom' ||
+      mark.anchor.profile === 'text-quote' ||
+      mark.anchor.profile === 'region') &&
     markPage(mark).id === pageId
   );
+}
+
+function heldBy(mark: DraftMark): unknown {
+  return (mark.anchor.source as { hold?: unknown } | undefined)?.hold;
 }
 
 interface PageRef {
@@ -53,7 +60,7 @@ interface PageRef {
 
 /**
  * Comments on a page in the in-app browser (comments plan, "Pages in the in-app browser"). A
- * region is drawn over the live frame and kept as a rectangle of the page's view; an element
+ * region is drawn over the live frame and then follows the element it was drawn over; an element
  * or a text selection is picked on the page itself, by the picker the server installs, while
  * the session asks for one. Marks attach to the next message, where the server takes a fresh
  * screenshot and resolves each mark on the live page.
@@ -179,6 +186,14 @@ function MarkWatch({
       if (pageAddress(String(markPage(mark).url ?? '')) !== here) continue;
       const found = report.marks.find((item) => item.label === mark.label);
       if (!found) continue;
+      if (mark.anchor.profile === 'region') {
+        // The first report names the element the region holds to; the mark keeps it.
+        if (found.hold && !heldBy(mark))
+          updateMark(mark.label, {
+            anchor: { ...mark.anchor, source: { ...mark.anchor.source, hold: found.hold } },
+          });
+        continue;
+      }
       const note = found.found
         ? undefined
         : found.reason === 'hidden'
@@ -227,8 +242,8 @@ export function BrowserRegionCapture({
     observer.observe(node);
     return () => observer.disconnect();
   }, [drawn]);
-  // Element and text marks are drawn where the page last found them, on the page they were
-  // made on; a region stays where it was drawn on the view, and only on the page it was drawn on.
+  // Marks are drawn where the page last found them, on the page they were made on. A region
+  // the page has not reported yet is drawn where it was drawn on the view.
   const here = pageAddress(state?.url);
   const pins = new Map<string, LayerMark>();
   if (session?.open && report && size && pageAddress(report.url) === here) {
@@ -242,7 +257,7 @@ export function BrowserRegionCapture({
         if (mark.view) {
           const from = markPage(mark);
           const onPage = from.id === page.id && pageAddress(String(from.url ?? '')) === here;
-          return onPage ? [{ label: mark.label, rect: mark.view }] : [];
+          return onPage ? [pins.get(mark.label) ?? { label: mark.label, rect: mark.view }] : [];
         }
         const pin = followed(mark, page.id) ? pins.get(mark.label) : undefined;
         return pin ? [pin] : [];
