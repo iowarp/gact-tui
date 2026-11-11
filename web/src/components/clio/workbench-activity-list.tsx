@@ -450,7 +450,7 @@ const ActivityRow = memo(function ActivityRow({
           item.running ? (
             <StatusIndicator display="column" label="Running" tone="running" />
           ) : (
-            <ActivityKindIcon kind={item.kind} work={item.work} />
+            <ActivityKindIcon kind={item.kind} work={item.work} toolName={item.tool?.name} />
           )
         }
         onClick={open}

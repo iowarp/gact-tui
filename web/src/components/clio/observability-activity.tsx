@@ -23,11 +23,19 @@ import {
   ShieldIcon,
   SquareTerminalIcon,
   WaypointsIcon,
-  WrenchIcon,
 } from 'lucide-react';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { toolKindIcon } from '@/lib/tool-kind-icons';
+import {
+  createElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
@@ -692,7 +700,7 @@ export function ActivityGlyph({
       return <SearchIcon {...props} />;
     if (/(?:^|_)(?:bash|shell|command|exec|run_code)(?:$|_)/u.test(name))
       return <SquareTerminalIcon {...props} />;
-    return <WrenchIcon {...props} />;
+    return createElement(toolKindIcon(name), props);
   }
   if (item.kind === 'process') return <BoxesIcon {...props} />;
   if (item.kind === 'artifact') return <FileOutputIcon {...props} />;
