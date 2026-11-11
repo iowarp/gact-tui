@@ -167,9 +167,12 @@ function declaredTaskMatches(tool: ToolInvocation, context: OperationContext): O
     });
 }
 
-/** A failed call that recorded no result: its error is what it returned, not a literal null. */
-function failedWithoutOutput(tool: ToolInvocation, output: unknown): boolean {
-  return output === null && tool.state === 'failed' && Boolean(tool.error);
+/**
+ * A call that did not succeed and recorded no result (failed, stopped, interrupted or with an
+ * unrecorded outcome): its error or outcome is what it returned, not a literal null.
+ */
+function endedWithoutOutput(tool: ToolInvocation, output: unknown): boolean {
+  return output === null && tool.state !== 'succeeded';
 }
 
 /** A read-only semantic projection shared by transcript and Evidence. No fetches or cached indexes. */
@@ -202,7 +205,9 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
       : declared
         ? [declared]
         : [],
-    expandable: Boolean(meaningful || tool.error || output !== undefined),
+    expandable: Boolean(
+      meaningful || tool.error || (output !== undefined && !endedWithoutOutput(tool, output)),
+    ),
     kind: 'declared',
   };
   if (
@@ -214,7 +219,7 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
   if (!definition) {
     const summary = tool.presentation?.summary?.trim();
     if (summary && /^(?:\d|No\b|Lines\b|Empty\b)/u.test(summary)) operation.metadata = summary;
-    if (!meaningful && output !== undefined && !failedWithoutOutput(tool, output)) {
+    if (!meaningful && output !== undefined && !endedWithoutOutput(tool, output)) {
       operation.kind = 'value';
       operation.value = output;
     }
@@ -420,7 +425,7 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     operation.kind === 'declared' &&
     definition.family !== 'memory' &&
     output !== undefined &&
-    !failedWithoutOutput(tool, output) &&
+    !endedWithoutOutput(tool, output) &&
     !(result?.accepted === true && result.status === 'running')
   ) {
     operation.kind = 'value';
