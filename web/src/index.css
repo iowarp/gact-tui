@@ -242,6 +242,7 @@
   --color-terminal-border: var(--terminal-border);
   --color-terminal-accent: var(--terminal-accent);
   --color-scrim: var(--scrim);
+  --color-held-veil: var(--held-veil);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
   --color-media-backdrop: var(--media-backdrop);
