@@ -61,7 +61,13 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
-import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
+import {
+  agentTab,
+  listTab,
+  newBrowserPageTab,
+  WORKBENCH_LIST_TITLES,
+} from './workbench-tab-storage';
+import { browserPageLabel } from './use-browser-pages';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { focusListRow, focusOpenedFrame, refocusActiveCanvasTab } from './workbench-focus';
 import { WorkbenchTabRow } from './workbench-tab-row';
@@ -189,6 +195,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       pinned,
       setPinnedIds,
       openTab,
+      openInstance,
       openSubagentTab,
       replaceTab,
       selectFilesPath,
@@ -382,6 +389,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               openTab(variantTryTab(request, item.tryIndex, sessionId, workspaceId));
             openTab(variantTryTab(request, request.tryIndex, sessionId, workspaceId));
             return;
+          // Every terminal request is a person opening one more terminal.
+          case 'terminal':
+            openInstance(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
+            return;
           default: {
             if (openInBrowser(request, targetWorkspaceId)) return;
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
@@ -391,6 +402,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       [
         openCanvasResource,
         openInBrowser,
+        openInstance,
         openSubagentTab,
         openTab,
         sessionId,
@@ -408,6 +420,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         closeTabOrCanvas,
         inStudy,
         onOpenTerminal,
+        openInstance,
         openTab,
         previousTab,
         setActiveTabId,
@@ -432,6 +445,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       pickShiftRef.current = false;
       const host = activeTab?.kind === 'list' ? activeTab : undefined;
       focusOpenedFrame(asideRef.current);
+      // A new page becomes the page it opens (or the open page picked from its list).
+      if (host?.newPage && tab.kind === 'browser' && !shift) {
+        replaceTab(host.id, tab);
+        return;
+      }
       if (!host || shift || pinned.has(host.id) || !REPLACING_KINDS.has(tab.kind)) {
         openTab(tab);
         return;
@@ -487,7 +505,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           kind: 'browser',
           pageId: page.id,
           sessionId: page.session_id,
-          label: page.label,
+          label: browserPageLabel(page),
         }),
       // A picked file always gets its tab, even HTML: its viewer opens the
       // shared browser on show and keeps the source if that fails.
@@ -499,6 +517,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         pickRequest({ kind: 'resource', resource, relatedResources: resources }),
       onOpenSubagent: (subagent) => pickTab(subagentTab(subagent, workspaceId)),
       onOpenDraftBrowserPage,
+      onNewBrowserPage: () => openInstance(newBrowserPageTab),
       onOpenTerminal,
       onRefreshFiles,
       onSelectTab: setActiveTabId,
@@ -512,7 +531,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       workspaceId,
     };
     // A list in a tab marks the tab it was reached from, the one a row last opened.
-    const renderList = (view: WorkbenchTabListView) => (
+    const renderList = (view: WorkbenchTabListView, newPage?: boolean) => (
       // Shift on the pick (click, Enter or Space) opens the item in a tab of its own.
       <div
         className="contents"
@@ -524,7 +543,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         }}
         role="presentation"
       >
-        <WorkbenchListColumn {...listProps} activeTabId={previousTab?.id ?? ''} view={view} />
+        <WorkbenchListColumn
+          {...listProps}
+          activeTabId={previousTab?.id ?? ''}
+          newPage={newPage}
+          view={view}
+        />
       </div>
     );
 
@@ -669,7 +693,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ))}
             </Tabs>
             {tabList.column}
-            <WorkbenchStrip items={stripItems} onSelect={selectStripItem} />
+            <WorkbenchStrip items={stripItems} onSelect={selectStripItem} onShowList={showList} />
           </TooltipProvider>
         </WorkbenchTabListProvider>
       </aside>
