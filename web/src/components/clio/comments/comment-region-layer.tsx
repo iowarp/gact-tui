@@ -24,6 +24,7 @@ export function CommentRegionLayer({
   marks,
   onRegion,
   onOpenMark,
+  openByBadge = false,
   label,
 }: {
   capturing: boolean;
@@ -31,6 +32,8 @@ export function CommentRegionLayer({
   onRegion: (rect: Rect) => void;
   /** Open a mark's editor from its box on the view, as on an A2UI surface. */
   onOpenMark?: (label: string) => void;
+  /** Only the label badge opens the mark, so the marked content stays usable (a live page). */
+  openByBadge?: boolean;
   label: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -98,6 +101,27 @@ export function CommentRegionLayer({
         const shape = mark.text
           ? 'border-b-2 border-primary bg-primary/20'
           : 'border-2 border-primary bg-primary/10';
+        if (mark.label && onOpenMark && openByBadge) {
+          const open = onOpenMark;
+          return (
+            <div
+              className={`pointer-events-none absolute ${shape}`}
+              data-mark-label={mark.label}
+              key={mark.label}
+              style={style}
+            >
+              <button
+                aria-label={`Edit ${mark.label}`}
+                className="pointer-events-auto absolute -top-5 left-0 rounded-t bg-primary px-1.5 text-xs font-bold text-primary-foreground"
+                onClick={() => open(mark.label)}
+                onPointerDown={(event) => event.stopPropagation()}
+                type="button"
+              >
+                {mark.label}
+              </button>
+            </div>
+          );
+        }
         return mark.label && onOpenMark ? (
           <button
             aria-label={`Edit ${mark.label}`}

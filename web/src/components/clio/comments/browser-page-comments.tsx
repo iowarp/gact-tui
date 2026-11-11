@@ -228,9 +228,10 @@ export function BrowserRegionCapture({
     return () => observer.disconnect();
   }, [drawn]);
   // Element and text marks are drawn where the page last found them, on the page they were
-  // made on; a region stays where it was drawn on the view.
+  // made on; a region stays where it was drawn on the view, and only on the page it was drawn on.
+  const here = pageAddress(state?.url);
   const pins = new Map<string, LayerMark>();
-  if (session?.open && report && size && pageAddress(report.url) === pageAddress(state?.url)) {
+  if (session?.open && report && size && pageAddress(report.url) === here) {
     for (const item of report.marks) {
       const rect = item.found && item.rect ? viewRect(item.rect, size, report.viewport) : null;
       if (rect) pins.set(item.label, { label: item.label, rect, text: item.how === 'quote' });
@@ -238,7 +239,11 @@ export function BrowserRegionCapture({
   }
   const shown: LayerMark[] = session?.open
     ? session.marks.flatMap((mark) => {
-        if (mark.view) return [{ label: mark.label, rect: mark.view }];
+        if (mark.view) {
+          const from = markPage(mark);
+          const onPage = from.id === page.id && pageAddress(String(from.url ?? '')) === here;
+          return onPage ? [{ label: mark.label, rect: mark.view }] : [];
+        }
         const pin = followed(mark, page.id) ? pins.get(mark.label) : undefined;
         return pin ? [pin] : [];
       })
@@ -263,6 +268,7 @@ export function BrowserRegionCapture({
         label="Drag over the page to mark a region"
         marks={shown}
         onOpenMark={session.setEditing}
+        openByBadge
         onRegion={(rect) => {
           const box = host.current?.getBoundingClientRect();
           const normal = box ? frameRect(rect, box, viewport) : null;
