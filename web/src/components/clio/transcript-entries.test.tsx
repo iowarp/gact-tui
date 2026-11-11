@@ -98,8 +98,11 @@ it('alternates visible text entries with their own visible activity rows', async
   expect(await screen.findByText('Public one update.')).toBeVisible();
   expect(await screen.findByText('Public two update.')).toBeVisible();
   expect(view.container.querySelectorAll('[data-slot="transcript-text-entry"]')).toHaveLength(2);
-  // Lanes never fold: each step's calls are rows in the conversation.
+  // Each settled block between two updates folds into its own row; opening both
+  // shows every thought and call in order.
   expect(screen.getAllByRole('group', { name: /^Activity:/ })).toHaveLength(2);
+  for (const run of screen.getAllByRole('button', { name: /^Expand Called 1 tool/ }))
+    fireEvent.click(run);
   expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   expect(
@@ -224,6 +227,7 @@ it('retains an opened tool result across live updates and answer arrival', async
   const view = render(
     <ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />,
   );
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool' }));
   fireEvent.click(screen.getByRole('button', { name: 'Show result for Read file' }));
   expect(await screen.findByText('Complete one result.')).toBeVisible();
   view.rerender(
@@ -265,6 +269,7 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
 it('opens complete tool arguments and result from the keyboard and restores focus', async () => {
   const user = userEvent.setup();
   render(<ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />);
+  await user.click(screen.getByRole('button', { name: 'Expand Called 1 tool' }));
   const trigger = screen.getByRole('button', { name: 'Technical details for Read file' });
   trigger.focus();
   await user.keyboard('{Enter}');
@@ -353,7 +358,10 @@ it('renders the same alternating semantics from a saved assistant message', asyn
     ).toBeTruthy();
   const lanes = screen.getAllByRole('group', { name: /^Activity:/ });
   expect(lanes).toHaveLength(2);
-  // The failed call says so at its own row rather than in a message-level count.
+  for (const lane of lanes) expect(lane).toHaveAccessibleName('Activity: Called 1 tool');
+  // The folded run counts its failure; opening it shows the failed call's own row.
+  expect(lanes[1]).toHaveTextContent('1 failed');
+  for (const run of screen.getAllByRole('button', { name: 'Expand Called 1 tool' }))
+    fireEvent.click(run);
   expect(screen.getByRole('img', { name: 'Failed: Failed' })).toBeInTheDocument();
-  for (const lane of lanes) expect(lane).toHaveAccessibleName('Activity: Read files');
 });

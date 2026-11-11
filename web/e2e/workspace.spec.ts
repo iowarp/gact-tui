@@ -519,6 +519,8 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await settleConversationAtLatest(page);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
+  // The replaced App is history in the settled run; the live App stays mounted beside it.
+  await page.getByRole('button', { name: 'Expand Received 1 update', exact: true }).click();
   await expect(page.getByText('MCP v2 exerciser view closed')).toBeVisible();
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
@@ -708,10 +710,7 @@ test('audits the dense flat-NDP workspace with its canvas open and requests pend
   page,
 }) => {
   const canvas = await openDenseFlatNdpCanvas(page);
-  await expect(canvas.getByRole('tab', { name: 'Files' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(canvas.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
 
   // axe walks the whole dense transcript, so this test does nothing else.
   const accessibility = await new AxeBuilder({ page }).analyze();
@@ -954,8 +953,8 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 });
 
 test('renders the discovered catalog and the steer the service is holding', async ({ page }) => {
-  const heldSteers = page.waitForResponse(
-    (response) => new URL(response.url()).pathname.endsWith('/pending-steers'),
+  const heldSteers = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith('/pending-steers'),
   );
   await page.goto(workspaceUrl);
   expect((await heldSteers).ok()).toBe(true);

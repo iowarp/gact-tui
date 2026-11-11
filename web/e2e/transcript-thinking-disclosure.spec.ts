@@ -97,7 +97,9 @@ for (const theme of ['light', 'dark']) {
         'text',
       );
       await settleCapture(page);
-      // The chevron opens a row at every width; phones hide the action name.
+      // The settled call folds into a counted row that says it failed; the
+      // chevron opens a row at every width; phones hide the action name.
+      await page.getByRole('button', { name: 'Expand Called 1 tool', exact: true }).click();
       await page.getByRole('button', { name: 'Expand Run command', exact: true }).click();
       const result = page.getByRole('region', { name: 'Run command: Result' });
       // The failure is the command's output; the row's status names it, with no repeated alert.
