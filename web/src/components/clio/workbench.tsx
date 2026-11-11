@@ -232,7 +232,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const canvasVisible = useWorkspaceCanvasVisibility();
     const canvasControl = useWorkspaceCanvasControl();
-    const clearFit = canvasControl?.fitWidth;
     const [activityView, setActivityView] = useState<WorkbenchActivityView>('timeline');
 
     // A shown canvas never has an empty pane: with nothing open it shows Files.
@@ -508,22 +507,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       tabs: orderedTabs,
       workspaceId,
     };
-    const fitWidth = canvasControl?.fitWidth;
-    const fitListWidth = (pixels: number, listWidth: number) => {
-      const aside = asideRef.current;
-      if (!aside || !fitWidth) return;
-      fitWidth(pixels + aside.getBoundingClientRect().width - listWidth);
-    };
-    // A list tab narrows the canvas to what its rows need (never wider than the
-    // stored width); Activity's timeline and context keep the stored width.
-    const fitting =
-      !maximized &&
-      activeTab?.kind === 'list' &&
-      (activeTab.view !== 'activity' || activityView === 'events' || !sessionId);
-    useEffect(() => {
-      if (!fitting) clearFit?.(undefined);
-    }, [clearFit, fitting]);
-    useEffect(() => () => clearFit?.(undefined), [clearFit]);
     // A list in a tab marks the tab it was reached from, the one a row last opened.
     const renderList = (view: WorkbenchTabListView) => (
       // Shift on the pick (click, Enter or Space) opens the item in a tab of its own.
@@ -537,12 +520,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         }}
         role="presentation"
       >
-        <WorkbenchListColumn
-          {...listProps}
-          activeTabId={previousTab?.id ?? ''}
-          onFitWidth={fitting ? fitListWidth : undefined}
-          view={view}
-        />
+        <WorkbenchListColumn {...listProps} activeTabId={previousTab?.id ?? ''} view={view} />
       </div>
     );
 

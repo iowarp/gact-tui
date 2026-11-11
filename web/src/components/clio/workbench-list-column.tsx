@@ -13,7 +13,7 @@ import {
   SearchIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +49,6 @@ import { WorkbenchListResizeHandle } from './workbench-list-resize';
 import { GroupLabel, Rows } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
 import { SourcesList } from './workbench-sources-list';
-import { useListFitWidth } from './workbench-list-fit';
 import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
 import { LIST_HEADER_SECONDARY, type ChangeCounts, type WorkbenchTab } from './workbench-shared';
@@ -67,8 +66,6 @@ const ACTIVITY_VIEWS: readonly { value: WorkbenchActivityView; label: string; ti
 
 export interface WorkbenchListColumnProps {
   view: WorkbenchListView;
-  /** The width its rows need untruncated, and the width it has. */
-  onFitWidth?: (pixels: number, listWidth: number) => void;
   workspaceId: string;
   sessionId: string;
   tabs: readonly WorkbenchTab[];
@@ -143,11 +140,7 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         </div>
       </>
     );
-  return (
-    <WorkbenchListTabSection onFitWidth={props.onFitWidth} title={title}>
-      {body}
-    </WorkbenchListTabSection>
-  );
+  return <WorkbenchListTabSection title={title}>{body}</WorkbenchListTabSection>;
 });
 
 /**
@@ -225,22 +218,11 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   );
 }
 
-function WorkbenchListTabSection({
-  title,
-  onFitWidth,
-  children,
-}: {
-  title: string;
-  onFitWidth?: (pixels: number, listWidth: number) => void;
-  children: ReactNode;
-}) {
-  const sectionRef = useRef<HTMLElement>(null);
-  useListFitWidth(sectionRef, onFitWidth);
+function WorkbenchListTabSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list-tab"
-      ref={sectionRef}
       className="flex h-full min-h-0 flex-col bg-background"
     >
       {children}

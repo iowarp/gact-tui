@@ -117,8 +117,10 @@ Status values:
   the lit icon again returns to the tab shown before. A pick in a list tab shows
   the item in that tab, and the item's `FrameBar` leads with "Back to <list>"
   (`primitives/frame-back.ts`); Shift, or a pinned list tab, opens the item in a
-  tab of its own. Anything opened from the conversation gets its own tab. A
-  sparse list tab narrows the pocket to what its rows need. Activity leads with
+  tab of its own. Anything opened from the conversation gets its own tab. The
+  pocket's width belongs to the person: only their drag, or a window resize
+  (proportionally), changes it; opening or switching tabs never does, and a list
+  tab fills whatever width the pocket has. Activity leads with
   the conversation's causal timeline, then Events and Context, chosen with a
   `SegmentedControl` in its header. There is never an empty pane: closing the
   last tab closes the pocket, and a pocket shown empty opens Files. The lists
