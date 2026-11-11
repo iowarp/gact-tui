@@ -38,6 +38,9 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
   const flow = providerSetupFlow(group, preset);
   const failure = actions.stage ? undefined : providerActionError(actions, group);
   const refused = providerNeedsReauthentication(preset, group.failure);
+  const signedIn = actions.stage
+    ? actions.stage.startsWith('Verifying ') || actions.stage === 'Loading models…'
+    : false;
   return (
     <Empty className="h-full gap-4 border-0 p-6" data-slot="provider-connect-state">
       <EmptyHeader>
@@ -52,12 +55,14 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
           role={failure ? 'alert' : undefined}
         >
           {failure ??
-            (refused
-              ? translateKnownProviderErrorReason(
-                  group.failure || preset?.status_message || '',
-                  group.name,
-                )
-              : providerSetupSentence(group, flow))}
+            (signedIn
+              ? `Signed in to ${group.name}.`
+              : refused
+                ? translateKnownProviderErrorReason(
+                    group.failure || preset?.status_message || '',
+                    group.name,
+                  )
+                : providerSetupSentence(group, flow))}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="max-w-sm">

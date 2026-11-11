@@ -110,14 +110,12 @@ for (const theme of ['dark', 'light'] as const) {
     const input = composer.locator('form > [data-slot="input-group"]');
     const question = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
     await expect(question).toBeVisible();
-    await expect(question.getByRole('radio', { name: 'Table', exact: true })).toBeVisible();
-    await expect(
-      question.getByRole('button', { name: 'Send response', exact: true }),
-    ).toBeDisabled();
+    await expect(question.getByRole('button', { name: /Table/ })).toBeVisible();
+    // The ask card is its own block, 8px above the composer, not fused to it.
+    const cardBox = await question.locator('[data-slot="ask-card"]:visible').boundingBox();
+    const inputBox = await input.boundingBox();
+    expect(cardBox && inputBox && inputBox.y - (cardBox.y + cardBox.height)).toBeGreaterThan(4);
     const background = await input.evaluate((node) => getComputedStyle(node).backgroundColor);
-    await expect
-      .poll(() => question.evaluate((node) => getComputedStyle(node).backgroundColor))
-      .toBe(background);
     await composer.screenshot({ path: testInfo.outputPath(`question-${theme}.png`) });
     expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
     await page.reload();
@@ -163,7 +161,8 @@ for (const theme of ['dark', 'light'] as const) {
 
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.getByRole('heading', { name: 'EarthScope NDP evidence review' }).click();
+      // The title opens the conversation menu; release editor focus directly.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       // Resizing can leave a final Motion layout transform on the composer.
       // Capture idle geometry only after native and frame-driven motion settle;
       // the focus assertion below still requires exactly the same bounds.
@@ -225,6 +224,7 @@ for (const theme of ['dark', 'light'] as const) {
           surface,
           placeholder,
           surfaceContrast: contrast(surface, background),
+          borderContrast: contrast(sample(getComputedStyle(node).borderTopColor), background),
           placeholderContrast: contrast(placeholder, surface),
           border: getComputedStyle(node).borderColor,
           cssSurface: getComputedStyle(node).backgroundColor,
@@ -239,7 +239,9 @@ for (const theme of ['dark', 'light'] as const) {
         path: testInfo.outputPath(`${theme}-${width}-idle-composer.png`),
       });
       // Surface separation is a visual design threshold; text meets WCAG AA contrast.
-      expect(colors.surfaceContrast).toBeGreaterThan(theme === 'dark' ? 1.25 : 1.08);
+      // The spec's composer (.xcp) is one quiet step off the page; its border carries the edge.
+      expect(colors.surfaceContrast).toBeGreaterThan(1.04);
+      expect(colors.borderContrast).toBeGreaterThan(1.4);
       expect(colors.placeholderContrast).toBeGreaterThanOrEqual(4.5);
       await editor.click();
       await expect(editor).toBeFocused();
@@ -260,6 +262,9 @@ for (const theme of ['dark', 'light'] as const) {
         .poll(() => surface.evaluate((node) => getComputedStyle(node).backgroundColor))
         .toBe(colors.cssSurface);
       await page.keyboard.press('Tab');
+      // Tab leaves the editor for the first toolbar control; the model sits on the right.
+      await expect(composer.locator('[data-slot="composer-toolbar"] button').first()).toBeFocused();
+      await composer.getByRole('button', { name: 'Change model' }).focus();
       await expect(composer.getByRole('button', { name: 'Change model' })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
@@ -271,3 +276,88 @@ for (const theme of ['dark', 'light'] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test('a paste in the composer joins the browser undo stack', async ({ page }) => {
+  expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+  await page.addInitScript((endpoint) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+  }, endpoint);
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  const editor = page
+    .locator('[data-slot="clio-composer-stack"]')
+    .getByRole('combobox', { name: /^Ask / });
+  await editor.click();
+  await page.keyboard.type('keep cut');
+  for (let step = 0; step < 3; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Delete');
+  const paste = (text: string) =>
+    editor.evaluate((node, value) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData('text/plain', value);
+      node.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
+      );
+    }, text);
+  await paste('cut');
+  await paste('cut');
+  await expect(editor).toHaveText('keep cutcut');
+  // Undo takes back the pastes; it must never restore the removed text on top of
+  // them. Chromium may group the Delete with the pastes into one typing step.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toHaveText(/^keep (cut)?$/u);
+  if ((await editor.textContent()) === 'keep ') await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toHaveText('keep cut');
+});
+
+test('keeps the composer height while a short-viewport queue scrolls to its end', async ({
+  page,
+}) => {
+  // At short heights the queue and the pending responses share the composer's
+  // bounded height. Scrolling the queue must not resize either: a strip that
+  // grew at its end would shrink the responses' range and clamp their offset.
+  expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+  expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
+  await page.addInitScript((endpoint) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+  }, endpoint);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const height of [400, 520, 600]) {
+    await page.setViewportSize({ height, width: 848 });
+    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
+    const queue = page.locator('[aria-label="Queued messages"]:visible');
+    await expect(pendingResponses).toHaveCount(1);
+    await expect(queue).toHaveCount(1);
+    const responses = pendingResponses.getByRole('region', { name: '2 pending responses' });
+    const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+    await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
+    await expect(queueViewport).toBeVisible();
+    const heights = () =>
+      page.evaluate(
+        ([queueSelector]) => {
+          const queue = document.querySelector<HTMLElement>(queueSelector!)!;
+          const viewport = queue.querySelector<HTMLElement>('[role="region"]')!;
+          const stack = document.querySelector<HTMLElement>('[data-slot="clio-composer-stack"]')!;
+          return [stack, queue, viewport].map((node) => node.getBoundingClientRect().height);
+        },
+        ['[aria-label="Queued messages"]'],
+      );
+    // Park the responses at their end, then read the resting geometry.
+    await responses.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const parked = await responses.evaluate((element) => element.scrollTop);
+    const before = await heights();
+    const responsesBefore = await responses.evaluate((element) => element.clientHeight);
+    await queueViewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect.poll(() => queue.getByRole('button', { name: /^\d+ more$/u }).count()).toBe(0);
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    expect(await heights(), `heights at ${height}px tall`).toEqual(before);
+    expect(await responses.evaluate((element) => element.clientHeight)).toBe(responsesBefore);
+    expect(await responses.evaluate((element) => element.scrollTop)).toBe(parked);
+  }
+});

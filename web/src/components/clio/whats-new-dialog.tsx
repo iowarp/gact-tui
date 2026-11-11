@@ -1,17 +1,9 @@
 import { brand } from '@brand';
-import { ArrowUpRightIcon, SparklesIcon } from 'lucide-react';
+import { ExternalLinkIcon, Maximize2Icon, Minimize2Icon, SparklesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AdjustIcon } from '@/lib/icon-vocabulary';
 import type { ChangelogEntry } from '@/lib/changelog';
 import {
   desktopChangesSince,
@@ -22,13 +14,21 @@ import {
 } from '@/lib/desktop-changelog';
 import { displayReleaseVersion } from '@/lib/release-version';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
 import { readPendingUpdateMarker } from '@/store/update-flow-store';
+import { BrandIcon } from './brand-icon';
+import { DialogFrame } from './primitives/dialog-frame';
+import { FrameTab } from './primitives/frame-bar';
+import { IconButton } from './primitives/icon-button';
 import { ReleaseChanges } from './whats-new-release-changes';
 
 /** Notes and release identity for one independently versioned product. */
 export interface WhatsNewTab {
   id: string;
+  /** The product name; the tab reads `label version`. */
   label: string;
+  /** The interface tab shows the sliders; a product tab its brand mark. */
+  kind?: 'product' | 'interface';
   version: string;
   description: string;
   entries: ChangelogEntry[];
@@ -69,7 +69,8 @@ export function WhatsNewDialog() {
           if (entries.length) {
             nextTabs.push({
               id: 'desktop',
-              label: hasProductChangelog() ? `${brand.wordmark} release` : 'Interface',
+              label: productNotes ? brand.wordmark : 'Interface',
+              kind: productNotes ? 'product' : 'interface',
               version: current,
               description: hasProductChangelog()
                 ? 'Agent, tools and application changes shipped in this release.'
@@ -90,6 +91,7 @@ export function WhatsNewDialog() {
               nextTabs.push({
                 id: 'interface',
                 label: 'Interface',
+                kind: 'interface',
                 version: uiVersion,
                 description: 'Desktop and workspace interface changes.',
                 entries: uiEntries,
@@ -123,62 +125,77 @@ export function WhatsNewReleaseDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [active, setActive] = useState(() => tabs[0]?.id ?? '');
+  const [expanded, setExpanded] = useState(false);
   if (!tabs.length) return null;
+  const current = tabs.some((tab) => tab.id === active) ? active : tabs[0].id;
   const releaseUrl = tabs.find((tab) => tab.releaseUrl)?.releaseUrl;
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="grid max-h-[min(800px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden sm:max-w-3xl">
-        <DialogHeader className="pb-5">
-          <div className="flex items-center gap-3 pr-8">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-              <SparklesIcon aria-hidden="true" className="size-5" />
-            </span>
-            <div className="min-w-0 space-y-2">
-              <DialogTitle className="text-xl font-semibold">What&apos;s new</DialogTitle>
-              <DialogDescription>Explore what changed in your update.</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        {tabs.length === 1 ? (
-          <ReleaseChanges tab={tabs[0]} />
+    <DialogFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<SparklesIcon />}
+      title="What's new"
+      description="What changed in your update."
+      cancelLabel={null}
+      confirm={{ label: 'Got it', onConfirm: () => onOpenChange(false), key: 'Enter' }}
+      className={cn(expanded && 'w-[min(880px,calc(100vw-2rem))]')}
+      footerStart={
+        releaseUrl ? (
+          <ExternalLink
+            className="inline-flex items-center gap-1.5 hover:text-foreground"
+            href={releaseUrl}
+          >
+            <ExternalLinkIcon aria-hidden="true" className="size-[13px]" />
+            Release history
+          </ExternalLink>
         ) : (
-          <Tabs className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]" defaultValue={tabs[0].id}>
-            <TabsList
-              variant="line"
-              className="mb-4 h-auto w-full justify-start gap-2 border-b p-0 pb-2 group-data-horizontal/tabs:h-auto"
-            >
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  className="h-auto min-h-14 min-w-0 flex-col items-start gap-1 px-3 py-2 data-[state=active]:text-primary"
+          <span>Notes included with this build</span>
+        )
+      }
+    >
+      <Tabs value={current} onValueChange={setActive} className="gap-0">
+        <div className="-mx-2 flex h-10 min-w-0 items-center border-b border-border">
+          <TabsList className="h-10 min-w-0 flex-1 justify-start gap-0.5 overflow-hidden rounded-none bg-transparent p-0">
+            {tabs.map((tab) => {
+              const name = `${tab.label} ${tab.version}`;
+              return (
+                <FrameTab
                   key={tab.id}
-                  value={tab.id}
-                >
-                  <span>{tab.label}</span>
-                  <span className="font-mono text-xs text-muted-foreground">{tab.version}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {tabs.map((tab) => (
-              <TabsContent className="mt-0 grid min-h-0" key={tab.id} value={tab.id}>
-                <ReleaseChanges tab={tab} />
-              </TabsContent>
-            ))}
-          </Tabs>
-        )}
-        <DialogFooter className="mt-4 flex-row items-center justify-between sm:justify-between">
-          {releaseUrl ? (
-            <ExternalLink
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              href={releaseUrl}
-            >
-              Release history <ArrowUpRightIcon aria-hidden="true" className="size-3.5" />
-            </ExternalLink>
-          ) : (
-            <span className="text-xs text-muted-foreground">Notes included with this build</span>
-          )}
-          <Button onClick={() => onOpenChange(false)}>Got it</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+                  active={tab.id === current}
+                  icon={
+                    tab.kind === 'interface' ? <AdjustIcon /> : <BrandIcon className="size-3.5" />
+                  }
+                  label={name}
+                  title={tab.description}
+                  className="data-active:shadow-[inset_0_-2px_0_var(--primary)]"
+                  renderTrigger={({ className, title, children }) => (
+                    <TabsTrigger
+                      className={`${className} h-full justify-start border-0 bg-transparent py-0 text-[12.5px] font-normal text-inherit shadow-none data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent`}
+                      title={title}
+                      value={tab.id}
+                    >
+                      {children}
+                    </TabsTrigger>
+                  )}
+                />
+              );
+            })}
+          </TabsList>
+          <IconButton
+            label={expanded ? 'Restore size' : 'Expand'}
+            icon={expanded ? <Minimize2Icon /> : <Maximize2Icon />}
+            size="sm"
+            className="mr-0.5 text-muted-foreground"
+            onClick={() => setExpanded((value) => !value)}
+          />
+        </div>
+        {tabs.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id} className="mt-0 min-w-0">
+            <ReleaseChanges tab={tab} expanded={expanded} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </DialogFrame>
   );
 }

@@ -12,11 +12,11 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
-  'web/src/components/clio/conversation-model-boundary.tsx': [
-    '@/components/ai-elements/checkpoint',
-  ],
+  // RC1 transcript: the per-turn model checkpoint line (conversation-model-boundary)
+  // is gone; the model shows in the reply footer. A run's diff renders as the
+  // shared TranscriptDiffCard rather than an inline CodeBlock.
   'web/src/components/clio/conversation-message-blocks.tsx': [
-    '@/components/ai-elements/code-block',
+    './transcript-diff-card',
     '@/components/ai-elements/plan',
     './artifact-card',
     './transcript-text-block',
@@ -28,17 +28,18 @@ const requiredImports = {
     './sent-reference-message',
     './streaming-text',
   ],
+  // RC1 transcript: a task is one activity row with its detail in the opened body.
   'web/src/components/clio/conversation-process-sequence.tsx': [
-    '@/components/ai-elements/task',
+    './transcript-task-row',
     './grounded-message-response',
     './transcript-reasoning-passage',
     './transcript-reasoning',
     './subagent-card',
     './tool-invocation',
   ],
-  // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
+  // Chain mode moved to ConversationTurn. RC1 transcript: a step's activity reads as
+  // flat activity rows (no fold header), so ChainOfThought is no longer composed here.
   'web/src/components/clio/conversation-turn.tsx': [
-    '@/components/ai-elements/chain-of-thought',
     './transcript-iteration-text',
     './subagent-card',
     './tool-invocation',
@@ -63,10 +64,8 @@ const requiredImports = {
     '@/components/ai-elements/message',
     '@/components/ai-elements/sources',
   ],
-  'web/src/components/clio/composer.tsx': [
-    './composer-model-label',
-    '@/components/ai-elements/prompt-input',
-  ],
+  'web/src/components/clio/composer.tsx': ['@/components/ai-elements/prompt-input'],
+  'web/src/components/clio/composer-model-control.tsx': ['./composer-model-label'],
   // The composer and session defaults share the provider/model trigger so both
   // names retain space and the sourced logo, button and tooltip stay composed.
   'web/src/components/clio/composer-model-label.tsx': [
@@ -74,7 +73,13 @@ const requiredImports = {
     '@/components/ui/button',
     '@/components/ui/tooltip',
   ],
-  'web/src/components/clio/tool-invocation.tsx': ['@/components/ai-elements/tool'],
+  // RC1 transcript: the ⓘ dialog follows the spec's technical-details layout on the shared
+  // dialog frame and facts grid: line-numbered code and a terminal tail for an error.
+  'web/src/components/clio/tool-technical-details.tsx': [
+    './primitives/dialog-frame',
+    './primitives/key-value-grid',
+    './json-line',
+  ],
   'web/src/components/clio/artifact-card.tsx': [
     '@/components/ai-elements/artifact',
     '@/components/ai-elements/attachments',
@@ -87,19 +92,16 @@ const requiredImports = {
     './content-markdown',
   ],
   'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
-  'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
-  // October 16 attention redesign: Queue owns the shared pager boundary. The
-  // extracted permission decision composes the existing Button/Select rather
-  // than another nested Alert. Reviewed in light/dark and narrow browser cases;
-  // see docs/design/attention-panel.md. Preserve the complete sourced chain.
-  'web/src/components/clio/pending-interactions.tsx': [
-    '@/components/ai-elements/queue',
-    './permission-response',
-  ],
-  'web/src/components/clio/permission-response.tsx': [
-    '@/components/ui/button',
-    '@/components/ui/select',
-  ],
+  // RC1 transcript: a delegation is one activity row, not a dispatch card.
+  'web/src/components/clio/subagent-card.tsx': ['./activity-row'],
+  // RC1 decision cards (conversation-states v24) deliberately replace the
+  // Queue pager and Button/Select scope picker: every docked decision is one
+  // AskCard with numbered scope buttons and an in-card pager. AskCard owns the
+  // sourced Button and TechnicalDetails composition. Reviewed side by side
+  // against the spec in light/dark at 1280 and 768.
+  'web/src/components/clio/pending-interactions.tsx': ['./ask-card-keys', './permission-response'],
+  'web/src/components/clio/permission-response.tsx': ['./ask-card'],
+  'web/src/components/clio/ask-card.tsx': ['@/components/ui/button', './technical-details'],
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
   'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
   'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
@@ -119,17 +121,6 @@ const requiredImports = {
   // git-style causal graph (SVG connector paths across stable agent-strand
   // lanes); Timeline's linear-item model can't represent concurrent strands,
   // so no sourced component composes this view (reviewed 2026-09-12).
-  'web/src/components/clio/observability-evidence.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/ui/accordion',
-    './artifact-card',
-  ],
-  'web/src/components/clio/inspector.tsx': [
-    '@/components/ai-elements/context',
-    '@/components/ai-elements/file-tree',
-    '@/components/reui/timeline',
-    './artifact-card',
-  ],
   // a2ui-catalog.tsx moved to web/src/lib/a2ui/kernel-catalog.tsx
   // (docs/design/a2ui-compat-campaign-2026-09.md S6): the registry-driven
   // catalog wiring lives beside the DOM-free registry it feeds, not under
@@ -161,18 +152,14 @@ const requiredImports = {
     '@/components/clio/run-actions',
   ],
   'web/src/components/clio/run-list-row.tsx': ['@/components/clio/primitives/list-row'],
+  // The default model is chosen through the shared Settings picker field, which names it.
   'web/src/components/clio/settings-session-defaults.tsx': [
     '@/components/ui/select',
-    './composer-model-label',
+    './model-select-field',
   ],
-  // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
-  'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
-  'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],
-  'web/src/components/clio/settings-default-model-card.tsx': ['./model-picker'],
-  'web/src/components/clio/settings-prompts.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/clio/settings-frame',
-  ],
+  // Every Settings model choice opens the shared picker through this field.
+  'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
+  'web/src/components/clio/settings-prompt-editor.tsx': ['@/components/ai-elements/code-block'],
   // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
   // The ReUI Timeline of the old Reviews tab is replaced by the shared comment thread list
   // and the one comment session every viewer uses (clio-agent comments plan, rules 1 and 2;

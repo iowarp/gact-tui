@@ -23,10 +23,10 @@ function renderAbout() {
   );
 }
 
-/** `AboutValue` renders `<dt>{label}</dt><dd>{value}</dd>` -- read the value beside its label. */
+/** `AboutValue` renders a settings row -- read the value in the row's control column. */
 function valueFor(label: string): string {
-  const dt = screen.getByText(label);
-  return dt.nextElementSibling?.textContent ?? '';
+  const row = screen.getByText(label).closest('[data-slot="settings-row"]');
+  return row?.querySelector('[data-slot="settings-control"]')?.textContent ?? '';
 }
 
 const baseCapabilities = {
@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('About panel version rows', () => {
-  it('reports build/runtime version rows as unreported, honestly, when the connected service predates versions', async () => {
+  it('hides version rows the connected service does not report', async () => {
     repository.capabilities.mockResolvedValue({
       ...baseCapabilities,
       service: { name: 'clio-agent', version: '0.9.4' },
@@ -53,9 +53,9 @@ describe('About panel version rows', () => {
     renderAbout();
 
     expect(await screen.findByText('0.9.4')).toBeVisible();
-    expect(valueFor('Backend build')).toBe('Unreported by this service');
-    expect(valueFor('Python')).toBe('Unreported by this service');
-    expect(valueFor('Marketplace registry')).toBe('Unreported by this service');
+    expect(screen.queryByText('Backend build')).not.toBeInTheDocument();
+    expect(screen.queryByText('Python')).not.toBeInTheDocument();
+    expect(screen.queryByText('Marketplace registry')).not.toBeInTheDocument();
   });
 
   it('reports the marketplace row as not configured when versions are present but no source is pinned', async () => {
@@ -101,5 +101,31 @@ describe('About panel version rows', () => {
     expect(valueFor('Marketplace registry')).toBe(
       'https://github.com/iowarp/clio-agent-marketplace.git, ref main, installed ea49ed17aa11',
     );
+  });
+
+  it('keeps protocol versions and the address behind Technical details', async () => {
+    repository.capabilities.mockResolvedValue({
+      ...baseCapabilities,
+      service: { name: 'clio-agent', version: '0.9.4' },
+    });
+
+    renderAbout();
+
+    expect(await screen.findByText('0.9.4')).toBeVisible();
+    expect(screen.queryByText('Workspace protocol')).not.toBeInTheDocument();
+    expect(screen.queryByText('127.0.0.1')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Technical details/u })).toBeVisible();
+  });
+
+  it('shows a plain-language error with Retry instead of the raw request failure', async () => {
+    repository.capabilities.mockRejectedValue(new Error('Request failed with 404 Not Found'));
+
+    renderAbout();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Service details could not be loaded.');
+    expect(screen.queryByText(/404/u)).not.toBeInTheDocument();
+    expect(screen.queryByText('Backend build')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 });

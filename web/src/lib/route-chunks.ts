@@ -1,6 +1,10 @@
+import { prefetchDeferredChunks } from './deferred-chunk';
+
 /** Lazily loaded route modules, shared by the router and its prefetcher so each loads once. */
 const routeModules = {
   connection: () => import('@/routes/connection-page'),
+  workspace: () => import('@/routes/workspace-page'),
+  newConversation: () => import('@/routes/new-conversation-page'),
   runs: () => import('@/routes/runs-page'),
   infrastructure: () => import('@/routes/infrastructure-page'),
   settings: () => import('@/routes/settings-page'),
@@ -35,6 +39,8 @@ export function loadRouteChunk<Name extends RouteChunk>(name: Name): Promise<Rou
 
 /** The lazily loaded route a same-origin path opens, if any. */
 export function routeChunkForPath(pathname: string): RouteChunk | undefined {
+  if (/^\/workspaces\/[^/]+\/sessions\/[^/]+\/?$/.test(pathname)) return 'workspace';
+  if (/^\/workspaces\/[^/]+\/new\/?$/.test(pathname)) return 'newConversation';
   if (pathname === '/runs' || pathname.startsWith('/runs/')) return 'runs';
   if (pathname === '/infrastructure' || pathname.startsWith('/infrastructure/'))
     return 'infrastructure';
@@ -44,12 +50,21 @@ export function routeChunkForPath(pathname: string): RouteChunk | undefined {
 
 /** Delay before idle prefetching, so it never competes with the first screen. Unit: ms. */
 const IDLE_PREFETCH_DELAY_MS = 3_000;
-const IDLE_PREFETCH: readonly RouteChunk[] = ['runs', 'settings', 'infrastructure'];
+const IDLE_PREFETCH: readonly RouteChunk[] = [
+  'workspace',
+  'newConversation',
+  'runs',
+  'settings',
+  'infrastructure',
+];
 
 /**
  * Warm the secondary routes: when a link to one is hovered, focused or touched,
- * and once the app has been idle for a moment. Their modules are a few hundred
- * KB in all; data is still fetched only on navigation.
+ * and once the app has been idle for a moment. The workspace route is the
+ * largest (about 1 MB gzip with the conversation renderer), so it stays off the
+ * boot path and arrives here instead; data is still fetched only on
+ * navigation. The idle pass also warms
+ * the deferred in-page chunks (math and the science log).
  */
 export function installRoutePrefetch(target: Document = document): () => void {
   const prefetchLink = (event: Event) => {
@@ -71,6 +86,7 @@ export function installRoutePrefetch(target: Document = document): () => void {
     : view?.setTimeout(() => {
         const prefetch = () => {
           for (const chunk of IDLE_PREFETCH) void loadRouteChunk(chunk).catch(() => undefined);
+          prefetchDeferredChunks();
         };
         idle = view.requestIdleCallback
           ? view.requestIdleCallback(prefetch, { timeout: 5_000 })

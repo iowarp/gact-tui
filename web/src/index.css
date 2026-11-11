@@ -49,9 +49,14 @@
     @apply border-ring/65 bg-composer ring-2 ring-ring/15;
   }
   /* Let scrolled content recede behind the floating composer, including its
-     bottom gutter, without fading the editor or intercepting transcript input. */
+     bottom gutter, without fading the editor or intercepting transcript input.
+     Its pending cards and editor share the transcript rows' column: the
+     conversation publishes the column's edges, which include the transcript
+     scrollbar and outline gutter, and both add the same row gutter. */
   .clio-composer-docked {
     isolation: isolate;
+    padding-inline: calc(var(--conversation-column-left, 0px) + var(--conversation-gutter))
+      calc(var(--conversation-column-right, 0px) + var(--conversation-gutter));
   }
   .clio-composer-docked::before {
     content: '';
@@ -76,6 +81,12 @@
   [data-slot='alert-dialog-content'][data-state] {
     z-index: 100;
   }
+  /* A dialog opened from another one (a frame inside the Settings window) dims
+     that window too: its scrim joins the content layer, after it in the host. */
+  :where([data-slot='dialog-content'][data-state], [data-slot='alert-dialog-content'][data-state])
+    ~ :is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay'])[data-state] {
+    z-index: 100;
+  }
   [data-slot='dropdown-menu-content'][data-state],
   [data-slot='dropdown-menu-sub-content'][data-state],
   [data-slot='context-menu-content'][data-state],
@@ -87,6 +98,18 @@
   [data-slot='tooltip-content'][data-state] {
     z-index: 120;
   }
+  /* A hover card opened from a popover, menu or dialog joins the tooltip layer
+     (hover-card.tsx marks it nested). Radix copies the card's z-index onto its
+     popper wrapper inline, once, so the wrapper is raised here. Page-level
+     cards stay below dialogs. */
+  [data-radix-popper-content-wrapper]:has(> [data-overlay-layer='nested'][data-state]) {
+    z-index: 120 !important;
+  }
+  /* The truncation hint reads cut text on any surface, toasts included. It
+     takes no pointer and closes on any input, so it may cover everything. */
+  [data-slot='truncation-hint'] {
+    z-index: 2147483647;
+  }
   /* Task cancellation can originate inside a popover. Its confirmation must
      cover that originating surface, including the popper wrapper's layer. */
   [data-slot='alert-dialog-overlay'][data-state][data-overlay-layer='task-confirmation'] {
@@ -95,6 +118,36 @@
   [data-slot='alert-dialog-content'][data-state][data-overlay-layer='task-confirmation'] {
     z-index: 140;
   }
+}
+
+/*
+ * The spec type scale (docs/design/visual-language/README.md#type-scale). Sizes
+ * are in rem so the interface-size preference scales them. Use these instead of
+ * arbitrary `text-[Npx]` values; `cn()` knows them as font sizes.
+ */
+@theme {
+  --text-caption: 0.6875rem; /* 11px: key chips, counts, timestamps */
+  --text-caption--line-height: 1.35;
+  --text-label: 0.71875rem; /* 11.5px: group labels, subtitles */
+  --text-label--line-height: 1.35;
+  --text-meta: 0.75rem; /* 12px: secondary text, status words */
+  --text-meta--line-height: 1.4;
+  --text-menu: 0.78125rem; /* 12.5px: menu rows, buttons, list rows */
+  --text-menu--line-height: 1.4;
+  --text-ui: 0.8125rem; /* 13px: body UI text */
+  --text-ui--line-height: 1.4;
+  --text-h3: 0.9375rem; /* 15px: section headings */
+  --text-h3--line-height: 1.35;
+  --text-title: 1.0625rem; /* 17px: Literata page and card titles */
+  --text-title--line-height: 1.3;
+  --text-welcome: 1.125rem; /* 18px: the welcome title */
+  --text-welcome--line-height: 1.3;
+  /*
+   * Status marks that stay on screen for a whole run turn in 12 steps a second.
+   * A smooth spin makes the compositor draw every frame while a conversation
+   * idles; the steps draw 12.
+   */
+  --animate-spin-steps: spin 1s steps(12, end) infinite;
 }
 
 @theme inline {
@@ -106,6 +159,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-action: var(--action);
+  --color-question: var(--question);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -125,9 +179,11 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-accent-border: var(--accent-border);
   --color-muted-foreground: var(--muted-foreground);
   --color-faint: var(--faint);
   --color-changed: var(--changed);
+  --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
   --color-key: var(--key);
@@ -158,6 +214,7 @@
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-link: var(--link);
   --color-status-supported: var(--status-supported);
   --color-status-supported-foreground: var(--status-supported-foreground);
@@ -205,6 +262,15 @@
 }
 
 @layer base {
+  /* The transcript rows' horizontal gutter, shared with the docked composer. */
+  :root {
+    --conversation-gutter: 1.25rem;
+  }
+  @media (width >= 64rem) {
+    :root {
+      --conversation-gutter: 2rem;
+    }
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -229,6 +295,23 @@
       [data-disabled]:not([data-disabled='false'])
     ) {
     cursor: default;
+  }
+  /* A hover name is never interactive: a name held open by focus must not
+     block a click on what it covers. Radix positions it in a wrapper. */
+  [data-radix-popper-content-wrapper]:has(> [data-name-tooltip]) {
+    pointer-events: none;
+  }
+  /* A picker marked as a sheet leaves its anchor below 600 px: Radix's inline
+     position gives way to a full-width bottom sheet over a scrim. */
+  @media (max-width: 599px) {
+    [data-radix-popper-content-wrapper]:has(> [data-picker-sheet]) {
+      inset: auto 0 0 0 !important;
+      min-width: 0 !important;
+      transform: none !important;
+    }
+    :root:has([data-picker-sheet]) [data-slot='modal-shield'] {
+      background: var(--scrim);
+    }
   }
   input[type='file']:not(:disabled)::file-selector-button {
     cursor: pointer;
@@ -297,18 +380,15 @@
 
 /* A generated Row can hold a map and table with equal weight, but two
    half-width data views become unusable in the transcript. Stack root rows
-   when the surface itself is narrow, including in the workspace canvas. */
+   when the surface itself is narrow, including in the workspace canvas.
+   Stacking is a one-column grid on the row itself: a `[style*=…] > *` rule
+   would make every inline-style write anywhere in the app (popper positions,
+   virtualizer transforms) restyle that element's whole subtree. */
 @container (max-width: 700px) {
   [data-slot='a2ui-surface-root']
     > div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-direction: column !important;
-  }
-
-  [data-slot='a2ui-surface-root']
-    > div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > * {
-    flex: 0 1 auto !important;
-    width: 100%;
+    align-items: stretch !important;
   }
 }
 
@@ -320,15 +400,7 @@
       > [data-slot='a2ui-chart']
     ) {
     flex-direction: column !important;
-  }
-
-  [data-slot='a2ui-surface-root']
-    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
-      > [data-slot='a2ui-chart']
-    )
-    > * {
-    flex: 0 1 auto !important;
-    width: 100%;
+    align-items: stretch !important;
   }
 }
 
@@ -483,70 +555,6 @@
   outline: none;
 }
 
-.clio-grid {
-  background-image: linear-gradient(
-      to right,
-      color-mix(in oklch, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    ),
-    radial-gradient(
-      circle at 72% 28%,
-      color-mix(in oklch, var(--primary) 14%, transparent),
-      transparent 34%
-    );
-  background-size:
-    32px 32px,
-    32px 32px,
-    100% 100%;
-  mask-image: linear-gradient(to bottom, black, transparent 88%);
-}
-
-.clio-landing-background {
-  background: radial-gradient(
-      circle at 18% 12%,
-      color-mix(in oklch, var(--primary) 14%, transparent),
-      transparent 29rem
-    ),
-    radial-gradient(
-      circle at 86% 84%,
-      color-mix(in oklch, var(--action) 8%, transparent),
-      transparent 25rem
-    ),
-    linear-gradient(
-      to right,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    );
-  background-size:
-    100% 100%,
-    100% 100%,
-    40px 40px,
-    40px 40px;
-  mask-image: linear-gradient(115deg, black 0%, black 52%, transparent 92%);
-}
-
-.clio-landing-background::after {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(
-    115deg,
-    transparent 42%,
-    color-mix(in oklch, var(--primary) 5%, transparent) 42.2%,
-    transparent 42.5%
-  );
-  content: '';
-}
-
 .clio-scrollbar {
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 36%, transparent) transparent;
   scrollbar-gutter: stable;
@@ -665,6 +673,77 @@ div.maplibregl-map {
   animation: stream-cursor 1.1s ease-in-out infinite;
 }
 
+/* The setting a search opened: a teal fill and left bar for 2 s, its control
+   focused. The negative margin keeps the row's text where it was. */
+@keyframes search-arrival {
+  0%,
+  75% {
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    box-shadow: inset 2px 0 var(--primary);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: inset 2px 0 transparent;
+  }
+}
+
+.clio-search-arrival {
+  margin-inline: -10px;
+  padding-inline: 10px;
+  animation: search-arrival 2s ease-out both;
+}
+
+/* A mouse pick isn't focus-visible; the arriving control shows its ring anyway.
+   A choice draws it on the label around its hidden radio. */
+.clio-search-arrival
+  [data-slot='settings-control']
+  :is(:focus:not([role='radio']), label:has(> :focus)) {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clio-search-arrival {
+    animation: none !important;
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    box-shadow: inset 2px 0 var(--primary);
+  }
+}
+
+html[data-clio-motion='reduced'] .clio-search-arrival {
+  animation: none !important;
+  background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  box-shadow: inset 2px 0 var(--primary);
+}
+
+/* The filtered Settings window renders each matching section whole and shows only
+   its matching rows, plus the save bar and the loading line. The ancestor is a
+   class so the style engine's ancestor filter rejects every element outside the
+   filtered view before evaluating the :has() below. */
+.clio-settings-filter
+  :not(
+    :has(
+        [data-setting-match],
+        [data-slot='save-bar'],
+        [data-slot='state-view'][data-kind='loading']
+      ),
+    [data-setting-match],
+    [data-setting-match] *,
+    [data-slot='save-bar'],
+    [data-slot='save-bar'] *,
+    [data-slot='state-view'][data-kind='loading'],
+    [data-slot='state-view'][data-kind='loading'] *
+  ) {
+  display: none;
+}
+
+/* Settings the agent didn't render still show, as rows that open their section. */
+[data-settings-filter]:has([data-setting-match], [data-slot='state-view'][data-kind='loading'])
+  + [data-settings-fallback] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -674,6 +753,17 @@ div.maplibregl-map {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* Reduced motion: toasts fade in place instead of sliding. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] [data-sonner-toast] {
+    transition: opacity 200ms ease !important;
+  }
+}
+
+html[data-clio-motion='reduced'] [data-sonner-toaster] [data-sonner-toast] {
+  transition: opacity 200ms ease !important;
 }
 
 html[data-clio-motion='reduced'] *,
@@ -697,24 +787,36 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 0.875rem;
   line-height: 1.5rem;
 }
+/* The parent's assignment is a prompt: it reads at its bubble's size. */
+[data-slot='parent-delegation-bubble'] .tool-presentation-body {
+  font-size: inherit;
+  line-height: inherit;
+}
 /* A bounded preview measures its rendered lines to decide how much to show. A code
    block's content-visibility skip (rendering deferred while clipped) left nothing to
    measure, so a file change collapsed to its path; inside a preview it always renders. */
 .tool-presentation-body [data-language] {
   content-visibility: visible !important;
 }
-[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6),
+[data-slot='compaction-summary'] :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1rem;
   line-height: 1.5rem;
   margin-block: 0.5rem 0.25rem;
 }
-[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child {
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child,
+[data-slot='compaction-summary'] :is(h1, h2, h3, h4, h5, h6):first-child {
   margin-top: 0;
 }
 .tool-presentation-body pre {
   width: 100%;
   min-width: 0;
   padding: 0.5rem 0.75rem;
+}
+/* An edit's change reads at the transcript's code size, like a prose code block. */
+[data-slot='transcript-diff-card'] .tool-presentation-body :is(pre, code) {
+  font-size: 11.5px;
+  line-height: 1.65;
 }
 
 /* A result surface, not another outer tool card. Tokens adapt to both themes. */
@@ -732,6 +834,49 @@ html[data-clio-motion='reduced'] *::after {
 [data-slot='tool-human-result'] [data-language] pre {
   background: transparent !important;
 }
+/* In a tool row's frame a code result is the frame's body, as the spec's `.xbody .code`:
+   edge to edge, no second fill, transcript code size. */
+[data-slot='activity-body'] [data-slot='tool-result-panel']:has([data-language]) {
+  margin-inline: -0.75rem;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] [data-language] {
+  background: transparent;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] :is(pre, code) {
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] pre {
+  padding: 0.25rem 0.75rem;
+}
+/* Numbered code starts at the frame edge: a 34px right-aligned number, then 12px. */
+[data-slot='activity-body']
+  [data-slot='tool-result-panel']
+  pre:has(> code[class*='counter-reset']) {
+  padding-left: 0;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel'] pre > code > span::before {
+  width: 34px;
+  margin-right: 12px;
+}
+/* The frame's padding is the text's only inset: labels, text and code share one left edge. */
+[data-slot='activity-body'] [data-slot='tool-result-panel'] > p:first-child,
+[data-slot='activity-body'] [data-slot='tool-result-panel-text'],
+[data-slot='activity-body'] [data-slot='tool-result-panel-text'] > p {
+  padding-inline: 0;
+}
+[data-slot='activity-body'] [data-slot='tool-result-panel']:has([data-language]) > p:first-child {
+  padding-inline: 0.75rem;
+}
+[data-slot='activity-body'] .tool-presentation-body,
+[data-slot='activity-body'] .tool-presentation-body > p,
+[data-slot='activity-body'] [data-slot='tool-result-label'],
+[data-slot='activity-body']
+  [data-slot='tool-result-panel']
+  .tool-presentation-body
+  > [data-streamdown] {
+  padding-inline: 0;
+}
 /* The session plan sits in a rail section: its headings mark structure at body
    size instead of opening a document. */
 [data-slot='session-plan'] :is(h1, h2, h3, h4, h5, h6) {
@@ -745,6 +890,193 @@ html[data-clio-motion='reduced'] *::after {
    table scrolls in its frame. */
 [data-streamdown='inline-code'] {
   overflow-wrap: break-word;
+}
+/* Transcript markdown follows the conversation spec's `.md`, `.cbk` and `.tbl`:
+   one frame per block, a 30px header, compact rows and tight list rhythm. */
+[data-slot='message-text'] .space-y-4 > :not(:last-child) {
+  margin-block-end: 10px;
+}
+[data-slot='message-text'] :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
+  margin-block-end: 6px;
+}
+[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
+  margin-block-start: 14px;
+}
+[data-slot='message-text'] h1[data-streamdown] {
+  font-size: 18px;
+}
+[data-slot='message-text'] h2[data-streamdown] {
+  font-size: 17px;
+}
+[data-slot='message-text'] h3[data-streamdown] {
+  font-size: 15px;
+}
+[data-slot='message-text'] :is(h4, h5, h6)[data-streamdown] {
+  font-size: 14px;
+}
+[data-slot='message-text']
+  :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
+  list-style-position: outside;
+  padding-left: 20px;
+}
+[data-slot='message-text'] li[data-streamdown='list-item'] {
+  margin: 3px 0;
+  padding: 0;
+}
+[data-slot='message-text']
+  li
+  > :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
+  margin-top: 3px;
+  padding-left: 20px;
+}
+[data-slot='message-text'] [data-streamdown='blockquote'] {
+  margin: 0;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  font-style: normal;
+  color: var(--muted-foreground);
+}
+[data-slot='message-text'] :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
+  position: relative;
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  padding: 0;
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'],
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'] > span {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'] > span:empty::before {
+  content: 'Code';
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+  gap: 0;
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child::before {
+  content: 'Table';
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+[data-slot='message-text']
+  [data-streamdown='code-block']
+  > div:has(> [data-streamdown='code-block-actions']) {
+  top: 0;
+  height: 30px;
+  margin-top: -30px;
+  padding-right: 4px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-actions'] {
+  gap: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  backdrop-filter: none;
+}
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+}
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button:hover {
+  background: var(--hover);
+}
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button
+  svg {
+  width: 13px;
+  height: 13px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 10px 6px 0;
+  overflow-x: auto;
+  font: 11.5px/1.65 var(--font-mono);
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] :is(pre, code) {
+  font: inherit;
+  white-space: pre;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] code > span {
+  padding-left: 34px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] code > span::before {
+  box-sizing: border-box;
+  width: 34px;
+  margin: 0 0 0 -34px;
+  padding-right: 12px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:last-child {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+[data-slot='message-text'] [data-streamdown='table-header'] {
+  background: transparent;
+}
+/* A table takes its content width up to max(100%, 48em) and scrolls past the column, so a
+   narrow transcript gives long prose cells room instead of a one-word-wide column. */
+[data-slot='message-text'] [data-streamdown='table'] {
+  width: max-content;
+  min-width: 100%;
+  max-width: max(100%, 48em);
+}
+[data-slot='message-text'] [data-streamdown='table-header-cell'] {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font: 500 11px var(--font-sans);
+  color: var(--muted-foreground);
+}
+[data-slot='message-text'] [data-streamdown='table-cell'] {
+  min-width: 6em;
+  padding: 6px 8px;
+  vertical-align: top;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+[data-slot='message-text'] [data-streamdown='table-row'] > :first-child {
+  padding-left: 10px;
 }
 [data-diff-line='addition'] {
   background: color-mix(in srgb, var(--success) 16%, transparent);
@@ -786,24 +1118,15 @@ html[data-clio-motion='reduced'] *::after {
   flex-wrap: wrap;
 }
 
-/* Stack analytical panels in a narrow dock; preserve authored weights when wide. */
+/* Stack analytical panels in a narrow dock; preserve authored weights when wide.
+   Stretching also reaches children of `display: contents` wrappers, which are
+   flex items of the row (see the root-row rule above). */
 @container (max-width: 900px) {
   [data-slot='a2ui-dashboard']
     [data-slot='a2ui-surface-root']
     div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
-    flex-wrap: wrap;
-  }
-  [data-slot='a2ui-dashboard']
-    [data-slot='a2ui-surface-root']
-    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > *,
-  [data-slot='a2ui-dashboard']
-    [data-slot='a2ui-surface-root']
-    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > [style*='contents']
-    > * {
-    flex: 1 1 100% !important;
-    min-width: 0;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
 }
 

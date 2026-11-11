@@ -1,3 +1,4 @@
+import type { QueryKey } from '@tanstack/react-query';
 import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import type {
   ActionCardAction,
@@ -22,9 +23,9 @@ import type { McpAppResponseActivityData } from './mcp-app-surface';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { TurnPreparationProps } from './turn-preparation';
-import type { ConversationModelBoundary } from './conversation-model-boundaries';
 import type { ConversationForkOrigin } from './conversation-fork-origin';
 import type { ConversationTurnPresentation } from './conversation-turn-model';
+import type { ConversationModelBoundary } from './conversation-model-boundaries';
 
 /** Older messages of a paged transcript, loaded when the reader reaches the top. */
 export interface EarlierMessagesControl {
@@ -37,7 +38,16 @@ export interface EarlierMessagesControl {
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
+  /**
+   * A cached transcript query whose fetches also count as loading. Only the
+   * indicators that show it subscribe, so a background refetch leaves the turns alone.
+   */
+  loadingQueryKey?: QueryKey;
+  /** No transcript page has arrived yet, so an empty list is not yet a fact. */
+  awaitingFirstPage?: boolean;
   error?: string;
+  /** Reads the transcript again after `error`; offered as the error's Retry. */
+  onReload?: () => void;
   /** Present when the transcript is paged and older messages can be read. */
   earlier?: EarlierMessagesControl;
   /**
@@ -68,7 +78,7 @@ export interface ClioConversationProps {
   resources?: Record<string, WorkspaceResource>;
   /**
    * This session's live compactions (`EntityState.compactions`): a running one
-   * renders as "Summarizing context" where it started, a failed one as its
+   * renders as "Summarizing earlier messages…" where it started, a failed one as its
    * typed error. Stream-only, so a caller not wired to the live store omits it.
    */
   compactions?: readonly PendingCompaction[];
@@ -147,6 +157,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   mcpAppResponse?: McpAppResponseActivityData;
   /** The compactions positioned after this message's content. */
   messageCompactions?: readonly PendingCompaction[];
-  /** A recorded provider/model segment beginning at this message. */
+  /** The model changed at this prompt. */
   modelBoundary?: ConversationModelBoundary;
 }

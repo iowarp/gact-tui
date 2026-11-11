@@ -1,11 +1,13 @@
 import type { RunState, Session, WorkspaceReference } from '@clio/core/v3';
 import { m } from 'motion/react';
 import type { ReactNode } from 'react';
-import type { ComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerDraftValue, type ComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerQueue } from '@/hooks/use-composer-queue';
 import type { useSessionCommands } from '@/hooks/use-session-commands';
 import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useModelCatalogStatus } from '@/hooks/use-model-catalog-status';
 import { isManagedChildSession } from '@/lib/session-state';
 import { sessionSpotterModel } from '@/lib/spotter-model-ref';
 import { ClioChildSessionFooter } from './child-session-footer';
@@ -16,6 +18,8 @@ import * as workspaceRouteState from './workspace-route-state';
 
 type WorkspaceData = ReturnType<typeof useWorkspaceData>;
 type SessionMutations = ReturnType<typeof useSessionMutations>;
+
+const NO_QUEUED_MESSAGES: never[] = [];
 
 /** Whether the conversation has started, and how to record a start that failed. */
 export interface ConversationStart {
@@ -47,14 +51,10 @@ export interface WorkspaceComposerProps {
   mutations: Pick<
     SessionMutations,
     | 'cancel'
-    | 'deleteQueuedMessage'
     | 'discardFiles'
     | 'prepareFiles'
-    | 'promoteQueuedMessage'
-    | 'queuedMessages'
-    | 'reorderQueuedMessages'
+    | 'reconcileTurnMode'
     | 'send'
-    | 'updateQueuedMessage'
     | 'updateSessionBehavior'
   >;
   commands: ReturnType<typeof useSessionCommands>;
@@ -99,13 +99,16 @@ export function WorkspaceComposer({
   onOpenResource,
   onOpenReference,
 }: WorkspaceComposerProps) {
-  const {
-    cancel,
-    deleteQueuedMessage,
-    promoteQueuedMessage,
-    reorderQueuedMessages,
-    updateQueuedMessage,
-  } = mutations;
+  const { cancel } = mutations;
+  const queue = useComposerQueue({
+    reconcileTurnMode: mutations.reconcileTurnMode,
+    sessionId,
+    workspaceId,
+  });
+  const { deleteQueuedMessage, promoteQueuedMessage, reorderQueuedMessages, updateQueuedMessage } =
+    queue;
+  const value = useComposerDraftValue(draft);
+  const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const startingConversation = async (action: () => Promise<unknown>) => {
     const startedFromWelcome = conversation.welcome;
     if (startedFromWelcome) conversation.setStarted(true);
@@ -124,9 +127,18 @@ export function WorkspaceComposer({
           ? 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
           : 'w-full'
       }
-      key={variant}
+      // A session's welcome composer registers fresh so it can hand off to its docked one.
+      // The layoutId is constant: motion keeps one shared-layout stack per id for the life
+      // of the page, so per-session ids leaked a stack (and a dead composer) per conversation.
+      // WorkspaceTranscript resets those stacks when the session changes, so nothing
+      // animates across sessions.
+      key={docked ? 'docked' : `welcome:${sessionId}`}
       layout
-      layoutId={`session-composer:${sessionId}`}
+      layoutId="session-composer"
+      // Measure only for the welcome-to-docked handoff (Motion resumes a shared
+      // layout only across differing dependencies). Without it every render
+      // snapshots the page layout, twice per transcript commit.
+      layoutDependency={variant}
     >
       {isManagedChildSession(session) ? (
         <ClioChildSessionFooter
@@ -148,11 +160,18 @@ export function WorkspaceComposer({
           contextReferences={workspaceRouteState.canUseContextReferences(
             data.capabilities.data?.capabilities,
           )}
+          capabilitiesPending={data.capabilities.isPending}
           commands={commands.commands}
+          commandsState={commands.commandsState}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={
-            mutations.send.isPending || cancel.isPending || commands.isPending || hold.active
+            mutations.send.isPending ||
+            queue.adding ||
+            cancel.isPending ||
+            commands.isPending ||
+            hold.active
           }
+          sending={mutations.send.isPending || queue.adding}
           effort={data.activeEffort}
           configuredEffort={data.configuredEffort}
           executionMode={
@@ -170,7 +189,7 @@ export function WorkspaceComposer({
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={data.activeModel}
-          modelCatalogStatus={data.modelCatalogStatus}
+          modelCatalogStatus={modelCatalogStatus}
           modelOptions={data.modelOptions}
           pendingInteractions={hold.withCard(pendingInteractions)}
           onCommand={(value) => startingConversation(() => commands.run(value))}
@@ -206,18 +225,13 @@ export function WorkspaceComposer({
           onReferencesChange={draft.onReferencesChange}
           onValueChange={draft.onValueChange}
           provider={data.activeProvider}
-          queuedMessages={mutations.queuedMessages.data ?? []}
+          queuedMessages={queue.messages ?? NO_QUEUED_MESSAGES}
           queuePaused={session.metadata?.composer_queue_paused === true}
           resources={data.workspaceResources.data ?? []}
-          queueBusy={
-            deleteQueuedMessage.isPending ||
-            promoteQueuedMessage.isPending ||
-            reorderQueuedMessages.isPending ||
-            updateQueuedMessage.isPending
-          }
+          queueBusy={queue.busy}
           state={state}
           references={draft.references}
-          value={draft.value}
+          value={value}
           variant={variant}
           workspaceId={workspaceId}
         />

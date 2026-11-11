@@ -24,7 +24,11 @@ for (const width of [1100, 1600]) {
       }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-    if (width === 1600) await page.locator('[data-slot="sidebar-trigger"]').click();
+    if (width === 1600) {
+      await page.locator('[data-slot="sidebar-trigger"]').click();
+      // The hide control lives in the strip; collapsing it must not preview it back open.
+      await page.mouse.move(width - 20, 850);
+    }
     const sidebar = page
       .locator('[data-slot="sidebar"]')
       .filter({ has: page.getByRole('navigation', { name: 'Workspace navigation' }) });
@@ -49,7 +53,7 @@ for (const width of [1100, 1600]) {
       exact: true,
     });
     await actions.click();
-    const edit = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const edit = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await expect(edit).toBeVisible();
     await edit.hover();
     await expect(sidebar).toHaveAttribute('data-preview', 'true');
@@ -107,7 +111,8 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
         return bounds.x + bounds.width / 2;
       }),
   );
-  expect(centers.length).toBeGreaterThanOrEqual(6);
+  // The mark, New conversation, Search and a workspace; Files and Runs left the bar.
+  expect(centers.length).toBeGreaterThanOrEqual(4);
   expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('collapsed-alignment.png') });
   const cookie = await page.evaluate(() => document.cookie);
@@ -119,7 +124,7 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
   expect(await page.evaluate(() => document.cookie)).toBe(cookie);
   const controls = [
     sidebar.getByRole('button', { name: 'Search work', exact: true }),
-    sidebar.getByRole('button', { name: 'Create or import', exact: true }),
+    sidebar.getByRole('button', { name: 'New conversation', exact: true }),
     sidebar.locator('[data-slot="sidebar-header"] [data-sidebar="menu-button"]').first(),
   ];
   for (const control of controls) {
@@ -152,6 +157,16 @@ async function expectSelectedTabVisible(canvas: Locator) {
       }),
     )
     .toBe(true);
+}
+
+/** Select a tab, from the list at the end of the row when the row has no room for it. */
+async function selectCanvasTab(canvas: Locator, name: string) {
+  const tab = canvas.getByRole('tab', { name, exact: true });
+  if (!(await tab.isVisible())) {
+    await canvas.getByRole('button', { name: /^\d+ more tabs$/ }).click();
+    await canvas.page().getByRole('menuitem', { name, exact: true }).click();
+  }
+  await tab.click();
 }
 
 test('selected canvas tab stays fully visible through resizing, reordering and maximize/restore', async ({
@@ -202,7 +217,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(canvas);
   }
-  await canvas.getByRole('tab', { name: 'Agent', exact: true }).click();
+  await selectCanvasTab(canvas, 'Agent');
   await expectSelectedTabVisible(canvas);
   const resize = await page
     .getByRole('separator', { name: 'Resize workspace canvas', exact: true })
@@ -219,7 +234,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   await expectSelectedTabVisible(canvas);
   await page.keyboard.press('Escape');
   await expectSelectedTabVisible(canvas);
-  await canvas.getByRole('tab', { name: longTitle, exact: true }).click();
+  await selectCanvasTab(canvas, longTitle);
   for (const width of [640, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(

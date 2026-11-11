@@ -41,12 +41,7 @@ interface RawBrand {
   };
   workspace?: {
     greeting?: string;
-    description?: string;
   };
-  starterPrompts?: Array<{
-    eyebrow?: string;
-    label?: string;
-  }>;
 }
 
 export interface ResolvedBrand {
@@ -73,12 +68,7 @@ export interface ResolvedBrand {
   };
   workspace: {
     greeting: string;
-    description: string;
   };
-  starterPrompts: Array<{
-    eyebrow: string;
-    label: string;
-  }>;
   logoSvg: string | null;
   logoImage: string | null;
   iconSvg: string | null;
@@ -160,17 +150,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
         raw.landing?.description?.trim() || raw.tagline?.trim() || 'Open your agent workspace.',
     },
     workspace: {
-      greeting: raw.workspace?.greeting?.trim() || `What would you like to do with ${name}?`,
-      description:
-        raw.workspace?.description?.trim() ||
-        'Start with a question, a workspace resource, or one of these examples.',
+      greeting: raw.workspace?.greeting?.trim() || 'What can I help you with?',
     },
-    starterPrompts: (raw.starterPrompts ?? [])
-      .map((prompt) => ({
-        eyebrow: prompt.eyebrow?.trim() || '',
-        label: prompt.label?.trim() || '',
-      }))
-      .filter((prompt) => prompt.label.length > 0),
     logoSvg: readAsset(profileDirectory, raw.logoSvg, true),
     logoImage: readAsset(profileDirectory, raw.logoImage, false),
     iconSvg: readAsset(profileDirectory, raw.iconSvg, true),
@@ -186,6 +167,8 @@ const RESOLVED_ID = '\0@brand';
 const BRAND_FAVICON_PATH = '/brand-favicon.svg';
 /** The tracked, product-neutral fallback shipped in web/public. */
 const NEUTRAL_FAVICON_PATH = '/favicon.svg';
+/** The theme ids a brand's accent and theme tokens restyle. */
+export const BRANDED_THEMES = ['classic-light', 'classic-dark'] as const;
 
 export function brandPlugin(brandingRoot: string, profile: string, inlineAssets = false): Plugin {
   let cached: ResolvedBrand | undefined;
@@ -231,8 +214,9 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
     // its own any more; both come from here, for both dev and build.
     transformIndexHtml() {
       const brand = getBrand();
-      // A brand restyles the default Light and Dark themes; Notebook and Debug
-      // keep their own values. `html:root` outranks the theme blocks in
+      // A brand restyles only the Classic themes. Notebook (the `light` and
+      // `dark` ids, in which the design spec is drawn) and Debug keep their own
+      // values. `html:root` outranks the theme blocks in
       // web/src/theme/themes.css, and the rule is in place before first paint.
       const brandTokens = {
         ...brand.themeTokens,
@@ -248,7 +232,7 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
               {
                 tag: 'style',
                 attrs: { 'data-brand-tokens': '' },
-                children: `html:root:is([data-theme='light'], [data-theme='dark']) { ${declarations} }`,
+                children: `html:root:is(${BRANDED_THEMES.map((id) => `[data-theme='${id}']`).join(', ')}) { ${declarations} }`,
                 injectTo: 'head' as const,
               },
             ]

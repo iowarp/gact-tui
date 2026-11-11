@@ -5,9 +5,15 @@ type RecordedModel = NonNullable<Message['model']>;
 export interface ConversationModelBoundary {
   model?: RecordedModel;
   previous?: RecordedModel;
+  /** The conversation's first recorded model; each reply's footer already names it. */
+  initial?: true;
 }
 
-/** Mark accepted model segments, without assigning current settings to old messages. */
+/**
+ * Mark accepted model segments, without assigning current settings to old
+ * messages. Replies and prompts do not group across a segment; the reply
+ * footer names each model, so the boundary itself draws nothing.
+ */
 export function conversationModelBoundaries(
   messages: readonly Message[],
 ): ReadonlyMap<string, ConversationModelBoundary> {
@@ -28,22 +34,11 @@ export function conversationModelBoundaries(
     if (message.role === 'assistant' && !model) continue;
     if (model?.provider_id === previous?.provider_id && model?.model_id === previous?.model_id)
       continue;
-    boundaries.set(message.id, { model, previous });
+    boundaries.set(
+      message.id,
+      boundaries.size ? { model, previous } : { model, previous, initial: true },
+    );
     previous = model;
   }
   return boundaries;
-}
-
-/** Keep streamed row memoization stable when a neighboring turn updates. */
-export function modelBoundariesEqual(
-  left?: ConversationModelBoundary,
-  right?: ConversationModelBoundary,
-): boolean {
-  return (
-    Boolean(left) === Boolean(right) &&
-    left?.model?.provider_id === right?.model?.provider_id &&
-    left?.model?.model_id === right?.model?.model_id &&
-    left?.previous?.provider_id === right?.previous?.provider_id &&
-    left?.previous?.model_id === right?.previous?.model_id
-  );
 }

@@ -18,10 +18,13 @@ export function PresentationLink({
   block,
   compact = false,
   iconOnly = false,
+  className: extraClassName,
 }: {
   block: ToolPresentationBlock;
   compact?: boolean;
   iconOnly?: boolean;
+  /** Restyles the label, e.g. as an activity row's mono argument. */
+  className?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
   const hasRouter = useInRouterContext();
@@ -29,6 +32,11 @@ export function PresentationLink({
   if (block.target === 'connected_data')
     return iconOnly ? null : <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
+  // A row names an absolute path by its folder and file; the tooltip keeps the whole path.
+  const shown =
+    compact && /^(?:[a-z]:[\\/]|\/)/iu.test(label)
+      ? label.split(/[\\/]/u).filter(Boolean).slice(-2).join('/')
+      : label;
   const filename = compact && block.target === 'file';
   const text = iconOnly ? (
     block.target === 'url' ? (
@@ -38,15 +46,19 @@ export function PresentationLink({
     )
   ) : filename ? (
     <span className="flex min-w-0">
-      <span className="truncate">{label.slice(0, -12)}</span>
-      <span className="shrink-0">{label.slice(-12)}</span>
+      <span className="truncate">{shown.slice(0, -12)}</span>
+      <span className="shrink-0">{shown.slice(-12)}</span>
     </span>
   ) : (
-    <span className={compact ? 'truncate' : undefined}>{label}</span>
+    <span className={compact ? 'truncate' : undefined}>{shown}</span>
   );
   const className = iconOnly
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
-    : cn('text-sm', compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words');
+    : cn(
+        'text-sm',
+        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        extraClassName,
+      );
   const withTooltip = (element: React.ReactElement) =>
     compact ? (
       <TooltipProvider>

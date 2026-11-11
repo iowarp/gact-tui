@@ -23,14 +23,14 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
       const label = content.getByRole('heading', { name: 'Interface size', exact: true });
       expect(
         await label.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
-      ).toBeCloseTo((14 * size) / 100, 1);
+      ).toBeCloseTo((13 * size) / 100, 1);
       if (width >= 1280) {
         const navigation = page.getByRole('link', { name: 'General', exact: true });
         expect(
           await navigation.evaluate((element) =>
             Number.parseFloat(getComputedStyle(element).fontSize),
           ),
-        ).toBeCloseTo((13 * size) / 100, 1);
+        ).toBeCloseTo((12.5 * size) / 100, 1);
       }
       expect(
         await content.evaluate((element) => element.scrollWidth - element.clientWidth),
@@ -85,7 +85,7 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
   );
 });
 
-test('larger interface keeps the composer and anchored Create dialog reachable', async ({
+test('larger interface keeps the composer and the centred Create dialog reachable', async ({
   page,
 }, testInfo) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -104,19 +104,45 @@ test('larger interface keeps the composer and anchored Create dialog reachable',
       await composer.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);
     await expect(composer.locator('button[type="submit"]')).toBeInViewport();
-    const create = page.getByRole('button', { name: 'Create or import', exact: true });
+    // New conversation is a draft in place; Create's Session form opens from New workspace.
+    const create = page.getByRole('button', { name: 'New workspace', exact: true });
     if (!(await create.isVisible())) {
       await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
     }
     await create.click();
-    await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
     await expect(dialog).toBeVisible();
+    const settled = () =>
+      dialog.evaluate((element) =>
+        Promise.all(
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => undefined)),
+        ),
+      );
+    await settled();
+    const opened = (await dialog.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    if (width >= 600) {
+      // Opens centred like every DialogFrame, then grows downward from its top edge.
+      expect(Math.abs(opened.x + opened.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
+      expect(Math.abs(opened.y + opened.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
+    }
+    await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
+    await settled();
     const before = (await dialog.boundingBox())!;
+    if (width >= 600) expect(Math.abs(before.y - opened.y)).toBeLessThanOrEqual(1);
     await dialog.getByRole('button', { name: 'Advanced session behavior', exact: true }).click();
+    await settled();
     const after = (await dialog.boundingBox())!;
-    expect(after.x).toBeCloseTo(before.x, 0);
-    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+    if (width >= 600) {
+      expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+      expect(after.height).toBeGreaterThan(before.height);
+    }
+    expect(after.y).toBeGreaterThanOrEqual(0);
+    expect(after.y + after.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(after.x).toBeGreaterThanOrEqual(0);
     expect(after.x + after.width).toBeLessThanOrEqual(width);
     expect(

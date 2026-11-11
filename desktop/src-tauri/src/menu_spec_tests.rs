@@ -24,14 +24,7 @@ fn expected_actions() -> Vec<String> {
 }
 
 fn all_action_ids() -> Vec<&'static str> {
-    MENU_SPEC
-        .iter()
-        .flat_map(|s| s.items.iter())
-        .filter_map(|i| match i {
-            Item::Action { id, .. } => Some(*id),
-            _ => None,
-        })
-        .collect()
+    MENU_SPEC.iter().flat_map(|s| action_ids(s.items)).collect()
 }
 
 /// Action ids handled entirely natively in Rust and never dispatched to the
@@ -128,35 +121,34 @@ fn predefined_and_unknown_ids_have_no_action() {
     }
 }
 
-/// The native macOS menu carries no File or View submenu: those product
-/// actions are reachable through the product-owned title bar's hamburger
-/// menu on every platform instead (see
-/// `web/src/components/clio/desktop-title-bar.tsx`). The menu holds just
-/// what macOS itself expects an app to own — the application menu, Edit,
-/// Window and Help.
+/// The native macOS bar is the full menu structure: the application menu,
+/// File, Edit, View, Agent, Window and Help, in that order, with the
+/// documented per-submenu item counts. The title bar's app menu on Windows
+/// and Linux uses the same grouping (`desktop-title-bar.tsx`).
 #[test]
-fn menu_spec_has_no_file_or_view() {
+fn spec_has_the_full_menu_bar_with_expected_item_counts() {
     let titles: Vec<&str> = MENU_SPEC.iter().map(|s| s.title).collect();
-    for banned in ["File", "View"] {
-        assert!(
-            !titles.contains(&banned),
-            "the {banned} submenu must not exist in MENU_SPEC"
-        );
-    }
-}
-
-/// The spec has exactly four top-level submenus, in order, with the
-/// documented per-submenu item counts.
-#[test]
-fn spec_has_four_submenus_with_expected_item_counts() {
-    let titles: Vec<&str> = MENU_SPEC.iter().map(|s| s.title).collect();
-    assert_eq!(titles, vec!["App", "Edit", WINDOW_MENU_TITLE, HELP_MENU_TITLE]);
+    assert_eq!(
+        titles,
+        vec![
+            "App",
+            "File",
+            "Edit",
+            "View",
+            "Agent",
+            WINDOW_MENU_TITLE,
+            HELP_MENU_TITLE
+        ]
+    );
 
     let expected_counts = [
         ("App", 9),    // about, sep, settings, sep, hide, hide-others, show-all, sep, quit
+        ("File", 3),   // new conversation, sep, close window
         ("Edit", 7),   // undo, redo, sep, cut, copy, paste, select-all
-        ("Window", 7), // minimize, zoom, full screen, sep, close, sep, bring all to front
-        ("Help", 1),   // documentation
+        ("View", 12), // search, sep, left bar, workbench, sep, reload, sep, zoom x3, sep, full screen
+        ("Agent", 7), // connection settings, switch to, manage, sep, add an agent submenu, sep, infrastructure
+        ("Window", 4), // minimize, zoom, sep, bring all to front
+        ("Help", 2),  // documentation, keyboard shortcuts
     ];
     assert_eq!(MENU_SPEC.len(), expected_counts.len());
     for (spec, (title, count)) in MENU_SPEC.iter().zip(expected_counts) {
@@ -165,6 +157,91 @@ fn spec_has_four_submenus_with_expected_item_counts() {
     }
 }
 
+/// Each product submenu bridges exactly its documented actions, in order.
+#[test]
+fn product_submenus_bridge_their_actions_in_order() {
+    let ids = |title: &str| -> Vec<&'static str> {
+        action_ids(
+            MENU_SPEC
+                .iter()
+                .find(|s| s.title == title)
+                .unwrap_or_else(|| panic!("missing {title} submenu"))
+                .items,
+        )
+    };
+    assert_eq!(ids("File"), vec!["new-session"]);
+    assert_eq!(
+        ids("View"),
+        vec![
+            "search",
+            "toggle-left-bar",
+            "toggle-workbench",
+            "reload",
+            "zoom-reset",
+            "zoom-in",
+            "zoom-out"
+        ]
+    );
+    assert_eq!(
+        ids("Agent"),
+        vec![
+            "connection-settings",
+            "switch-agent",
+            "manage-agents",
+            "connect-by-address",
+            "manage-agent-services",
+            "install-agent",
+            "open-infrastructure"
+        ]
+    );
+    // The CLIO menu's "Add an agent…" choices stay grouped in one submenu.
+    let agent = MENU_SPEC.iter().find(|s| s.title == "Agent").unwrap();
+    let add = agent
+        .items
+        .iter()
+        .find_map(|i| match i {
+            Item::Submenu { title, items } if *title == "Add an Agent" => Some(*items),
+            _ => None,
+        })
+        .expect("Agent must group the add choices in an Add an Agent submenu");
+    assert_eq!(
+        action_ids(add),
+        vec!["connect-by-address", "manage-agent-services", "install-agent"]
+    );
+    assert_eq!(
+        ids(HELP_MENU_TITLE),
+        vec!["help-docs", "keyboard-shortcuts"]
+    );
+}
+
+/// Every accelerator uses the cross-platform Cmd modifier and a key name the
+/// menu's accelerator parser accepts. The menu only builds on macOS, so a
+/// malformed string would otherwise fail first on a Mac at startup.
+#[test]
+fn accelerators_are_cmd_chords_with_known_keys() {
+    for item in MENU_SPEC.iter().flat_map(|s| s.items.iter()) {
+        let Item::Action {
+            id,
+            accel: Some(accel),
+            ..
+        } = item
+        else {
+            continue;
+        };
+        let mut parts = accel.split('+').collect::<Vec<_>>();
+        let key = parts.pop().unwrap_or_default();
+        assert_eq!(parts.first(), Some(&"CmdOrCtrl"), "{id:?}: {accel}");
+        assert!(
+            parts[1..].iter().all(|m| *m == "Shift" || *m == "Alt"),
+            "{id:?}: unexpected modifier in {accel}"
+        );
+        let single = key.len() == 1 && key.chars().all(|c| c.is_ascii_alphanumeric());
+        assert!(
+            single || matches!(key, "Comma" | "=" | "-" | "/"),
+            "{id:?}: unknown accelerator key {key:?}"
+        );
+    }
+}
 /// Edit is entirely predefined (native clipboard/undo), and Quit lives in
 /// the application menu as a native-only action (not `Item::Predefined` —
 /// see `Predefined`'s doc comment for why).
@@ -235,9 +312,20 @@ fn app_menu_is_about_settings_hide_group_then_quit_in_order() {
 /// Accelerators match the documented contract for the items that have one.
 #[test]
 fn accelerators_match_contract() {
+    // The macOS chords of the shared shortcut catalog (catalog.ts).
     let want: &[(&str, &str)] = &[
         ("open-settings", "CmdOrCtrl+Comma"),
         ("quit", "CmdOrCtrl+Q"),
+        ("new-session", "CmdOrCtrl+N"),
+        ("search", "CmdOrCtrl+K"),
+        ("toggle-left-bar", "CmdOrCtrl+B"),
+        ("toggle-workbench", "CmdOrCtrl+Shift+B"),
+        ("reload", "CmdOrCtrl+R"),
+        ("zoom-reset", "CmdOrCtrl+0"),
+        ("zoom-in", "CmdOrCtrl+="),
+        ("zoom-out", "CmdOrCtrl+-"),
+        ("open-infrastructure", "CmdOrCtrl+Shift+Comma"),
+        ("keyboard-shortcuts", "CmdOrCtrl+/"),
     ];
     for (id, accel) in want {
         let found = MENU_SPEC
@@ -281,46 +369,58 @@ fn action_ids_are_unique() {
     assert_eq!(sorted.len(), ids.len(), "duplicate action id in MENU_SPEC");
 }
 
-/// The Window menu restores the standard macOS window shortcuts (Cmd+M,
-/// Cmd+W, Ctrl+Cmd+F) through native predefined items, and Help opens the
-/// same documentation action as the title bar.
+/// Window keeps the standard macOS window items (Cmd+M, Zoom, the window
+/// list), File closes the window with Cmd+W and View enters full screen with
+/// Ctrl+Cmd+F, all through native predefined items. Help opens the same
+/// documentation and shortcut sheet as the title bar.
 #[test]
-fn window_menu_is_native_and_help_opens_documentation() {
+fn window_items_are_native_and_help_opens_documentation() {
+    let predefined_in = |title: &str| -> Vec<Predefined> {
+        MENU_SPEC
+            .iter()
+            .find(|s| s.title == title)
+            .unwrap()
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Predefined(kind) => Some(*kind),
+                _ => None,
+            })
+            .collect()
+    };
     let window = MENU_SPEC
         .iter()
         .find(|s| s.title == WINDOW_MENU_TITLE)
         .unwrap();
-    let predefined: Vec<Predefined> = window
-        .items
-        .iter()
-        .filter_map(|i| match i {
-            Item::Predefined(kind) => Some(*kind),
-            Item::Separator => None,
-            Item::Action { id, .. } => panic!("Window must not bridge {id:?} to JS"),
-        })
-        .collect();
+    assert!(
+        !window
+            .items
+            .iter()
+            .any(|i| matches!(i, Item::Action { .. })),
+        "Window must not bridge anything to JS"
+    );
     assert_eq!(
-        predefined,
+        predefined_in(WINDOW_MENU_TITLE),
         vec![
             Predefined::Minimize,
             Predefined::Maximize,
-            Predefined::Fullscreen,
-            Predefined::CloseWindow,
             Predefined::BringAllToFront,
         ]
     );
+    assert_eq!(predefined_in("File"), vec![Predefined::CloseWindow]);
+    assert_eq!(predefined_in("View"), vec![Predefined::Fullscreen]);
 
     let help = MENU_SPEC
         .iter()
         .find(|s| s.title == HELP_MENU_TITLE)
         .unwrap();
     assert!(matches!(
-        help.items,
-        [Item::Action {
+        help.items[0],
+        Item::Action {
             id: "help-docs",
             accel: None,
             ..
-        }]
+        }
     ));
     assert_eq!(action_for_id("help-docs"), Some("help-docs"));
 }

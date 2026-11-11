@@ -3,10 +3,12 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { SHORTCUT_CATALOG, type ShortcutDefinition } from './catalog';
 import {
   chordAria,
+  chordKeyLabel,
   chordLabels,
   chordMatches,
   chordPosition,
   chordText,
+  heldChordText,
   isEditableTarget,
   isTextFieldChord,
   parseChord,
@@ -19,7 +21,7 @@ export function detectKeyPlatform(): KeyPlatform {
   return isMacOS() ? 'mac' : 'windows';
 }
 
-function detectHost(): 'desktop' | 'browser' {
+export function detectHost(): 'desktop' | 'browser' {
   try {
     return inTauri() ? 'desktop' : 'browser';
   } catch {
@@ -103,10 +105,45 @@ export function shortcutLabels(definition: ShortcutDefinition, platform: KeyPlat
 
 /** The shortcut as one line of text, for tooltips and menu columns. */
 export function shortcutText(definition: ShortcutDefinition, platform: KeyPlatform): string {
-  const joiner = definition.joiner === 'pair' ? ' ' : ' or ';
+  const joiner = definition.joiner === 'cap' ? '' : definition.joiner === 'pair' ? ' ' : ' or ';
   return shortcutChords(definition, platform)
     .map((chord) => chordText(chord, platform))
     .join(joiner);
+}
+
+/**
+ * The text of each alternative, one chip apiece, for a reader that puts an
+ * uncapped "or" between them. A `cap` or `pair` stays one chip.
+ */
+export function shortcutAlternatives(
+  definition: ShortcutDefinition,
+  platform: KeyPlatform,
+): string[] {
+  if (definition.joiner === 'cap' || definition.joiner === 'pair')
+    return [shortcutText(definition, platform)];
+  return shortcutChords(definition, platform).map((chord) => chordText(chord, platform));
+}
+
+/**
+ * The held-key badge text: the first chord, without the held Ctrl on Windows.
+ * A `pair` sharing its modifiers joins as one badge (`Alt ←→`).
+ */
+export function heldShortcutText(
+  definition: ShortcutDefinition,
+  platform: KeyPlatform,
+  pair?: ShortcutDefinition,
+): string | undefined {
+  const [first] = shortcutChords(definition, platform);
+  if (!first) return undefined;
+  const text = heldChordText(first, platform);
+  const [second] = pair ? shortcutChords(pair, platform) : [];
+  if (!second) return text;
+  const same =
+    first.modifiers.size === second.modifiers.size &&
+    [...first.modifiers].every((modifier) => second.modifiers.has(modifier));
+  return same
+    ? `${text}${chordKeyLabel(second, platform)}`
+    : `${text} ${heldChordText(second, platform)}`;
 }
 
 /** The `aria-keyshortcuts` value for this platform. */
@@ -124,8 +161,8 @@ export function shortcutAria(
 
 export interface ShortcutHandlerOptions {
   /**
-   * For "the tab you're in" keys: the region focus must be inside. Without
-   * it, a tab-scoped key never fires.
+   * The region focus must be inside. Without it, a tab-scoped key never
+   * fires and any other key fires anywhere.
    */
   region?: () => Element | null;
   /** Fire inside a text field even for a key the field would type. */
@@ -135,6 +172,8 @@ export interface ShortcutHandlerOptions {
    * keys a widget also binds (cmdk takes Ctrl+K as "previous item").
    */
   overrideHandled?: boolean;
+  /** Fire only while this holds; otherwise the key keeps its usual meaning (Ctrl+C with a selection). */
+  when?: (event: KeyboardEvent) => boolean;
 }
 
 export type ShortcutHandler = (event: KeyboardEvent, position: number | undefined) => void;
@@ -170,7 +209,10 @@ function dispatch(event: KeyboardEvent) {
     for (const chord of shortcutChords(definition, platform)) {
       if (!chordMatches(chord, event)) continue;
       if (editable && !options.allowInTextField && isTextFieldChord(chord, platform)) continue;
-      if (definition.group === 'tab' && !inRegion(options.region?.() ?? null, event)) continue;
+      // Tab keys need a region; any other key with a mounted region fires only inside it.
+      const region = options.region?.() ?? null;
+      if ((definition.group === 'tab' || region) && !inRegion(region, event)) continue;
+      if (options.when && !options.when(event)) continue;
       event.preventDefault();
       registration.handler()(event, chordPosition(chord, event));
       return;

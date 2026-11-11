@@ -1,13 +1,21 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import type { WorkspaceFileRange } from '@clio/core/v3';
+import { TransportError, type WorkspaceFileRange } from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
+import { retryRead } from '@/lib/connection-attempt';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
-import { TEXT_WINDOW_CHUNK_BYTES, TEXT_WINDOW_MAX_BYTES } from '@/lib/runtime-limits';
+import {
+  TEXT_WINDOW_CHUNK_BYTES,
+  TEXT_WINDOW_MAX_BYTES,
+  VIEWER_BYTES_GC_TIME_MS as TEXT_WINDOW_GC_TIME_MS,
+} from '@/lib/runtime-limits';
 
-/** Windows of a large file stay cached briefly; reopening it soon is cheap, the bytes do not linger. */
-const TEXT_WINDOW_GC_TIME_MS = 30_000;
+/** A refusal (a 4xx, such as a file past the server's read cap) won't change on retry. */
+function retryUnlessRefused(failures: number, error: Error): boolean {
+  const status = error instanceof TransportError ? (error.status ?? 0) : 0;
+  return !(status >= 400 && status < 500) && retryRead(failures, error);
+}
 
 /** One ranged read of a file's head. */
 export interface TextWindowPage {
@@ -91,7 +99,16 @@ export function decodeTextTail(bytes: Uint8Array, chunk = TEXT_WINDOW_CHUNK_BYTE
 export function useWorkspaceTextWindow(
   workspaceId: string,
   path: string,
-  { enabled = true, tail = false }: { enabled?: boolean; tail?: boolean } = {},
+  {
+    enabled = true,
+    tail = false,
+    head: wantHead = true,
+  }: {
+    enabled?: boolean;
+    tail?: boolean;
+    /** Read the head too; the end alone needs it only for a table's header. */
+    head?: boolean;
+  } = {},
 ) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -110,7 +127,8 @@ export function useWorkspaceTextWindow(
         ? undefined
         : next;
     },
-    enabled,
+    enabled: enabled && wantHead,
+    retry: retryUnlessRefused,
     gcTime: TEXT_WINDOW_GC_TIME_MS,
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -129,6 +147,7 @@ export function useWorkspaceTextWindow(
         : bytes;
     },
     enabled: enabled && tail,
+    retry: retryUnlessRefused,
     gcTime: TEXT_WINDOW_GC_TIME_MS,
     staleTime: Number.POSITIVE_INFINITY,
   });

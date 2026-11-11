@@ -72,15 +72,47 @@ describe('file viewer frame bar', () => {
     expect(onOpenFolder).toHaveBeenCalledWith('results');
   });
 
-  it('shows the size and what the renderer counts, and its modes as named icons', async () => {
+  it('shows one fact per mode: the renderer count, then the size in Source, and its modes as named icons', async () => {
+    const user = userEvent.setup();
     const frame = renderFrame();
     expect(await within(frame).findByText('412 rows')).toBeInTheDocument();
-    expect(within(frame).getByText('2.0 KB')).toBeInTheDocument();
+    expect(within(frame).queryByText('2.0 KB')).not.toBeInTheDocument();
     expect(within(frame).getByRole('tab', { name: 'Data' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(within(frame).getByRole('tab', { name: 'Source' })).toBeInTheDocument();
+    await user.click(within(frame).getByRole('tab', { name: 'Source' }));
+    expect(await within(frame).findByText('2.0 KB')).toBeInTheDocument();
+    expect(within(frame).queryByText('412 rows')).not.toBeInTheDocument();
+  });
+
+  it('lists the frame segment in the File actions menu once the bar folds that far', async () => {
+    const scroll = vi
+      .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' ? 400 : 0;
+      });
+    const client = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' ? 200 : 0;
+      });
+    try {
+      const user = userEvent.setup();
+      const frame = renderFrame();
+      expect(frame).toHaveAttribute('data-fold-modes-menu');
+      await user.click(within(frame).getByRole('button', { name: 'File actions' }));
+      const group = screen.getByRole('group', { name: 'File views' });
+      expect(within(group).getByRole('menuitemradio', { name: 'Data' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      await user.click(within(group).getByRole('menuitemradio', { name: 'Source' }));
+      expect(await within(frame).findByText('2.0 KB')).toBeInTheDocument();
+    } finally {
+      scroll.mockRestore();
+      client.mockRestore();
+    }
   });
 
   it('lists the Copy variants with their keys and says why one is unavailable', async () => {
@@ -108,10 +140,11 @@ describe('file viewer frame bar', () => {
     expect(copyText).toHaveBeenCalledWith('station,count\nMTA1,3\n');
   });
 
-  it('lists the Open variants, the one download and the renderer exports', async () => {
+  it('lists the Open variants and the renderer exports beside a visible Download', async () => {
     const user = userEvent.setup();
     const onOpenFolder = vi.fn();
     const frame = renderFrame(onOpenFolder);
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeEnabled();
     await user.click(within(frame).getByRole('button', { name: 'Open options' }));
     const menu = await screen.findByRole('menu');
     const rows = within(menu)
@@ -121,10 +154,9 @@ describe('file viewer frame bar', () => {
       expect.stringMatching(/^In a browser tab/u),
       expect.stringMatching(/^In the system app/u),
       expect.stringMatching(/^Show in Files/u),
-      expect.stringMatching(/^Download/u),
       expect.stringMatching(/^Export to PNG image/u),
     ]);
-    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F', 'D', null]);
+    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F', null]);
     expect(within(menu).getByRole('menuitem', { name: /^In the system app/u })).toHaveTextContent(
       'Needs the desktop app',
     );

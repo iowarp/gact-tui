@@ -23,7 +23,6 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 vi.mock('./navigation-header', () => ({ NavigationHeader: () => null }));
-vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
   ClioAttentionNotifier: () => null,
@@ -79,7 +78,6 @@ it.each([
       .mockResolvedValue({ download_path: '/v1/session-export/file', filename });
     const actions: ResourceActions = {
       createWorkspace: vi.fn(),
-      createSession: vi.fn(),
       renameWorkspace: vi.fn(),
       updateWorkspace: vi.fn().mockResolvedValue(undefined),
       grantWorkspaceFolder: vi.fn(),
@@ -125,14 +123,13 @@ it.each([
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     await screen.findByRole('menuitem', { name: 'Download HTML' });
-    if (mode !== 'transcript')
-      fireEvent.click(
-        screen.getByRole('menuitemcheckbox', {
-          name: mode === 'full' ? 'Include workspace files' : 'Include session artifacts',
-        }),
-      );
+    // Nothing ticked is the HTML transcript; ticking files turns it into a ZIP.
+    if (mode === 'effects')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+    if (mode === 'full')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     fireEvent.click(
       screen.getByRole('menuitem', {
         name: extension === 'html' ? 'Download HTML' : 'Download ZIP',

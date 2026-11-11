@@ -2,8 +2,11 @@ import { useSessionCacheRetention } from './use-session-cache-retention';
 import { useSessionResourceLoading } from './use-session-resource-loading';
 import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
-import { useQueries, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { TransportError } from '@clio/core/v3';
+import { retryRead } from '@/lib/connection-attempt';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useInstalledAgents } from '@/hooks/use-session-agent';
@@ -17,6 +20,7 @@ import {
   ACTIVE_TRANSCRIPT_POLL_MS,
   WAITING_SESSIONS_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
+  PENDING_INTERACTIONS_FANOUT_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
   TRANSCRIPT_PAGE_SIZE,
 } from '@/lib/runtime-limits';
@@ -43,12 +47,13 @@ import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from '.
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
 import { useKnownSessions } from './use-known-sessions';
+import { useLegacyRequestLedgers } from './use-legacy-request-ledgers';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
-import { conversationFamily } from '@/components/clio/conversation-relationships-model';
 import { useProviderCatalog } from './use-provider-catalog';
-import { useSessionLiveStream } from './use-session-live-stream';
+import type { ModelCatalogStatus } from './use-model-catalog-status';
+import { OUTSIDE_LIVE_STREAM, useSessionLiveStream } from './use-session-live-stream';
 import { useVariantRunHydration } from './use-variant-run-hydration';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
@@ -161,20 +166,64 @@ export function useWorkspaceData({
     placeholderData: reloadAllSessions,
     refetchInterval: WAITING_SESSIONS_POLL_MS,
   });
-  const allSessions = useKnownSessions(sessions, waitingSessions, Boolean(sessionId));
+  const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
+    capabilities.data?.capabilities,
+  );
+  // Capability detection may only ADD the normalized read; it may never subtract
+  // the legacy ledgers. Gating these on a resolved capability read made a failing
+  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
+  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
+  // which is what every backend answered before the capability existed.
+  const useLegacyInteractions = !supportsUnifiedInteractions;
+  // The attention feed reads every conversation's requests whether or not one
+  // is open (Runs, a new conversation), so the bell never shows a false empty.
+  // Interaction events on the stream invalidate these; a background session's
+  // request still arrives within the waiting-sessions cadence. While this family
+  // waits on a person, a missed event would leave the agent blocked with nothing
+  // on screen, so the read stays fast.
+  const familyAwaitsPerson =
+    sessions.data?.some(
+      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
+    ) ?? false;
+  // With no conversation open there is no stream to invalidate these, and the
+  // attention feed only needs the waiting-sessions cadence.
+  const interactionPollMs = !sessionId
+    ? WAITING_SESSIONS_POLL_MS
+    : familyAwaitsPerson
+      ? ACTIVE_SESSION_POLL_MS
+      : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
+  const { approvals, questions, requestOwners } = useLegacyRequestLedgers({
+    enabled: useLegacyInteractions,
+    pollMs: interactionPollMs,
+    family: sessions.data,
+    waiting: waitingSessions.data,
+  });
+  const allSessions = useKnownSessions(
+    sessions,
+    waitingSessions,
+    Boolean(sessionId),
+    requestOwners,
+  );
   const hierarchySessions = useMemo(() => allSessions.data ?? [], [allSessions.data]);
   const attendedSessionRoot = useMemo(
     () => interactionRootSessionId(sessionId, hierarchySessions),
     [hierarchySessions, sessionId],
   );
   const attendedSessionId = attendedSessionRoot.id;
+  const transcriptKey = useMemo(
+    () => queryKeys.transcriptPage(settings.endpoint, sessionId),
+    [settings.endpoint, sessionId],
+  );
   const transcript = useQuery({
-    queryKey: queryKeys.transcriptPage(settings.endpoint, sessionId),
+    queryKey: transcriptKey,
     // The newest page only: older messages load on scroll (useEarlierMessages).
     queryFn: ({ signal }) =>
       repository.transcript(sessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     enabled: Boolean(sessionId),
     placeholderData: reloadTranscript,
+    // The fetch flag is read by the components that show it (useQueryFetching), so
+    // a background refetch does not re-render the whole page.
+    notifyOnChangeProps: [...QUERY_RESULT_FIELDS, 'isPlaceholderData'],
     // A provider can finish without emitting visible stream chunks. Keep the
     // active transcript current even if the SSE completion frame is missed.
     refetchInterval: () => {
@@ -186,7 +235,8 @@ export function useWorkspaceData({
   });
   const surrounding = useSessionResourceLoading(
     `${settings.endpoint}:${sessionId}`,
-    Boolean(transcript.data) && !transcript.isPlaceholderData,
+    // A new-conversation draft has no transcript to wait for.
+    !sessionId || (Boolean(transcript.data) && !transcript.isPlaceholderData),
   );
   const { refetch: refetchTranscript } = transcript;
   const previousSessionState = useRef<{ sessionId: string; active: boolean } | null>(null);
@@ -241,50 +291,16 @@ export function useWorkspaceData({
     workspaceId,
   });
   useVariantRunHydration({ enabled: Boolean(surrounding.enabled), sessionId });
-  const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
-    capabilities.data?.capabilities,
-  );
-  // Capability detection may only ADD the normalized read; it may never subtract
-  // the legacy ledgers. Gating these on a resolved capability read made a failing
-  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
-  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
-  // which is what every backend answered before the capability existed.
-  const useLegacyInteractions = !supportsUnifiedInteractions;
-  // Interaction events on the stream invalidate these; a background session's
-  // request still arrives within the waiting-sessions cadence. While this family
-  // waits on a person, a missed event would leave the agent blocked with nothing
-  // on screen, so the read stays fast.
-  const familyAwaitsPerson =
-    sessions.data?.some(
-      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
-    ) ?? false;
-  const interactionPollMs = familyAwaitsPerson
-    ? ACTIVE_SESSION_POLL_MS
-    : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
-  const approvals = useQuery({
-    queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
-    enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: interactionPollMs,
-  });
-  // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
-  // pendingApprovals just above: a background session's question must reach
-  // this attention feed too, not only the currently active session's. Like
-  // approvals, that means polling rather than relying on the live stream,
-  // which only opens for the active session.
-  const questions = useQuery({
-    queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
-    enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: interactionPollMs,
-  });
   const normalizedInteractions = useQuery({
     queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
     queryFn: ({ signal }) =>
       repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
       Boolean(attendedSessionId) && allSessions.data !== undefined && supportsUnifiedInteractions,
-    refetchInterval: interactionPollMs,
+    // A conversation the service no longer has stays missing: no retry burst and
+    // no 1.5 s poll of the 404. Opening it again or a live event refetches it.
+    retry: (failures, error) => !sessionMissing(error) && retryRead(failures, error),
+    refetchInterval: (query) => (sessionMissing(query.state.error) ? false : interactionPollMs),
   });
   const attentionRootSessionIds = useMemo(() => {
     if (!supportsUnifiedInteractions) return [];
@@ -304,12 +320,39 @@ export function useWorkspaceData({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
       queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+      // Another conversation's requests: the open session's stream never changes them.
+      meta: OUTSIDE_LIVE_STREAM,
+      // No open conversation streams events that would refresh these; the
+      // waiting-sessions list below re-reads them when it changes.
+      refetchInterval: sessionId ? undefined : PENDING_INTERACTIONS_FANOUT_POLL_MS,
     })),
     combine: (results) => ({
       error: results.find((query) => query.error)?.error,
       interactions: results.flatMap((query) => query.data?.interactions ?? []),
     }),
   });
+  // A session that starts or stops waiting, or a waiting one that moves on, changes
+  // this list: re-read the other roots' requests then, instead of on a fast timer.
+  const queryClient = useQueryClient();
+  const waitingSignature = useMemo(
+    () =>
+      (waitingSessions.data ?? [])
+        .map((item) => `${item.id}:${item.state}:${item.updated_at}`)
+        .toSorted()
+        .join('|'),
+    [waitingSessions.data],
+  );
+  const readWaitingSignature = useRef(waitingSignature);
+  useEffect(() => {
+    if (readWaitingSignature.current === waitingSignature) return;
+    readWaitingSignature.current = waitingSignature;
+    for (const rootSessionId of attentionRootSessionIds) {
+      void queryClient.invalidateQueries(
+        { queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId), exact: true },
+        { cancelRefetch: false },
+      );
+    }
+  }, [attentionRootSessionIds, queryClient, settings.endpoint, waitingSignature]);
   const attentionInteractionsError = attentionInteractionQueries.error;
   const legacyInteractions = useMemo(
     () => legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
@@ -456,24 +499,22 @@ export function useWorkspaceData({
     ...surrounding,
     warmHistory: true,
   });
-  const executionProvenance = useExecutionProvenance(sessionId, undefined, surrounding);
-  const family = useMemo(
-    () => conversationFamily(hierarchySessions, sessionId),
-    [hierarchySessions, sessionId],
-  );
-  const [requestedFamily, setRequestedFamily] = useState('');
-  const loadFamilyProvenance = useCallback(() => setRequestedFamily(sessionId), [sessionId]);
-  const familyExecutionProvenance = useExecutionProvenance(
-    family.sessions[0]?.id ?? sessionId,
-    executionProvenance.provider,
-    {
-      includeChildren: true,
-      ...surrounding,
-      enabled: surrounding.enabled && requestedFamily === sessionId,
-    },
-  );
+  const executionProvenance = useExecutionProvenance(sessionId, surrounding);
   const contextObservability = useSessionObservability(contextTargetId, surrounding);
   const { hideDotFiles } = useAppearancePreferences();
+  const filesScope = connectionScope(settings);
+  const workspaceFilesKey = useMemo(
+    () =>
+      queryKeys.key(
+        'workspace-files',
+        settings.endpoint,
+        workspaceId,
+        `include_hidden=${!hideDotFiles}`,
+        'directory=',
+        filesScope,
+      ),
+    [settings.endpoint, workspaceId, hideDotFiles, filesScope],
+  );
   const workspaceFiles = useQuery({
     // The Files-view-only "Hide dot files and folders" toggle is part of the
     // cache identity: it changes what the SERVER sends (include_hidden), not a
@@ -485,14 +526,7 @@ export function useWorkspaceData({
     // ['workspace-files', endpoint, workspaceId] prefix stays intact so the
     // live-stream invalidation map's broader invalidateQueries call still
     // matches every variant (react-query prefix matching).
-    queryKey: queryKeys.key(
-      'workspace-files',
-      settings.endpoint,
-      workspaceId,
-      `include_hidden=${!hideDotFiles}`,
-      'directory=',
-      connectionScope(settings),
-    ),
+    queryKey: workspaceFilesKey,
     queryFn: ({ signal }) =>
       loadSessionResource(surrounding, signal, () =>
         repository.workspaceFiles(workspaceId, signal, {
@@ -511,6 +545,8 @@ export function useWorkspaceData({
     // document is hidden -- a backgrounded/minimized tab doesn't poll either.
     refetchInterval: filesViewActive ? 5_000 : false,
     refetchIntervalInBackground: false,
+    // Each 5 s poll flips the fetch flag; only the Files view reads it.
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
   });
   const workspaceResources = useQuery({
     queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
@@ -638,10 +674,15 @@ export function useWorkspaceData({
     (preset) => preset.id === activeProvider,
   );
   const activeCatalogProvider = activePreset?.id ?? activeProvider ?? '';
+  const modelCatalogKey = useMemo(
+    () => queryKeys.key('provider-models', settings.endpoint, activeCatalogProvider),
+    [settings.endpoint, activeCatalogProvider],
+  );
   const modelCatalog = useQuery({
-    queryKey: queryKeys.key('provider-models', settings.endpoint, activeCatalogProvider),
+    queryKey: modelCatalogKey,
     queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
     enabled: Boolean(activeCatalogProvider),
+    notifyOnChangeProps: ['data'],
   });
   const providerCatalog = useProviderCatalog();
   const modelOptions = useMemo(
@@ -668,14 +709,21 @@ export function useWorkspaceData({
     const timer = window.setTimeout(() => selected.forEach(cachedModelFacts), 0);
     return () => clearTimeout(timer);
   }, [modelOptions, activeProvider]);
-  const modelCatalogStatus: 'error' | 'loading' | 'ready' =
-    providerCatalog.isRefreshing ||
-    modelCatalog.isFetching ||
-    (providerCatalog.isPending && !providerCatalog.data)
+  // Background fetches are added by useModelCatalogStatus in the picker's owner.
+  const settledCatalogStatus =
+    providerCatalog.refreshPending || (providerCatalog.isPending && !providerCatalog.data)
       ? 'loading'
       : providerCatalog.isError && !providerCatalog.data
         ? 'error'
         : 'ready';
+  const providerCatalogKey = useMemo(
+    () => queryKeys.providerCatalog(settings.endpoint),
+    [settings.endpoint],
+  );
+  const modelCatalogStatus = useMemo<ModelCatalogStatus>(
+    () => ({ settled: settledCatalogStatus, queryKeys: [providerCatalogKey, modelCatalogKey] }),
+    [settledCatalogStatus, providerCatalogKey, modelCatalogKey],
+  );
 
   return {
     agentLabel,
@@ -695,14 +743,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     entities,
     executionProvenance,
-    familyObservability: {
-      onLoadFamilyProvenance: loadFamilyProvenance,
-      sessions: hierarchySessions,
-      familyProvenance: familyExecutionProvenance.execution.data,
-      familyProvenancePending:
-        familyExecutionProvenance.providers.isLoading ||
-        familyExecutionProvenance.execution.isFetching,
-    },
+    familyObservability: { sessions: hierarchySessions },
     interactionSessionIds,
     interactions,
     // Reads that actually failed to list responses. A failed background-root
@@ -758,10 +799,17 @@ export function useWorkspaceData({
     tasks,
     tools,
     transcript,
+    transcriptKey,
     transcriptError,
     visibleApprovals,
     workspaceFiles,
+    workspaceFilesKey,
     workspaceResources,
     workspaces,
   };
+}
+
+/** The service answered that this conversation does not exist. */
+function sessionMissing(error: unknown): boolean {
+  return error instanceof TransportError && error.status === 404;
 }

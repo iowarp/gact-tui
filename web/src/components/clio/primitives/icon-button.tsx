@@ -1,10 +1,18 @@
-import { memo, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react';
+import {
+  Fragment,
+  memo,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useKeysPresentation, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { HeldKeyBadge } from './key-chip';
-import { focusIsQuiet } from './quiet-focus';
+import { HeldKeyBadge, type HeldKeySide } from './key-chip';
+import { focusIsQuiet, focusMayRaiseName } from './quiet-focus';
+import { TOOLTIP_KEY } from './tooltip-key';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
@@ -13,6 +21,8 @@ interface NamedTooltipProps {
   shortcut?: string;
   /** One key of a range shortcut (`strip-position` at 3). */
   shortcutPosition?: number;
+  /** Ad hoc keys in Windows form, for a key that is not in the catalog. */
+  keys?: readonly string[];
   side?: ComponentProps<typeof TooltipContent>['side'];
   children: ReactElement;
 }
@@ -25,10 +35,13 @@ export function NamedTooltip({
   label,
   shortcut,
   shortcutPosition,
+  keys,
   side = 'bottom',
   children,
 }: NamedTooltipProps) {
-  const presentation = useShortcutPresentation(shortcut, shortcutPosition);
+  const catalogued = useShortcutPresentation(shortcut, shortcutPosition);
+  const adHoc = useKeysPresentation(shortcut ? undefined : keys);
+  const presentation = catalogued ?? adHoc;
   const [open, setOpen] = useState(false);
   return (
     <Tooltip
@@ -38,17 +51,32 @@ export function NamedTooltip({
         setOpen(next);
       }}
     >
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger
+        asChild
+        onFocus={(event) => {
+          // Radix skips its focus-open when the event is default-prevented.
+          if (!focusMayRaiseName()) event.preventDefault();
+        }}
+      >
+        {children}
+      </TooltipTrigger>
+      {/* A name is never interactive, so it must not block a click on what it covers. */}
       <TooltipContent
         side={side}
         sideOffset={4}
         className="gap-2 px-2 py-1 text-[11.5px] font-medium"
+        data-name-tooltip=""
       >
         <span>{label}</span>
         {presentation ? (
-          <kbd className="rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
-            {presentation.text}
-          </kbd>
+          <span className="inline-flex shrink-0 items-center gap-1 justify-self-end">
+            {presentation.alternatives.map((text, index) => (
+              <Fragment key={text}>
+                {index > 0 ? <span className="text-[10.5px] opacity-70">or</span> : null}
+                <kbd className={TOOLTIP_KEY}>{text}</kbd>
+              </Fragment>
+            ))}
+          </span>
         ) : null}
       </TooltipContent>
     </Tooltip>
@@ -64,13 +92,22 @@ export interface IconButtonProps
   shortcut?: string;
   /** One key of a range shortcut (the strip's icons by position). */
   shortcutPosition?: number;
-  /** 28px (default) or 22px for dense rows. */
-  size?: 'default' | 'sm';
+  /** Where the held-key badge sits (below by default). */
+  shortcutSide?: HeldKeySide;
+  /** 28px (default), 26px for the composer's toolbar row, or 22px for dense rows. */
+  size?: 'default' | 'toolbar' | 'sm';
   /** A small count on the corner (comments, unread). */
   count?: number;
+  /** `warning` is the bell's Needs-you badge (spec `.nfbell b`): a 15px warning pill. */
+  countTone?: 'muted' | 'warning';
   tooltipSide?: NamedTooltipProps['side'];
   /** Skip the tooltip when the name is already visible next to the icon. */
   tooltip?: boolean;
+  /**
+   * A shorter one-line hover name when the accessible name is a sentence
+   * (the bell's). Replaces the `label, count` hover name.
+   */
+  hoverLabel?: string;
   /**
    * Unavailable here, and why: the button reads as disabled but keeps its
    * hover name, which adds the reason (a disabled button shows no tooltip).
@@ -84,10 +121,13 @@ export const IconButton = memo(function IconButton({
   icon,
   shortcut,
   shortcutPosition,
+  shortcutSide,
   size = 'default',
   count,
+  countTone = 'muted',
   tooltipSide,
   tooltip = true,
+  hoverLabel,
   disabledReason,
   variant = 'ghost',
   className,
@@ -108,7 +148,9 @@ export const IconButton = memo(function IconButton({
         'relative text-muted-foreground hover:bg-hover hover:text-foreground aria-pressed:bg-hover aria-pressed:text-foreground',
         size === 'sm'
           ? 'rounded-[5px] [&_svg:not([class*=size-])]:size-3.5'
-          : '[&_svg:not([class*=size-])]:size-[17px]',
+          : size === 'toolbar'
+            ? 'size-[26px] rounded-[6px] [&_svg:not([class*=size-])]:size-[15px]'
+            : '[&_svg:not([class*=size-])]:size-[17px]',
         disabledReason &&
           'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground',
         className,
@@ -120,16 +162,23 @@ export const IconButton = memo(function IconButton({
       {count !== undefined && count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[8.5px] leading-[11px] font-semibold text-background tabular-nums"
+          className={cn(
+            'absolute tabular-nums',
+            countTone === 'warning'
+              ? '-top-[1.5px] -right-[2.5px] h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-center text-[9.5px] leading-[15px] font-bold text-background'
+              : '-top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[8.5px] leading-[11px] font-semibold text-background',
+          )}
         >
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-      {shortcut ? <HeldKeyBadge id={shortcut} position={shortcutPosition} /> : null}
+      {shortcut ? (
+        <HeldKeyBadge id={shortcut} position={shortcutPosition} side={shortcutSide} />
+      ) : null}
     </Button>
   );
   if (!tooltip) return button;
-  const named = count ? `${label}, ${count}` : label;
+  const named = hoverLabel ?? (count ? `${label}, ${count}` : label);
   return (
     <NamedTooltip
       label={disabledReason ? `${named}: ${disabledReason}` : named}

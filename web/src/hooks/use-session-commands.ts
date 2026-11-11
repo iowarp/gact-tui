@@ -5,7 +5,10 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { sessionObservabilityQueryKey } from './use-session-observability';
 
-/** Session-scoped service command discovery and authoritative execution. */
+/**
+ * Service command discovery and authoritative execution. Without a session
+ * (a new-conversation draft) the list is the workspace's; running one needs a session.
+ */
 export function useSessionCommands(sessionId: string, workspaceId: string) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -13,7 +16,7 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
   const commands = useQuery({
     queryKey: queryKeys.key('commands', settings.endpoint, workspaceId, sessionId),
     queryFn: ({ signal }) => repository.commands(signal, { sessionId, workspaceId }),
-    enabled: Boolean(sessionId && workspaceId),
+    enabled: Boolean(workspaceId),
   });
   const execute = useMutation({
     mutationFn: ({ commandId, input }: { commandId: string; input: string }) =>
@@ -27,6 +30,12 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
   });
   return {
     commands: commands.data ?? [],
+    /** Whether `commands` is the agent's list yet, so an empty one can say why. */
+    commandsState: commands.isError
+      ? ('failed' as const)
+      : commands.isPending
+        ? ('loading' as const)
+        : ('ready' as const),
     isPending: execute.isPending,
     run: async (value: { commandId: string; input: string }): Promise<void> => {
       await execute.mutateAsync(value);

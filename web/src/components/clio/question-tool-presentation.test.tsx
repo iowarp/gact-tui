@@ -38,7 +38,7 @@ const question: ToolInvocation = {
 it('shows the actual bundle instead of a generic inspection and protocol state', async () => {
   const user = userEvent.setup();
   render(<ClioToolInvocation compact tool={question} />);
-  expect(screen.getByText('(2 questions)')).toBeVisible();
+  expect(screen.getByText('2 questions')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Show result for Ask you' }));
   expect(screen.getByText('What should govern the workshop?')).toBeVisible();
   expect(screen.getByText('Answer requested at this step')).toBeVisible();
@@ -76,9 +76,28 @@ it('keeps failed calls and their diagnostics rather than claiming a question was
     ...question,
     state: 'failed',
     error: 'Invalid duplicate question id',
-    presentation: { action: 'Inspect', summary: 'Invalid duplicate question id', blocks: [] },
+    presentation: {
+      action: 'Inspect',
+      summary: 'Invalid duplicate question id',
+      blocks: [
+        { id: 'raw', type: 'text', text: 'input_required' },
+        { id: 'error', type: 'text', severity: 'error', text: 'Invalid duplicate question id' },
+      ],
+    },
   };
-  expect(withQuestionPresentation(failed)).toBe(failed);
+  const presented = withQuestionPresentation(failed);
+  // The row names the first question it tried, keeps the failure and its diagnostic, and never
+  // reports an answer state.
+  expect(presented.state).toBe('failed');
+  expect(presented.error).toBe('Invalid duplicate question id');
+  expect(presented.presentation).toMatchObject({ status: 'failed', action: 'Ask you' });
+  expect(presented.presentation?.blocks.map((block) => block.text)).toEqual([
+    'What times and breaks must we preserve?',
+    'Invalid duplicate question id',
+  ]);
+  expect(presented.presentation?.blocks.some((block) => block.id === 'question-state')).toBe(
+    false,
+  );
 });
 
 it('keeps ordinary task inspection untouched and presents a single confirmation separately', () => {

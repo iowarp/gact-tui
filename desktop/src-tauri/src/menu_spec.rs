@@ -12,8 +12,25 @@ pub enum Item {
     },
     /// A predefined OS item (native clipboard/undo behavior, no event).
     Predefined(Predefined),
+    /// A nested submenu.
+    Submenu {
+        title: &'static str,
+        items: &'static [Item],
+    },
     /// A visual separator.
     Separator,
+}
+
+/// Every [`Item::Action`] id in `items`, nested submenus included, in menu order.
+pub fn action_ids(items: &'static [Item]) -> Vec<&'static str> {
+    items
+        .iter()
+        .flat_map(|item| match item {
+            Item::Action { id, .. } => vec![*id],
+            Item::Submenu { items, .. } => action_ids(items),
+            _ => Vec::new(),
+        })
+        .collect()
 }
 
 /// The subset of Tauri predefined menu items this menu uses.
@@ -40,13 +57,14 @@ pub enum Predefined {
     /// Zoom on macOS.
     Maximize,
     Fullscreen,
-    /// Cmd+W: the same close request as the window close button, so it opens
-    /// the "keep running?" prompt rather than quitting.
+    /// Cmd+W: the same close request as the window close button, so it hides
+    /// the window and CLIO keeps running, as Mac apps do.
     CloseWindow,
     BringAllToFront,
 }
 
-/// A top-level submenu (the macOS application menu, Edit, Window, Help).
+/// A top-level submenu (the macOS application menu, File, Edit, View, Agent,
+/// Window, Help).
 #[derive(Clone, Copy, Debug)]
 pub struct SubmenuSpec {
     pub title: &'static str,
@@ -59,14 +77,19 @@ pub struct SubmenuSpec {
 /// this and both the runtime menu and the tests move together.
 ///
 /// This menu is macOS-only (see the `#[cfg(target_os = "macos")]` gate
-/// around `app.set_menu` in `lib.rs`) and holds the submenus macOS itself
-/// expects an app to own: the application menu (About / Settings / the hide
-/// group / Quit), Edit (native clipboard/undo), Window (minimize, zoom, full
-/// screen, close and the window list macOS adds) and Help (documentation and
-/// the menu search macOS adds). Product actions that used to live in File and
-/// View are reachable through the product-owned title bar's hamburger menu
-/// instead, on every platform — see
-/// `web/src/components/clio/desktop-title-bar.tsx`.
+/// around `app.set_menu` in `lib.rs`). It is the full macOS menu bar: the
+/// application menu, File, Edit, View, Agent, Window and Help. Every product
+/// item is an [`Item::Action`] whose id the frontend handles through the
+/// `clio:menu` event and `dispatchMenuAction`, so the native bar and the
+/// product-owned title bar's app menu run the same workflows. Windows and
+/// Linux get no native strip; their title-bar app menu
+/// (`web/src/components/clio/desktop-title-bar.tsx`) uses the same grouping.
+///
+/// Accelerators repeat the shared shortcut catalog's macOS chords
+/// (`web/src/lib/shortcuts/catalog.ts`). WKWebView offers a Cmd key to the
+/// page first, so a key the page handles never also fires the menu item; the
+/// accelerator runs the item when the page has no handler for it and shows
+/// the key in the menu.
 pub const MENU_SPEC: &[SubmenuSpec] = &[
     SubmenuSpec {
         // macOS replaces this title with the running app's own display name
@@ -104,6 +127,20 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
         ],
     },
     SubmenuSpec {
+        title: "File",
+        items: &[
+            Item::Action {
+                id: "new-session",
+                label: "New Conversation",
+                accel: Some("CmdOrCtrl+N"),
+            },
+            Item::Separator,
+            // Cmd+W: the same close request as the window close button, so it
+            // hides the window and CLIO keeps running, as Mac apps do.
+            Item::Predefined(Predefined::CloseWindow),
+        ],
+    },
+    SubmenuSpec {
         // All predefined so the OS provides native clipboard / undo behavior.
         title: "Edit",
         items: &[
@@ -117,15 +154,110 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
         ],
     },
     SubmenuSpec {
+        title: "View",
+        items: &[
+            Item::Action {
+                id: "search",
+                label: "Search…",
+                accel: Some("CmdOrCtrl+K"),
+            },
+            Item::Separator,
+            Item::Action {
+                id: "toggle-left-bar",
+                label: "Toggle Left Bar",
+                accel: Some("CmdOrCtrl+B"),
+            },
+            Item::Action {
+                id: "toggle-workbench",
+                label: "Toggle Workbench",
+                accel: Some("CmdOrCtrl+Shift+B"),
+            },
+            Item::Separator,
+            Item::Action {
+                id: "reload",
+                label: "Reload",
+                accel: Some("CmdOrCtrl+R"),
+            },
+            Item::Separator,
+            Item::Action {
+                id: "zoom-reset",
+                label: "Actual Size",
+                accel: Some("CmdOrCtrl+0"),
+            },
+            Item::Action {
+                id: "zoom-in",
+                label: "Zoom In",
+                accel: Some("CmdOrCtrl+="),
+            },
+            Item::Action {
+                id: "zoom-out",
+                label: "Zoom Out",
+                accel: Some("CmdOrCtrl+-"),
+            },
+            Item::Separator,
+            // Ctrl+Cmd+F, and it keeps AppKit from adding a second one.
+            Item::Predefined(Predefined::Fullscreen),
+        ],
+    },
+    SubmenuSpec {
+        // The CLIO menu's agent actions: the connection, the saved agents and
+        // adding one. A native menu is static, so Switch To opens the in-app
+        // CLIO menu, which lists the saved agents.
+        title: "Agent",
+        items: &[
+            Item::Action {
+                id: "connection-settings",
+                label: "Connection Settings",
+                accel: None,
+            },
+            Item::Action {
+                id: "switch-agent",
+                label: "Switch To…",
+                accel: None,
+            },
+            Item::Action {
+                id: "manage-agents",
+                label: "Manage Agents",
+                accel: None,
+            },
+            Item::Separator,
+            Item::Submenu {
+                title: "Add an Agent",
+                items: &[
+                    Item::Action {
+                        id: "connect-by-address",
+                        label: "Connect by Address…",
+                        accel: None,
+                    },
+                    Item::Action {
+                        id: "manage-agent-services",
+                        label: "Connect over SSH…",
+                        accel: None,
+                    },
+                    // Dynamic label ("Install <App> on a Computer…"), built in
+                    // `build_menu`.
+                    Item::Action {
+                        id: "install-agent",
+                        label: "Install on a Computer…",
+                        accel: None,
+                    },
+                ],
+            },
+            Item::Separator,
+            Item::Action {
+                id: "open-infrastructure",
+                label: "Infrastructure",
+                accel: Some("CmdOrCtrl+Shift+Comma"),
+            },
+        ],
+    },
+    SubmenuSpec {
         // Registered as the NSApp windows menu (`menu::register_app_roles`),
         // so macOS appends the open-window list.
         title: WINDOW_MENU_TITLE,
         items: &[
             Item::Predefined(Predefined::Minimize),
             Item::Predefined(Predefined::Maximize),
-            Item::Predefined(Predefined::Fullscreen),
-            Item::Separator,
-            Item::Predefined(Predefined::CloseWindow),
             Item::Separator,
             Item::Predefined(Predefined::BringAllToFront),
         ],
@@ -133,11 +265,18 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
     SubmenuSpec {
         // Registered as the NSApp help menu, so macOS adds menu search.
         title: HELP_MENU_TITLE,
-        items: &[Item::Action {
-            id: "help-docs",
-            label: "Documentation",
-            accel: None,
-        }],
+        items: &[
+            Item::Action {
+                id: "help-docs",
+                label: "Documentation",
+                accel: None,
+            },
+            Item::Action {
+                id: "keyboard-shortcuts",
+                label: "Keyboard Shortcuts",
+                accel: Some("CmdOrCtrl+/"),
+            },
+        ],
     },
 ];
 
@@ -157,11 +296,8 @@ pub const HELP_MENU_TITLE: &str = "Help";
 pub fn action_for_id(id: &str) -> Option<&'static str> {
     MENU_SPEC
         .iter()
-        .flat_map(|s| s.items.iter())
-        .find_map(|item| match item {
-            Item::Action { id: aid, .. } if *aid == id => Some(*aid),
-            _ => None,
-        })
+        .flat_map(|s| action_ids(s.items))
+        .find(|aid| *aid == id)
 }
 
 #[cfg(test)]

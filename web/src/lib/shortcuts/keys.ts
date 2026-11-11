@@ -99,9 +99,37 @@ const MODIFIER_LABELS: Record<KeyPlatform, Record<Modifier, string>> = {
 };
 const MODIFIER_ORDER: readonly Modifier[] = ['ctrl', 'alt', 'shift', 'meta'];
 
+/**
+ * Modifier names for pointer gestures in help text (`⌘-click`, `Ctrl-click`).
+ * On a Mac, Ctrl-click is a right-click, so the primary modifier is ⌘.
+ */
+export function gestureModifiers(platform: KeyPlatform) {
+  return platform === 'mac'
+    ? { primary: '⌘', primaryShift: '⇧⌘', alt: '⌥' }
+    : { primary: 'Ctrl', primaryShift: 'Ctrl+Shift', alt: 'Alt' };
+}
+
 const KEY_LABELS: Record<KeyPlatform, Record<string, string>> = {
-  windows: { Enter: '↵', Up: '↑', Down: '↓', Left: '←', Right: '→' },
-  mac: { Enter: '↩', Up: '↑', Down: '↓', Left: '←', Right: '→', Delete: '⌫', Backspace: '⌫' },
+  windows: {
+    Enter: '↵',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
+  mac: {
+    Enter: '↩',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    Delete: '⌫',
+    Backspace: '⌫',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
 };
 
 /** The labels of one chord, one per key cap, in the platform's order. */
@@ -126,7 +154,31 @@ export function chordText(parsed: ParsedChord, platform: KeyPlatform): string {
   return last.length > 1 && !/^\d–\d$/u.test(last) ? `${glyphs} ${last}` : `${glyphs}${last}`;
 }
 
+function windowsKeyLabel(key: string): string {
+  return KEY_LABELS.windows[key] ?? key;
+}
+
+/**
+ * One chord as the badge reads while Ctrl (⌘) is held. On Windows the held
+ * Ctrl is implied and Shift is ⇧ (`⇧B`, `Alt N`, `⇧ Esc`); a Mac shows the
+ * whole chord (`⇧⌘B`).
+ */
+export function heldChordText(parsed: ParsedChord, platform: KeyPlatform): string {
+  if (platform === 'mac' || parsed.hold) return chordText(parsed, platform);
+  const key = windowsKeyLabel(parsed.key);
+  const word = key.length > 1 && !/^\d–\d$/u.test(key);
+  const shifted = parsed.modifiers.has('shift') ? `⇧${word ? ' ' : ''}${key}` : key;
+  return parsed.modifiers.has('alt') ? `Alt ${shifted}` : shifted;
+}
+
+/** The key alone, as its cap reads (`→`, `B`), for joining a pair (`Alt ←→`). */
+export function chordKeyLabel(parsed: ParsedChord, platform: KeyPlatform): string {
+  return KEY_LABELS[platform][parsed.key] ?? parsed.key;
+}
+
 const ARIA_KEYS: Record<string, string> = {
+  // `+` joins aria-keyshortcuts keys, so the key itself is spelled out.
+  '+': 'Plus',
   Esc: 'Escape',
   Up: 'ArrowUp',
   Down: 'ArrowDown',
@@ -208,12 +260,17 @@ function keysOverlap(a: string, b: string): boolean {
 /** Whether `event` presses exactly `parsed` (no extra modifiers). */
 export function chordMatches(parsed: ParsedChord, event: ChordEvent): boolean {
   if (parsed.hold || !parsed.key) return false;
+  // A bare `+` is whatever types it (Shift = on most layouts, the keypad, the `=` key
+  // browsers already zoom with), so Shift is free for it.
+  const plus = parsed.key === '+' && parsed.modifiers.size === 0;
   return (
     event.ctrlKey === parsed.modifiers.has('ctrl') &&
     event.altKey === parsed.modifiers.has('alt') &&
-    event.shiftKey === parsed.modifiers.has('shift') &&
+    (plus || event.shiftKey === parsed.modifiers.has('shift')) &&
     event.metaKey === parsed.modifiers.has('meta') &&
-    keysOverlap(parsed.key, eventKey(event))
+    (plus
+      ? event.key === '+' || ['+', '='].includes(eventKey(event))
+      : keysOverlap(parsed.key, eventKey(event)))
   );
 }
 
@@ -222,67 +279,6 @@ export function chordPosition(parsed: ParsedChord, event: ChordEvent): number | 
   if (!digitRange(parsed.key)) return undefined;
   const pressed = Number(eventKey(event));
   return Number.isFinite(pressed) ? pressed : undefined;
-}
-
-/**
- * Keys the browser or the OS keeps. Nothing binds them; a definition that
- * needs one (the desktop app owns Ctrl N) marks itself desktop-only.
- */
-const RESERVED: Record<KeyPlatform, readonly string[]> = {
-  windows: [
-    'Ctrl+N',
-    'Ctrl+T',
-    'Ctrl+W',
-    'Ctrl+Tab',
-    'Ctrl+L',
-    'Ctrl+1–9',
-    'Ctrl+PageUp',
-    'Ctrl+PageDown',
-    'F5',
-    'Ctrl+Shift+N',
-    'Ctrl+Shift+T',
-    'Ctrl+Shift+W',
-    'Ctrl+Shift+I',
-    'Ctrl+Shift+J',
-    'Ctrl+Shift+C',
-  ],
-  mac: [
-    'Cmd+Q',
-    'Cmd+H',
-    'Cmd+M',
-    'Cmd+N',
-    'Cmd+T',
-    'Cmd+W',
-    'Cmd+L',
-    'Cmd+Tab',
-    'Cmd+`',
-    'Cmd+Space',
-    'Cmd+1–9',
-    'Shift+Cmd+3–5',
-    'Alt+Cmd+M',
-    'Alt+Cmd+I',
-    'Alt+Cmd+J',
-    'Alt+Cmd+C',
-    'Alt+Cmd+U',
-    'Ctrl+Space',
-    'Ctrl+Left',
-    'Ctrl+Right',
-    'Ctrl+Up',
-    'Ctrl+Down',
-  ],
-};
-
-function sameModifiers(a: ReadonlySet<Modifier>, b: ReadonlySet<Modifier>): boolean {
-  return a.size === b.size && [...a].every((modifier) => b.has(modifier));
-}
-
-/** Whether `parsed` (already for `platform`) collides with a browser or OS key. */
-export function isReservedChord(parsed: ParsedChord, platform: KeyPlatform): boolean {
-  if (parsed.hold) return false;
-  return RESERVED[platform].some((reserved) => {
-    const other = parseChord(reserved, platform, true);
-    return sameModifiers(other.modifiers, parsed.modifiers) && keysOverlap(other.key, parsed.key);
-  });
 }
 
 const TEXT_EDITING_KEYS = new Set([

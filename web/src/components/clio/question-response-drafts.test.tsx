@@ -18,7 +18,9 @@ function question(id = 'q1', payload: PendingInteraction['payload'] = {}): Pendi
     prompt: 'Choose the sample.',
     created_at: '2026-10-16T00:00:00Z',
     actions: ['answer', 'cancel'],
-    source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_' + id },
+    // An MCP question keeps its written answer on the card; a native one is answered
+    // in the composer, so only the card's own field exercises these drafts.
+    source: { protocol: 'mcp', tool_name: 'ask_user', invocation_id: 'call_' + id },
     payload: { question_kind: 'freeform', allow_freeform: true, ...payload },
   };
 }
@@ -98,7 +100,7 @@ describe('session-owned Question drafts', () => {
     expect(screen.getByRole('textbox')).toHaveValue('');
   });
 
-  it('preserves selections and comments when moving a multiple-choice response', async () => {
+  it('preserves selections when moving a multiple-choice response', async () => {
     const row = question('multi', {
       question_kind: 'multi_choice',
       allow_freeform: false,
@@ -109,12 +111,9 @@ describe('session-owned Question drafts', () => {
     });
     const view = render(<Owner row={row} />);
     await userEvent.click(screen.getByRole('checkbox', { name: 'Alpha' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Add comment on Alpha' }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'Comment on Alpha' }), 'first batch');
     view.rerender(<Owner row={row} surface="phone" />);
     expect(screen.getByRole('checkbox', { name: 'Alpha' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Beta' })).not.toBeChecked();
-    expect(screen.getByRole('textbox', { name: 'Comment on Alpha' })).toHaveValue('first batch');
   });
 
   it('preserves structured field edits rather than reverting to server defaults', async () => {

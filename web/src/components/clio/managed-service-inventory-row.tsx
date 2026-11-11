@@ -6,6 +6,7 @@ import {
   HardDriveIcon,
   LinkIcon,
   MonitorIcon,
+  PackageIcon,
   PlayIcon,
   PlugIcon,
   SquareIcon,
@@ -13,29 +14,16 @@ import {
 } from 'lucide-react';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { vocab } from '@/lib/brand-vocabulary';
-import {
-  AddIcon,
-  ConfigureIcon,
-  EditIcon,
-  ManageIcon,
-  MoreIcon,
-  RefreshIcon,
-} from '@/lib/icon-vocabulary';
+import { AddIcon, ConfigureIcon, EditIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { deploymentDevices } from './managed-service-gpus';
 import { SERVICE_GROUPS } from './managed-service-groups';
 import { VerificationState } from './managed-service-identity';
-import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { MenuRow } from './primitives/menu-row';
 import { StateView } from './primitives/state-view';
@@ -54,7 +42,7 @@ function rowStatus(service: ManagedServiceDefinition, working: boolean): InfraSt
     return { tone: 'running', label: status.label };
   if (working) return { tone: 'running', label: 'Working' };
   if (status.kind === 'running') return { tone: 'success', label: status.label };
-  if (status.kind === 'stopped') return { tone: 'stopped', label: status.label };
+  if (status.kind === 'stopped') return { tone: 'idle', label: status.label };
   if (status.kind === 'not_installed' && status.reason)
     return { tone: 'warning', label: status.label };
   return { tone: 'idle', label: status.label };
@@ -72,12 +60,15 @@ function servicePort(service: ManagedServiceDefinition): string | undefined {
   return service.configuration.port || undefined;
 }
 
+function installedAs(service: ManagedServiceDefinition): string {
+  const variant = service.variants.find((row) => row.id === service.recommended_variant);
+  if (!variant || !service.owned_resources.length) return '';
+  return [variant.label, variant.version].filter(Boolean).join(' ');
+}
+
 function serviceSummary(service: ManagedServiceDefinition): string {
   if (service.configuration.model) return service.configuration.model;
-  const variant = service.variants.find((row) => row.id === service.recommended_variant);
-  if (variant && service.owned_resources.length)
-    return [variant.label, variant.version].filter(Boolean).join(' ');
-  return service.description;
+  return installedAs(service) || service.description;
 }
 
 /** One managed service: state, port, a pinned lifecycle verb and the rest behind hover. */
@@ -191,6 +182,9 @@ export function ManagedServiceInventoryRow({
           },
         ]
       : []),
+    ...(service.id === 'searxng' && installedAs(service)
+      ? [{ label: 'Installed as', icon: <PackageIcon />, value: installedAs(service), mono: true }]
+      : []),
   ];
   const error = feedback?.error ? feedback.text : undefined;
   const showDetails = expanded || Boolean(error) || Boolean(addInstanceForm);
@@ -216,27 +210,11 @@ export function ManagedServiceInventoryRow({
   return (
     <InfraRow
       actions={
-        <span className="flex items-center gap-0.5" onClick={stop} onKeyDown={stop}>
-          <IconButton
-            icon={<ManageIcon />}
-            label={`Manage ${service.label}`}
-            onClick={onManage}
-            size="sm"
-          />
-          <DropdownMenu modal={false}>
-            <NamedTooltip label={`More actions for ${service.label}`}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={`More actions for ${service.label}`}
-                  className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
-                  size="icon-xs"
-                  variant="ghost"
-                >
-                  <MoreIcon aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-            </NamedTooltip>
-            <DropdownMenuContent align="end" className="w-60">
+        <InfraRowMenu
+          actions={[{ icon: <ManageIcon />, label: `Manage ${service.label}`, onSelect: onManage }]}
+          label={`More actions for ${service.label}`}
+          menu={
+            <>
               {connectionItem}
               {onEditWebSearch ? (
                 <DropdownMenuItem onSelect={onEditWebSearch}>
@@ -265,14 +243,17 @@ export function ManagedServiceInventoryRow({
               <DropdownMenuItem onSelect={() => onOpenTab('storage')}>
                 <MenuRow icon={<HardDriveIcon />} label="Storage and removal" />
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </span>
+            </>
+          }
+        />
       }
       className="cursor-pointer"
       description={
         <>
-          <span title={service.description}>{status.reason ?? serviceSummary(service)}</span>
+          <span title={service.description}>
+            {status.reason ??
+              (service.id === 'searxng' ? 'Built-in search engine' : serviceSummary(service))}
+          </span>
           {devices ? (
             <span className="ml-2" title="The GPUs this deployment may use">
               {devices}
@@ -304,7 +285,7 @@ export function ManagedServiceInventoryRow({
       icon={<ServiceGroupIcon category={service.category} />}
       meta={
         port ? (
-          <span className="text-faint" title={`Port ${port}`}>
+          <span className="text-muted-foreground" title={`Port ${port}`}>
             port {port}
           </span>
         ) : undefined
@@ -327,10 +308,17 @@ export function ManagedServiceInventoryRow({
       title={
         <button
           aria-expanded={expanded}
-          className="max-w-full truncate text-left font-medium outline-none focus-visible:underline"
+          className="max-w-full truncate text-left outline-none focus-visible:underline"
           onClick={(event) => {
             event.stopPropagation();
             setExpanded((open) => !open);
+          }}
+          onKeyDown={(event) => {
+            // Space starts or stops the service in focus; Enter still opens its details.
+            if (event.key !== ' ' || !onRun || working || !(canStop || status.action === 'start'))
+              return;
+            event.preventDefault();
+            onRun(canStop ? 'stop' : 'start');
           }}
           type="button"
         >

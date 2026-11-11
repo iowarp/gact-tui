@@ -9,10 +9,10 @@ const PAGE_OVERLAP_PX = 24;
 /**
  * Keyboard scrolling for a region that is focusable in its own right.
  *
- * Both the pending-response stack and the transcript minimap are `tabIndex={0}`
- * panels that scroll independently of the page, so a reader who tabs into one
- * expects Home/End/PageUp/PageDown/arrows to move it. Neither is a listbox, so
- * nothing gives them that behavior for free.
+ * The pending-response stack is a `tabIndex={0}` panel that scrolls
+ * independently of the page, so a reader who tabs into it expects
+ * Home/End/PageUp/PageDown/arrows to move it. It is not a listbox, so nothing
+ * gives it that behavior for free.
  *
  * The guard on the event target is the whole reason this is shared rather than
  * copied: the stack mounts real form fields, and a handler that acts on every
@@ -36,8 +36,5 @@ export function handleScrollableRegionKeys(event: KeyboardEvent<HTMLElement>): v
   const destination = destinations[event.key];
   if (destination === undefined) return;
   event.preventDefault();
-  region.scrollTop = Math.max(
-    0,
-    Math.min(destination, region.scrollHeight - region.clientHeight),
-  );
+  region.scrollTop = Math.max(0, Math.min(destination, region.scrollHeight - region.clientHeight));
 }

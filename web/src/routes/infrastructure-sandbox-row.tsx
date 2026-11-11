@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FileTextIcon,
   FolderIcon,
   LoaderCircleIcon,
   PlayIcon,
@@ -17,7 +16,7 @@ import { SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { sandboxReasonLabel } from '@/components/clio/sandbox-acknowledgement';
-import { InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
+import { INFRA_FACTS_GRID, InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
 import {
   InfraRowChevron,
   InfraRowToggle,
@@ -34,6 +33,7 @@ import { restartClio } from '@/tauri/managed-backend';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatDuration } from '@/lib/format';
 import {
+  foundationMeaning,
   foundationSummary,
   foundationTitle,
   integrationStatus,
@@ -176,7 +176,11 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
     ? `Setup finished. Restart ${vocab.agent} to protect tool processes that were already running.`
     : row?.reason === 'codex_enforcement_unverified'
       ? 'Protection has not been verified on this computer. Complete setup before retrying commands.'
-      : row?.summary || row?.detail || foundationSummary(integration);
+      : row?.summary ||
+        row?.detail ||
+        foundationSummary(integration) ||
+        foundationMeaning(integration) ||
+        integration.summary;
 
   const working = setup.isPending || polling;
   const setupOffered = (status !== 'healthy' || working) && !setupUnsupported;
@@ -191,21 +195,20 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
           : { tone: integrationTone(status), label: integrationStatusLabel(status) };
   const facts: KeyValueItem[] = [
     {
-      label: 'Required',
+      label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
-      value: (row?.required ?? integration.required) === false ? 'Optional' : 'Required for use',
+      value: (row?.required ?? integration.required) === false ? 'No' : 'Yes',
+      mono: true,
     },
     ...(row?.codex_source
       ? [
           {
             label: 'Codex',
             icon: <TerminalIcon />,
-            value: row.codex_source === 'bundled' ? `Bundled with ${vocab.agent}` : 'Found on PATH',
+            value: row.codex_source === 'bundled' ? 'Bundled' : 'PATH',
+            mono: true,
           },
         ]
-      : []),
-    ...(row?.next_action
-      ? [{ label: 'Next step', icon: <FileTextIcon />, value: row.next_action }]
       : []),
     ...(integration.config_source
       ? [
@@ -226,12 +229,20 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   return (
     <InfraRow
       className="cursor-pointer"
-      description={reasonLabel ?? summary}
+      description={
+        // A protected, idle row reads only "Ready" (spec); its explanation stays in the details.
+        status === 'healthy' && !working && !pendingRestart ? undefined : (reasonLabel ?? summary)
+      }
       details={
         expanded ? (
           <>
             <p className="text-[12px] whitespace-normal text-muted-foreground">{summary}</p>
-            <KeyValueGrid items={facts} />
+            {row?.next_action ? (
+              <p className="text-[12px] whitespace-normal text-muted-foreground">
+                {row.next_action}
+              </p>
+            ) : null}
+            <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {setupOutcome ? (
               <p className="text-[12px] whitespace-normal text-foreground" role="status">
                 {setupOutcome}
@@ -240,7 +251,13 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
             {setupOffered || (pendingRestart && desktop) ? (
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {setupOffered ? (
-                  <Button disabled={working} onClick={startSetup} size="sm" variant="outline">
+                  <Button
+                    className="px-[9px] text-[11.5px]"
+                    disabled={working}
+                    onClick={startSetup}
+                    size="xs"
+                    variant="outline"
+                  >
                     {working ? (
                       <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
                     ) : (
@@ -251,9 +268,10 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                 ) : null}
                 {pendingRestart && desktop ? (
                   <Button
+                    className="px-[9px] text-[11.5px]"
                     disabled={restarting}
                     onClick={() => void restart()}
-                    size="sm"
+                    size="xs"
                     variant="outline"
                   >
                     <RetryIcon

@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { KnownConnection } from '@/hooks/use-known-connections';
 import {
-  NOT_REACHABLE_DETAIL,
   probeConnection,
+  unavailableFromError,
   type ConnectionAvailability,
+  type UnavailableReason,
 } from '@/hooks/use-connection-availability';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
 import { queryKeys } from '@/lib/query-keys';
@@ -13,6 +14,8 @@ import {
   CONNECTION_RETRY_MAX_MS,
   CONNECTION_RETRY_MIN_MS,
   CONNECTION_WAIT_FOR_START_MS,
+  QUERY_RETRY_COUNT,
+  STARTING_READ_RETRIES,
 } from '@/lib/runtime-limits';
 
 /** The connect attempt as the page's mutation exposes it. */
@@ -38,6 +41,11 @@ function reachable(availability: ConnectionAvailability | undefined): boolean {
   return availability?.state === 'healthy' || availability?.state === 'degraded';
 }
 
+/** A service that neither answers nor reports it is starting: it cannot be opened yet. */
+export function availabilityFailed(availability: ConnectionAvailability | undefined): boolean {
+  return availability?.state === 'unavailable' && !availability.starting;
+}
+
 /**
  * A row's badge after a connect attempt. A failed attempt is the row's state only until
  * the background probe has news: a service that answers (or reports it is starting)
@@ -53,11 +61,74 @@ export function availabilityAfterAttempt(
   if (reachable(connection.availability) || connection.availability.starting) {
     return connection.availability;
   }
-  return {
-    state: 'unavailable',
-    label: 'Not reachable',
-    detail: attempt.error?.message || NOT_REACHABLE_DETAIL,
-  };
+  return unavailableFromError(attempt.error);
+}
+
+/** The connect attempt's error, when that attempt was for this service. */
+export function attemptErrorFor(
+  connection: KnownConnection,
+  attempt: ConnectAttempt,
+): Error | undefined {
+  return attempt.isError && attemptedEndpoint(attempt) === connection.endpoint
+    ? (attempt.error ?? undefined)
+    : undefined;
+}
+
+/** Nothing answered at the address, as opposed to a service that answered with a refusal. */
+export function noAnswer(error: Error | null | undefined): boolean {
+  return error instanceof TransportError && error.code === 'network_unavailable';
+}
+
+/**
+ * The request never reached the agent, in the browser or through the Desktop host. The
+ * connection line already reports this, so a surface shouldn't add its own error for it.
+ */
+export function serviceUnreachable(error: Error | null | undefined): boolean {
+  return (
+    noAnswer(error) ||
+    (error instanceof TransportError &&
+      error.status === undefined &&
+      error.code === 'native_transport_failed')
+  );
+}
+
+const FAILURE_CAUSE: Readonly<Record<Exclude<UnavailableReason, 'failed'>, string>> = {
+  'no-answer': 'no answer',
+  timeout: 'no response in time',
+  incompatible: 'incompatible version',
+  error: 'the service reported an error',
+};
+
+/**
+ * A failed service row's one line: the cause that was actually observed, in plain words.
+ * "No answer" is only a network failure and names the address, since the row leads with
+ * the agent's name; version numbers stay in the diagnostics. When the attempt's own error
+ * line below the list already says why (a refused token, an incompatible version), the
+ * row keeps to "Can't connect".
+ */
+export function knownServiceFailure(
+  connection: KnownConnection,
+  availability: ConnectionAvailability,
+  attempt: ConnectAttempt,
+): string {
+  const error = attemptErrorFor(connection, attempt);
+  if (error && !noAnswer(error)) return "Can't connect";
+  const reason = availability.reason ?? 'failed';
+  const cause =
+    reason === 'failed'
+      ? availability.detail
+      : reason === 'no-answer'
+        ? `no answer from ${hostOf(connection.endpoint)}`
+        : FAILURE_CAUSE[reason];
+  return `Can't connect: ${cause}`;
+}
+
+function hostOf(endpoint: string): string {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return endpoint;
+  }
 }
 
 function reportedReadiness(details: unknown): unknown {
@@ -91,6 +162,25 @@ export function connectRetryDelayMs(retry: number, retryAfterMs = 0): number {
 }
 
 /**
+ * Default retry for reads: a service still starting is waited out with the connect
+ * backoff, so lists fill in by themselves after a restart; any other failure gets the
+ * ordinary single retry.
+ */
+export function retryRead(failures: number, error: Error): boolean {
+  return serviceStillStarting(error)
+    ? failures < STARTING_READ_RETRIES
+    : failures < QUERY_RETRY_COUNT;
+}
+
+/** Delay before retrying a read; the starting backoff honors the service's `Retry-After`. */
+export function readRetryDelayMs(failures: number, error: Error): number {
+  if (serviceStillStarting(error)) {
+    return connectRetryDelayMs(failures, (error as TransportError).retryAfterMs);
+  }
+  return Math.min(1_000 * 2 ** failures, 30_000);
+}
+
+/**
  * One run of automatic retries. Retries resend the failed attempt's own `variables`, so
  * a new `variables` object is a new attempt by the person (or auto-connect) and starts a
  * new chain with a fresh waiting window and backoff.
@@ -103,9 +193,10 @@ interface RetryChain {
 
 /**
  * Whether a failed attempt is a service still coming up rather than a failure: it is
- * starting (503 `task_runtime_starting`, or its probe says so), or nothing has answered
- * yet and the attempt is recent. The page then waits and connects by itself instead of
- * showing an error. Only those transient failures are retried, after a backoff that
+ * starting (503 `task_runtime_starting`, or its probe says so). The page then waits and
+ * connects by itself instead of showing an error. A service that has not answered yet is
+ * shown as a failure but is still retried once its probe sees it answer. Only those
+ * transient failures are retried, after a backoff that
  * honours the service's `Retry-After` and within `CONNECTION_WAIT_FOR_START_MS` of the
  * chain's first failure; anything else (an
  * incompatible protocol, a rejected token) is shown once.
@@ -155,7 +246,10 @@ export function useConnectionWaiting(
 
   if (!endpoint) return { waiting: false, retrying: false };
   return {
-    waiting: Boolean(availability?.starting) || (transient && !expired),
+    // Only a service that says it is starting is waited on visibly. One that has not
+    // answered is a failure with Retry, even though it still opens by itself if it
+    // comes up within the waiting window.
+    waiting: Boolean(availability?.starting) || (starting && !expired),
     retrying: Boolean(variables) && canRetry,
     availability,
   };

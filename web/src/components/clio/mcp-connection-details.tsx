@@ -8,10 +8,12 @@ export function McpConnectionDetails({
 }) {
   const spec = server.spec;
   const fields = [
-    ['Transport', server.transport],
-    ['Address', spec.url],
-    ['Executable', spec.command],
-  ].filter((row): row is [string, string] => typeof row[1] === 'string' && Boolean(row[1]));
+    ['Transport', server.transport, false],
+    ['Address', spec.url, true],
+    ['Executable', spec.command, true],
+  ].filter(
+    (row): row is [string, string, boolean] => typeof row[1] === 'string' && Boolean(row[1]),
+  );
   const args = Array.isArray(spec.args)
     ? spec.args.filter((item): item is string => typeof item === 'string')
     : [];
@@ -21,19 +23,24 @@ export function McpConnectionDetails({
       : [];
   return (
     <dl className="space-y-4 text-sm">
-      {fields.map(([label, value]) => (
-        <div key={label}>
+      {fields.map(([label, value, mono]) => (
+        <div className="min-w-0" key={label}>
           <dt className="font-medium">{label}</dt>
-          <dd className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{value}</dd>
+          <dd
+            className={mono ? 'mt-1 truncate font-mono text-[0.75rem]' : 'mt-1'}
+            title={mono ? value : undefined}
+          >
+            {value}
+          </dd>
         </div>
       ))}
       {args.length ? (
-        <div>
+        <div className="min-w-0">
           <dt className="font-medium">Arguments</dt>
-          <dd className="mt-1">
+          <dd className="mt-1 min-w-0">
             <ol className="list-inside list-decimal space-y-1">
               {args.map((argument, index) => (
-                <li key={index} className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                <li key={index} className="truncate font-mono text-[0.75rem]" title={argument}>
                   {argument}
                 </li>
               ))}

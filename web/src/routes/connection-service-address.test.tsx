@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportError } from '@clio/core/v3';
@@ -27,7 +28,6 @@ vi.mock('@/lib/connection', async (importOriginal) => {
 });
 
 import { ConnectionPage } from './connection-page';
-import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
@@ -37,6 +37,14 @@ beforeEach(() => {
   mocks.repository.allSessions.mockResolvedValue([]);
 });
 afterEach(cleanup);
+
+const ADDRESS_EXAMPLE = 'https://homelab.example.org:8100';
+
+// The field starts empty under the example placeholder; the person types the address.
+async function connectByAddress() {
+  await userEvent.type(screen.getByLabelText('Connection address'), 'http://127.0.0.1:17800');
+  await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
+}
 
 function renderConnection() {
   const client = new QueryClient({
@@ -56,12 +64,14 @@ it('explains a missing service address and retains the HTTP failure for inspecti
     new TransportError('Request failed with 404 Not Found', 404),
   );
   renderConnection();
-  expect(screen.getByLabelText('Connection address')).toHaveAccessibleDescription(
-    expect.stringContaining(`Use the agent service address, for example ${DEFAULT_ENDPOINT}.`),
+  const address = screen.getByLabelText('Connection address');
+  expect(address).toHaveValue('');
+  expect(address).toHaveAccessibleDescription(
+    expect.stringContaining(`Use the agent service address, for example ${ADDRESS_EXAMPLE}.`),
   );
-  await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
+  await connectByAddress();
   expect(await screen.findByText(/No agent service was found at this address/)).toBeVisible();
-  await userEvent.click(screen.getByText('Diagnostic details'));
+  await userEvent.click(screen.getByRole('button', { name: 'Diagnostic details' }));
   expect(screen.getByText(/Request failed with 404 Not Found/)).toBeVisible();
   expect(mocks.connect).not.toHaveBeenCalled();
 });
@@ -71,9 +81,11 @@ it('retains an authentication refusal instead of suggesting a different address'
     new TransportError('Access token required', 401, 'auth_required'),
   );
   renderConnection();
-  await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
-  expect(await screen.findByText('Access token required')).toBeVisible();
+  await connectByAddress();
+  expect(await screen.findByText('this agent needs an access token.')).toBeVisible();
   expect(screen.queryByText(/No agent service was found/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Diagnostic details' }));
+  expect(screen.getByText(/Access token required/)).toBeVisible();
 });
 
 it('retains a later API failure after the service has successfully negotiated', async () => {
@@ -81,7 +93,7 @@ it('retains a later API failure after the service has successfully negotiated', 
     new TransportError('Workspace endpoint missing', 404),
   );
   renderConnection();
-  await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
+  await connectByAddress();
   expect(await screen.findByText('Workspace endpoint missing')).toBeVisible();
   expect(screen.queryByText(/No agent service was found/)).not.toBeInTheDocument();
 });

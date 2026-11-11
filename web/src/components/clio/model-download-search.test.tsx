@@ -44,7 +44,7 @@ it('filters Hub results with the shared task chips without inventing serving cap
   expect(within(results).getAllByRole('button')).toHaveLength(2);
   await user.click(screen.getByLabelText('Find on Hugging Face'));
   await user.click(
-    within(screen.getByRole('region', { name: 'Filter models' })).getByRole('button', {
+    within(screen.getByRole('region', { name: 'Filter models' })).getByRole('checkbox', {
       name: /Text generation/iu,
     }),
   );
@@ -58,10 +58,13 @@ it('filters Hub results with the shared task chips without inventing serving cap
   );
   expect(search).not.toHaveBeenCalled();
   await user.click(screen.getByLabelText('Find on Hugging Face'));
-  expect(screen.queryByRole('tab', { name: 'Capabilities' })).not.toBeInTheDocument();
+  // Hub results claim no serving capabilities or prices.
+  const filters = screen.getByRole('region', { name: 'Filter models' });
+  expect(within(filters).queryByRole('region', { name: 'Capabilities' })).not.toBeInTheDocument();
+  expect(within(filters).queryByRole('slider')).not.toBeInTheDocument();
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('region', { name: 'Filter models' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Remove task:text-generation' }));
+  await user.click(screen.getByRole('button', { name: 'Remove Text Generation' }));
   expect(within(results).getAllByRole('button')).toHaveLength(2);
   await user.type(screen.getByLabelText('Find on Hugging Face'), 'Nemotron{Enter}');
   expect(search).toHaveBeenCalledOnce();

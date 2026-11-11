@@ -362,11 +362,14 @@ describe('A2UI surface revision recovery (G2 #23/#29; coordinator design 2026-10
     const { update } = renderSurface(legacyA2uiSurface([createMessage, textRoot('First')], 2));
     expect(await screen.findByText('First')).toBeVisible();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[A2UI]'));
+    // The degraded protocol is a producer detail: a visible hint states the
+    // cost, and the full wording waits under collapsed Technical details.
+    expect(await screen.findByText('Updates reset unsent input')).toBeVisible();
+    expect(screen.queryByText(/missing what incremental updates need/iu)).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: /Technical details/u }));
     // L1: worded from what is actually MISSING, never "an older version" --
     // and plainly states unsubmitted input is lost on each change.
-    expect(
-      await screen.findByText(/missing what incremental updates need/iu),
-    ).toBeVisible();
+    expect(screen.getByText(/missing what incremental updates need/iu)).toBeVisible();
     expect(screen.getByText(/lost each time/iu)).toBeVisible();
 
     update(legacyA2uiSurface([createMessage, textRoot('Second')], 3));

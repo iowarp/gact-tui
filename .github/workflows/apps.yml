@@ -18,6 +18,8 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   pull_request:
+    # `labeled` lets adding `full-ci` start the full tier without a push.
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'web/**'
       - 'packages/core/**'
@@ -47,11 +49,39 @@ on:
         required: false
         default: ''
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '22.x'
   PNPM_VERSION: '9.15.9'
 
 jobs:
+  # Two tiers keep scarce runners for runs that need them. Every pull request
+  # push runs the light tier (checks, unit, build). The full tier (browser e2e,
+  # components, the WebView proof and the 3-OS Tauri jobs) runs for pushes to
+  # develop or main, pull requests into them, tags, dispatches and pull
+  # requests labelled `full-ci`.
+  tier:
+    name: CI tier
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.tier.outputs.full }}
+    steps:
+      - id: tier
+        env:
+          FULL: >-
+            ${{ github.event_name == 'workflow_dispatch'
+            || startsWith(github.ref, 'refs/tags/')
+            || (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'))
+            || (github.event_name == 'pull_request' && (github.base_ref == 'develop' || github.base_ref == 'main'
+            || contains(github.event.pull_request.labels.*.name, 'full-ci'))) }}
+        run: |
+          echo "full=$FULL" >> "$GITHUB_OUTPUT"
+          echo "Full CI tier: $FULL"
+
   # The web gate runs as parallel jobs; `ci` aggregates them so required checks
   # and release `needs: ci` keep their name and meaning.
   checks:
@@ -133,6 +163,8 @@ jobs:
 
   e2e-bundle:
     name: review-fixture bundle
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -198,6 +230,8 @@ jobs:
 
   components:
     name: component and deployment browser checks
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -230,17 +264,26 @@ jobs:
   ci:
     name: lint ? typecheck ? test ? build ? visual
     if: always()
-    needs: [checks, unit, build, e2e-bundle, e2e, components]
+    needs: [tier, checks, unit, build, e2e-bundle, e2e, components]
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
+      # The light tier always gates; the full tier gates whenever it runs and
+      # may only be skipped on a light run.
       - name: Every web gate passed
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          FULL: ${{ needs.tier.outputs.full }}
+          LIGHT: ${{ needs.tier.result }} ${{ needs.checks.result }} ${{ needs.unit.result }} ${{ needs.build.result }}
+          HEAVY: ${{ needs.e2e-bundle.result }} ${{ needs.e2e.result }} ${{ needs.components.result }}
         run: |
-          echo "$RESULTS"
-          for result in $RESULTS; do
+          echo "full=$FULL light: $LIGHT heavy: $HEAVY"
+          for result in $LIGHT; do
             [ "$result" = success ] || exit 1
+          done
+          for result in $HEAVY; do
+            [ "$result" = success ] && continue
+            [ "$FULL" != true ] && [ "$result" = skipped ] && continue
+            exit 1
           done
 
   tauri-debug:
@@ -248,6 +291,8 @@ jobs:
     # Native jobs build their own web bundle; start independent platform checks
     # alongside web CI so a platform compile error is not delayed by that suite.
     # Release jobs below still require both ci and tauri-debug to succeed.
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -291,8 +336,9 @@ jobs:
             xvfb \
             patchelf
       - run: pnpm install --frozen-lockfile
-      - name: Build webview
-        run: pnpm build
+      # Tauri's beforeBuildCommand (build:bundle) builds the webview without
+      # repeating the type check, which the checks job runs and which needs a
+      # >2 GB heap that 7 GB macOS runners do not give Node by default.
       - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
       # Every library test, gated per platform by #[cfg]. Single-threaded because
@@ -300,6 +346,9 @@ jobs:
       - name: Native library tests
         working-directory: desktop/src-tauri
         run: cargo test --locked --lib -- --test-threads=1
+      - name: NSIS tools for the installer bundle
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/tauri-nsis-tools
       - name: Compile Windows installer provider and native-search hooks
         if: runner.os == 'Windows'
         working-directory: desktop
@@ -332,7 +381,10 @@ jobs:
   # download until it is opened from System Settings > Privacy & Security.
   macos-bundle:
     name: tauri bundle · macos-latest · aarch64
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: tier
+    if: >-
+      needs.tier.outputs.full == 'true'
+      && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: macos-latest
     timeout-minutes: 90
     env:
@@ -398,8 +450,7 @@ jobs:
           ditto "$app/Contents/Resources/gact-runtime" desktop/src-tauri/gact-runtime
           hdiutil detach -quiet "$mount"
           test -f desktop/src-tauri/gact-runtime/runtime.json
-      - name: Build web
-        run: pnpm --filter @clio/workspace build
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
       - name: Generate brand backend descriptor
         run: pnpm --filter @clio/desktop gen-brand-backend
       - name: Build sidecar launcher
@@ -447,8 +498,10 @@ jobs:
 
   native-webview-proof:
     name: native WebView proof · fixture-backed
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    needs: checks
+    if: >-
+      needs.tier.outputs.full == 'true'
+      && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    needs: [tier, checks]
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -621,8 +674,7 @@ jobs:
       # this the installer embeds whatever descriptor happens to be committed.
       - name: Generate brand backend descriptor
         run: pnpm --filter @clio/desktop gen-brand-backend
-      - name: Build web
-        run: pnpm build
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
       - name: Set up Apple signing
         id: apple
         if: runner.os == 'macOS'
@@ -638,6 +690,9 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash desktop/scripts/macos-signing-setup.sh setup
+      - name: NSIS tools for the installer bundle
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/tauri-nsis-tools
       # These installers carry a stub runtime and no updater key, so they must
       # not produce updater artifacts that a client could install over a real
       # bundle; the signed CLIO feed is published by clio-agent (#739 A6).

@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import { MemoryToolResult } from './memory-tool-result';
 import { INLINE_MEMORY_TOOLS } from './memory-presentation';
 import { CircleAlertIcon, FileIcon } from 'lucide-react';
@@ -6,7 +7,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { PresentationLink } from './presentation-link';
-import { sandboxBoundary } from './sandbox-boundary';
+import { toolSandboxBoundary } from './sandbox-boundary';
 import { SandboxBoundaryNotice } from './sandbox-boundary-notice';
 import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
@@ -38,8 +39,10 @@ import {
   getToolResultBlocks,
   isA2uiCatalogLookup,
 } from './tool-presentation';
-import { withQuestionPresentation } from './question-tool-presentation';
+import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
+import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
+import { PresentationNavigation } from './presentation-navigation';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 
@@ -50,7 +53,7 @@ export function ToolResultPresentation(props: {
   summaryInHeader?: boolean;
 }) {
   // A call that failed at the sandbox says so above its result (#1905).
-  const boundary = sandboxBoundary(props.tool.output);
+  const boundary = toolSandboxBoundary(props.tool);
   const body = <ToolResultBody {...props} />;
   if (!boundary) return body;
   return (
@@ -70,9 +73,20 @@ function ToolResultBody({
   subjectId?: string;
   summaryInHeader?: boolean;
 }) {
-  const questionContext = useQuestionAnswer();
-  const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
+  const navigation = useContext(PresentationNavigation);
+  const interactions = useQuestionAnswer()?.interactions ?? navigation?.interactions;
+  const tool = withQuestionPresentation(recordedTool, interactions);
   const lines = useTranscriptPreviewLines();
+  const reading = answeredQuestionReading(recordedTool, interactions);
+  if (reading)
+    return (
+      <div
+        className="ml-7 min-w-0 overflow-hidden rounded-md border"
+        data-slot="tool-human-result"
+      >
+        <QuestionAnswerReader reading={reading} />
+      </div>
+    );
   if (INLINE_MEMORY_TOOLS.has(tool.name) && getToolStatus(tool) === 'succeeded')
     return <MemoryToolResult tool={tool} />;
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
@@ -109,10 +123,12 @@ function ToolResultBody({
   // and rendered after the document instead.
   const contentBlocks = blocks.filter((block) => !isProvenanceBlock(block));
   const provenanceBlocks = blocks.filter(isProvenanceBlock);
+  // An outcome (a stop or an error) is not the file's contents.
   const document =
     (subject?.target === 'file' || resourceDocument) &&
     contentBlocks.length > 0 &&
-    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
+    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type)) &&
+    !contentBlocks.some((block) => block.severity === 'error' || block.severity === 'warning');
   if (document) {
     const budget = lines;
     return (
@@ -372,7 +388,12 @@ function ToolResultBody({
           return (
             <div key={block.id} className="min-w-0">
               {block.label ? (
-                <p className="text-xs font-medium text-muted-foreground">{block.label}</p>
+                <p
+                  className="px-2 text-xs font-medium text-muted-foreground"
+                  data-slot="tool-result-label"
+                >
+                  {block.label}
+                </p>
               ) : null}
               <BoundedResult
                 lines={budget}

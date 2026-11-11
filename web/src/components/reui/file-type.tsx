@@ -744,7 +744,7 @@ const fileTypeVariants = cva(
   [
     '@container relative inline-block shrink-0 align-middle leading-none select-none',
     'size-(--file-type-size)',
-    '[--file-type-foreground:var(--invert-foreground)]',
+    '[--file-type-foreground:var(--on-category,var(--invert-foreground))]',
   ],
   {
     variants: {

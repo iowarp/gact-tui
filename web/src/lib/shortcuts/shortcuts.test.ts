@@ -4,9 +4,10 @@ import {
   chordMatches,
   chordPosition,
   chordText,
-  isReservedChord,
   isTextFieldChord,
   parseChord,
+  type KeyPlatform,
+  type ParsedChord,
 } from './keys';
 import {
   defineShortcuts,
@@ -16,6 +17,75 @@ import {
   shortcutText,
 } from './registry';
 
+/**
+ * Keys the browser or the OS keeps. Nothing binds them; a definition that
+ * needs one (the desktop app owns Ctrl N) marks itself desktop-only.
+ */
+const RESERVED: Record<KeyPlatform, readonly string[]> = {
+  windows: [
+    'Ctrl+N',
+    'Ctrl+T',
+    'Ctrl+W',
+    'Ctrl+Tab',
+    'Ctrl+L',
+    'Ctrl+1–9',
+    'Ctrl+PageUp',
+    'Ctrl+PageDown',
+    'F5',
+    'Ctrl+Shift+N',
+    'Ctrl+Shift+T',
+    'Ctrl+Shift+W',
+    'Ctrl+Shift+I',
+    'Ctrl+Shift+J',
+    'Ctrl+Shift+C',
+  ],
+  mac: [
+    'Cmd+Q',
+    'Cmd+H',
+    'Cmd+M',
+    'Cmd+N',
+    'Cmd+T',
+    'Cmd+W',
+    'Cmd+L',
+    'Cmd+Tab',
+    'Cmd+`',
+    'Cmd+Space',
+    'Cmd+1–9',
+    'Shift+Cmd+3–5',
+    // The Help menu's search over the menu bar.
+    'Shift+Cmd+/',
+    'Alt+Cmd+M',
+    'Alt+Cmd+I',
+    'Alt+Cmd+J',
+    'Alt+Cmd+C',
+    'Alt+Cmd+U',
+    'Ctrl+Space',
+    'Ctrl+Left',
+    'Ctrl+Right',
+    'Ctrl+Up',
+    'Ctrl+Down',
+  ],
+};
+
+function keysOverlap(a: string, b: string): boolean {
+  if (a === b) return true;
+  const range = (key: string) => /^(\d)\u2013(\d)$/u.exec(key)?.slice(1, 3) ?? [key, key];
+  const [[aLo, aHi], [bLo, bHi]] = [range(a), range(b)];
+  if (![aLo, bLo].every((key) => /^\d$/u.test(key!))) return false;
+  return !(aHi! < bLo! || bHi! < aLo!);
+}
+
+/** Whether `parsed` (already for `platform`) collides with a browser or OS key. */
+function isReservedChord(parsed: ParsedChord, platform: KeyPlatform): boolean {
+  if (parsed.hold) return false;
+  return RESERVED[platform].some((reserved) => {
+    const other = parseChord(reserved, platform, true);
+    const sameModifiers =
+      other.modifiers.size === parsed.modifiers.size &&
+      [...other.modifiers].every((modifier) => parsed.modifiers.has(modifier));
+    return sameModifiers && keysOverlap(other.key, parsed.key);
+  });
+}
 function press(init: KeyboardEventInit) {
   const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
   window.dispatchEvent(event);
@@ -37,6 +107,34 @@ describe('chords', () => {
     expect(shortcutText(fullscreen, 'mac')).toBe('⌃⌘F');
     expect(shortcutText(getShortcut('previous-conversation')!, 'mac')).toBe('⌥⌘↑');
     expect(shortcutText(getShortcut('previous-conversation')!, 'windows')).toBe('Alt ↑');
+  });
+
+  it('leaves macOS keys to macOS and reads the Mac ⌫ key (#739)', () => {
+    // ⇧⌘/ searches the Mac menu bar, which is the app menu there.
+    expect(shortcutChords(getShortcut('app-menu')!, 'mac')).toEqual([]);
+    expect(shortcutText(getShortcut('app-menu')!, 'windows')).toBe('Alt Space');
+    expect(shortcutText(getShortcut('close-tab')!, 'mac')).toBe('⌘⌫');
+    const backspace = { key: 'Backspace', code: 'Backspace', ctrlKey: false, altKey: false };
+    const closeTab = getShortcut('close-tab')!;
+    expect(
+      shortcutChords(closeTab, 'mac').some((chord) =>
+        chordMatches(chord, { ...backspace, shiftKey: false, metaKey: true }),
+      ),
+    ).toBe(true);
+    expect(shortcutText(getShortcut('reload')!, 'mac')).toBe('⌘R');
+    expect(shortcutText(getShortcut('downloads')!, 'mac')).toBe('⌘J');
+  });
+
+  it('changes the composer mode with a chord typing leaves alone', () => {
+    const mode = getShortcut('mode')!;
+    expect(mode.name).toBe('Change mode');
+    expect(shortcutText(mode, 'windows')).toBe('Ctrl Shift M');
+    expect(shortcutText(mode, 'mac')).toBe('⇧⌘M');
+    for (const platform of ['windows', 'mac'] as const) {
+      for (const chord of shortcutChords(mode, platform)) {
+        expect(isTextFieldChord(chord, platform)).toBe(false);
+      }
+    }
   });
 
   it('matches exactly and reports the position of a range', () => {

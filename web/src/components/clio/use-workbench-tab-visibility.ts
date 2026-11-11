@@ -43,9 +43,18 @@ export function useWorkbenchTabVisibility(
     const markScrolled = () => {
       strip.dataset.scrolledStart = strip.scrollLeft > 0 ? 'true' : 'false';
     };
+    // A fit step (names to icons, the "All tabs" button appearing) can move the
+    // tab after this pass without resizing anything observed; check once more
+    // on the next frame.
+    let frame = 0;
     const revealAndMark = () => {
       reveal();
       markScrolled();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        reveal();
+        markScrolled();
+      });
     };
 
     revealAndMark();
@@ -62,6 +71,7 @@ export function useWorkbenchTabVisibility(
     active.addEventListener('transitionend', settled);
     active.addEventListener('transitioncancel', settled);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
       strip.removeEventListener('scroll', markScrolled);
       active.removeEventListener('transitionend', settled);

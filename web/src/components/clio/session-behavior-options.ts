@@ -2,7 +2,7 @@ import type { MessageBehavior, Session } from '@clio/core/v3';
 import {
   BotIcon,
   FolderCheckIcon,
-  Globe2Icon,
+  GlobeIcon,
   MapIcon,
   PlayIcon,
   RadarIcon,
@@ -29,20 +29,20 @@ export const SESSION_MODE_OPTIONS = [
   {
     value: 'edit',
     label: 'Execute',
-    description: 'Act on the request and make supported changes.',
+    description: 'Does the work, within the policy.',
     icon: PlayIcon,
   },
   {
     value: 'plan',
     label: 'Plan',
-    description: 'Develop a concrete approach before changing anything.',
+    description: 'Proposes a plan and waits for you.',
     icon: MapIcon,
   },
   {
     value: 'architect',
     label: 'Deep research',
-    description: 'Investigate broadly through specialists before proposing changes.',
-    icon: Globe2Icon,
+    description: 'A long, sourced investigation.',
+    icon: GlobeIcon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['mode']>[];
 

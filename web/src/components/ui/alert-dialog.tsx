@@ -3,6 +3,7 @@ import { useOverlayContainer } from './overlay-container';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
+import { useModalFocusReturn } from './modal-focus';
 import { DismissToastsOnOpen } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 
@@ -28,7 +29,7 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        'fixed inset-0 z-50 bg-scrim duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
+        'fixed inset-0 z-50 bg-scrim duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
         className,
       )}
       {...props}
@@ -43,6 +44,8 @@ function AlertDialogContent({
   onBackdropClick,
   size = 'default',
   children,
+  ref,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: 'default' | 'sm';
@@ -50,6 +53,7 @@ function AlertDialogContent({
   layer?: 'task-confirmation';
   onBackdropClick?: React.MouseEventHandler<HTMLDivElement>;
 }) {
+  const focusReturn = useModalFocusReturn({ ref, onCloseAutoFocus });
   return (
     <AlertDialogPortal container={useOverlayContainer()}>
       <AlertDialogOverlay
@@ -66,6 +70,7 @@ function AlertDialogContent({
           className,
         )}
         {...props}
+        {...focusReturn}
       >
         <DismissToastsOnOpen />
         {children}

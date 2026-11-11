@@ -68,6 +68,10 @@ export function markFromSelection(target: SelectionTarget): {
       },
     };
   }
+  if (target.kind === 'file-text') {
+    // A file passage, quoted with its path and lines; the wire has no file kind yet.
+    return { kind: 'a2ui-surface', title: target.path, anchor: target.anchor };
+  }
   const { messageId, sessionId } =
     target.kind === 'transcript-content'
       ? { messageId: target.reference.message_id, sessionId: target.reference.session_id }
@@ -90,10 +94,4 @@ export function commentSessionParts(
   return sessions
     .filter((session) => session.marks.length > 0)
     .map((session) => ({ type: 'comment_session', metadata: { comment_session: session } }));
-}
-
-/** A short line for a session's chip: its target and its marks. */
-export function commentSessionSummary(session: CommentAttachment): string {
-  const marks = session.marks.map((mark) => mark.label).join(', ');
-  return `${session.title || session.kind}: ${marks}`;
 }

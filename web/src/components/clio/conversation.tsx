@@ -1,17 +1,23 @@
 import { cn } from '@/lib/utils';
+import type { QueryKey } from '@tanstack/react-query';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useContext } from 'react';
 import { useInRouterContext, useLocation } from 'react-router-dom';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
 import { highlightSearchPassage } from '@/lib/search-passage';
-import { inlineQuestionDomId } from '@/lib/inline-question';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import type { McpAppIdentity } from '@clio/core/v3';
-import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
+import { GitBranchIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import {
+  EarlierMessagesRow,
+  TranscriptLoadError,
+  TranscriptLoading,
+  TRANSCRIPT_CONTROL_LANE_PX,
+  TranscriptControlLane,
+} from './transcript-inline-states';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
@@ -21,12 +27,12 @@ import { ClioTurnWaitFeedback } from './turn-wait-feedback';
 import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
+import { TranscriptMessagesContext } from './transcript-messages-context';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
-import { OpenQuestionsTracker } from './open-questions-tracker';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
-import { ClioTranscriptMinimap } from './transcript-minimap';
+import { ClioTranscriptOutline } from './transcript-outline';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
-import type { ClioConversationProps, EarlierMessagesControl } from './conversation-types';
+import type { ClioConversationProps } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
   conversationResponseContinuity,
@@ -36,9 +42,10 @@ import {
   projectA2UIActionMessages,
   surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
-import { PresentationNavigation } from './presentation-navigation';
+import { PresentationNavigation, usePresentationNavigation } from './presentation-navigation';
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
+import { useConversationColumn } from './use-conversation-column';
 import {
   useTranscriptReadingPosition,
   useTranscriptWidth,
@@ -46,6 +53,7 @@ import {
 } from './use-transcript-reading-position';
 
 const VIRTUALIZATION_THRESHOLD = 80;
+const ESTIMATED_ROW_PX = 180;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 interface ActiveMcpApp {
@@ -71,39 +79,38 @@ void loadMarkdownText();
 /** Within this distance of the top, a paged transcript reads its next older page. */
 const EARLIER_LOAD_THRESHOLD_PX = 600;
 
-/** Shows that older messages exist, are loading, or failed; also loads them on click. */
-function EarlierMessagesRow({ earlier }: { earlier: EarlierMessagesControl }) {
-  return (
-    <div className="mx-auto flex w-full max-w-4xl justify-center px-5 py-2">
-      {earlier.loading ? (
-        <span
-          aria-live="polite"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-          role="status"
-        >
-          <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-          Loading earlier messages…
-        </span>
-      ) : (
-        <Button onClick={earlier.load} size="sm" type="button" variant="ghost">
-          {earlier.error ? 'Earlier messages did not load. Try again' : 'Load earlier messages'}
-        </Button>
-      )}
-    </div>
-  );
-}
-
 export function ClioConversation(props: ClioConversationProps) {
   const inRouter = useInRouterContext();
+  const navigation = usePresentationNavigation(props);
   return (
-    <PresentationNavigation.Provider value={props}>
+    <PresentationNavigation.Provider value={navigation}>
       <TranscriptDisclosures sessionId={props.sessionId ?? props.messages[0]?.session_id}>
-        {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        <TranscriptMessagesContext.Provider value={props.messages}>
+          {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        </TranscriptMessagesContext.Provider>
       </TranscriptDisclosures>
     </PresentationNavigation.Provider>
   );
 }
 
+/**
+ * The lane above the composer, shown while the reader is away from the latest
+ * message or the history is refreshing. A refresh sits in the lane at row
+ * height, so it never covers a message or moves the reading position.
+ */
+function TranscriptControls({
+  loading,
+  onJump,
+  queryKey,
+}: {
+  loading?: boolean;
+  onJump?: () => void;
+  queryKey?: QueryKey;
+}) {
+  const fetching = useQueryFetching(queryKey);
+  const syncing = Boolean(loading || fetching);
+  return syncing || onJump ? <TranscriptControlLane onJump={onJump} syncing={syncing} /> : null;
+}
 function RoutedConversationBody(props: ClioConversationProps) {
   const location = useLocation();
   return <ConversationBody {...props} searchHash={location.hash} searchKey={location.key} />;
@@ -112,7 +119,10 @@ function RoutedConversationBody(props: ClioConversationProps) {
 function ConversationBody({
   messages: sourceMessages,
   loading,
+  loadingQueryKey,
+  awaitingFirstPage,
   error,
+  onReload,
   earlier,
   bottomInset = 0,
   compactions,
@@ -207,6 +217,15 @@ function ConversationBody({
       ),
     [messages],
   );
+  // A reopened session that is already waiting has no turn.started event yet;
+  // its run is the latest prompt's, as currentTurnAssistantMessages assumes.
+  const sessionLive = ['running', 'queued', 'waiting_permission', 'waiting_user'].includes(
+    preparation?.sessionState ?? '',
+  );
+  const latestPrompt = messages.findLast((message) => message.role === 'user');
+  const activeRunId = sessionLive
+    ? (preparation?.activeTurnId ?? latestPrompt?.run_id ?? latestPrompt?.turn_id)
+    : undefined;
   const liveActivityId = useMemo(
     () =>
       liveActivityIterationId({
@@ -285,14 +304,24 @@ function ConversationBody({
           ),
       )
     : -1;
-  const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
+  // A paged transcript is a window onto a longer history: mount only its
+  // visible tail instead of laying out the whole first page. Latched so the
+  // last older page does not switch every row back into the document flow.
+  const [paged, setPaged] = useState(Boolean(earlier?.hasEarlier));
+  if (earlier?.hasEarlier && !paged) setPaged(true);
+  const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD || paged;
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
+    // Attach once rows exist, starting from the estimated tail, so the first
+    // rows mounted are the ones the initial scroll-to-end reveals.
+    enabled: messages.length > 0,
+    initialOffset: () => Math.max(0, messages.length * ESTIMATED_ROW_PX - window.innerHeight),
+    initialRect: { width: 0, height: window.innerHeight },
     // Height corrections can scroll during commit; let React batch the range
     // update instead of trying to flush another render inside that commit.
     useFlushSync: false,
-    estimateSize: () => 180,
+    estimateSize: () => ESTIMATED_ROW_PX,
     getScrollElement: () => scrollRef.current,
     overscan: 7,
     rangeExtractor: useCallback(
@@ -335,19 +364,30 @@ function ConversationBody({
     if (!container) return undefined;
     const recompute = () => {
       const lastChild = container.lastElementChild;
-      if (!lastChild) return;
-      const realBottom = lastChild.getBoundingClientRect().bottom;
-      const containerTop = container.getBoundingClientRect().top;
-      const declaredHeight = virtualizer.getTotalSize();
-      setVirtualizedRowsOverflow(Math.max(0, realBottom - containerTop - declaredHeight));
+      const lastIndex = messages.length - 1;
+      const item = virtualizer.getVirtualItems().find((row) => row.index === lastIndex);
+      if (!lastChild || !item || Number(lastChild.getAttribute('data-index')) !== lastIndex) {
+        setVirtualizedRowsOverflow(0);
+        return;
+      }
+      // Compare sizes, not positions: a measurement can shrink the total
+      // before the rows move, and a transform-only move is never observed,
+      // so a position reading would keep a stale gap below the newest turn.
+      const underestimate = lastChild.getBoundingClientRect().height - item.size;
+      setVirtualizedRowsOverflow(underestimate > 1 ? Math.ceil(underestimate) : 0);
     };
-    recompute();
-    if (typeof ResizeObserver === 'undefined') return undefined;
+    // The observer reports each target once after the next layout, so the
+    // first reading needs no forced layout inside the commit; a streaming row
+    // changes the range key with every chunk.
+    if (typeof ResizeObserver === 'undefined') {
+      recompute();
+      return undefined;
+    }
     const observer = new ResizeObserver(recompute);
     observer.observe(container);
     if (container.lastElementChild) observer.observe(container.lastElementChild);
     return () => observer.disconnect();
-  }, [virtualRangeKey, virtualized, virtualizer]);
+  }, [messages.length, virtualRangeKey, virtualized, virtualizer]);
 
   const { scrollIntentVersionRef, captureReadingAnchor, markUserScrollIntent } =
     useTranscriptReadingPosition({
@@ -424,17 +464,12 @@ function ConversationBody({
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
-    scrollToBottom,
   });
-  const minimapVisible = conversationViewportWidth >= 760;
-  // Grow only into the unused margin, leaving a gap before the transcript column.
-  const minimapMarkerWidth = Math.min(
-    56,
-    Math.max(
-      24,
-      (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 - 12,
-    ),
-  );
+  // The outline button floats at the top left; once the column fills the
+  // viewport, a gutter keeps the text from scrolling under it.
+  const outlineGutter =
+    (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 < 32;
+  useConversationColumn(scrollRef, conversationWidth === 'wide' ? 1152 : 896);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -480,11 +515,8 @@ function ConversationBody({
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           if (focusAttentionEvidence(messageId, new URLSearchParams(query))) return;
-          // An agent question's card is the landmark for its tool call when shown.
-          const activity = activityId
-            ? (document.getElementById(inlineQuestionDomId(activityId)) ??
-              document.getElementById(`tool-${activityId}`))
-            : null;
+          // A tool call's activity row is the landmark for its deep link.
+          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
           if (activity) {
             activity.scrollIntoView({ block: 'center' });
             activity.focus({ preventScroll: true });
@@ -516,23 +548,73 @@ function ConversationBody({
     if (followingRef.current && messages.length > 0) scrollToBottom('instant');
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
+  // Pressing a disclosure disengages on pointerdown. Mounting the jump lane
+  // right then would slide it over a control in the last 40px, and the
+  // pointerup and click would land on the lane. Hold it until the press ends.
+  const [pressHold, setPressHold] = useState(false);
+  const pressedRef = useRef<Element | null>(null);
+  useEffect(() => {
+    if (!pressHold) return undefined;
+    let timer = 0;
+    // A task later than pointerup, so the click has been dispatched.
+    const release = () => {
+      timer = window.setTimeout(() => setPressHold(false), 0);
+    };
+    window.addEventListener('pointerup', release, { once: true });
+    window.addEventListener('pointercancel', release, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [pressHold]);
+
+  const jumpVisible =
+    !autoscroll.engaged && autoscroll.scrollable && messages.length > 0 && !pressHold;
+
+  // When the lane appears under the control the reader just pressed, lift the
+  // view by the overlap so that control stays visible and clickable.
+  useLayoutEffect(() => {
+    if (!jumpVisible) return;
+    const pressed = pressedRef.current;
+    pressedRef.current = null;
+    const element = scrollRef.current;
+    const lane = element?.querySelector('[data-slot="transcript-control-lane"]');
+    if (!pressed?.isConnected || !element || !lane) return;
+    const overlap = pressed.getBoundingClientRect().bottom - lane.getBoundingClientRect().top;
+    if (overlap <= 0) return;
+    element.scrollTop += overlap;
+    captureReadingAnchor(pressed);
+  }, [jumpVisible, captureReadingAnchor]);
+
+  // An empty list is only "no messages" once the transcript actually arrived.
+  // A load error outranks everything, including a running turn's preparation.
+  const turnStarting =
+    preparation?.sessionState === 'queued' || preparation?.sessionState === 'running';
+  const emptyFetching = useQueryFetching(loadingQueryKey, messages.length === 0);
+  const emptyTranscript =
+    messages.length > 0
+      ? null
+      : error
+        ? 'error'
+        : awaitingFirstPage || ((loading || emptyFetching) && !turnStarting)
+          ? 'loading'
+          : turnStarting
+            ? 'preparing'
+            : 'empty';
+
   return (
     <div className="relative h-full min-h-0">
-      <OpenQuestionsTracker interactions={entities.interactions ?? []} bottomInset={bottomInset} />
       {messages.length > 0 ? (
-        <>
-          <ClioTranscriptMinimap
-            activeIndex={activeMessageIndex}
-            attention={entities.attentionData}
-            messages={messages}
-            markedMessageIds={entities.markedMessageIds}
-            markingMessageId={entities.markingMessageId}
-            onMarkMessage={entities.onMarkMessage}
-            onJump={jumpToMessage}
-            visible={minimapVisible}
-            maxMarkerWidth={minimapMarkerWidth}
-          />
-        </>
+        <ClioTranscriptOutline
+          activeIndex={activeMessageIndex}
+          attention={entities.attentionData}
+          messages={messages}
+          markedMessageIds={entities.markedMessageIds}
+          markingMessageId={entities.markingMessageId}
+          onMarkMessage={entities.onMarkMessage}
+          onJump={jumpToMessage}
+        />
       ) : null}
       {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
           scroll position here. With the browser's own scroll anchoring on, it
@@ -541,13 +623,10 @@ function ConversationBody({
           after they scrolled up, even on a finished conversation. */}
       <div
         aria-label="Conversation"
-        // Without the minimap rail, the outline button floats at the top left; this
-        // gutter keeps the text from scrolling under it.
         className={cn(
           'clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]',
-          !minimapVisible && 'pl-3',
+          outlineGutter && 'pl-3',
         )}
-        data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
@@ -572,12 +651,18 @@ function ConversationBody({
         }}
         onScroll={handleScroll}
         onPointerDown={(event) => {
-          if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
+          const disclosure =
+            event.target instanceof Element ? event.target.closest('button[aria-expanded]') : null;
+          if (disclosure) {
+            if (autoscroll.engaged) {
+              pressedRef.current = disclosure;
+              setPressHold(true);
+            }
             markUserScrollIntent();
             disengage();
             // A streaming row can finish before a native scroll event fires.
             // Keep the visible reader anchor mounted through that transition.
-            captureReadingAnchor(event.target);
+            captureReadingAnchor(disclosure);
           }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);
@@ -595,42 +680,20 @@ function ConversationBody({
         }}
         ref={scrollRef}
         role="log"
-        style={{ paddingBottom: bottomInset, scrollPaddingBottom: bottomInset }}
+        style={{
+          paddingBottom: bottomInset,
+          scrollPaddingBottom: bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
+        }}
         tabIndex={0}
       >
-        {messages.length > 0 && loading ? (
-          // Background refreshes must not change the transcript's reading position.
-          <div
-            aria-live="polite"
-            className="pointer-events-none absolute left-1/2 top-2 z-20 flex w-fit -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur"
-            role="status"
-          >
-            <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-            Syncing history…
-          </div>
-        ) : null}
-        {messages.length === 0 &&
-        (preparation?.sessionState === 'queued' ||
-          preparation?.sessionState === 'running') ? null : messages.length === 0 && loading ? (
-          <ConversationEmptyState
-            aria-live="polite"
-            className="h-full"
-            description="Recovering messages, reasoning, tools, and artifacts from the agent."
-            icon={<LoaderCircleIcon aria-hidden="true" className="size-7 animate-spin" />}
-            title="Loading conversation"
-          />
-        ) : messages.length === 0 && error ? (
-          <div className="grid h-full place-items-center p-5">
-            <Alert className="max-w-xl" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Conversation unavailable</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          </div>
-        ) : messages.length === 0 ? (
+        {emptyTranscript === 'error' && error ? (
+          <TranscriptLoadError error={error} onRetry={onReload} />
+        ) : emptyTranscript === 'loading' ? (
+          <TranscriptLoading />
+        ) : emptyTranscript === 'preparing' ? null : emptyTranscript === 'empty' ? (
           <>
             {entities.forkOrigin?.message_count === 0 ? (
-              <div className="mx-auto max-w-4xl px-5 lg:px-8">
+              <div className="mx-auto max-w-4xl px-(--conversation-gutter)">
                 <ConversationForkCheckpoint
                   origin={entities.forkOrigin}
                   workspaceId={entities.workspaceId}
@@ -647,7 +710,10 @@ function ConversationBody({
         ) : (
           <>
             {earlier && (earlier.hasEarlier || earlier.loading || earlier.error) ? (
-              <EarlierMessagesRow earlier={earlier} />
+              <EarlierMessagesRow
+                className={conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}
+                earlier={earlier}
+              />
             ) : null}
             <div
               ref={(node) => {
@@ -690,12 +756,7 @@ function ConversationBody({
                     )}
                     turnPresentation={activityPlacement.get(message.id)}
                     active={
-                      (preparation?.sessionState === 'running' ||
-                        preparation?.sessionState === 'queued' ||
-                        preparation?.sessionState === 'waiting_permission' ||
-                        preparation?.sessionState === 'waiting_user') &&
-                      (message.run_id ?? message.turn_id) === preparation?.activeTurnId &&
-                      Boolean(preparation?.activeTurnId)
+                      Boolean(activeRunId) && (message.run_id ?? message.turn_id) === activeRunId
                     }
                     {...entities}
                     activeMcpAppId={activeMcpAppId}
@@ -717,9 +778,9 @@ function ConversationBody({
             </div>
           </>
         )}
-        {preparation ? (
+        {preparation && emptyTranscript !== 'error' && emptyTranscript !== 'loading' ? (
           <div
-            className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto w-full px-(--conversation-gutter) ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             ref={autoscroll.observeContent}
           >
             <ClioTurnPreparation {...preparation} messages={sourceMessages} />
@@ -730,13 +791,16 @@ function ConversationBody({
                 tools={entities.tools}
                 tasks={entities.tasks}
                 subagents={entities.subagents}
+                awaitingUser={entities.interactions?.some(
+                  (interaction) => interaction.status === 'pending',
+                )}
               />
             </SessionResponseFeedback>
           </div>
         ) : null}
         {compactionPlacement.trailing.length > 0 ? (
           <div
-            className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-3 px-(--conversation-gutter) pb-4 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             data-slot="trailing-compactions"
             ref={autoscroll.observeContent}
           >
@@ -748,7 +812,7 @@ function ConversationBody({
         {detachedSurfaces.length > 0 ? (
           <div
             ref={autoscroll.observeContent}
-            className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-4 px-(--conversation-gutter) pb-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface
@@ -759,28 +823,12 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {!autoscroll.engaged && autoscroll.scrollable && messages.length > 0 ? (
-          // A zero-height sticky rail inside the scroller, so a wheel over the
-          // button still scrolls the transcript (and reaches its intent
-          // handlers) instead of dying on a sibling overlay. Sticky offsets
-          // are measured inside the scroller's padding, which already holds
-          // the composer inset.
-          <div
-            className="pointer-events-none sticky bottom-3 z-20 h-0"
-            data-slot="scroll-to-bottom-rail"
-          >
-            <Button
-              aria-label="Scroll to bottom"
-              className="pointer-events-auto absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full shadow-lg dark:bg-background dark:hover:bg-muted"
-              onClick={autoscroll.engage}
-              size="icon"
-              title="Scroll to bottom"
-              type="button"
-              variant="outline"
-            >
-              <ArrowDownIcon aria-hidden="true" className="size-4" />
-            </Button>
-          </div>
+        {messages.length > 0 ? (
+          <TranscriptControls
+            loading={loading}
+            onJump={jumpVisible ? autoscroll.engage : undefined}
+            queryKey={loadingQueryKey}
+          />
         ) : null}
       </div>
     </div>

@@ -3,8 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { SourceWindowContext } from '@/lib/source-window';
 
-/** Matches the highlighted block's text-sm line height. Unit: CSS px. */
-const SOURCE_LINE_HEIGHT_PX = 20;
+/** Matches the highlighted source's 11.5px/1.65 lines. Unit: CSS px. */
+const SOURCE_LINE_HEIGHT_PX = 19;
 /** Rows from the end at which a windowed file asks for its next window. */
 const END_REACHED_ROWS = 200;
 
@@ -12,11 +12,14 @@ const END_REACHED_ROWS = 200;
 export function VirtualSourceLines({
   content,
   wrap,
+  headerRow = false,
   className,
   ...props
 }: {
   content: string;
   wrap: boolean;
+  /** The first line names the columns and reads faint. */
+  headerRow?: boolean;
   className?: string;
   role?: string;
   'aria-label'?: string;
@@ -46,7 +49,7 @@ export function VirtualSourceLines({
       {...props}
       ref={scrollRef}
       className={cn(
-        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-foreground text-sm',
+        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-[11.5px] leading-[19px] text-foreground',
         className,
       )}
       data-slot="virtual-source"
@@ -74,7 +77,12 @@ export function VirtualSourceLines({
               >
                 {item.index + 1}
               </span>
-              <span className="min-w-0">{lines[item.index]}</span>
+              <span
+                className={cn('min-w-0', headerRow && item.index === 0 && 'text-faint')}
+                data-source-header={headerRow && item.index === 0 ? '' : undefined}
+              >
+                {lines[item.index]}
+              </span>
             </div>
           ))}
         </div>

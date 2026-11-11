@@ -1,4 +1,5 @@
 import type { RunState } from '@clio/core/v3';
+import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { clioStatusLabel } from '@/components/clio/status';
 import type { RunRow } from '@/routes/runs-rows';
 
@@ -54,8 +55,37 @@ export function compactWhen(iso: string, now: number = Date.now()): string {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
 }
 
-export function runStateLabel(row: RunRow, cancelRequested: boolean): string {
+export function runStateLabel(row: Pick<RunRow, 'state'>, cancelRequested: boolean): string {
   return cancelRequested && !SETTLED.includes(row.state)
     ? 'Cancellation requested'
     : clioStatusLabel(row.state);
+}
+
+/**
+ * Develop's states folded onto a status mark and one plain word in a fixed
+ * column: a spinner while working, a ring when queued, a dot for an outcome.
+ */
+const LOOK: Partial<Record<RunState, { tone: StatusTone; word: string }>> = {
+  running: { tone: 'running', word: 'running' },
+  recovering: { tone: 'running', word: 'recovering' },
+  stopping: { tone: 'running', word: 'stopping' },
+  cancellation_requested: { tone: 'running', word: 'stopping' },
+  pause_requested: { tone: 'waiting', word: 'pausing' },
+  paused: { tone: 'stopped', word: 'paused' },
+  queued: { tone: 'idle', word: 'queued' },
+  waiting_user: { tone: 'waiting', word: 'reply' },
+  waiting_permission: { tone: 'waiting', word: 'approve' },
+  task_state_uncertain: { tone: 'warning', word: 'inspect' },
+  recovery_required: { tone: 'warning', word: 'inspect' },
+  completed: { tone: 'success', word: 'done' },
+  failed: { tone: 'error', word: 'failed' },
+  cancelled: { tone: 'stopped', word: 'cancelled' },
+  interrupted: { tone: 'stopped', word: 'halted' },
+  stopped: { tone: 'stopped', word: 'stopped' },
+  yielded: { tone: 'idle', word: 'idle' },
+};
+
+/** The mark tone and the one word a run's state column shows. */
+export function runLook(row: Pick<RunRow, 'state'>): { tone: StatusTone; word: string } {
+  return LOOK[row.state] ?? { tone: 'info', word: row.state };
 }

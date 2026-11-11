@@ -41,15 +41,24 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
 
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
+  const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeEnabled();
   await expect.poll(() => warmups.length).toBe(1);
   expect(warmups[0]).toBe('/v1/workspaces/ws_flat_ndp/warmup');
-  await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
-    'ws_flat_ndp',
-  );
-  await expect(page.getByText('No active work', { exact: true })).toBeVisible();
-  await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('New conversation'),
+  ).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Starter prompts' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Conversation workspace: flat-NDP' }).click();
+  await expect(page.getByRole('menuitemradio', { name: 'flat-NDP' })).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  // The top bar reports only live or unresolved work; idle "No active work" and
+  // token usage live in the conversation rail, not the bar.
+  const topBarStatus = page.locator('[data-slot="top-bar-status"]');
+  await expect(topBarStatus).toBeAttached();
+  await expect(topBarStatus).not.toContainText('Tokens');
+  await expect(topBarStatus).not.toContainText('No active work');
   await page.getByRole('button', { name: 'New conversation actions' }).click();
   await page.getByRole('menuitem', { name: 'Workspace files', exact: true }).click();
   const filesList = page.getByRole('region', { name: 'Files list', exact: true });
@@ -67,11 +76,18 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await composer.fill('This is a temporary draft');
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
+  // Settings is a window: closing it returns to the route behind it.
+  await page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
-  await expect(composer).toHaveText('');
-  await expect.poll(() => warmups.length).toBe(2);
+  // The draft page stays mounted behind the Settings window, so the draft survives.
+  await expect(composer).toHaveText('This is a temporary draft');
+  expect(warmups).toHaveLength(1);
 
+  // The left bar folded for the workbench at 1280 and stays folded; reopen it.
+  await page.locator('[data-slot="sidebar-trigger"]').click();
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   // URL changes precede session hydration. Settings must leave a validated
@@ -87,12 +103,16 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
     .toBe(sessionRoute);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
+  // Settings is a window: closing it returns to the route behind it.
+  await page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   expect(sessionCreations).toEqual([]);
-  expect(warmups).toHaveLength(2);
+  expect(warmups).toHaveLength(1);
   expect(errors).toEqual([]);
 });
 
@@ -121,7 +141,7 @@ test('draft remains usable when background preparation fails', async ({ page }) 
       creations += 1;
   });
   await page.goto('/');
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
+  const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeEnabled();
   await composer.fill('Still able to compose while tools start');
   release();
@@ -222,8 +242,8 @@ test('first send creates exactly one session and negotiates interactive UI befor
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
   expect(creationCount).toBe(0);
-  await page.getByRole('combobox', { name: /Ask .+ to investigate/ }).fill(messageText);
-  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  await page.getByRole('combobox', { name: /^Ask / }).fill(messageText);
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await expect(
     page.getByRole('log', { name: 'Conversation' }).getByText(messageText, { exact: true }),
@@ -231,4 +251,19 @@ test('first send creates exactly one session and negotiates interactive UI befor
   expect(creationCount).toBe(1);
   expect(messageCount).toBe(1);
   expect(errors).toEqual([]);
+});
+
+test('the folded rail new-conversation button opens the draft at 768px', async ({ page }) => {
+  const reset = await page.request.post(`${endpoint}/__test/reset`);
+  expect(reset.ok()).toBe(true);
+  await page.addInitScript((connection) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
+  }, endpoint);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(sessionRoute);
+  const navigation = page.getByRole('navigation', { name: 'Workspace navigation' });
+  await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeAttached();
+  await navigation.getByRole('button', { name: 'New conversation', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
+  await expect(page.getByRole('combobox', { name: /^Ask / })).toBeEnabled();
 });

@@ -22,7 +22,9 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ManagedServiceContextControl } from './managed-service-context';
 import { ServerParametersForm } from './managed-service-parameters';
-import { SettingsWorkingContext } from './settings-working-context';
+import { SaveBar } from './primitives/save-bar';
+import { WorkingContextRow } from './settings-working-context';
+import { useWorkingContext } from './use-working-context';
 
 const strategies = [{ id: 'fit_to_gpu', label: 'Largest that fits', description: '' }];
 
@@ -200,7 +202,29 @@ describe('ManagedServiceContextControl', () => {
   });
 });
 
-describe('SettingsWorkingContext', () => {
+/** The working context row with its own save bar, as settings compose it. */
+function WorkingContextHarness(props: {
+  providerId: string;
+  modelId: string;
+  seed: ContextControls;
+}) {
+  const state = useWorkingContext(props);
+  return (
+    <>
+      <WorkingContextRow state={state} />
+      <SaveBar
+        count={state.draft ? 1 : 0}
+        error={state.saveError}
+        invalid={Boolean(state.error)}
+        onDiscard={() => state.setDraft(undefined)}
+        onSave={state.save}
+        saving={state.saving}
+      />
+    </>
+  );
+}
+
+describe('WorkingContextRow', () => {
   it('saves a bounded working context for a bound model', async () => {
     const user = userEvent.setup();
     const seed = controls({
@@ -219,11 +243,11 @@ describe('SettingsWorkingContext', () => {
       current_reason: 'set in Settings',
     });
     renderWithQuery(
-      <SettingsWorkingContext modelId="claude-x" providerId="anthropic" seed={seed} />,
+      <WorkingContextHarness modelId="claude-x" providerId="anthropic" seed={seed} />,
     );
     expect(screen.queryByRole('combobox', { name: 'Fit to GPU' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    const input = screen.getByLabelText('Context length');
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    const input = screen.getByLabelText('Context size');
     await user.clear(input);
     await user.type(input, '300000');
     expect(screen.getByRole('alert')).toHaveTextContent('At most 200,000 tokens');
@@ -236,6 +260,9 @@ describe('SettingsWorkingContext', () => {
       choice: 'number',
       tokens: 64_000,
     });
-    expect(await screen.findByText(/In force: 64,000 tokens/u)).toBeVisible();
+    // In force now matches the field, so no note repeats it.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+    expect(input).toHaveValue(64_000);
+    expect(screen.queryByText(/In force:/u)).toBeNull();
   });
 });

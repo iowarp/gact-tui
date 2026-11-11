@@ -3,10 +3,26 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { selectionCommenter } from '@/lib/selection-actions-file';
 
 const documentPageCount = vi.hoisted(() => ({ value: 3 }));
 const pageRenderReady = vi.hoisted(() => ({ value: true }));
 const pageAspectRatio = vi.hoisted(() => ({ value: 11 / 8.5 }));
+const commentSession = vi.hoisted(() => ({
+  current: undefined as
+    | {
+        open: boolean;
+        active: boolean;
+        mode: string;
+        start: ReturnType<typeof vi.fn>;
+        addMark: ReturnType<typeof vi.fn>;
+      }
+    | undefined,
+}));
+
+vi.mock('./comments/comment-session', () => ({
+  useCommentSession: () => commentSession.current,
+}));
 
 vi.mock('react-pdf', async () => {
   const React = await import('react');
@@ -64,22 +80,46 @@ afterEach(() => {
   documentPageCount.value = 3;
   pageRenderReady.value = true;
   pageAspectRatio.value = 11 / 8.5;
+  commentSession.current = undefined;
+  window.getSelection()?.removeAllRanges();
 });
 
+function rect(left: number, top: number, width: number, height: number) {
+  return { left, top, width, height, right: left + width, bottom: top + height } as DOMRect;
+}
+
 describe('ClioDocumentPdfViewer', () => {
+  it("the selection menu's Comment marks the selected text as quads on its page", async () => {
+    const session = { open: true, active: false, mode: 'text', start: vi.fn(), addMark: vi.fn() };
+    commentSession.current = session;
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
+    const text = await screen.findByText('PDF page 1');
+    const page = text.closest<HTMLElement>('[data-page]')!;
+    vi.spyOn(page, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 200, 400));
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    range.getClientRects = () => [rect(20, 40, 100, 20)] as unknown as DOMRectList;
+    window.getSelection()!.addRange(range);
+
+    expect(selectionCommenter({ container: text })?.(window.getSelection())).toBe(true);
+    expect(session.addMark).toHaveBeenCalledWith(
+      {
+        profile: 'pdf-quad',
+        exact: 'PDF page 1',
+        page_index: 0,
+        quads: [[0.1, 0.1, 0.6, 0.1, 0.6, 0.15, 0.1, 0.15]],
+      },
+      { box: { left: 20, top: 40, width: 100, height: 20 } },
+    );
+  });
+
   it.each([9 / 16, 11 / 8.5, 2])(
     'fits a page of actual aspect ratio %s by default',
     async (ratio) => {
       pageAspectRatio.value = ratio;
       vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
       vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
-      render(
-        <ClioDocumentPdfViewer
-          bytes={new Uint8Array([37, 80, 68, 70])}
-          name="paper.pdf"
-          onSelection={vi.fn()}
-        />,
-      );
+      render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
       const page = await screen.findByText('PDF page 1');
       const width = Number(page.dataset.testPdfWidth);
       expect(width).toBeGreaterThan(0);
@@ -88,7 +128,7 @@ describe('ClioDocumentPdfViewer', () => {
     },
   );
 
-  it('makes the zoom reset fit an explicit width view to a complete page', async () => {
+  it('zooms an explicit width view out to a complete page, where zooming out stops', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
     render(
@@ -96,43 +136,44 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         fit="width"
         name="paper.pdf"
-        onSelection={vi.fn()}
       />,
     );
     const page = await screen.findByText('PDF page 1');
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value).toBeGreaterThan(600);
-    // The percentage control resets zoom by fitting the whole page (#681 merged Fit into it).
-    await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }));
+    // Two zoom icons only: zooming out from the fitted width reaches page fit.
+    expect(screen.queryByRole('button', { name: /reset|fit/iu })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value + 26).toBeLessThanOrEqual(600);
-    expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+    expect(Number(page.dataset.testPdfScale)).toBe(1);
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
   });
 
   it('captures modifier-wheel zoom inside the PDF and leaves ordinary scrolling alone', async () => {
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
     await screen.findByText('PDF page 1');
     const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]')!;
+    const scale = () => Number(screen.getByText('PDF page 1').dataset.testPdfScale);
     const appWheel = vi.fn();
     window.addEventListener('wheel', appWheel);
     try {
-      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
-        false,
-      );
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('85%');
-      expect(appWheel).not.toHaveBeenCalled();
       expect(fireEvent.wheel(scroller, { metaKey: true, deltaY: -120, cancelable: true })).toBe(
         false,
       );
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+      expect(scale()).toBeCloseTo(1.15);
+      expect(appWheel).not.toHaveBeenCalled();
+      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
+        false,
+      );
+      expect(scale()).toBeCloseTo(1);
+      // Page fit is where zooming out stops.
+      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
+        false,
+      );
+      expect(scale()).toBeCloseTo(1);
       expect(appWheel).not.toHaveBeenCalled();
       expect(fireEvent.wheel(scroller, { deltaY: 120, cancelable: true })).toBe(true);
       expect(appWheel).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+      expect(scale()).toBeCloseTo(1);
     } finally {
       window.removeEventListener('wheel', appWheel);
     }
@@ -145,22 +186,20 @@ describe('ClioDocumentPdfViewer', () => {
     document.body.append(toolbar);
     render(
       <ViewerToolbarHost.Provider value={toolbar}>
-        <ClioDocumentPdfViewer
-          bytes={new Uint8Array([37, 80, 68, 70])}
-          name="paper.pdf"
-          onSelection={vi.fn()}
-        />
+        <ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />
       </ViewerToolbarHost.Provider>,
     );
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
     expect(screen.getByText('PDF page 3')).toBeVisible();
-    expect(screen.getByText('3 pages')).toBeVisible();
 
     expect(screen.queryByRole('button', { name: 'Use paged PDF view' })).not.toBeInTheDocument();
     expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
-    expect(screen.getByText('3 pages').closest('footer')).not.toBeNull();
+    // Outside a frame the page counter leads the zoom icons; there is no footer.
+    expect(toolbar).toContainElement(screen.getByText('Page 1 of 3'));
+    expect(screen.getByText('1 / 3')).toBeVisible();
+    expect(document.querySelector('footer')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(screen.getByText('115%')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
@@ -191,7 +230,6 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         initialPage={200}
         name="thesis.pdf"
-        onSelection={vi.fn()}
       />,
     );
 
@@ -229,7 +267,6 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         initialPage={200}
         name="thesis.pdf"
-        onSelection={vi.fn()}
       />,
     );
     await screen.findByText('PDF page 200');
@@ -266,13 +303,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       },
     );
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="thesis.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="thesis.pdf" />);
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     // Only the visible window plus its overscan is mounted; a 400-page document
@@ -318,13 +349,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       });
 
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="thesis.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="thesis.pdf" />);
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     const trailing = document.querySelector<HTMLElement>('[data-pdf-spacer="trailing"]');
@@ -333,13 +358,7 @@ describe('ClioDocumentPdfViewer', () => {
   });
 
   it('groups the tightened zoom controls', async () => {
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
 
     const zoom = await screen.findByRole('group', { name: 'PDF zoom' });
     expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom out' }));

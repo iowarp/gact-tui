@@ -34,6 +34,20 @@ export const ACTIVE_SESSION_POLL_MS = 1_500;
 export const LIVE_STREAM_FALLBACK_POLL_MS = 15_000;
 
 /**
+ * Shortest gap between execution-provenance refreshes driven by a streaming
+ * turn's events; the turn's completion always refreshes it. Unit: milliseconds.
+ */
+export const LIVE_PROVENANCE_REFRESH_MS = 10_000;
+
+/**
+ * Shortest gap between session-list and work-rail refreshes driven by a
+ * streaming turn's events; the turn's completion always refreshes them. The live
+ * stream carries the open session's own state, so these lists may trail by up
+ * to this long. Unit: milliseconds.
+ */
+export const LIVE_SESSION_LIST_REFRESH_MS = 2_000;
+
+/**
  * Refetch cadence for the active transcript page while a turn runs and no live
  * stream is connected. Unit: milliseconds.
  */
@@ -61,6 +75,11 @@ export const WAITING_SESSIONS_POLL_MS = 10_000;
 export const INFRASTRUCTURE_POLL_MS = 20_000;
 /** How often a server list is re-read while one of its MCP servers is being prepared. */
 export const MCP_PREPARING_POLL_MS = 2_000;
+/**
+ * Re-read cadence for the service's capabilities while reading them fails for a reason
+ * other than "not offered" (a restart, a dropped request). Unit: milliseconds.
+ */
+export const CAPABILITIES_RETRY_MS = 2_000;
 
 /**
  * Refetch cadence for operations/administration panels (schedules, health,
@@ -99,10 +118,43 @@ export const MANAGED_BACKEND_PREPARE_POLL_MS = 500;
 export const CONNECTION_PROBE_POLL_MS = 30_000;
 
 /**
+ * Re-probe cadence for the connected service once it stopped answering, so the line
+ * under CLIO ("Can't reach …, retrying") clears soon after the service is back.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_LOST_PROBE_POLL_MS = 5_000;
+
+/**
+ * Delay before the connected service's probe tries once more. A single slow or
+ * dropped `/v1/capabilities` read under load is retried after this short pause
+ * before the line under CLIO says it can't reach the service. Unit: milliseconds.
+ */
+export const CONNECTION_LOST_PROBE_RETRY_MS = 750;
+
+/**
+ * How long a connection state must hold before it is read aloud, so a momentary gap
+ * in the event stream is not announced. Unit: milliseconds.
+ */
+export const CONNECTION_ANNOUNCE_SETTLE_MS = 1_000;
+
+/**
+ * Shortest gap between re-checks of the connected service triggered by requests that
+ * found nothing answering. Unit: milliseconds.
+ */
+export const CONNECTION_UNREACHABLE_RECHECK_MS = 5_000;
+
+/**
  * Re-probe cadence while a remembered service is starting, or has not answered yet
  * (it may have been started together with this page). Unit: milliseconds.
  */
 export const CONNECTION_PROBE_STARTING_MS = 1_000;
+
+/**
+ * Ceiling for the re-probe cadence of a service that keeps reporting "starting"; the
+ * cadence grows from `CONNECTION_PROBE_STARTING_MS` with the time spent starting.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_PROBE_STARTING_MAX_MS = 5_000;
 
 /**
  * Failed probes re-checked at the starting cadence before falling back to the slow
@@ -166,6 +218,13 @@ export const STREAM_RECONNECT_BASE_MS = 250;
  * is down for long stretches.
  */
 export const STREAM_RECONNECT_MAX_MS = 8_000;
+
+/**
+ * How long a session stream may keep failing before each retry also probes
+ * `/v1/health`. Unit: milliseconds. A probe that cannot reach the service turns
+ * "Resuming updates" into "Can't reach …, retrying"; a short blip never probes.
+ */
+export const STREAM_OFFLINE_AFTER_MS = 5_000;
 
 /**
  * First wait between reads of a workspace resource that is still `uploading`
@@ -258,12 +317,17 @@ export const GACT_HTTP_TRANSFER_TIMEOUT_MS = 600_000;
 // How much history a surface holds or asks for.
 
 /**
- * Maximum provenance records requested for one execution-provenance view.
- * Unit: records. High because the view is a complete lineage audit and a
- * silently trimmed graph would be misleading; lower it only if large sessions
- * make the request itself the bottleneck.
+ * Most provenance records one execution-provenance view may ask for, after the
+ * user has loaded earlier pages. Unit: records.
  */
 export const EXECUTION_PROVENANCE_LIMIT = 10_000;
+
+/**
+ * Provenance records requested per page, newest first; "Load earlier" asks for
+ * one more page. Unit: records. A long session's full history is megabytes and
+ * seconds to read, and the Activity list shows the latest work first.
+ */
+export const EXECUTION_PROVENANCE_PAGE = 200;
 
 // ## Preview budgets
 // Ceilings on how much of an artifact the client will fetch and render inline.
@@ -274,7 +338,14 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
  * Largest artifact the client will read into the tab for an inline preview.
  * Unit: bytes. Above this the card explains the budget instead of fetching.
  */
-export const INLINE_PREVIEW_MAX_BYTES = 8_000_000;
+export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * How long a closed viewer's file bytes stay cached. Unit: milliseconds.
+ * Long enough that reopening or remounting (maximize, restore) doesn't refetch;
+ * short enough that closed PDFs, images and text don't sit in the tab's memory.
+ */
+export const VIEWER_BYTES_GC_TIME_MS = 30_000;
 
 /**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files
@@ -370,6 +441,17 @@ export const PDF_PAGE_ESTIMATED_ASPECT_RATIO = 1.4142;
  */
 export const PDF_PAGE_GAP_PX = 12;
 
+/**
+ * Scroll speed above which the PDF viewer treats a scroll as a fling and leaves
+ * pages entering its window unpainted until it settles. Unit: pixels per
+ * millisecond. A wheel notch or PgDn reads well under it; a flick or a held
+ * scrollbar drag passes it, when painting each passing page is wasted work.
+ */
+export const PDF_FLING_PX_PER_MS = 3;
+
+/** Quiet time after a fling before the pages in view paint. Unit: milliseconds. */
+export const PDF_FLING_SETTLE_MS = 140;
+
 // ## Truncation
 // Where generated prose is cut for a compact surface. All of these are applied
 // through `truncate` in `@/lib/format`, which appends the ellipsis within the
@@ -395,11 +477,6 @@ export const RUN_REASON_TRUNCATE_CHARS = 140;
 export const DIAGRAM_LABEL_TRUNCATE_CHARS = 160;
 
 /**
- * Maximum length of a subagent's assignment text on its card. Unit: characters.
- */
-export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
-
-/**
  * Characters of a message kept for a transcript minimap preview.
  * Unit: characters. The rail's hover card and the outline list both render a
  * short projection of a message that can itself be arbitrarily long, so the
@@ -407,12 +484,6 @@ export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
  * CSS afterwards. Wide enough to fill the three lines the hover card shows.
  */
 export const TRANSCRIPT_PREVIEW_TRUNCATE_CHARS = 320;
-
-/**
- * Maximum length of a subagent's returned result on its card. Unit: characters.
- * Longer than the assignment because the result is the part a reader scans.
- */
-export const SUBAGENT_RESULT_TRUNCATE_CHARS = 300;
 
 // ## Query policy
 // Defaults applied to every cached read, and the shared options for reads that
@@ -449,6 +520,14 @@ export const A2UI_CATALOG_STALE_TIME_MS = 10 * 60_000;
  * behind a long retry ladder.
  */
 export const QUERY_RETRY_COUNT = 1;
+
+/**
+ * Retries for a read the service refused because it is still starting (503
+ * `task_runtime_starting`). Unit: attempts after the first. At the 2 s backoff ceiling
+ * this waits about three minutes, longer than a slow agent start, before showing the
+ * failure and its Retry.
+ */
+export const STARTING_READ_RETRIES = 90;
 
 /**
  * Retries for one service availability probe. Unit: attempts after the first.
@@ -493,6 +572,14 @@ export const PENDING_INTERACTIONS_FANOUT_CAP = 20;
  */
 export const PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS = 5_000;
 
+/**
+ * Safety re-read of the other root sessions' requests when no conversation is open.
+ * They are re-read as soon as the waiting-sessions list changes (a session starts
+ * or stops waiting, or a waiting one moves on), so this only catches what that
+ * list cannot show. Unit: milliseconds.
+ */
+export const PENDING_INTERACTIONS_FANOUT_POLL_MS = 60_000;
+
 // ## Interaction
 // Values a person feels directly: input latency and how much of a list a
 // surface shows before it asks to expand.
@@ -512,14 +599,6 @@ export const SEARCH_DEBOUNCE_MS = 180;
  * narrows the list by typing rather than by scrolling past a thousand rows.
  */
 export const REFERENCE_ROW_LIMIT = 100;
-
-/**
- * Tallest the composer's reference popover grows before its list scrolls.
- * Unit: CSS length. It opens upwards from the composer, so it is bounded by the
- * viewport as well as by a fixed ceiling: the smaller of a comfortable reading
- * height and whatever the window leaves above the composer.
- */
-export const REFERENCE_POPOVER_MAX_HEIGHT = 'min(38rem, calc(100vh - 10rem))';
 
 /**
  * Widest an inline reference token grows in the composer before its label is
@@ -552,11 +631,10 @@ export const DATA_GRID_PAGE_SIZES: number[] = [10, 25, 50, 100];
 
 /**
  * Rendered height of one compact queued-message row. Unit: pixels.
- * A 28 px (`min-h-7`) row plus its 4 px vertical padding and the 1 px gap the
- * list puts between rows. Kept beside the viewport bound below so the two can
- * only move together.
+ * A 28 px (`h-7`) row plus the 1 px gap the list puts between rows. Kept
+ * beside the viewport bound below so the two can only move together.
  */
-export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 33;
+export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 29;
 
 /**
  * Height of the queued-message viewport before it scrolls. Unit: pixels.

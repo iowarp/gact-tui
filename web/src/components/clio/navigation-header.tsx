@@ -1,30 +1,21 @@
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
-import { BrandIcon } from './brand-icon';
-import { brand } from '@brand';
-import { ArchiveIcon, ChevronDownIcon, FolderGit2Icon, SearchIcon, UploadIcon } from 'lucide-react';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { SearchIcon, UploadIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { AgentConnectionIdentity } from './agent-connection-identity';
-import { ClioMenuContent } from './clio-menu';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { useCommandKeyHeld } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availability';
 import type { ConnectionSettings } from '@/lib/connection';
-import {
-  connectionAvailability,
-  type ConnectionAvailabilityMap,
-} from '@/hooks/use-connection-availability';
+import { NewConversationIcon } from '@/lib/icon-vocabulary';
+import { NavigationAgentMenu } from './navigation-agent-menu';
 
 interface NavigationHeaderProps {
   endpoint: string;
@@ -35,12 +26,16 @@ interface NavigationHeaderProps {
   connections: readonly ConnectionSettings[];
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
   onNewSession: () => void;
-  onNewWorkspace: () => void;
   onImportSession: () => void;
-  onOpenArchived: () => void;
   attentionControl?: ReactNode;
 }
 
+/**
+ * The top of the left bar: the CLIO menu, the bell and the collapse button on
+ * one line, then New conversation (with import beside it) and Search. Files
+ * and Runs left the bar: the crumb and the workspace menu open files, and
+ * Search or Ctrl . open runs. Collapsed to icons, the same rows stack.
+ */
 export function NavigationHeader({
   endpoint,
   activeLabel,
@@ -50,127 +45,92 @@ export function NavigationHeader({
   connections,
   onConnect,
   onNewSession,
-  onNewWorkspace,
   onImportSession,
-  onOpenArchived,
   attentionControl,
 }: NavigationHeaderProps) {
-  const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
-
+  // Collapsed, the toggle moves to the top bar beside the breadcrumb.
+  const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
+  const commandKeyHeld = useCommandKeyHeld();
   return (
-    <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
-      <SidebarMenu className="in-data-[mobile=true]:pr-10">
-        <SidebarMenuItem>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SidebarMenuButton
-                className="h-10 gap-2"
-                size="lg"
-                tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
-              >
-                <span className="grid size-6 shrink-0 place-items-center text-primary">
-                  <BrandIcon className="size-5" />
-                </span>
-                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
-                    <TooltipProvider delayDuration={150}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            aria-label={`Service status: ${activeAvailability.label}. ${activeAvailability.detail}`}
-                            className={`size-1.5 shrink-0 rounded-full ${
-                              activeAvailability.state === 'healthy'
-                                ? 'bg-success'
-                                : activeAvailability.state === 'degraded'
-                                  ? 'bg-warning'
-                                  : activeAvailability.state === 'unavailable'
-                                    ? 'bg-muted-foreground/45'
-                                    : 'bg-info'
-                            }`}
-                            role="img"
-                            title={`${activeAvailability.label}: ${activeAvailability.detail}`}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent align="start" className="max-w-72" side="bottom">
-                          <span className="font-medium">{activeAvailability.label}</span>
-                          <span>{activeAvailability.detail}</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    <AgentConnectionIdentity
-                      endpoint={endpoint}
-                      label={activeLabel}
-                      location={activeLocation}
-                    />
-                  </span>
-                </span>
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className="size-3.5 group-data-[collapsible=icon]:hidden"
-                />
-              </SidebarMenuButton>
-            </DropdownMenuTrigger>
-            <ClioMenuContent
-              activeLabel={activeLabel}
-              activeLocation={activeLocation}
-              connectionAvailabilities={connectionAvailabilities}
-              connections={connections}
-              currentPath={currentPath}
-              endpoint={endpoint}
-              onConnect={onConnect}
-            />
-          </DropdownMenu>
-        </SidebarMenuItem>
-      </SidebarMenu>
-      <SidebarMenu className="flex-row gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
+    <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
+      <SidebarMenu className="flex-row items-center gap-1 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
         <SidebarMenuItem className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
+          <NavigationAgentMenu
+            activeLabel={activeLabel}
+            activeLocation={activeLocation}
+            connectionAvailabilities={connectionAvailabilities}
+            connections={connections}
+            currentPath={currentPath}
+            endpoint={endpoint}
+            onConnect={onConnect}
+          />
+        </SidebarMenuItem>
+        {attentionControl}
+        {sidebarState === 'expanded' ? (
+          <li className="relative shrink-0 in-data-[mobile=true]:hidden">
+            <NamedTooltip label="Hide the left bar" shortcut="left-pocket">
+              <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[15px]" />
+            </NamedTooltip>
+            <HeldKeyBadge id="left-pocket" />
+          </li>
+        ) : null}
+      </SidebarMenu>
+      <SidebarMenu className="gap-px">
+        <SidebarMenuItem className="group/new-row">
+          <SidebarMenuButton
+            className="h-[30px] gap-2.5 pr-9 text-[13px] group-data-[collapsible=icon]:pr-2"
+            onClick={onNewSession}
+            tooltip="New conversation"
+            type="button"
+          >
+            <NewConversationIcon aria-hidden="true" className="text-primary" />
+            <span className="truncate">New conversation</span>
+            {sidebarState === 'expanded' ? (
+              // The row's end, left of Import: its keys sit there, not under the row.
+              <span aria-hidden="true" className="min-w-0 flex-1 self-stretch">
+                <HeldKeyBadge id="new-conversation" side="inside-end" />
+                <HeldKeyBadge id="new-conversation-browser" side="inside-end" />
+              </span>
+            ) : (
+              <>
+                <HeldKeyBadge id="new-conversation" side="end" />
+                <HeldKeyBadge id="new-conversation-browser" side="end" />
+              </>
+            )}
+          </SidebarMenuButton>
+          <IconButton
+            className="absolute right-1 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
+            icon={<UploadIcon />}
+            label="Import conversation…"
+            onClick={onImportSession}
+            shortcut="import-conversation"
+            size="sm"
+          />
+        </SidebarMenuItem>
+        <SidebarMenuItem>
           <SidebarMenuButton
             aria-label="Search work"
-            className="justify-start group-data-[collapsible=icon]:justify-center"
-            onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
+            className="h-[30px] gap-2.5 text-[13px]"
+            onClick={() => {
+              // On a phone the command menu opens over the page, not over the sheet.
+              if (isMobile) setOpenMobile(false);
+              window.dispatchEvent(new Event('clio:open-command-menu'));
+            }}
             tooltip="Search work, files, and actions"
             type="button"
           >
             <SearchIcon aria-hidden="true" />
-            <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
+            <span className="truncate">Search</span>
             <ShortcutKeys
+              className={cn(
+                'ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden max-[599px]:hidden',
+                // The held badge takes its place.
+                commandKeyHeld && 'invisible',
+              )}
               id="search"
-              className="ml-auto text-[10px] group-data-[collapsible=icon]:hidden"
             />
+            <HeldKeyBadge id="search" side={sidebarState === 'expanded' ? 'inside-end' : 'end'} />
           </SidebarMenuButton>
-        </SidebarMenuItem>
-        {attentionControl}
-        <SidebarMenuItem className="shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SidebarMenuButton
-                aria-label="Create or import"
-                className="size-8 hover:bg-sidebar-accent"
-                tooltip="Create or import"
-                type="button"
-              >
-                <AddIcon aria-hidden="true" />
-              </SidebarMenuButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onSelect={onNewSession}>
-                <AddIcon aria-hidden="true" /> New session
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onNewWorkspace}>
-                <FolderGit2Icon aria-hidden="true" /> New workspace
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onImportSession}>
-                <UploadIcon aria-hidden="true" /> Import session…
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenArchived}>
-                <ArchiveIcon aria-hidden="true" /> Archived sessions
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarHeader>

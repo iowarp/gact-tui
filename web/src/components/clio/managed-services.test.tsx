@@ -21,6 +21,8 @@ const connection = vi.hoisted(() => ({
 const repository = vi.hoisted(() => ({
   workspaces: vi.fn(),
   mcpServers: vi.fn(),
+  mcpServer: vi.fn(),
+  mcpServerInventory: vi.fn(async () => []),
   savedMcpServices: vi.fn(),
   tools: vi.fn(),
   infrastructureInventory: vi.fn(),
@@ -278,9 +280,11 @@ describe('ManagedServices', () => {
     });
     await openAddMenu(user);
     await user.click(screen.getByRole('menuitem', { name: 'MCP services' }));
-    await user.click(await screen.findByRole('button', { name: 'Show the tools of Web search' }));
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('fetch');
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('search');
+    repository.mcpServer.mockImplementation(async () => (await repository.mcpServers())[0]);
+    await user.click(await screen.findByRole('button', { name: 'Details for Web search' }));
+    const tools = await screen.findByRole('group', { name: 'Tools of Web search' });
+    expect(tools).toHaveTextContent(/fetch/i);
+    expect(tools).toHaveTextContent(/search/i);
     expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.queryByText('No service address configured')).toBeNull();
   });
@@ -291,11 +295,11 @@ describe('ManagedServices', () => {
     expect(
       await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
     ).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Set up vLLM' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Install service' }));
     await user.click(screen.getByRole('button', { name: 'Set up vLLM' }));
-    expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Set up vLLM' })).toBeVisible();
     await user.click(screen.getByText('Advanced settings', { exact: true }));
     expect(screen.getByLabelText('vLLM Reasoning parser')).toBeVisible();
     expect(repository.runManagedServiceAction).not.toHaveBeenCalled();
@@ -335,9 +339,9 @@ describe('ManagedServices', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Install service' }));
     expect(screen.getByText('Requires Docker.')).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: `${vocab.agent} Web Search unavailable` }),
-    ).toBeDisabled();
+    const research = screen.getByRole('group', { name: 'Web research' });
+    expect(within(research).getByText('Unavailable')).toBeVisible();
+    expect(within(research).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('connects a running service to CLIO without repeating its state as command output', async () => {
@@ -511,12 +515,10 @@ describe('ManagedServices', () => {
       ),
     );
 
-    const panel = await screen.findByRole('region', {
-      name: `${vocab.agent} Web Search recent logs`,
-    });
-    expect(panel).toHaveTextContent('Recent logs');
-    expect(panel).toHaveTextContent('line one');
-    expect(panel.querySelector('pre')).toHaveClass('max-h-80', 'overflow-auto');
+    const logs = await screen.findByLabelText(`${vocab.agent} Web Search recent logs`);
+    expect(screen.getByText('Recent logs on Local')).toBeVisible();
+    expect(logs).toHaveTextContent('line one');
+    expect(logs).toHaveTextContent('line two');
   });
 
   it('does not claim a selected deployment is connected when CLIO points elsewhere', async () => {
@@ -606,7 +608,7 @@ describe('ManagedServices', () => {
 
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
-    expect(await screen.findByRole('heading', { name: 'llama.cpp' })).toBeVisible();
+    expect(await screen.findByRole('dialog', { name: 'Set up llama.cpp' })).toBeVisible();
     // Choosing the form is not installation: the banner follows the catalog.
     expect(screen.getByText('Finish setting up your local model runtime')).toBeVisible();
   });

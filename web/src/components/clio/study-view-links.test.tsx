@@ -1,9 +1,20 @@
 import { scienceLogSchema, type ScienceStudy } from '@clio/core/v3';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  render as renderBare,
+  screen,
+  type RenderOptions,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useStudyViewFocus } from '@/lib/a2ui/open-view';
 import { ScienceLogView } from './science-log-tab';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const render = (ui: ReactElement, options?: RenderOptions) =>
+  renderBare(ui, { wrapper: TooltipProvider, ...options });
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -84,18 +95,27 @@ function StudyPanels() {
   );
 }
 
-it("lists each branch's views in the tree and opens one in Views", async () => {
+it("lists each branch's views beside the log and opens one in place of it", async () => {
   const scrolled = draw();
-  expect(screen.getByRole('button', { name: 'Overview' })).toBeVisible();
-  await userEvent.click(screen.getByRole('button', { name: 'Coarse cases' }));
-  expect(screen.getByRole('radio', { name: 'Views' })).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByRole('button', { name: 'View: Overview' })).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'View: Coarse cases' }));
+  expect(screen.getByRole('button', { name: 'View: Coarse cases' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(screen.queryByRole('list', { name: 'Science log entries' })).toBeNull();
   await vi.waitFor(() => expect(scrolled).toContain('study-view-e_00000000000b'));
 });
 
-it('opens the view openView asked for', async () => {
-  const scrolled = draw();
+it('opens the view openView asked for, from the study graph too', async () => {
+  draw();
+  await userEvent.click(screen.getByRole('tab', { name: 'Lineage' }));
   act(() => useStudyViewFocus.getState().focus('e_00000000000a'));
-  expect(screen.getByRole('radio', { name: 'Views' })).toHaveAttribute('aria-checked', 'true');
-  await vi.waitFor(() => expect(scrolled).toContain('study-view-e_00000000000a'));
+  expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByRole('region', { name: 'Overview' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'View: Overview' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   expect(useStudyViewFocus.getState().entry).toBeUndefined();
 });

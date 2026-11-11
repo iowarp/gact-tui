@@ -158,7 +158,8 @@ describe('CLIO A2UI kernel catalog', () => {
 
     render(<A2uiSurface surface={surface} />);
 
-    const table = screen.getByRole('table');
+    // The grid is its own chunk; it mounts once that loads.
+    const table = await screen.findByRole('table');
     expect(within(table).getByRole('columnheader', { name: /^displacement mm/u })).toBeVisible();
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
     expect(screen.getByLabelText('Accessible displacement table columns')).toHaveAttribute(

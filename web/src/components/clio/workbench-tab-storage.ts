@@ -1,25 +1,37 @@
 import type { WorkbenchTab } from './workbench-shared';
-import type { WorkbenchListView } from './workbench-strip';
+import type { WorkbenchListView, WorkbenchTabListView } from './workbench-strip';
 import { workbenchTabIcons } from './workbench-tab-icons';
 
-export const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Timeline' };
 export const workTab: WorkbenchTab = { id: 'work', kind: 'work', label: 'Work' };
 export const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
 
+export const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
+  files: 'Files',
+  sources: 'Sources',
+  artifacts: 'Artifacts',
+  activity: 'Activity',
+  terminal: 'Terminal',
+  browser: 'Browser pages',
+};
+
+/** The tab a strip list opens as; one per list, so the strip focuses it rather than adding more. */
+export function listTab(view: WorkbenchTabListView): WorkbenchTab {
+  return { id: `list:${view}` as const, kind: 'list', label: WORKBENCH_LIST_TITLES[view], view };
+}
+
 const WORKBENCH_TABS_STORAGE_PREFIX = 'clio.workbench-tabs.v1';
-const LIST_VIEWS = new Set<string>([
+const TAB_LIST_VIEWS = new Set<string>([
   'files',
   'sources',
   'artifacts',
   'activity',
   'terminal',
   'browser',
-] satisfies WorkbenchListView[]);
+] satisfies WorkbenchTabListView[]);
 
 export interface RestoredWorkbench {
   tabs: WorkbenchTab[];
   activeTabId: string;
-  listView?: WorkbenchListView;
   pinnedIds: string[];
 }
 
@@ -34,12 +46,14 @@ function isWorkbenchTab(value: unknown): value is WorkbenchTab {
     typeof row.id === 'string' &&
     typeof row.kind === 'string' &&
     row.kind in workbenchTabIcons &&
-    typeof row.label === 'string'
+    typeof row.label === 'string' &&
+    (row.kind !== 'list' || (typeof row.view === 'string' && TAB_LIST_VIEWS.has(row.view))) &&
+    (row.backTo === undefined || (typeof row.backTo === 'string' && TAB_LIST_VIEWS.has(row.backTo)))
   );
 }
 
-/** Lists now live on the strip; tabs older builds saved for them are not restored. */
-function isListTab(tab: WorkbenchTab): boolean {
+/** Tabs older builds saved for lists (now on the strip) are not restored. */
+function isLegacyListTab(tab: WorkbenchTab): boolean {
   return (
     tab.kind === 'artifacts' ||
     tab.kind === 'resources' ||
@@ -47,24 +61,21 @@ function isListTab(tab: WorkbenchTab): boolean {
   );
 }
 
-export function saveWorkbenchState(workspaceId: string, state: RestoredWorkbench): void {
-  window.localStorage.setItem(
-    workbenchTabsStorageKey(workspaceId),
-    JSON.stringify({ ...state, listView: state.listView ?? null }),
-  );
+/** The timeline and context tab older builds saved is now the Activity tab's Timeline and Context. */
+function migratedTab(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value;
+  return (value as Record<string, unknown>).kind === 'session' ? listTab('activity') : value;
 }
 
-/** A fresh pocket opens no tab: a conversation starts on its Activity list (Timeline is one
- * row away there), a workspace without one on Files. */
-export function restoredWorkbenchState(workspaceId: string, hasSession = true): RestoredWorkbench {
-  const defaultTabs: WorkbenchTab[] = [];
-  const defaultList: WorkbenchListView = hasSession ? 'activity' : 'files';
-  const fresh: RestoredWorkbench = {
-    tabs: defaultTabs,
-    activeTabId: '',
-    listView: defaultList,
-    pinnedIds: [],
-  };
+export function saveWorkbenchState(workspaceId: string, state: RestoredWorkbench): void {
+  window.localStorage.setItem(workbenchTabsStorageKey(workspaceId), JSON.stringify(state));
+}
+
+/** A fresh pocket opens on Files. Tabs hold only what the reader opened, so
+ * Activity appears when its strip icon is chosen rather than by default. */
+export function restoredWorkbenchState(workspaceId: string): RestoredWorkbench {
+  const first = listTab('files');
+  const fresh: RestoredWorkbench = { tabs: [first], activeTabId: first.id, pinnedIds: [] };
   if (typeof window === 'undefined') return fresh;
   try {
     const parsed = JSON.parse(
@@ -72,28 +83,30 @@ export function restoredWorkbenchState(workspaceId: string, hasSession = true): 
     ) as unknown;
     if (!parsed || typeof parsed !== 'object') return fresh;
     const record = parsed as Record<string, unknown>;
-    const storedTabs = Array.isArray(record.tabs)
-      ? record.tabs
-          .filter(isWorkbenchTab)
-          .filter((tab) => !isListTab(tab))
-          .map((tab) =>
-            tab.kind === 'knowledge'
-              ? // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
-                { ...tab, label: tab.label.replace(/ \u00b7 Knowledge$/u, '') }
-              : // Older builds named it Observability, then Activity.
-                tab.kind === 'session' && ['Observability', 'Activity'].includes(String(tab.label))
-                ? sessionTab
-                : tab,
-          )
-      : [];
-    const tabs = storedTabs.length ? storedTabs : defaultTabs;
-    const requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';
-    const listView =
-      record.listView === null
-        ? undefined
-        : typeof record.listView === 'string' && LIST_VIEWS.has(record.listView)
-          ? (record.listView as WorkbenchListView)
-          : defaultList;
+    const tabs: WorkbenchTab[] = [];
+    if (Array.isArray(record.tabs))
+      for (const raw of record.tabs) {
+        const candidate = migratedTab(raw);
+        if (!isWorkbenchTab(candidate) || isLegacyListTab(candidate)) continue;
+        if (tabs.some((tab) => tab.id === candidate.id)) continue;
+        tabs.push(
+          candidate.kind === 'knowledge'
+            ? // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
+              { ...candidate, label: candidate.label.replace(/ \u00b7 Knowledge$/u, '') }
+            : candidate,
+        );
+      }
+    let requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';
+    if (requestedActive === 'session') requestedActive = listTab('activity').id;
+    if (typeof record.listView === 'string' && TAB_LIST_VIEWS.has(record.listView)) {
+      // Older builds showed lists as a column: that list is now a tab. Files was the
+      // column beside the tabs, so it stays behind the tab that was shown.
+      const migrated = listTab(record.listView as WorkbenchTabListView);
+      if (!tabs.some((tab) => tab.id === migrated.id)) tabs.push(migrated);
+      if (record.listView !== 'files' || !tabs.some((tab) => tab.id === requestedActive))
+        requestedActive = migrated.id;
+    }
+    if (!tabs.length) return fresh;
     const pinnedIds = Array.isArray(record.pinnedIds)
       ? record.pinnedIds.filter(
           (id): id is string => typeof id === 'string' && tabs.some((tab) => tab.id === id),
@@ -104,7 +117,6 @@ export function restoredWorkbenchState(workspaceId: string, hasSession = true): 
       activeTabId: tabs.some((tab) => tab.id === requestedActive)
         ? requestedActive
         : (tabs[0]?.id ?? ''),
-      listView,
       pinnedIds,
     };
   } catch {

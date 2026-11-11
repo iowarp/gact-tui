@@ -153,32 +153,44 @@ fn pty_open_write_read_roundtrip() {
     } = spawned;
 
     let marker = "CLIO_PTY_ROUNDTRIP_MARKER";
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
     thread::spawn(move || {
         let mut reader = reader;
         let mut buf = [0u8; 4096];
-        let mut collected = Vec::new();
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    collected.extend_from_slice(&buf[..n]);
-                    if String::from_utf8_lossy(&collected).contains(marker) {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(n) = reader.read(&mut buf) {
+            if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                break;
             }
         }
-        let _ = tx.send(String::from_utf8_lossy(&collected).into_owned());
     });
+
+    // A cold shell (pwsh on a loaded Windows runner) can take well over 10s
+    // to produce anything. Wait for its first output before writing, then
+    // give the echo a generous deadline; a broken bridge still fails.
+    let mut collected = Vec::new();
+    match rx.recv_timeout(Duration::from_secs(60)) {
+        Ok(chunk) => collected.extend_from_slice(&chunk),
+        Err(_) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("the pty produced no output within 60s of spawning the shell");
+        }
+    }
 
     writer
         .write_all(format!("echo {marker}\r\n").as_bytes())
         .expect("write command line");
     writer.flush().expect("flush command line");
 
-    let observed = rx.recv_timeout(Duration::from_secs(10)).unwrap_or_default();
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !String::from_utf8_lossy(&collected).contains(marker) {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        match rx.recv_timeout(remaining) {
+            Ok(chunk) => collected.extend_from_slice(&chunk),
+            Err(_) => break,
+        }
+    }
+    let observed = String::from_utf8_lossy(&collected).into_owned();
     let _ = child.kill();
     let _ = child.wait();
 

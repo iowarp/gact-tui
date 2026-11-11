@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,13 +28,18 @@ import { copyText } from '@/lib/clipboard';
 import { CloseIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelDownloadProgress } from './model-download-progress';
+import { cn } from '@/lib/utils';
 import {
+  isErrorLogLine,
   operationDetail,
+  readableLogLines,
   serviceObservationSummary,
 } from './infrastructure-operation-presentation';
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { IconButton } from './primitives/icon-button';
+import { StatusIndicator } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
 import { ClioRelativeTime } from './relative-time';
 
@@ -57,8 +61,11 @@ const STATE_TONES: Record<string, InfraStatus['tone']> = {
   failed: 'error',
   succeeded: 'success',
   ready: 'success',
-  cancelled: 'stopped',
+  cancelled: 'idle',
   removed: 'idle',
+  pending: 'idle',
+  reused: 'success',
+  skipped: 'idle',
 };
 
 const ACTION_ICONS: Record<string, ReactNode> = {
@@ -71,6 +78,10 @@ const ACTION_ICONS: Record<string, ReactNode> = {
   remove: <DeleteIcon />,
   uninstall: <DeleteIcon />,
 };
+
+// The spec's quiet text link under an opened row's log (.lnk): muted words, no outline.
+const QUIET_ACTION =
+  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-[12px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
 
 /**
  * One operation in the timeline: what ran, where, its state and when. Opening
@@ -105,7 +116,24 @@ export function InfrastructureActivityRow({
       .join('\n\n') ||
     row.detail ||
     '';
-  const inlineLog = row.logs?.trim() || longDetail;
+  const logLines = readableLogLines(row.logs);
+  const fullLog = logLines.some((line) => line.trim())
+    ? logLines
+    : (longDetail?.split('\n') ?? []);
+  // The ⚠ line already states the failure; the log under it carries only the rest.
+  const stated = new Set(
+    failed && outcome
+      ? outcome
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+      : [],
+  );
+  const inlineLog = stated.size
+    ? fullLog.filter((line) => !stated.has(line.trim()))
+    : fullLog;
+  // A failed run stops on its last line, so that line is the error even without a keyword.
+  const failureLine = failed ? inlineLog.findLastIndex((line) => line.trim()) : -1;
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['infrastructure-inventory', settings.endpoint] });
   const act = useMutation({
@@ -127,7 +155,7 @@ export function InfrastructureActivityRow({
       />
     ) : Number.isFinite(row.time) ? (
       <ClioRelativeTime
-        className="text-[11px] text-faint"
+        className="text-[11px] text-muted-foreground"
         compact
         label="Updated"
         timestamp={new Date(row.time).toISOString()}
@@ -149,25 +177,20 @@ export function InfrastructureActivityRow({
           </InfraRowToggle>
         }
         actions={
-          <InfraRowActions className="flex items-center">
-            {canRetry ? (
-              <IconButton
-                disabled={act.isPending}
-                icon={<RetryIcon />}
-                label={`Retry ${title}`}
-                onClick={() => act.mutate('retry')}
-                size="sm"
-              />
-            ) : null}
-            {raw ? (
-              <IconButton
-                icon={<CopyIcon />}
-                label={`Copy log for ${title}`}
-                onClick={() => void copyText(raw)}
-                size="sm"
-              />
-            ) : null}
-          </InfraRowActions>
+          <InfraRowMenu
+            actions={
+              raw
+                ? [
+                    {
+                      icon: <CopyIcon />,
+                      label: `Copy log for ${title}`,
+                      onSelect: () => void copyText(raw),
+                    },
+                  ]
+                : []
+            }
+            label={`More for ${title}`}
+          />
         }
         primaryAction={
           canCancel ? (
@@ -183,6 +206,22 @@ export function InfrastructureActivityRow({
                 }
                 label={`Cancel ${title}`}
                 onClick={() => act.mutate('cancel')}
+                size="sm"
+              />
+            </InfraRowActions>
+          ) : canRetry ? (
+            <InfraRowActions>
+              <IconButton
+                disabled={act.isPending}
+                icon={
+                  act.isPending ? (
+                    <LoaderCircleIcon className="motion-safe:animate-spin" />
+                  ) : (
+                    <RetryIcon />
+                  )
+                }
+                label={`Retry ${title}`}
+                onClick={() => act.mutate('retry')}
                 size="sm"
               />
             </InfraRowActions>
@@ -208,13 +247,26 @@ export function InfrastructureActivityRow({
                 </p>
               ) : null}
               {row.model && active ? <ModelDownloadProgress model={row.model} /> : null}
-              {inlineLog ? (
+              {inlineLog.some((line) => line.trim()) ? (
                 <pre
                   aria-label={`Log for ${title}`}
-                  className="clio-scrollbar max-h-48 overflow-auto rounded-md bg-muted/50 px-3 py-2 font-mono text-[11.5px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]"
+                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7] text-muted-foreground"
                   tabIndex={0}
                 >
-                  {inlineLog}
+                  {/* Spec .c3log: one line each, cut with an ellipsis; the dialog keeps the full text. */}
+                  {inlineLog.map((line, index) => (
+                    // eslint-disable-next-line react/no-array-index-key -- log lines repeat and never reorder
+                    <span
+                      className={cn(
+                        'block overflow-hidden text-ellipsis whitespace-pre',
+                        (index === failureLine || isErrorLogLine(line)) &&
+                          'text-destructive-text',
+                      )}
+                      key={index}
+                    >
+                      {line || ' '}
+                    </span>
+                  ))}
                 </pre>
               ) : null}
               {act.error ? (
@@ -225,16 +277,14 @@ export function InfrastructureActivityRow({
                   action={{ label: 'Dismiss', onClick: () => act.reset() }}
                 />
               ) : null}
-              <div className="flex flex-wrap gap-1.5">
-                <Button onClick={() => setOpen(true)} size="xs" variant="outline">
+              <div className="-ml-1.5 flex min-w-0 gap-0.5">
+                <button className={QUIET_ACTION} onClick={() => setOpen(true)} type="button">
                   View operation
-                </Button>
-                <Button asChild size="xs" variant="outline">
-                  <Link to={destination}>
-                    <ExternalLinkIcon aria-hidden="true" />
-                    {row.model ? 'Go to models' : 'Go to service'}
-                  </Link>
-                </Button>
+                </button>
+                <Link className={QUIET_ACTION} to={destination}>
+                  <ExternalLinkIcon aria-hidden="true" />
+                  {row.model ? 'Go to models' : 'Go to service'}
+                </Link>
               </div>
             </>
           ) : undefined
@@ -295,7 +345,7 @@ function ActivityOperationDialog({
             <TabsTrigger value="log">Log</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3">
-            <Badge variant={row.state === 'failed' ? 'destructive' : 'outline'}>{status}</Badge>
+            <StatusIndicator label={status} tone={STATE_TONES[row.state] ?? 'idle'} />
             {outcome ? <p className="text-sm leading-6">{outcome}</p> : null}
             {row.model ? <ModelDownloadProgress model={row.model} /> : null}
             {row.operation?.steps.length ? (
@@ -310,9 +360,10 @@ function ActivityOperationDialog({
                             ? title
                             : step.label}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {step.state.replaceAll('_', ' ')}
-                      </span>
+                      <StatusIndicator
+                        label={step.state.replaceAll('_', ' ')}
+                        tone={STATE_TONES[step.state] ?? 'idle'}
+                      />
                     </div>
                     {['failed', 'running'].includes(step.state) &&
                     step.message &&

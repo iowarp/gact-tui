@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,6 +53,7 @@ const repository = vi.hoisted(() => ({
   }),
   createScheduledTurn: vi.fn().mockResolvedValue({ id: 'schedule_2' }),
   deleteScheduledTurn: vi.fn().mockResolvedValue(undefined),
+  setScheduleEnabled: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -61,6 +62,8 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ScheduleSettings } from './settings-schedules';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { sessionReads } from '@/test/session-reads';
 
 afterEach(() => {
@@ -74,29 +77,64 @@ function renderSettings(initialSessionId?: string) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ScheduleSettings initialSessionId={initialSessionId} />
+      <TooltipProvider>
+        <SettingsScopeContext.Provider
+          value={{
+            group: 'Agent',
+            line: 'CLIO local, applies to every conversation on this agent',
+            place: 'CLIO local',
+          }}
+        >
+          <ScheduleSettings initialSessionId={initialSessionId} />
+        </SettingsScopeContext.Provider>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
 
-describe('scheduled work settings', () => {
-  it('summarizes the service timezone and submits a typed repeating time only on Schedule', async () => {
-    const user = userEvent.setup();
+const findRow = () =>
+  screen.findByRole('group', { name: 'Inspect fresh results.' }, { timeout: 5000 });
+
+async function openNewDialog(user: ReturnType<typeof userEvent.setup>) {
+  await findRow();
+  await user.click(screen.getByRole('button', { name: 'New scheduled work' }));
+  return screen.findByRole('dialog', { name: 'New scheduled work' });
+}
+
+// Dialogs and menus make these interactions slow on a loaded runner.
+describe('scheduled work settings', { timeout: 30_000 }, () => {
+  it('lists each instruction with its workspace, timing in words and a status word', async () => {
     renderSettings('sess_1');
-    await screen.findByText('Inspect fresh results.');
-    await user.click(screen.getByRole('radio', { name: /^Repeats/u }));
-    const time = screen.getByRole('textbox', { name: 'Time' });
+    const row = await findRow();
+    expect(within(row).getByText(/EarthScope campaign/u)).toHaveTextContent(
+      'EarthScope campaign, Weekdays 09:00',
+    );
+    expect(within(row).getByText('Scheduled')).toBeVisible();
+    expect(screen.getByText('Upcoming')).toBeVisible();
+    expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
+    expect(screen.getByText('CLIO local, applies to the selected conversation')).toBeVisible();
+    expect(screen.queryByText(/every conversation on this agent/u)).not.toBeInTheDocument();
+  });
+
+  it('submits a typed repeating time in the service time zone only on Schedule work', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderSettings('sess_1');
+    const dialog = await openNewDialog(user);
+    await user.click(within(dialog).getByRole('radio', { name: /^Repeats/u }));
+    const time = within(dialog).getByRole('textbox', { name: 'Time' });
     await user.clear(time);
     await user.type(time, '14:35');
     await user.tab();
-    expect(screen.getByText(/^Every weekday at .*America\/Chicago\.$/u)).toBeVisible();
+    expect(within(dialog).getByText('Every weekday at 14:35')).toBeVisible();
+    expect(within(dialog).getByText('America/Chicago')).toBeVisible();
     expect(repository.createScheduledTurn).not.toHaveBeenCalled();
-    await user.type(screen.getByRole('textbox', { name: 'Instruction' }), 'Review observations.');
-    await user.click(screen.getByRole('button', { name: 'Schedule work' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /Instruction/u }), 'Review.');
+    await user.click(within(dialog).getByRole('button', { name: /^Schedule work/u }));
     await waitFor(() =>
       expect(repository.createScheduledTurn).toHaveBeenCalledWith(
         'sess_1',
         expect.objectContaining({
+          question: 'Review.',
           cron: '35 14 * * 1-5',
           timezone: 'America/Chicago',
           recurring: true,
@@ -105,7 +143,92 @@ describe('scheduled work settings', () => {
     );
   });
 
-  it('shows a real loading layout, then an error with Retry rather than a false empty state', async () => {
+  it('schedules a one-time run in the device time zone', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderSettings('sess_1');
+    const dialog = await openNewDialog(user);
+    const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(within(dialog).getByText(deviceTimezone)).toBeVisible();
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Instruction/u }),
+      'Summarize evidence.',
+    );
+    await user.click(within(dialog).getByRole('button', { name: /^Schedule work/u }));
+    await waitFor(() =>
+      expect(repository.createScheduledTurn).toHaveBeenCalledWith(
+        'sess_1',
+        expect.objectContaining({
+          question: 'Summarize evidence.',
+          recurring: false,
+          overlap_policy: 'queue',
+          run_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u),
+        }),
+      ),
+    );
+  });
+
+  it('offers only primary sessions to schedule work in', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderSettings('sess_1');
+    await findRow();
+    await user.click(screen.getByRole('button', { name: /^Session: Evidence review/u }));
+    expect(
+      await screen.findByRole('menuitemradio', { name: /Earlier session/u }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /Analysis task/u })).not.toBeInTheDocument();
+  });
+
+  it('pauses, edits by replacing, and deletes after an inline confirmation', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderSettings('sess_1');
+    const row = await findRow();
+
+    await user.click(within(row).getByRole('button', { name: 'Pause' }));
+    await waitFor(() =>
+      expect(repository.setScheduleEnabled).toHaveBeenCalledWith('sess_1', 'schedule_1', false),
+    );
+
+    await user.click(within(row).getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit scheduled work' });
+    const instruction = within(dialog).getByRole('textbox', { name: /Instruction/u });
+    expect(instruction).toHaveValue('Inspect fresh results.');
+    await user.clear(instruction);
+    await user.type(instruction, 'Inspect twice.');
+    await user.click(within(dialog).getByRole('button', { name: /^Save changes/u }));
+    await waitFor(() => expect(repository.deleteScheduledTurn).toHaveBeenCalledWith('schedule_1'));
+    expect(repository.createScheduledTurn).toHaveBeenCalledWith(
+      'sess_1',
+      expect.objectContaining({
+        question: 'Inspect twice.',
+        cron: '0 9 * * 1-5',
+        recurring: true,
+      }),
+    );
+    expect(repository.createScheduledTurn.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.deleteScheduledTurn.mock.invocationCallOrder[0] ?? 0,
+    );
+    vi.clearAllMocks();
+
+    const current = await findRow();
+    await user.click(within(current).getByRole('button', { name: 'Delete' }));
+    const confirming = screen.getByRole('group', { name: 'Inspect fresh results.' });
+    expect(within(confirming).getByText('Delete this schedule?')).toBeVisible();
+    await user.click(within(confirming).getByRole('button', { name: 'Keep schedule' }));
+    expect(repository.deleteScheduledTurn).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole('group', { name: 'Inspect fresh results.' })).getByRole('button', {
+        name: 'Delete',
+      }),
+    );
+    await user.click(
+      within(screen.getByRole('group', { name: 'Inspect fresh results.' })).getByRole('button', {
+        name: 'Delete',
+      }),
+    );
+    await waitFor(() => expect(repository.deleteScheduledTurn).toHaveBeenCalledWith('schedule_1'));
+  });
+
+  it('shows loading, then an error with Retry rather than a false empty state', async () => {
     let reject!: (reason: Error) => void;
     repository.scheduledTurns.mockReturnValueOnce(
       new Promise((_resolve, fail) => {
@@ -113,51 +236,20 @@ describe('scheduled work settings', () => {
       }),
     );
     renderSettings('sess_1');
-    expect(await screen.findByRole('status', { name: 'Loading scheduled work…' })).toBeVisible();
+    expect(await screen.findByText('Loading scheduled work…')).toBeVisible();
     reject(new Error('Service unavailable'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Service unavailable');
-    expect(screen.queryByText('Nothing is scheduled for this session')).not.toBeInTheDocument();
+    expect(await screen.findByText('Scheduled work could not be loaded')).toBeVisible();
+    expect(screen.queryByText('Service unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing is scheduled in Evidence review')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
   });
 
-  it('creates and cancels session-owned work without exposing paths or fake progress', async () => {
-    const user = userEvent.setup();
+  it('says plainly when nothing is scheduled and keeps add available', async () => {
+    repository.scheduledTurns.mockResolvedValueOnce({ timezone: 'America/Chicago', schedules: [] });
     renderSettings('sess_1');
-
-    expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
-    expect(screen.getByText('Weekdays')).toBeVisible();
-    const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(screen.getByText(/^Run once on /u)).toHaveTextContent(`${deviceTimezone}.`);
-    expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('combobox', { name: 'Session' }));
-    expect(screen.queryByRole('option', { name: 'Analysis task' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'Evidence review, EarthScope campaign' }));
-
-    await user.type(
-      screen.getByRole('textbox', { name: 'Instruction' }),
-      'Summarize new station evidence.',
-    );
-    await user.click(screen.getByRole('button', { name: 'Schedule work' }));
-
-    await waitFor(() =>
-      expect(repository.createScheduledTurn).toHaveBeenCalledWith(
-        'sess_1',
-        expect.objectContaining({
-          question: 'Summarize new station evidence.',
-          recurring: false,
-          overlap_policy: 'queue',
-          run_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u),
-        }),
-      ),
-    );
-
-    await user.click(
-      screen.getByRole('button', { name: 'Cancel scheduled work: Inspect fresh results.' }),
-    );
-    await user.click(screen.getByRole('button', { name: /^Cancel scheduled work$/u }));
-    await waitFor(() => expect(repository.deleteScheduledTurn).toHaveBeenCalledWith('schedule_1'));
+    expect(await screen.findByText('Nothing is scheduled in Evidence review')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'New scheduled work' })).toBeEnabled();
   });
 });
 

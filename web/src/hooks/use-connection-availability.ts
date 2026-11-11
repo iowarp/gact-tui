@@ -1,8 +1,8 @@
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
-import { useQueries } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
-import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { ServiceVersionError } from '@/lib/service-version-error';
 import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -10,6 +10,7 @@ import {
   CONNECTION_PROBE_FAST_ATTEMPTS,
   CONNECTION_PROBE_POLL_MS,
   CONNECTION_PROBE_STARTING_MS,
+  CONNECTION_PROBE_STARTING_MAX_MS,
   CONNECTION_PROBE_RETRIES,
   CONNECTION_PROBE_RETRY_BASE_MS,
   CONNECTION_PROBE_RETRY_MAX_MS,
@@ -19,13 +20,20 @@ import {
 
 export type ConnectionAvailabilityState = 'checking' | 'healthy' | 'degraded' | 'unavailable';
 
+/** What was actually observed when a service could not be opened. */
+export type UnavailableReason = 'no-answer' | 'timeout' | 'incompatible' | 'error' | 'failed';
+
 export interface ConnectionAvailability {
   state: ConnectionAvailabilityState;
   label: string;
   detail: string;
   diagnostics?: string;
-  /** The service answered but is still starting; it is re-checked every second. */
+  /** Why an `unavailable` service cannot be opened. */
+  reason?: UnavailableReason;
+  /** The service answered but is still starting; it is re-checked with a capped backoff. */
   starting?: boolean;
+  /** When this service was first seen starting (epoch ms), for the re-check backoff. */
+  startingSince?: number;
 }
 
 /** What a starting service is still bringing up, in words (`/v1/health` `starting`). */
@@ -43,15 +51,27 @@ function startingDetail(items: readonly string[] | undefined): string {
 }
 
 /**
- * Re-probe quickly while a service is starting or has not answered yet, so a service
- * started at the same time as this page is noticed within a second; slow down after
- * about two minutes of silence.
+ * Re-check a starting service after a quarter of the time it has been starting, between
+ * one second and a few seconds: a quick start is noticed within a second, and a slow one
+ * is not polled every second while readiness is still only delayed by a fraction.
+ */
+export function startingProbeInterval(startingForMs: number): number {
+  return Math.min(
+    CONNECTION_PROBE_STARTING_MAX_MS,
+    Math.max(CONNECTION_PROBE_STARTING_MS, Math.round(startingForMs / 4)),
+  );
+}
+
+/**
+ * Re-probe quickly while a service has not answered yet, so a service started at the
+ * same time as this page is noticed within a second; slow down after about two minutes
+ * of silence. A starting service backs off (`startingProbeInterval`).
  */
 export function connectionProbeInterval(query: {
   state: { data?: ConnectionAvailability; status: string; errorUpdateCount: number };
 }): number {
   const { data, status, errorUpdateCount } = query.state;
-  if (data?.starting) return CONNECTION_PROBE_STARTING_MS;
+  if (data?.starting) return startingProbeInterval(Date.now() - (data.startingSince ?? Date.now()));
   if (status === 'error' && errorUpdateCount < CONNECTION_PROBE_FAST_ATTEMPTS) {
     return CONNECTION_PROBE_STARTING_MS;
   }
@@ -78,57 +98,95 @@ export function connectionAvailability(
   return availability[endpoint] ?? CHECKING_CONNECTION;
 }
 
+/** One probe per address, shared by every view that shows its availability. */
+export function connectionAvailabilityKey(endpoint: string | undefined) {
+  return queryKeys.key('connection-availability', endpoint ?? '');
+}
+
 /** Probe remembered services without changing the active connection. */
 export function useConnectionAvailabilities(
   connections: readonly SavedConnection[],
 ): ConnectionAvailabilityMap {
   const { resolveConnection } = useConnectionSettings();
-  const queries = useQueries({
+  const queryClient = useQueryClient();
+  // `combine` is structurally shared, so the answers keep their identity until a
+  // probe actually changes one and the menus reading them do not re-render per poll.
+  const answers = useQueries({
     queries: connections.map((connection) => ({
-      queryKey: queryKeys.key('connection-availability', connection.endpoint),
+      queryKey: connectionAvailabilityKey(connection.endpoint),
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const resolved = await resolveConnection(connection);
-        return probeConnection(resolved, signal);
+        const previous = queryClient.getQueryData<ConnectionAvailability>(
+          connectionAvailabilityKey(connection.endpoint),
+        );
+        return probeConnection(resolved, signal, previous);
       },
       refetchInterval: connectionProbeInterval,
-      refetchOnMount: 'always' as const,
       retry: CONNECTION_PROBE_RETRIES,
       retryDelay: (attempt: number) =>
         Math.min(CONNECTION_PROBE_RETRY_BASE_MS * 2 ** attempt, CONNECTION_PROBE_RETRY_MAX_MS),
       staleTime: CONNECTION_PROBE_STALE_TIME_MS,
     })),
+    combine: (results) => results.map((query) => query.data ?? availabilityFromError(query.error)),
   });
 
+  const fresh = useMemo(
+    () =>
+      connections.map((connection, index) => ({
+        endpoint: connection.endpoint,
+        availability: answers[index] ?? CHECKING_CONNECTION,
+      })),
+    [connections, answers],
+  );
+  // A re-probe of a service that never answered clears the query's error, so
+  // keep showing the last settled answer instead of flashing back to Checking.
+  const [settled, setSettled] = useState<ConnectionAvailabilityMap>({});
+  const changed = fresh.filter(
+    ({ endpoint, availability }) =>
+      !isChecking(availability) && !sameAvailability(settled[endpoint], availability),
+  );
+  if (changed.length > 0) {
+    setSettled({
+      ...settled,
+      ...Object.fromEntries(changed.map(({ endpoint, availability }) => [endpoint, availability])),
+    });
+  }
   return useMemo(
     () =>
       Object.fromEntries(
-        connections.map((connection, index) => [
-          connection.endpoint,
-          queries[index]?.data ?? availabilityFromError(queries[index]?.error),
+        fresh.map(({ endpoint, availability }) => [
+          endpoint,
+          isChecking(availability) ? (settled[endpoint] ?? availability) : availability,
         ]),
       ),
-    [connections, queries],
+    [fresh, settled],
   );
 }
 
+/**
+ * Probe a service: its protocol versions, then its health. While the previous answer
+ * was "starting", the versions are already known compatible, so only health is read.
+ */
 export async function probeConnection(
   settings: ConnectionSettings,
   signal: AbortSignal,
+  previous?: ConnectionAvailability,
 ): Promise<ConnectionAvailability> {
   const controller = new AbortController();
   const forwardAbort = () => controller.abort();
   signal.addEventListener('abort', forwardAbort, { once: true });
   const timeout = globalThis.setTimeout(() => controller.abort(), CONNECTION_PROBE_TIMEOUT_MS);
+  const wasStarting = previous?.starting === true;
 
   try {
     const repository = createRepository(settings);
-    const capabilities = await repository.capabilities(controller.signal);
-    if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
-      return {
-        state: 'unavailable',
-        label: 'Incompatible',
-        detail: `Requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}.`,
-      };
+    if (!wasStarting) {
+      const capabilities = await repository.capabilities(controller.signal);
+      if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
+        return unavailableFromError(
+          new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions),
+        );
+      }
     }
 
     try {
@@ -139,6 +197,7 @@ export async function probeConnection(
           label: 'Starting',
           detail: startingDetail(health.starting),
           starting: true,
+          startingSince: (wasStarting ? previous?.startingSince : undefined) ?? Date.now(),
         };
       }
       if (health.healthy && isHistoryMode(health)) {
@@ -153,6 +212,8 @@ export async function probeConnection(
           };
     } catch (error) {
       rethrowCancelledProbe(error, signal, controller.signal);
+      // Without a capabilities read this run, nothing proves the service is reachable.
+      if (wasStarting) throw error;
       // A compatible capabilities response already proves the service is reachable.
       return {
         state: 'degraded',
@@ -169,36 +230,139 @@ export async function probeConnection(
   }
 }
 
+/** The probe gave up waiting: something may be listening, but it did not answer. */
+export class ServiceTimeoutError extends Error {
+  constructor() {
+    super('The service did not respond in time.');
+    this.name = 'ServiceTimeoutError';
+  }
+}
+
 function rethrowCancelledProbe(
   error: unknown,
   requestSignal: AbortSignal,
   probeSignal: AbortSignal,
 ): void {
   if (requestSignal.aborted) throw error;
-  if (probeSignal.aborted) throw new Error('The service did not respond in time.');
+  if (probeSignal.aborted) throw new ServiceTimeoutError();
+}
+
+/** Not answered yet. Compared by value: structural sharing may copy the object. */
+function isChecking(availability: ConnectionAvailability): boolean {
+  return sameAvailability(CHECKING_CONNECTION, availability) && !availability.starting;
+}
+
+function sameAvailability(
+  left: ConnectionAvailability | undefined,
+  right: ConnectionAvailability,
+): boolean {
+  return (
+    left?.state === right.state &&
+    left.label === right.label &&
+    left.detail === right.detail &&
+    left.diagnostics === right.diagnostics &&
+    left.reason === right.reason
+  );
 }
 
 function availabilityFromError(error: unknown): ConnectionAvailability {
   if (!error || (error instanceof Error && error.name === 'AbortError')) {
     return CHECKING_CONNECTION;
   }
+  return unavailableFromError(error);
+}
+
+const INTERNAL_EXCEPTIONS: ReadonlySet<string> = new Set([
+  'TypeError',
+  'ReferenceError',
+  'RangeError',
+  'SyntaxError',
+]);
+
+/** The plain reason shown for a connection that failed on an unexpected exception. */
+export const UNEXPECTED_CONNECT_ERROR = 'unexpected error';
+
+/**
+ * A programming exception raised while connecting (for example a missing desktop
+ * bridge), as `Name: message` for technical details. It is never the reason a person
+ * reads; domain failures return undefined.
+ */
+export function internalException(error: unknown): string | undefined {
+  if (!(error instanceof Error) || !INTERNAL_EXCEPTIONS.has(error.name)) return undefined;
+  return `${error.name}: ${error.message}`;
+}
+
+/**
+ * An unavailable service, labelled by what actually happened: nothing answered, it did
+ * not answer in time, it is a different version, or it answered with an error. The
+ * primary text stays plain; protocol versions and raw errors go to `diagnostics`.
+ */
+export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof TransportError && error.code === 'network_unavailable') {
     return {
       state: 'unavailable',
       label: 'Not reachable',
       detail: NOT_REACHABLE_DETAIL,
+      reason: 'no-answer',
+    };
+  }
+  if (error instanceof ServiceTimeoutError) {
+    return {
+      state: 'unavailable',
+      label: 'Not responding',
+      detail: error.message,
+      reason: 'timeout',
+    };
+  }
+  if (error instanceof ServiceVersionError) {
+    return {
+      state: 'unavailable',
+      label: 'Incompatible',
+      detail: error.message,
+      diagnostics: JSON.stringify(error.details, null, 2),
+      reason: 'incompatible',
+    };
+  }
+  if (error instanceof TransportError && error.code === 'incompatible_capabilities') {
+    return {
+      state: 'unavailable',
+      label: 'Incompatible',
+      detail: new ServiceVersionError(PROTOCOL_VERSION, []).message,
+      diagnostics: JSON.stringify({ message: error.message, details: error.details }, null, 2),
+      reason: 'incompatible',
+    };
+  }
+  if (error instanceof TransportError && error.status !== undefined) {
+    return {
+      state: 'unavailable',
+      label: 'Service error',
+      detail: error.message || 'The service reported an error.',
+      diagnostics: JSON.stringify(
+        { status: error.status, code: error.code, details: error.details },
+        null,
+        2,
+      ),
+      reason: 'error',
+    };
+  }
+  const internal = internalException(error);
+  if (internal) {
+    return {
+      state: 'unavailable',
+      label: 'Not available',
+      detail: UNEXPECTED_CONNECT_ERROR,
+      diagnostics: internal,
+      reason: 'failed',
     };
   }
   return {
     state: 'unavailable',
-    label:
-      error instanceof TransportError && error.code === 'incompatible_capabilities'
-        ? 'Incompatible'
-        : 'Not reachable',
-    detail: error instanceof Error ? error.message : NOT_REACHABLE_DETAIL,
+    label: 'Not available',
+    detail: error instanceof Error && error.message ? error.message : NOT_REACHABLE_DETAIL,
     diagnostics:
       error instanceof TransportError && error.details
         ? JSON.stringify(error.details, null, 2)
         : undefined,
+    reason: 'failed',
   };
 }

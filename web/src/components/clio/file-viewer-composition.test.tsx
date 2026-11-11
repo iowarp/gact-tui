@@ -36,8 +36,7 @@ it('reads provided bundle source through the common download boundary without a 
   };
   expect(await readFileViewerBytes({} as never, source)).toEqual(bytes);
   renderComposition(source, 'SKILL.md', '# Skill\r\n', 'text/markdown');
-  await userEvent.click(await screen.findByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Download/ })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Download' })).toBeEnabled();
 });
 
 interface FormatCase {
@@ -92,6 +91,20 @@ const formats: readonly FormatCase[] = [
     content: 'def analyze():\n    return "ready"\n',
     modes: [],
     readableText: undefined,
+  },
+  {
+    name: 'opal.ipynb',
+    mediaType: 'application/x-ipynb+json',
+    content: JSON.stringify({
+      nbformat: 4,
+      metadata: {},
+      cells: [
+        { cell_type: 'markdown', source: '# Opal notebook' },
+        { cell_type: 'code', execution_count: 1, source: 'print(1)', outputs: [] },
+      ],
+    }),
+    modes: ['Notebook', 'Source'],
+    readableText: 'Opal notebook',
   },
 ];
 

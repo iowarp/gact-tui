@@ -6,16 +6,16 @@
  * time, and the same overlong summary read identically wherever they appear.
  */
 
-const BYTES_PER_KILOBYTE = 1_000;
+const BYTES_PER_KILOBYTE = 1_024;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_MINUTE = 60_000;
 
 const BYTE_UNITS = ['KB', 'MB', 'GB', 'TB'] as const;
 
 /**
- * Formats a byte count with SI (decimal) units, matching the `KB`/`MB`/`GB`
- * labels every surface renders. Byte counts on the wire are decimal, so a
- * binary divisor would print a number that does not match its own label.
+ * Formats a byte count in binary units with the spec's `KB`/`MB`/`GB` labels,
+ * as file managers do: 3,650,722,201 bytes is "3.4 GB", 512 KiB is "512 KB".
+ * One decimal, dropped when it is `.0` from ten up ("200 MB", "5.0 GB").
  */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes)) return '';
@@ -23,11 +23,12 @@ export function formatBytes(bytes: number): string {
   if (magnitude < BYTES_PER_KILOBYTE) return `${Math.round(bytes)} B`;
   let value = bytes / BYTES_PER_KILOBYTE;
   let index = 0;
-  while (Math.abs(value) >= BYTES_PER_KILOBYTE && index < BYTE_UNITS.length - 1) {
+  while (Math.abs(value) >= 999.95 && index < BYTE_UNITS.length - 1) {
     value /= BYTES_PER_KILOBYTE;
     index += 1;
   }
-  return `${value.toFixed(1)} ${BYTE_UNITS[index]}`;
+  const text = value.toFixed(1);
+  return `${Math.abs(value) >= 10 && text.endsWith('.0') ? text.slice(0, -2) : text} ${BYTE_UNITS[index]}`;
 }
 
 /**
@@ -70,12 +71,30 @@ export function formatResourceSize(bytes: number): string {
  *   differences matter (tool timings).
  * - `compact`: single-letter units with no space, for badges inside a graph
  *   node or another space-constrained glyph.
+ * - `elapsed`: the transcript's 44px elapsed column. Tenths below ten seconds
+ *   (`0.4s`, `8.2s`), whole seconds below a minute (`41s`), then `2m 5s`, `1h 4m`.
  */
-export type DurationStyle = 'unit' | 'tenths' | 'compact';
+export type DurationStyle = 'unit' | 'tenths' | 'compact' | 'elapsed';
 
 /** Formats an elapsed duration in milliseconds for display. */
 export function formatDuration(milliseconds: number, style: DurationStyle = 'unit'): string {
   const elapsed = Math.max(0, milliseconds);
+  if (style === 'elapsed') {
+    const seconds = elapsed / MILLISECONDS_PER_SECOND;
+    if (seconds < 9.95) return `${seconds.toFixed(1)}s`;
+    const whole = Math.round(seconds);
+    if (whole < 60) return `${whole}s`;
+    // The row's elapsed column holds six characters ("12m 4s"); a longer reading keeps its
+    // larger unit only ("23m", "10h").
+    const minutes = Math.floor(whole / 60);
+    if (minutes < 60) {
+      const reading = whole % 60 ? `${minutes}m ${whole % 60}s` : `${minutes}m`;
+      return reading.length > 6 ? `${minutes}m` : reading;
+    }
+    const hours = Math.floor(minutes / 60);
+    const reading = minutes % 60 ? `${hours}h ${minutes % 60}m` : `${hours}h`;
+    return reading.length > 6 ? `${hours}h` : reading;
+  }
   if (style === 'compact') {
     if (elapsed < MILLISECONDS_PER_MINUTE) {
       return `${Math.max(1, Math.round(elapsed / MILLISECONDS_PER_SECOND))}s`;
@@ -101,14 +120,4 @@ export function formatDuration(milliseconds: number, style: DurationStyle = 'uni
  */
 export function truncate(value: string, limit: number): string {
   return value.length <= limit ? value : `${value.slice(0, limit - 1).trimEnd()}…`;
-}
-
-/**
- * Phrases a child work item's nesting depth in the session hierarchy as prose
- * rather than the bare internal term "depth N", which reads as jargon outside
- * a debugger. Returns undefined at the root, where nesting has nothing to say.
- */
-export function formatNestingDepth(depth: number): string | undefined {
-  if (depth <= 0) return undefined;
-  return `${depth} level${depth === 1 ? '' : 's'} deep`;
 }

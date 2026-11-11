@@ -24,9 +24,13 @@ const runMeta = {
   ],
 };
 
+const repository = vi.hoisted(() => ({ pending: false }));
+
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({
-    workspaceReferences: vi.fn(async () => [reference]),
+    workspaceReferences: vi.fn(() =>
+      repository.pending ? new Promise<never>(() => undefined) : Promise.resolve([reference]),
+    ),
     capabilities: vi.fn(async () => ({ capabilities: { x_clio_hdf5_viewer: true } })),
     readWorkspaceHdf5: vi.fn(async () => encoder.encode(JSON.stringify(runMeta))),
   }),
@@ -35,7 +39,10 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8788' } }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  repository.pending = false;
+});
 
 describe('composer reference presentation', () => {
   it('groups uploaded files with sources while retaining the resource identity', async () => {
@@ -44,14 +51,10 @@ describe('composer reference presentation', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ClioComposerReferenceMenu
-          activeReferenceId=""
-          onActiveOptionChange={vi.fn()}
-          onActiveReferenceChange={vi.fn()}
           onDismiss={vi.fn()}
-          onQueryChange={vi.fn()}
-          onReferencesChange={vi.fn()}
           onRestoreFocus={vi.fn()}
           onSelect={onSelect}
+          popoverId="refs"
           query="NVDA"
           searchInput
           workspaceId="workspace_1"
@@ -59,13 +62,34 @@ describe('composer reference presentation', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.queryByRole('button', { name: 'Collapse Artifacts' })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Collapse Workspace files' }),
-    ).not.toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Collapse Sources' })).toBeVisible();
+    expect(await screen.findByRole('group', { name: 'Sources' })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Workspace files' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse Sources' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: /10K-NVDA\.pdf/ }));
     expect(onSelect).toHaveBeenCalledWith(reference);
+  });
+
+  it('shows one loading row, not empty group headings, while context loads', () => {
+    repository.pending = true;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ClioComposerReferenceMenu
+          onDismiss={vi.fn()}
+          onRestoreFocus={vi.fn()}
+          onSelect={vi.fn()}
+          popoverId="refs"
+          query=""
+          searchInput={false}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    const listbox = screen.getByRole('listbox', { name: 'Suggestions' });
+    expect(listbox).toHaveTextContent('Searching workspace context…');
+    expect(listbox.querySelector('[data-slot="ring-spinner"]')).not.toBeNull();
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
   });
 
   it('lists the objects inside an HDF5 group for a file::/group/ mention', async () => {
@@ -74,14 +98,10 @@ describe('composer reference presentation', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ClioComposerReferenceMenu
-          activeReferenceId=""
-          onActiveOptionChange={vi.fn()}
-          onActiveReferenceChange={vi.fn()}
           onDismiss={vi.fn()}
-          onQueryChange={vi.fn()}
-          onReferencesChange={vi.fn()}
           onRestoreFocus={vi.fn()}
           onSelect={onSelect}
+          popoverId="refs"
           query="data/run.h5::/entry/"
           searchInput={false}
           workspaceId="workspace_1"
@@ -96,9 +116,8 @@ describe('composer reference presentation', () => {
     expect(screen.getByRole('option', { name: /\/entry\/image group/ })).toHaveTextContent(
       'Tab to look inside',
     );
-    expect(
-      screen.getByText('Tab opens a group, Enter adds the object, Esc to close.'),
-    ).toBeVisible();
+    expect(dataset).toHaveAttribute('aria-selected', 'true');
+    expect(dataset).toHaveAttribute('id', expect.stringMatching(/^refs-option-/));
     await user.click(dataset);
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({

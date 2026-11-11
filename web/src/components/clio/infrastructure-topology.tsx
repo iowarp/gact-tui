@@ -20,6 +20,7 @@ import { managedServiceStatus } from '@/lib/managed-service-status';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 
 type NodeTone = 'ok' | 'self' | 'active' | 'attention' | 'failed' | 'idle';
 
@@ -34,8 +35,10 @@ interface MapNode {
   row: number;
   icon: ReactNode;
   title: string;
-  /** The node's state in words, shown under its name. */
+  /** The node's state in words, for its hover name and accessible name. */
   detail: string;
+  /** A shorter visible line when the edge already says the route ("Sign-in needed"). */
+  brief?: string;
   tone: NodeTone;
   action?: NodeAction;
 }
@@ -52,8 +55,8 @@ interface MapEdge {
 const COLUMNS = [
   { left: 0, width: 17 },
   { left: 21, width: 20 },
-  { left: 45.5, width: 20.5 },
-  { left: 71, width: 29 },
+  { left: 45.5, width: 23.5 },
+  { left: 74, width: 26 },
 ] as const;
 const ROW = 50;
 const NODE_HEIGHT = 38;
@@ -81,6 +84,7 @@ const EDGE_TONE = {
 export function InfrastructureTopology({
   data,
   agentLabel,
+  agentRoute = 'Direct',
   client,
   onReconnect,
   reconnecting = false,
@@ -88,6 +92,8 @@ export function InfrastructureTopology({
 }: {
   data: InfrastructureInventory;
   agentLabel: string;
+  /** How this client reaches the agent, labelled on their edge. */
+  agentRoute?: 'Direct' | 'SSH';
   /** Where this client runs ("Desktop app", "Browser"). */
   client: string;
   onReconnect?: (host: SshHost) => Promise<unknown>;
@@ -96,8 +102,8 @@ export function InfrastructureTopology({
 }) {
   const canReconnect = Boolean(onReconnect);
   const map = useMemo(
-    () => topologyLayout(data, agentLabel, client, canReconnect),
-    [data, agentLabel, client, canReconnect],
+    () => topologyLayout(data, agentLabel, agentRoute, client, canReconnect),
+    [data, agentLabel, agentRoute, client, canReconnect],
   );
   const height = PAD * 2 + (map.rows - 1) * ROW + NODE_HEIGHT;
   const nodes = new Map(map.nodes.map((node) => [node.id, node]));
@@ -207,7 +213,9 @@ const MapNodeView = memo(function MapNodeView({
       </span>
       <span className="flex min-w-0 flex-col leading-[1.25]">
         <span className="truncate text-[12px] font-semibold text-foreground">{node.title}</span>
-        <span className="truncate text-[11px] text-muted-foreground">{node.detail}</span>
+        <span className="truncate text-[11px] text-muted-foreground">
+          {node.brief ?? node.detail}
+        </span>
       </span>
     </>
   );
@@ -259,6 +267,7 @@ function centerY(row: number): number {
 function topologyLayout(
   data: InfrastructureInventory,
   agentLabel: string,
+  agentRoute: 'Direct' | 'SSH',
   client: string,
   canReconnect: boolean,
 ): { nodes: MapNode[]; edges: MapEdge[]; rows: number } {
@@ -282,13 +291,15 @@ function topologyLayout(
     const host = band.target;
     const isLocal = !host || host.kind === 'local';
     const state = isLocal ? undefined : hostState(host);
+    const hostName = isLocal ? AGENT_COMPUTER : host.label;
     nodes.push({
       id: hostId,
       column: 2,
       row: row + (span - 1) / 2,
       icon: isLocal ? <MonitorIcon /> : <ServerIcon />,
-      title: isLocal ? host?.label || 'Local' : host.label,
-      detail: isLocal ? `${vocab.agent} computer` : state!.detail,
+      title: hostName,
+      detail: isLocal ? 'Local' : state!.detail,
+      brief: state?.brief,
       tone: state?.tone ?? 'ok',
       action:
         state?.reconnect && canReconnect && host?.ssh
@@ -301,7 +312,7 @@ function topologyLayout(
           : {
               kind: 'link',
               to: `/infrastructure/services?target=${encodeURIComponent(band.id)}`,
-              label: `Services on ${host?.label || 'Local'}`,
+              label: `Services on ${hostName}`,
               hint: 'Enter to open its services.',
             },
     });
@@ -340,7 +351,7 @@ function topologyLayout(
         action: {
           kind: 'link',
           to: `/infrastructure/services?target=${encodeURIComponent(band.id)}&service=${encodeURIComponent(service.service_id)}`,
-          label: `Manage ${name} on ${host?.label || 'Local'}`,
+          label: `Manage ${name} on ${hostName}`,
           hint: 'Enter to manage it.',
         },
       });
@@ -394,29 +405,31 @@ function topologyLayout(
       },
     },
   );
-  edges.unshift({ from: 'client', to: 'agent' });
+  edges.unshift({ from: 'client', to: 'agent', label: agentRoute });
   return { nodes, edges, rows: row };
 }
 
 /** A computer's connection in words, and whether it needs sign-in or a reconnect. */
 function hostState(host: InfrastructureTarget): {
   detail: string;
+  brief: string;
   tone: NodeTone;
   reconnect: boolean;
 } {
   const words = computerConnectionLabel(host.transport_state);
   const jump = host.ssh?.jump_hosts[0];
   const detail = jump ? `via ${jump}, ${words}` : host.kind === 'direct' ? words : `SSH: ${words}`;
+  const state = { detail, brief: words };
   switch (host.transport_state) {
     case 'connected':
-      return { detail, tone: 'ok', reconnect: false };
+      return { ...state, tone: 'ok', reconnect: false };
     case 'reconnecting':
-      return { detail, tone: 'active', reconnect: false };
+      return { ...state, tone: 'active', reconnect: false };
     case 'reauthentication_required':
     case 'disconnected':
-      return { detail, tone: 'attention', reconnect: true };
+      return { ...state, tone: 'attention', reconnect: true };
     default:
-      return { detail, tone: 'idle', reconnect: false };
+      return { ...state, tone: 'idle', reconnect: false };
   }
 }
 

@@ -39,9 +39,13 @@ export const CASCADER_LIST_HEIGHT_CLASS =
  */
 export const CASCADER_LIST_PAD_CLASS = '[--cascader-list-pad:4px]';
 
-/** The scrollport: a `max-h-*` on the ScrollArea ROOT bounds nothing. */
+/**
+ * The scrollport: a `max-h-*` on the ScrollArea ROOT bounds nothing. Radix wraps
+ * the rows in a `display: table` box that grows to the rows' unwrapped width, so
+ * it is made a block: a long name then truncates and the trailing facts stay whole.
+ */
 export const CASCADER_SCROLL_CLASS =
-  'size-full min-h-0 **:data-[slot=scroll-area-viewport]:h-full **:data-[slot=scroll-area-viewport]:overscroll-contain **:data-[slot=scroll-area-viewport]:scroll-py-[max(var(--cascader-list-pad,4px),4px)]';
+  'size-full min-h-0 **:data-[slot=scroll-area-viewport]:h-full **:data-[slot=scroll-area-viewport]:overscroll-contain **:data-[slot=scroll-area-viewport]:scroll-py-[max(var(--cascader-list-pad,4px),4px)] [&_[data-slot=scroll-area-viewport]>div]:!block';
 
 /** The rows' box; `data-empty:p-0` keeps an empty state from double inset. */
 export const CASCADER_ROWS_CLASS = 'p-(--cascader-list-pad,4px) data-empty:p-0';
@@ -121,7 +125,13 @@ export function isCascaderRtl(element: Element, provided: string): boolean {
   const explicit = element.closest('[dir]')?.getAttribute('dir')?.toLowerCase();
   if (explicit === 'rtl') return true;
   if (explicit === 'ltr') return false;
-  return element.ownerDocument?.defaultView?.getComputedStyle(element).direction === 'rtl';
+  // Selector matching reads no computed style, so a keydown mid-commit does not
+  // force a whole-document style recalc; `getComputedStyle` is the old-engine fallback.
+  try {
+    return element.matches(':dir(rtl)');
+  } catch {
+    return element.ownerDocument?.defaultView?.getComputedStyle(element).direction === 'rtl';
+  }
 }
 
 /**

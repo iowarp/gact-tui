@@ -24,33 +24,37 @@ for (const theme of ['light', 'dark']) {
       await page.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
       const menu = page.getByRole('menu');
       for (const name of [
-        'Rename session',
-        'Pin session',
-        'Branch into a new session',
+        'Pin',
+        'Rename',
+        'Fork into a new conversation',
         'Share read-only link',
-        'Export session',
-        'Compact conversation',
-        'Remove last message',
-        'Archive session',
-        'Delete session',
+        'Export',
+        'Compact conversation…',
+        'Remove last message…',
+        'Archive',
+        'Delete…',
       ]) {
         await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
       }
       const box = (await menu.boundingBox())!;
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      // Menus keep an 8px inset from the viewport edge (MN4).
+      expect(box.x).toBeGreaterThanOrEqual(8);
+      expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
       expect(box.y + box.height).toBeLessThanOrEqual(900);
       await page.screenshot({ path: testInfo.outputPath(`${theme}-${width}-header-menu.png`) });
-      await menu.getByRole('menuitem', { name: 'Export session', exact: true }).hover();
+      // A click opens Export beside its menu, or in place on a phone (MN5).
+      await menu.getByRole('menuitem', { name: 'Export', exact: true }).click();
       await expect(
         page.getByRole('menuitem', { name: 'Download HTML', exact: true }),
       ).toBeVisible();
-      await page
-        .getByRole('menuitemcheckbox', { name: 'Include workspace files', exact: true })
-        .click();
+      await page.getByRole('menuitemcheckbox', { name: 'Workspace files', exact: true }).click();
       await expect(
-        page.getByRole('menuitemcheckbox', { name: 'Include session artifacts', exact: true }),
+        page.getByRole('menuitemcheckbox', { name: 'Artifacts', exact: true }),
       ).toBeChecked();
+      // One download item: ticking files turns HTML into a ZIP.
+      await expect(page.getByRole('menuitem', { name: 'Download HTML', exact: true })).toHaveCount(
+        0,
+      );
       await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toBeVisible();
       const submenu = page
         .getByRole('menu')
@@ -58,13 +62,25 @@ for (const theme of ['light', 'dark']) {
       const subBox = (await submenu.boundingBox())!;
       expect(subBox.x).toBeGreaterThanOrEqual(0);
       expect(subBox.x + subBox.width).toBeLessThanOrEqual(width);
+      if (width >= 600) {
+        // The submenu sits beside the menu, overlapping its padding by at most
+        // 4px as the spec draws it, not over the rows it belongs to.
+        expect(subBox.x >= box.x + box.width - 5 || subBox.x + subBox.width <= box.x + 5).toBe(
+          true,
+        );
+      } else {
+        await expect(menu.getByRole('menuitem', { name: 'Export', exact: true })).toHaveAttribute(
+          'aria-expanded',
+          'true',
+        );
+      }
       await page.screenshot({ path: testInfo.outputPath(`${theme}-${width}-export-menu.png`) });
       await page.keyboard.press('Escape');
       await page.keyboard.press('Escape');
 
       // A destructive menu entry must open the same confirmation as the sidebar.
       await page.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
-      await page.getByRole('menuitem', { name: 'Delete session', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Delete…', exact: true }).click();
       const confirmation = page.getByRole('alertdialog');
       await expect(confirmation).toContainText('permanently removes the session');
       await page.screenshot({
@@ -117,7 +133,7 @@ test('header rename and pin refresh both the header and sidebar menus', async ({
   });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Rename session', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Rename session', exact: true });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Renamed evidence review');
   await dialog.getByRole('button', { name: 'Save name', exact: true }).click();
@@ -132,10 +148,13 @@ test('header rename and pin refresh both the header and sidebar menus', async ({
   });
   await expect(sidebar).toBeAttached();
   await header.click();
-  await page.getByRole('menuitem', { name: 'Pin session', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
   await header.click();
-  await expect(page.getByRole('menuitem', { name: 'Unpin session', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await sidebar.click();
-  await expect(page.getByRole('menuitem', { name: 'Unpin session', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible();
+  // The left bar menu is the title menu: history actions included.
+  await expect(page.getByRole('menuitem', { name: /^Compact conversation…/u })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: /^Remove last message…/u })).toBeVisible();
 });

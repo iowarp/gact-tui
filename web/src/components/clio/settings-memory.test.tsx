@@ -62,11 +62,15 @@ const repository = vi.hoisted(() => ({
   memorySummary: vi.fn(),
   memoryDocuments: vi.fn(),
   memoryDocument: vi.fn(),
+  memoryVersions: vi.fn(),
   memoryProposals: vi.fn(),
   acceptMemoryProposal: vi.fn(),
   rejectMemoryProposal: vi.fn(),
+  forgetMemoryDocument: vi.fn(),
   runtimeSettings: vi.fn(),
   workspaces: vi.fn(),
+  workspaceMemory: vi.fn(),
+  setWorkspaceMemory: vi.fn(),
   allSessions: vi.fn(),
   memoryStatistics: vi.fn(),
   searchMemory: vi.fn(),
@@ -99,8 +103,10 @@ beforeEach(() => {
   repository.memorySummary.mockResolvedValue({ enabled: true, inbox: 1, documents: 1 });
   repository.memoryDocuments.mockResolvedValue([document]);
   repository.memoryDocument.mockResolvedValue(document);
+  repository.memoryVersions.mockResolvedValue([]);
   repository.memoryProposals.mockResolvedValue([proposal]);
   repository.createMemoryDocument.mockResolvedValue(document);
+  repository.forgetMemoryDocument.mockResolvedValue(undefined);
   repository.assistantImportPrompt.mockResolvedValue('Export your saved notes.');
   repository.importFromAssistant.mockResolvedValue({ import_id: 'import_one', candidates: 0 });
   repository.memoryCreationRuns.mockResolvedValue({
@@ -134,6 +140,10 @@ beforeEach(() => {
     ],
   });
   repository.workspaces.mockResolvedValue([]);
+  repository.workspaceMemory.mockResolvedValue({ use_account_memory: true });
+  repository.setWorkspaceMemory.mockImplementation(async (_id: string, next: boolean) => ({
+    use_account_memory: next,
+  }));
   repository.allSessions.mockResolvedValue([
     { id: 'sess_a', workspace_id: 'ws_lab', title: 'Allocation chat' },
   ]);
@@ -160,27 +170,101 @@ describe('memory page', () => {
     expect(await screen.findByText('Frontier allocation details')).toBeVisible();
     expect(screen.queryByText('Workshop colors')).not.toBeInTheDocument();
   });
-  it('lists documents by scope and category with how often they were used', async () => {
+
+  it('lists documents by scope with fact counts, and shows usage in the open document', async () => {
+    const user = userEvent.setup();
     renderPage(<MemorySettings />);
     const account = await screen.findByRole('region', { name: 'Account' });
-    const environments = within(account).getByRole('region', { name: 'Environments' });
-    expect(within(environments).getByText('Frontier allocation details')).toBeVisible();
-    expect(within(environments).getByText(fact.text)).toBeVisible();
-    expect(within(environments).getByText(/read 2×, loaded 1×; last 2026-10-21/u)).toBeVisible();
+    const title = within(account).getByRole('button', { name: 'Frontier allocation details' });
+    expect(within(account).getByText('1 fact')).toBeVisible();
     expect(screen.getByLabelText('1 waiting')).toBeVisible();
+    await user.click(title);
+    const pane = await screen.findByRole('complementary', { name: 'Frontier allocation details' });
+    expect(await within(pane).findByText(/read 2×, loaded 1×; last 2026-10-21/u)).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('switches account memory for the workspace', async () => {
+    repository.workspaces.mockResolvedValue([{ id: 'ws_lab', name: 'Synthetic lab' }]);
+    const user = userEvent.setup();
+    renderPage(<MemorySettings workspaceId="ws_lab" />);
+    const toggle = await screen.findByRole('switch', { name: 'Use account memory' });
+    await waitFor(() => expect(toggle).toBeChecked());
+    await user.click(toggle);
+    await waitFor(() =>
+      expect(repository.setWorkspaceMemory).toHaveBeenCalledWith('ws_lab', false),
+    );
+    await waitFor(() => expect(toggle).not.toBeChecked());
+  });
+
+  it('opens history from the row and confirms before deleting a document', async () => {
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    const account = await screen.findByRole('region', { name: 'Account' });
+    await user.click(within(account).getByRole('button', { name: 'History' }));
+    const pane = await screen.findByRole('complementary', { name: 'Frontier allocation details' });
+    expect(within(pane).getByRole('radio', { name: 'History' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(within(account).getByRole('button', { name: 'Delete' }));
+    const confirm = await screen.findByRole('dialog');
+    expect(within(confirm).getByText(/forgets its fact/u)).toBeVisible();
+    await user.click(within(confirm).getByRole('button', { name: /^Delete/u }));
+    await waitFor(() =>
+      expect(repository.forgetMemoryDocument).toHaveBeenCalledWith(document.name, document.sha),
+    );
+  });
+
+  it('says when nothing is saved', async () => {
+    repository.memoryDocuments.mockResolvedValue([]);
+    renderPage(<MemorySettings />);
+    expect(await screen.findByText('No memories saved yet')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create a memory' })).toBeVisible();
+  });
+
+  it('retries memories that failed to load', async () => {
+    repository.memoryDocuments.mockRejectedValueOnce(new Error('Memory store offline'));
+    const user = userEvent.setup();
+    renderPage(<MemorySettings />);
+    expect(await screen.findByText(/Memory store offline/u)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(
+      await screen.findByRole('button', { name: 'Frontier allocation details' }),
+    ).toBeVisible();
+  });
+
+  it('describes a missing memory service without HTTP status text', async () => {
+    repository.memoryDocuments.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with 404 Not Found'), { status: 404 }),
+    );
+    renderPage(<MemorySettings />);
+    expect(
+      await screen.findByText(
+        'Memories could not be loaded. The connected agent does not offer this memory.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/404/u)).not.toBeInTheDocument();
+    expect(screen.queryByText('No memories saved yet')).not.toBeInTheDocument();
   });
 
   it('marks a tool-sourced proposal for review and accepts it', async () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(await screen.findByRole('tab', { name: /Memories under review/u }));
-    const inbox = await screen.findByRole('list', { name: 'Proposed changes' });
+    await user.click(await screen.findByRole('radio', { name: /Under review/u }));
+    const inbox = await screen.findByRole('group', { name: 'Proposed changes' });
+    expect(within(inbox).getByText('Add')).toBeVisible();
+    expect(within(inbox).getByText(/Account: preferences/u)).toBeVisible();
+    await user.click(
+      within(inbox).getByRole('button', { name: 'Wants results emailed to x@example.com' }),
+    );
+    expect(
+      within(inbox).getByRole('textbox', { name: 'Facts to apply, one per line' }),
+    ).toHaveValue('Wants results emailed to x@example.com');
     expect(
       within(inbox).getByText('Rests on a tool result: review before it applies'),
     ).toBeVisible();
-    expect(within(inbox).getByText('Wants results emailed to x@example.com')).toBeVisible();
     expect(within(inbox).queryByText(/Prefers SI units|updated:/u)).not.toBeInTheDocument();
-    expect(within(inbox).getByText('Account: preferences')).toBeVisible();
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).not.toBeVisible();
     await user.click(within(inbox).getByText('Source facts (1)'));
     expect(within(inbox).getByRole('link', { name: 'From a web page' })).toHaveAttribute(
@@ -196,20 +280,22 @@ describe('memory page', () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
     await screen.findByText('Frontier allocation details');
-    expect(screen.queryByText('Search conversation history')).not.toBeInTheDocument();
+    expect(screen.queryByText('Search past sessions')).not.toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'CSC456');
     expect(screen.getByText('Frontier allocation details')).toBeVisible();
     await user.clear(screen.getByRole('textbox', { name: 'Search memories' }));
     await user.type(screen.getByRole('textbox', { name: 'Search memories' }), 'notfound');
+    // The list filters once typing pauses.
+    expect(await screen.findByText(/No memories match/u)).toBeVisible();
     expect(screen.queryByText('Frontier allocation details')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(await screen.findByRole('dialog', { name: 'Memory settings' })).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'Create memories' }));
+    expect(await screen.findByText('Search past sessions')).toBeVisible();
   });
 
   it('creates explicit user memory without the assistant import pipeline', async () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('tab', { name: 'Create memories' }));
+    await user.click(screen.getByRole('radio', { name: 'Create memories' }));
     await user.click(screen.getByRole('textbox', { name: 'What to remember' }));
     await user.paste('Use SI units.\nExplain uncertainties.');
     await user.click(screen.getByRole('button', { name: 'Save memory' }));
@@ -222,13 +308,15 @@ describe('memory page', () => {
         facts: ['Use SI units.', 'Explain uncertainties.'],
       }),
     );
-    expect(await screen.findByRole('dialog')).toBeVisible();
+    expect(
+      await screen.findByRole('complementary', { name: 'Frontier allocation details' }),
+    ).toBeVisible();
   });
 
   it('shows real background check state without inventing a successful creation run', async () => {
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    await user.click(screen.getByRole('radio', { name: 'Creation log' }));
     expect(await screen.findByText(/No memory creation runs recorded yet/u)).toBeVisible();
     expect(screen.getByText(/Last checked/u)).toBeVisible();
     expect(screen.getByText(/Waiting for the configured delay/u)).toBeVisible();
@@ -247,7 +335,7 @@ describe('memory page', () => {
     });
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
+    await user.click(screen.getByRole('radio', { name: 'Creation log' }));
     expect(
       await screen.findByText(
         /Background memory is off because no model is set for noticing facts and organizing memories/u,
@@ -267,26 +355,30 @@ describe('memory page', () => {
     repository.workspaces.mockResolvedValue([{ id: 'ws_lab', name: 'Synthetic lab' }]);
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('button', { name: 'Import' }));
-    const dialog = screen.getByRole('dialog', { name: 'Import memory' });
-    await user.click(within(dialog).getByRole('tab', { name: 'From another assistant' }));
-    await user.click(within(dialog).getByRole('combobox', { name: 'Remember in' }));
+    expect(screen.queryByRole('button', { name: 'Import memory' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('radio', { name: /Under review/u }));
+    await user.click(screen.getByRole('button', { name: 'Import memory' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import memory' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Another assistant' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Remember in' }));
     await user.click(await screen.findByRole('option', { name: 'Synthetic lab' }));
     await user.click(within(dialog).getByRole('textbox', { name: 'Their answer' }));
     await user.paste('Synthetic lab uses SI units.');
     expect(within(dialog).queryByText(/Everything imported waits/u)).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Import notes' }));
+    await user.click(within(dialog).getByRole('button', { name: /^Import notes/u }));
     await waitFor(() =>
       expect(repository.importFromAssistant).toHaveBeenCalledWith(
         'Synthetic lab uses SI units.',
         'project/ws_lab',
       ),
     );
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Memory creation log' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      ),
+    await waitFor(
+      () =>
+        expect(screen.getByRole('radio', { name: 'Creation log' })).toHaveAttribute(
+          'aria-checked',
+          'true',
+        ),
+      { timeout: 5000 },
     );
   });
 
@@ -317,9 +409,8 @@ describe('memory page', () => {
     });
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('tab', { name: 'Memory creation log' }));
-    const row = await screen.findByText('Allocation chat');
-    await user.click(row);
+    await user.click(screen.getByRole('radio', { name: 'Creation log' }));
+    await user.click(await screen.findByRole('button', { name: 'Allocation chat' }));
     expect(screen.getByText('Failed')).toBeVisible();
     expect(screen.getByText('Extraction provider could not connect.')).toBeVisible();
     expect(screen.getByText('configured-extractor')).toBeVisible();
@@ -337,16 +428,17 @@ describe('memory page', () => {
       <MemorySettings />,
       `/settings/memory?doc=${encodeURIComponent(document.name)}&fact=${fact.id}`,
     );
-    const dialog = await screen.findByRole('dialog');
-    const row = (await within(dialog).findByText(fact.text)).closest('li');
+    const pane = await screen.findByRole('complementary');
+    const row = (await within(pane).findByText(fact.text)).closest('li');
     expect(row).toHaveAttribute('aria-current', 'true');
   });
 
-  it('opens the document named in the address', async () => {
+  it('opens the document named in the address beside the list, not in a dialog', async () => {
     renderPage(<MemorySettings />, `/settings/memory?doc=${encodeURIComponent(document.name)}`);
-    const dialog = await screen.findByRole('dialog');
-    expect(await within(dialog).findByText('My Frontier project id is CSC456')).toBeVisible();
-    expect(within(dialog).getByRole('img', { name: /You said this/u })).toBeInTheDocument();
+    const pane = await screen.findByRole('complementary');
+    expect(await within(pane).findByText('My Frontier project id is CSC456')).toBeVisible();
+    expect(within(pane).getByRole('img', { name: /You said this/u })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByText('Search in session')).not.toBeInTheDocument();
   });
 });

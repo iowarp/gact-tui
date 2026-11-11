@@ -20,32 +20,37 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { brand } from '@brand';
-import {
-  PromptInput,
-  PromptInputFooter,
-  PromptInputTools,
-} from '@/components/ai-elements/prompt-input';
+import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
+import { useSlowSend } from './use-slow-send';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
-import { ClioModelPicker } from './model-picker';
+import { useStableCallback } from '@/hooks/use-stable-callback';
+import { ComposerToolbarControls } from './composer-toolbar-controls';
+import { ComposerToolbarStatus } from './composer-toolbar-status';
+import { useComposerHeldSend } from './use-composer-held-send';
 import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { useSpotterModelSelection } from '@/hooks/use-spotter-model-selection';
 import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
+import { formatBytes } from '@/lib/format';
+import { compactModelName, type ClioModelOption } from '@/lib/model-options';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { composerFailureReason, humanFailureText } from './composer-failure';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
-import { ClioComposerBehaviorControls } from './composer-behavior-controls';
-import { ComposerSpotterModel } from './composer-spotter-model';
+import { ComposerRunAnnouncer } from './composer-run-announcer';
 import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type {
   ResourceUploadProgress,
   UploadableFilePart,
   WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
-import { ClioComposerCommandMenu } from './composer-command-menu';
+import { ClioComposerCommandMenu, type CommandListState } from './composer-command-menu';
 import { commandForName } from '@/lib/command-table';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
@@ -62,11 +67,8 @@ import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { commentSessionParts } from '@/lib/composer-annotations';
 import type { CommentAttachment } from '@clio/core/v3';
-import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
-import { ComposerAddContextButton } from './composer-add-context-button';
-import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
 import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import {
@@ -74,6 +76,12 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 import { useSummonTargets } from '@/hooks/use-summon-targets';
+import {
+  deleteSavedDraft,
+  saveDraft,
+  takeSavedDraft,
+  useSavedDrafts,
+} from '@/lib/composer-saved-drafts';
 
 export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
@@ -103,12 +111,26 @@ export interface ClioComposerProps extends ComposerQueueControls {
     aliases?: readonly string[];
   }>;
   disabled?: boolean;
+  /** A send is out and the service hasn't taken it yet; a slow one says so in the row. */
+  sending?: boolean;
+  /**
+   * The connection's defaults are still loading. The draft stays editable; the
+   * controls and the send wait, and an Enter pressed meanwhile sends once ready.
+   */
+  connecting?: boolean;
   /** Keep the draft editable while the first session catalog is registering. */
   catalogPreparing?: boolean;
   contextReferences?: boolean;
+  /**
+   * The service's capabilities are still loading, so `attachments` and
+   * `contextReferences` aren't known yet. `+` and `@` hold their place, disabled.
+   */
+  capabilitiesPending?: boolean;
   workspaceId?: string;
   sessionId?: string;
   commands?: CommandDefinition[];
+  /** Whether `commands` is the agent's list yet (default `ready`). */
+  commandsState?: CommandListState;
   /** The subagents and MCP servers the person can `@`-summon (fetched for the session if absent). */
   summonTargets?: SummonTargets;
   onSubmit: (value: {
@@ -158,8 +180,21 @@ export interface ClioComposerProps extends ComposerQueueControls {
   annotations?: readonly CommentAttachment[];
   onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
+  /**
+   * Place the caret in the editor on mount when nothing else holds focus. Skipped
+   * on touch screens so arriving on the page doesn't raise the on-screen keyboard.
+   */
+  autoFocus?: boolean;
   variant?: 'docked' | 'welcome';
+  /**
+   * Hint shown in the empty editor. Defaults to steering copy in a conversation
+   * and to the open invitation on the welcome page.
+   */
+  placeholder?: string;
 }
+
+const noQueueAction = async () => undefined;
+const NO_MODEL_OPTIONS: NonNullable<ClioComposerProps['modelOptions']> = [];
 
 export function ClioComposer({
   state,
@@ -171,13 +206,17 @@ export function ClioComposer({
   configuredEffort,
   executionMode = 'execute',
   confirmationPolicy = 'ask',
-  modelOptions = [],
+  modelOptions = NO_MODEL_OPTIONS,
   disabled,
+  sending = false,
+  connecting = false,
   catalogPreparing = false,
   contextReferences = false,
+  capabilitiesPending = false,
   workspaceId = '',
   sessionId,
   commands = [],
+  commandsState = 'ready',
   summonTargets: summonTargetsProp,
   onSubmit,
   onBehaviorChange,
@@ -209,10 +248,33 @@ export function ClioComposer({
   annotations = [],
   onAnnotationsChange,
   focusRequestKey,
+  autoFocus = false,
   variant = 'docked',
+  placeholder = variant === 'welcome'
+    ? `Ask ${brand.name} anything, or describe a task…`
+    : state === 'running' || state === 'queued'
+      ? 'Reply, or steer the run'
+      : 'Reply',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectModel } = useComposerModelSelection(modelOptions, provider, model);
+  const {
+    missing: missingModel,
+    selectedOption,
+    selectModel,
+  } = useComposerModelSelection(modelOptions, provider, model, connecting);
+  // Never a bare "Choose a model" when we know why there is none.
+  const modelProblem =
+    modelCatalogStatus === 'error' && !selectedOption
+      ? {
+          label: 'Models unavailable',
+          detail: "The model list couldn't be loaded. Open the picker to retry.",
+        }
+      : modelCatalogStatus === 'ready' && missingModel
+        ? {
+            label: `${compactModelName(missingModel.modelId, missingModel.modelId)} unavailable`,
+            detail: `${humanFailureText(missingModel.reason) ?? `${missingModel.modelId} isn't available right now.`} Choose another model.`,
+          }
+        : undefined;
   useEffect(() => {
     setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
   }, [selectedOption?.modalities]);
@@ -242,6 +304,7 @@ export function ClioComposer({
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
   const nextDeliveryRef = useRef<MessageDelivery | 'queued' | undefined>(undefined);
+  const controlsDisabled = disabled || connecting;
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -284,6 +347,43 @@ export function ClioComposer({
   useCommentSessionAttachment(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // While the service can't be reached or the stream is opening, resuming or catching up,
+  // the draft stays editable and Enter holds the send until it is live again, like a send
+  // typed while connecting. The run state is only current on a live stream, so a send
+  // never picks its delivery from a stale one.
+  const stream = useConnectionIndicatorState();
+  // A send the service is slow to take greys the draft; the row says why.
+  const sendingSlow = useSlowSend(sending);
+  const offline = stream === 'offline' || stream === 'reconnecting' || stream === 'gapped';
+  const streamOpening = stream === 'connecting';
+  const awaitingService = connecting || offline || streamOpening;
+  const heldSend = useComposerHeldSend(awaitingService, rootRef, nextDeliveryRef);
+  const retrySend = (delivery: MessageDelivery | 'queued' | undefined) => {
+    const form = rootRef.current?.querySelector('form');
+    const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!form || !submit) return;
+    if (submit.disabled) {
+      if (awaitingService) heldSend.hold(delivery ?? composerDelivery(state, false));
+      return;
+    }
+    nextDeliveryRef.current = delivery;
+    form.requestSubmit();
+  };
+  const attachmentRefused = (error: { code: string; message: string; files?: string[] }) => {
+    if (error.code === 'max_file_size') {
+      const [first, ...rest] = error.files ?? [];
+      toast.error(
+        first && rest.length === 0
+          ? `${first} is too large`
+          : `${error.files?.length ?? 'Some'} files are too large`,
+        {
+          description: `Files up to ${formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES)} can be attached.`,
+        },
+      );
+      return;
+    }
+    toast.error('Attachment was not added', { description: error.message });
+  };
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
   const focusEditorSoon = useCallback((offset?: number) => {
@@ -321,7 +421,48 @@ export function ClioComposer({
     attachments ? () => setFileUploadOpen(true) : undefined,
     sessionId,
   );
-  const popoverOpen = showCommands || showReferences;
+  const [commandMenuOpen, setCommandMenuOpen] = useState(true);
+  const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
+  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
+  useShortcut('stop', () => onStop?.(), {
+    enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
+    region: rootRef,
+  });
+  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
+  // the newest back. Restoring over a draft puts that one aside first.
+  const savedDraftKey = sessionId ?? `new:${workspaceId}`;
+  const savedDrafts = useSavedDrafts(savedDraftKey);
+  const draftEmpty = !input.trim() && selectedReferences.length === 0;
+  const putDraftAside = () => {
+    const saved = saveDraft(savedDraftKey, {
+      text: latestInputRef.current,
+      references: selectedReferences,
+    });
+    if (!saved) return;
+    setInput('');
+    setSelectedReferences([]);
+  };
+  const restoreSavedDraft = (id?: string) => {
+    const draft = takeSavedDraft(savedDraftKey, id);
+    if (!draft) return;
+    saveDraft(savedDraftKey, { text: latestInputRef.current, references: selectedReferences });
+    setInput(draft.text);
+    setSelectedReferences(draft.references);
+    focusEditorSoon();
+  };
+  useShortcut('save-draft', putDraftAside, {
+    enabled: !disabled,
+    region: rootRef,
+    allowInTextField: true,
+  });
+  useShortcut('restore-draft', () => restoreSavedDraft(), {
+    enabled: !disabled && draftEmpty && savedDrafts.length > 0,
+    region: inputRef,
+    allowInTextField: true,
+  });
+  useShortcut('composer-focus', () => focusComposerEditor(inputRef.current), {
+    enabled: !disabled,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
@@ -345,6 +486,18 @@ export function ClioComposer({
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
 
+  const autoFocusRef = useRef(autoFocus);
+  useEffect(() => {
+    if (!autoFocusRef.current) return undefined;
+    if (window.matchMedia?.('(pointer: coarse)').matches) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      focusComposerEditor(inputRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   useEffect(() => {
     if (disabled || !restoreFocusAfterSubmitRef.current) return;
     const frame = window.requestAnimationFrame(() => {
@@ -364,6 +517,22 @@ export function ClioComposer({
       focusComposerEditor(element);
     });
   };
+
+  // Stable handlers for the memoized toolbar, so a keystroke doesn't re-render its menus.
+  const openSources = useStableCallback(() => connectedSources.open?.());
+  const openReferencePicker = useStableCallback(() => composerReferences.openPicker());
+  const chooseBehavior = useStableCallback(choose);
+  const setSpotterModel = useStableCallback(spotter.set);
+  const retryModelCatalog = useStableCallback((providerId?: string) =>
+    onRetryModelCatalog?.(providerId),
+  );
+  const changeModel = useStableCallback((option: ClioModelOption) => {
+    selectModel(option);
+    keepOfferedEffort(option.reasoning);
+  });
+  // PromptInput's attachment context depends on this; a fresh one per keystroke
+  // re-rendered every attachment consumer.
+  const onAttachmentError = useStableCallback(attachmentRefused);
 
   useLayoutEffect(() => {
     const element = rootRef.current;
@@ -385,72 +554,93 @@ export function ClioComposer({
         'relative',
         variant === 'docked'
           ? cn(
-              'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 [&>*]:pointer-events-auto lg:px-6',
+              'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col pb-3 *:pointer-events-auto *:max-w-none',
               showCommands || showReferences ? 'overflow-visible' : 'overflow-hidden',
             )
           : 'w-full',
       )}
       ref={rootRef}
     >
+      <ComposerRunAnnouncer queued={queuedMessages.length} sending={sending} state={state} />
       {showCommands ? (
         <ClioComposerCommandMenu
           commands={commands}
+          commandsState={commandsState}
           onPick={(command) => {
             setInput(`${command.id} `);
             window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
           }}
+          onRun={(command) => {
+            setInput(command.id);
+            // The form reads the committed text, so submit on the next frame.
+            window.requestAnimationFrame(() => {
+              const form = rootRef.current?.querySelector('form');
+              const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+              if (!form || submit?.disabled) return;
+              nextDeliveryRef.current = composerDelivery(state, false);
+              form.requestSubmit();
+            });
+          }}
+          onOpenChange={setCommandMenuOpen}
           popoverId={commandPopoverId}
           query={commandQuery}
         />
       ) : null}
       {showReferences && !showCommands ? (
-        <div
-          className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
-          id={composerReferences.popoverId}
-        >
-          <ClioComposerReferenceMenu
-            activeReferenceId={composerReferences.activeReferenceId}
-            onActiveOptionChange={composerReferences.onActiveOptionChange}
-            onActiveReferenceChange={composerReferences.onActiveReferenceChange}
-            onDismiss={composerReferences.dismiss}
-            onReferencesChange={composerReferences.onOptionsChange}
-            onRestoreFocus={composerReferences.restoreEditorFocus}
-            onSelect={composerReferences.select}
-            onQueryChange={composerReferences.onQueryChange}
-            query={composerReferences.query}
-            searchInput={composerReferences.pickerOpen}
-            summons={summonRows}
-            workspaceId={workspaceId}
-          />
-        </div>
+        // Portals into the overlay container above the composer box; the popup
+        // carries `popoverId`, the editor's aria-controls target.
+        <ClioComposerReferenceMenu
+          handleRef={composerReferences.menuRef}
+          key={composerReferences.pickerOpen ? 'picker' : 'mention'}
+          onDismiss={composerReferences.dismiss}
+          onRestoreFocus={composerReferences.restoreEditorFocus}
+          onSelect={composerReferences.select}
+          popoverId={composerReferences.popoverId}
+          query={composerReferences.query}
+          searchInput={composerReferences.pickerOpen}
+          summons={summonRows}
+          workspaceId={workspaceId}
+        />
       ) : null}
       {pendingInteractions}
       {connectedSources.picker}
-      {queuedMessages.length > 0 &&
-      onDeleteQueuedMessage &&
-      onPromoteQueuedMessage &&
-      onReorderQueuedMessages &&
-      onUpdateQueuedMessage ? (
+      {(queuedMessages.length > 0 &&
+        onDeleteQueuedMessage &&
+        onPromoteQueuedMessage &&
+        onReorderQueuedMessages &&
+        onUpdateQueuedMessage) ||
+      savedDrafts.length > 0 ? (
         <ClioComposerQueue
           busy={queueBusy}
           paused={queuePaused}
-          messages={queuedMessages}
-          onDelete={onDeleteQueuedMessage}
+          messages={
+            onDeleteQueuedMessage &&
+            onPromoteQueuedMessage &&
+            onReorderQueuedMessages &&
+            onUpdateQueuedMessage
+              ? queuedMessages
+              : []
+          }
+          onDelete={onDeleteQueuedMessage ?? noQueueAction}
+          onDeleteSavedDraft={(draft) => deleteSavedDraft(savedDraftKey, draft.id)}
           onOpenResource={onOpenResource}
-          onPromote={onPromoteQueuedMessage}
-          onReorder={onReorderQueuedMessages}
-          onUpdate={onUpdateQueuedMessage}
+          onPromote={onPromoteQueuedMessage ?? noQueueAction}
+          onReorder={onReorderQueuedMessages ?? noQueueAction}
+          onRestoreSavedDraft={(draft) => restoreSavedDraft(draft.id)}
+          onUpdate={onUpdateQueuedMessage ?? noQueueAction}
           promoteDelivery={state === 'running' ? 'steer' : 'start'}
           resources={resources}
+          savedDrafts={savedDrafts}
         />
       ) : null}
       <PromptInput
         data-evidence-composer
         data-slot="clio-composer"
-        className="mx-auto max-w-4xl shrink-0 rounded-2xl bg-composer shadow-sm"
+        data-tour="composer"
+        className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[14px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[8px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
         maxFileSize={COMPOSER_ATTACHMENT_MAX_BYTES}
         multiple
-        onError={(error) => toast.error('Attachment was not added', { description: error.message })}
+        onError={onAttachmentError}
         onSubmit={async ({ files, text }) => {
           if (connectedSources.pending)
             throw new Error('Wait for the folder attachment or remove it before sending.');
@@ -460,15 +650,11 @@ export function ClioComposer({
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const { command, qualified } = commandForName(commands, enteredId);
               if (qualified) {
-                toast.error(`${enteredId} names more than one command`, {
-                  description: `Use one of ${qualified.join(', ')}.`,
-                });
+                toast.error(`${enteredId} is ambiguous; use ${qualified.join(' or ')}`);
                 return;
               }
               if (!command) {
-                toast.error('Unknown command', {
-                  description: 'Choose a command reported by the connected service.',
-                });
+                toast.error(`${enteredId} is not a command here`);
                 return;
               }
               if (!command.enabled) {
@@ -489,7 +675,7 @@ export function ClioComposer({
                 // PromptInput swallows a rejected submit so the draft survives;
                 // without this the refusal would never reach the person.
                 toast.error(`${command.title} was not run`, {
-                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                  description: composerFailureReason(error, 'The service rejected it.'),
                 });
                 throw error;
               } finally {
@@ -504,7 +690,13 @@ export function ClioComposer({
             try {
               await onSubmit({
                 behavior: messageBehavior,
-                delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
+                delivery:
+                  state !== 'running'
+                    ? 'start'
+                    : // A send held from before the run began queues behind it.
+                      nextDeliveryRef.current && nextDeliveryRef.current !== 'start'
+                      ? nextDeliveryRef.current
+                      : 'queued',
                 files,
                 references: [
                   ...picked,
@@ -528,15 +720,20 @@ export function ClioComposer({
                   : {}),
               });
             } catch (error) {
+              const reason = composerFailureReason(error, 'The service rejected it.');
+              const failedFile = uploadingFilenameRef.current;
+              const retryDelivery = nextDeliveryRef.current;
               setUploadProgress(undefined);
-              setUploadFailure({
-                filename: uploadingFilenameRef.current,
-                message: error instanceof Error ? error.message : 'The service rejected it.',
-              });
+              setUploadFailure({ filename: failedFile, message: reason });
               toast.error(
-                state === 'running' ? 'Message was not accepted' : 'Message was not sent',
+                failedFile
+                  ? `${failedFile} could not be uploaded`
+                  : state === 'running'
+                    ? 'Message was not accepted'
+                    : 'Message was not sent',
                 {
-                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                  description: `${reason} Your message is still here.`,
+                  action: { label: 'Retry', onClick: () => retrySend(retryDelivery) },
                 },
               );
               throw error;
@@ -590,13 +787,15 @@ export function ClioComposer({
         <ComposerInlineReferenceEditor
           attachmentsEnabled={attachments}
           activeOptionId={composerReferences.activeOptionId}
+          ariaLabel={`Ask ${brand.name}`}
+          className="min-h-6 p-0 text-[13px] leading-6"
           disabled={disabled}
           expanded={popoverOpen}
           onCaretChange={composerReferences.onCaretChange}
           onChange={setInput}
           onOpenReference={onOpenReference}
           onReferencesChange={sourceAttachments.setInlineReferences}
-          placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
+          placeholder={placeholder}
           popoverId={showCommands ? commandPopoverId : composerReferences.popoverId}
           ref={inputRef}
           references={sourceAttachments.inlineReferences}
@@ -607,91 +806,81 @@ export function ClioComposer({
             event.preventDefault();
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
-            if (submit?.disabled) return;
+            // No submit square (Stop shows while work runs with nothing typed): nothing to send.
+            if (!submit || submit.disabled) {
+              const delivery = composerDelivery(state, event.ctrlKey || event.metaKey);
+              if (submit && awaitingService && !draftEmpty) heldSend.hold(delivery);
+              return;
+            }
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}
         />
-        <PromptInputFooter className="@container/composer flex-wrap gap-y-1">
-          <PromptInputTools className="min-w-0 flex-wrap">
-            {attachments || contextReferences ? (
-              <ComposerAddContextButton
-                attachments={attachments}
-                contextReferences={contextReferences}
-                onOpenFileUpload={() => setFileUploadOpen(true)}
-                onOpenSources={connectedSources.open}
-                onOpenReferences={composerReferences.openPicker}
-              />
-            ) : null}
-            <ClioComposerBehaviorControls
-              behavior={messageBehavior}
+        <TooltipProvider delayDuration={450}>
+          <PromptInputFooter
+            className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
+            data-slot="composer-toolbar"
+          >
+            <ComposerToolbarControls
+              attachments={attachments}
+              contextReferences={contextReferences}
+              capabilitiesPending={capabilitiesPending}
+              sourcesOffered={Boolean(connectedSources.open)}
+              sourcesPending={connectedSources.probing}
+              disabled={controlsDisabled}
+              onOpenSources={openSources}
+              onOpenReferences={openReferencePicker}
+              onReturnFocus={focusEditorSoon}
+              executionMode={messageBehavior.execution_mode}
+              confirmationPolicy={messageBehavior.confirmation_policy}
+              reasoningEffort={messageBehavior.reasoning_effort}
+              onBehaviorChange={chooseBehavior}
+              activityControl={activityControl}
+              workSummary={workSummary}
               spotterAvailability={spotterAvailability}
-              spotterModelControl={
-                <ComposerSpotterModel
-                  catalogStatus={modelCatalogStatus}
-                  disabled={disabled}
-                  onChange={spotter.set}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  value={spotter.value}
-                />
+              spotterModel={spotter.value}
+              onSpotterModelChange={setSpotterModel}
+              modelCatalogStatus={modelCatalogStatus}
+              modelOptions={modelOptions}
+              onRetryModelCatalog={onRetryModelCatalog ? retryModelCatalog : undefined}
+              selectedModel={selectedOption}
+              modelProblemLabel={modelProblem?.label}
+              modelProblemDetail={modelProblem?.detail}
+              onModelChange={changeModel}
+              reasoningPending={
+                (connecting || modelCatalogStatus === 'loading') &&
+                !selectedOption?.reasoning?.levels?.length
               }
-              reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
                 selectedOption?.reasoning,
               )}
-              disabled={disabled}
-              modelControl={
-                <ClioModelPicker
-                  catalogStatus={modelCatalogStatus}
-                  model={selectedOption?.id}
-                  onChange={(option) => {
-                    selectModel(option);
-                    keepOfferedEffort(option.reasoning);
-                  }}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  provider={selectedOption?.providerId}
-                  trigger={
-                    <ComposerModelButton
-                      aria-label="Change model"
-                      className="min-w-0 max-w-48 text-foreground @min-[48rem]/composer:max-w-64"
-                      option={selectedOption}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    />
-                  }
-                />
-              }
-              onChange={choose}
               unrecognizedEffort={unrecognizedEffort}
             />
-          </PromptInputTools>
-          <ClioComposerEvidenceControls
-            activityControl={activityControl}
-            workSummary={workSummary}
-          />
-          <div className="flex shrink-0 items-center gap-2">
-            {catalogPreparing && state !== 'running' ? (
-              <span className="text-xs text-muted-foreground" role="status">
-                Preparing views…
-              </span>
-            ) : null}
+            <ComposerToolbarStatus
+              connecting={connecting || (streamOpening && heldSend.held)}
+              held={heldSend.held}
+              offline={offline}
+              sending={sendingSlow && !uploadProgress}
+              preparing={catalogPreparing && state !== 'running'}
+            />
             <ComposerSubmitControls
               state={state}
               hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
               disabled={
-                disabled || (catalogPreparing && state !== 'running') || connectedSources.pending
+                controlsDisabled ||
+                offline ||
+                streamOpening ||
+                (catalogPreparing && state !== 'running') ||
+                connectedSources.pending
               }
               onSubmit={(event) => {
                 nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
               }}
               onStop={onStop}
             />
-          </div>
-        </PromptInputFooter>
+          </PromptInputFooter>
+        </TooltipProvider>{' '}
       </PromptInput>
     </div>
   );

@@ -1,49 +1,13 @@
-import { queryKeys } from '@/lib/query-keys';
-import type { AgentEntry, SessionDefaults, Workspace } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronDownIcon } from 'lucide-react';
-import { useState } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import type { Workspace } from '@clio/core/v3';
+import { useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRepository } from '@/hooks/use-repository';
-import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
+import { Label } from '@/components/ui/label';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
+import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { ClioPathPicker } from './path-picker';
-import {
-  SESSION_APPROVAL_OPTIONS,
-  SESSION_MODE_OPTIONS,
-  SESSION_MODE_PATCHES,
-} from './session-behavior-options';
+import { DialogFrame } from './primitives/dialog-frame';
+
+const TEXT_FIELD = 'h-[30px] text-[12.5px] md:text-[12.5px]';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -53,15 +17,6 @@ export type ResourceTarget = {
 
 export interface ResourceActions {
   createWorkspace: (input: { name: string; rootPath: string }) => Promise<void>;
-  createSession: (input: {
-    title: string;
-    workspaceId: string;
-    /** The agent the session runs (`<marketplace>/<id>`); omitted uses the default. */
-    agentRef?: string;
-    mode: 'plan' | 'edit' | 'architect';
-    routingMode: 'auto' | 'chat' | 'experts' | 'reasoning_only';
-    approvalMode: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
-  }) => Promise<void>;
   renameWorkspace: (workspaceId: string, name: string) => Promise<void>;
   updateWorkspace: (
     workspaceId: string,
@@ -75,6 +30,18 @@ export interface ResourceActions {
   setWorkspacePinned: (workspaceId: string, pinned: boolean) => Promise<void>;
   setSessionPinned: (sessionId: string, pinned: boolean) => Promise<void>;
   archiveSession: (sessionId: string) => Promise<void>;
+  /** Branches a conversation into a new one and opens it. */
+  forkSession?: (sessionId: string) => Promise<void>;
+  /** Moves a conversation or branch into another workspace (`x_clio_session_move`). */
+  moveSession?: (sessionId: string, workspaceId: string) => Promise<void>;
+  /** Appends a compaction checkpoint and reports whether the service compacted. */
+  compactSession?: (sessionId: string) => Promise<void>;
+  /** Permanently removes the conversation's last stored message. */
+  undoSession?: (sessionId: string) => Promise<void>;
+  /** Mints a read-only share link and resolves to its absolute URL. */
+  shareSession?: (sessionId: string, ttlSeconds: number) => Promise<string>;
+  /** Desktop only: opens the OS terminal app at a workspace folder. */
+  openSystemTerminal?: (workspacePath: string) => Promise<void>;
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -87,11 +54,9 @@ export interface ResourceActions {
 
 interface ClioResourceDialogsProps {
   actions: ResourceActions;
-  activeWorkspaceId: string;
-  agents: readonly AgentEntry[];
-  createKind: 'workspace' | 'session' | null;
+  createWorkspaceOpen: boolean;
   deleteTarget: ResourceTarget | null;
-  onCreateKindChange: (kind: 'workspace' | 'session' | null) => void;
+  onCreateWorkspaceOpenChange: (open: boolean) => void;
   onDeleteTargetChange: (target: ResourceTarget | null) => void;
   onRenameTargetChange: (target: ResourceTarget | null) => void;
   renameTarget: ResourceTarget | null;
@@ -101,13 +66,10 @@ interface ClioResourceDialogsProps {
 export function ClioResourceDialogs(props: ClioResourceDialogsProps) {
   return (
     <>
-      {props.createKind ? (
-        <CreateResourceDialog
+      {props.createWorkspaceOpen ? (
+        <CreateWorkspaceDialog
           actions={props.actions}
-          activeWorkspaceId={props.activeWorkspaceId}
-          agents={props.agents}
-          createKind={props.createKind}
-          onCreateKindChange={props.onCreateKindChange}
+          onClose={() => props.onCreateWorkspaceOpenChange(false)}
           workspaces={props.workspaces}
         />
       ) : null}
@@ -131,69 +93,32 @@ export function ClioResourceDialogs(props: ClioResourceDialogsProps) {
   );
 }
 
-function CreateResourceDialog({
+/** + on Workspaces. A new conversation is a draft page (?), not a dialog. */
+function CreateWorkspaceDialog({
   actions,
-  activeWorkspaceId,
-  agents,
-  createKind,
-  onCreateKindChange,
+  onClose,
   workspaces,
-}: Pick<
-  ClioResourceDialogsProps,
-  'actions' | 'activeWorkspaceId' | 'agents' | 'onCreateKindChange' | 'workspaces'
-> & { createKind: 'workspace' | 'session' }) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const sessionDefaults = useQuery({
-    queryKey: queryKeys.key('session-defaults', settings.endpoint),
-    queryFn: ({ signal }) => repository.sessionDefaults(signal),
-  });
-  const [title, setTitle] = useState('');
-  const [workspaceId, setWorkspaceId] = useState(activeWorkspaceId);
+}: {
+  actions: ResourceActions;
+  onClose: () => void;
+  workspaces: readonly Workspace[];
+}) {
   const [workspaceName, setWorkspaceName] = useState('');
   const [rootPath, setRootPath] = useState('');
-  const [behavior, setBehavior] = useState<Partial<SessionDefaults>>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
-  const selectedWorkspaceId = workspaces.some((workspace) => workspace.id === workspaceId)
-    ? workspaceId
-    : activeWorkspaceId || workspaces[0]?.id || '';
-  const agentRef = behavior.agent_ref || sessionDefaults.data?.agent_ref || 'default';
-  const decodedMode = behavior.mode || sessionDefaults.data?.mode;
-  const decodedRoutingMode = behavior.routing_mode || sessionDefaults.data?.routing_mode;
-  const decodedApprovalMode = behavior.approval_mode || sessionDefaults.data?.approval_mode;
-  const mode = decodedMode === 'unknown' ? 'edit' : decodedMode || 'edit';
-  const routingMode = decodedRoutingMode === 'unknown' ? 'auto' : decodedRoutingMode || 'auto';
-  const approvalMode = decodedApprovalMode === 'unknown' ? 'ask' : decodedApprovalMode || 'ask';
-  const updateBehavior = <Key extends keyof SessionDefaults>(
-    key: Key,
-    value: SessionDefaults[Key],
-  ) => setBehavior((current) => ({ ...current, [key]: value }));
 
   const submit = async () => {
     setPending(true);
     setError(undefined);
     try {
-      if (createKind === 'workspace') {
-        const trimmedPath = rootPath.trim();
-        await actions.createWorkspace({
-          name:
-            workspaceName.trim() ||
-            trimmedPath.split(/[\\/]+/).at(-1) ||
-            capitalize(vocab.workspace),
-          rootPath: trimmedPath,
-        });
-      } else {
-        await actions.createSession({
-          title: title.trim(),
-          workspaceId: selectedWorkspaceId,
-          agentRef: agentRef === 'default' ? undefined : agentRef,
-          mode,
-          routingMode,
-          approvalMode,
-        });
-      }
-      onCreateKindChange(null);
+      const trimmedPath = rootPath.trim();
+      await actions.createWorkspace({
+        name:
+          workspaceName.trim() || trimmedPath.split(/[\\/]+/).at(-1) || capitalize(vocab.workspace),
+        rootPath: trimmedPath,
+      });
+      onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -202,82 +127,30 @@ function CreateResourceDialog({
   };
 
   return (
-    <Dialog onOpenChange={(open) => onCreateKindChange(open ? createKind : null)} open>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>Create</DialogTitle>
-          <DialogDescription>Start a session or create a workspace.</DialogDescription>
-        </DialogHeader>
-        <Tabs
-          className="min-h-0 gap-4"
-          onValueChange={(value) => onCreateKindChange(value as 'workspace' | 'session')}
-          value={createKind}
-        >
-          <TabsList className="grid w-full shrink-0 grid-cols-2">
-            <TabsTrigger value="session">Session</TabsTrigger>
-            <TabsTrigger value="workspace">{capitalize(vocab.workspace)}</TabsTrigger>
-          </TabsList>
-          <div
-            className="-mr-2 min-h-0 overflow-y-auto pr-2 [scrollbar-gutter:stable]"
-            role="region"
-            aria-label="Creation options"
-            tabIndex={0}
-          >
-            <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="workspace">
-              <WorkspaceFields
-                name={workspaceName}
-                onNameChange={setWorkspaceName}
-                onPathChange={setRootPath}
-                path={rootPath}
-                workspaces={workspaces}
-              />
-            </TabsContent>
-            <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="session">
-              <SessionFields
-                approvalMode={approvalMode}
-                agents={agents}
-                agentRef={agentRef}
-                mode={mode}
-                onApprovalModeChange={(value) => updateBehavior('approval_mode', value)}
-                onAgentRefChange={(value) => updateBehavior('agent_ref', value)}
-                onModeChange={(value) => updateBehavior('mode', value)}
-                onRoutingModeChange={(value) => updateBehavior('routing_mode', value)}
-                onTitleChange={setTitle}
-                onWorkspaceIdChange={setWorkspaceId}
-                routingMode={routingMode}
-                title={title}
-                workspaceId={selectedWorkspaceId}
-                workspaces={workspaces}
-              />
-            </TabsContent>
-            {error ? (
-              <p className="mt-4 text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </Tabs>
-        <DialogFooter className="shrink-0">
-          <Button onClick={() => onCreateKindChange(null)} type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            disabled={
-              pending ||
-              (createKind === 'workspace'
-                ? !rootPath.trim()
-                : !selectedWorkspaceId || !title.trim())
-            }
-            onClick={() => void submit()}
-            type="button"
-          >
-            {pending
-              ? 'Creating…'
-              : `Create ${createKind === 'workspace' ? vocab.workspace : createKind}`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DialogFrame
+      confirm={{
+        label: pending ? 'Creating?' : `Create ${vocab.workspace}`,
+        disabled: pending || !rootPath.trim(),
+        onConfirm: () => void submit(),
+      }}
+      description="Name it and choose the folder it works in."
+      onOpenChange={(open) => !open && onClose()}
+      open
+      title={`New ${vocab.workspace}`}
+    >
+      <WorkspaceFields
+        name={workspaceName}
+        onNameChange={setWorkspaceName}
+        onPathChange={setRootPath}
+        path={rootPath}
+        workspaces={workspaces}
+      />
+      {error ? (
+        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </DialogFrame>
   );
 }
 
@@ -295,21 +168,25 @@ function WorkspaceFields({
   workspaces: readonly Workspace[];
 }) {
   return (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="new-workspace-name">{capitalize(vocab.workspace)} name</FieldLabel>
+    <div className="grid gap-3">
+      <StackedField htmlFor="new-workspace-name" label={`${capitalize(vocab.workspace)} name`}>
         <Input
           autoFocus
+          className={TEXT_FIELD}
           id="new-workspace-name"
           onChange={(event) => onNameChange(event.target.value)}
           placeholder="EarthScope analysis"
           value={name}
         />
-        <FieldDescription>The short name shown throughout the {vocab.workspace}.</FieldDescription>
-      </Field>
-      <Field>
-        <FieldLabel>{capitalize(vocab.workspace)} folder</FieldLabel>
+      </StackedField>
+      <StackedField
+        description={`Becomes the ${vocab.workspace} boundary. Files aren’t moved.`}
+        htmlFor="new-workspace-folder"
+        label={`${capitalize(vocab.workspace)} folder`}
+      >
         <ClioPathPicker
+          className="h-[30px]"
+          inputId="new-workspace-folder"
           knownFolders={workspaces.flatMap((workspace) =>
             (workspace.source_folders?.length
               ? workspace.source_folders
@@ -327,171 +204,44 @@ function WorkspaceFields({
             })),
           )}
           onChange={onPathChange}
-          placeholder={`Choose the ${vocab.workspace} folder`}
+          placeholder="Choose a folder"
           value={path}
         />
-        <FieldDescription>
-          This becomes the {vocab.workspace} boundary. Files on disk are not moved.
-        </FieldDescription>
-      </Field>
-    </FieldGroup>
+      </StackedField>
+    </div>
   );
 }
 
-type SessionFieldsProps = {
-  approvalMode: SessionDefaults['approval_mode'];
-  agents: readonly AgentEntry[];
-  agentRef: string;
-  mode: SessionDefaults['mode'];
-  onApprovalModeChange: (value: SessionDefaults['approval_mode']) => void;
-  onAgentRefChange: (value: string) => void;
-  onModeChange: (value: SessionDefaults['mode']) => void;
-  onRoutingModeChange: (value: SessionDefaults['routing_mode']) => void;
-  onTitleChange: (value: string) => void;
-  onWorkspaceIdChange: (value: string) => void;
-  routingMode: SessionDefaults['routing_mode'];
-  title: string;
-  workspaceId: string;
-  workspaces: readonly Workspace[];
-};
-
-function SessionFields(props: SessionFieldsProps) {
-  const approvalOptions = approvalOptionViews(
-    SESSION_APPROVAL_OPTIONS,
-    useSpotterAvailability(props.workspaceId),
-  );
-  return (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="new-session-title">Session name</FieldLabel>
-        <Input
-          autoFocus
-          id="new-session-title"
-          onChange={(event) => props.onTitleChange(event.target.value)}
-          placeholder="Investigate station anomalies"
-          value={props.title}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="new-session-workspace">{capitalize(vocab.workspace)}</FieldLabel>
-        <Select onValueChange={props.onWorkspaceIdChange} value={props.workspaceId}>
-          <SelectTrigger id="new-session-workspace">
-            <SelectValue placeholder={`Choose a ${vocab.workspace}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {props.workspaces.map((workspace) => (
-              <SelectItem key={workspace.id} value={workspace.id}>
-                {workspace.display_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="new-session-agent">Agent</FieldLabel>
-        <Select onValueChange={props.onAgentRefChange} value={props.agentRef}>
-          <SelectTrigger id="new-session-agent">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="default">Default agent</SelectItem>
-            {props.agents.map((agent) => (
-              <SelectItem key={agent.ref} value={agent.ref}>
-                {agent.name || agent.id}
-                {agent.kind === 'user' ? ' (yours)' : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <FieldDescription>
-          The agent&apos;s plugins bring its tools, skills and guidance. You can add or remove
-          plugins in the conversation.
-        </FieldDescription>
-      </Field>
-      <Collapsible className="border-t pt-2">
-        <CollapsibleTrigger asChild>
-          <Button
-            className="group w-full justify-between px-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
-            type="button"
-            variant="ghost"
-          >
-            Advanced session behavior
-            <ChevronDownIcon
-              aria-hidden="true"
-              className="transition-transform group-data-[state=open]:rotate-180"
-            />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 grid gap-4 pb-1 data-[state=closed]:hidden sm:grid-cols-2">
-          <BehaviorSelect
-            id="new-session-mode"
-            label="Default work mode"
-            onChange={(value) => {
-              const patch = SESSION_MODE_PATCHES[value as SessionDefaults['mode']];
-              props.onModeChange(patch.mode as SessionDefaults['mode']);
-              props.onRoutingModeChange(patch.routing_mode as SessionDefaults['routing_mode']);
-            }}
-            options={SESSION_MODE_OPTIONS.map((option) => [option.value, option.label])}
-            value={props.mode}
-          />
-          <BehaviorSelect
-            id="new-session-approval"
-            label="Confirmations"
-            onChange={(value) =>
-              props.onApprovalModeChange(value as SessionDefaults['approval_mode'])
-            }
-            description={unavailableApprovalNotice(approvalOptions) || undefined}
-            disabledValues={approvalOptions
-              .filter((option) => option.disabled)
-              .map((option) => option.value)}
-            options={approvalOptions.map((option) => [option.value, option.label])}
-            value={props.approvalMode}
-          />
-        </CollapsibleContent>
-      </Collapsible>
-    </FieldGroup>
-  );
-}
-
-function BehaviorSelect({
+/** Spec `.xf`: a 12px label above a full-width 30px field, with an optional note below. */
+function StackedField({
+  children,
   description,
-  disabledValues = [],
-  id,
+  htmlFor,
   label,
-  onChange,
-  options,
-  value,
 }: {
-  /** Shown under the control, e.g. why the selected value cannot be honoured here. */
+  children: ReactNode;
   description?: string;
-  /** Values the service reports it cannot honour here: listed, not selectable. */
-  disabledValues?: readonly string[];
-  id: string;
+  htmlFor: string;
   label: string;
-  onChange: (value: string) => void;
-  options: ReadonlyArray<readonly [string, string]>;
-  value: string;
 }) {
   return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select onValueChange={onChange} value={value}>
-        <SelectTrigger id={id}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map(([option, optionLabel]) => {
-            const disabled = disabledValues.includes(option);
-            return (
-              <SelectItem disabled={disabled} key={option} value={option}>
-                {disabled ? `${optionLabel} (unavailable)` : optionLabel}
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-    </Field>
+    <div className="grid min-w-0 gap-1.5">
+      <Label
+        className="text-xs font-normal whitespace-nowrap text-muted-foreground"
+        htmlFor={htmlFor}
+      >
+        {label}
+      </Label>
+      {children}
+      {description ? (
+        <p
+          className="truncate text-[11.5px] leading-snug text-muted-foreground"
+          title={description}
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -520,39 +270,47 @@ export function RenameResourceDialog({
       setPending(false);
     }
   };
+  const name = value.trim();
+  const confirm = () => {
+    if (name && !pending) void save();
+  };
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Rename {target.kind}</DialogTitle>
-          <DialogDescription>
-            Change the primary name without changing its files or history.
-          </DialogDescription>
-        </DialogHeader>
-        <Field>
-          <FieldLabel htmlFor="rename-resource">Name</FieldLabel>
-          <Input
-            autoFocus
-            id="rename-resource"
-            onChange={(event) => setValue(event.target.value)}
-            value={value}
-          />
-        </Field>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button onClick={onClose} type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button disabled={pending || !value.trim()} onClick={() => void save()} type="button">
-            {pending ? 'Saving…' : 'Save name'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DialogFrame
+      confirm={{
+        label: pending ? 'Saving…' : 'Save name',
+        disabled: pending || !name,
+        onConfirm: confirm,
+      }}
+      description="Its files and history stay as they are."
+      icon={<EditIcon />}
+      onOpenChange={(open) => !open && onClose()}
+      open
+      title={target.kind === 'session' ? 'Rename conversation' : `Rename ${vocab.workspace}`}
+    >
+      {/* Label over a full-width field (spec .xf), so the current name reads in full. */}
+      <div className="grid gap-1.5">
+        <Label htmlFor="rename-resource" className="text-xs font-normal text-muted-foreground">
+          Name
+        </Label>
+        <Input
+          className="h-[30px] text-[12.5px] md:text-[12.5px]"
+          data-initial-focus=""
+          id="rename-resource"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.ctrlKey || event.metaKey) return;
+            event.preventDefault();
+            confirm();
+          }}
+          value={value}
+        />
+      </div>
+      {error ? (
+        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </DialogFrame>
   );
 }
 
@@ -580,36 +338,38 @@ export function DeleteResourceDialog({
       setPending(false);
     }
   };
+  const session = target.kind === 'session';
   return (
-    <AlertDialog onOpenChange={(open) => !open && onClose()} open>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Remove {target.label}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {target.kind === 'workspace'
-              ? 'This unregisters the workspace and removes its sessions from this service. Files on disk are not deleted.'
-              : 'This permanently removes the session and its recorded conversation from this service.'}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={pending}
-            onClick={(event) => {
-              event.preventDefault();
-              void remove();
-            }}
-            variant="destructive"
-          >
-            {pending ? 'Removing…' : `Remove ${target.kind}`}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DialogFrame
+      alert
+      cancelLabel={session ? 'Keep conversation' : `Keep ${vocab.workspace}`}
+      confirm={{
+        label: session
+          ? pending
+            ? 'Deleting…'
+            : 'Delete permanently'
+          : pending
+            ? 'Removing…'
+            : `Remove ${vocab.workspace}`,
+        tone: 'destructive',
+        disabled: pending,
+        onConfirm: () => void remove(),
+      }}
+      description={
+        session
+          ? 'Removes it and its record from the service. This can’t be undone.'
+          : `Unregisters the ${vocab.workspace} and removes its conversations from the service. Files on disk are not deleted.`
+      }
+      icon={<DeleteIcon />}
+      onOpenChange={(open) => !open && onClose()}
+      open
+      title={`${session ? 'Delete' : 'Remove'} ${target.label}?`}
+    >
+      {error ? (
+        <p className="text-[12.5px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </DialogFrame>
   );
 }

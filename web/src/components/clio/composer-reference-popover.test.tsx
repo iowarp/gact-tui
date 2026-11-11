@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -22,9 +22,14 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: v
 
 afterEach(cleanup);
 
+/** The editor places the caret after a selected token on the next frame; type after it lands. */
+async function caretSettles(): Promise<void> {
+  await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 function placeCaret(editor: HTMLElement, offset: number): void {
@@ -113,8 +118,7 @@ const readmeReference = {
 };
 
 async function openPicker(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Add context' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
+  await user.click(screen.getByRole('button', { name: 'Add a reference' }));
   const search = await screen.findByPlaceholderText(/Search evidence/);
   // The menu that opened this hands focus back to its own trigger as it closes,
   // so the search box is focused here rather than relying on that race.
@@ -136,6 +140,8 @@ describe('composer reference popover contract', () => {
 
     await user.type(editor, '@Disp');
     await screen.findByRole('option', { name: /Displacement plot/ });
+    // The server search (mocked to return both) settles after the debounce.
+    await screen.findByRole('option', { name: /Review notes/ });
 
     expect(editor).toHaveAttribute('aria-expanded', 'true');
     const popover = document.getElementById(editor.getAttribute('aria-controls') ?? '');
@@ -363,6 +369,7 @@ describe('composer reference placement', () => {
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
     await screen.findByRole('button', { name: 'Open artifact Displacement plot' });
+    await caretSettles();
 
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));

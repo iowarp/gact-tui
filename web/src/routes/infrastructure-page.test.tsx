@@ -36,6 +36,7 @@ vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: inTauriMock }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio: restartClioMock }));
 
 import { InfrastructurePage } from './infrastructure-page';
+import { vocab } from '@/lib/brand-vocabulary';
 
 beforeEach(() => {
   localStorage.clear();
@@ -46,6 +47,7 @@ beforeEach(() => {
     services: [],
     connections: [],
     operations: [],
+    model_acquisitions: [],
   });
   repository.serviceHealth.mockResolvedValue({
     healthy: true,
@@ -301,13 +303,15 @@ describe('InfrastructurePage', () => {
 
     const builtin = await screen.findByRole('list', { name: 'Built in' });
     expect(within(builtin).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(builtin).getByText('Planning')).toBeInTheDocument();
+    // Each tool names its source; a built-in comes from the agent itself.
+    expect(within(builtin).getAllByTitle(vocab.agent)).toHaveLength(3);
     await user.click(screen.getByRole('button', { name: 'Tool source: All' }));
     expect(screen.getByRole('menuitem', { name: /^All/u })).toHaveTextContent('4');
     await user.keyboard('{Escape}');
     await user.click(within(builtin).getByRole('button', { name: 'create_artifact' }));
     const contract = screen.getByRole('dialog');
-    expect(within(contract).getByRole('heading', { name: 'Create artifact' })).toBeVisible();
+    // A supplied title that only title-cases the id gives way to the known operation label.
+    expect(within(contract).getByRole('heading', { name: 'Keep' })).toBeVisible();
     expect(within(contract).getByText('Creates a durable workspace artifact.')).toBeVisible();
     expect(within(contract).getByText('Inputs')).toBeVisible();
     expect(within(contract).getByText('title')).toBeVisible();
@@ -638,8 +642,12 @@ describe('InfrastructurePage', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
     await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-    expect(screen.getByText('Connect existing Web Search')).toBeVisible();
-    expect(screen.getByText(/Its lifecycle remains external/u)).toBeVisible();
+    const dialog = screen.getByRole('dialog', { name: 'Connect CLIO Web Search' });
+    expect(
+      within(dialog).getByText(
+        `A search service run outside ${vocab.agent}. ${vocab.agent} checks it and uses its tools.`,
+      ),
+    ).toBeVisible();
     const address = screen.getByLabelText('Service address');
     await user.clear(address);
     await user.type(address, 'http://10.0.0.102:8089');
@@ -710,7 +718,9 @@ describe('InfrastructurePage', () => {
       await screen.findByRole('button', { name: 'Edit connection CLIO Web Search' }),
     );
     expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
-    expect(screen.getByText('Configuration saved, service unavailable')).toBeVisible();
+    expect(
+      screen.getByText('Saved, but the service isn’t answering. Start it or fix the address.'),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Retry connection' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Disconnect' })).toBeVisible();
   });

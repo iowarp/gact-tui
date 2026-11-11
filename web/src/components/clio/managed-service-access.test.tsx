@@ -1,6 +1,7 @@
 import type { ManagedServiceDefinition } from '@clio/core/v3';
 import { managedServiceDefinitionSchema } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -47,7 +48,7 @@ const runtime = (
 
 function renderCard(service: ManagedServiceDefinition, configuration: Record<string, string> = {}) {
   const onConfiguration = vi.fn();
-  render(
+  renderWithTooltips(
     <MemoryRouter>
       <ManagedServiceCard
         configuration={configuration}
@@ -112,8 +113,10 @@ describe('who can use a managed model server', () => {
       }),
     );
 
-    const line = screen.getByText('Protected by a key CLIO made for this deployment.');
-    expect(line.closest('[data-slot="service-access"]')).toHaveAttribute('data-mode', 'api_key');
+    // The Status facts read the checked access in plain words; the service's detail stays with it.
+    const fact = screen.getByTitle('Protected by a key CLIO made for this deployment.');
+    expect(fact).toHaveTextContent('Protected by a key');
+    expect(within(fact).getByText('Protected by a key')).toHaveAttribute('data-mode', 'api_key');
     expect(screen.queryByRole('switch', { name: 'Shareable (no key)' })).toBeNull();
   });
 
@@ -125,10 +128,7 @@ describe('who can use a managed model server', () => {
       }),
     );
 
-    const line = screen.getByText('Not protected: the server accepted a request.');
-    expect(line.closest('[data-slot="service-access"]')).toHaveAttribute(
-      'data-mode',
-      'unprotected',
-    );
+    const fact = screen.getByTitle('Not protected: the server accepted a request.');
+    expect(within(fact).getByText('Not protected')).toHaveAttribute('data-mode', 'unprotected');
   });
 });

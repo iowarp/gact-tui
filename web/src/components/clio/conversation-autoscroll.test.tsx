@@ -123,9 +123,9 @@ function conversation(text: string): ReactElement {
   );
 }
 
-const scrollButton = () => screen.queryByRole('button', { name: 'Scroll to bottom' });
+const scrollButton = () => screen.queryByRole('button', { name: 'Jump to latest' });
 
-it('keeps a disclosure press clear of the scroll control while the transcript fits', () => {
+it('keeps a disclosure press clear of the scroll control while the transcript fits', async () => {
   const geometry = stubScrollGeometry();
   geometry.resizeContent(-1700);
   render(conversation('Short recorded update'));
@@ -136,6 +136,12 @@ it('keeps a disclosure press clear of the scroll control while the transcript fi
   fireEvent.pointerDown(disclosure);
   expect(scrollButton()).toBeNull();
   geometry.grow(600);
+  // The lane waits for the press to end, so the click lands on the disclosure.
+  expect(scrollButton()).toBeNull();
+  await act(async () => {
+    fireEvent.pointerUp(disclosure);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   expect(scrollButton()).toBeVisible();
   geometry.grow(-600);
   expect(scrollButton()).toBeNull();
@@ -221,7 +227,7 @@ describe('ClioConversation transcript autoscroll', () => {
     log.scrollTop = 1_000;
     fireEvent.scroll(log);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Scroll to bottom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to latest' }));
     expect(geometry.scrollTo).toHaveBeenLastCalledWith({
       behavior: 'smooth',
       top: 2_000,
@@ -263,7 +269,7 @@ describe('ClioConversation transcript autoscroll', () => {
 
     // The button lives inside the scroller, so native wheel scrolling and the
     // transcript's intent handlers both see a wheel over it.
-    const button = screen.getByRole('button', { name: 'Scroll to bottom' });
+    const button = screen.getByRole('button', { name: 'Jump to latest' });
     expect(log).toContainElement(button);
     now += 5_000;
     fireEvent.wheel(button, { deltaY: 600 });

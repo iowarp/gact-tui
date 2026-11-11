@@ -1,6 +1,7 @@
-import { ClioRepository } from '@clio/core/v3';
+import { ClioRepository, type ClioTransport } from '@clio/core/v3';
 import { BrowserClioTransport } from './transport/browser-transport';
 import { brand } from '@brand';
+import { sharedRead } from './shared-read';
 import { inTauri } from './transport/tauri-runtime';
 import { TauriClioTransport } from './transport/tauri-transport';
 
@@ -145,9 +146,42 @@ export function normalizeEndpoint(value: string): string {
   return url.toString().replace(/\/$/, '');
 }
 
+/**
+ * Status reads (`/v1/capabilities`, `/v1/health`) are asked for by the connection
+ * probes, the connection indicator and several capability readers at once; they
+ * share one request per service and credential instead of stacking.
+ */
+class SharedStatusRepository extends ClioRepository {
+  readonly #flightKey: string;
+
+  public constructor(transport: ClioTransport, flightKey: string) {
+    super(transport);
+    this.#flightKey = flightKey;
+  }
+
+  public override capabilities(signal?: AbortSignal) {
+    return sharedRead(
+      `${this.#flightKey}\ncapabilities`,
+      (shared) => super.capabilities(shared),
+      signal,
+    );
+  }
+
+  public override serviceHealth(signal?: AbortSignal) {
+    return sharedRead(
+      `${this.#flightKey}\nhealth`,
+      (shared) => super.serviceHealth(shared),
+      signal,
+    );
+  }
+}
+
 export function createRepository(settings: ConnectionSettings): ClioRepository {
   const transport = inTauri()
     ? new TauriClioTransport(settings)
     : new BrowserClioTransport(settings);
-  return new ClioRepository(transport);
+  return new SharedStatusRepository(
+    transport,
+    `${inTauri() ? 'tauri' : 'browser'}\n${settings.endpoint}\n${settings.token ?? ''}`,
+  );
 }

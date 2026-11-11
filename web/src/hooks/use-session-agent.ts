@@ -1,6 +1,8 @@
 import {
   agentPluginsSupported,
+  TransportError,
   type AgentDelta,
+  type CapabilityNegotiation,
   type PluginChangeApply,
   type SessionAgent,
 } from '@clio/core/v3';
@@ -8,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { connectionScope } from '@/lib/connection-scope';
+import { CAPABILITIES_RETRY_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /**
@@ -16,25 +19,50 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  */
 export function useAgentPluginsSupported(): boolean | undefined {
   const capabilities = useAgentCapabilities();
-  if (!capabilities.data) return capabilities.isError ? false : undefined;
-  return agentPluginsSupported(capabilities.data.capabilities);
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
+  return agentPluginsSupported(capabilities.data);
+}
+
+/** Only a service with no capabilities route lacks them; any other failure is not an answer. */
+function notOffered(error: Error | null) {
+  return error instanceof TransportError && error.status === 404;
+}
+
+/**
+ * Only the capability flags, so a refetch that changes nothing else (the model catalog's
+ * observation time moves on every read) keeps the same data and re-renders no reader.
+ */
+function capabilityFlags(negotiation: CapabilityNegotiation) {
+  return negotiation.capabilities;
 }
 
 function useAgentCapabilities() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   return useQuery({
-    queryKey: queryKeys.key('capabilities', settings.endpoint, connectionScope(settings)),
+    queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
+    select: capabilityFlags,
+    // A restarting service stays unknown, not unsupported, until it answers again.
+    refetchInterval: (query) =>
+      query.state.status === 'error' && !notOffered(query.state.error)
+        ? CAPABILITIES_RETRY_MS
+        : false,
   });
 }
 
 /** New connection-only and sign-in semantics must be acknowledged by the agent host. */
 export function useExtensionsSupported(): boolean | undefined {
   const capabilities = useAgentCapabilities();
-  return capabilities.data
-    ? capabilities.data.capabilities.x_clio_extension_library === true
-    : undefined;
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
+  return capabilities.data.x_clio_extension_library === true;
+}
+
+/** Whether the connected service keeps a prompt registry; `undefined` until known. */
+export function usePromptRegistrySupported(): boolean | undefined {
+  const capabilities = useAgentCapabilities();
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
+  return capabilities.data.x_clio_prompt_registry === true;
 }
 
 /**

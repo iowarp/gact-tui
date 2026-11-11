@@ -13,6 +13,9 @@ import type { SavedSshRoute } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
 import type { ManagedTargetKind } from './managed-service-target';
 
+/** The agent's own computer, by the agent's name and never the host's raw label (#938). */
+export const AGENT_COMPUTER = `${vocab.agent}'s computer`;
+
 export function targetLabel(target: ManagedTargetKind, host?: SshHost): string {
   return target === 'local' ? 'this computer' : host?.label || 'the SSH host';
 }
@@ -360,15 +363,6 @@ export function runtimeFactLines(facts: TargetFacts): RuntimeFactLine[] {
         : `${RUNTIME_NAMES[fact.name]} is not installed.`,
     detail: fact.usable ? '' : fact.detail,
   }));
-}
-
-/** Whether a running model runtime is already the saved address of its Models preset. */
-export function modelRuntimeInModels(
-  servers: SavedServer[] | undefined,
-  serviceId: string,
-  connectionUrl: string,
-): boolean {
-  return Boolean(modelRuntimeServer(servers, serviceId, connectionUrl));
 }
 
 /** Match a configured provider by preset and address, including additional saved instances. */

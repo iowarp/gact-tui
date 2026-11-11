@@ -1,18 +1,18 @@
-import type { RunState, StreamState } from '@clio/core/v3';
+import { TransportError, type RunState, type StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
 import { forwardRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
-import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
+import { isOfflineError } from '@/lib/list-state';
+import { cn } from '@/lib/utils';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
-import { LiveConnectionIndicator } from './live-connection-indicator';
 import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
-import { SystemVersionStatus } from './navigation-version-status';
-import { ClioStatus } from './status';
-import { SessionUsageReadout } from './session-usage-readout';
+import { NamedTooltip } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator } from './primitives/status-indicator';
 import { SessionWorkStatus } from './session-work';
 
 /**
@@ -81,7 +81,7 @@ export function WorkspaceTranscriptAlerts({
 }) {
   const [removing, setRemoving] = useState(false);
   // An update in flight (including the post-restart `reconnecting` window)
-  // already has its own full-screen `UpdateRestartOverlay` explaining
+  // already has its own update page explaining
   // exactly what is happening -- surfacing the stream's own "it broke"
   // language on top of that would contradict it and confuse an outage that
   // is entirely expected. `transcriptError` (a REST fetch failure) is left
@@ -132,60 +132,84 @@ export function WorkspaceTranscriptAlerts({
   );
 }
 
-export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
-  return (
-    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
-      <Alert className="max-w-xl" variant="destructive">
-        <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>{capitalize(vocab.workspace)} unavailable</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {onRetry ? (
-            <Button onClick={onRetry} variant="outline">
-              Try again here
-            </Button>
-          ) : null}
-          <Button asChild variant="ghost">
-            <Link to="/?intent=connect">Manage connections</Link>
-          </Button>
-        </div>
-      </Alert>
-    </main>
-  );
-}
-
-export function WorkspaceLoading({
-  description = 'Reading the latest workspace state from the selected agent service.',
-  label = 'Opening conversation',
+/**
+ * The spec's page-level Error state (conversation-states: states) for a
+ * conversation or workspace that did not open: plain words for what happened,
+ * Retry, and a way back. It sits inside the shell, so both bars stay.
+ */
+export function WorkspaceUnavailable({
+  subject,
+  error,
+  onRetry,
+  back,
 }: {
-  description?: string;
-  label?: string;
-} = {}) {
+  subject: 'conversation' | 'workspace';
+  /** The failed read; none when the service answered without the item. */
+  error?: unknown;
+  onRetry?: () => void;
+  /** Where to go instead, e.g. the conversation's workspace. */
+  back?: { label: string; to: string };
+}) {
+  const navigate = useNavigate();
+  const noun = subject === 'conversation' ? 'conversation' : vocab.workspace;
+  const missing = error === undefined || isNotFoundError(error);
+  const offline = !missing && isOfflineError(error);
+  const title = missing
+    ? `This ${noun} isn't available`
+    : offline
+      ? `Can't reach ${vocab.agent}`
+      : `This ${noun} couldn't be opened`;
+  const detail = missing
+    ? subject === 'conversation'
+      ? 'It may have been deleted or moved.'
+      : 'It may have been deleted, or it belongs to another connection.'
+    : offline
+      ? `Check that ${vocab.agent} is running, then retry.`
+      : withoutIdentifiers(error instanceof Error ? error.message : String(error));
   return (
-    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
-      <div className="grid justify-items-center gap-3 text-center">
-        <ClioStatus label={label} value="connecting" />
-        {description ? (
-          <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-    </main>
+    <section
+      aria-label={title}
+      className="grid h-full min-h-0 place-items-center bg-background p-6"
+    >
+      <StateView
+        action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        className="w-full max-w-xl"
+        detail={detail}
+        kind="error"
+        link={
+          back && !offline
+            ? { label: back.label, onClick: () => navigate(back.to) }
+            : { label: 'Manage connections', onClick: () => navigate('/?intent=connect') }
+        }
+        size="page"
+        title={title}
+      />
+    </section>
   );
 }
 
+function isNotFoundError(error: unknown): boolean {
+  if (error instanceof TransportError && error.status === 404) return true;
+  return error instanceof Error && /\bnot[ _]found\b/i.test(error.message);
+}
+
+// Service messages name ids ("session not found: sess_…"); the page names the thing instead.
+function withoutIdentifiers(message: string): string {
+  const plain = message
+    .replace(/\b(?:sess|ws|run|task|msg)_[0-9a-z]+\b/gi, '')
+    .replace(/[\s:,]+$/, '')
+    .trim();
+  return plain ? `${plain.charAt(0).toUpperCase()}${plain.slice(1)}.`.replace(/\.\.$/, '.') : '';
+}
+
+/** The spec's page Loading state (`.xs.pn`): a spinner and one line. */
 export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?: string }) {
   return (
     <section
       aria-label="Conversation loading"
-      aria-live="polite"
       className="grid h-full min-h-0 place-items-center bg-background p-6"
     >
-      <div className="grid justify-items-center gap-3 text-center">
-        <ClioStatus label={label} value="connecting" />
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Restoring saved messages now. Newer messages will appear as they arrive.
-        </p>
-      </div>
+      <StateView kind="loading" title={label} />
     </section>
   );
 }
@@ -193,9 +217,7 @@ export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?:
 export function WorkspaceStatusStrip({
   activeWorkCount,
   unresolvedWorkCount = 0,
-  cost,
   cursor,
-  tokens,
   sessionState,
   stream,
   sessionId,
@@ -207,14 +229,7 @@ export function WorkspaceStatusStrip({
   onInspectTasks?: () => void;
   activeWorkCount: number;
   unresolvedWorkCount?: number;
-  /** Undefined when no turn ever reported a real cost -- shown as a muted
-   * dash with a tooltip, never the word "Unavailable" (it isn't broken,
-   * the provider just doesn't report a price). */
-  cost?: number;
   cursor?: string;
-  /** Cumulative input+output token count for the session; always a real
-   * number once the session has run a turn (0 before that). */
-  tokens?: number;
   sessionState?: RunState;
   stream: StreamState;
 }) {
@@ -227,8 +242,10 @@ export function WorkspaceStatusStrip({
         : activeWorkCount === 0
           ? 'No active work'
           : `${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}`;
-  const recoveryLabel =
-    stream === 'reconnecting'
+  const offline = stream === 'offline';
+  const recoveryLabel = offline
+    ? `Can't reach ${vocab.agent}, retrying`
+    : stream === 'reconnecting'
       ? 'Resuming updates'
       : stream === 'gapped'
         ? 'Checking for missed updates'
@@ -237,29 +254,44 @@ export function WorkspaceStatusStrip({
     ? `Recovery checkpoint ${cursor.slice(-10)}`
     : 'No recovery checkpoint was reported';
   return (
-    <div className="flex h-full items-center gap-3 overflow-hidden text-[0.625rem] text-muted-foreground">
-      {/* Desktop already shows this indicator once, in the title bar
-          (LiveConnectionIndicator there) -- the bottom bar drops its own
-          copy there so the two surfaces never duplicate the same pill. */}
-      {inTauri() ? null : <LiveConnectionIndicator />}
-      {recoveryLabel ? <span title={recoveryDetail}>{recoveryLabel}</span> : null}
-      {unresolvedWorkCount > 0 && onInspectTasks ? (
-        <Button
-          aria-label="Inspect unresolved tasks"
-          className="h-6 min-w-0 px-0 text-[0.625rem]"
-          onClick={onInspectTasks}
-          type="button"
-          variant="ghost"
+    <div
+      className="flex shrink-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground"
+      data-slot="top-bar-status"
+    >
+      {recoveryLabel ? (
+        <span
+          className={cn('flex items-center gap-1 px-1', offline && 'text-destructive')}
+          title={offline ? recoveryLabel : recoveryDetail}
         >
-          {activeWorkLabel}
-        </Button>
+          <StatusIndicator
+            display="column"
+            label={recoveryLabel}
+            tone={offline ? 'error' : 'waiting'}
+          />
+          <span className="hidden md:inline">{recoveryLabel}</span>
+          {/* A phone keeps the outage in words, not only the glyph. */}
+          {offline ? <span className="md:hidden">Offline</span> : null}
+        </span>
+      ) : null}
+      {unresolvedWorkCount > 0 && onInspectTasks ? (
+        <NamedTooltip label={activeWorkLabel}>
+          <Button
+            aria-label="Inspect unresolved tasks"
+            className="h-7 gap-1.5 px-1.5 text-[12px] text-warning-foreground hover:bg-hover"
+            onClick={onInspectTasks}
+            type="button"
+            variant="ghost"
+          >
+            <AlertTriangleIcon aria-hidden="true" className="size-3.5" />
+            <span aria-hidden="true" className="tabular-nums">
+              {unresolvedWorkCount} to inspect
+            </span>
+            <span className="sr-only">{activeWorkLabel}</span>
+          </Button>
+        </NamedTooltip>
       ) : sessionId && onOpenWork ? (
-        <SessionWorkStatus sessionId={sessionId} onOpen={onOpenWork} fallback={activeWorkLabel} />
-      ) : (
-        <span>{activeWorkLabel}</span>
-      )}
-      <SystemVersionStatus />
-      <SessionUsageReadout cost={cost} sessionId={sessionId} tokens={tokens} />
+        <SessionWorkStatus sessionId={sessionId} onOpen={onOpenWork} />
+      ) : null}
     </div>
   );
 }

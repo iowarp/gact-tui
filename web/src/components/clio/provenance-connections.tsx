@@ -15,13 +15,16 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
+import { useShownByPage } from './infrastructure-reachability';
 import { StateView } from './primitives/state-view';
 import { TechnicalDetails } from './technical-details';
 import { ManagedServiceLogo } from './managed-service-identity';
 import { CheckConnectionIcon, DeleteIcon } from '@/lib/icon-vocabulary';
-import { ActivityIcon, PlayIcon, UnlinkIcon } from 'lucide-react';
+import { ActivityIcon, LinkIcon, PlayIcon, UnlinkIcon } from 'lucide-react';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { IconButton } from './primitives/icon-button';
+import { InfraRowMenu } from './infrastructure-row-menu';
+import { KeyValueGrid } from './primitives/key-value-grid';
 import { SERVICE_COLUMNS } from './managed-service-groups';
 import { HostPathPicker } from './host-path-picker';
 import { connectionScope } from '@/lib/connection-scope';
@@ -48,9 +51,10 @@ export function ProvenanceConnections({
     refetchInterval: 15_000,
   });
   const refresh = () => client.invalidateQueries({ queryKey: key });
+  const errorShownByPage = useShownByPage(query.error);
   return (
     <section aria-label="Connected provenance services" className="min-w-0 pt-3 empty:hidden">
-      {query.error ? (
+      {query.error && !errorShownByPage ? (
         <StateView
           action={{ label: 'Retry', onClick: () => void query.refetch() }}
           detail={query.error.message}
@@ -118,30 +122,36 @@ function ConnectionRow({
   return (
     <InfraRow
       actions={
-        <span className="flex items-center gap-0.5" onClick={stopRowClick} onKeyDown={stopRowClick}>
-          <IconButton
-            disabled={action.isPending}
-            icon={<CheckConnectionIcon />}
-            label={
-              action.isPending && action.variables === 'verify' ? 'Verifying…' : 'Verify connection'
-            }
-            onClick={() => action.mutate('verify')}
-            size="sm"
-          />
-          {!row.selected && !row.active ? (
-            <IconButton
-              disabled={action.isPending}
-              icon={<DeleteIcon />}
-              label="Forget connection"
-              onClick={() => action.mutate('forget')}
-              size="sm"
-            />
-          ) : null}
-        </span>
+        <InfraRowMenu
+          actions={[
+            {
+              disabled: action.isPending,
+              icon: <CheckConnectionIcon />,
+              label:
+                action.isPending && action.variables === 'verify'
+                  ? 'Verifying…'
+                  : 'Verify connection',
+              onSelect: () => action.mutate('verify'),
+            },
+            ...(!row.selected && !row.active
+              ? [
+                  {
+                    disabled: action.isPending,
+                    icon: <DeleteIcon />,
+                    label: 'Forget connection',
+                    onSelect: () => action.mutate('forget'),
+                  },
+                ]
+              : []),
+          ]}
+          label={`More actions for ${row.label}`}
+        />
       }
       aria-label={`${row.label} connection`}
       className="cursor-pointer"
-      description={<span title={row.url}>{row.url}</span>}
+      description={
+        row.service_id === 'flowcept' ? 'Workflow provenance records' : 'Provenance records'
+      }
       details={
         showDetails ? (
           <>
@@ -160,6 +170,9 @@ function ConnectionRow({
             ) : null}
             {expanded ? (
               <>
+                <KeyValueGrid
+                  items={[{ label: 'Address', icon: <LinkIcon />, value: row.url, mono: true }]}
+                />
                 <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
                   This {vocab.agent} connects to the service; the owner keeps its deployment and
                   data.

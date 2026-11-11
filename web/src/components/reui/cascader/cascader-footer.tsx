@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
  * The pinned footer: a strip of COMMANDS below the list, a SIBLING of
  * `CascaderList`. Nothing here joins the selection, the filter set or the
  * highlight. It sits outside `CascaderList` because `Combobox.List` clicks its
- * highlighted row on Enter.
+ * highlighted row on Enter. Its commands are Tab stops only: the list's arrows
+ * wrap inside the list (Base UI's loop), so an arrow then Enter never fires one.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -47,9 +48,9 @@ function CascaderFooter({ className, children, onKeyDown, ...props }: CascaderFo
       if (!FOOTER_SWALLOWED_KEYS.has(event.key)) return;
       event.stopPropagation();
 
-      // The strip's own vertical movement, and the way back from the list's
-      // hand-off: either end returns focus to the search field, from which
-      // Base UI's empty highlight resumes the list. Down wraps to the FIELD,
+      // The strip's own vertical movement once Tab has reached it: either end
+      // returns focus to the search field, from which Base UI's empty
+      // highlight resumes the list. Down wraps to the FIELD,
       // not a command (traps the arrows) or a row (no imperative highlight).
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
       const footer = event.currentTarget;

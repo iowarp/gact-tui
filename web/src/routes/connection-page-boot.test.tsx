@@ -3,7 +3,8 @@
  * is ready (503 `task_runtime_starting`). The page stays on the boot screen and retries
  * with a backoff until the workspace opens; it never flips to the Connect form (#739 B1).
  */
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { brand } from '@brand';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -102,7 +103,7 @@ it('stays on the boot screen through a starting task runtime and opens the works
   const form = watchForConnectForm();
   renderFirstLaunch();
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting local ${brand.agentName}` })).toBeVisible();
   expect(await screen.findByText('Workspace opened', {}, { timeout: 8_000 })).toBeVisible();
   form.stop();
 
@@ -164,7 +165,9 @@ it('shows a non-transient failure once instead of retrying it', async () => {
   mocks.repository.capabilities.mockResolvedValue({ gact_versions: ['0.1'] });
   renderFirstLaunch();
 
-  expect(await screen.findByText("Can't connect")).toBeVisible();
+  // The failed row carries "Can't connect"; the alert gives only the reason.
+  expect(await screen.findByRole('alert')).not.toHaveTextContent(/Can't connect/u);
+  expect(screen.getByText("Can't connect")).toBeVisible();
   await new Promise((resolve) => setTimeout(resolve, 600));
   await waitFor(() => expect(mocks.resolveConnection).toHaveBeenCalledOnce());
   expect(mocks.connect).not.toHaveBeenCalled();

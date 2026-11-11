@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import type { ClioModelOption } from '@/lib/model-options';
 import {
@@ -16,6 +16,10 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
@@ -85,9 +89,9 @@ const field = () => screen.getByRole('combobox', { name: 'Search providers and m
 const panel = () => document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
 const barCount = () => document.querySelector('[data-slot="model-count"]')?.textContent ?? '';
 const tokens = () =>
-  [...document.querySelectorAll('[data-slot="filter-tokens"] [data-token]')].map((chip) =>
-    chip.getAttribute('data-token'),
-  );
+  (document.querySelector('[data-slot="model-picker-search"]')?.getAttribute('data-tokens') ?? '')
+    .split(' ')
+    .filter(Boolean);
 const slider = (name: string) => within(panel()).getAllByRole('slider', { name });
 const modelNames = () =>
   [
@@ -114,7 +118,7 @@ describe('ClioModelPicker model facts', () => {
     expect(barCount()).toBe('2 / 4');
     await user.click(field());
     expect(slider('Context from')[0]).toHaveAttribute('aria-valuenow', '5');
-    await user.click(within(panel()).getByRole('switch', { name: 'Include unknown context' }));
+    await user.click(within(panel()).getByRole('checkbox', { name: 'Include unknown context' }));
     await waitFor(() => expect(modelNames()).toEqual(['opus', 'scout', 'unknown']));
     fireEvent.keyDown(slider('Context from')[0]!, { key: 'ArrowLeft' });
     expect(tokens()).toContain('context:>256K');
@@ -142,8 +146,8 @@ describe('ClioModelPicker model facts', () => {
     expect(barCount()).toBe('1 / 6');
 
     await user.click(field());
-    const unknown = within(panel()).getByRole('switch', { name: 'Include unknown size' });
-    expect(unknown).not.toBeChecked();
+    const unknown = within(panel()).getByRole('checkbox', { name: 'Include unknown size' });
+    expect(unknown).toHaveAttribute('aria-checked', 'false');
     await user.click(unknown);
     expect(tokens()).toContain('size:any');
     await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b', 'vision-large']));
@@ -158,7 +162,7 @@ describe('ClioModelPicker model facts', () => {
     const [high] = slider('Size to');
     expect(low).toHaveAttribute('aria-valuenow', '3'); // 32B
     expect(high).toHaveAttribute('aria-valuenow', '5'); // the open top
-    expect(within(panel()).getByText('size:>32B')).toBeVisible();
+    expect(within(panel()).getByTitle('size:>32B')).toHaveTextContent('>32B');
 
     fireEvent.keyDown(low!, { key: 'ArrowRight' });
     expect(tokens()).toContain('size:>128B');
@@ -179,8 +183,8 @@ describe('ClioModelPicker model facts', () => {
     });
     const unpriced = within(panel()).getByRole('checkbox', { name: 'Unpriced (no price stated)' });
     for (const box of [variable, subscription, unpriced]) {
-      expect(box).toBeEnabled();
-      expect(box).not.toBeChecked();
+      expect(box).not.toHaveAttribute('aria-disabled');
+      expect(box).toHaveAttribute('aria-checked', 'false');
     }
 
     // Metered models under $1 only: the variable-priced router is out.
@@ -198,7 +202,7 @@ describe('ClioModelPicker model facts', () => {
   it('the Released slider and the Recent chip write released:<…>', async () => {
     const user = await openPicker();
     await user.click(field());
-    const recent = panel().querySelector<HTMLElement>('[data-slot="facet-recent"]')!;
+    const recent = within(panel()).getByRole('checkbox', { name: 'Recent' });
 
     await user.click(recent);
     expect(tokens()).toContain('released:<6mo');
@@ -208,7 +212,7 @@ describe('ClioModelPicker model facts', () => {
 
     fireEvent.keyDown(slider('Released')[0]!, { key: 'End' });
     expect(tokens().some((token) => token?.startsWith('released:'))).toBe(false);
-    expect(recent).toHaveAttribute('aria-pressed', 'false');
+    expect(recent).toHaveAttribute('aria-checked', 'false');
   });
 
   it('rows carry Recent and size tags; clicking Recent filters by it', async () => {
@@ -216,8 +220,8 @@ describe('ClioModelPicker model facts', () => {
     const deepseek = screen
       .getByText('deepseek-v4')
       .closest<HTMLElement>('[data-slot="cascader-item"]')!;
-    expect(within(deepseek).getByText('A37B / 671B')).toBeVisible();
-    await user.click(within(deepseek).getByText('Recent'));
+    expect(within(deepseek).getByRole('img', { name: 'A37B / 671B' })).toBeVisible();
+    await user.click(within(deepseek).getByRole('img', { name: 'Recent' }));
     expect(tokens()).toContain('released:<6mo');
     expect(modelNames()).not.toContain('llama-3.2-90b-vision');
   });

@@ -6,11 +6,21 @@ import {
   useId,
   useMemo,
   type ComponentPropsWithoutRef,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
+import { statusWordClass } from '@/components/clio/primitives/status-word-tone';
+import { isRowMenuKey } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
+
+/**
+ * Infrastructure facts across the row: a 40% label column, values right-aligned
+ * to the row's edge and a 24px action column, in 25px rows (spec `.c3kv`).
+ * Pass `actionColumn` so the column is kept when no fact has an action.
+ */
+export const INFRA_FACTS_GRID = 'auto-rows-[25px] grid-cols-[40%_minmax(0,1fr)_24px] gap-y-0';
 
 interface InfraColumns {
   /** Status column: mark and words ("Running", "2 connected"). */
@@ -61,7 +71,10 @@ export function InfraList({
   const headingId = useId();
   return (
     <InfraColumnsContext.Provider value={columns}>
-      <div className={cn('@container/infra flex min-w-0 flex-col', className)}>
+      <div
+        className={cn('@container/infra flex min-w-0 flex-col', className)}
+        data-slot="infra-list"
+      >
         {heading ? (
           <ListGroupLabel action={headingAction} id={headingId}>
             {heading}
@@ -101,14 +114,69 @@ export interface InfraRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ti
   selected?: boolean;
 }
 
+/**
+ * Under 480px the row keeps its name: the status word moves from its column to
+ * the start of the sub-line (the mark keeps a 16px column), the meta column is
+ * already gone, and the hover actions fold into one always-shown "more"
+ * button (InfraRowMenu), so the dot and the pinned action keep their columns.
+ */
+const NARROW_STATUS =
+  'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
+const NARROW_ACTIONS =
+  '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
+
+/** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
+function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
+  if (!isRowMenuKey(event)) return;
+  const triggers = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>('[aria-haspopup=menu]'),
+  ].filter((trigger) => trigger.offsetParent !== null && !trigger.matches(':disabled'));
+  const trigger = triggers[triggers.length - 1];
+  if (!trigger) return;
+  event.preventDefault();
+  trigger.focus();
+  trigger.dispatchEvent(
+    new globalThis.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+  );
+}
+
 /** A two-line inventory row with fixed status, meta and action columns. */
 export const InfraRow = memo(
   forwardRef<HTMLDivElement, InfraRowProps>(function InfraRow(
-    { icon, title, description, status, meta, actions, primaryAction, details, ...rest },
+    {
+      icon,
+      title,
+      description,
+      status,
+      meta,
+      actions,
+      primaryAction,
+      details,
+      className,
+      onKeyDown,
+      ...rest
+    },
     ref,
   ) {
     const columns = useContext(InfraColumnsContext);
     const metaTitle = typeof meta === 'string' ? meta : undefined;
+    // The word is read once, from the status column. A narrow row shows it again here as
+    // generated content, so it is neither announced nor found twice.
+    const subLine = status ? (
+      <>
+        <span
+          aria-hidden="true"
+          data-label={status.label}
+          className={cn(
+            'mr-2 hidden before:content-[attr(data-label)] @max-[480px]/infra:inline',
+            statusWordClass(status.tone),
+          )}
+        />
+        {description}
+      </>
+    ) : (
+      description
+    );
     return (
       <div className="min-w-0" role="listitem">
         <ListRow
@@ -116,15 +184,21 @@ export const InfraRow = memo(
           layout="stacked"
           icon={icon}
           title={title}
-          description={description}
+          description={subLine}
           columns={
             <>
-              <span className="flex shrink-0 overflow-hidden" style={{ width: columns.status }}>
-                {status ? <StatusIndicator label={status.label} tone={status.tone} /> : null}
+              <span className={NARROW_STATUS} style={{ width: columns.status }}>
+                {status ? (
+                  <StatusIndicator
+                    className="text-[11px]"
+                    label={status.label}
+                    tone={status.tone}
+                  />
+                ) : null}
               </span>
               {columns.meta ? (
                 <span
-                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-[11px] text-faint @lg/infra:flex"
+                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-[11px] text-muted-foreground @lg/infra:flex"
                   style={{ width: columns.meta }}
                   title={metaTitle}
                 >
@@ -136,6 +210,11 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
+          className={cn(columns.hover && NARROW_ACTIONS, className)}
+          onKeyDown={(event) => {
+            onKeyDown?.(event);
+            if (!event.defaultPrevented) openInfraRowMenu(event);
+          }}
           {...rest}
         />
         {details ? <InfraRowDetails>{details}</InfraRowDetails> : null}

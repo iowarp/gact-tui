@@ -5,6 +5,7 @@ import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
 import { questionToolSummary } from './question-tool-presentation';
 import { taskWaitInterruptionDetail } from './task-wait-presentation';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 
 export interface ToolPresentation {
   title: string;
@@ -44,7 +45,7 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
 const TASK_OPERATIONS: Record<string, string> = {
   run_flow: 'Start flow',
   run_workflow: 'Start workflow',
-  spawn_agent_task: 'Delegate to agent',
+  spawn_agent_task: 'Delegate',
   observe_tasks: 'Check task status',
   task_result: 'Read task result',
   get_task_result: 'Read task result',
@@ -58,7 +59,8 @@ const TASK_OPERATIONS: Record<string, string> = {
 
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
-  if (tool.name === 'ask_user') return 'Ask you';
+  if (tool.name === 'ask_user')
+    return tool.presentation?.action === 'Answered' ? 'Answered' : 'Ask you';
   if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
   if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
   let action = tool.presentation?.action || tool.title || tool.name;
@@ -215,14 +217,6 @@ export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined 
   return subject?.target === 'file' && /^\d[\d,]*\s+bytes?$/iu.test(summary) ? summary : undefined;
 }
 
-/** Match the compact row's trailing facts so expanded results do not repeat them. */
-export function getToolCompactMetadata(tool: ToolInvocation): string | undefined {
-  const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
-  return terminal?.exit_code !== undefined && terminal.exit_code !== null
-    ? `exit ${terminal.exit_code}`
-    : getToolHeaderMetadata(tool) || getToolSummary(tool);
-}
-
 const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
   'interrupted',
   'succeeded',
@@ -237,10 +231,63 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
   // Saved presentation metadata cannot establish an unrecorded completion.
   if (tool.state === 'unknown') return 'unknown';
   if (getToolInterruptionDetail(tool)) return 'interrupted';
+  // A call the person stopped was stopped, whatever its producer called the error it saw.
+  if (tool.state === 'cancelled') return 'cancelled';
   const declared = tool.presentation?.status;
-  return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
-    ? (declared as ClioStatusValue)
-    : tool.state;
+  const status =
+    declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
+      ? (declared as ClioStatusValue)
+      : tool.state;
+  return status === 'failed' && stoppedDiagnostic(tool) ? 'cancelled' : status;
+}
+
+// The service records a call the person stopped as failed; its diagnostic says it was cancelled.
+const STOPPED_DIAGNOSTIC =
+  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by (?:the )?(?:user|client|person)\b|\bturn cancell?ed\b/iu;
+
+function stoppedDiagnostic(tool: ToolInvocation): boolean {
+  return [
+    tool.error,
+    ...(tool.presentation?.blocks ?? [])
+      .filter((block) => block.severity === 'error')
+      .map((block) => block.text),
+  ].some((text) => Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim())));
+}
+
+/**
+ * A call older sessions recorded as failed with a cancellation diagnostic reads like one the
+ * service now projects as cancelled: one Stopped outcome in place of the raw cancellation error.
+ */
+export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
+  if (tool.state === 'cancelled' || getToolStatus(tool) !== 'cancelled') return tool;
+  const blocks = tool.presentation?.blocks ?? [];
+  const cancellation = (text?: string) =>
+    Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim()));
+  if (!blocks.some((block) => block.severity === 'error' && cancellation(block.text))) return tool;
+  return {
+    ...tool,
+    presentation: {
+      ...tool.presentation,
+      summary: tool.presentation?.summary ?? '',
+      status: 'cancelled',
+      blocks: [
+        ...blocks.filter((block) => !(block.severity === 'error' && cancellation(block.text))),
+        {
+          id: 'execution-outcome',
+          type: 'text',
+          label: 'Stopped',
+          severity: 'warning',
+          text: 'Stopped before it finished; no result was returned.',
+        },
+      ],
+    },
+  };
+}
+
+/** The call ended because it was stopped or interrupted, not because it failed. */
+export function isToolStopped(tool: ToolInvocation): boolean {
+  const status = getToolStatus(tool);
+  return status === 'interrupted' || status === 'cancelled';
 }
 
 /** Explain an interruption only from authored metadata or a recognized receipt. */
@@ -283,8 +330,25 @@ export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
 export function getToolActivityTitle(tool: ToolInvocation): string {
   const action = getToolActionLabel(tool);
   const subject = getToolSubject(tool);
-  const label = subject?.label?.trim();
+  let label = subject?.label?.trim();
+  // A path subject names its last segment; the full path stays in the call's details.
+  if (
+    label &&
+    (TOOL_OPERATIONS[tool.name]?.subjects?.includes('path') ||
+      /^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/])/u.test(label))
+  )
+    label = label.split(/[\\/]/u).filter(Boolean).at(-1) ?? label;
   return label ? `${action} (${label})` : action;
+}
+
+/** A humane operation name for a call known only by its tool identifier. */
+export function toolOperationLabel(name: string): string {
+  if (TASK_OPERATIONS[name]) return TASK_OPERATIONS[name]!;
+  const operation = TOOL_OPERATIONS[name];
+  if (!operation) return name;
+  if (operation.family === 'wait') return 'Wait for tasks';
+  // "Read result of" or "Run on" need their subject; without it the verb stands alone.
+  return operation.action.replace(/\s+(?:for|of|to|on)$/u, '');
 }
 
 /** An undeclared tool keeps its actual identifier as the fallback label. */

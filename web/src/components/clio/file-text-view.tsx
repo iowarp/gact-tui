@@ -1,9 +1,24 @@
 import { lazy, Suspense, useContext, useMemo, useRef, useState, type Ref } from 'react';
-import { BookOpenIcon, FileCode2Icon, Table2Icon, WrapTextIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  FileCode2Icon,
+  FileDiffIcon,
+  NotebookTextIcon,
+  Table2Icon,
+  WorkflowIcon,
+  WrapTextIcon,
+} from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
+import { fileFormatLabel } from '@/lib/media-types';
+import { readNotebook } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
-import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
+import {
+  DOCUMENT_MARKDOWN_CLASS_NAME,
+  READ_TYPE_SCALE,
+  normalizeConvertedMarkdown,
+} from '@/lib/document-markdown';
+import { TABLE_SCROLL_CUE_CLASS_NAME, useTableScrollCue } from '@/lib/use-table-scroll-cue';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,11 +42,37 @@ import { FileDataGrid } from './file-data-grid';
 import { readDenseGridText } from './primitives/dense-grid-data';
 import { tabularJsonDataset } from './json-resource-data';
 import { ResourceLoading } from './resource-states';
+import { DiffLines } from './diff-lines';
+import { patchSummary } from './diff-rows';
+
+// Mermaid loads with the first diagram file opened.
+const ClioMermaidDiagram = lazy(() =>
+  import('./mermaid-diagram').then((module) => ({ default: module.ClioMermaidDiagram })),
+);
 
 // The CSV table loads with the first CSV file opened, not with the app (#644).
 const ClioCsvView = lazy(() =>
   import('./csv-view').then((module) => ({ default: module.ClioCsvView })),
 );
+
+// The notebook reader loads with the first notebook opened.
+const NotebookView = lazy(() =>
+  import('./notebook-view').then((module) => ({ default: module.NotebookView })),
+);
+
+/**
+ * A plan's steps, the frame fact the spec gives a Markdown document ("4 steps"): its
+ * top-level numbered and task-list items, outside code fences.
+ */
+function markdownSteps(content: string) {
+  let fenced = false;
+  let steps = 0;
+  for (const line of content.split('\n')) {
+    if (/^ {0,3}(?:```|~~~)/u.test(line)) fenced = !fenced;
+    else if (!fenced && /^(?:\d{1,9}[.)]|[-*+] \[[ xX]\]) /u.test(line)) steps += 1;
+  }
+  return steps;
+}
 
 /** A file's content contributes representations and Copy to one owning toolbar. */
 export function FileTextView({
@@ -57,14 +98,49 @@ export function FileTextView({
     () => (format === 'json' ? tabularJsonDataset(content, name) : undefined),
     [content, format, name],
   );
+  const diagram = !explicitFormat && /\.(?:mmd|mermaid)$/i.test(name);
+  // A patch reads as its changed lines, like the workbench's diff view.
+  const patch = !explicitFormat && /\.(?:patch|diff)$/i.test(name);
+  const changes = useMemo(() => (patch ? patchSummary(content) : undefined), [content, patch]);
+  const notebook = useMemo(
+    () => (format === 'notebook' ? readNotebook(content) : undefined),
+    [content, format],
+  );
   const lines = useMemo(() => content.split('\n').length, [content]);
-  useFileViewerFacts(format === 'csv' || dataset ? undefined : [`${lines.toLocaleString()} lines`]);
+  const steps = useMemo(
+    () => (format === 'markdown' ? markdownSteps(content) : 0),
+    [content, format],
+  );
+  // A code file's one view is its source; the frame names its language (frame-bar 05).
+  const formatLabel = fileFormatLabel(name, mediaType ?? '');
+  const language =
+    format === 'source' && !/^(?:File|Text)$/u.test(formatLabel) ? formatLabel : undefined;
+  useFileViewerFacts(
+    notebook?.ok
+      ? [
+          `${notebook.notebook.cells.length.toLocaleString()} ${notebook.notebook.cells.length === 1 ? 'cell' : 'cells'}`,
+          ...(notebook.notebook.kernel ? [notebook.notebook.kernel] : []),
+        ]
+      : format === 'csv' || dataset
+        ? undefined
+        : changes
+          ? [changes]
+          : language
+            ? [language]
+            : steps
+              ? [`${steps.toLocaleString()} ${steps === 1 ? 'step' : 'steps'}`]
+              : [`${lines.toLocaleString()} lines`],
+  );
   const modes: FileMode[] = [
+    ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),
+    // The branch icon is Lineage's; a diagram renders as a flow.
+    ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: WorkflowIcon }] : []),
+    ...(changes ? [{ value: 'changes', label: 'Changes', icon: FileDiffIcon }] : []),
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
       : []),
     ...(format === 'csv' || dataset ? [{ value: 'data', label: 'Data', icon: Table2Icon }] : []),
-    { value: 'source', label: 'Source', icon: FileCode2Icon },
+    { value: 'source', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' },
   ];
   const [chosen, setChosen] = useState(modes[0].value);
   const selected = view
@@ -76,7 +152,7 @@ export function FileTextView({
       : modes[0].value;
   const reading = useRef<HTMLDivElement>(null);
   const readText = () =>
-    selected === 'source'
+    selected === 'source' || selected === 'diagram' || selected === 'changes'
       ? content
       : selected === 'data'
         ? (readDenseGridText(reading.current) ?? renderedFileText(reading.current, true))
@@ -129,9 +205,36 @@ export function FileTextView({
             />
           </TooltipProvider>
         )}
+        {notebook ? (
+          <TabsContent value="notebook" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
+            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+              <NotebookView
+                name={name}
+                onShowSource={view ? undefined : () => setChosen('source')}
+                read={notebook}
+                readingRef={reading}
+              />
+            </Suspense>
+          </TabsContent>
+        ) : null}
         {format === 'markdown' ? (
           <TabsContent value="read" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
             <FileReadView name={name} content={content} format={format} readingRef={reading} />
+          </TabsContent>
+        ) : null}
+        {diagram ? (
+          <TabsContent value="diagram" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
+            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+              <ClioMermaidDiagram framed source={content} title={name} />
+            </Suspense>
+          </TabsContent>
+        ) : null}
+        {changes ? (
+          <TabsContent
+            value="changes"
+            className="m-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          >
+            <DiffLines className="flex-1" unified={content} />
           </TabsContent>
         ) : null}
         {format === 'csv' || dataset ? (
@@ -175,7 +278,7 @@ export function FileTextView({
                 ? 'markdown'
                 : format === 'html'
                   ? 'html'
-                  : format === 'json'
+                  : format === 'json' || format === 'notebook'
                     ? 'json'
                     : undefined
             }
@@ -198,6 +301,8 @@ export function FileReadView({
 }) {
   const frontmatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)(?:\r?\n|$)/.exec(content);
   const body = frontmatter ? content.slice(frontmatter[0].length) : content;
+  const tables = useRef<HTMLDivElement>(null);
+  useTableScrollCue(tables);
   return (
     <ScrollArea
       className="h-full min-w-0"
@@ -211,9 +316,11 @@ export function FileReadView({
           </details>
         ) : null}
         <div ref={readingRef}>
-          <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-base leading-7')}>
-            {normalizeConvertedMarkdown(body)}
-          </ContentMarkdown>
+          <div ref={tables} className={TABLE_SCROLL_CUE_CLASS_NAME}>
+            <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}>
+              {normalizeConvertedMarkdown(body)}
+            </ContentMarkdown>
+          </div>
         </div>
       </article>
     </ScrollArea>

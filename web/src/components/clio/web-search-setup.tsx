@@ -1,24 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeftIcon, GlobeIcon, UnplugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { vocab } from '@/lib/brand-vocabulary';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { DialogFrame } from './primitives/dialog-frame';
+import { IconButton } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 import { remoteUrlFromSpec } from './web-search-configuration';
 
 /** Connect an externally managed Web Search endpoint; deployment lives in ManagedServices. */
@@ -123,127 +119,102 @@ export function WebSearchSetup({
   });
   const error = connect.error ?? check.error ?? disconnect.error;
 
+  const connectLabel = connect.isPending
+    ? 'Checking…'
+    : current.data?.status === 'degraded'
+      ? 'Retry connection'
+      : external
+        ? 'Save and reconnect'
+        : 'Connect';
+
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="top-[10dvh] grid max-h-[80dvh] translate-y-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Connect existing Web Search</DialogTitle>
-          <DialogDescription>
-            Use an endpoint managed outside this {vocab.agent}. Its lifecycle remains external.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
-          <p className="text-sm text-muted-foreground">
-            {vocab.agent} checks health and connects tools, but does not install, stop, or remove
-            this service. {vocab.agent} has built-in search; this connection adds a separately
-            managed research service.
-          </p>
-          {onBack ? (
-            <Button size="sm" variant="ghost" className="w-fit" onClick={onBack}>
-              <ArrowLeftIcon />
-              Choose another service
-            </Button>
-          ) : null}
-          <Field>
-            <FieldLabel htmlFor="existing-web-search-url">Service address</FieldLabel>
-            <Input
-              id="existing-web-search-url"
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://search.example.edu"
-              type="url"
-              value={effectiveUrl}
-            />
-            <FieldDescription>
-              The address must be reachable from the active {vocab.agent}.
-            </FieldDescription>
-          </Field>
-          <details>
-            <summary className="cursor-pointer text-sm font-medium">
-              Advanced connection settings
-            </summary>
-            <Field className="mt-3">
-              <FieldLabel htmlFor="existing-web-search-credential">Credential reference</FieldLabel>
-              <Input
-                id="existing-web-search-credential"
-                onChange={(event) => setCredentialRef(event.target.value)}
-                placeholder="infrastructure:nsf-search"
-                value={effectiveCredentialRef}
-              />
-              <FieldDescription>
-                Optional key into the active {vocab.agent}’s credential source. Secrets are never
-                stored in this service record.
-              </FieldDescription>
-            </Field>
-          </details>
+    <DialogFrame
+      confirm={{
+        label: connectLabel,
+        disabled: !effectiveUrl.trim() || connect.isPending,
+        onConfirm: () => connect.mutate(),
+      }}
+      description={`A search service run outside ${vocab.agent}. ${vocab.agent} checks it and uses its tools.`}
+      footerStart={
+        onBack ? (
+          <Button className="-ml-2" onClick={onBack} size="sm" variant="ghost">
+            <ArrowLeftIcon aria-hidden="true" />
+            Back
+          </Button>
+        ) : undefined
+      }
+      icon={<GlobeIcon />}
+      onOpenChange={onOpenChange}
+      open={open}
+      title="Connect CLIO Web Search"
+      titleActions={
+        <>
           {external ? (
-            <p className="text-xs text-muted-foreground">
-              Health: {external.reachable ? 'reachable' : 'unreachable'}
-              {external.checked_at
-                ? `, checked ${new Date(external.checked_at).toLocaleString()}`
-                : ''}
-            </p>
+            <IconButton
+              disabled={check.isPending}
+              icon={check.isPending ? <Spinner aria-hidden="true" /> : <RefreshIcon />}
+              label="Recheck"
+              onClick={() => check.mutate()}
+            />
           ) : null}
-          {current.data?.status === 'degraded' ? (
-            <Alert variant="destructive">
-              <AlertTitle>Configuration saved, service unavailable</AlertTitle>
-              <AlertDescription>
-                The address remains configured. Start the service or correct the address, then
-                retry.
-                {current.data.error ? (
-                  <p className="mt-2 break-words font-mono text-xs">{current.data.error}</p>
-                ) : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
-        </div>
-        <DialogFooter className="sm:justify-between">
           {external || configuredUrl ? (
-            <Button
+            <IconButton
               disabled={disconnect.isPending}
+              icon={disconnect.isPending ? <Spinner aria-hidden="true" /> : <UnplugIcon />}
+              label="Disconnect"
               onClick={() => disconnect.mutate()}
-              type="button"
-              variant="destructive"
-            >
-              {disconnect.isPending
-                ? 'Disconnecting…'
-                : current.data?.configured
-                  ? 'Disconnect'
-                  : 'Disconnect'}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            {external ? (
-              <Button
-                disabled={check.isPending}
-                onClick={() => check.mutate()}
-                type="button"
-                variant="outline"
-              >
-                {check.isPending ? 'Checking…' : 'Recheck'}
-              </Button>
-            ) : null}
-            <Button
-              disabled={!effectiveUrl.trim() || connect.isPending}
-              onClick={() => connect.mutate()}
-              type="button"
-            >
-              {connect.isPending
-                ? 'Checking…'
-                : current.data?.status === 'degraded'
-                  ? 'Retry connection'
-                  : external
-                    ? 'Save and reconnect'
-                    : 'Connect'}
-            </Button>
+            />
+          ) : null}
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Field className="gap-1.5">
+          <FieldLabel className="text-xs" htmlFor="existing-web-search-url">
+            Service address
+          </FieldLabel>
+          <Input
+            className="h-[30px] font-mono text-[12.5px] md:text-[12.5px]"
+            data-initial-focus=""
+            id="existing-web-search-url"
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="https://search.example.edu"
+            type="url"
+            value={effectiveUrl}
+          />
+        </Field>
+        <Field className="gap-1.5">
+          <FieldLabel className="text-xs" htmlFor="existing-web-search-credential">
+            Credential reference
+          </FieldLabel>
+          <Input
+            className="h-[30px] text-[12.5px] md:text-[12.5px]"
+            id="existing-web-search-credential"
+            onChange={(event) => setCredentialRef(event.target.value)}
+            placeholder="Optional, e.g. infrastructure:nsf-search"
+            title={`A key in ${vocab.agent}’s credential source; the secret is never stored here.`}
+            value={effectiveCredentialRef}
+          />
+        </Field>
+        {external ? (
+          <p className="text-xs text-muted-foreground">
+            {external.reachable ? 'Reachable' : 'Not reachable'}
+            {external.checked_at
+              ? `, checked ${new Date(external.checked_at).toLocaleString()}`
+              : ''}
+          </p>
+        ) : null}
+        {current.data?.status === 'degraded' ? (
+          <div title={current.data.error ?? undefined}>
+            <StateView
+              kind="error"
+              size="row"
+              title="Saved, but the service isn’t answering. Start it or fix the address."
+            />
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        ) : null}
+        {error ? <p className="text-xs text-destructive">{error.message}</p> : null}
+      </div>
+    </DialogFrame>
   );
 }

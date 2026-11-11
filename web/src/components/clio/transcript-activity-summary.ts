@@ -1,9 +1,14 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { PendingInteraction, ToolInvocation } from '@clio/core/v3';
+import { toolWaitsForYou } from './agent-answer-domain';
 import type { ConversationIteration } from './conversation-turn-model';
-import { getToolStatus } from './tool-presentation';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
+import { getToolStatus, isToolStopped } from './tool-presentation';
 
 /** Keep entry disclosures about actions; numeric outcomes belong in the message footer. */
-export function transcriptActivitySummary(iterations: readonly ConversationIteration[]): {
+export function transcriptActivitySummary(
+  iterations: readonly ConversationIteration[],
+  interactions?: readonly PendingInteraction[],
+): {
   label: string;
   running: boolean;
   /** Failed calls in the group, marked on the collapsed row by an icon (the label stays verbs). */
@@ -30,6 +35,9 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   );
   if (thinking && !activeOperation) return { label: 'Thinking', running: true, failed: 0 };
   const toolLabel = (tool: ToolInvocation) => {
+    // A call paused on an approval or question waits for the person, even an async
+    // ask_user that already returned its task handle.
+    if (toolWaitsForYou(tool, interactions)) return 'waiting for you';
     const active = ['pending', 'running'].includes(tool.state);
     if (tool.name === 'ask_user')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';
@@ -61,9 +69,7 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   ];
   const description = actions.join(', ') || 'activity';
   const label = description[0].toUpperCase() + description.slice(1);
-  const interruptionOnTool = iterations.some((item) =>
-    item.tools.some((tool) => getToolStatus(tool) === 'interrupted'),
-  );
+  const interruptionOnTool = iterations.some((item) => item.tools.some(isToolStopped));
   return {
     label:
       !interruptionOnTool && iterations.some((item) => item.interrupted)
@@ -74,6 +80,80 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
       .flatMap((item) => item.tools)
       .filter((tool) => getToolStatus(tool) === 'failed').length,
   };
+}
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/**
+ * A finished run of calls, counted for its collapsed row: "Called 3 tools,
+ * edited 2 files, delegated 1 task". Edits count distinct files; delegates
+ * count the agents they started.
+ */
+export function transcriptRunSummary(
+  iterations: readonly ConversationIteration[],
+  subagentIdsOf: (tool: ToolInvocation) => readonly string[] = () => [],
+): { label: string; failed: number; interrupted: number; denied: number } {
+  const files = new Set<string>();
+  const startedBy = new Set<string>();
+  let edits = 0;
+  let tools = 0;
+  let delegated = 0;
+  let questions = 0;
+  let tasks = 0;
+  let updates = 0;
+  const activity = iterations.flatMap((item) => item.activity);
+  for (const entry of activity) {
+    if (entry.kind === 'tool') {
+      const tool = entry.tool;
+      if (TOOL_OPERATIONS[tool.name]?.family === 'assignment') {
+        const ids = subagentIdsOf(tool);
+        ids.forEach((id) => startedBy.add(id));
+        delegated += Math.max(1, ids.length);
+      } else if (tool.name === 'ask_user') {
+        questions += 1;
+      } else if (activityCategory(tool) === 'edit' && tool.state === 'succeeded') {
+        const path = editedPath(tool.input);
+        if (path) files.add(path);
+        else edits += 1;
+      } else {
+        tools += 1;
+      }
+    }
+  }
+  for (const entry of activity) {
+    if (entry.kind === 'subagent') {
+      if (entry.block.stage !== 'delegate.started') updates += 1;
+      else if (!startedBy.has(entry.block.subagent_id)) delegated += 1;
+    } else if (entry.kind === 'task') {
+      tasks += 1;
+    } else if (entry.kind !== 'tool' && entry.kind !== 'diff') {
+      updates += 1;
+    }
+  }
+  const edited = files.size + edits;
+  const parts = [
+    tools ? `called ${plural(tools, 'tool', 'tools')}` : '',
+    edited ? `edited ${plural(edited, 'file', 'files')}` : '',
+    delegated ? `delegated ${plural(delegated, 'task', 'tasks')}` : '',
+    tasks ? `ran ${plural(tasks, 'task', 'tasks')}` : '',
+    questions ? `asked ${plural(questions, 'question', 'questions')}` : '',
+  ].filter(Boolean);
+  if (!parts.length) parts.push(`received ${plural(updates, 'update', 'updates')}`);
+  const description = parts.join(', ');
+  const all = iterations.flatMap((item) => item.tools);
+  return {
+    label: description[0]!.toUpperCase() + description.slice(1),
+    failed: all.filter((tool) => getToolStatus(tool) === 'failed').length,
+    interrupted: all.filter(isToolStopped).length,
+    denied: all.filter((tool) => getToolStatus(tool) === 'denied').length,
+  };
+}
+
+function editedPath(input: unknown): string | undefined {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const record = input as Record<string, unknown>;
+  const path = record.path ?? record.file_path;
+  return typeof path === 'string' && path ? path : undefined;
 }
 
 function injectionLabel(source: string): string {

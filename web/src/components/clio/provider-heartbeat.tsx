@@ -1,5 +1,5 @@
-import { ActivityIcon } from 'lucide-react';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { memo } from 'react';
+import { LazyHoverCard } from './primitives/lazy-hover-card';
 import { cn } from '@/lib/utils';
 import {
   formatFreshness,
@@ -9,23 +9,34 @@ import {
 } from './model-picker-model';
 
 /**
- * The provider heartbeat: health colour on EVERY provider row -- the model
+ * The provider heartbeat: a health dot on EVERY provider row -- the model
  * picker's column, Settings > Providers' list and its panel header -- with
  * its detail in the HoverCard. A running action (`stage`) shows as
  * `checking` (yellow) with its stage as the label until it settles back to
  * the row's real health. One component, so both surfaces read the same.
  */
-export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stage?: string }) {
+// Memoised: picker rows re-render on every keystroke for their counts, while a
+// provider's group and stage rarely change; its hover card subtree is skipped.
+export const ProviderHeartbeat = memo(function ProviderHeartbeat({
+  group,
+  stage,
+}: {
+  group: ProviderGroup;
+  stage?: string;
+}) {
   const presentation = stage
     ? { ...providerHealthPresentation('checking'), label: stage }
     : providerGroupStatus(group);
   return (
-    <HoverCard openDelay={180}>
-      <HoverCardTrigger asChild>
+    <LazyHoverCard
+      align="start"
+      className="flex w-72 flex-col gap-1 text-xs"
+      openDelay={180}
+      trigger={
         <span
           aria-label={`${group.name} status: ${presentation.label}`}
           className={cn(
-            'pointer-events-auto inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-md',
+            'pointer-events-auto inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full',
             presentation.color,
           )}
           data-slot="provider-heartbeat"
@@ -34,16 +45,15 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
           role="img"
           title={`${group.name} status: ${presentation.label}`}
         >
-          <ActivityIcon aria-hidden="true" className="size-4" />
+          <span aria-hidden="true" className="size-[7px] rounded-full bg-current" />
         </span>
-      </HoverCardTrigger>
-      <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">Provider status</p>
-        <p>Health: {presentation.label}</p>
-        <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
-        {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
-        {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-      </HoverCardContent>
-    </HoverCard>
+      }
+    >
+      <p className="font-medium">Provider status</p>
+      <p>Health: {presentation.label}</p>
+      <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
+      {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
+      {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
+    </LazyHoverCard>
   );
-}
+});

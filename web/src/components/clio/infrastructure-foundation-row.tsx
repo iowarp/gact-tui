@@ -2,17 +2,23 @@ import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import {
   BrainIcon,
   BrushCleaningIcon,
+  CircleArrowUpIcon,
   CircleDotIcon,
   CpuIcon,
   DatabaseIcon,
-  FileTextIcon,
+  FileCogIcon,
   FolderIcon,
   FolderLockIcon,
   GitForkIcon,
+  GlobeIcon,
   HardDriveIcon,
   ListTreeIcon,
   MemoryStickIcon,
+  MessageSquareTextIcon,
+  PackageIcon,
   PlugIcon,
+  ScrollTextIcon,
+  SearchIcon,
   ServerIcon,
   ShieldCheckIcon,
   WaypointsIcon,
@@ -21,12 +27,13 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
-import { InfraRow } from '@/components/clio/infrastructure-row';
+import { INFRA_FACTS_GRID, InfraRow } from '@/components/clio/infrastructure-row';
 import { InfraRowChevron, InfraRowToggle } from '@/components/clio/infrastructure-row-toggle';
 import { TechnicalDetails } from '@/components/clio/technical-details';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import {
+  foundationMeaning,
   foundationSummary,
   foundationTitle,
   integrationStatus,
@@ -46,6 +53,14 @@ const FOUNDATION_ICONS: Record<string, LucideIcon> = {
   clio_core_liveness: PlugIcon,
   clio_core_daemon_memory: CircleDotIcon,
   cte_cold_tier_disk: HardDriveIcon,
+  cte_store_location: FolderIcon,
+  cte_metadata_log: ScrollTextIcon,
+  arc_store_format: FileCogIcon,
+  store_migrations: CircleArrowUpIcon,
+  compaction_prompt: MessageSquareTextIcon,
+  browser: GlobeIcon,
+  ripgrep: SearchIcon,
+  managed_packages: PackageIcon,
   sandbox_conformance: ShieldCheckIcon,
   child_reaper: BrushCleaningIcon,
   child_processes: ListTreeIcon,
@@ -66,14 +81,18 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   const status = integrationStatus(integration.status);
   const action = foundationAction(integration);
   const Icon = FOUNDATION_ICONS[integration.name] ?? ServerIcon;
-  const nextStep = integration.next_action || action?.description;
+  // A ready row reads only its name and "Ready"; what it means moves into its opened details.
+  const nextStep =
+    integration.next_action ||
+    action?.description ||
+    (status === 'healthy' ? foundationMeaning(integration) || integration.summary : undefined);
   const facts: KeyValueItem[] = [
     {
-      label: 'Required',
+      label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
-      value: integration.required === false ? 'Optional' : 'Required for use',
+      value: integration.required === false ? 'No' : 'Yes',
+      mono: true,
     },
-    ...(nextStep ? [{ label: 'Next step', icon: <FileTextIcon />, value: nextStep }] : []),
     ...(integration.endpoint
       ? [{ label: 'Endpoint', icon: <PlugIcon />, value: integration.endpoint, mono: true }]
       : []),
@@ -88,6 +107,19 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
         ]
       : []),
   ];
+  // The raw health record stands in when the server gave no summary, so the
+  // row always offers its technical details beside the fix.
+  const technical =
+    [...new Set([integration.summary, integration.detail].filter(Boolean))].join('\n') ||
+    JSON.stringify(integration, null, 2);
+  const actionLink = action ? (
+    <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">
+      <Link to={action.to}>
+        <AdjustIcon aria-hidden="true" />
+        {action.label}
+      </Link>
+    </Button>
+  ) : null;
   return (
     <InfraRow
       className="cursor-pointer"
@@ -95,23 +127,27 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
       details={
         expanded ? (
           <>
-            <KeyValueGrid items={facts} />
-            {action ? (
-              <div className="flex min-w-0 items-center gap-1">
-                <Button asChild size="sm" variant="outline">
-                  <Link to={action.to}>
-                    <AdjustIcon aria-hidden="true" />
-                    {action.label}
-                  </Link>
-                </Button>
-              </div>
+            {nextStep ? (
+              <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
-            {integration.summary || integration.detail ? (
-              <TechnicalDetails className="text-[12px]" title="Technical details">
+            <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
+            {technical ? (
+              <TechnicalDetails
+                beside={actionLink}
+                className="text-[12px]"
+                summaryClassName={buttonVariants({
+                  className: 'px-[9px] text-[11.5px] text-foreground',
+                  size: 'xs',
+                  variant: 'ghost',
+                })}
+                title="Technical details"
+              >
                 <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
-                  {[integration.summary, integration.detail].filter(Boolean).join('\n')}
+                  {technical}
                 </pre>
               </TechnicalDetails>
+            ) : actionLink ? (
+              <div className="flex min-w-0 items-center gap-1">{actionLink}</div>
             ) : null}
           </>
         ) : undefined

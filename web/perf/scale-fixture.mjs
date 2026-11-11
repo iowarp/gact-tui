@@ -46,6 +46,8 @@ const defaults = {
   largeFileBytes: 0,
   /** Server-side cap of an unscoped file walk, as the service applies. */
   fileWalkCap: 5000,
+  /** One file per viewer format, matching the workbench design specs (screens). */
+  specFiles: false,
 };
 let scenario = { ...defaults };
 let log = [];
@@ -225,7 +227,13 @@ function hugeMessage(index, sessionId = HUGE_SESSION) {
       role,
       created_at: iso(index * 20),
       completed_at: iso(index * 20 + 15),
-      ...(role === 'assistant' ? { stop_reason: 'end_turn' } : {}),
+      ...(role === 'assistant'
+        ? {
+            stop_reason: 'end_turn',
+            model: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+            usage: { input: 18_400 + index * 40, output: 212, cache_read: 0, cache_write: 0 },
+          }
+        : {}),
       blocks: [
         ...tools.map((tool, slot) => ({
           id: `part_${pad(index, 6)}_${slot}`,
@@ -327,8 +335,18 @@ function largeTree() {
       }
     }
   }
+  if (scenario.specFiles) {
+    for (const directory of ['ndp', 'scripts', 'reports', 'figures', 'diagrams'])
+      entries.push({ path: directory, type: 'dir' });
+    for (const path of Object.keys(SPEC_FILES))
+      entries.push({ path, type: 'file', size: specFile(path).bytes.length });
+    // Listed only: too large to preview, so the viewer never reads it.
+    entries.push({ path: 'ndp/era5_hourly.nc', type: 'file', size: 2_254_857_830 });
+    entries.push({ path: 'figures/swath_mosaic.png', type: 'file', size: 2_254_857_830 });
+  }
   if (scenario.largeFileBytes > 0) {
-    if (!entries.length) entries.push({ path: 'perf', type: 'dir' });
+    if (!entries.some((entry) => entry.path === 'perf'))
+      entries.push({ path: 'perf', type: 'dir' });
     entries.push({ path: 'perf/large-table.csv', type: 'file', size: scenario.largeFileBytes });
     entries.push({ path: 'perf/large-log.txt', type: 'file', size: scenario.largeFileBytes });
   }
@@ -377,8 +395,123 @@ function byteRange(header, length) {
   return end < start ? undefined : { start, end };
 }
 
+const SPEC_SITES = ['SCAN', 'USCRN', 'SMAP', 'COSMOS'];
+const SPEC_FILES = {
+  'ndp/soil_sites.csv': () => {
+    const lines = ['site_id,lat,lon,network,depth_cm,vwc,quality'];
+    for (let row = 0; row < 412; row += 1) {
+      lines.push(
+        `${2015 + row},${(41.82 - (row % 37) * 0.31).toFixed(2)},${(-87.62 - (row % 23) * 0.47).toFixed(2)},` +
+          `${SPEC_SITES[row % 4]},${[5, 10, 20, 50][row % 4]},${(0.12 + ((row * 37) % 31) / 100).toFixed(3)},${row % 7 === 0 ? 'flagged' : 'good'}`,
+      );
+    }
+    return { type: 'text/csv', body: lines.join('\n') };
+  },
+  'plan.md': () => ({
+    type: 'text/markdown',
+    body: [
+      '### Soil moisture comparison',
+      '',
+      '1. Pull SMAP L3 since 2020 into `soil_moisture.h5`',
+      '2. Match SCAN and USCRN stations from `soil_sites.csv`',
+      '3. Regrid to 0.25? with `align_grids.sh`',
+      '4. Compare against the baseline years',
+    ].join('\n'),
+  }),
+  'scripts/soil_qc.py': () => ({
+    type: 'text/x-python',
+    body: [
+      'import pandas as pd',
+      'import h5py',
+      '',
+      'def load_sites(path):',
+      '    sites = pd.read_csv(path)',
+      '    return sites[sites.network.isin(["SCAN", "USCRN"])]',
+      '',
+      'def flag(series, lo=0.0, hi=0.6):',
+      '    # volumetric water content, m³/m³',
+      '    return (series < lo) | (series > hi)',
+      '',
+      'def main(path):',
+      '    sites = load_sites(path)',
+      '    sites["quality"] = flag(sites["vwc"]).map({True: "flagged", False: "good"})',
+      '    sites.to_csv(path, index=False)',
+      '',
+      'if __name__ == "__main__":',
+      '    main("ndp/soil_sites.csv")',
+    ].join('\n'),
+  }),
+  'reports/opal_report.pdf': () => ({ type: 'application/pdf', body: specPdf(12) }),
+  'figures/baseline_plot.png': () => ({ type: 'image/png', body: displacementPng(1200, 600) }),
+  'diagrams/pipeline.mmd': () => ({
+    type: 'text/vnd.mermaid',
+    body: [
+      'flowchart LR',
+      '  catalog[NDP catalog] --> fetch[Fetch probe series]',
+      '  fetch --> qc[soil_qc.py]',
+      '  smap[SMAP L3] --> regrid[Regrid 0.25 deg]',
+      '  qc --> align[Align sites and grid]',
+      '  regrid --> align',
+      '  align --> report[Bias and ubRMSE report]',
+    ].join('\n'),
+  }),
+  'ndp/soil_moisture.h5': () => ({
+    type: 'application/x-hdf5',
+    body: Buffer.concat([
+      Buffer.from([0x89, 0x48, 0x44, 0x46, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(4088),
+    ]),
+  }),
+  'ndp/forecast.grib2': () => ({
+    type: 'application/octet-stream',
+    body: Buffer.concat([Buffer.from('GRIB'), Buffer.alloc(2044)]),
+  }),
+};
+
+function specFile(path) {
+  const make = scenario.specFiles ? SPEC_FILES[path] : undefined;
+  if (!make) return undefined;
+  const file = make();
+  file.bytes = Buffer.isBuffer(file.body) ? file.body : Buffer.from(file.body);
+  return file;
+}
+
+/** A small text PDF with `pages` pages, enough for a page counter and fitting. */
+function specPdf(pages) {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  const kids = [];
+  for (let page = 0; page < pages; page += 1) {
+    const text =
+      `BT /F1 20 Tf 72 720 Td (OPAL field report) Tj /F1 11 Tf 0 -28 Td (Page ${page + 1} of ${pages}) Tj ` +
+      '0 -22 Td (Soil moisture retrievals compared with in-situ probes.) Tj ET';
+    objects.push(`<< /Length ${text.length} >>\nstream\n${text}\nendstream`);
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${objects.length} 0 R >>`,
+    );
+    kids.push(`${objects.length} 0 R`);
+  }
+  objects[1] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages} >>`;
+  let body = '%PDF-1.4\n';
+  const offsets = [];
+  objects.forEach((object, index) => {
+    offsets.push(body.length);
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) body += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(body, 'latin1');
+}
+
 /** Deterministic bytes for the base fixture's listed files (it serves none). */
 function seededFile(path) {
+  const spec = specFile(path);
+  if (spec) return spec;
   if (path === 'results/stations.csv') {
     const lines = ['station,latitude,longitude,coverage_pct,uplift_mm_yr,status'];
     for (let row = 0; row < 36; row += 1) {
@@ -625,11 +758,12 @@ async function handleFiles(url, response, workspaceId) {
           { path: SEEDED_SOURCE_PATH, type: 'file', size: Buffer.byteLength(SEEDED_SOURCE) },
         ]
       : [];
+  const seen = new Set();
   const all = [
     ...(workspaceId === BASE_WORKSPACE ? (base.entries ?? []) : []),
     ...seeded,
     ...largeTree(),
-  ];
+  ].filter((entry) => !seen.has(entry.path) && seen.add(entry.path));
   const directory = url.searchParams.get('directory');
   if (directory === null) {
     return sendJson(response, {
@@ -694,13 +828,17 @@ const server = createServer(async (request, response) => {
     const workspaceMatch = syntheticWorkspace.exec(url.pathname);
     const get = request.method === 'GET';
     if (get && url.pathname === '/v1/capabilities') {
-      // The base fixture leaves context references off; the perf journeys
-      // exercise the @-mention popover, so advertise them here.
+      // The base fixture leaves context references and uploads off; the perf
+      // journeys exercise the @-mention popover and the + menu, so advertise them.
       const base = await upstreamJson('/v1/capabilities');
       entry.status = 200;
       entry.bytes = sendJson(response, {
         ...base,
-        capabilities: { ...base.capabilities, x_clio_context_references: { enabled: true } },
+        capabilities: {
+          ...base.capabilities,
+          x_clio_context_references: { enabled: true },
+          x_clio_resources: { enabled: true, custody: 'workspace' },
+        },
       });
     } else if (get && /^\/v1\/workspaces\/[^/]+\/references$/u.test(url.pathname)) {
       const query = (url.searchParams.get('q') ?? '').toLowerCase();

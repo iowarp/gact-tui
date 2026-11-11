@@ -112,8 +112,9 @@ function show(ui: React.ReactNode) {
 }
 afterEach(cleanup);
 
+// Without CSS the narrow (<600px) copies of the filter and search render too; use the bar's.
 async function chooseFilter(trigger: string, option: RegExp) {
-  await userEvent.click(screen.getByRole('button', { name: trigger }));
+  await userEvent.click(screen.getAllByRole('button', { name: trigger })[0]!);
   await userEvent.click(screen.getByRole('menuitem', { name: option }));
 }
 
@@ -140,7 +141,10 @@ it('filters failure history and offers a way back without losing the operation l
   await userEvent.click(within(dialog).getByRole('tab', { name: 'Log' }));
   expect(within(dialog).getByText('Install could not continue.')).toBeVisible();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
-  await userEvent.type(screen.getByRole('searchbox', { name: 'Search activity' }), 'missing');
+  await userEvent.type(
+    screen.getAllByRole('searchbox', { name: 'Search actions, computers or results' })[0]!,
+    'missing',
+  );
   expect(screen.getByText('No matching activity.')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(screen.getByText('Stop SearXNG')).toBeVisible();
@@ -174,7 +178,10 @@ it('shows byte progress before opening an active download and searches the visib
   expect(progress).toHaveAttribute('aria-valuenow', '50');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await chooseFilter('Activity filter: In progress', /^All/);
-  await userEvent.type(screen.getByRole('searchbox', { name: 'Search activity' }), 'completed');
+  await userEvent.type(
+    screen.getAllByRole('searchbox', { name: 'Search actions, computers or results' })[0]!,
+    'completed',
+  );
   expect(screen.getByText('Stop SearXNG')).toBeVisible();
   expect(screen.queryByText('Install SearXNG')).not.toBeInTheDocument();
 });
@@ -235,10 +242,13 @@ it('opens Add computer in one click and selects the inspected host before readin
   );
 });
 
-it('explains the Desktop connection requirement without showing an unusable add button', () => {
+it('explains the Desktop connection requirement without showing an unusable add button', async () => {
   show(<InfrastructureHosts data={data} onSelect={vi.fn()} />);
   expect(screen.queryByRole('button', { name: 'Add computer' })).not.toBeInTheDocument();
-  expect(screen.getByText('Add SSH computers in Desktop')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'About computers' }));
+  expect(
+    (await screen.findAllByText(/Add SSH computers in the Desktop app\./)).length,
+  ).toBeGreaterThan(0);
 });
 
 it('keeps an empty session honest while giving a direct route to the catalog', async () => {

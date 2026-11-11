@@ -23,8 +23,17 @@ export function AgentTabHeader({
   reset,
   actions,
   className,
+  titleShown = true,
+  legend = true,
 }: {
   title: string;
+  /** Off when the host (a detail pane) already names the agent. */
+  titleShown?: boolean;
+  /**
+   * The "Changed settings are teal" note. A detail pane shows it only once
+   * something changed, so an untouched preview's actions start the line.
+   */
+  legend?: boolean;
   /** Shown only when something differs from the setup. */
   reset?: { label: string; description: string; disabled: boolean; onReset: () => void };
   /** Further header actions, after the reset. */
@@ -38,13 +47,20 @@ export function AgentTabHeader({
         className,
       )}
     >
-      <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <h2 className="min-w-0 truncate font-medium text-foreground" title={title}>
-        {title}
-      </h2>
-      <span className="ml-auto min-w-0 truncate text-[11px] text-faint">
-        Changed settings are teal
-      </span>
+      {titleShown ? (
+        <>
+          <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <h2 className="min-w-0 truncate font-medium text-foreground" title={title}>
+            {title}
+          </h2>
+        </>
+      ) : null}
+      {/* Notes fold first: in a narrow tab the title and actions keep the line. */}
+      {legend ? (
+        <span className="ml-auto min-w-0 truncate text-[11px] text-faint @max-[24rem]/agent-tab:hidden">
+          Changed settings are teal
+        </span>
+      ) : null}
       {reset ? (
         <Button
           aria-description={reset.description}

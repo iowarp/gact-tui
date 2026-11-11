@@ -3,8 +3,9 @@ import { providerComponentsSchema, type SessionDefaults } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const initialDefaults = {
   provider_id: '',
@@ -70,9 +71,12 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { SessionDefaultsSettings } from './settings-session-defaults';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 afterEach(() => {
   cleanup();
+  // The shared polite announcer lives on document.body, outside what cleanup unmounts.
+  document.querySelector('[data-slot="polite-announcer"]')?.remove();
   window.localStorage.clear();
   vi.clearAllMocks();
   vi.restoreAllMocks();
@@ -124,20 +128,25 @@ function renderSettings(
   return render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <SessionDefaultsSettings />
+        <TooltipProvider>
+          <SessionDefaultsSettings />
+        </TooltipProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
+
+// The picker's catalog loads on first open; warm it once so each open renders it at once.
+beforeAll(() => modelPickerCatalog.load());
 
 describe('new session defaults settings', () => {
   it('edits service-owned defaults with product language', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    expect(await screen.findByRole('heading', { name: 'New session defaults' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Session defaults' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Change default model' })).toHaveTextContent(
-      'OpenAI Codex / Luna',
+      /OpenAI Codex\s*\/\s*luna 5\.6/u,
     );
     expect(screen.queryByText('Models default')).not.toBeInTheDocument();
     expect(
@@ -146,10 +155,8 @@ describe('new session defaults settings', () => {
     expect(screen.queryByText('Default confirmation policy')).not.toBeInTheDocument();
     expect(screen.queryByText('Agent and work mode')).not.toBeInTheDocument();
     expect(screen.queryByText('Model and reasoning')).not.toBeInTheDocument();
-    expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
-      'Medium',
-    );
-    expect(screen.queryByRole('radio', { name: 'Medium' })).not.toBeInTheDocument();
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getByRole('radio', { name: 'Medium' })).toBeChecked();
     expect(screen.queryByText('sidecar')).not.toBeInTheDocument();
     expect(screen.getByText('Saved to Research agent.')).toBeVisible();
     expect(screen.queryByText(/127\.0\.0\.1/)).not.toBeInTheDocument();
@@ -161,7 +168,6 @@ describe('new session defaults settings', () => {
     await user.click(screen.getByRole('option', { name: /Deep research/u }));
     await user.click(screen.getByRole('combobox', { name: 'Confirmations' }));
     await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith({
@@ -173,21 +179,20 @@ describe('new session defaults settings', () => {
     );
   });
 
-  it('uses the shared searchable model picker and stages a specific model without rebinding Models', async () => {
+  it('uses the shared searchable model picker and applies a specific model without rebinding Models', async () => {
     const user = userEvent.setup();
     renderSettings();
 
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose a model for new sessions' });
-    expect(within(picker).getByRole('button', { name: 'Hidden (0)' })).toBeVisible();
+    expect(within(picker).getByRole('button', { name: 'Hidden 0' })).toBeVisible();
     await user.type(within(picker).getByPlaceholderText('Search providers and models'), 'luna');
     await user.click(within(picker).getByText('gpt-5.6-luna', { exact: true }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Use model from Models settings' })).toBeVisible();
-    expect(repository.updateSessionDefaults).not.toHaveBeenCalled();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith({
         ...initialDefaults,
@@ -206,7 +211,7 @@ describe('new session defaults settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose a model for new sessions' });
     expect(within(picker).queryByText('OpenAI Codex')).not.toBeInTheDocument();
-    await user.click(within(picker).getByRole('button', { name: 'Hidden (1)' }));
+    await user.click(within(picker).getByRole('button', { name: 'Hidden 1' }));
     expect(await within(picker).findByText('OpenAI Codex')).toBeVisible();
   });
 
@@ -218,7 +223,6 @@ describe('new session defaults settings', () => {
       screen.queryByRole('button', { name: 'Use model from Models settings' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Models default')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(initialDefaults),
     );
@@ -248,8 +252,12 @@ describe('new session defaults settings', () => {
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'gpt-5.6-sol');
     await user.click(await screen.findByText('gpt-5.6-sol', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Low');
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+    const effort = screen.getByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getAllByRole('radio').map((level) => level.textContent)).toEqual([
+      'Default',
+      'Low',
+    ]);
+    expect(within(effort).getByRole('radio', { name: 'Default' })).toBeChecked();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-sol', effort: null }),
@@ -264,8 +272,7 @@ describe('new session defaults settings', () => {
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'luna');
     await user.click(await screen.findByText('gpt-5.6-luna', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Default');
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+    expect(screen.getByRole('radio', { name: 'Default' })).toBeChecked();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-luna', effort: null }),
@@ -273,10 +280,31 @@ describe('new session defaults settings', () => {
     );
   });
 
+  it('reports a failed write in plain language and retries the latest choice', async () => {
+    repository.updateSessionDefaults.mockRejectedValueOnce(new Error('Request failed with 500'));
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(await screen.findByRole('combobox', { name: 'Confirmations' }));
+    await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Your change could not be saved.');
+    expect(screen.queryByText(/500/u)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(repository.updateSessionDefaults).toHaveBeenCalledTimes(2));
+    expect(repository.updateSessionDefaults).toHaveBeenLastCalledWith({
+      ...initialDefaults,
+      approval_mode: 'spotter-ai',
+    });
+    expect(await screen.findByText('Saved to Research agent.')).toBeVisible();
+  });
+
   it('reports a defaults read failure instead of leaving the page loading', async () => {
     repository.sessionDefaults.mockRejectedValueOnce(new Error('Defaults unavailable'));
     renderSettings();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Defaults unavailable');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Session defaults could not be loaded.');
+    expect(alert).not.toHaveTextContent('Defaults unavailable');
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(
       screen.queryByText('Loading defaults from the connected service…'),
     ).not.toBeInTheDocument();
@@ -285,27 +313,29 @@ describe('new session defaults settings', () => {
 
 describe('new session default reasoning comes from the model', () => {
   it('lists exactly the levels the model new sessions start on reports', async () => {
-    const user = userEvent.setup();
     renderSettings();
 
-    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Default (Medium)',
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getAllByRole('radio').map((level) => level.textContent)).toEqual([
+      'Default',
       'Minimal',
       'Low',
       'Medium',
       'High',
       'Extra high',
     ]);
+    expect(within(effort).getByRole('radio', { name: 'Default' })).toHaveAttribute(
+      'title',
+      "The model's own default (Medium)",
+    );
   });
 
   it('saves "Model default" as a reset, not a fixed level', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    await user.click(screen.getByRole('option', { name: 'Default (Medium)' }));
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    await user.click(within(effort).getByRole('radio', { name: 'Default' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(

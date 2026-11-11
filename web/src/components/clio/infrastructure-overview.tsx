@@ -20,9 +20,11 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
+import { agentIdentity } from './connection-names';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { InfrastructureTopology } from './infrastructure-topology';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import type { StatusTone } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
@@ -30,9 +32,9 @@ import type { ClioStatusValue } from './status';
 import { remoteUrlFromSpec } from './web-search-configuration';
 
 const MORE = [
-  { to: '/infrastructure/agent', label: 'Manage computers', icon: ServerIcon },
-  { to: '/infrastructure/models', label: 'Models & storage', icon: HardDriveIcon },
-  { to: '/infrastructure/activity', label: 'View activity', icon: HistoryIcon },
+  { to: '/infrastructure/agent', label: 'Manage computers', short: 'Computers', icon: ServerIcon },
+  { to: '/infrastructure/models', label: 'Models & storage', short: 'Models', icon: HardDriveIcon },
+  { to: '/infrastructure/activity', label: 'View activity', short: 'Activity', icon: HistoryIcon },
 ] as const;
 
 /** Where the agent, inference and web research stand, then the map of what connects to what. */
@@ -76,7 +78,7 @@ export function InfrastructureOverview({
   });
   const research = webResearchRow(data, webSearch, webSearchConnected);
   const inference = inferenceRow(servers.data, Boolean(servers.error));
-  const agent = agentDetail(settings.label, settings.endpoint);
+  const agent = agentDetail(settings.label, settings.endpoint, settings.location);
   return (
     <div className="@container/overview flex min-w-0 flex-1 flex-col pt-1">
       <InfraTabActions>
@@ -151,26 +153,33 @@ export function InfrastructureOverview({
       ) : null}
       <nav
         aria-label="More infrastructure"
-        className="flex min-w-0 items-center gap-1 overflow-hidden px-0.5 pt-2 pb-1"
+        className="flex min-w-0 items-center gap-1.5 overflow-hidden px-0.5 pt-2 pb-1"
       >
-        {MORE.map(({ to, label, icon: Icon }) => (
+        {MORE.map(({ to, label, short, icon: Icon }) => (
           <Button
             asChild
-            className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground"
+            className="min-w-0 shrink gap-1.5 text-foreground [&_svg]:size-3.5"
             key={to}
-            size="xs"
+            size="compact"
             variant="ghost"
           >
-            <Link title={label} to={to}>
+            {/* A phone-width overview names each link by its place, so none is clipped. */}
+            <Link aria-label={label} title={label} to={to}>
               <Icon aria-hidden="true" />
-              <span className="truncate">{label}</span>
+              <span className="truncate @max-[440px]/overview:hidden">{label}</span>
+              <span className="hidden truncate @max-[440px]/overview:inline">{short}</span>
             </Link>
           </Button>
         ))}
       </nav>
       <InfrastructureTopology
         agentLabel={agent}
-        className="mt-1 hidden flex-1 border-t border-border @[520px]/overview:block"
+        agentRoute={
+          settings.infrastructure?.targetId && settings.infrastructure.targetId !== 'local'
+            ? 'SSH'
+            : 'Direct'
+        }
+        className="mt-1.5 hidden flex-col border-t border-border @[520px]/overview:flex"
         client={inTauri() ? 'Desktop app' : 'Browser'}
         data={data}
         reconnecting={reconnecting}
@@ -259,7 +268,7 @@ function webResearchRow(
     const url = remoteUrlFromSpec(webSearch?.spec);
     return {
       description: 'Source reading and research tools are connected.',
-      meta: url ? urlHost(url) : undefined,
+      meta: url ? hostName(url, data) : undefined,
       action: 'Manage web research',
       status: 'Connected',
       state: 'healthy',
@@ -280,7 +289,10 @@ function webResearchRow(
     const name = infrastructureServiceName(builtIn.service_id);
     return {
       description: `Built-in search engine: ${name}`,
-      meta: data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
+      meta:
+        builtIn.target_id === 'local'
+          ? AGENT_COMPUTER
+          : data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
       reason: status.reason,
       action:
         status.action === 'install'
@@ -301,16 +313,23 @@ function webResearchRow(
   };
 }
 
-function urlHost(url: string): string | undefined {
+/** The computer a service URL points at, by its saved name when there is one, never the URL. */
+function hostName(url: string, data: InfrastructureInventory): string | undefined {
+  let host: string;
   try {
-    return new URL(url).host || undefined;
+    host = new URL(url).hostname;
   } catch {
     return undefined;
   }
+  if (!host) return undefined;
+  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) return 'This computer';
+  return data.targets.find((target) => target.ssh?.host === host)?.label || host;
 }
 
-/** The agent row names the connection, or its address when the name is just "Agent". */
-function agentDetail(label: string | undefined, endpoint: string): string {
-  const name = label?.trim();
-  return name && name.toLowerCase() !== vocab.agent.toLowerCase() ? name : endpoint;
+/** The agent row names the computer it runs on: its given name, or its host, never a URL. */
+function agentDetail(label: string | undefined, endpoint: string, location?: string): string {
+  const identity = agentIdentity(endpoint, label, location);
+  return identity.kind === 'local' && identity.name === `${vocab.agent} local`
+    ? 'This computer'
+    : identity.name;
 }

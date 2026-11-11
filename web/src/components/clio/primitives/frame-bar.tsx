@@ -1,7 +1,9 @@
 import {
+  createContext,
   forwardRef,
   Fragment,
   memo,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -10,7 +12,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { ChevronRightIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronRightIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,38 +21,103 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { FrameBackContext } from './frame-back';
+import { IconButton } from './icon-button';
 
 /**
- * How far the frame bar has folded, one group per step: facts, folders, Open,
- * Copy, then @ with the modes folding to one icon, then only the name,
- * comments and the … menu. Children hide on the bar's `data-fold-*` flags
- * (`group-data-[fold-open]/frame:hidden`).
+ * How far the frame bar has folded, one group per step: the secondary facts,
+ * then the position fact (a page, a row count; marked `data-frame-position`),
+ * so every fact has gone to the hover name before anything else moves
+ * (workbench-lineage step 2), then folders, Open, Copy, @, then the modes
+ * folding to one icon, then only the
+ * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
+ * the modes move into the … menu as a checked list (`modes-menu`; see
+ * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
+ * group rules go: only the name, comments and the … menu remain (Download stays
+ * so the original bytes are one click away). Modes and icons leave only a bar
+ * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
+ * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
+ * or ⌘ with the wheel still zooms, and the … menu lists them). The name is
+ * never cut while any of those still shows. Last, a name still cut short of
+ * `FRAME_NAME_MIN` goes too (`where`): the tab names it, and "o…" says nothing,
+ * so Download and … are never cut. Children hide on the
+ * bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
-const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'talk', 'name'] as const;
+const FRAME_FOLDS = [
+  'facts',
+  'position',
+  'folders',
+  'open',
+  'copy',
+  'talk',
+  'modes',
+  'name',
+  'modes-menu',
+  'rules',
+  'zoom',
+  'where',
+] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
 
 /**
- * Whether a part of the bar is cut off: the bar scrolls, a marked text
- * truncates, or the name has truncated below `FRAME_NAME_MIN`.
+ * The name keeps its full width until everything else that folds has folded:
+ * facts, folders, Open, Copy, @, the modes, the folders' …, the modes into the
+ * … menu, the rules and zoom (workbench-lineage: "Name and comments stay").
+ * Only then may it truncate, and below `FRAME_NAME_MIN` it goes (`where`).
  */
-function frameOverflows(bar: HTMLElement) {
+const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('zoom') + 1;
+
+/** Folded facts, read for the location's hover name. */
+const FrameFactsContext = createContext('');
+
+/**
+ * Whether a part of the bar is cut off: the bar scrolls, a marked text
+ * truncates, or the name has truncated while a fact still shows or below
+ * `FRAME_NAME_MIN`.
+ */
+function frameOverflows(bar: HTMLElement, fold: number) {
   if (bar.scrollWidth > bar.clientWidth + 1) return true;
+  const facts = bar.querySelector<HTMLElement>('[data-slot=frame-facts]');
+  const factShown = Array.from(facts?.children ?? []).some(
+    (fact) => (fact as HTMLElement).offsetParent !== null,
+  );
+  const range = document.createRange();
   for (const part of bar.querySelectorAll<HTMLElement>('[data-frame-fit]')) {
-    if (part.offsetParent === null || part.scrollWidth <= part.clientWidth + 1) continue;
-    if (part.dataset.frameFit === 'name' && part.clientWidth >= FRAME_NAME_MIN) continue;
+    if (part.offsetParent === null || part.scrollWidth < part.clientWidth) continue;
+    // scrollWidth/clientWidth round, so a sub-pixel cut (an ellipsis) reads as fitting.
+    range.selectNodeContents(part);
+    const width = part.getBoundingClientRect().width;
+    if (range.getBoundingClientRect().width <= width + 0.01) continue;
+    if (
+      part.dataset.frameFit === 'name' &&
+      fold >= FRAME_NAME_KEEPS_UNTIL &&
+      !factShown &&
+      width >= FRAME_NAME_MIN
+    )
+      continue;
     return true;
   }
   return false;
 }
 
+/** The facts' words, comma separated, for the hover name once they have folded. */
+function factsText(facts: HTMLElement | null): string {
+  if (!facts) return '';
+  return Array.from(facts.children, (child) => child.textContent?.trim() ?? '')
+    .filter(Boolean)
+    .join(', ');
+}
+
 /**
  * The bar above whatever a frame shows: Where (crumbs) · What (facts) ·
- * Format (modes) · Talk and Take (actions, last). 34px, one line. No fixed
- * breakpoints: it measures, and folds the next group only while something
- * would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
- * (`data-slot="frame-format-host"`) is empty, with no modes, hides with its rule.
+ * Format (modes) | Talk and Take (actions, last). 34px, one line. One rule, before
+ * the actions; the modes sit right-aligned beside them, as every spec bar draws
+ * them. No fixed breakpoints: it measures, and folds the next group only while
+ * something would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
+ * (`data-slot="frame-format-host"`) is empty, with no shown modes (a lone mode's
+ * tablist sits inside a `hidden` segment), hides.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -58,6 +125,7 @@ export const FrameBar = memo(function FrameBar({
   format,
   actions,
   label,
+  rule = true,
   className,
 }: {
   where: ReactNode;
@@ -67,9 +135,13 @@ export const FrameBar = memo(function FrameBar({
   actions?: ReactNode;
   /** Accessible name of the toolbar ("File actions"). */
   label: string;
+  /** The rule before the actions; off where the spec draws none (nothing for it to divide). */
+  rule?: boolean;
   className?: string;
 }) {
+  const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
+  const factsRef = useRef<HTMLDivElement>(null);
   // Width and content both start the fit again from nothing folded.
   const [fitKey, setFitKey] = useState('');
   const [measured, setMeasured] = useState({ key: '', fold: 0 });
@@ -93,12 +165,19 @@ export const FrameBar = memo(function FrameBar({
       content.disconnect();
     };
   }, []);
+  const [foldedFacts, setFoldedFacts] = useState('');
   useLayoutEffect(() => {
     const bar = barRef.current;
-    if (!bar || fold >= FRAME_FOLDS.length || !frameOverflows(bar)) return;
-    setMeasured((current) =>
-      current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
-    );
+    if (!bar) return;
+    if (fold < FRAME_FOLDS.length && frameOverflows(bar, fold)) {
+      setMeasured((current) =>
+        current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
+      );
+      return;
+    }
+    // Settled: the facts that went to hover join the location's hover name.
+    const text = fold > 0 ? factsText(factsRef.current) : '';
+    setFoldedFacts((current) => (current === text ? current : text));
   }, [fitKey, fold]);
   const flags = Object.fromEntries(
     FRAME_FOLDS.map((step, index) => [`data-fold-${step}`, fold > index || undefined]),
@@ -112,16 +191,28 @@ export const FrameBar = memo(function FrameBar({
       {...flags}
       ref={barRef}
       className={cn(
-        'group/frame flex h-[34px] min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border px-2 whitespace-nowrap',
+        'group/frame flex h-[34px] min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border px-2 whitespace-nowrap data-fold-rules:gap-1',
         className,
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {where}
+        {back ? (
+          <IconButton
+            data-slot="frame-back"
+            icon={<ArrowLeftIcon />}
+            label={`Back to ${back.label}`}
+            onClick={back.onBack}
+            size="sm"
+            tooltipSide="bottom"
+          />
+        ) : null}
+        <FrameFactsContext.Provider value={foldedFacts}>{where}</FrameFactsContext.Provider>
         {what ? (
           <div
             data-frame-fit=""
-            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-faint group-data-[fold-facts]/frame:hidden"
+            data-slot="frame-facts"
+            ref={factsRef}
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
           </div>
@@ -130,15 +221,14 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
-          <FrameDivider />
           {format}
         </div>
       ) : null}
       {actions ? (
         <>
-          <FrameDivider />
+          {rule ? <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" /> : null}
           <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
         </>
       ) : null}
@@ -148,7 +238,12 @@ export const FrameBar = memo(function FrameBar({
 
 /** The 1×16 rule between frame bar groups. */
 export function FrameDivider({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cn('h-4 w-px shrink-0 bg-border', className)} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('h-4 w-px shrink-0 bg-border group-data-[fold-rules]/frame:hidden', className)}
+    />
+  );
 }
 
 export interface FrameCrumb {
@@ -158,8 +253,8 @@ export interface FrameCrumb {
 
 /**
  * Where the shown thing lives. When the bar folds, the folders become one …
- * that lists them, then go entirely; the last part (the name) always shows
- * and the full path is the hover name.
+ * that lists them, then go entirely; the last part (the name) shows unless
+ * the bar cannot fit a readable part of it, and the full path is the hover name.
  */
 export const FrameCrumbs = memo(function FrameCrumbs({
   parts,
@@ -168,14 +263,19 @@ export const FrameCrumbs = memo(function FrameCrumbs({
   parts: readonly FrameCrumb[];
   className?: string;
 }) {
-  const full = parts.map((part) => part.label).join(' / ');
+  const facts = useContext(FrameFactsContext);
+  const path = parts.map((part) => part.label).join(' / ');
+  const full = facts ? `${path}\n${facts}` : path;
   const folders = parts.slice(0, -1);
   const name = parts.at(-1);
   return (
     <nav
       aria-label="Location"
       title={full}
-      className={cn('flex min-w-0 items-center gap-1 text-[12.5px]', className)}
+      className={cn(
+        'flex min-w-0 items-center gap-1 text-[12.5px] group-data-[fold-where]/frame:hidden',
+        className,
+      )}
     >
       {folders.length ? (
         <span className="hidden items-center gap-1 group-data-[fold-folders]/frame:inline-flex group-data-[fold-name]/frame:hidden">
@@ -270,9 +370,10 @@ export interface FrameTabProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
 }
 
 /**
- * One open thing in a frame's tab strip: 30px, icon, one-line name, and a
- * close mark whose space is always kept. Pinned tabs and, when the row is
- * short of room, inactive ones shrink to their icon.
+ * One open thing in a frame's tab row: the row's full 40px, icon, one-line
+ * name, and on the active tab a 2px primary underline and a close mark (its
+ * space is kept on every tab). Pinned tabs and, when the row is short of
+ * room, inactive ones shrink to their icon.
  *
  * The close mark is a pointer affordance outside the accessibility tree. A
  * tablist may own nothing but tabs and a tab's children are presentational,
@@ -311,15 +412,19 @@ export const FrameTab = memo(
             {icon}
           </span>
         ) : null}
-        <span className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>{label}</span>
+        <span data-slot="frame-tab-name" className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>
+          {label}
+        </span>
         {changed ? <span className="sr-only">, changed in this conversation</span> : null}
         {dirty ? <span className="sr-only">, unsaved changes</span> : null}
         {pinned ? <span className="sr-only">, pinned</span> : null}
       </>
     );
+    // Close space is kept on every tab (9px pad + 13px mark + 7px gap) so
+    // activating one never shifts the row.
     const triggerClassName = cn(
-      'flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[7px] outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
-      iconOnly ? 'justify-center px-2' : closable ? 'pr-6 pl-2' : 'px-2',
+      'flex h-full min-w-0 flex-1 items-center gap-[7px] outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+      iconOnly ? 'justify-center px-2.5' : closable ? 'pr-[29px] pl-[9px]' : 'px-[9px]',
     );
     const hoverName = title ?? label;
     return (
@@ -330,8 +435,11 @@ export const FrameTab = memo(
         data-changed={changed || undefined}
         data-pinned={pinned || undefined}
         className={cn(
-          'group/frame-tab relative flex h-[30px] min-w-0 shrink-0 items-center rounded-[7px] text-[12.5px] whitespace-nowrap text-muted-foreground hover:bg-hover hover:text-foreground data-active:bg-hover data-active:text-foreground data-changed:text-changed',
-          iconOnly ? 'w-8' : 'max-w-56 min-w-[min(6rem,100%)]',
+          // Spec .tab.on: foreground text over a 2px primary line, no fill. The
+          // line is its own layer so the trigger's background never covers it,
+          // and the tab fills the row above its border so nothing clips it.
+          'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+          iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
           className,
         )}
         {...rest}
@@ -350,7 +458,7 @@ export const FrameTab = memo(
             {contents}
           </button>
         )}
-        {closable && !iconOnly ? (
+        {closable && active && !iconOnly ? (
           <span
             aria-hidden="true"
             data-slot="frame-tab-close"
@@ -359,9 +467,9 @@ export const FrameTab = memo(
               event.stopPropagation();
               onClose?.();
             }}
-            className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] opacity-0 group-focus-within/frame-tab:opacity-100 group-hover/frame-tab:opacity-100 group-data-active/frame-tab:opacity-100 hover:bg-menu-highlight pointer-coarse:opacity-70"
+            className="absolute top-1/2 right-[5px] grid size-[21px] -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] text-faint hover:bg-menu-highlight hover:text-foreground"
           >
-            <CloseIcon aria-hidden="true" className="size-3" />
+            <CloseIcon aria-hidden="true" className="size-[13px]" />
           </span>
         ) : null}
       </div>

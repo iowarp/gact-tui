@@ -1,9 +1,12 @@
 import { GitBranchIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Checkpoint, CheckpointIcon } from '@/components/ai-elements/checkpoint';
+import { StateView } from './primitives/state-view';
 import { isAgentFork, type ConversationForkOrigin } from './conversation-fork-origin';
 
-/** A child-side checkpoint after the last copied message, linked to its source. */
+/**
+ * A child-side marker after the last copied message: one quiet line, "Forked
+ * here from <source>", linked to the source conversation.
+ */
 export function ConversationForkCheckpoint({
   origin,
   workspaceId,
@@ -12,41 +15,51 @@ export function ConversationForkCheckpoint({
   workspaceId?: string;
 }) {
   const label = origin.title || 'parent conversation';
+  const agent = isAgentFork(origin);
+  const copied = origin.message_count
+    ? 'History above was copied. Continue independently below.'
+    : 'Started from an empty conversation.';
   return (
-    <Checkpoint
+    <div
       aria-label="Conversation branched here"
       role="separator"
       data-slot="fork-checkpoint"
-      className="my-5 min-w-0 gap-2 [&>[data-slot=separator]]:min-w-4 [&>[data-slot=separator]]:flex-1 [&>[data-slot=separator]]:w-auto"
+      className="my-px min-w-0"
+      title={`${copied} Files remain shared.`}
     >
-      <CheckpointIcon aria-hidden="true">
-        <GitBranchIcon className="size-3.5" />
-      </CheckpointIcon>
-      <span className="min-w-0 text-xs leading-5 text-muted-foreground">
-        <strong className="font-medium text-foreground">
-          {isAgentFork(origin) ? 'Forked by the agent here' : 'Branched here'}
-        </strong>{' '}
-        from{' '}
-        {workspaceId ? (
-          <Link
-            className="underline decoration-border underline-offset-4 hover:text-primary"
-            to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(origin.session_id)}${origin.message_id ? `#message-${encodeURIComponent(origin.message_id)}` : ''}`}
-          >
-            {label}
-          </Link>
-        ) : (
-          label
-        )}
-        {isAgentFork(origin) && origin.note ? (
-          <span className="block text-[11px] text-foreground">Fork note: {origin.note}</span>
+      <StateView
+        kind="marker"
+        size="row"
+        icon={GitBranchIcon}
+        title={
+          <>
+            {agent ? 'Forked here by the agent from ' : 'Forked here from '}
+            {workspaceId ? (
+              <Link
+                className="text-accent-foreground underline-offset-2 hover:underline rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(origin.session_id)}${origin.message_id ? `#message-${encodeURIComponent(origin.message_id)}` : ''}`}
+              >
+                {label}
+              </Link>
+            ) : (
+              <span className="text-accent-foreground">{label}</span>
+            )}
+          </>
+        }
+      >
+        {agent && origin.note ? (
+          <span className="min-w-0 truncate text-faint" title={`Fork note: ${origin.note}`}>
+            Fork note: {origin.note}
+          </span>
         ) : null}
-        <span className="block text-[11px]">
-          {origin.message_count
-            ? 'History above was copied. Continue independently below.'
-            : 'Started from an empty conversation.'}{' '}
-          Files remain shared.
-        </span>
-      </span>
-    </Checkpoint>
+        {origin.message_count ? (
+          <span className="sr-only">{copied} Files remain shared.</span>
+        ) : (
+          <span className="shrink-0 text-faint">
+            {copied} <span className="sr-only">Files remain shared.</span>
+          </span>
+        )}
+      </StateView>
+    </div>
   );
 }

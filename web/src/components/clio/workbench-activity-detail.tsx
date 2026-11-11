@@ -447,7 +447,7 @@ function ToolDetail({
     <>
       <Section title="Input">
         {tool.input === undefined ? (
-          <p className="text-[12.5px] text-muted-foreground">No input</p>
+          <StateView className="px-0" kind="empty" size="row" title="It took no input" />
         ) : (
           <Mono label="Input" text={json(tool.input)} />
         )}
@@ -462,9 +462,12 @@ function ToolDetail({
         {output ? (
           <Mono label="Output" text={output} />
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">
-            {running ? 'Waiting for output' : 'No output'}
-          </p>
+          <StateView
+            className="px-0"
+            kind={running ? 'loading' : 'empty'}
+            size="row"
+            title={running ? 'Waiting for output' : 'It returned no output'}
+          />
         )}
         {tool.error ? (
           <p className="text-[12.5px] text-destructive" role="alert">
@@ -503,7 +506,7 @@ function TurnDetail({
               <div key={step.id} role="listitem">
                 <ListRow
                   aria-label={`${row.name}, ${row.status}`}
-                  className="cursor-pointer"
+                  className="cursor-pointer text-[12.5px]"
                   columns={<MetaValue width={64}>{row.trailing}</MetaValue>}
                   onClick={open}
                   onKeyDown={(event) => {

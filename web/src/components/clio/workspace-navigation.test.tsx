@@ -22,6 +22,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   const user = userEvent.setup();
   const onCreateSession = vi.fn();
   const onEditWorkspace = vi.fn();
+  const onImportSession = vi.fn();
   const workspace: Workspace = {
     id: 'ws_reports',
     name: 'reports',
@@ -32,7 +33,6 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   };
   const actions: ResourceActions = {
     createWorkspace: vi.fn(),
-    createSession: vi.fn(),
     renameWorkspace: vi.fn(),
     updateWorkspace: vi.fn().mockResolvedValue(undefined),
     grantWorkspaceFolder: vi.fn(),
@@ -62,9 +62,11 @@ it('keeps workspace disclosure separate from the common action and overflow menu
               agents={[]}
               onAction={vi.fn()}
               onCreateSession={onCreateSession}
+              onNewWorkspace={vi.fn()}
               onDelete={vi.fn()}
               onDownloadSession={vi.fn().mockResolvedValue(undefined)}
               onEditWorkspace={onEditWorkspace}
+              onImportSession={onImportSession}
               onRename={vi.fn()}
               sessions={[]}
               workspaces={[workspace]}
@@ -76,19 +78,27 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   );
 
   const disclosure = screen.getByRole('button', { name: 'Collapse workspace Reports' });
-  expect(screen.getByText('No sessions')).toBeVisible();
+  expect(await screen.findByText('No conversations yet')).toBeVisible();
   await user.click(disclosure);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
 
-  await user.click(screen.getByRole('button', { name: 'New session in Reports' }));
+  await user.click(screen.getByRole('button', { name: 'New conversation in Reports' }));
   expect(onCreateSession).toHaveBeenCalledTimes(1);
   expect(onCreateSession).toHaveBeenCalledWith(workspace.id);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
 
   await user.click(screen.getByRole('button', { name: 'Workspace actions for Reports' }));
   expect(screen.queryByRole('menuitem', { name: 'New session' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('menuitem', { name: 'Edit workspace' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Workspace settings…' }));
   expect(onEditWorkspace).toHaveBeenCalledTimes(1);
   expect(onEditWorkspace).toHaveBeenCalledWith(workspace.id);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+
+  await user.click(screen.getByRole('button', { name: 'Workspace actions for Reports' }));
+  const items = screen.getAllByRole('menuitem');
+  expect(items.map((item) => item.textContent?.replace(/[A-Z↵]$/u, ''))).toEqual(
+    expect.arrayContaining(['New conversation here', 'Import conversation here…']),
+  );
+  await user.click(screen.getByRole('menuitem', { name: 'Import conversation here…' }));
+  expect(onImportSession).toHaveBeenCalledWith(workspace.id);
 });

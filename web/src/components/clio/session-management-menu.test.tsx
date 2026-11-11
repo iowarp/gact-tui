@@ -7,6 +7,12 @@ import type { ResourceActions } from './resource-dialogs';
 import { ClioSessionActions } from './session-actions';
 import { downloadUrl } from './surface-export';
 
+// The Move to submenu reads service capabilities through the ConnectionProvider the app supplies.
+vi.mock('@/hooks/use-session-move', () => ({
+  useSessionMoveSupported: () => false,
+  useSessionMoveTargets: () => ({ data: undefined }),
+}));
+
 vi.mock('./surface-export', () => ({ downloadUrl: vi.fn() }));
 
 vi.mock('sonner', () => ({
@@ -36,7 +42,6 @@ afterEach(() => {
 function setup(pinned = false) {
   const actions: ResourceActions = {
     createWorkspace: vi.fn(),
-    createSession: vi.fn(),
     renameWorkspace: vi.fn(),
     updateWorkspace: vi.fn().mockResolvedValue(undefined),
     grantWorkspaceFolder: vi.fn(),
@@ -77,7 +82,12 @@ function setup(pinned = false) {
 it('renames from the header using the shared resource dialog', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Rename session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+  expect(screen.getByRole('dialog', { name: 'Rename conversation' })).toBeVisible();
+  // The name is the point of the dialog: it takes focus with its text selected.
+  const name = screen.getByRole<HTMLInputElement>('textbox', { name: 'Name' });
+  await waitFor(() => expect(name).toHaveFocus());
+  expect([name.selectionStart, name.selectionEnd]).toEqual([0, name.value.length]);
   await user.clear(screen.getByRole('textbox', { name: 'Name' }));
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Renamed review');
   await user.click(screen.getByRole('button', { name: 'Save name' }));
@@ -88,16 +98,14 @@ it('renames from the header using the shared resource dialog', async () => {
 it.each([false, true])('toggles the authoritative pinned state from %s', async (pinned) => {
   const { actions, user, open } = setup(pinned);
   await open();
-  await user.click(
-    screen.getByRole('menuitem', { name: pinned ? 'Unpin session' : 'Pin session' }),
-  );
+  await user.click(screen.getByRole('menuitem', { name: pinned ? 'Unpin' : 'Pin' }));
   expect(actions.setSessionPinned).toHaveBeenCalledWith(session.id, !pinned);
 });
 
 it('archives the session through the shared navigation action', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Archive session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Archive' }));
   expect(actions.archiveSession).toHaveBeenCalledWith(session.id);
 });
 
@@ -105,13 +113,15 @@ it('requires the existing permanent deletion confirmation and keeps failures vis
   const { actions, user, open } = setup();
   vi.mocked(actions.deleteSession).mockRejectedValueOnce(new Error('Service unavailable'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Delete session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Delete…' }));
   expect(actions.deleteSession).not.toHaveBeenCalled();
-  expect(screen.getByRole('alertdialog')).toHaveTextContent('permanently removes the session');
-  await user.click(screen.getByRole('button', { name: 'Remove session' }));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(
+    'Removes it and its record from the service. This can’t be undone.',
+  );
+  await user.click(screen.getByRole('button', { name: /^Delete permanently/ }));
   expect(screen.getByRole('alert')).toHaveTextContent('Service unavailable');
   expect(screen.getByRole('alertdialog')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Remove session' }));
+  await user.click(screen.getByRole('button', { name: /^Delete permanently/ }));
   expect(actions.deleteSession).toHaveBeenCalledTimes(2);
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 });
@@ -120,7 +130,7 @@ it('reports pin failures without an unhandled rejection', async () => {
   const { actions, user, open } = setup();
   vi.mocked(actions.setSessionPinned).mockRejectedValueOnce(new Error('Pin failed'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Pin session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Pin' }));
   expect(toast.error).toHaveBeenCalledWith(
     'Pin failed',
     expect.objectContaining({ closeButton: true }),
@@ -131,7 +141,7 @@ it('reports pin failures without an unhandled rejection', async () => {
 it('exports HTML through the shared download flow and retains the service base path', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
   expect(actions.exportSession).toHaveBeenCalledWith(session.id, 'transcript');
   await waitFor(() =>
@@ -143,11 +153,21 @@ it('exports HTML through the shared download flow and retains the service base p
   expect(toast.dismiss).toHaveBeenCalled();
 });
 
+it('exports a ZIP from the same download item once files are ticked', async () => {
+  const { actions, user, open } = setup();
+  await open();
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+  expect(screen.queryByRole('menuitem', { name: 'Download HTML' })).toBeNull();
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
+  expect(actions.exportSession).toHaveBeenCalledWith(session.id, 'effects');
+});
+
 it('shows export failures and does not start a download', async () => {
   const { actions, user, open } = setup();
   vi.mocked(actions.exportSession).mockRejectedValueOnce(new Error('Export failed'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
   expect(downloadUrl).not.toHaveBeenCalled();
   await waitFor(() =>

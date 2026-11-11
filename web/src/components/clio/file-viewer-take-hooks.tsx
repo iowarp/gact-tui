@@ -9,6 +9,7 @@ import {
   GitBranchIcon,
   GlobeIcon,
   LinkIcon,
+  PackageIcon,
 } from 'lucide-react';
 import { useContext, useState, type ReactNode, type RefObject } from 'react';
 import { toast } from 'sonner';
@@ -49,6 +50,8 @@ export interface TakeRow {
   label: string;
   icon: ReactNode;
   accelerator?: string;
+  /** Catalog id of the key that does this without the menu, in the key column. */
+  shortcut?: string;
   /** Why the row is unavailable, shown beside it. */
   reason?: string;
   separatorBefore?: boolean;
@@ -165,6 +168,8 @@ export function useCopyTake(
       label: 'Contents',
       icon: <FileTextIcon />,
       accelerator: 'C',
+      // Ctrl+C in the frame runs the face, which copies the contents when it can.
+      shortcut: contentsReason ? undefined : 'copy',
       reason: contentsReason,
       onSelect: () => void copyContents(),
     },
@@ -210,11 +215,14 @@ export function useOpenTake(
   {
     otherApps = true,
     tab,
+    rows: renderer = [],
   }: {
     /** The document workspace lists the apps for its working copy itself. */
     otherApps?: boolean;
     /** Opens the file in a workbench tab: the face, when the frame shows something else. */
     tab?: () => void;
+    /** The renderer's own places (a document's working-copy apps), after the system app. */
+    rows?: readonly FileViewerAction[];
   } = {},
 ): OpenTake {
   const repository = useRepository();
@@ -318,6 +326,16 @@ export function useOpenTake(
           },
         ]
       : []),
+    ...renderer.map(
+      (action): TakeRow => ({
+        id: `open:${action.label}`,
+        label: action.label,
+        icon: <action.icon aria-hidden="true" />,
+        reason: action.disabled ? (action.description ?? 'Not available') : undefined,
+        submenu: action.submenu,
+        onSelect: action.submenu ? undefined : () => run(async () => action.onSelect()),
+      }),
+    ),
     {
       id: 'files',
       label: 'Show in Files',
@@ -340,6 +358,24 @@ export function useOpenTake(
       onSelect: () =>
         run(async () => downloadBytes(await bytes(), identity.mediaType, identity.name)),
     },
+    ...(source.kind === 'artifact'
+      ? [
+          {
+            id: 'evidence',
+            label: 'Download with evidence',
+            icon: <PackageIcon />,
+            accelerator: 'E',
+            onSelect: () =>
+              run(async () =>
+                downloadBytes(
+                  await repository.exportArtifact(source.artifact.id),
+                  'application/zip',
+                  `${safeFileName(source.artifact.name)}.crate.zip`,
+                ),
+              ),
+          } satisfies TakeRow,
+        ]
+      : []),
     ...formats.map(
       (action): TakeRow => ({
         id: `export:${action.label}`,
@@ -363,5 +399,9 @@ export function useOpenTake(
           run: browserTab,
           icon: <ExternalLinkIcon aria-hidden="true" />,
         };
-  return { rows, face, busy };
+  return { rows, face, busy: busy || renderer.some((action) => action.pending) };
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/giu, '-').replace(/^-|-$/gu, '') || 'artifact';
 }

@@ -115,6 +115,22 @@ export class SessionHistoryRepository {
   }
 
   /**
+   * Move a conversation or branch to another workspace (clio-agent
+   * `POST /v1/sessions/{sid}/move`, capability `x_clio_session_move`). Its side
+   * and agent sessions move with it; workspace files stay where they are. The
+   * returned session records `metadata.last_workspace_move`.
+   */
+  public moveSession(sessionId: string, workspaceId: string, signal?: AbortSignal): Promise<Session> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/move`,
+      body: { workspace_id: workspaceId },
+      decode: (value) => sessionSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
    * Open a read-only side conversation on `sessionId`, carrying its context
    * (clio-agent `POST /v1/sessions/{sid}/side-sessions`). The aside can only
    * run tools that declare no side effects and never writes to the parent; it

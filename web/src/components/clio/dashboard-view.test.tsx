@@ -223,6 +223,16 @@ describe('authored dashboard', () => {
     );
     const user = userEvent.setup();
     const toolbar = document.querySelector('[data-slot="frame-bar"]') as HTMLElement;
+    expect(within(toolbar).getByText('2 tabs')).toBeInTheDocument();
+    // The crumb names the dashboard by its title under its kind, not by its file name.
+    expect(within(toolbar).getByText('dashboards')).toBeInTheDocument();
+    expect(within(toolbar).getByText(report.title)).toBeInTheDocument();
+    expect(within(toolbar).queryByText('design.dashboard.json')).toBeNull();
+    // Capture is a row of the frame's options menu, not a bar button.
+    expect(
+      within(toolbar).queryByRole('button', { name: 'Capture labelled regions' }),
+    ).toBeNull();
+    expect(screen.queryByRole('heading', { name: report.title })).toBeNull();
     for (const label of ['PNG image (displayed view)', 'HTML dashboard (all tabs and data)']) {
       await user.click(within(toolbar).getByRole('button', { name: 'Open options' }));
       await user.click(
@@ -234,8 +244,7 @@ describe('authored dashboard', () => {
         expect(within(toolbar).getByRole('button', { name: 'Open options' })).toBeEnabled(),
       );
     }
-    await user.click(within(toolbar).getByRole('button', { name: 'Open options' }));
-    await user.click(await screen.findByRole('menuitem', { name: /^Download/u }));
+    await user.click(within(toolbar).getByRole('button', { name: 'Download' }));
     await waitFor(() => expect(repository.readWorkspaceFileBytes).toHaveBeenCalled());
     expect(repository.prepareDashboardImageExport).toHaveBeenCalledOnce();
     expect(repository.prepareDashboardExport).toHaveBeenCalledOnce();

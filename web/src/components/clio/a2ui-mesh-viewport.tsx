@@ -31,7 +31,7 @@ import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
 import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
-import { type MeshField } from './mesh-viewport-mesh';
+import type { MeshField } from './mesh-viewport-mesh';
 import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {

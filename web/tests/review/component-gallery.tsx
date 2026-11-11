@@ -14,11 +14,14 @@ import {
   MessageSquareIcon,
   PanelRightIcon,
   PlayIcon,
+  SearchIcon,
   TerminalIcon,
 } from 'lucide-react';
 import { ForcedTheme } from '../../src/theme/forced-theme';
 import '../../src/index.css';
 import { Button } from '../../src/components/ui/button';
+import { Input } from '../../src/components/ui/input';
+import { SettingsRow } from '../../src/components/clio/settings-row';
 import { TooltipProvider } from '../../src/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -52,6 +55,7 @@ import { MetaValue, Tag, type TagTone } from '../../src/components/clio/primitiv
 import { MiddleTruncate, TruncatedText } from '../../src/components/clio/primitives/truncate';
 import { MenuRow } from '../../src/components/clio/primitives/menu-row';
 import { ListRow } from '../../src/components/clio/primitives/list-row';
+import { ActivityRow } from '../../src/components/clio/activity-row';
 import {
   FrameBar,
   FrameCrumbs,
@@ -59,8 +63,12 @@ import {
   FrameTab,
 } from '../../src/components/clio/primitives/frame-bar';
 import { DialogFrame, WindowShell } from '../../src/components/clio/primitives/dialog-frame';
+import { DetailPane, ListDetailLayout } from '../../src/components/clio/primitives/detail-pane';
+import { ItemList, ItemRow } from '../../src/components/clio/primitives/item-row';
 import { StateView, type StateKind } from '../../src/components/clio/primitives/state-view';
 import { ShortcutSheet } from '../../src/components/clio/primitives/shortcut-sheet';
+import { WorkingCopyState } from '../../src/components/clio/document-working-copy';
+import type { DocumentWorkingCopy } from '@clio/core/v3';
 
 // Synthetic labels exercise the shared primitives; nothing here talks to an agent.
 const params = new URLSearchParams(window.location.search);
@@ -128,18 +136,38 @@ const STATES: { kind: StateKind; title: string; detail?: string; action?: string
   { kind: 'unavailable', title: 'Preview unavailable', action: 'Why?' },
   {
     kind: 'too-large',
-    title: 'Too large to show here (2.4 GB)',
-    detail: 'Download it or open it in an application.',
-    action: 'Download',
+    title: '3.4 GB is too large to show here',
+    action: 'Show the last 200 MB',
   },
-  { kind: 'no-preview', title: 'No preview for .h5 files', action: 'Show details' },
+  { kind: 'no-preview', title: 'No viewer for .grib2 yet', action: 'Download' },
   {
     kind: 'changed-elsewhere',
-    title: 'Changed on disk',
-    detail: 'Another tool rewrote this file.',
-    action: 'Reload',
+    title: 'Changed since you opened it',
+    detail: 'CLIO saved version 5 while you were editing. Keep its version, or save yours as version 6.',
+    action: 'Use mine',
   },
 ];
+
+const CONFLICT_COPY: DocumentWorkingCopy = {
+  id: 'wc_review',
+  session_id: 'sess_review',
+  workspace_id: 'ws_review',
+  artifact_name: 'plan.md',
+  base_artifact_id: 'art_4',
+  head_artifact_id: 'art_4',
+  base_version: 4,
+  head_version: 4,
+  base_sha256: 'a',
+  last_sha256: 'b',
+  path: 'plan.md',
+  writable: true,
+  auto_checkpoint: true,
+  status: 'conflict',
+  created_at: '2026-11-10T09:00:00Z',
+  updated_at: '2026-11-10T09:04:00Z',
+  conflict_head_artifact_id: 'art_5',
+  native_comment_fingerprints: [],
+};
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -354,6 +382,122 @@ function Rows() {
   );
 }
 
+/** Transcript rows in a pane under 280px: a row with a target keeps it; one without keeps its name. */
+function NarrowActivityRows() {
+  const status = <StatusIndicator tone="success" label="Done" display="column" mark="glyph" />;
+  return (
+    <div data-testid="narrow-activity-rows" className="w-[260px] rounded-md border border-border">
+      <ActivityRow icon={<SearchIcon />} name="Search EarthScope catalog" status={status} />
+      <ActivityRow
+        icon={<TerminalIcon />}
+        name="Run command"
+        argument="srun -n 4 python regrid.py --ranks 4"
+        status={status}
+      />
+    </div>
+  );
+}
+
+const PANE_TABS = [
+  { value: 'capabilities', label: 'Capabilities' },
+  { value: 'tools', label: 'Tools' },
+  { value: 'files', label: 'Files' },
+] as const;
+
+function ListAndDetail() {
+  const [open, setOpen] = useState<string | null>('home-assistant');
+  const [tab, setTab] = useState<(typeof PANE_TABS)[number]['value']>('capabilities');
+  const plugins = ['home-assistant', 'ndp-explorer', LONG_NAME];
+  return (
+    <ListDetailLayout
+      className="h-72 rounded-xl border border-border"
+      list={
+        <ItemList label="Plugins" className="p-1.5">
+          {plugins.map((name, index) => (
+            <ItemRow
+              key={name}
+              icon={<LayoutGridIcon />}
+              title={name}
+              meta={index === 2 ? LONG_PATH : 'Plugin, 2 tools'}
+              selected={open === name}
+              status={
+                <StatusIndicator
+                  tone={index === 1 ? 'warning' : 'success'}
+                  label={index === 1 ? 'Update' : 'Enabled'}
+                />
+              }
+              actions={
+                <IconButton
+                  label="Explore"
+                  icon={<PanelRightIcon />}
+                  size="sm"
+                  onClick={() => setOpen(name)}
+                />
+              }
+              actionsWidth={30}
+            />
+          ))}
+        </ItemList>
+      }
+      detail={
+        open ? (
+          <DetailPane
+            icon={<LayoutGridIcon />}
+            title={open}
+            onClose={() => setOpen(null)}
+            actions={<IconButton label="Update" icon={<RefreshIcon />} />}
+            tabs={
+              <SegmentedControl
+                label="Plugin contents"
+                options={PANE_TABS}
+                value={tab}
+                onValueChange={setTab}
+              />
+            }
+          >
+            <ItemList label="Capabilities">
+              <ItemRow size="sm" icon={<CodeIcon />} title="ha-lights" meta="Skill" />
+              <ItemRow size="sm" icon={<TerminalIcon />} title="home-assistant" meta="MCP server" />
+            </ItemList>
+          </DetailPane>
+        ) : null
+      }
+    />
+  );
+}
+
+function LineRows() {
+  const rows = [
+    { name: 'Ollama', meta: 'localhost:11434', tone: 'success', label: 'Running' },
+    { name: 'LM Studio', meta: 'localhost:1234', tone: 'stopped', label: 'Stopped' },
+    { name: LONG_NAME, meta: LONG_PATH, tone: 'error', label: 'Unreachable' },
+  ] as const;
+  return (
+    <ItemList label="Local model servers" className="max-w-xl p-1.5">
+      {rows.map((row, index) => (
+        <ItemRow
+          key={row.name}
+          size="line"
+          icon={<TerminalIcon />}
+          title={row.name}
+          meta={row.meta}
+          selected={index === 0}
+          status={<StatusIndicator tone={row.tone} label={row.label} />}
+          statusWidth={112}
+          actions={<IconButton label="Edit" icon={<EditIcon />} size="sm" />}
+          actionsWidth={30}
+          slot={
+            <Button size="xs" variant="outline">
+              Use
+            </Button>
+          }
+          slotWidth={48}
+        />
+      ))}
+    </ItemList>
+  );
+}
+
 function Menus() {
   return (
     <div className="flex flex-wrap items-start gap-4">
@@ -490,6 +634,15 @@ function States() {
           />
         </div>
       ))}
+      <div className="flex min-h-56 flex-col rounded-lg border border-border" data-review="working-copy-conflict">
+        <WorkingCopyState
+          copy={CONFLICT_COPY}
+          headVersion={5}
+          pending={false}
+          onResolve={noop}
+          onDismiss={noop}
+        />
+      </div>
     </div>
   );
 }
@@ -518,13 +671,18 @@ function Overlays() {
         open={dialog}
         onOpenChange={setDialog}
         icon={<FolderIcon />}
-        title="Share this conversation"
-        description="People with the link can read the transcript and its files."
-        confirm={{ label: 'Create link', onConfirm: noop }}
+        title="Add server"
+        help="A server adds its tools to every conversation on this agent."
+        confirm={{ label: 'Add', onConfirm: noop }}
       >
-        <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
-          {LONG_PATH}
-        </MiddleTruncate>
+        <SettingsRow htmlFor="gallery-server-name" title="Name">
+          <Input defaultValue="home-assistant" id="gallery-server-name" />
+        </SettingsRow>
+        <SettingsRow title="Folder">
+          <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
+            {LONG_PATH}
+          </MiddleTruncate>
+        </SettingsRow>
       </DialogFrame>
       <DialogFrame
         open={destructive}
@@ -559,7 +717,7 @@ function Overlays() {
           <ListRow title="Show keys while holding Ctrl" badge={<Tag tone="on">On</Tag>} />
         </div>
       </WindowShell>
-      <ShortcutSheet open={sheet} onOpenChange={setSheet} scope="catalog" />
+      <ShortcutSheet open={sheet} onOpenChange={setSheet} />
     </div>
   );
 }
@@ -595,6 +753,15 @@ function Gallery() {
             </Section>
             <Section title="List rows">
               <Rows />
+            </Section>
+            <Section title="Narrow activity rows">
+              <NarrowActivityRows />
+            </Section>
+            <Section title="List and detail pane">
+              <ListAndDetail />
+            </Section>
+            <Section title="One-line item rows">
+              <LineRows />
             </Section>
             <Section title="Menus">
               <Menus />

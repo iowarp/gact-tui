@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NDPEndpointConnection, NDPEndpointInput } from '@clio/core/v3';
-import { ArrowLeftIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,12 +17,11 @@ export function NDPEndpointPanel({
   workspaceId,
   onBack,
   signedIn = false,
-  accountName,
 }: {
   workspaceId: string;
+  /** Leaves the panel when its last endpoint editor is cancelled. */
   onBack: () => void;
   signedIn?: boolean;
-  accountName?: string;
 }) {
   const repository = useRepository();
   const client = useQueryClient();
@@ -76,11 +74,7 @@ export function NDPEndpointPanel({
   const authenticated = signedIn || accountReady;
   return (
     <section aria-label="NDP endpoints" className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack}>
-        <ArrowLeftIcon /> Back
-      </Button>
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-medium">Endpoints & streams</h3>
+      <div className="-mt-1 flex items-center justify-end gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -92,12 +86,6 @@ export function NDPEndpointPanel({
           <AddIcon /> Connect endpoint
         </Button>
       </div>
-      {authenticated ? (
-        <p role="status" className="text-xs text-muted-foreground">
-          NDP account connected
-          {accountName ? <span className="block break-all">{accountName}</span> : null}
-        </p>
-      ) : null}
       {!authenticated &&
       (needsAccount ||
         active?.authentication === 'ndp' ||

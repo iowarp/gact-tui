@@ -1,5 +1,6 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 // The plan review renders Markdown through a React.lazy boundary. Importing the
@@ -9,6 +10,9 @@ import { MemoryRouter } from 'react-router-dom';
 import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
+
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 vi.mock('./mcp-app-surface', () => ({
   McpAppHistoryLine: ({ toolName }: { toolName: string }) => <div>{`${toolName} closed`}</div>,
@@ -55,7 +59,7 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
 
 describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state of a cancelled turn in full mode', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[iteration({ interrupted: true })]}
         mode="full"
@@ -66,8 +70,8 @@ describe('ConversationTurn incomplete state', () => {
     expect(screen.getByText('Interrupted')).toBeVisible();
   });
 
-  it('shows the interrupted state on the collapsed chain summary', () => {
-    render(
+  it('shows the interrupted state in the chain activity lane', () => {
+    renderWithTooltips(
       <ConversationTurn
         answerStarted
         iterations={[iteration({ interrupted: true })]}
@@ -76,14 +80,12 @@ describe('ConversationTurn incomplete state', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /^Activity:.*Interrupted/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    expect(screen.getByRole('group', { name: /^Activity:.*Interrupted/ })).toBeVisible();
+    expect(screen.getByText('Interrupted')).toBeVisible();
   });
 
   it('does not mark a normally completed iteration as interrupted', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn iterations={[iteration({ terminal: true })]} mode="full" subagents={{}} />,
     );
 
@@ -122,7 +124,7 @@ describe('ConversationTurn correlated work placement', () => {
         },
         actions: ['answer'],
       };
-      render(
+      renderWithTooltips(
         <ConversationTurn
           interactions={[interaction]}
           iterations={[
@@ -142,30 +144,17 @@ describe('ConversationTurn correlated work placement', () => {
         />,
       );
 
-      expect(screen.getByText('Review execution plan')).toBeVisible();
+      expect(screen.getByRole('heading', { name: 'Plan' })).toBeVisible();
       expect(await screen.findByRole('heading', { name: 'Implementation plan' })).toBeVisible();
-      expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
-      expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
-      const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
-      expect(executeChoice).toBeChecked();
-      const clearContext = screen.getByRole('checkbox', {
-        name: /clear conversation context/i,
-      });
-      expect(clearContext).toBeEnabled();
-      expect(screen.getByRole('radio', { name: /reject plan with comments/i })).toBeVisible();
-      fireEvent.click(executeChoice);
-      expect(executeChoice).toBeChecked();
-      expect(clearContext).toBeEnabled();
-      if (mode === 'chain') {
-        fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-        expect(screen.getByText('Review execution plan')).toBeVisible();
-        expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
-      }
+      expect(screen.getByRole('button', { name: 'Execution mode, Auto-execute' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Execute plan' })).toBeEnabled();
+      expect(screen.getByRole('checkbox', { name: /Clear context first/u })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Request changes' })).toBeVisible();
     },
   );
 
   it('renders tools and tasks in the wire order that links them', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -192,7 +181,7 @@ describe('ConversationTurn correlated work placement', () => {
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
   });
 
-  it('renders child start and return as separate navigable ledger rows', () => {
+  it('renders child start and return as separate navigable ledger rows', async () => {
     const child = {
       id: 'task_researcher',
       session_id: 'session_1',
@@ -202,39 +191,40 @@ describe('ConversationTurn correlated work placement', () => {
       task: 'Research the HDF5 origin chronology.',
       result: 'The authoritative history confirms the project chronology.',
     };
-    render(
-      <ConversationTurn
-        iterations={[
-          iteration(
-            activityLane([
-              {
-                kind: 'subagent',
-                id: 'handoff_started',
-                block: {
+    renderWithTooltips(
+      <MemoryRouter>
+        <ConversationTurn
+          iterations={[
+            iteration(
+              activityLane([
+                {
+                  kind: 'subagent',
                   id: 'handoff_started',
-                  type: 'subagent',
-                  subagent_id: child.id,
-                  stage: 'delegate.started',
+                  block: {
+                    id: 'handoff_started',
+                    type: 'subagent',
+                    subagent_id: child.id,
+                    stage: 'delegate.started',
+                  },
                 },
-              },
-              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
-              {
-                kind: 'subagent',
-                id: 'handoff_returned',
-                block: {
+                { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
+                {
+                  kind: 'subagent',
                   id: 'handoff_returned',
-                  type: 'subagent',
-                  subagent_id: child.id,
-                  stage: 'delegate.completed',
+                  block: {
+                    id: 'handoff_returned',
+                    type: 'subagent',
+                    subagent_id: child.id,
+                    stage: 'delegate.completed',
+                  },
                 },
-              },
-            ]),
-          ),
-        ]}
-        mode="full"
-        subagents={{ [child.id]: child }}
-      />,
-      { wrapper: MemoryRouter },
+              ]),
+            ),
+          ]}
+          mode="full"
+          subagents={{ [child.id]: child }}
+        />
+      </MemoryRouter>,
     );
 
     const lane = screen.getByRole('region', { name: 'Full agent activity' });
@@ -246,10 +236,21 @@ describe('ConversationTurn correlated work placement', () => {
       'tool:call_read',
       'subagent:handoff_returned',
     ]);
-    expect(screen.queryByText(child.task)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Delegate' }));
-    expect(screen.getByText(child.task)).toBeVisible();
+    expect(lane.querySelector('[data-turn-activity="subagent:handoff_started"]')).toHaveTextContent(
+      'Delegate',
+    );
+    expect(
+      lane.querySelector('[data-turn-activity="subagent:handoff_returned"]'),
+    ).toHaveTextContent('Subagent turn ended');
+    // Both rows preview the assignment; opening one repeats it nowhere, and only
+    // the return carries the result.
+    expect(screen.getAllByText(child.task)).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
+    expect(await screen.findByText('No calls recorded')).toBeVisible();
+    expect(screen.getAllByText(child.task)).toHaveLength(2);
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Subagent turn ended' }));
+    expect(await screen.findByText(child.result)).toBeVisible();
   });
 
   it('keeps the active MCP App visible after its collapsed chain summary', () => {
@@ -267,7 +268,7 @@ describe('ConversationTurn correlated work placement', () => {
         mime_type: 'text/html;profile=mcp-app',
       },
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         activeMcpAppId="app_1"
         iterations={[
@@ -320,7 +321,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
     };
 
-    render(
+    renderWithTooltips(
       <ConversationTurn
         activeMcpAppId="app_2"
         iterations={[iteration(activityLane([replaced, active]))]}
@@ -331,7 +332,6 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
     expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
@@ -368,7 +368,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -425,7 +425,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -473,7 +473,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -528,7 +528,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: ['answer', 'cancel'],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -577,7 +577,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -603,7 +603,7 @@ describe('ConversationTurn correlated work placement', () => {
 
 describe('ConversationTurn announced state', () => {
   it('announces a task state in words rather than its protocol identifier', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -621,14 +621,13 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     const line = document.querySelector('[data-turn-activity="task:task_permission"]');
-    expect(line).toHaveTextContent('Permission needed');
+    expect(line).toHaveTextContent(/permission needed/iu);
     expect(line).not.toHaveTextContent('waiting_permission');
   });
 
   it('exposes a task detail as readable content instead of naming a bare span', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -653,12 +652,22 @@ describe('ConversationTurn announced state', () => {
     expect(line).not.toBeNull();
     expect(line).not.toHaveAttribute('aria-label');
     expect(line).toHaveTextContent('Review station quality');
-    expect(line).toHaveTextContent('Completed');
-    expect(line).toHaveTextContent('Evidence retained with source identity.');
+    expect(within(line as HTMLElement).getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
+    expect(screen.getByText('Evidence retained with source identity.')).toBeVisible();
+    // Every row carries its ⓘ in the fixed column.
+    fireEvent.click(
+      within(line as HTMLElement).getByRole('button', {
+        name: 'Technical details for task Review station quality',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Task: Technical details' });
+    expect(within(dialog).getByText('task_detail')).toBeVisible();
+    expect(within(dialog).getByText('Evidence retained with source identity.')).toBeVisible();
   });
 
   it('does not leave a task with no detail as an unexplained status row', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -676,7 +685,10 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    const line = document.querySelector('[data-turn-activity="task:task_without_detail"]');
-    expect(line).toHaveTextContent('No detail reported');
+    expect(
+      document.querySelector('[data-turn-activity="task:task_without_detail"]'),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
+    expect(screen.getByText('No task detail was reported.')).toBeVisible();
   });
 });

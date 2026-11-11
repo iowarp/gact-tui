@@ -47,14 +47,15 @@ for (const theme of THEMES) {
       await expectOneLine(page, '[data-slot="menu-row"] > span:nth-child(2) > span');
       await expectOneLine(page, '[data-slot="list-row"] .truncate');
 
-      // Hover actions are hidden with visibility, so showing them never moves the row.
+      // Hover actions are transparent at rest, so showing them never moves the row.
       const first = rows.first();
+      await first.scrollIntoViewIfNeeded();
       const title = first.locator('.truncate').first();
       const before = await title.boundingBox();
       const actions = first.locator('[data-slot="list-row-actions"]');
-      await expect(actions).toHaveCSS('visibility', 'hidden');
+      await expect(actions).toHaveCSS('opacity', '0');
       await first.hover();
-      await expect(actions).toHaveCSS('visibility', 'visible');
+      await expect(actions).toHaveCSS('opacity', '1');
       expect(await title.boundingBox()).toEqual(before);
       await page.mouse.move(0, 0);
 
@@ -91,6 +92,22 @@ for (const theme of THEMES) {
     }
   }
 }
+
+test('a 260px activity row keeps its name, or its target when it has one', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await open(page, 'theme=dark');
+  const rows = page.getByTestId('narrow-activity-rows').locator('[data-activity-row]');
+  await expect(rows).toHaveCount(2);
+  const nameOnly = rows.nth(0).locator('[data-slot="list-row-title"]');
+  await expect(nameOnly).toBeVisible();
+  expect((await nameOnly.boundingBox())!.width).toBeGreaterThan(80);
+  await expect(nameOnly).toHaveCSS('text-overflow', 'ellipsis');
+  const withTarget = rows.nth(1);
+  expect((await withTarget.locator('[data-slot="list-row-title"]').boundingBox())!.width).toBe(1);
+  expect(
+    (await withTarget.locator('[data-slot="activity-argument"]').boundingBox())!.width,
+  ).toBeGreaterThan(80);
+});
 
 test('Mac keys render with ⌘ and the catalog exceptions', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });

@@ -1,23 +1,16 @@
-import type { LanguageModelPreset, ProviderDefinition } from '@clio/core/v3';
+import type { LanguageModelPreset } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
-  providerAvailability,
   providerConnectionLabel,
   providerCredentialKind,
   providerCredentialLabel,
+  providerCredentialNeededLabel,
   providerCredentialStateLabel,
   providerNeedsReauthentication,
   providerPrimaryAction,
+  providerStatusDetail,
   translateKnownProviderErrorReason,
 } from './provider-availability';
-
-const definition: ProviderDefinition = {
-  id: 'claude_code',
-  name: 'Claude Code',
-  auth_methods: ['none'],
-  is_authenticated: true,
-  metadata: {},
-};
 
 const preset: LanguageModelPreset = {
   id: 'claude_code',
@@ -31,7 +24,7 @@ const preset: LanguageModelPreset = {
   supports_vision: false,
 };
 
-describe('providerAvailability', () => {
+describe('providerStatusDetail', () => {
   it('reports a support restore after an update as in progress, not as sign-in needed', () => {
     const restoring: LanguageModelPreset = {
       ...preset,
@@ -39,89 +32,68 @@ describe('providerAvailability', () => {
       status: 'support_restoring',
       status_message: 'Restoring Claude Code support after the update…',
     };
-    expect(providerAvailability(definition, restoring)).toEqual({
-      label: 'Restoring',
-      value: 'degraded',
-      detail: 'Restoring Claude Code support after the update…',
-    });
+    expect(providerStatusDetail(restoring)).toBe('Restoring Claude Code support after the update…');
     expect(providerPrimaryAction(restoring)).toBe('none');
   });
 
-  it('does not let a coarse no-key auth flag override live provider availability', () => {
-    expect(providerAvailability(definition, preset)).toEqual({
-      label: 'Unavailable',
-      value: 'unavailable',
-      detail: 'Claude Code is not installed on the connected agent.',
-    });
-  });
-
-  it('labels an unchecked local provider without claiming it is ready', () => {
-    expect(providerAvailability(undefined, { ...preset, status: 'unknown' })).toMatchObject({
-      label: 'Not checked',
-      value: 'degraded',
-    });
+  it('says a provider CLI missing from PATH is not installed on the connected agent', () => {
+    expect(providerStatusDetail(preset)).toBe(
+      'Claude Code is not installed on the connected agent.',
+    );
   });
 
   it('distinguishes a missing provider runtime from account sign-in', () => {
     expect(
-      providerAvailability(undefined, {
+      providerStatusDetail({
         ...preset,
         status: 'install_required',
         status_message: 'Claude Code support is not installed on the connected agent.',
       }),
-    ).toEqual({
-      label: 'Install needed',
-      value: 'unavailable',
-      detail: 'Claude Code support is not installed on the connected agent.',
-    });
+    ).toBe('Claude Code support is not installed on the connected agent.');
   });
 
   it('does not expose environment variable names as sign-in instructions', () => {
     expect(
-      providerAvailability(undefined, {
+      providerStatusDetail({
         ...preset,
         label: 'OpenRouter',
         status: 'missing_key',
         status_message: 'missing OPENROUTER_API_KEY',
       }),
-    ).toEqual({
-      label: 'API key needed',
-      value: 'unavailable',
-      detail: 'Add your OpenRouter API key.',
-    });
+    ).toBe('Add your OpenRouter API key.');
   });
 
   it('never repeats "API" when the provider label already ends in it', () => {
     expect(
-      providerAvailability(undefined, {
+      providerStatusDetail({
         ...preset,
         label: 'Anthropic API',
         status: 'missing_key',
         status_message: 'missing ANTHROPIC_API_KEY',
       }),
-    ).toMatchObject({ detail: 'Add your Anthropic API key.' });
+    ).toBe('Add your Anthropic API key.');
   });
 
   it('translates the generic connectivity/auth failure instead of the raw backend sentence', () => {
     expect(
-      providerAvailability(undefined, {
+      providerStatusDetail({
         ...preset,
         label: 'ALCF',
         status: 'unavailable',
         status_message: 'provider connectivity or authentication check failed',
       }),
-    ).toMatchObject({ detail: "Couldn't reach ALCF or confirm your sign-in." });
+    ).toBe("Couldn't reach ALCF or confirm your sign-in.");
   });
 
   it('translates the raw "no Globus token stored" sign-in message', () => {
     expect(
-      providerAvailability(undefined, {
+      providerStatusDetail({
         ...preset,
         label: 'ALCF',
         status: 'auth_required',
         status_message: 'no Globus token stored; authenticate ALCF before connecting',
       }),
-    ).toMatchObject({ detail: 'Sign in to ALCF to use its models.' });
+    ).toBe('Sign in to ALCF to use its models.');
   });
 });
 
@@ -200,18 +172,39 @@ describe('translateKnownProviderErrorReason', () => {
 });
 
 describe('credential wording follows the auth method', () => {
-  const apiKey = { ...preset, id: 'openrouter', label: 'OpenRouter', provider: 'openai', requires_api_key: true, auth_method: 'api_key', status: 'missing_key' };
-  const oauth = { ...preset, id: 'argonne_metis', label: 'ALCF Metis', provider: 'argonne', auth_method: 'oauth', status: 'auth_required' };
+  const apiKey = {
+    ...preset,
+    id: 'openrouter',
+    label: 'OpenRouter',
+    provider: 'openai',
+    requires_api_key: true,
+    auth_method: 'api_key',
+    status: 'missing_key',
+  };
+  const oauth = {
+    ...preset,
+    id: 'argonne_metis',
+    label: 'ALCF Metis',
+    provider: 'argonne',
+    auth_method: 'oauth',
+    status: 'auth_required',
+  };
   const cli = { ...preset, auth_method: 'subscription', status: 'auth_required' };
 
   it('names the credential by kind: API key, sign-in, CLI login', () => {
     expect([apiKey, oauth, cli].map(providerCredentialKind)).toEqual(['api_key', 'sign_in', 'cli']);
-    expect([apiKey, oauth, cli].map(providerCredentialLabel)).toEqual(['API key', 'Sign-in', 'Sign-in']);
+    expect([apiKey, oauth, cli].map(providerCredentialLabel)).toEqual([
+      'API key',
+      'Sign-in',
+      'Sign-in',
+    ]);
     // Host credential chains (Vertex ADC, AWS) are neither a key nor a sign-in.
-    expect(providerCredentialLabel({ ...preset, auth_method: 'none', provider: 'openai' })).toBe('Credentials');
-    expect(providerAvailability(undefined, apiKey).label).toBe('API key needed');
-    expect(providerAvailability(undefined, oauth).label).toBe('Sign-in needed');
-    expect(providerAvailability(undefined, { ...apiKey, status: undefined }).label).toBe('API key needed');
+    expect(providerCredentialLabel({ ...preset, auth_method: 'none', provider: 'openai' })).toBe(
+      'Credentials',
+    );
+    expect(providerCredentialNeededLabel(apiKey)).toBe('API key needed');
+    expect(providerCredentialNeededLabel(oauth)).toBe('Sign-in needed');
+    expect(providerCredentialNeededLabel({ ...apiKey, status: undefined })).toBe('API key needed');
   });
 
   it('never shows a wire token like "skipped": an unprobed connection is Not checked', () => {

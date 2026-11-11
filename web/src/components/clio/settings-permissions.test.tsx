@@ -3,11 +3,13 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   policies: vi.fn(),
   workspaces: vi.fn(),
   updatePolicies: vi.fn(),
+  permissions: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -15,7 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
-import { PermissionPoliciesPanel } from './settings-permissions';
+import { PermissionPoliciesPanel, PermissionsSettings } from './settings-permissions';
 
 const policies = [
   {
@@ -49,7 +51,15 @@ const policies = [
 
 function renderPanel(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function rows() {
+  return within(screen.getByRole('group', { name: 'Access rules' }));
 }
 
 beforeEach(() => {
@@ -64,6 +74,7 @@ beforeEach(() => {
     },
   ]);
   repository.updatePolicies.mockImplementation(async (next: unknown) => next);
+  repository.permissions.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -71,17 +82,23 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('permission policy settings', () => {
-  it('explains precedence and names workspace/domain rules without color-only state', async () => {
+describe('access rules', { timeout: 15_000 }, () => {
+  it('lists each rule as its target, kind, scope, priority and a status word', async () => {
     renderPanel(<PermissionPoliciesPanel />);
 
-    expect(screen.getByText(/Higher priority wins/)).toBeVisible();
-    expect(await screen.findByText('Science campaign')).toBeVisible();
-    expect(screen.getByText('Internet domain')).toBeVisible();
-    expect(screen.getByText('Domain pattern *.untrusted.test')).toBeVisible();
-    expect(screen.getByText('Blocked')).toBeVisible();
-    expect(screen.getByText('All tool actions in all permitted locations')).toBeVisible();
-    expect(screen.queryByText('*, *')).not.toBeInTheDocument();
+    expect(await rows().findByText('*.untrusted.test')).toBeVisible();
+    expect(await rows().findByText('Science campaign')).toBeVisible();
+    expect(rows().getByText('Internet domain')).toBeVisible();
+    // Rows show each rule's rank among the priorities (90, 40, 1), never the raw number.
+    expect(rows().getByText('Priority 3')).toBeVisible();
+    expect(rows().queryByText(/Priority 90/)).toBeNull();
+    expect(rows().getByText('Blocked')).toBeVisible();
+    expect(rows().getByText('Ask every time')).toBeVisible();
+    expect(rows().getByText('Allowed')).toBeVisible();
+    expect(rows().getByText('shell_*')).toBeVisible();
+    expect(rows().getByText('in D:/science/**')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'About access rules' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'New access rule' })).toBeVisible();
   });
 
   it('keeps an unregistered workspace identifier out of the primary rule label', async () => {
@@ -92,28 +109,38 @@ describe('permission policy settings', () => {
 
     expect(await screen.findByText('Unregistered workspace')).toBeVisible();
     expect(screen.queryByText('ws_removed')).not.toBeInTheDocument();
-    expect(screen.getByTitle('ws_removed')).toHaveAccessibleName(
+    expect(screen.getByText('Unregistered workspace')).toHaveAccessibleName(
       'Unregistered workspace. Identifier ws_removed',
     );
   });
 
-  it('adds a scoped rule by atomically replacing the complete policy set', async () => {
+  it('stages a new rule, then saves the complete set together', async () => {
     const user = userEvent.setup();
     renderPanel(<PermissionPoliciesPanel initialWorkspaceId="ws_science" />);
+    await rows().findByText('shell_*');
 
-    await user.click(screen.getByRole('button', { name: 'New rule' }));
-    const dialog = screen.getByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('combobox', { name: 'Rule decision' }));
+    await user.click(screen.getByRole('button', { name: 'New access rule' }));
+    const dialog = screen.getByRole('dialog', { name: 'New access rule' });
+    expect(within(dialog).getByRole('button', { name: /Save rule/ })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('combobox', { name: 'Decision' }));
     fireEvent.click(screen.getByRole('option', { name: 'Allow' }));
     await waitFor(() =>
       expect(screen.queryByRole('option', { name: 'Allow' })).not.toBeInTheDocument(),
     );
-    await user.clear(within(dialog).getByLabelText('Tool name pattern'));
-    await user.type(within(dialog).getByLabelText('Tool name pattern'), 'fs_read_file');
-    expect(within(dialog).getByRole('combobox', { name: 'Rule workspace' })).toHaveTextContent(
+    fireEvent.change(within(dialog).getByLabelText('Tool name'), {
+      target: { value: 'fs_read_file' },
+    });
+    expect(within(dialog).getByRole('combobox', { name: 'Workspace' })).toHaveTextContent(
       'Science campaign',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'Save rule set' }));
+    await user.click(within(dialog).getByRole('button', { name: /Save rule/ }));
+
+    expect(repository.updatePolicies).not.toHaveBeenCalled();
+    expect(rows().getByText('fs_read_file')).toBeVisible();
+    const bar = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(bar).toHaveTextContent('1 rule added');
+    expect(bar).toHaveTextContent('rules save together');
+    await user.click(within(bar).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(repository.updatePolicies).toHaveBeenCalled());
     expect(repository.updatePolicies).toHaveBeenCalledWith([
@@ -128,17 +155,114 @@ describe('permission policy settings', () => {
     ]);
   });
 
-  it('requires confirmation before removing a protection rule and preserves audit evidence copy', async () => {
+  it('explains a missing tool name inline once the field is left', async () => {
+    const user = userEvent.setup();
+    renderPanel(<PermissionPoliciesPanel />);
+    // New access rule is offered once the saved rules have loaded.
+    await rows().findByText('shell_*');
+
+    await user.click(screen.getByRole('button', { name: 'New access rule' }));
+    const dialog = screen.getByRole('dialog', { name: 'New access rule' });
+    expect(within(dialog).queryByText('Enter a tool name or pattern.')).toBeNull();
+    await user.click(within(dialog).getByLabelText('Tool name'));
+    await user.tab();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter a tool name or pattern.');
+    // Priority picks a rank, so there is no raw number to get wrong.
+    expect(within(dialog).getByRole('combobox', { name: 'Priority' })).toHaveTextContent(
+      'After existing rules',
+    );
+  });
+
+  it('edits a rule in the same dialog and marks the change in the save bar', async () => {
+    const user = userEvent.setup();
+    renderPanel(<PermissionPoliciesPanel />);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit rule 2' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit access rule' });
+    const name = within(dialog).getByLabelText('Tool name');
+    expect(name).toHaveValue('shell_*');
+    fireEvent.change(name, { target: { value: 'shell.run' } });
+    await user.click(within(dialog).getByRole('button', { name: /Save rule/ }));
+
+    expect(screen.getByRole('region', { name: 'Unsaved changes' })).toHaveTextContent(
+      '1 rule changed',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(repository.updatePolicies).toHaveBeenCalledWith([
+        policies[0],
+        expect.objectContaining({ tool_name_pattern: 'shell.run', priority: 40 }),
+        policies[2],
+      ]),
+    );
+  });
+
+  it('confirms removal on the row, and Discard restores the saved set', async () => {
     const user = userEvent.setup();
     renderPanel(<PermissionPoliciesPanel />);
 
     await user.click(await screen.findByRole('button', { name: 'Remove rule 1' }));
-    const confirmation = screen.getByRole('alertdialog');
-    expect(within(confirmation).getByText(/audit evidence is not deleted/i)).toBeVisible();
-    await user.click(within(confirmation).getByRole('button', { name: 'Remove rule' }));
+    const confirm = screen.getByRole('group', { name: 'Remove this rule?' });
+    await user.click(within(confirm).getByRole('button', { name: 'Keep' }));
+    expect(rows().getByText('*.untrusted.test')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).toBeNull();
 
-    await waitFor(() => expect(repository.updatePolicies).toHaveBeenCalled());
-    expect(repository.updatePolicies).toHaveBeenCalledWith([policies[1], policies[2]]);
+    await user.click(screen.getByRole('button', { name: 'Remove rule 1' }));
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(rows().queryByText('*.untrusted.test')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Unsaved changes' })).toHaveTextContent(
+      '1 rule removed',
+    );
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(rows().getByText('*.untrusted.test')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Remove rule 1' }));
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(repository.updatePolicies).toHaveBeenCalledWith([policies[1], policies[2]]),
+    );
+    expect(repository.updatePolicies).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the staged set when saving fails and says so in plain language', async () => {
+    const user = userEvent.setup();
+    repository.updatePolicies.mockRejectedValue(
+      new Error('Request failed with 422 Unprocessable Entity'),
+    );
+    renderPanel(<PermissionPoliciesPanel />);
+
+    await user.click(await screen.findByRole('button', { name: 'Remove rule 1' }));
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      await screen.findByText('The service did not accept these rules. Nothing changed.'),
+    ).toBeVisible();
+    expect(screen.queryByText(/422/)).toBeNull();
+    expect(rows().queryByText('*.untrusted.test')).toBeNull();
+  });
+
+  it('shows an empty line under the label with the add button still available', async () => {
+    repository.policies.mockResolvedValue([]);
+    renderPanel(<PermissionPoliciesPanel />);
+
+    expect(
+      await screen.findByText('No access rules. Protected actions follow the service defaults.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'New access rule' })).toBeEnabled();
+  });
+
+  it('shows a plain-language load failure with an inline retry and no empty line', async () => {
+    const user = userEvent.setup();
+    repository.policies.mockRejectedValueOnce(new Error('Request failed with 404 Not Found'));
+    renderPanel(<PermissionPoliciesPanel />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t load the access rules.');
+    expect(screen.queryByText(/404/)).toBeNull();
+    expect(screen.queryByText(/No access rules/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await rows().findByText('shell_*')).toBeVisible();
   });
 });
 
@@ -164,12 +288,45 @@ describe('rules the person made in the shared browser', () => {
       },
     ]);
     renderPanel(<PermissionPoliciesPanel />);
-    expect(
-      await screen.findByText('Certificate of octopi.lan, key sha256/LyHcpzcUfoOk='),
-    ).toBeTruthy();
-    expect(screen.getByText('Site octopi.lan')).toBeTruthy();
+    expect(await screen.findByText('key sha256/LyHcpzcUfoOk=')).toBeTruthy();
     expect(screen.getByText('Trusted certificate')).toBeTruthy();
+    expect(screen.getByText('Website in the shared browser')).toBeTruthy();
     expect(screen.getAllByText('One conversation')).toHaveLength(2);
+    expect(screen.getAllByText('octopi.lan')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /^Edit rule/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove rule 1' })).toBeTruthy();
+  });
+});
+
+describe('permission requests', () => {
+  it('names a request by its action and keeps the tool id in technical details', async () => {
+    repository.permissions.mockResolvedValue([
+      {
+        id: 'perm_1',
+        session_id: 'sess_1',
+        tool_name: 'workspace.read',
+        summary: 'Read the station evidence table',
+        reason: 'The agent needs the selected evidence source.',
+        risk: 'low',
+        created_at: '2026-01-01T00:00:00Z',
+        status: 'pending',
+      },
+    ]);
+    renderPanel(<PermissionsSettings />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Permissions' })).toBeVisible();
+    const requests = within(await screen.findByRole('group', { name: 'Requests' }));
+    expect(await requests.findByText('Read the station evidence table')).toBeVisible();
+    expect(requests.getByText('The agent needs the selected evidence source.')).toBeVisible();
+    expect(requests.getByText('Needs you')).toBeVisible();
+    expect(requests.queryByText('workspace.read')).toBeNull();
+    expect(requests.getByRole('button', { name: 'Technical details for request 1' })).toBeTruthy();
+  });
+
+  it('says when there are no requests', async () => {
+    renderPanel(<PermissionsSettings />);
+    expect(
+      await screen.findByText('No pending or recorded requests on this connection.'),
+    ).toBeVisible();
   });
 });

@@ -1,4 +1,5 @@
 import type { AttentionProfile } from '@clio/core/v3';
+import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,15 +21,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InfoTip } from './info-tip';
+import { IconButton } from './primitives/icon-button';
 import { SPOTTER_PROFILE } from '@/lib/attention-profiles';
 
 /** Edits resolved numerical assumptions; Apply reuses the existing capture. */
 export function AttentionProfileEditor({
   profile,
   onApply,
+  iconOnly = false,
 }: {
   profile: AttentionProfile;
   onApply: (profile: AttentionProfile) => void;
+  /** A frame bar's sliders icon, named "Heat profile: SPOTTER" on hover (runs-attention 08). */
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(profile);
@@ -47,9 +52,13 @@ export function AttentionProfileEditor({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="xs">
-          Heat profile: {profile.name}
-        </Button>
+        {iconOnly ? (
+          <IconButton icon={<AdjustIcon />} label={`Heat profile: ${profile.name}`} />
+        ) : (
+          <Button variant="outline" size="xs">
+            Heat profile: {profile.name}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>

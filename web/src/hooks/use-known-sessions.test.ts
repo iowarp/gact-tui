@@ -34,4 +34,16 @@ describe('mergeKnownSessions', () => {
       ['b', 'child'],
     ]);
   });
+
+  it('adds request owners below both sets', () => {
+    const merged = mergeKnownSessions(
+      undefined,
+      [session('a', 'waiting copy')],
+      [session('a', 'owner copy'), session('d', 'request owner')],
+    );
+    expect(merged?.map((row) => [row.id, row.title])).toEqual([
+      ['a', 'waiting copy'],
+      ['d', 'request owner'],
+    ]);
+  });
 });

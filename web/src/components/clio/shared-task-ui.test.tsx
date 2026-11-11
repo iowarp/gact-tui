@@ -18,7 +18,6 @@ import { AsyncTaskList } from './async-task-list';
 import { SourceDownloadAttachment } from './source-download-attachment';
 import { RunActions } from './run-actions';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { ClioEvidenceView } from './observability-evidence';
 
 afterEach(() => {
   cleanup();
@@ -85,18 +84,7 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
           finish = resolve;
         }),
     );
-    render(
-      <ClioEvidenceView
-        compact
-        section="work"
-        artifacts={[]}
-        contextFiles={[]}
-        diffs={[]}
-        messages={[]}
-        processes={[task]}
-        onCancelTask={cancel}
-      />,
-    );
+    render(<AsyncTaskList compact processes={[task]} onCancelTask={cancel} />);
     const user = userEvent.setup();
     expect(screen.getByRole('button', { name: 'Task details: Owned work' })).toHaveAttribute(
       'aria-expanded',
@@ -106,7 +94,6 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
     expect(
       screen.getByRole('img', { name: `${kind === 'MCP' ? 'Tool' : 'Agent'}: running` }),
     ).toBeVisible();
-    expect(screen.queryByText('Running', { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText('Reading owned evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Task details: Owned work' }));
     expect(screen.getByText('Reading owned evidence')).toBeVisible();

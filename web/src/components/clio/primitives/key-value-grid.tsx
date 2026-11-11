@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export interface KeyValueItem {
   label: string;
-  /** A 14px icon before the label. */
+  /** A 14px icon before the label (13px in `card`). */
   icon?: ReactNode;
   value: ReactNode;
   /** Monospace for addresses, versions and sizes. */
@@ -13,6 +13,15 @@ export interface KeyValueItem {
   title?: string;
   /** One small action at the end of the row (Check again, Edit). */
   action?: ReactNode;
+  /**
+   * `facts` only: in a narrow container, a shorter value to show instead, or
+   * `false` to drop the row (its content then lives behind the card's details).
+   */
+  narrow?: ReactNode | false;
+  /** `facts` only: `false` shows the row only in a narrow container (where `narrow: false` left it). */
+  wide?: false;
+  /** `facts` only: wrap onto more lines instead of an ellipsis (a path being approved). */
+  wrap?: boolean;
 }
 
 /**
@@ -20,22 +29,35 @@ export interface KeyValueItem {
  * and value starts at the same x. Each value stays on one line and ends in
  * an ellipsis; the action slot keeps its width whether or not a row has one.
  *
+ * `facts` is the ask card's form: a fixed 110px label column, 24px rows and
+ * left-aligned values. In a narrow container the labels give way to their icons,
+ * and a row may swap in its `narrow` value or drop out.
+ *
+ * `card` is the hover card's form (conversation-states `.hcd`): 25px rows inset
+ * 8px, a 13px muted icon, the label in the text tone and the value right in the
+ * muted tone. Give every row an icon so the labels share one x.
+ *
  * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
  * label, a left-aligned value, a separator under each row, and a row that
  * highlights when its value is a `KeyValueRowButton`.
  */
 export const KeyValueGrid = memo(function KeyValueGrid({
   items,
+  actionColumn = false,
   className,
   variant = 'compact',
   'aria-label': ariaLabel,
 }: {
   items: readonly KeyValueItem[];
+  /** Keep the action column when no row has an action, to line up with sibling rows. */
+  actionColumn?: boolean;
   className?: string;
-  variant?: 'compact' | 'rows';
+  variant?: 'compact' | 'card' | 'rows' | 'facts';
   'aria-label'?: string;
 }) {
-  const hasAction = items.some((item) => item.action);
+  const hasAction = actionColumn || items.some((item) => item.action);
+  const facts = variant === 'facts';
+  const card = variant === 'card';
   if (variant === 'rows') {
     return (
       <dl
@@ -75,39 +97,106 @@ export const KeyValueGrid = memo(function KeyValueGrid({
     <dl
       aria-label={ariaLabel}
       data-slot="key-value-grid"
+      data-variant={variant}
       className={cn(
-        'grid items-center gap-x-3 gap-y-1 text-[12px]',
-        hasAction
-          ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
-          : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
+        facts
+          ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-[12.5px]'
+          : card
+            ? 'grid items-center gap-x-3 px-2 text-[12px] [&_dd]:leading-[25px] [&_dt]:h-[25px]'
+            : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
+        facts
+          ? hasAction
+            ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
+            : 'grid-cols-[110px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+          : hasAction
+            ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
+            : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
         className,
       )}
     >
-      {items.map((item) => (
-        <div className="contents" key={item.label}>
-          <dt className="flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground">
-            {item.icon ? (
-              <span
-                aria-hidden="true"
-                className="grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5"
-              >
-                {item.icon}
+      {items.map((item) => {
+        const dropNarrow = facts && item.narrow === false;
+        const narrowOnly = facts && item.wide === false;
+        const narrowValue = facts && item.narrow ? item.narrow : null;
+        const wrap = facts && item.wrap;
+        const wideValue =
+          facts && typeof item.value === 'string' ? (
+            <span className={wrap ? 'min-w-0' : 'min-w-0 truncate'}>{item.value}</span>
+          ) : (
+            item.value
+          );
+        return (
+          <div className="contents" data-narrow={dropNarrow ? 'drop' : undefined} key={item.label}>
+            <dt
+              className={cn(
+                'flex min-w-0 items-center whitespace-nowrap',
+                card ? 'gap-2.5 text-foreground/85' : 'gap-2 text-muted-foreground',
+                facts && 'text-[12px]',
+                wrap && 'h-6 self-start',
+                dropNarrow && '@max-[420px]:hidden',
+                narrowOnly && 'hidden @max-[420px]:flex',
+              )}
+              title={facts ? item.label : undefined}
+            >
+              {item.icon ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    card
+                      ? 'grid size-[13px] shrink-0 place-items-center text-muted-foreground [&_[data-provider-logo]]:size-[13px] [&_[data-provider-logo]>span]:size-[13px] [&_svg]:size-[13px]'
+                      : "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
+                    facts && 'hidden @max-[420px]:grid',
+                  )}
+                >
+                  {item.icon}
+                </span>
+              ) : null}
+              <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
+                {item.label}
               </span>
+            </dt>
+            <dd
+              className={cn(
+                wrap
+                  ? 'min-w-0 py-[3px] leading-[18px] [overflow-wrap:anywhere]'
+                  : 'min-w-0 truncate whitespace-nowrap',
+                facts
+                  ? 'flex items-center gap-[7px] text-left text-foreground/90'
+                  : card
+                    ? 'text-right text-muted-foreground'
+                    : 'text-right text-foreground/85',
+                item.mono && 'font-mono text-[11.5px] tabular-nums',
+                facts && item.mono && 'text-[12px]',
+                dropNarrow && '@max-[420px]:hidden',
+                narrowOnly && (wrap ? 'hidden @max-[420px]:block' : 'hidden @max-[420px]:flex'),
+              )}
+              title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
+            >
+              {narrowValue ? (
+                <>
+                  <span className="contents @max-[420px]:hidden">{wideValue}</span>
+                  <span className="hidden @max-[420px]:contents" data-slot="key-value-narrow">
+                    {narrowValue}
+                  </span>
+                </>
+              ) : (
+                wideValue
+              )}
+            </dd>
+            {hasAction ? (
+              <dd
+                className={cn(
+                  'flex justify-end',
+                  dropNarrow && '@max-[420px]:hidden',
+                  narrowOnly && 'hidden @max-[420px]:flex',
+                )}
+              >
+                {item.action}
+              </dd>
             ) : null}
-            <span className="truncate">{item.label}</span>
-          </dt>
-          <dd
-            className={cn(
-              'min-w-0 truncate whitespace-nowrap text-right text-foreground',
-              item.mono && 'font-mono text-[11px] tabular-nums',
-            )}
-            title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
-          >
-            {item.value}
-          </dd>
-          {hasAction ? <dd className="flex justify-end">{item.action}</dd> : null}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </dl>
   );
 });

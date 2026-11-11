@@ -66,7 +66,7 @@ export const FileTree = ({
   return (
     <FileTreeContext.Provider value={contextValue}>
       <div
-        className={cn('min-w-0 rounded-lg border bg-background font-mono text-sm', className)}
+        className={cn('min-w-0 rounded-lg border bg-background font-sans text-[12.5px]', className)}
         role="tree"
         {...props}
       >
@@ -132,27 +132,26 @@ export const FileTreeFolder = ({
           <CollapsibleTrigger asChild>
             <button
               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} folder ${name}`}
-              className="flex w-full min-w-0 cursor-pointer items-center gap-1 rounded border-none bg-transparent px-1.5 py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              className="flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] border-none bg-transparent px-2 text-left whitespace-nowrap transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               type="button"
             >
-              <ChevronRightIcon
-                className={cn(
-                  'size-4 shrink-0 text-muted-foreground transition-transform',
-                  isExpanded && 'rotate-90',
-                )}
-              />
+              <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
+                <ChevronRightIcon
+                  className={cn('size-3 transition-transform', isExpanded && 'rotate-90')}
+                />
+              </span>
               <FileTreeIcon>
                 {isExpanded ? (
-                  <FolderOpenIcon className="size-4 text-info" />
+                  <FolderOpenIcon className="size-3.5 text-muted-foreground" />
                 ) : (
-                  <FolderIcon className="size-4 text-info" />
+                  <FolderIcon className="size-3.5 text-muted-foreground" />
                 )}
               </FileTreeIcon>
               <FileTreeName>{name}</FileTreeName>
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="ml-4 border-l pl-2">{children}</div>
+            <div className="pl-5">{children}</div>
           </CollapsibleContent>
         </div>
       </Collapsible>
@@ -208,8 +207,8 @@ export const FileTreeFile = ({
     <FileTreeFileContext.Provider value={fileContextValue}>
       <div
         className={cn(
-          'flex w-full min-w-0 cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors hover:bg-muted/50',
-          isSelected && 'bg-muted',
+          'flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] px-2 whitespace-nowrap transition-colors hover:bg-hover',
+          isSelected && 'bg-accent text-accent-foreground hover:bg-accent',
           className,
         )}
         onClick={handleClick}
@@ -220,9 +219,9 @@ export const FileTreeFile = ({
       >
         {children ?? (
           <>
-            {alignWithFolders ? <span aria-hidden="true" className="size-4 shrink-0" /> : null}
+            {alignWithFolders ? <span aria-hidden="true" className="w-3 shrink-0" /> : null}
             <FileTreeIcon>
-              {icon ?? <FileIcon className="size-4 text-muted-foreground" />}
+              {icon ?? <FileIcon className="size-3.5 text-muted-foreground" />}
             </FileTreeIcon>
             <FileTreeName>{name}</FileTreeName>
           </>
@@ -231,19 +230,3 @@ export const FileTreeFile = ({
     </FileTreeFileContext.Provider>
   );
 };
-
-export type FileTreeActionsProps = HTMLAttributes<HTMLDivElement>;
-
-const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
-
-export const FileTreeActions = ({ className, children, ...props }: FileTreeActionsProps) => (
-  <div
-    className={cn('ml-auto flex items-center gap-1', className)}
-    onClick={stopPropagation}
-    onKeyDown={stopPropagation}
-    role="group"
-    {...props}
-  >
-    {children}
-  </div>
-);

@@ -1,26 +1,37 @@
-import { lazy, Suspense, useState, type ComponentType } from 'react';
+import { lazy, memo, Suspense, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
+import {
+  Navigate,
+  NavigationType,
+  Route,
+  Routes,
+  UNSAFE_LocationContext as LocationContext,
+  useNavigate,
+  type Location,
+} from 'react-router-dom';
+import { useLiveLocation } from '@/lib/live-location';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { WorkspacePage } from '@/routes/workspace-page';
-import { NewConversationPage } from '@/routes/new-conversation-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useProviderCatalog } from '@/hooks/use-provider-catalog';
+import { useProviderCatalogWarmup } from '@/hooks/use-provider-catalog';
 import { ClioSelectionActionToolbar } from '@/components/clio/selection-actions';
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
+import { ConnectionAnnouncer } from '@/components/clio/connection-announcer';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
+import { OnboardingTourProvider } from '@/components/clio/onboarding/onboarding-tour';
 import {
   installRoutePrefetch,
   loadedRouteChunk,
@@ -56,9 +67,15 @@ function lazyRoute<Name extends RouteChunk>(
 }
 
 const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
+const WorkspacePage = lazyRoute('workspace', (module) => module.WorkspacePage);
+const NewConversationPage = lazyRoute('newConversation', (module) => module.NewConversationPage);
+// The window frame travels with its sections: one chunk, prefetched on idle and link hover.
+const SettingsWindow = lazyRoute('settings', (module) => module.SettingsWindow);
+const ConnectionDialog = lazy(() =>
+  loadRouteChunk('connection').then((module) => ({ default: module.ConnectionDialog })),
+);
 const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
 const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
-const SettingsPage = lazyRoute('settings', (module) => module.SettingsPage);
 
 function RouteFallback() {
   return (
@@ -80,13 +97,30 @@ function UnknownRouteRedirect() {
 }
 
 function ProviderCatalogWarmup() {
-  useProviderCatalog();
+  useProviderCatalogWarmup();
   return null;
 }
 
+/** The app's own routes, re-rendered only when the location they show changes. */
+const BackgroundRoutes = memo(
+  function BackgroundRoutes({ location, children }: { location: Location; children: ReactNode }) {
+    // <Routes> reads the router's location even when given its own, so without
+    // this every settings section switch re-rendered the whole workspace behind
+    // the window. Its descendants already see `location`; this keeps <Routes>
+    // itself off the router's location too.
+    const frozen = useMemo(() => ({ location, navigationType: NavigationType.Pop }), [location]);
+    return (
+      <LocationContext.Provider value={frozen}>
+        <Routes location={location}>{children}</Routes>
+      </LocationContext.Provider>
+    );
+  },
+  (previous, next) => previous.location === next.location,
+);
+
 export default function App() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLiveLocation();
   const desktopHost = inTauri();
   const { credentialsReady, settings } = useConnectionSettings();
   const settingsReturnState = {
@@ -95,6 +129,24 @@ export default function App() {
       ? location.pathname
       : returnRouteFromState(location.state, settings.endpoint),
   };
+  const settingsBackground = settingsBackgroundRoute(location, settings.endpoint);
+  // While Settings is open the page behind it keeps its last location object,
+  // so moving between settings sections never re-renders the workspace.
+  const [behindSettings, setBehindSettings] = useState<Location>(location);
+  // The in-app ways to connect open over the page they came from; the full-page
+  // connect screen is only for a first visit with nothing behind it.
+  const connectOverPage =
+    location.pathname === '/' &&
+    new URLSearchParams(location.search).get('intent') === 'connect' &&
+    behindSettings.pathname !== '/';
+  const routesLocation = settingsBackground
+    ? behindSettings.pathname === settingsBackground
+      ? behindSettings
+      : { ...location, pathname: settingsBackground, search: '', hash: '' }
+    : connectOverPage
+      ? behindSettings
+      : location;
+  if (routesLocation !== behindSettings) setBehindSettings(routesLocation);
   useNativeMenuBridge();
   // Secondary routes load on idle or link hover, not on their first visit.
   useEffect(() => installRoutePrefetch(), []);
@@ -107,13 +159,28 @@ export default function App() {
     if (!desktopHost || !credentialsReady) return;
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
-  useMenuAction('open-settings', () =>
+  const openSettings = () =>
     navigate('/settings/general', {
       state: settingsReturnState,
-    }),
+    });
+  useMenuAction('open-settings', openSettings);
+  // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
+  useShortcut('settings', openSettings);
+  useMenuAction('connection-settings', () =>
+    navigate('/settings/connections', { state: settingsReturnState }),
   );
+  useMenuAction('manage-agents', () => navigate('/?intent=connect'));
+  // A static native menu can't list the saved agents: it opens the CLIO menu,
+  // or the agent picker when no CLIO menu is on screen.
+  useMenuAction('switch-agent', () => {
+    if (!requestClioMenu()) navigate('/?intent=connect');
+  });
+  useMenuAction('connect-by-address', () => navigate('/?intent=connect&mode=address'));
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
-  useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
+  useMenuAction('install-agent', () => navigate('/?intent=connect&mode=deploy'));
+  const openInfrastructure = () => navigate('/infrastructure', { state: settingsReturnState });
+  useShortcut('infrastructure', openInfrastructure);
+  useMenuAction('open-infrastructure', openInfrastructure);
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
@@ -123,7 +190,7 @@ export default function App() {
   if (location.pathname === '/oauth/mcp') return <McpOAuthReturn />;
 
   const appContent = (
-    <>
+    <OnboardingTourProvider>
       <ProviderCatalogWarmup />
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
@@ -131,7 +198,7 @@ export default function App() {
         <SandboxInactiveBanner />
         <div className="min-h-0 flex-1">
           <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <BackgroundRoutes location={routesLocation}>
               <Route element={<ConnectionPage />} path="/" />
               <Route
                 element={<WorkspacePage />}
@@ -140,20 +207,36 @@ export default function App() {
               <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
               <Route element={<RunsPage />} path="/runs" />
               <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-              <Route element={<SettingsPage />} path="/settings/:section" />
+              {/* Settings is a window over the app; without a workspace behind it the
+                  app area stays empty. */}
+              <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
               <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
               <Route element={<UnknownRouteRedirect />} path="*" />
-            </Routes>
+            </BackgroundRoutes>
           </Suspense>
         </div>
       </div>
-      <Toaster closeButton richColors />
-      {/* Fixed + full-viewport, so it covers the desktop title bar's own
-          connection pill too -- not just the routed content below. */}
+      {isSettingsRoute(location.pathname) ? (
+        <Suspense fallback={null}>
+          <Routes location={location}>
+            <Route element={<SettingsWindow />} path="/settings/:section" />
+          </Routes>
+        </Suspense>
+      ) : null}
+      {connectOverPage ? (
+        <Suspense fallback={null}>
+          <ConnectionDialog
+            background={`${behindSettings.pathname}${behindSettings.search}${behindSettings.hash}`}
+          />
+        </Suspense>
+      ) : null}
+      <Toaster />
+      {credentialsReady && routesLocation.pathname !== '/' ? <ConnectionAnnouncer /> : null}
+      {/* The update page where no app shell hosts it in its content pane. */}
       <UpdateRestartOverlay />
       {/* One toolbar for every selectable surface; actions register per page. */}
       <ClioSelectionActionToolbar />
-    </>
+    </OnboardingTourProvider>
   );
 
   if (!desktopHost) return appContent;

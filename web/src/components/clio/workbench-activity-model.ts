@@ -10,13 +10,20 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { openHumanQuestions } from '@/lib/inline-question';
+import { vocab } from '@/lib/brand-vocabulary';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatCompactBytes } from '@/lib/format';
 import type { EvidenceSource } from './observability-evidence-sources';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
 import { taskProgressLabel } from './task-progress-label';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
-import { formatToolDuration, getToolActivityTitle, getToolStatus } from './tool-presentation';
+import {
+  formatToolDuration,
+  getToolActionLabel,
+  getToolActivityTitle,
+  getToolStatus,
+  getToolSubject,
+} from './tool-presentation';
 import { fileName } from './workbench-shared';
 
 /** What one Activity row is about; it picks the icon and what a click opens. */
@@ -174,6 +181,106 @@ function short(value: string | undefined, max = 9): string | undefined {
   return value && value.length <= max ? value : undefined;
 }
 
+/** Subject words that only restate the call's category; a row says nothing more with them. */
+export function isGenericActivitySubject(label: string): boolean {
+  // The agent backend names every child after itself ("CLIO") whatever the brand.
+  return (
+    /^(?:task|tasks|subagent|subagents|session|agent|child agent|all|general|clio)$/iu.test(
+      label.trim(),
+    ) || label.trim().toLowerCase() === vocab.agent.toLowerCase()
+  );
+}
+
+function inputText(tool: ToolInvocation, key: string): string | undefined {
+  const input = tool.input;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const record = input as Record<string, unknown>;
+  const kwargs = record.kwargs;
+  const value =
+    record[key] ??
+    (kwargs && typeof kwargs === 'object' ? (kwargs as Record<string, unknown>)[key] : undefined);
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function lowerFirst(text: string): string {
+  return /^[A-Z][a-z]/u.test(text) ? `${text[0]!.toLocaleLowerCase()}${text.slice(1)}` : text;
+}
+
+const ABSOLUTE_PATH = String.raw`(?<![\w.])(?:[A-Za-z]:[\\/]|\\\\|/)[^\s"'),;]+`;
+
+/** A brief without the machine paths a delegated task spells out for its child. */
+function withoutAbsolutePaths(text: string): string {
+  return text
+    .replace(new RegExp(String.raw`\s+(?:located\s+)?(?:at|in|under)\s+${ABSOLUTE_PATH}`, 'gu'), '')
+    .replace(
+      new RegExp(ABSOLUTE_PATH, 'gu'),
+      (path) => path.split(/[\\/]/u).filter(Boolean).at(-1) ?? path,
+    )
+    .replace(/[\s,:]+$/u, '');
+}
+
+/** "python count.py" from `cd "C:\…\scratch" && python count.py`: the step that does the work. */
+function commandBrief(command: string): string {
+  const steps = command
+    .split(/\s*(?:&&|\|\||;|\n)\s*/u)
+    .map((step) => step.trim())
+    .filter((step) => step && !/^(?:cd|pushd|set|export)\b/iu.test(step));
+  const step = steps.at(-1) ?? command.trim();
+  return step
+    .split(/\s+/u)
+    .slice(0, 3)
+    .map((word) => {
+      const bare = word.replace(/^["']|["']$/gu, '');
+      return /[\\/]/u.test(bare) ? (bare.split(/[\\/]/u).filter(Boolean).at(-1) ?? bare) : bare;
+    })
+    .join(' ');
+}
+
+function waitName(tool: ToolInvocation): string {
+  const input = tool.input as Record<string, unknown> | undefined;
+  const tasks = input && typeof input === 'object' ? input.tasks : undefined;
+  if (tasks === 'all') return 'Wait for all tasks';
+  if (Array.isArray(tasks) && tasks.length > 1) return `Wait for ${tasks.length} tasks`;
+  return 'Wait for a task';
+}
+
+/**
+ * One humane line for a tool call: "Read soil_sites.csv", "Run python count.py",
+ * "Delegate count the rows…". Never a category word in brackets ("(Task)") or a
+ * full path; those stay in the call's details.
+ */
+export function toolActivityName(tool: ToolInvocation): string {
+  const path = inputPath(tool);
+  const verb = toolVerb(tool.name);
+  if (verb && path) return `${verb} ${fileName(path)}`;
+  const family = TOOL_OPERATIONS[tool.name]?.family;
+  if (family === 'wait') return waitName(tool);
+  if (tool.name === 'spawn_agent_task') {
+    const what = inputText(tool, 'name') ?? inputText(tool, 'task')?.split(/(?<=\.)\s|\n/u)[0];
+    if (what && !isGenericActivitySubject(what))
+      return `Delegate ${lowerFirst(withoutAbsolutePaths(what))}`;
+  }
+  const action = getToolActionLabel(tool).trim() || tool.name;
+  const command =
+    inputText(tool, 'command') ??
+    tool.presentation?.blocks.find((block) => block.type === 'terminal' && block.command)?.command;
+  if (command && !getToolSubject(tool)) return `${action} ${commandBrief(command)}`;
+  const title = getToolActivityTitle(tool);
+  const subject = /\((.+)\)$/u.exec(title)?.[1]?.trim();
+  if (!subject || isGenericActivitySubject(subject)) return action;
+  return `${action} ${subject}`;
+}
+
+/** How long a finished call took, from its reported duration or its timestamps. */
+export function toolDurationMs(tool: ToolInvocation): number | undefined {
+  if (tool.duration_ms !== undefined) return tool.duration_ms;
+  const started = tool.started_at ? Date.parse(tool.started_at) : NaN;
+  const completed = tool.completed_at ? Date.parse(tool.completed_at) : NaN;
+  return Number.isFinite(started) && Number.isFinite(completed) && completed >= started
+    ? completed - started
+    : undefined;
+}
+
 function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
   const status = getToolStatus(tool);
   const running = RUNNING_STATES.has(status);
@@ -194,7 +301,7 @@ function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
     kind: verb && path ? 'file' : isSearch ? 'search' : 'tool',
     filter: verb && path ? 'files' : 'tools',
     group: running ? 'now' : group,
-    name: verb && path ? `${verb} ${fileName(path)}` : getToolActivityTitle(tool) || tool.name,
+    name: toolActivityName(tool),
     trailing,
     status: duration && !running ? `${statusWords}, ${duration}` : statusWords,
     running,

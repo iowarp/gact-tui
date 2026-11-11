@@ -1,13 +1,15 @@
 import type { WorkspaceFileEntry, WorkspaceFileListing } from '@clio/core/v3';
 import { skipToken, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
-import { Button } from '@/components/ui/button';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { workspaceDirectoryQueryKey } from '@/lib/workspace-directory-cache';
 import { FileTypeIcon } from './file-type-icon';
-import { ResourceLoading } from './resource-states';
+import { serviceErrorDetail } from './service-error';
+import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
+import type { ChangeCounts } from './workbench-shared';
 
 interface TreeProps {
   directory?: string;
@@ -16,17 +18,31 @@ interface TreeProps {
   selectedPath?: string;
   onSelect: (path: string) => void;
   filter?: string;
+  changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
 }
 
-/** Mounts directory queries only when the corresponding folder is expanded. */
+interface DirectoryListing {
+  entries: readonly WorkspaceFileEntry[];
+  pending: boolean;
+  error?: string;
+  hasNext: boolean;
+  fetchingNext: boolean;
+  fetchNext: () => void;
+  retry: () => void;
+}
+
+/**
+ * The paged Files tree. Each expanded folder mounts one directory query; their
+ * pages flatten into a single windowed row list, so only rows in view mount.
+ */
 export function WorkspaceDirectoryTree(props: TreeProps) {
   const { settings } = useConnectionSettings();
   const client = useQueryClient();
-  const expansionKey = [
-    'workspace-directory-expanded',
-    connectionScope(settings),
-    props.workspaceId,
-  ];
+  const expansionKey = useMemo(
+    () => ['workspace-directory-expanded', connectionScope(settings), props.workspaceId],
+    [settings, props.workspaceId],
+  );
   const { data: expandedPaths } = useQuery<string[]>({
     queryKey: expansionKey,
     queryFn: skipToken,
@@ -34,45 +50,153 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
     enabled: false,
     gcTime: Infinity,
   });
-  const expanded = new Set(expandedPaths);
+  const [listings, setListings] = useState<ReadonlyMap<string, DirectoryListing>>(() => new Map());
+  const report = useCallback((directory: string, listing: DirectoryListing | undefined) => {
+    setListings((current) => {
+      const next = new Map(current);
+      if (listing) next.set(directory, listing);
+      else next.delete(directory);
+      return next;
+    });
+  }, []);
+  const toggle = useCallback(
+    (path: string) => {
+      const next = new Set(client.getQueryData<string[]>(expansionKey) ?? []);
+      if (!next.delete(path)) next.add(path);
+      client.setQueryData(expansionKey, [...next]);
+    },
+    [client, expansionKey],
+  );
+
+  const rootDirectory = props.directory ?? '';
+  const { rows, loaded } = useMemo(() => {
+    const expanded = new Set(expandedPaths);
+    const result: FileTreeRow[] = [];
+    const directories: string[] = [];
+    const walk = (directory: string, depth: number) => {
+      directories.push(directory);
+      const listing = listings.get(directory);
+      const entries = (listing?.entries ?? []).filter(
+        (entry) =>
+          entry.type === 'dir' ||
+          !props.filter ||
+          name(entry).toLocaleLowerCase().includes(props.filter),
+      );
+      const alignWithFolders = entries.some((entry) => entry.type === 'dir');
+      for (const entry of entries) {
+        if (entry.type !== 'dir') {
+          result.push({
+            kind: 'file',
+            path: entry.path,
+            name: name(entry),
+            depth,
+            alignWithFolders,
+            size: entry.size,
+            icon: (
+              <FileTypeIcon className="size-3.5" mediaType={entry.media_type} name={entry.path} />
+            ),
+          });
+          continue;
+        }
+        const open = expanded.has(entry.path);
+        result.push({ kind: 'dir', path: entry.path, name: name(entry), depth, open });
+        if (!open) continue;
+        if (entry.redacted)
+          result.push({
+            kind: 'note',
+            key: `${entry.path}#note`,
+            depth: depth + 1,
+            label: 'Sandbox cache contents are private.',
+          });
+        else walk(entry.path, depth + 1);
+      }
+      if (!listing || listing.pending)
+        result.push({
+          kind: 'loading',
+          key: `${directory}#loading`,
+          depth,
+          label: 'Loading folder',
+        });
+      else if (listing.error)
+        result.push({
+          kind: 'error',
+          key: `${directory}#error`,
+          depth,
+          label: directory ? "Couldn't list this folder" : "Files couldn't be listed",
+          detail: serviceErrorDetail(listing.error),
+          onRetry: listing.retry,
+        });
+      else if (!listing.entries.length)
+        result.push({
+          kind: 'note',
+          key: `${directory}#empty`,
+          depth,
+          label: 'No files in this folder',
+        });
+      if (listing?.hasNext)
+        result.push({
+          kind: 'more',
+          key: `${directory}#more`,
+          depth,
+          label: listing.fetchingNext ? 'Loading…' : 'Load more files',
+          disabled: listing.fetchingNext,
+          onActivate: listing.fetchNext,
+        });
+    };
+    walk(rootDirectory, 0);
+    return { rows: result, loaded: directories };
+  }, [expandedPaths, listings, props.filter, rootDirectory]);
+
   return (
-    <FileTree
-      className="rounded-none border-0 bg-transparent font-sans text-xs"
-      expanded={expanded}
-      onExpandedChange={(paths) => client.setQueryData(expansionKey, [...paths])}
-      onSelect={props.onSelect}
-      selectedPath={props.selectedPath}
-    >
-      <DirectoryChildren {...props} directory={props.directory ?? ''} expanded={expanded} />
-    </FileTree>
+    <>
+      {loaded.map((directory) => (
+        <DirectoryLoader
+          directory={directory}
+          key={directory}
+          onReport={report}
+          root={directory === '' ? props.root : undefined}
+          workspaceId={props.workspaceId}
+        />
+      ))}
+      <WindowedFileTree
+        changeCounts={props.changeCounts}
+        changedPaths={props.changedPaths}
+        onSelect={props.onSelect}
+        onToggle={toggle}
+        rows={rows}
+        selectedPath={props.selectedPath}
+      />
+    </>
   );
 }
 
-function DirectoryChildren({
+/** Owns one folder's paged query and reports its rows; renders nothing. */
+function DirectoryLoader({
   directory,
-  expanded,
-  ...props
-}: TreeProps & {
+  workspaceId,
+  root,
+  onReport,
+}: {
   directory: string;
-  expanded: ReadonlySet<string>;
+  workspaceId: string;
+  root?: WorkspaceFileListing;
+  onReport: (directory: string, listing: DirectoryListing | undefined) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const { hideDotFiles } = useAppearancePreferences();
   const listing = useInfiniteQuery({
-    queryKey: [
-      'workspace-directory',
+    queryKey: workspaceDirectoryQueryKey(
       settings.endpoint,
-      props.workspaceId,
+      workspaceId,
       connectionScope(settings),
       directory,
       !hideDotFiles,
-    ],
+    ),
     initialPageParam: 0,
-    initialData:
-      directory === '' && props.root ? { pages: [props.root], pageParams: [0] } : undefined,
+    initialData: root ? { pages: [root], pageParams: [0] } : undefined,
     queryFn: ({ signal, pageParam }) =>
-      repository.workspaceFiles(props.workspaceId, signal, {
+      repository.workspaceFiles(workspaceId, signal, {
         directory,
         offset: pageParam,
         includeHidden: !hideDotFiles,
@@ -82,62 +206,32 @@ function DirectoryChildren({
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
   });
-  const entries = listing.data?.pages.flatMap((page) => page.entries) ?? [];
-  return (
-    <>
-      {entries
-        .filter(
-          (entry) =>
-            entry.type === 'dir' ||
-            !props.filter ||
-            name(entry).toLocaleLowerCase().includes(props.filter),
-        )
-        .map((entry) =>
-          entry.type === 'dir' ? (
-            <FileTreeFolder key={entry.path} path={entry.path} name={name(entry)}>
-              {expanded.has(entry.path) ? (
-                entry.redacted ? (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">
-                    Sandbox cache contents are private.
-                  </p>
-                ) : (
-                  <DirectoryChildren {...props} directory={entry.path} expanded={expanded} />
-                )
-              ) : null}
-            </FileTreeFolder>
-          ) : (
-            <FileTreeFile
-              key={entry.path}
-              name={name(entry)}
-              path={entry.path}
-              icon={<FileTypeIcon name={entry.path} mediaType={entry.media_type} />}
-            />
-          ),
-        )}
-      {listing.isPending ? (
-        <ResourceLoading className="px-2 py-1" label="Loading folder" variant="line" />
-      ) : null}
-      {listing.error ? (
-        <p className="px-2 py-1 text-xs text-destructive" role="alert">
-          {listing.error.message}
-        </p>
-      ) : null}
-      {!listing.isPending && !listing.error && !entries.length ? (
-        <p className="px-2 py-1 text-xs text-muted-foreground">Empty folder</p>
-      ) : null}
-      {listing.hasNextPage ? (
-        <Button
-          className="my-1 h-7 w-full text-xs"
-          size="sm"
-          variant="ghost"
-          disabled={listing.isFetchingNextPage}
-          onClick={() => void listing.fetchNextPage()}
-        >
-          {listing.isFetchingNextPage ? 'Loading…' : 'Load more files'}
-        </Button>
-      ) : null}
-    </>
-  );
+  const { data, isPending, error, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+    listing;
+  // Layout effects report before paint, so a listed folder never flashes as loading.
+  useLayoutEffect(() => {
+    onReport(directory, {
+      entries: data?.pages.flatMap((page) => page.entries) ?? [],
+      pending: isPending,
+      error: error?.message,
+      hasNext: hasNextPage,
+      fetchingNext: isFetchingNextPage,
+      fetchNext: () => void fetchNextPage(),
+      retry: () => void refetch(),
+    });
+  }, [
+    data,
+    directory,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isPending,
+    onReport,
+    refetch,
+  ]);
+  useLayoutEffect(() => () => onReport(directory, undefined), [directory, onReport]);
+  return null;
 }
 
 function name(entry: WorkspaceFileEntry): string {

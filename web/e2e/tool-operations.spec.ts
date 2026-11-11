@@ -11,6 +11,51 @@ const tool = (id: string, name: string, input: unknown, output: unknown): ToolIn
   session_id: 'parent',
   state: 'succeeded',
 });
+// A batch of installed skill files: they live with the app, outside every workspace.
+const skillRoot =
+  '/Applications/CLIO Desktop.app/Contents/Resources/gact-runtime/clio_schemas/skills/work-with-ndp';
+const skillFiles = Array.from({ length: 12 }, (_, i) =>
+  i % 3 === 2
+    ? `catalog.json#/components/Widget${i + 1}`
+    : `references/observation-guide-${i + 1}.md`,
+);
+const skillBatch: ToolInvocation = {
+  id: 'skill',
+  name: 'load_skill',
+  session_id: 'parent',
+  state: 'succeeded',
+  input: { skill_id: 'work-with-ndp', files: skillFiles },
+  presentation: {
+    action: 'Read skill references',
+    subject: 'skill-reference',
+    summary: 'Work with NDP',
+    blocks: [
+      { id: 'skill-reference', type: 'text', text: `${skillFiles.length} reference files` },
+      { id: 'skill-identity', type: 'text', label: 'Skill', text: 'work-with-ndp' },
+      { id: 'skill-directory', type: 'text', label: 'Skill directory', text: skillRoot },
+      ...skillFiles.map((file, i) => ({
+        id: `skill-file-${i}`,
+        type: 'link' as const,
+        target: 'file' as const,
+        uri: `${skillRoot}/${file.split('#')[0]}`,
+        label: file,
+      })),
+      {
+        id: 'content',
+        type: 'markdown',
+        text: skillFiles
+          .map(
+            (file, i) =>
+              `=== File ${i + 1}/${skillFiles.length}: ${file} ===\n` +
+              (file.startsWith('catalog')
+                ? JSON.stringify({ title: `Widget ${i + 1}`, properties: { data: 'ref' } }, null, 2)
+                : `# Observation guide ${i + 1}\n\n${'Compare each station window with its calibration record. '.repeat(40)}`),
+          )
+          .join('\n\n'),
+      },
+    ],
+  },
+};
 const fixture = {
   subagents: {
     build: {
@@ -83,6 +128,21 @@ const fixture = {
         })),
       },
     ),
+    skillBatch,
+    {
+      ...tool('skill-running', 'load_skill', { skill_id: 'work-with-ndp' }, null),
+      state: 'running',
+    },
+    {
+      ...tool(
+        'skill-failed',
+        'load_skill',
+        { skill_id: 'work-with-ndp', file: 'missing.md' },
+        null,
+      ),
+      state: 'failed',
+      error: "bundled file 'missing.md' not found in skill 'work-with-ndp'",
+    },
   ],
 };
 
@@ -102,25 +162,26 @@ for (const width of [1440, 390]) {
     await page.goto('/tests/review/tool-operations.html');
     await expect(page.getByRole('heading', { name: 'Tool operation review' })).toBeVisible();
     const row = (id: string) => page.locator(`#tool-${id}`);
-    await expect(
-      row('waiting').getByRole('button', { name: 'Show result for Wait for' }),
-    ).toBeDisabled();
+    // Phone rows hide the action name; the leading disclosure opens them there.
+    const opener = (id: string, label: string) =>
+      row(id).getByRole('button', {
+        name: width < 480 ? `Expand ${label}` : `Show result for ${label}`,
+        exact: true,
+      });
+    const waitName = row('waiting').locator('[data-slot="tool-action-text"]');
+    await expect(waitName).toHaveAttribute('aria-label', 'Show result for Wait for');
+    await expect(waitName).toBeDisabled();
     await expect(row('waiting').getByRole('button', { name: /Expand/ })).toHaveCount(0);
-    await expect(row('waiting')).toContainText('(0 returned, 2 running)');
+    await expect(row('waiting')).toContainText('0 returned, 2 running');
     expect(requests).toEqual([]);
     await row('delegate').getByRole('button', { name: 'Independent audit', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
     await expect(row('delegate').getByRole('region')).toHaveCount(0);
-    await row('delegate')
-      .getByRole('button', { name: 'Show result for Delegate to', exact: true })
-      .click();
-    await expect(row('delegate')).toContainText('running as standard on model-review');
+    await opener('delegate', 'Delegate').click();
     await expect(row('delegate')).toContainText(
       'Check the package against the original observations.',
     );
-    await row('returned')
-      .getByRole('button', { name: 'Show result for Wait for', exact: true })
-      .click();
+    await opener('returned', 'Wait for').click();
     await expect(
       row('returned').getByRole('heading', { name: 'Build package report' }),
     ).toBeVisible();
@@ -132,21 +193,47 @@ for (const width of [1440, 390]) {
       row('returned').getByRole('heading', { name: 'Build package report' }),
     ).toHaveCount(0);
     await expect(row('returned')).not.toContainText('Return when all');
-    await row('search')
-      .getByRole('button', { name: 'Show result for Search tasks', exact: true })
-      .click();
+    await opener('search', 'Search tasks').click();
     await expect(row('search')).toContainText('calibration');
     await expect(row('search').getByText('Calibration review 9', { exact: true })).toHaveCount(0);
     await row('search').getByRole('button', { name: 'Next', exact: true }).click();
     await expect(row('search')).toContainText('9–16 of 96');
     await expect(row('search').getByText('Calibration review 9', { exact: true })).toBeVisible();
-    await row('models')
-      .getByRole('button', { name: 'Show result for Find models', exact: true })
-      .click();
+    await opener('models', 'Find models').click();
     await expect(row('models').getByRole('row')).toHaveCount(13);
     await expect(row('models').getByText('Model 13', { exact: true })).toHaveCount(0);
     await row('models').getByRole('button', { name: 'Next', exact: true }).click();
     await expect(row('models').getByText('Model 13', { exact: true })).toBeVisible();
+    // Installed skill files open from the text this call loaded, not the workspace reader.
+    await opener('skill', 'Read skill references').click();
+    await row('skill').getByText('Source', { exact: true }).click();
+    await row('skill').getByRole('button', { name: 'catalog.json#/components/Widget6' }).click();
+    const skillFile = page.getByRole('dialog', { name: 'catalog.json#/components/Widget6' });
+    await expect(skillFile).toContainText('"title": "Widget 6"');
+    await expect(skillFile).not.toContainText('Widget 9');
+    // Every kind of skill file gets the same copy and download actions.
+    await expect(skillFile.getByRole('button', { name: 'Download catalog.json' })).toBeVisible();
+    await expect(
+      skillFile.getByRole('button', { name: 'Copy catalog.json#/components/Widget6' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await row('skill').getByRole('button', { name: 'references/observation-guide-11.md' }).click();
+    const guide = page.getByRole('dialog', { name: 'observation-guide-11.md' });
+    await expect(guide.getByRole('heading', { name: 'Observation guide 11' })).toBeVisible();
+    await expect(guide.getByText('work-with-ndp › references', { exact: true })).toHaveAttribute(
+      'title',
+      `${skillRoot}/references/observation-guide-11.md`,
+    );
+    await expect(
+      guide.getByRole('button', { name: 'Download observation-guide-11.md' }),
+    ).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`skill-file-${width}.png`) });
+    expect(await guide.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
+    await opener('skill-failed', 'Load skill').click();
+    await expect(row('skill-failed')).toContainText("bundled file 'missing.md' not found");
+    await expect(row('skill-running')).toContainText('Load skill');
     const info = row('returned').getByRole('button', { name: 'Technical details for Wait for' });
     await info.click();
     await expect(page.getByRole('dialog')).toContainText('"tasks"');

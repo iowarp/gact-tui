@@ -3,8 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
 import { ShortcutSheetLauncher } from '@/components/clio/primitives/shortcut-sheet';
+import { TruncationHints } from '@/components/clio/primitives/truncated-text';
+import { ProviderInstallMonitor } from '@/components/clio/provider-install-jobs';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { QUERY_RETRY_COUNT, QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
+import { readRetryDelayMs, retryRead } from '@/lib/connection-attempt';
+import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { ConnectionProvider } from './connection-provider';
 import { AppearanceProvider } from './appearance-provider';
 import { ConversationDisplayProvider } from './conversation-display-provider';
@@ -16,7 +19,8 @@ export function AppProviders({ children }: PropsWithChildren) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            retry: QUERY_RETRY_COUNT,
+            retry: retryRead,
+            retryDelay: readRetryDelayMs,
             staleTime: QUERY_STALE_TIME_MS,
             gcTime: SESSION_CACHE_POLICY.idleMs,
           },
@@ -35,6 +39,8 @@ export function AppProviders({ children }: PropsWithChildren) {
                 <TooltipProvider delayDuration={450}>
                   {children}
                   <ShortcutSheetLauncher />
+                  <TruncationHints />
+                  <ProviderInstallMonitor />
                 </TooltipProvider>
               </ClioMotionProvider>
             </ConversationDisplayProvider>

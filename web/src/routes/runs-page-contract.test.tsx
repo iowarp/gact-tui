@@ -14,6 +14,7 @@ const repository = vi.hoisted(() => ({
   cancelTasks: vi.fn(),
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/components/clio/runs-navigation', () => ({ RunsNavigation: () => null }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost:8790' } }),
 }));
@@ -103,7 +104,17 @@ function show() {
   );
 }
 
-it('discloses a lost-visibility issue once in run details rather than repeating it as progress', async () => {
+// The run tab never repeats a reported issue as the run's step; it is kept once, under Details.
+async function expectIssueOnceUnderDetails(issue: string) {
+  await userEvent.click(screen.getByRole('button', { name: 'Convert images' }));
+  const tab = await screen.findByRole('complementary', { name: 'Run: Convert images' });
+  expect(within(tab).queryByText(issue, { exact: true })).toBeNull();
+  await userEvent.click(within(tab).getByRole('button', { name: /^Details/u }));
+  expect(within(tab).getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
+  expect(within(tab).getByText(`Reported issue: ${issue}`)).toBeVisible();
+}
+
+it('discloses a lost-visibility issue once in the run tab rather than repeating it as progress', async () => {
   const issue = 'Server returned an error response';
   const lost = task('task-lost', 'MCP');
   lost.status = 'task_state_uncertain';
@@ -113,9 +124,7 @@ it('discloses a lost-visibility issue once in run details rather than repeating 
   show();
   expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
   expect(screen.queryByText(issue, { exact: true })).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
-  expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
-  expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
+  await expectIssueOnceUnderDetails(issue);
 });
 
 it.each([
@@ -130,7 +139,7 @@ it.each([
       'End of original diagnostic.',
   ],
 ])(
-  'keeps the full %s diagnostic in details without repeating it as progress',
+  'keeps the full %s diagnostic in the run tab without repeating it as progress',
   async (_kind, issue) => {
     const lost = task('task-lost-details', 'MCP');
     lost.status = 'task_state_uncertain';
@@ -140,9 +149,7 @@ it.each([
     show();
     expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
     expect(screen.queryByText(issue, { exact: true })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
-    expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
-    expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
+    await expectIssueOnceUnderDetails(issue);
   },
 );
 
@@ -158,12 +165,13 @@ it('loads explicit task pages across sessions and keeps original handles navigab
       : { tasks: [task('task-one', 'Shell')], total: 2, cursor: 'next-page', revision: 1 },
   );
   show();
-  expect(
-    await screen.findByText('1 of 1 run, 2 in total. Search covers loaded runs.'),
-  ).toBeVisible();
+  expect(await screen.findByText('2 in total. Search covers loaded runs.')).toBeVisible();
+  expect(screen.getByText('1 run')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
-  expect(await screen.findByText('2 of 2 runs')).toBeVisible();
-  expect(screen.getByRole('link', { name: /Analyze dataset/u })).toHaveAttribute(
+  expect(await screen.findByText('2 runs')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Analyze dataset' }));
+  const tab = await screen.findByRole('complementary', { name: 'Run: Analyze dataset' });
+  expect(within(tab).getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
     'href',
     '/workspaces/workspace/sessions/session-two',
   );
@@ -180,12 +188,11 @@ it('continues an empty sparse page and labels an unknown total without inventing
       : { tasks: [], total: null, cursor: 'sparse-continuation', revision: 1 },
   );
   show();
-  expect(
-    await screen.findByText('0 of 0 runs. More available; search covers loaded runs.'),
-  ).toBeVisible();
+  expect(await screen.findByText('More available; search covers loaded runs.')).toBeVisible();
+  expect(screen.getByText('0 runs')).toBeVisible();
   expect(screen.queryByText(/in total/)).not.toBeInTheDocument();
   await userEvent.click(await screen.findByRole('button', { name: 'Load more tasks' }));
-  expect(await screen.findByText('1 of 1 run')).toBeVisible();
+  expect(await screen.findByText('1 run')).toBeVisible();
   expect(repository.queryTasks).toHaveBeenCalledWith(
     expect.objectContaining({ cursor: 'sparse-continuation' }),
     expect.anything(),
@@ -193,7 +200,7 @@ it('continues an empty sparse page and labels an unknown total without inventing
   expect(screen.queryByRole('button', { name: 'Load more tasks' })).not.toBeInTheDocument();
 });
 
-it('discloses exact assignment and backend details only when opened', async () => {
+it('opens a run beside the list and keeps its assignment and backend ids under Details', async () => {
   repository.queryTasks.mockResolvedValue({
     tasks: [task('task-one', 'Shell')],
     total: 1,
@@ -201,11 +208,14 @@ it('discloses exact assignment and backend details only when opened', async () =
     revision: 1,
   });
   show();
-  await screen.findByRole('link', { name: /Convert images/u });
-  expect(screen.queryByText(description)).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
-  expect(screen.getByText(description)).toBeVisible();
-  const details = screen.getByRole('dialog');
+  await userEvent.click(await screen.findByRole('button', { name: 'Convert images' }));
+  const details = await screen.findByRole('complementary', { name: 'Run: Convert images' });
+  expect(within(details).getByText('Working')).toBeVisible();
+  expect(within(details).getByText('2 / 10 files')).toBeVisible();
+  expect(within(details).queryByText(description)).not.toBeInTheDocument();
+  expect(within(details).queryByText('task-one')).not.toBeInTheDocument();
+  await userEvent.click(within(details).getByRole('button', { name: /^Details/u }));
+  expect(within(details).getByText(description)).toBeVisible();
   expect(within(details).getByText('task-one')).toBeVisible();
   expect(within(details).getByText('Backend status')).toBeVisible();
   expect(within(details).getByText('working')).toBeVisible();

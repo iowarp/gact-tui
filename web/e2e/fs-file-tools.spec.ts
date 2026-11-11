@@ -54,7 +54,7 @@ test.describe('file tools take path: recorded request and result showcase', () =
         'return HANDLERS[request.path](request)',
       );
     });
-    await technicalDetailsShowPath(page, 'Read', '/workspace/station-triage/src/gateway.py');
+    await technicalDetailsShowPath(page, 'Read file', '/workspace/station-triage/src/gateway.py');
   });
 
   test('a large Markdown read shows front matter, the document and where to continue', async ({
@@ -64,12 +64,15 @@ test.describe('file tools take path: recorded request and result showcase', () =
     await atWidths(page, 'read-large', async () => {
       await expect(page.getByRole('button', { name: LONG })).toBeVisible();
       // The long name truncates; the action keeps its word on one line.
+      // Phone rows hide the action name and keep the file.
       const action = page.locator('[data-slot="tool-action-text"]');
-      const { height } = (await action.boundingBox())!;
-      const lineHeight = await action.evaluate((node) =>
-        Number.parseFloat(getComputedStyle(node).lineHeight),
-      );
-      expect(height).toBeLessThan(lineHeight * 1.5);
+      if (await action.isVisible()) {
+        const { height } = (await action.boundingBox())!;
+        const lineHeight = await action.evaluate((node) =>
+          Number.parseFloat(getComputedStyle(node).lineHeight),
+        );
+        expect(height).toBeLessThan(lineHeight * 1.5);
+      }
       await expect(page.getByText('Lines 1–70 of 5,006')).toBeVisible();
       await expect(page.getByText('Title: Station quality')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Readings' })).toBeVisible();
@@ -86,18 +89,20 @@ test.describe('file tools take path: recorded request and result showcase', () =
   });
 
   for (const [id, action, added] of [
-    ['write-created', 'Write', '+# Plan'],
-    ['write-overwritten', 'Write', '+- recheck readings after the fix'],
-    ['edit', 'Edit', '+- triage the API gateway'],
+    ['write-created', 'Write file', '# Plan'],
+    ['write-overwritten', 'Write file', '- recheck readings after the fix'],
+    ['edit', 'Edit file', '- triage the API gateway'],
   ] as const) {
     test(`${id} shows the file and a truthful diff`, async ({ page }) => {
       await open(page, tool(id));
       await atWidths(page, id, async () => {
         await expect(page.locator('[data-slot="activity-row"]')).toContainText(action);
-        await expect(page.getByRole('button', { name: 'plan.md' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'plan.md', exact: true })).toBeVisible();
         const more = page.getByRole('button', { name: 'Show more' });
         if (await more.isVisible()) await more.click();
-        await expect(page.getByText(added, { exact: true })).toBeVisible();
+        await expect(
+          page.locator('[data-diff-line="added"]').filter({ hasText: added }).first(),
+        ).toBeVisible();
       });
       await technicalDetailsShowPath(page, action, '/workspace/station-triage/notes/plan.md');
     });

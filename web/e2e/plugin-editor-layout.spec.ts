@@ -85,12 +85,13 @@ for (const viewport of [
       });
     });
     await page.goto('/settings/plugins');
-    await page.getByRole('button', { name: 'Skills', exact: true }).click();
+    // A row opens its plugin beside the list; a skill opens in place on its source.
+    await page.locator('[data-slot="item-row"]', { hasText: 'fleet' }).click();
     await page
-      .getByRole('button', { name: 'update-models clio-builtin / fleet', exact: true })
+      .getByRole('complementary', { name: 'fleet', exact: true })
+      .locator('[data-slot="item-row"]', { hasText: 'update-models' })
       .click();
-    await page.getByRole('button', { name: 'Open skill', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'update-models', exact: true });
+    const dialog = page.getByRole('complementary', { name: 'update-models', exact: true });
     await dialog.getByRole('button', { name: 'Edit a local copy' }).click();
     const editor = dialog.getByRole('textbox', { name: 'Edit SKILL.md' });
     const save = dialog.getByRole('button', { name: 'Save local copy' });
@@ -105,7 +106,8 @@ for (const viewport of [
     expect(metrics.content).toBeGreaterThan(metrics.height * 3);
     expect(metrics.sizing).toBe('fixed');
     await editor.click();
-    await editor.press('Control+End');
+    // The platform's move-to-end-of-text key: macOS has no Ctrl+End in text fields.
+    await editor.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
     await editor.press('Enter');
     await editor.pressSequentially('Local edited instruction');
     expect(await editor.evaluate((node: HTMLTextAreaElement) => node.scrollTop)).toBeGreaterThan(0);

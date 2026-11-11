@@ -14,6 +14,7 @@ mod brand_backend;
 mod clio_core_daemon;
 mod clio_core_registry;
 mod commands;
+mod credential_cache;
 mod credential_chunks;
 mod credentials;
 mod document_apps;
@@ -25,6 +26,7 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+mod install_log;
 #[cfg(not(windows))]
 mod install_prepare;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -39,6 +41,7 @@ mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
+mod notifications;
 mod package_stamp;
 mod package_version;
 mod plugins;
@@ -100,26 +103,42 @@ use tauri::{Emitter, Manager};
 
 const DESKTOP_RESUMED_EVENT: &str = "clio:desktop-resumed";
 
-/// Emitted to the main window when a native close request (Alt+F4, the OS
-/// close box, the traffic-light close button) arrives, so the frontend can
+/// Windows and Linux: emitted to the main window when a native close request
+/// (Alt+F4, the OS close box) arrives, so the frontend can
 /// open the same "Keep CLIO running?" prompt the title-bar close button and
 /// hamburger Quit use. Native close never auto-quits or auto-hides on its
 /// own anymore — the prompt decides. Carries a sequence number (see
 /// [`CLOSE_PROMPT_SEQ`]) so a fast repeat (e.g. Alt+F4 pressed twice) can be
 /// correlated correctly instead of racing a single global ack flag.
+#[cfg(not(target_os = "macos"))]
 const CLOSE_REQUESTED_EVENT: &str = "clio:close-requested";
 
 /// Emitted right before the native 500ms fallback hides the window because
 /// the frontend never acknowledged a close-request prompt in time, so the
 /// frontend can clear its own prompt-open state rather than leaving a
 /// confirmation dialog rendered over a now-hidden window.
+#[cfg(not(target_os = "macos"))]
 const CLOSE_FALLBACK_HIDDEN_EVENT: &str = "clio:close-fallback-hidden";
 
-/// Payload for [`CLOSE_REQUESTED_EVENT`].
+/// Payload for the close-request and (macOS) quit-request events.
 #[derive(Clone, serde::Serialize)]
 struct CloseRequestedPayload {
     seq: u64,
 }
+
+/// macOS only: emitted to the main window when Cmd-Q or the app/tray menu's
+/// Quit is chosen, so the frontend can quit straight away, or first confirm
+/// when a conversation is still running. Correlated by sequence like the
+/// Windows/Linux close request; an unanswered request quits after
+/// [`CLOSE_PROMPT_ACK_TIMEOUT`], so Quit never depends on a live WebView.
+#[cfg(target_os = "macos")]
+const QUIT_REQUESTED_EVENT: &str = "clio:quit-requested";
+
+#[cfg(target_os = "macos")]
+static QUIT_PROMPT_SEQ: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(target_os = "macos")]
+static QUIT_PROMPT_ACKED_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// How long `CloseRequested` waits for the frontend to ack the prompt (via
 /// the `close_prompt_shown` command) before assuming no listener is mounted
@@ -133,6 +152,7 @@ const CLOSE_PROMPT_ACK_TIMEOUT: Duration = Duration::from_millis(500);
 /// `close_prompt_shown(seq)` so a late ack for an OLDER request (e.g. two
 /// Alt+F4 presses within the 500ms fallback window) can never be mistaken
 /// for an ack of the CURRENT one, and vice versa.
+#[cfg(not(target_os = "macos"))]
 static CLOSE_PROMPT_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// The highest close-request sequence number the frontend has acknowledged
@@ -251,6 +271,7 @@ pub fn run() {
             credentials::credential_delete,
             credentials::provider_credential_store,
             credentials::provider_credential_read,
+            credentials::provider_credential_delete,
             credentials::ssh_identity_store,
             gact_http::gact_http,
             update_channel::check_release_update,
@@ -266,9 +287,17 @@ pub fn run() {
             quit_clio,
             restart_clio,
             close_prompt_shown,
-            startup_window::reveal_startup_window
+            quit_prompt_shown,
+            startup_window::reveal_startup_window,
+            notifications::notification_permission,
+            notifications::request_notification_permission,
+            notifications::show_notification,
+            notifications::take_notification_open,
+            notifications::set_attention_badge,
+            notifications::open_notification_settings
         ])
         .setup(move |app| {
+            notifications::install(app.handle());
             let version = app.package_info().version.to_string();
             let windows =
                 downloads::create_configured_windows(app, &startup_windows, |config, builder| {
@@ -375,11 +404,32 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             match event {
-                // Native close (Alt+F4, the OS close box, the traffic light)
+                // macOS: the red close button and Cmd-W only hide the window.
+                // The app, its backend and its Dock icon stay; the Dock icon
+                // (RunEvent::Reopen) or a second launch shows it again, and
+                // Cmd-Q quits.
+                #[cfg(target_os = "macos")]
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    // Hiding a fullscreen window leaves an empty black Space;
+                    // leave fullscreen first and hide once its animation ends.
+                    if window.is_fullscreen().unwrap_or(false) {
+                        let _ = window.set_fullscreen(false);
+                        let window = window.clone();
+                        thread::spawn(move || {
+                            thread::sleep(Duration::from_millis(800));
+                            let _ = window.hide();
+                        });
+                    } else {
+                        let _ = window.hide();
+                    }
+                }
+                // Windows and Linux: native close (Alt+F4, the OS close box)
                 // never auto-quits or auto-hides by itself: it opens the same
                 // confirmation prompt the title-bar close button and
                 // hamburger Quit use, via CLOSE_REQUESTED_EVENT. A 500ms
                 // fallback covers a WebView that never mounts a listener.
+                #[cfg(not(target_os = "macos"))]
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     let seq = CLOSE_PROMPT_SEQ.fetch_add(1, Ordering::SeqCst) + 1;
@@ -479,19 +529,19 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
     let runtime = runtime_pack::prepare_runtime_for_installer(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: bundled runtime ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
     execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: managed packages ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     Ok(())
 }
 
@@ -503,7 +553,17 @@ pub fn prepare_runtime_command() -> Result<(), String> {
     let install_dir = std::env::current_exe()
         .ok()
         .and_then(|executable| executable.parent().map(std::path::Path::to_path_buf));
-    match prepare_runtime_for_install() {
+    install_log::start(
+        install_dir
+            .as_ref()
+            .map(|dir| dir.join("data").join("runtime-install.log"))
+            .as_deref(),
+    );
+    let outcome = prepare_runtime_for_install();
+    if let Err(error) = &outcome {
+        install_log::record(&format!("Installer failed: {error}"));
+    }
+    match outcome {
         Ok(()) => {
             if let Some(dir) = &install_dir {
                 runtime_install_report::clear_failure(dir);
@@ -587,6 +647,33 @@ pub(crate) fn request_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         shutdown_owned_services(&app_handle);
         app_handle.exit(0);
     });
+}
+
+/// A user's Quit request: Cmd-Q and the app menu's Quit, the tray Quit and the
+/// hamburger Quit.
+///
+/// macOS asks the frontend first ([`QUIT_REQUESTED_EVENT`]) so it can confirm
+/// while a conversation is still running; it answers through
+/// [`quit_prompt_shown`] and quits through `quit_clio`. Unanswered, this quits
+/// after [`CLOSE_PROMPT_ACK_TIMEOUT`]. Elsewhere it quits straight away.
+pub(crate) fn request_user_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    #[cfg(target_os = "macos")]
+    {
+        if QUIT_STARTED.load(Ordering::SeqCst) {
+            return;
+        }
+        let seq = QUIT_PROMPT_SEQ.fetch_add(1, Ordering::SeqCst) + 1;
+        let _ = app.emit(QUIT_REQUESTED_EVENT, CloseRequestedPayload { seq });
+        let app_handle = app.clone();
+        thread::spawn(move || {
+            thread::sleep(CLOSE_PROMPT_ACK_TIMEOUT);
+            if QUIT_PROMPT_ACKED_SEQ.load(Ordering::SeqCst) < seq {
+                request_quit(&app_handle);
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    request_quit(app);
 }
 
 /// Tear down every process and stream owned by this desktop process.
@@ -725,6 +812,22 @@ fn restart_clio(app: tauri::AppHandle) {
 #[tauri::command]
 fn close_prompt_shown(seq: u64) {
     CLOSE_PROMPT_ACKED_SEQ.fetch_max(seq, Ordering::SeqCst);
+}
+
+/// Frontend answer to [`QUIT_REQUESTED_EVENT`] (macOS): it owns this quit
+/// request now. With `show_window` it is about to ask for confirmation, so
+/// the main window comes forward even if the red button had hidden it.
+#[tauri::command]
+fn quit_prompt_shown(app: tauri::AppHandle, seq: u64, show_window: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        QUIT_PROMPT_ACKED_SEQ.fetch_max(seq, Ordering::SeqCst);
+        if show_window {
+            tray::show_main_window(&app);
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, seq, show_window);
 }
 
 #[cfg(test)]

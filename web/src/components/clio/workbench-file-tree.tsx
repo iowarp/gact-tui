@@ -1,9 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FileTreeIcon, FileTreeName } from '@/components/ai-elements/file-tree';
+import { Button } from '@/components/ui/button';
+import { formatBytes, formatCompactBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { isChangedPath } from './workbench-shared';
+import { MetaValue } from './primitives/tag';
+import { ResourceLoading } from './resource-states';
+import { StateView } from './primitives/state-view';
+import { changeCountFor, isChangedPath, type ChangeCounts } from './workbench-shared';
 import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model';
 
 // Human copy for the server's typed `redacted` reasons
@@ -15,15 +20,66 @@ const REDACTED_REASON_LABEL: Record<string, string> = {
   sandbox_child_cache: 'Sandbox cache — contents not shown',
 };
 
-type TreeRow =
-  | { kind: 'node'; node: WorkspaceFileNode; depth: number; alignWithFolders: boolean }
-  | { kind: 'note'; path: string; label: string; depth: number };
+/** One flat row of a Files tree; folders and files are keyed by path. */
+export type FileTreeRow =
+  | {
+      kind: 'dir';
+      path: string;
+      name: string;
+      depth: number;
+      open: boolean;
+      /** Replaces the folder glyph (an NDP organization or dataset). */
+      icon?: ReactNode;
+      /** One quiet trailing count ("38 datasets"). */
+      meta?: string;
+    }
+  | {
+      kind: 'file';
+      path: string;
+      name: string;
+      depth: number;
+      alignWithFolders: boolean;
+      icon?: ReactNode;
+      /** Bytes, shown as the trailing meta when the conversation did not change it. */
+      size?: number;
+      /** A trailing word when there is no size (an NDP resource's format). */
+      meta?: string;
+      /** Row actions, shown in place of the trailing meta on hover or focus. */
+      actions?: ReactNode;
+      /** An action that stays visible (an NDP stream's start). */
+      pinned?: ReactNode;
+    }
+  | { kind: 'note'; key: string; depth: number; label: string; tone?: 'muted' | 'error' }
+  | { kind: 'loading'; key: string; depth: number; label: string }
+  /** A folder that couldn't be listed: what failed, why on hover, and Retry. */
+  | {
+      kind: 'error';
+      key: string;
+      depth: number;
+      label: string;
+      detail?: string;
+      onRetry: () => void;
+    }
+  | {
+      kind: 'more';
+      key: string;
+      depth: number;
+      label: string;
+      disabled: boolean;
+      onActivate: () => void;
+    };
 
 const ROW_HEIGHT_PX = 28;
 /** Small trees render every row; larger ones only the rows in view. */
 const WINDOW_ABOVE_ROWS = 150;
-/** Each level: 16 px to the guide line, 8 px after it (the old ml-4 + pl-2). */
-const INDENT_PX = 24;
+/** Spec `.zx` rows: 8 px padding, then 20 px per level and no guide lines. */
+const ROW_PAD_PX = 8;
+const INDENT_PX = 20;
+const TREE_ROW_CLASS =
+  'flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] border-none bg-transparent pr-2 text-left whitespace-nowrap transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
+
+const rowKey = (row: FileTreeRow) =>
+  row.kind === 'dir' || row.kind === 'file' ? row.path : row.key;
 
 /**
  * The Files list: a flat, windowed tree. Folders sort their children only when
@@ -34,13 +90,14 @@ export function WorkbenchFileTree({
   selectedPath,
   onSelect,
   changedPaths,
+  changeCounts,
 }: {
   nodes: readonly WorkspaceFileNode[];
   selectedPath?: string;
   onSelect: (path: string) => void;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
 }) {
-  const treeRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const toggle = useCallback((path: string) => {
     setExpanded((current) => {
@@ -51,16 +108,29 @@ export function WorkbenchFileTree({
   }, []);
   const [sorted] = useState(() => new WeakMap<WorkspaceFileNode, WorkspaceFileNode[]>());
   const rows = useMemo(() => {
-    const result: TreeRow[] = [];
+    const result: FileTreeRow[] = [];
     const walk = (level: readonly WorkspaceFileNode[], depth: number) => {
       const alignWithFolders = level.some((node) => node.entry.type === 'dir');
       for (const node of level) {
-        result.push({ kind: 'node', node, depth, alignWithFolders });
-        if (node.entry.type !== 'dir' || !expanded.has(node.entry.path)) continue;
+        const path = node.entry.path;
+        if (node.entry.type !== 'dir') {
+          result.push({
+            kind: 'file',
+            path,
+            name: node.name,
+            depth,
+            alignWithFolders,
+            size: node.entry.size,
+          });
+          continue;
+        }
+        const open = expanded.has(path);
+        result.push({ kind: 'dir', path, name: node.name, depth, open });
+        if (!open) continue;
         if (node.entry.redacted) {
           result.push({
             kind: 'note',
-            path: `${node.entry.path}#note`,
+            key: `${path}#note`,
             label: REDACTED_REASON_LABEL[node.entry.redacted] ?? 'Contents not shown.',
             depth: depth + 1,
           });
@@ -78,6 +148,38 @@ export function WorkbenchFileTree({
     return result;
   }, [expanded, nodes, sorted]);
 
+  return (
+    <WindowedFileTree
+      changeCounts={changeCounts}
+      changedPaths={changedPaths}
+      onSelect={onSelect}
+      onToggle={toggle}
+      rows={rows}
+      selectedPath={selectedPath}
+    />
+  );
+}
+
+/**
+ * Renders flat tree rows, windowed above {@link WINDOW_ABOVE_ROWS} so a paged
+ * or eagerly listed folder of any size mounts only the rows in view.
+ */
+export function WindowedFileTree({
+  rows,
+  selectedPath,
+  changedPaths,
+  changeCounts,
+  onSelect,
+  onToggle,
+}: {
+  rows: readonly FileTreeRow[];
+  selectedPath?: string;
+  changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
+  onSelect: (path: string) => void;
+  onToggle: (path: string) => void;
+}) {
+  const treeRef = useRef<HTMLDivElement>(null);
   const windowed = rows.length > WINDOW_ABOVE_ROWS;
   const [scrollMargin, setScrollMargin] = useState(0);
   const scrollElement = useCallback(
@@ -100,10 +202,7 @@ export function WorkbenchFileTree({
     count: rows.length,
     enabled: windowed,
     estimateSize: () => ROW_HEIGHT_PX,
-    getItemKey: (index) => {
-      const row = rows[index];
-      return row.kind === 'node' ? row.node.entry.path : row.path;
-    },
+    getItemKey: (index) => rowKey(rows[index]),
     getScrollElement: scrollElement,
     overscan: 12,
     scrollMargin,
@@ -116,18 +215,18 @@ export function WorkbenchFileTree({
 
   return (
     <div
-      className="relative min-w-0 font-mono text-sm"
+      className="relative min-w-0 font-sans text-[12.5px]"
       ref={treeRef}
       role="tree"
       style={windowed ? { height: virtualizer.getTotalSize() } : undefined}
     >
       {items.map(({ row, top }) => (
         <TreeRowView
+          changeCounts={changeCounts}
           changedPaths={changedPaths}
-          expanded={expanded}
-          key={row.kind === 'node' ? row.node.entry.path : row.path}
+          key={rowKey(row)}
           onSelect={onSelect}
-          onToggle={toggle}
+          onToggle={onToggle}
           row={row}
           selectedPath={selectedPath}
           top={top}
@@ -140,99 +239,202 @@ export function WorkbenchFileTree({
 function TreeRowView({
   row,
   top,
-  expanded,
   selectedPath,
   changedPaths,
+  changeCounts,
   onSelect,
   onToggle,
 }: {
-  row: TreeRow;
+  row: FileTreeRow;
   top: number | undefined;
-  expanded: ReadonlySet<string>;
   selectedPath?: string;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
   onSelect: (path: string) => void;
   onToggle: (path: string) => void;
 }) {
-  const style = {
-    paddingLeft: row.depth * INDENT_PX,
-    ...(top === undefined ? {} : { position: 'absolute' as const, top, left: 0, right: 0 }),
-  };
-  const guides = Array.from({ length: row.depth }, (_, level) => (
-    <span
-      aria-hidden="true"
-      className="absolute inset-y-0 border-l border-border"
-      key={level}
-      style={{ left: 16 + level * INDENT_PX }}
-    />
-  ));
-  if (row.kind === 'note')
-    return (
-      <p className="relative h-7 px-2 py-1 text-xs text-muted-foreground italic" style={style}>
-        {guides}
-        {row.label}
-      </p>
-    );
-  const { node } = row;
-  const path = node.entry.path;
-  if (node.entry.type === 'dir') {
-    const open = expanded.has(path);
-    const Icon = open ? FolderOpenIcon : FolderIcon;
-    return (
-      <div
-        aria-expanded={open}
-        aria-level={row.depth + 1}
-        className="relative h-7"
-        role="treeitem"
-        style={style}
-      >
-        {guides}
-        <button
-          aria-label={`${open ? 'Collapse' : 'Expand'} folder ${node.name}`}
-          className="flex h-7 w-full min-w-0 cursor-pointer items-center gap-1 rounded border-none bg-transparent px-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-          onClick={() => onToggle(path)}
-          type="button"
+  const placed = top === undefined ? {} : { position: 'absolute' as const, top, left: 0, right: 0 };
+  const paddingLeft = ROW_PAD_PX + row.depth * INDENT_PX;
+  const style = { paddingLeft, ...placed };
+  switch (row.kind) {
+    case 'note':
+      return (
+        <p
+          className={cn(
+            'flex h-7 items-center truncate pr-2 text-[11.5px]',
+            row.tone === 'error' ? 'text-destructive' : 'text-faint italic',
+          )}
+          role={row.tone === 'error' ? 'alert' : undefined}
+          style={style}
         >
-          <ChevronRightIcon
-            className={cn(
-              'size-4 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-90',
-            )}
+          {row.label}
+        </p>
+      );
+    case 'loading':
+      return (
+        <div className="flex h-7 items-center pr-2" style={style}>
+          <ResourceLoading label={row.label} variant="line" />
+        </div>
+      );
+    case 'error':
+      return (
+        <div className="pr-1" style={style}>
+          <StateView
+            action={{ label: 'Retry', onClick: row.onRetry }}
+            className="px-0"
+            kind="error"
+            size="row"
+            title={<span title={row.detail}>{row.label}</span>}
           />
-          <FileTreeIcon>
-            <Icon className="size-4 text-info" />
+        </div>
+      );
+    case 'more':
+      return (
+        <div className="flex h-7 items-center pr-1" style={style}>
+          <Button
+            className="h-6 px-2 text-xs"
+            disabled={row.disabled}
+            onClick={row.onActivate}
+            size="sm"
+            variant="ghost"
+          >
+            {row.label}
+          </Button>
+        </div>
+      );
+    case 'dir': {
+      const Icon = row.open ? FolderOpenIcon : FolderIcon;
+      return (
+        <div
+          aria-expanded={row.open}
+          aria-level={row.depth + 1}
+          className="h-7"
+          role="treeitem"
+          style={placed}
+        >
+          <button
+            aria-label={`${row.open ? 'Collapse' : 'Expand'} folder ${row.name}`}
+            className={cn(
+              TREE_ROW_CLASS,
+              // Spec `.zx.h`: top-level folders lead the list.
+              row.depth === 0 && 'font-medium text-foreground',
+            )}
+            onClick={() => onToggle(row.path)}
+            style={{ paddingLeft }}
+            type="button"
+          >
+            <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
+              <ChevronRightIcon
+                className={cn('size-3 transition-transform', row.open && 'rotate-90')}
+              />
+            </span>
+            <FileTreeIcon className="[&_svg]:text-muted-foreground">
+              {row.icon ?? <Icon className="size-3.5" />}
+            </FileTreeIcon>
+            <FileTreeName>{row.name}</FileTreeName>
+            {row.meta ? (
+              <span className="ml-auto shrink-0 pl-2 text-[11.5px] font-normal text-faint tabular-nums">
+                {row.meta}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      );
+    }
+    case 'file': {
+      const changed = isChangedPath(changedPaths, row.path);
+      const selected = selectedPath === row.path;
+      const added = changed ? changeCountFor(changeCounts, row.path) : undefined;
+      const sizeKnown = row.size !== undefined && row.size >= 0;
+      const trailing = added ? `+${added}` : sizeKnown ? formatCompactBytes(row.size!) : row.meta;
+      const detail = [
+        added ? `${added} lines added` : undefined,
+        sizeKnown ? formatBytes(row.size!) : row.meta,
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return (
+        <div
+          aria-label={changed ? `${row.name}, changed in this conversation` : row.name}
+          aria-level={row.depth + 1}
+          aria-selected={selected}
+          className={cn(
+            TREE_ROW_CLASS,
+            'group/tree-row',
+            changed && 'text-changed',
+            selected && 'bg-accent text-accent-foreground hover:bg-accent',
+          )}
+          data-changed={changed || undefined}
+          onClick={() => onSelect(row.path)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') onSelect(row.path);
+          }}
+          role="treeitem"
+          style={style}
+          tabIndex={0}
+          title={detail || undefined}
+        >
+          {row.alignWithFolders ? <span aria-hidden="true" className="w-3 shrink-0" /> : null}
+          <FileTreeIcon
+            className={
+              changed || selected
+                ? '[&_svg]:text-accent-foreground'
+                : row.icon
+                  ? undefined
+                  : '[&_svg]:text-muted-foreground'
+            }
+          >
+            {row.icon ?? <FileIcon className="size-3.5" />}
           </FileTreeIcon>
-          <FileTreeName>{node.name}</FileTreeName>
-        </button>
-      </div>
-    );
+          <FileTreeName>{row.name}</FileTreeName>
+          {trailing || row.actions || row.pinned ? (
+            <span className="ml-auto flex min-w-0 shrink-0 items-center gap-2 pl-2">
+              {trailing ? (
+                // Spec `.zx .t`: one quiet trailing meta, `+N` on a changed file, else its size
+                // or word; a row with actions shows them there on hover or focus instead.
+                <span
+                  className={cn(
+                    'flex',
+                    row.actions &&
+                      'group-focus-visible/tree-row:hidden group-has-[:focus-visible]/tree-row:hidden group-hover/tree-row:hidden',
+                  )}
+                >
+                  {added || sizeKnown ? (
+                    <MetaValue className={cn('text-faint', selected && 'text-accent-foreground')}>
+                      {trailing}
+                    </MetaValue>
+                  ) : (
+                    <span
+                      className={cn(
+                        'max-w-40 truncate text-[11px] text-faint',
+                        selected && 'text-accent-foreground',
+                      )}
+                    >
+                      {trailing}
+                    </span>
+                  )}
+                </span>
+              ) : null}
+              {row.actions || row.pinned ? (
+                // The row's own controls; a click or key on them never selects the row.
+                <span
+                  className="-my-0.5 -mr-1 flex items-center gap-px"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  role="none"
+                >
+                  {row.pinned}
+                  {row.actions ? (
+                    <span className="hidden items-center gap-px group-focus-visible/tree-row:flex group-has-[:focus-visible]/tree-row:flex group-hover/tree-row:flex">
+                      {row.actions}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
   }
-  const changed = isChangedPath(changedPaths, path);
-  return (
-    <div
-      aria-label={changed ? `${node.name}, changed in this conversation` : undefined}
-      aria-level={row.depth + 1}
-      aria-selected={selectedPath === path}
-      className={cn(
-        'relative flex h-7 w-full min-w-0 cursor-pointer items-center gap-1 rounded px-1.5 transition-colors hover:bg-muted/50',
-        selectedPath === path && 'bg-muted',
-        changed && 'text-changed',
-      )}
-      data-changed={changed || undefined}
-      onClick={() => onSelect(path)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') onSelect(path);
-      }}
-      role="treeitem"
-      style={{ ...style, paddingLeft: row.depth * INDENT_PX + 6 }}
-      tabIndex={0}
-    >
-      {guides}
-      {row.alignWithFolders ? <span aria-hidden="true" className="size-4 shrink-0" /> : null}
-      <FileTreeIcon>
-        <FileIcon className="size-4 text-muted-foreground" />
-      </FileTreeIcon>
-      <FileTreeName>{node.name}</FileTreeName>
-    </div>
-  );
 }

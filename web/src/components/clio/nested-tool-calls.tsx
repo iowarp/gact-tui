@@ -1,11 +1,11 @@
 import { childToolInvocations, type ToolInvocation } from '@clio/core/v3';
 import { useContext, useMemo, useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
 
 /** How many of a script's calls show before "Show all". */
-const SHOWN = 8;
+const SHOWN = 4;
 
 /** A background script's repeated calls to one tool, recorded once (`_clio_repeat`). */
 function repeatOf(tool: ToolInvocation): { count: number; first: string; last: string } | null {
@@ -25,6 +25,26 @@ function clock(at: string): string {
     : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function useNestedCalls(parentId: string): ToolInvocation[] {
+  // A conversation that carries its own calls (an offline export) supplies them; the live
+  // view reads the store the stream fills.
+  const provided = useContext(PresentationNavigation)?.tools;
+  const live = useLiveStore((state) => state.entities.tools);
+  const tools = provided ?? live;
+  return useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
+}
+
+/** A script's source, shown only while it has no calls of its own to show instead (spec: an opened script lists its calls). */
+export function UnlessNestedCalls({
+  parentId,
+  children,
+}: {
+  parentId: string;
+  children: ReactNode;
+}) {
+  return useNestedCalls(parentId).length ? null : children;
+}
+
 /**
  * The tool calls a run_code script made, nested under its row. Each child renders as
  * a compact tool row (`renderCall`), so it keeps its own status words, duration and
@@ -37,12 +57,7 @@ export function NestedToolCalls({
   parentId: string;
   renderCall: (tool: ToolInvocation) => ReactNode;
 }) {
-  // A conversation that carries its own calls (an offline export) supplies them; the live
-  // view reads the store the stream fills.
-  const provided = useContext(PresentationNavigation)?.tools;
-  const live = useLiveStore((state) => state.entities.tools);
-  const tools = provided ?? live;
-  const children = useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
+  const children = useNestedCalls(parentId);
   const [all, setAll] = useState(false);
   if (!children.length) return null;
   const failed = children.filter((tool) => tool.state === 'failed').length;
@@ -54,36 +69,28 @@ export function NestedToolCalls({
     .filter(Boolean)
     .join(', ');
   return (
-    <section
-      aria-label="Tool calls made by this script"
-      className="ml-2 mt-1 grid min-w-0 gap-0.5 border-l pl-3"
-      data-slot="nested-tool-calls"
+    <ActivityNest
+      label={detail ? `${count} (${detail})` : count}
+      hidden={all ? 0 : children.length - shown.length}
+      onShowAll={() => setAll(true)}
+      showAllLabel={`Show all ${children.length}`}
     >
-      <p className="text-xs text-muted-foreground">{detail ? `${count} (${detail})` : count}</p>
-      {shown.map((tool) => (
-        <div className="min-w-0" key={tool.id}>
-          {renderCall(tool)}
-          {repeatOf(tool) ? (
-            <p className="pl-6 text-xs text-muted-foreground">
-              {(() => {
-                const repeat = repeatOf(tool)!;
-                const span = [clock(repeat.first), clock(repeat.last)].filter(Boolean).join('–');
-                return `Called ${repeat.count} times${span ? `, ${span}` : ''}`;
-              })()}
-            </p>
-          ) : null}
-        </div>
-      ))}
-      {children.length > SHOWN ? (
-        <Button
-          className="h-auto w-fit p-0 text-xs"
-          onClick={() => setAll((value) => !value)}
-          size="sm"
-          variant="link"
-        >
-          {all ? 'Show fewer' : `Show all ${children.length}`}
-        </Button>
-      ) : null}
-    </section>
+      {shown.map((tool) => {
+        const repeat = repeatOf(tool);
+        const span = repeat
+          ? [clock(repeat.first), clock(repeat.last)].filter(Boolean).join('–')
+          : '';
+        return (
+          <div className="min-w-0" key={tool.id}>
+            {renderCall(tool)}
+            {repeat ? (
+              <p className="pl-[30px] text-[11.5px] text-muted-foreground">
+                {`Called ${repeat.count} times${span ? `, ${span}` : ''}`}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </ActivityNest>
   );
 }

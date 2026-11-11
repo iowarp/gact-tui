@@ -31,7 +31,7 @@ const search = (action: string, ...subjects: string[]): OperationDefinition => (
 
 /** One declaration per canonical operation, including plugin-loaded tools. No callable aliases. */
 export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
-  spawn_agent_task: define('Delegate to', 'assignment', 'name'),
+  spawn_agent_task: define('Delegate', 'assignment', 'name'),
   spawn_agents_parallel: define('Delegate', 'assignment'),
   run_flow: define('Run flow', 'task', 'flow'),
   run_workflow: define('Run workflow', 'task', 'workflow'),
@@ -44,7 +44,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   pause_agent: define('Pause', 'ack', 'handle'),
   resume_agent: define('Resume', 'ack', 'handle'),
   restart_agent: define('Restart', 'task', 'handle'),
-  ask_user: define('Ask you'),
+  ask_user: { ...define('Ask you'), presentedAction: true },
   make_plugin: define('Create plugin', 'value', 'name'),
   cron_create: { ...define('Schedule'), instruction: 'prompt' },
   cron_list: define('List schedules'),
@@ -56,12 +56,12 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   loop_wakeup: define('Next check', 'ack'),
   fs_list_directory: define('List', 'declared', 'path'),
   fs_search_text: search('Search', 'path'),
-  fs_read_file: define('Read', 'declared', 'path'),
-  fs_write_file: { ...define('Write', 'declared', 'path'), instruction: 'content' },
-  fs_edit_file: define('Edit', 'declared', 'path'),
-  shell_bash: define('Run', 'declared', 'command'),
+  fs_read_file: define('Read file', 'declared', 'path'),
+  fs_write_file: { ...define('Write file', 'declared', 'path'), instruction: 'content' },
+  fs_edit_file: define('Edit file', 'declared', 'path'),
+  shell_bash: define('Run command', 'declared', 'command'),
   // The script's name (its label, first comment or first statement) is the declared subject.
-  run_code: define('Run code'),
+  run_code: define('Run script'),
   ssh_execute: define('Run on', 'declared', 'ssh_profile'),
   view_image: define('View', 'declared', 'path'),
   view_pdf: define('View', 'declared', 'path'),

@@ -5,9 +5,19 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  TranscriptResourceAttachment,
   TranscriptResourceAttachments,
+  type TranscriptResourceAttachmentProps,
 } from './transcript-resource-attachment';
+
+function SingleAttachment({ block, resource, onOpen }: TranscriptResourceAttachmentProps) {
+  return (
+    <TranscriptResourceAttachments
+      blocks={[block]}
+      onOpen={onOpen}
+      resources={resource ? { [block.resource_id]: resource } : undefined}
+    />
+  );
+}
 
 const repository = vi.hoisted(() => ({ resourcePreview: vi.fn(), resourceContent: vi.fn() }));
 
@@ -92,7 +102,7 @@ function renderAttachment(element: ReactElement) {
   return render(<QueryClientProvider client={queryClient}>{element}</QueryClientProvider>);
 }
 
-describe('TranscriptResourceAttachment availability', () => {
+describe('TranscriptResourceAttachments availability', () => {
   it('downloads original attachment bytes independently of the open action', async () => {
     const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
     Object.defineProperty(URL, 'createObjectURL', {
@@ -105,7 +115,7 @@ describe('TranscriptResourceAttachment availability', () => {
       .mockImplementation(() => undefined);
     try {
       renderAttachment(
-        <TranscriptResourceAttachment
+        <SingleAttachment
           block={block}
           resource={resource('application/pdf', processing('not_started'))}
           onOpen={onOpen}
@@ -132,9 +142,7 @@ describe('TranscriptResourceAttachment availability', () => {
         linked: 'true',
       },
     };
-    renderAttachment(
-      <TranscriptResourceAttachment block={block} resource={folder} onOpen={vi.fn()} />,
-    );
+    renderAttachment(<SingleAttachment block={block} resource={folder} onOpen={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Open Research inputs' })).toBeEnabled();
     expect(screen.getByLabelText('Folder')).toBeInTheDocument();
     expect(screen.queryByText('folder-index.json')).toBeNull();
@@ -161,17 +169,14 @@ describe('TranscriptResourceAttachment availability', () => {
 
     expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
     const openPaper = screen.getByRole('button', { name: 'Open paper.pdf' });
-    expect(openPaper.closest('[data-file-row]')).toHaveClass('w-full', 'items-center');
     expect(openPaper.querySelector('button')).toBeNull();
-    const attachmentTray = screen.getByRole('group', { name: '2 message attachments' });
-    expect(attachmentTray).toHaveClass('w-full', 'flex-wrap');
-    expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
+    expect(screen.getByRole('group', { name: '2 message attachments' })).toBeVisible();
   });
 
   it('separates active upload from conversion waiting in the expanded status', async () => {
     const user = userEvent.setup();
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={block}
         resource={{ ...resource('application/pdf', processing('not_started')), state: 'uploading' }}
       />,
@@ -189,7 +194,7 @@ describe('TranscriptResourceAttachment availability', () => {
 
   it('does not call an unconverted PDF ready merely because its bytes are retained', () => {
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={block}
         resource={resource('application/pdf', processing('not_started'))}
       />,
@@ -202,13 +207,14 @@ describe('TranscriptResourceAttachment availability', () => {
   it('marks a retained text resource ready without requiring a derivative', async () => {
     const user = userEvent.setup();
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={{ ...block, name: 'notes.md', media_type: 'text/markdown' }}
         resource={resource('text/markdown', processing('not_started'))}
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
+    // A ready attachment carries no status mark; its stages stay in the hover details.
+    expect(screen.queryByRole('img', { name: /Attachment status/ })).not.toBeInTheDocument();
     await user.hover(screen.getByText('notes.md'));
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
     expect(screen.getByRole('status', { name: 'Conversion status: Not required' })).toBeVisible();
@@ -216,7 +222,7 @@ describe('TranscriptResourceAttachment availability', () => {
 
   it('renders a natively delivered image as a preview tile with its live status', async () => {
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={{
           ...block,
           name: 'diagram.png',
@@ -231,20 +237,15 @@ describe('TranscriptResourceAttachment availability', () => {
       />,
     );
 
-    const status = screen.getByRole('img', { name: 'Attachment status: Ready' });
-    expect(status).toBeVisible();
-    expect(status).toHaveAttribute('data-overlay', 'true');
-    expect(status.parentElement).not.toHaveClass('bg-background/85');
-    expect(status.querySelector('svg')).toHaveClass('text-media-backdrop');
+    expect(screen.queryByRole('img', { name: /Attachment status/ })).not.toBeInTheDocument();
     const preview = await screen.findByRole('img', { name: 'diagram.png' });
     expect(preview).toHaveAttribute('src', 'blob:test-3');
-    expect(preview).toHaveAttribute('width', '144');
     expect(repository.resourcePreview).toHaveBeenCalledWith('ws_1', 'res_1', expect.anything());
   });
 
   it('does not claim an image reached the model without a native delivery decision', () => {
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={{ ...block, name: 'diagram.png', media_type: 'image/png' }}
         resource={resource('image/png', processing('not_started'))}
       />,
@@ -255,7 +256,7 @@ describe('TranscriptResourceAttachment availability', () => {
 
   it('marks a failed PDF conversion unavailable when no derivative survived', () => {
     renderAttachment(
-      <TranscriptResourceAttachment
+      <SingleAttachment
         block={block}
         resource={resource('application/pdf', processing('failed'))}
       />,

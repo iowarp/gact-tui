@@ -1,3 +1,5 @@
+import { brand } from '@brand';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -34,6 +36,7 @@ vi.mock('@/hooks/use-known-connections', () => ({ useKnownConnections: () => moc
 vi.mock('@/hooks/use-runtime-version', () => ({
   useRuntimeVersion: () => ({ version: undefined, pending: false }),
 }));
+vi.mock('@/hooks/use-update-status', () => ({ useUpdateStatus: () => undefined }));
 vi.mock('@/hooks/use-connection-availability', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-connection-availability')>()),
   useConnectionAvailabilities: () => ({}),
@@ -42,7 +45,19 @@ vi.mock('@/hooks/use-switch-connection', () => ({
   useSwitchConnection: () => mocks.switchConnection,
 }));
 vi.mock('@/tauri/menu-actions', () => ({ useMenuAction: vi.fn() }));
-vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
+vi.mock('@/hooks/use-connection-indicator-state', () => ({
+  useConnectionIndicatorState: () => 'live',
+}));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({
+    recheck: vi.fn(),
+    state: 'current',
+    statusLabel: 'Version status: up to date',
+    updateAll: vi.fn(),
+    updating: false,
+    versions: [],
+  }),
+}));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
   ClioAttentionNotifier: () => null,
@@ -56,30 +71,33 @@ afterEach(cleanup);
 
 it('offers the managed local service from Aurora even though only Aurora is remembered', async () => {
   const user = userEvent.setup();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = () => (
-    <MemoryRouter>
-      <TooltipProvider>
-        <SidebarProvider>
-          <ClioNavigation
-            endpoint={mocks.settings.endpoint}
-            workspaces={[]}
-            sessions={[]}
-            activeWorkspaceId=""
-            activeSessionId=""
-            actions={{} as ResourceActions}
-            agents={[]}
-            attentions={{}}
-          />
-        </SidebarProvider>
-      </TooltipProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <TooltipProvider>
+          <SidebarProvider>
+            <ClioNavigation
+              endpoint={mocks.settings.endpoint}
+              workspaces={[]}
+              sessions={[]}
+              activeWorkspaceId=""
+              activeSessionId=""
+              actions={{} as ResourceActions}
+              agents={[]}
+              attentions={{}}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
   const { rerender } = render(view());
   for (const destination of [mocks.connections[1]!, mocks.connections[0]!]) {
-    await user.click(screen.getByRole('button', { name: /Local/u }));
+    await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
     const item = screen
       .getAllByRole('menuitem')
-      .find((node) => node.textContent?.includes(destination.endpoint));
+      .find((node) => node.textContent?.includes(new URL(destination.endpoint).host));
     expect(item).toBeDefined();
     await user.click(item!);
     await waitFor(() => expect(mocks.switchConnection).toHaveBeenLastCalledWith(destination));

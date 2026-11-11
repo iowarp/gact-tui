@@ -1,5 +1,5 @@
 import { SchemaSection } from './tool-schema-section';
-import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
+import type { McpServerDefinition, ToolCatalogItem, ToolPermission } from '@clio/core/v3';
 import {
   BrainIcon,
   EyeIcon,
@@ -32,6 +32,8 @@ import { TechnicalDetails } from '@/components/clio/technical-details';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { permissionOperationLabel } from './permission-operation-labels';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import {
   domainDescription,
   humanize,
@@ -51,12 +53,18 @@ export function CatalogToolset({
   tools,
   query = '',
   source = 'all',
+  permissions,
+  checking,
   onClearFilters,
 }: {
   servers?: McpServerDefinition[];
   tools: ToolCatalogItem[];
   query?: string;
   source?: ToolSource;
+  /** Each tool's permission by name (Settings › Tools); the status column says it. */
+  permissions?: ReadonlyMap<string, ToolPermission>;
+  /** Tools whose permission is still being read; they say Loading rather than Available. */
+  checking?: ReadonlySet<string>;
   onClearFilters?: () => void;
 }) {
   const bundles = useMemo(() => toolBundles(tools, servers, query), [query, servers, tools]);
@@ -71,16 +79,28 @@ export function CatalogToolset({
   return (
     <div className="flex min-w-0 flex-col gap-2" data-slot="tool-catalog">
       {builtin.length ? (
-        <InfraList heading="Built in" hover={26} pinned={false}>
+        <InfraList heading="Built in" hover={26} meta={128} pinned={false}>
           {builtin.map((entry) => (
-            <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
+            <ToolRow
+              checking={checking?.has(entry.tool.name)}
+              entry={entry}
+              key={toolKey(entry.tool)}
+              onInspect={setSelected}
+              permission={permissions?.get(entry.tool.name)}
+            />
           ))}
         </InfraList>
       ) : null}
       {mcp.length ? (
-        <InfraList heading="MCP servers" hover={26} pinned={false}>
+        <InfraList heading="MCP servers" hover={26} meta={128} pinned={false}>
           {mcp.map((entry) => (
-            <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
+            <ToolRow
+              checking={checking?.has(entry.tool.name)}
+              entry={entry}
+              key={toolKey(entry.tool)}
+              onInspect={setSelected}
+              permission={permissions?.get(entry.tool.name)}
+            />
           ))}
         </InfraList>
       ) : null}
@@ -112,9 +132,13 @@ export function CatalogToolset({
 function ToolRow({
   entry,
   onInspect,
+  permission,
+  checking,
 }: {
   entry: ToolEntry;
   onInspect: (entry: ToolEntry) => void;
+  permission?: ToolPermission;
+  checking?: boolean;
 }) {
   const { tool } = entry;
   const inspect = (event: MouseEvent) => {
@@ -124,18 +148,27 @@ function ToolRow({
   return (
     <InfraRow
       className="cursor-pointer"
+      data-tool-name={tool.name}
       description={toolSummary(tool)}
       icon={<ToolIcon tool={tool} />}
-      meta={entry.group}
+      // The meta column names where the tool comes from: the agent itself or its server.
+      meta={tool.server_id ? entry.group : vocab.agent}
       onClick={() => onInspect(entry)}
-      status={toolStatus(tool)}
+      status={toolStatus(tool, permission, checking)}
       title={
         <button className="max-w-full truncate text-left" onClick={inspect} type="button">
           {tool.name}
         </button>
       }
       actions={
-        <IconButton icon={<EyeIcon />} label={`Inspect ${tool.name}`} onClick={inspect} size="sm" />
+        // On a narrow list the row itself is the only inspect control it needs.
+        <IconButton
+          className="@max-[480px]/infra:hidden"
+          icon={<EyeIcon />}
+          label={`Inspect ${tool.name}`}
+          onClick={inspect}
+          size="sm"
+        />
       }
     />
   );
@@ -161,17 +194,37 @@ function ToolIcon({ tool }: { tool: ToolCatalogItem }) {
   return <Icon />;
 }
 
-function toolStatus(tool: ToolCatalogItem): InfraStatus {
-  if (tool.enabled === false) return { tone: 'stopped', label: 'Off' };
+const PERMISSION_STATUS: Record<ToolPermission, InfraStatus> = {
+  allow: { tone: 'success', label: 'Allowed' },
+  ask: { tone: 'warning', label: 'Asks first' },
+  deny: { tone: 'idle', label: 'Off' },
+};
+
+/** The permission when Settings knows it (spec: Allowed, Asks first, Off), else availability. */
+function toolStatus(
+  tool: ToolCatalogItem,
+  permission?: ToolPermission,
+  checking?: boolean,
+): InfraStatus {
+  if (tool.enabled === false) return { tone: 'idle', label: 'Off' };
   const status = tool.status?.trim().toLocaleLowerCase();
-  if (!status || ['available', 'enabled', 'ready', 'healthy'].includes(status)) {
+  const healthy = !status || ['available', 'enabled', 'ready', 'healthy'].includes(status);
+  if (permission && healthy) return PERMISSION_STATUS[permission];
+  if (checking && healthy) return { tone: 'running', label: 'Loading' };
+  if (healthy) {
     return { tone: 'success', label: 'Available' };
   }
   return { tone: 'warning', label: humanize(status) };
 }
 
 function toolSummary(tool: ToolCatalogItem): string | undefined {
-  const line = tool.description?.trim().split(/\r?\n/u)[0]?.trim();
+  // Descriptions are written for the model; their RST/Markdown code quotes read as plain words here.
+  const line = tool.description
+    ?.trim()
+    .split(/\r?\n/u)[0]
+    ?.replace(/``(.+?)``/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .trim();
   return line || tool.title?.trim() || undefined;
 }
 
@@ -204,7 +257,19 @@ function McpProvenance({ server }: { server: McpServerDefinition }) {
 
 function ToolContract({ entry }: { entry: ToolEntry }) {
   const { tool, server } = entry;
-  const title = tool.title?.trim() || humanize(tool.name);
+  // Some providers send the id title-cased as the title; a known label reads better.
+  const supplied = tool.title?.trim();
+  const plain = (text: string) =>
+    text
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/gu, ' ')
+      .trim();
+  const title =
+    (supplied && plain(supplied) !== plain(tool.name) ? supplied : undefined) ||
+    permissionOperationLabel(tool.name) ||
+    TOOL_OPERATIONS[tool.name]?.action ||
+    supplied ||
+    humanize(tool.name);
   const [expanded, setExpanded] = useState(false);
   const description = tool.description?.trim() || 'This provider did not supply a description.';
   return (
@@ -212,7 +277,6 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
       <SheetHeader className="gap-1 p-0">
         <SheetTitle className="text-lg">{title}</SheetTitle>
         <SheetDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <code className="break-all text-xs">{tool.name}</code>
           <span className="text-xs">{entry.group}</span>
           {server ? <McpOriginBadge server={server} /> : null}
         </SheetDescription>
@@ -256,6 +320,7 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
         title="Provider metadata and raw schemas"
       >
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Metadata label="Tool id" value={tool.name} />
           <Metadata label="Source" value={tool.source || 'Not reported'} />
           <Metadata label="MCP or domain" value={tool.server_id || vocab.agent} />
           <Metadata label="Owner" value={tool.owner || 'Not reported'} />

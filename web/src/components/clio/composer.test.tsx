@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 beforeEach(() => {
@@ -163,24 +163,24 @@ describe('ClioComposer authoritative behavior', () => {
     const onBehaviorChange = vi.fn(async () => undefined);
     renderComposer({ confirmationPolicy: 'ask', executionMode: 'execute', onBehaviorChange });
 
-    await user.click(screen.getByRole('button', { name: 'Execution mode: Execute' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /PlanDevelop/ }));
+    await user.click(screen.getByRole('button', { name: 'Mode: Execute' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^Plan/ }));
 
     await waitFor(() =>
       expect(onBehaviorChange).toHaveBeenCalledWith(
         expect.objectContaining({ confirmation_policy: 'ask', execution_mode: 'plan' }),
       ),
     );
-    expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mode: Plan' })).toBeVisible();
   });
 
   it('tracks mode and confirmation changes after plan approval', async () => {
     const { rerenderWith } = renderComposer({ confirmationPolicy: 'ask', executionMode: 'plan' });
-    expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mode: Plan' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Confirmation policy: Ask first' })).toBeVisible();
 
     rerenderWith({ confirmationPolicy: 'auto-edits', executionMode: 'execute' });
-    expect(await screen.findByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Mode: Execute' })).toBeVisible();
     expect(
       await screen.findByRole('button', { name: 'Confirmation policy: Workspace edits' }),
     ).toBeVisible();

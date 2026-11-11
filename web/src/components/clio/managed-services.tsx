@@ -7,7 +7,7 @@ import {
   type ManagedServiceDefinition,
   type ProvenanceConnectionInput,
 } from '@clio/core/v3';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CpuIcon, LinkIcon, PlugIcon } from 'lucide-react';
 import { RefreshButton } from './refresh-button';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
@@ -39,6 +39,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { StateView } from './primitives/state-view';
+import { useShownByPage } from './infrastructure-reachability';
 import {
   configurationForVariant,
   modelRuntimeServer,
@@ -75,6 +76,7 @@ export function ManagedServices({
 }) {
   const desktop = inTauri();
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { isManagedConnection, settings } = useConnectionSettings();
   const targets = useQuery({
     queryKey: ['infrastructure-targets', settings.endpoint],
@@ -198,12 +200,17 @@ export function ManagedServices({
     retry: false,
     staleTime: 30_000,
   });
+  const catalogErrorShownByPage = useShownByPage(catalog.error);
   const action = useMutation({
     mutationFn: async ({ service_id, ...body }: ServiceActionInput & { service_id: string }) => {
       // The service id is the URL path; CLIO's action contract forbids extra body keys.
       const operation = await repository.runManagedServiceAction(service_id, body);
       lastOperations.current[service_id] = operation.id;
       setOperationIds((rows) => ({ ...rows, [service_id]: operation.id }));
+      // The inventory follows operations closely only once it sees this one.
+      void queryClient.invalidateQueries({
+        queryKey: ['infrastructure-inventory', settings.endpoint],
+      });
       try {
         return await waitForOperation(repository, operation, undefined, (current) =>
           setProgress((rows) => ({ ...rows, [service_id]: current.progress })),
@@ -476,10 +483,50 @@ export function ManagedServices({
     setSelectedProvider('');
     setDeploying(true);
   };
+  const serviceVariants = (
+    <>
+      {onConnectExistingService ? (
+        <DropdownMenuItem onSelect={onConnectExistingService}>
+          <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
+        </DropdownMenuItem>
+      ) : null}
+      {onConnectExistingService ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
+        <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
+        <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
+      </DropdownMenuItem>
+    </>
+  );
 
   return (
     <section aria-label="Services" className="flex min-w-0 flex-col gap-3 pt-2">
-      <InfraTabActions>
+      <InfraTabActions
+        fold={{
+          label: 'More service actions',
+          verb: (
+            <SplitButton
+              icon={<AddIcon />}
+              label="Install service"
+              menuLabel="More ways to add a service"
+              onClick={startInstall}
+              showLabel
+              variant="default"
+            >
+              {serviceVariants}
+            </SplitButton>
+          ),
+          menu: (
+            <>
+              <DropdownMenuItem onSelect={startInstall}>
+                <MenuRow icon={<AddIcon />} label="Install service" />
+              </DropdownMenuItem>
+              {serviceVariants}
+            </>
+          ),
+        }}
+      >
         <ManagedServiceHostSelector
           targets={targets.data ?? []}
           targetId={targetId}
@@ -501,27 +548,6 @@ export function ManagedServices({
           }}
           onSshHost={connectComputer}
         />
-        <SplitButton
-          icon={<AddIcon />}
-          label="Install service"
-          menuLabel="More ways to add a service"
-          onClick={startInstall}
-          showLabel
-          variant="default"
-        >
-          {onConnectExistingService ? (
-            <DropdownMenuItem onSelect={onConnectExistingService}>
-              <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
-            </DropdownMenuItem>
-          ) : null}
-          {onConnectExistingService ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
-            <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
-            <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
-          </DropdownMenuItem>
-        </SplitButton>
       </InfraTabActions>
       {target === 'ssh' && transportState !== 'connected' ? (
         <StateView
@@ -564,7 +590,7 @@ export function ManagedServices({
           title={`Connect ${executionHostLabel} through Desktop to inspect and manage its services.`}
         />
       ) : null}
-      {catalog.error ? (
+      {catalog.error && !catalogErrorShownByPage ? (
         <StateView
           action={{ label: 'Try again', onClick: () => void catalog.refetch() }}
           detail={catalog.error.message}

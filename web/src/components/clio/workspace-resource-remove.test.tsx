@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
-import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
+import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
 
 const ENDPOINT = 'http://127.0.0.1:8790';
 
@@ -45,24 +45,28 @@ function workspaceResource(overrides: Partial<WorkspaceResource> = {}): Workspac
   };
 }
 
-function renderAction(resource = workspaceResource()) {
+function renderDialog(resource = workspaceResource(), onOpenChange = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(queryKeys.workspaceResources(ENDPOINT, 'workspace_1'), [resource]);
   render(
     <QueryClientProvider client={client}>
-      <WorkspaceResourceRemoveAction resource={resource} workspaceId="workspace_1" />
+      <WorkspaceResourceRemoveDialog
+        resource={resource}
+        workspaceId="workspace_1"
+        open
+        onOpenChange={onOpenChange}
+      />
     </QueryClientProvider>,
   );
   return client;
 }
 
-describe('WorkspaceResourceRemoveAction', () => {
+describe('WorkspaceResourceRemoveDialog', () => {
   it('removes a quarantined resource once the person confirms, and refreshes the list', async () => {
     repository.deleteResource.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    const client = renderAction();
+    const client = renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'Remove quarantined.bin' }));
     expect(screen.getByRole('alertdialog')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Remove resource' }));
 
@@ -78,20 +82,20 @@ describe('WorkspaceResourceRemoveAction', () => {
 
   it('does nothing when the person backs out', async () => {
     const user = userEvent.setup();
-    renderAction();
+    const onOpenChange = vi.fn();
+    renderDialog(workspaceResource(), onOpenChange);
 
-    await user.click(screen.getByRole('button', { name: 'Remove quarantined.bin' }));
     await user.click(screen.getByRole('button', { name: 'Keep resource' }));
 
+    expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(repository.deleteResource).not.toHaveBeenCalled();
   });
 
   it('reports the service failure rather than pretending the resource is gone', async () => {
     repository.deleteResource.mockRejectedValue(new Error('Resource is in use by a running turn.'));
     const user = userEvent.setup();
-    renderAction();
+    renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'Remove quarantined.bin' }));
     await user.click(screen.getByRole('button', { name: 'Remove resource' }));
 
     await waitFor(() =>
@@ -101,8 +105,8 @@ describe('WorkspaceResourceRemoveAction', () => {
   });
 
   it('offers no removal while the bytes are still arriving', () => {
-    renderAction(workspaceResource({ name: 'arriving.bin', state: 'uploading' }));
+    renderDialog(workspaceResource({ name: 'arriving.bin', state: 'uploading' }));
 
-    expect(screen.queryByRole('button', { name: /^Remove/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

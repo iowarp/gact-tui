@@ -1,11 +1,12 @@
 import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { StreamState } from '@clio/core/v3';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { brand } from '@brand';
-import { MENU_ACTION_EVENT } from '@/tauri/menu-actions';
+import { MENU_ACTION_EVENT, useMenuAction, type MenuAction } from '@/tauri/menu-actions';
+import type { ReactNode } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useDesktopTitleStore } from '@/store/desktop-title';
 import { DesktopTitleBar } from './desktop-title-bar';
 
 const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
@@ -15,6 +16,12 @@ const listenForCloseRequested = vi.hoisted(() =>
 );
 const listenForCloseFallbackHidden = vi.hoisted(() =>
   vi.fn(async (_onHidden: () => void) => () => undefined),
+);
+const ackQuitPromptShown = vi.hoisted(() =>
+  vi.fn(async (_seq: number, _showWindow: boolean) => undefined),
+);
+const listenForQuitRequested = vi.hoisted(() =>
+  vi.fn(async (_onQuitRequested: (seq: number) => void) => () => undefined),
 );
 const toastError = vi.hoisted(() => vi.fn());
 const isMacOS = vi.hoisted(() => vi.fn(() => false));
@@ -28,11 +35,13 @@ const capabilitiesService = vi.hoisted(() => ({
 vi.mock('@/tauri/desktop-window', () => ({
   runDesktopWindowAction,
   ackClosePromptShown,
+  ackQuitPromptShown,
 }));
 
 vi.mock('@/tauri/desktop-lifecycle', () => ({
   listenForCloseRequested,
   listenForCloseFallbackHidden,
+  listenForQuitRequested,
 }));
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
@@ -41,6 +50,27 @@ vi.mock('@/lib/platform', () => ({ isMacOS }));
 
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
+}));
+
+const switchConnection = vi.hoisted(() => vi.fn(async (_connection: unknown) => undefined));
+vi.mock('@/hooks/use-switch-connection', () => ({
+  useSwitchConnection: () => switchConnection,
+}));
+vi.mock('@/hooks/use-known-connections', () => ({
+  useKnownConnections: () => [
+    {
+      endpoint: 'http://127.0.0.1',
+      label: 'This computer',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+    {
+      endpoint: 'https://aurora.example:8787',
+      label: 'Aurora',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+  ],
 }));
 
 vi.mock('@/hooks/use-workspace-capabilities', () => ({
@@ -55,18 +85,38 @@ vi.mock('@/store/live-store', () => ({
   ) => selector({ entities: { stream: liveStreamState.current }, streamOwners: 1 }),
 }));
 
+function MenuWorkflow({ action, handler }: { action: MenuAction; handler: () => void }) {
+  useMenuAction(action, handler);
+  return null;
+}
+
+/** Stands in for the screens that own each menu workflow in the app. */
+function MenuWorkflows({ actions }: { actions: Partial<Record<MenuAction, () => void>> }) {
+  return Object.entries(actions).map(([action, handler]) =>
+    handler ? <MenuWorkflow action={action as MenuAction} handler={handler} key={action} /> : null,
+  );
+}
+
 describe('DesktopTitleBar', () => {
-  const renderTitleBar = () =>
+  let queryClient: QueryClient;
+  const renderTitleBar = (workflows?: ReactNode) =>
     render(
-      <TooltipProvider>
-        <DesktopTitleBar />
-      </TooltipProvider>,
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          {workflows}
+          <DesktopTitleBar />
+        </TooltipProvider>
+      </QueryClientProvider>,
     );
 
   beforeEach(() => {
     mockDesktopHost();
+    queryClient = new QueryClient();
     runDesktopWindowAction.mockClear();
     ackClosePromptShown.mockClear();
+    ackQuitPromptShown.mockClear();
+    listenForQuitRequested.mockClear();
+    listenForQuitRequested.mockImplementation(async () => () => undefined);
     listenForCloseRequested.mockClear();
     listenForCloseRequested.mockImplementation(async () => () => undefined);
     listenForCloseFallbackHidden.mockClear();
@@ -75,7 +125,6 @@ describe('DesktopTitleBar', () => {
     isMacOS.mockReturnValue(false);
     liveStreamState.current = 'live';
     capabilitiesService.current = { name: 'clio-agent-gact', version: '1.2.3' };
-    useDesktopTitleStore.getState().clearTitleContext();
   });
 
   afterEach(() => {
@@ -223,19 +272,167 @@ describe('DesktopTitleBar', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
-  it('routes overflow actions through the existing application workflows', async () => {
-    const action = vi.fn();
-    window.addEventListener(MENU_ACTION_EVENT, action);
+  it('macOS Cmd-Q with nothing running quits at once, leaving the window hidden', async () => {
+    isMacOS.mockReturnValue(true);
     renderTitleBar();
+
+    await waitFor(() => expect(listenForQuitRequested).toHaveBeenCalledTimes(1));
+    const onQuitRequested = listenForQuitRequested.mock.calls[0]?.[0];
+    act(() => onQuitRequested?.(3));
+
+    expect(ackQuitPromptShown).toHaveBeenCalledWith(3, false);
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('macOS Cmd-Q confirms while a conversation is running, and quits only when confirmed', async () => {
+    isMacOS.mockReturnValue(true);
+    queryClient.setQueryData(
+      ['sessions', 'http://127.0.0.1', 'family', 'run-1'],
+      [
+        { id: 'run-1', state: 'running' },
+        { id: 'done-1', state: 'completed' },
+      ],
+    );
+    renderTitleBar();
+
+    await waitFor(() => expect(listenForQuitRequested).toHaveBeenCalledTimes(1));
+    const onQuitRequested = listenForQuitRequested.mock.calls[0]?.[0];
+    act(() => onQuitRequested?.(4));
+
+    expect(ackQuitPromptShown).toHaveBeenCalledWith(4, true);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('1 conversation is still running.');
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+
+    act(() => onQuitRequested?.(5));
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: `Quit ${brand.productName}`,
+      }),
+    );
+    expect(runDesktopWindowAction).toHaveBeenCalledWith('quit');
+  });
+
+  it('routes overflow actions through the existing application workflows', async () => {
+    const openSettings = vi.fn();
+    renderTitleBar(<MenuWorkflows actions={{ 'open-settings': openSettings }} />);
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /settings/i }));
 
-    expect(action).toHaveBeenCalledOnce();
-    const dispatchedEvent = action.mock.calls[0]?.[0];
-    expect(dispatchedEvent).toBeDefined();
-    expect((dispatchedEvent as CustomEvent).detail).toBe('open-settings');
-    window.removeEventListener(MENU_ACTION_EVENT, action);
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it('groups the app menu like the macOS menu bar and runs the same workflows', async () => {
+    const search = vi.fn();
+    const connectByAddress = vi.fn();
+    const installAgent = vi.fn();
+    const keyboardShortcuts = vi.fn();
+    renderTitleBar(
+      <MenuWorkflows
+        actions={{
+          search,
+          'connect-by-address': connectByAddress,
+          'install-agent': installAgent,
+          'keyboard-shortcuts': keyboardShortcuts,
+        }}
+      />,
+    );
+    const openMenu = async () => {
+      fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+      return screen.findByRole('menu');
+    };
+    const openSubmenu = async (name: string) => {
+      fireEvent.click(within(await openMenu()).getByRole('menuitem', { name }));
+      return screen.findByRole('menu', { name });
+    };
+
+    const topLevel = within(await openMenu())
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim());
+    expect(topLevel.slice(0, 5)).toEqual(['File', 'View', 'Agent', 'Window', 'Help']);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    fireEvent.click(within(await openSubmenu('View')).getByRole('menuitem', { name: /^search/i }));
+    expect(search).toHaveBeenCalledOnce();
+
+    // No screen hosts a workbench here, so its row can't pretend to work.
+    expect(
+      within(await openSubmenu('View')).getByRole('menuitem', { name: /workbench/i }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
+
+    const agentRows = within(await openSubmenu('Agent'))
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim());
+    expect(agentRows).toEqual([
+      'Connection settings',
+      'Switch to',
+      'Manage agents',
+      'Add an agent…',
+      expect.stringMatching(/^Infrastructure/),
+    ]);
+    const openAddAgent = async () => {
+      fireEvent.click(
+        within(await openSubmenu('Agent')).getByRole('menuitem', { name: 'Add an agent…' }),
+      );
+      return screen.findByRole('menu', { name: 'Add an agent…' });
+    };
+    fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
+    fireEvent.click(
+      within(await openAddAgent()).getByRole('menuitem', { name: /connect by address/i }),
+    );
+    expect(connectByAddress).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(await openAddAgent()).getByRole('menuitem', {
+        name: `Install ${brand.agentName} on a computer`,
+      }),
+    );
+    expect(installAgent).toHaveBeenCalledOnce();
+
+    fireEvent.click(
+      within(await openSubmenu('Help')).getByRole('menuitem', { name: /keyboard shortcuts/i }),
+    );
+    expect(keyboardShortcuts).toHaveBeenCalledOnce();
+
+    fireEvent.click(
+      within(await openSubmenu('Window')).getByRole('menuitem', { name: 'Minimize' }),
+    );
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('minimize'));
+
+    fireEvent.click(
+      within(await openSubmenu('File')).getByRole('menuitem', { name: 'Close window' }),
+    );
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`Keep ${brand.productName} running?`);
+    expect(runDesktopWindowAction).not.toHaveBeenCalledWith('hide');
+  });
+
+  it('switches to another saved agent from Agent › Switch to', async () => {
+    renderTitleBar();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+    fireEvent.click(
+      within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Agent' }),
+    );
+    fireEvent.click(
+      within(await screen.findByRole('menu', { name: 'Agent' })).getByRole('menuitem', {
+        name: 'Switch to',
+      }),
+    );
+    const switchMenu = await screen.findByRole('menu', { name: 'Switch to' });
+    const rows = within(switchMenu).getAllByRole('menuitem');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('Aurora');
+    fireEvent.click(rows[0] as HTMLElement);
+    await waitFor(() =>
+      expect(switchConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ endpoint: 'https://aurora.example:8787' }),
+      ),
+    );
   });
 
   it('opens the application menu on Alt+Space, same as the hamburger', () => {
@@ -247,68 +444,24 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
   });
 
-  it('title_bar_shows_session_context: shows workspace › session with the agent badge once a route writes it', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
+  it('the empty top-bar space is a deep Tauri drag region', () => {
     renderTitleBar();
 
-    expect(screen.getByText('flat-ndp')).toBeInTheDocument();
-    expect(screen.getByText('NDP flatness run')).toBeInTheDocument();
-    expect(screen.getByText('EarthScope (Flat / Haiku)')).toBeInTheDocument();
-  });
-
-  it('the title context region is a deep Tauri drag region, so clicking its text (not just its padding) drags', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    expect(screen.getByTestId('desktop-title-context')).toHaveAttribute(
+    expect(screen.getByTestId('desktop-title-drag')).toHaveAttribute(
       'data-tauri-drag-region',
       'deep',
     );
   });
 
-  it('double-clicking the title context no longer toggles maximize itself — Tauri handles it natively', () => {
+  it('double-clicking the drag region no longer toggles maximize itself — Tauri handles it natively', () => {
     renderTitleBar();
 
-    fireEvent.doubleClick(screen.getByTestId('desktop-title-context'));
+    fireEvent.doubleClick(screen.getByTestId('desktop-title-drag'));
 
     expect(runDesktopWindowAction).not.toHaveBeenCalledWith('toggleMaximize');
   });
 
-  it('agent_badge_opens_agent: clicking the agent badge calls the route-supplied opener', () => {
-    const onOpenAgent = vi.fn();
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      onOpenAgent,
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    fireEvent.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
-
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-  });
-
-  it('renders no agent badge while the route has not resolved the agent', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    const titleContext = within(screen.getByTestId('desktop-title-context'));
-    expect(titleContext.queryByRole('button')).not.toBeInTheDocument();
-  });
-
-  it('shortcuts_bind_new_session_settings_fullscreen: Ctrl+N, Ctrl+comma, and F11 all work on Windows/Linux', () => {
+  it('shortcuts_bind_new_session_fullscreen: Ctrl+N and F11 work on Windows/Linux; App owns Ctrl+comma', () => {
     const action = vi.fn();
     window.addEventListener(MENU_ACTION_EVENT, action);
     renderTitleBar();
@@ -317,9 +470,8 @@ describe('DesktopTitleBar', () => {
     fireEvent.keyDown(window, { ctrlKey: true, key: ',' });
     fireEvent.keyDown(window, { key: 'F11' });
 
-    expect(action).toHaveBeenCalledTimes(2);
-    expect(action).toHaveBeenNthCalledWith(1, expect.objectContaining({ detail: 'new-session' }));
-    expect(action).toHaveBeenNthCalledWith(2, expect.objectContaining({ detail: 'open-settings' }));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledWith(expect.objectContaining({ detail: 'new-session' }));
     expect(runDesktopWindowAction).toHaveBeenCalledWith('toggleFullscreen');
     window.removeEventListener(MENU_ACTION_EVENT, action);
   });
@@ -331,51 +483,15 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
-    expect(await screen.findByRole('menuitem', { name: /new session/i })).toHaveTextContent('⌘N');
-    expect(screen.getByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');
+    expect(await screen.findByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(await screen.findByRole('menuitem', { name: /new conversation/i })).toHaveTextContent(
+      '⌘N',
+    );
 
     fireEvent.keyDown(window, { key: 'n', metaKey: true });
     expect(action).toHaveBeenCalledWith(expect.objectContaining({ detail: 'new-session' }));
     window.removeEventListener(MENU_ACTION_EVENT, action);
-  });
-
-  it('falls back to the product name on a route that never writes title context', () => {
-    renderTitleBar();
-
-    // The centre owns the route fallback; scope to
-    // the centre context region specifically so this asserts its OWN
-    // fallback, not the always-present left-section brand block.
-    expect(
-      within(screen.getByTestId('desktop-title-context')).getByText(brand.wordmark),
-    ).toBeInTheDocument();
-  });
-
-  it('title_bar_shows_connection_state_with_tooltip: the health dot discloses endpoint, transport, and backend version on hover', async () => {
-    liveStreamState.current = 'reconnecting';
-    renderTitleBar();
-
-    const dot = screen.getByRole('status', { name: 'Reconnecting' });
-    // gact-tui rule: status is never encoded only as a dot/color/icon -- the
-    // "Reconnecting" label itself must be real, visible text, not just an
-    // aria-label with nothing on screen.
-    expect(dot).toHaveTextContent('Reconnecting');
-    fireEvent.pointerEnter(dot);
-    fireEvent.focus(dot);
-
-    expect(await screen.findByText('http://127.0.0.1')).toBeInTheDocument();
-    expect(screen.getByText('Transport: Bridge')).toBeInTheDocument();
-    expect(screen.getByText('Backend: clio-agent-gact 1.2.3')).toBeInTheDocument();
-  });
-
-  it('shows the backend as unknown until capabilities resolve', async () => {
-    capabilitiesService.current = undefined;
-    renderTitleBar();
-
-    const dot = screen.getByRole('status', { name: 'Live' });
-    fireEvent.pointerEnter(dot);
-    fireEvent.focus(dot);
-
-    expect(await screen.findByText('Backend: Unknown')).toBeInTheDocument();
   });
 
   it('window_controls_present_on_windows_linux_only: hides the custom window controls on macOS, where native traffic lights apply', () => {
@@ -385,8 +501,6 @@ describe('DesktopTitleBar', () => {
     expect(screen.queryByRole('button', { name: 'Minimize' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maximize or restore' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
-    // The connection health indicator is not window chrome, so it still renders.
-    expect(screen.getByRole('status', { name: 'Live' })).toBeInTheDocument();
   });
 
   it('shows the custom window controls on Windows/Linux', () => {
@@ -396,26 +510,5 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('button', { name: 'Minimize' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Maximize or restore' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
-  });
-
-  it('centers the Live indicator on the same line as the breadcrumb and window controls', () => {
-    isMacOS.mockReturnValue(false);
-    renderTitleBar();
-
-    const live = screen.getByRole('status', { name: 'Live' });
-    const controls = live.parentElement;
-    // The control group stretches its children to the bar height so the
-    // window buttons fill it; the indicator must opt out and center itself,
-    // or its chip top-aligns inside a bar-height box.
-    expect(controls).toHaveClass('items-stretch');
-    expect(live).toHaveClass('self-center', 'inline-flex', 'items-center');
-    // The window buttons fill the bar and center their icon on its midline.
-    expect(screen.getByRole('button', { name: 'Minimize' })).toHaveClass(
-      'h-10',
-      'place-items-center',
-    );
-    // The breadcrumb region centers its content on the same midline.
-    expect(screen.getByLabelText(/desktop controls/)).toHaveClass('h-10', 'flex');
-    expect(controls?.previousElementSibling).toHaveClass('items-center');
   });
 });

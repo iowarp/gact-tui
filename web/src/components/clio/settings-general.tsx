@@ -1,10 +1,27 @@
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { announce } from '@/lib/announce';
+import { useOnboardingTour } from '@/lib/onboarding/tour-context';
+import { ONBOARDING_TOUR_ENABLED } from '@/lib/onboarding/tour-flag';
+import { useCloseSettingsWindow } from '@/lib/settings-window-close';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
-import { AppUpdateSettings } from './settings-app-updates';
+import { SaveBar } from './primitives/save-bar';
+import { AppUpdateSettings, BetaUpdatesRow } from './settings-app-updates';
+import { SettingsNumberField } from './settings-general-number-field';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+
+interface TypedDraft {
+  paste?: string;
+  preview?: string;
+}
+
+function wholeNumber(value: string): number | undefined {
+  const trimmed = value.trim();
+  return /^\d+$/u.test(trimmed) ? Number(trimmed) : undefined;
+}
 
 /** App preferences shared by both hosts, with native controls gated by runtime. */
 export function GeneralSettings() {
@@ -16,52 +33,103 @@ export function GeneralSettings() {
     pasteSourceThreshold,
     setPasteSourceThreshold,
   } = useAppearancePreferences();
+  const [draft, setDraft] = useState<TypedDraft>({});
+  const paste = draft.paste ?? String(pasteSourceThreshold);
+  const preview = draft.preview ?? String(collapseThreshold);
+  const pasteValue = wholeNumber(paste);
+  const previewValue = wholeNumber(preview);
+  const pasteError = pasteValue === undefined ? 'Enter 0 or more.' : undefined;
+  const previewError =
+    previewValue === undefined || previewValue < 1 || previewValue > 50
+      ? 'Enter 1 to 50.'
+      : undefined;
+  const pasteDirty = draft.paste !== undefined && pasteValue !== pasteSourceThreshold;
+  const previewDirty = draft.preview !== undefined && previewValue !== collapseThreshold;
+  const count = Number(pasteDirty) + Number(previewDirty);
+
   return (
-    <div className="grid gap-6">
+    <div>
       <SettingsSectionHeading title="General" description="App preferences for this device." />
-      <div>
-        <SettingsRow
-          title="Paste as source after"
-          htmlFor="paste-source-threshold"
-          description="Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline."
-        >
-          <div className="flex items-center gap-2">
-            <Input
-              className="w-24"
-              id="paste-source-threshold"
-              type="number"
-              min={0}
-              step={1}
-              value={pasteSourceThreshold}
-              onChange={(event) => setPasteSourceThreshold(Number(event.target.value))}
-            />
-            <span className="text-xs text-muted-foreground">characters</span>
-          </div>
-        </SettingsRow>
-        <SettingsRow
-          title="Transcript preview lines"
-          htmlFor="transcript-preview-lines"
-          description="Show more opens the full result. Diff previews use twice this limit."
-        >
-          <Input
-            className="w-20"
-            id="transcript-preview-lines"
-            type="number"
-            min={1}
-            max={50}
-            value={collapseThreshold}
-            onChange={(event) => setCollapseThreshold(Number(event.target.value))}
-          />
-        </SettingsRow>
-        <SettingsRow
-          title="Hide dot files and folders"
-          htmlFor="hide-dot-files"
-          description="Hide dot-prefixed paths from the workspace Files view."
-        >
-          <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
-        </SettingsRow>
-      </div>
-      {inTauri() ? <AppUpdateSettings /> : null}
+      <SettingsRow
+        info="Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline."
+        dirty={pasteDirty}
+        error={pasteDirty ? pasteError : undefined}
+        htmlFor="paste-source-threshold"
+        title="Paste as source after"
+      >
+        <SettingsNumberField
+          className="w-[8.5rem]"
+          id="paste-source-threshold"
+          invalid={pasteDirty && Boolean(pasteError)}
+          min={0}
+          onChange={(next) => setDraft((current) => ({ ...current, paste: next }))}
+          unit="chars"
+          value={paste}
+        />
+      </SettingsRow>
+      <SettingsRow
+        info="Show more opens the full result. Diff previews use twice this limit."
+        dirty={previewDirty}
+        error={previewDirty ? previewError : undefined}
+        htmlFor="transcript-preview-lines"
+        title="Transcript preview lines"
+      >
+        <SettingsNumberField
+          className="w-[8.5rem]"
+          id="transcript-preview-lines"
+          invalid={previewDirty && Boolean(previewError)}
+          max={50}
+          min={1}
+          onChange={(next) => setDraft((current) => ({ ...current, preview: next }))}
+          unit="lines"
+          value={preview}
+        />
+      </SettingsRow>
+      <SettingsRow
+        info="Hide dot-prefixed paths from the workspace Files view."
+        htmlFor="hide-dot-files"
+        inlineControl
+        title="Hide dot files and folders"
+      >
+        <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
+      </SettingsRow>
+      {ONBOARDING_TOUR_ENABLED ? <ReplayTutorialRow /> : null}
+      {inTauri() ? <AppUpdateSettings /> : <BetaUpdatesRow />}
+      <SaveBar
+        count={count}
+        invalid={Boolean((pasteDirty && pasteError) || (previewDirty && previewError))}
+        onDiscard={() => setDraft({})}
+        onSave={() => {
+          if (pasteDirty && pasteValue !== undefined) setPasteSourceThreshold(pasteValue);
+          if (previewDirty && previewValue !== undefined) setCollapseThreshold(previewValue);
+          setDraft({});
+          announce(count === 1 ? 'Change saved' : `${count} changes saved`);
+        }}
+      />
     </div>
+  );
+}
+
+/** Replays the onboarding tour over the workspace once Settings closes. */
+function ReplayTutorialRow() {
+  const tour = useOnboardingTour();
+  const close = useCloseSettingsWindow();
+  return (
+    <SettingsRow
+      info="A short walkthrough with a practice conversation. Nothing in it is sent or saved."
+      inlineControl
+      title="Replay tutorial"
+    >
+      <Button
+        onClick={() => {
+          tour.start();
+          close?.();
+        }}
+        size="sm"
+        variant="outline"
+      >
+        Replay
+      </Button>
+    </SettingsRow>
   );
 }

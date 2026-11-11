@@ -20,6 +20,7 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { useRepository } from '@/hooks/use-repository';
+import { IconButton } from './primitives/icon-button';
 
 /** Source management removes the connection, never the user's files or evidence. */
 export function ConnectedSourceActions({
@@ -28,12 +29,15 @@ export function ConnectedSourceActions({
   onEdit,
   onRemoved,
   direct = false,
+  compact = false,
 }: {
   workspaceId: string;
   source: ConnectedSourceState;
   onEdit?: () => void;
   onRemoved: () => void;
   direct?: boolean;
+  /** A 24px ⋯ with a hover name, for a list row's actions column. */
+  compact?: boolean;
 }) {
   const repository = useRepository();
   const [confirm, setConfirm] = useState(false);
@@ -80,9 +84,18 @@ export function ConnectedSourceActions({
       ) : (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`Manage ${source.label}`}>
-              <MoreIcon aria-hidden="true" />
-            </Button>
+            {compact ? (
+              <IconButton
+                icon={<MoreIcon />}
+                label={`More actions for ${source.label}`}
+                size="sm"
+                tooltipSide="bottom"
+              />
+            ) : (
+              <Button variant="ghost" size="icon" aria-label={`Manage ${source.label}`}>
+                <MoreIcon aria-hidden="true" />
+              </Button>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={onEdit}>

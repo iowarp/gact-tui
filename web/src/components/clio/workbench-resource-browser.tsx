@@ -6,6 +6,7 @@ import {
   DatabaseIcon,
   FileTextIcon,
   FolderIcon,
+  ListFilterIcon,
   SearchIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
@@ -20,22 +21,24 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
 } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { cn } from '@/lib/utils';
+import { cachedWorkspaceFile } from '@/lib/workspace-directory-cache';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioArtifactCard } from './artifact-card';
 import { ArtifactFilters } from './artifact-filters';
 import { WorkspaceFileView } from './resource-viewers';
@@ -43,13 +46,15 @@ import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 import { ResourceLoading } from './resource-states';
+import { StateView } from './primitives/state-view';
+import { serviceErrorDetail } from './service-error';
 import { WorkbenchFileTree } from './workbench-file-tree';
 import { buildFileTree } from './workbench-file-tree-model';
+import { LIST_HEADER_SECONDARY, type ChangeCounts } from './workbench-shared';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
 );
-export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   directory?: string;
@@ -75,6 +80,15 @@ interface FileBrowserProps {
   mode?: 'split' | 'tree' | 'preview';
   /** Paths this conversation changed; their rows are teal and say so. */
   changedPaths?: ReadonlySet<string>;
+  /** Lines each changed path gained; a changed row shows `+N` instead of its size. */
+  changeCounts?: ChangeCounts;
+  /**
+   * `tree` only: the list column's header, which takes the search, filter and
+   * refresh icons in place of a toolbar row.
+   */
+  renderHeader?: (actions: ReactNode) => ReactNode;
+  /** `tree` only: a note that follows the last row, inside the scrolling list. */
+  legend?: ReactNode;
 }
 
 interface ArtifactBrowserProps {
@@ -109,9 +123,13 @@ export function FileBrowser({
   onSelectedPathChange,
   mode = 'split',
   changedPaths,
+  changeCounts,
+  renderHeader,
+  legend,
 }: FileBrowserProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { settings } = useConnectionSettings();
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
@@ -135,7 +153,13 @@ export function FileBrowser({
   // include_hidden (use-workspace-data.ts) so a huge .clio never spends the
   // shared entry cap only to be discarded client-side — `files` here already
   // reflects the toggle. Read only for the empty-state hint below.
-  const { hideDotFiles } = useAppearancePreferences();
+  const { hideDotFiles, setHideDotFiles } = useAppearancePreferences();
+  const headed = mode === 'tree' && renderHeader !== undefined;
+  const [searching, setSearching] = useState(false);
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
@@ -153,10 +177,17 @@ export function FileBrowser({
   );
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
-  const activeFile =
+  const listedFile =
     directory === undefined
       ? files.find((entry) => entry.type === 'file' && entry.path === activePath)
       : undefined;
+  // The flat listing holds only the root; a nested file's size and type come
+  // from the tree's loaded directory, so its frame and size guard still apply.
+  const activeFile =
+    listedFile ??
+    (activePath
+      ? cachedWorkspaceFile(queryClient, settings.endpoint, workspaceId, activePath)
+      : undefined);
   const previewPath = activeFile?.path ?? activePath;
   useEffect(() => {
     const host = hostRef.current;
@@ -173,8 +204,55 @@ export function FileBrowser({
     onSelectedPathChange?.(path);
   };
 
+  const filterLabel = filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files';
+  const refreshFiles = async () => {
+    onRefresh?.();
+    await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
+  };
+  const headerActions = headed ? (
+    <>
+      <IconButton
+        aria-pressed={searching}
+        icon={<SearchIcon />}
+        label={searching ? 'Close search' : 'Search files'}
+        onClick={() => (searching ? closeSearch() : setSearching(true))}
+        size="sm"
+        tooltipSide="bottom"
+      />
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <IconButton
+            aria-pressed={hideDotFiles}
+            icon={<ListFilterIcon />}
+            label="Filter files"
+            size="sm"
+            tooltipSide="bottom"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={!hideDotFiles}
+            onCheckedChange={(checked) => setHideDotFiles(!checked)}
+            onSelect={(event) => event.preventDefault()}
+          >
+            Dot files and folders
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <span className={LIST_HEADER_SECONDARY}>
+        <RefreshAction
+          label="Refresh files"
+          refreshing={Boolean(filesFetching)}
+          onRefresh={refreshFiles}
+        />
+      </span>
+    </>
+  ) : null;
+
   const treeSection = (
     <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
+      {headed ? renderHeader(headerActions) : null}
       {directory ? (
         <div className="flex min-w-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
           <Button size="xs" variant="ghost" onClick={onClearDirectory}>
@@ -185,57 +263,87 @@ export function FileBrowser({
           </span>
         </div>
       ) : null}
-      <div
-        className={cn(
-          'flex shrink-0 items-center gap-1.5 border-b',
-          mode === 'tree' ? 'px-2 py-1.5' : 'p-2',
-        )}
-      >
-        {mode === 'tree' ? (
-          <IconButton
-            icon={<DatabaseIcon />}
-            label="Sources"
-            onClick={() => setSourcesOpen(true)}
-            size="sm"
-          />
-        ) : (
-          <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
-            Sources
-          </Button>
-        )}
-        <div className="relative min-w-0 flex-1">
-          <SearchIcon
-            aria-hidden="true"
-            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            aria-label={
-              filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
-            }
-            className={cn('pl-8 text-xs', mode === 'tree' ? 'h-7' : 'h-8')}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'}
-            value={query}
+      {headed ? (
+        searching ? (
+          <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
+            <Input
+              aria-label={filterLabel}
+              autoFocus
+              className="h-7 text-xs"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeSearch();
+                }
+              }}
+              placeholder="Filter files"
+              value={query}
+            />
+          </div>
+        ) : null
+      ) : (
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 border-b',
+            mode === 'tree' ? 'px-2 py-1.5' : 'p-2',
+          )}
+        >
+          {mode === 'tree' ? (
+            <IconButton
+              icon={<DatabaseIcon />}
+              label="Sources"
+              onClick={() => setSourcesOpen(true)}
+              size="sm"
+            />
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
+              Sources
+            </Button>
+          )}
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              aria-label={
+                filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
+              }
+              className={cn('pl-8 text-xs', mode === 'tree' ? 'h-7' : 'h-8')}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'}
+              value={query}
+            />
+          </div>
+          <RefreshAction
+            label="Refresh files"
+            refreshing={Boolean(filesFetching)}
+            onRefresh={refreshFiles}
           />
         </div>
-        <RefreshAction
-          label="Refresh files"
-          refreshing={Boolean(filesFetching)}
-          onRefresh={async () => {
-            onRefresh?.();
-            await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
-          }}
-        />
-      </div>
+      )}
       {filesTruncated && filesNextOffset === undefined ? (
-        <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
-          <TriangleAlertIcon className="size-3.5" />
-          <AlertDescription className="text-xs">
-            This list is truncated — the workspace has more files than can be shown at once.
-          </AlertDescription>
-        </Alert>
+        headed ? (
+          <p className="shrink-0 truncate px-3.5 pt-1.5 text-[11px] text-faint">
+            Showing part of this workspace; filter to find the rest.
+          </p>
+        ) : (
+          <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
+            <TriangleAlertIcon className="size-3.5" />
+            <AlertDescription className="text-xs">
+              This list is truncated — the workspace has more files than can be shown at once.
+            </AlertDescription>
+          </Alert>
+        )
       ) : null}
-      <ScrollArea className="min-h-0 flex-1 p-2">
+      {/* Radix wraps content in display:table, which lets long names widen the
+          tree and scroll it sideways; block keeps every row truncating. */}
+      <ScrollArea
+        // Spec `.bb`: the list body is inset 4px 4px 8px; rows carry their own 8px.
+        className={cn('min-h-0 flex-1', headed ? 'px-1 pt-1 pb-2' : 'p-2')}
+        viewportProps={{ className: '[&>div]:!block' }}
+      >
         {directory !== undefined || filesNextOffset !== undefined ? (
           <WorkspaceDirectoryTree
             directory={directory}
@@ -252,32 +360,50 @@ export function FileBrowser({
             selectedPath={activePath}
             onSelect={selectFile}
             filter={normalizedQuery}
+            changedPaths={changedPaths}
+            changeCounts={changeCounts}
           />
         ) : filesPending ? (
-          <LoadingRows label="Loading workspace files" />
+          <StateView kind="loading" size="panel" title="Loading files" />
         ) : files.length ? (
           filteredFiles.length ? (
             <WorkbenchFileTree
+              changeCounts={changeCounts}
               changedPaths={changedPaths}
               nodes={fileTree}
               onSelect={selectFile}
               selectedPath={activePath}
             />
           ) : (
-            <Unavailable icon={SearchIcon} label="No files match this filter" />
+            <StateView
+              icon={SearchIcon}
+              kind="empty"
+              size="panel"
+              title="No files match this filter"
+            />
           )
+        ) : filesError ? (
+          <StateView
+            action={{ label: 'Retry', onClick: () => void refreshFiles() }}
+            detail={serviceErrorDetail(filesError)}
+            kind="error"
+            size="panel"
+            title="Files couldn't be listed"
+          />
         ) : (
-          <Unavailable
+          <StateView
             detail={
-              filesError ??
-              (hideDotFiles
-                ? 'The workspace contains no visible files. "Hide dot files and folders" is on in Settings > Appearance — turn it off to check for hidden ones.'
-                : 'The workspace contains no visible files.')
+              hideDotFiles
+                ? 'Hidden files are off in Settings > Appearance; there may be dot files.'
+                : undefined
             }
             icon={FolderIcon}
-            label={filesError ? 'File tree unavailable' : 'No workspace files'}
+            kind="empty"
+            size="panel"
+            title="No files in this workspace"
           />
         )}
+        {headed ? legend : null}
       </ScrollArea>
     </section>
   );
@@ -292,16 +418,18 @@ export function FileBrowser({
             locator={previewPath === selectedPath ? locator : undefined}
             mediaType={activeFile?.media_type}
             path={previewPath}
+            sessionId={sessionId}
             size={activeFile?.size}
             workspaceId={workspaceId}
           />
         </Suspense>
       ) : (
         <div className="grid h-full place-items-center p-4">
-          <Unavailable
-            detail="Choose a file from the workspace tree to inspect it here."
+          <StateView
             icon={FileTextIcon}
-            label="Select a file"
+            kind="empty"
+            size="panel"
+            title="Choose a file in the tree to see it here"
           />
         </div>
       )}
@@ -359,6 +487,9 @@ export function ArtifactBrowser({
   sessionId,
 }: ArtifactBrowserProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const retryArtifacts = () =>
+    void queryClient.invalidateQueries({ queryKey: ['session-artifacts'] });
   const [stacked, setStacked] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const splitArtifact =
@@ -384,7 +515,9 @@ export function ArtifactBrowser({
   const artifactList = (
     <ScrollArea className="h-full p-2">
       <div className="grid gap-2">
-        {artifactsPending ? <LoadingRows label="Loading session artifacts" /> : null}
+        {artifactsPending ? (
+          <StateView kind="loading" size="panel" title="Loading artifacts" />
+        ) : null}
         <ArtifactFilters artifacts={artifacts}>
           {(visible) =>
             visible.map((artifact) => (
@@ -402,10 +535,15 @@ export function ArtifactBrowser({
           }
         </ArtifactFilters>
         {!artifactsPending && !artifacts.length ? (
-          <Unavailable
-            detail={artifactsError}
-            icon={BoxIcon}
-            label={artifactsError ? 'Artifacts unavailable' : 'No session artifacts'}
+          <StateView
+            action={artifactsError ? { label: 'Retry', onClick: retryArtifacts } : undefined}
+            detail={serviceErrorDetail(artifactsError)}
+            icon={artifactsError ? undefined : BoxIcon}
+            kind={artifactsError ? 'error' : 'empty'}
+            size="panel"
+            title={
+              artifactsError ? "Artifacts couldn't be listed" : 'No artifacts in this conversation'
+            }
           />
         ) : null}
         {artifactsTruncated ? (
@@ -447,37 +585,5 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-function LoadingRows({ label, className }: { label: string; className?: string }) {
-  return (
-    <div aria-label={label} className={cn('grid gap-2', className)}>
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-4/5" />
-      <Skeleton className="h-8 w-11/12" />
-    </div>
-  );
-}
-
-function Unavailable({
-  label,
-  detail,
-  icon: Icon,
-}: {
-  label: string;
-  detail?: string;
-  icon: typeof FolderIcon;
-}) {
-  return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>{label}</EmptyTitle>
-        {detail ? <EmptyDescription>{detail}</EmptyDescription> : null}
-      </EmptyHeader>
-    </Empty>
   );
 }

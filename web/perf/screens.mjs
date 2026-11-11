@@ -1,6 +1,6 @@
 // One-command deterministic screenshot capture of every surface and state.
 //
-//   pnpm screens [--widths 1680,1280] [--themes dark,light]   (also notebook-dark, notebook-light)
+//   pnpm screens [--widths 1680,1280] [--themes dark,light]
 //                [--only settings,canvas,!settings--usage] [--out test-results/screens]
 //                [--merge]   update an earlier manifest in --out instead of replacing it
 //                [--probes]  record type scale, wraps, contrast, key glyphs and
@@ -75,12 +75,35 @@ const control = (page, role, name, options = {}) =>
     .filter({ visible: true })
     .first();
 
+/**
+ * Row actions in the left bar stay hidden until their row is hovered; hover the
+ * row that owns a hidden match so the action can be pressed like a person would.
+ */
+async function revealRowAction(page, role, name, options) {
+  const matches = page.getByRole(role, { name, includeHidden: true, ...options });
+  const count = Math.min(await matches.count(), 20);
+  for (let index = 0; index < count; index += 1) {
+    const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+    if (!(await row.isVisible().catch(() => false))) continue;
+    // Hover the trailing edge, where the actions column appears, so the pointer
+    // stays on the row (and off any hover card) while the action is pressed.
+    const box = await row.boundingBox();
+    await row.hover(box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {});
+    await page.waitForTimeout(150);
+    return true;
+  }
+  return false;
+}
+
 async function press(page, role, name, options) {
   const target = control(page, role, name, options);
-  const visible = await target
+  let visible = await target
     .waitFor({ state: 'visible', timeout: 1500 })
     .then(() => true)
     .catch(() => false);
+  if (!visible && (await revealRowAction(page, role, name, options))) {
+    visible = await target.isVisible().catch(() => false);
+  }
   if (!visible) {
     // Narrow layouts move the left bar into a sheet behind the sidebar trigger.
     const trigger = page
@@ -91,6 +114,9 @@ async function press(page, role, name, options) {
       await trigger.click();
       await page.waitForTimeout(500);
     }
+  }
+  if (!(await target.isVisible().catch(() => false))) {
+    await revealRowAction(page, role, name, options);
   }
   await target.waitFor({ state: 'visible', timeout: 4000 });
   await target.click();
@@ -109,7 +135,7 @@ async function openCanvas(page) {
   }
 }
 
-/** Show one of the workbench lists (Files, Sources, ?) from the strip. */
+/** Show a workbench list from the strip, as its tab. */
 async function stripList(page, name) {
   await openCanvas(page);
   const item = page
@@ -122,7 +148,25 @@ async function stripList(page, name) {
   await page.waitForTimeout(800);
 }
 
-async function openFile(page, path) {
+/** Show the Files list and open folders top-down, nested ones included. */
+async function expandedFiles(page, folders) {
+  await stripList(page, 'Files');
+  const list = page.getByRole('region', { name: 'Files list' });
+  for (let i = 0; i < folders; i += 1) {
+    const folder = list.getByRole('button', { name: /^Expand folder / }).first();
+    if (!(await folder.isVisible().catch(() => false))) break;
+    await folder.click();
+    await page.waitForTimeout(200);
+  }
+  await list
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first()
+    .evaluate((viewport) => viewport.scrollTo(0, 0))
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+async function openFile(page, path, { settled = true } = {}) {
   await stripList(page, 'Files');
   const list = page.getByRole('region', { name: 'Files list' });
   const parts = path.split('/');
@@ -137,6 +181,7 @@ async function openFile(page, path) {
     .filter({ visible: true })
     .first()
     .click();
+  if (!settled) return;
   await page
     .locator('[aria-label="Workspace file preview"]')
     .filter({ hasText: parts.at(-1) })
@@ -145,15 +190,412 @@ async function openFile(page, path) {
   await page.waitForTimeout(800);
 }
 
+/** Wait until a visible element shows `text` (body content, not a toolbar). */
+async function showsText(page, text, timeout = 15000) {
+  await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout });
+}
+
+async function showsAny(page, texts, timeout = 15000) {
+  await Promise.any(texts.map((text) => showsText(page, text, timeout)));
+}
+
+/** Switch a viewer mode by accessible name, trying each name as a tab, radio then button. */
+async function pickMode(page, names) {
+  for (const name of names) {
+    for (const role of ['tab', 'radio', 'button']) {
+      const target = control(page, role, name, { exact: true });
+      if (await target.isVisible().catch(() => false)) {
+        if ((await target.getAttribute('aria-selected')) !== 'true') await target.click();
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+  }
+  // A narrow frame bar folds its modes to the active icon and a menu; narrowest,
+  // the frame lists them in its … menu (workbench-lineage step 6).
+  const menus = [
+    page.locator('[data-modes-folded]').filter({ visible: true }).first(),
+    page
+      .locator('[data-fold-modes-menu]')
+      .filter({ visible: true })
+      .first()
+      .getByRole('button', { name: /^(?:File|More) actions$/u }),
+  ];
+  for (const trigger of menus) {
+    if (!(await trigger.isVisible().catch(() => false))) continue;
+    await trigger.click();
+    for (const name of names) {
+      const item = page.getByRole('menuitemradio', { name, exact: true }).first();
+      if (await item.isVisible().catch(() => false)) {
+        await item.click();
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+    await page.keyboard.press('Escape');
+  }
+  throw new Error(`no mode control named ${names.join(' or ')}`);
+}
+
+/** Leave the strip list a scenario opened from, and show the tab's own list if it has one. */
+async function tabOnly(page, stripName, tabListTitle) {
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: stripName, exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await item.getAttribute('aria-pressed').catch(() => null)) === 'true') await item.click();
+  if (tabListTitle) {
+    const show = control(page, 'button', `Show ${tabListTitle}`, { exact: true });
+    if (await show.isVisible().catch(() => false)) await show.click();
+  }
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(800);
+}
+
+/** The workbench list when it is a sheet over the tab (under ~1100px, not only on a phone). */
+function listSheet(page) {
+  return page
+    .locator('section[data-slot="workbench-list"][data-overlay]')
+    .filter({ visible: true })
+    .first();
+}
+
+/**
+ * When the list is a sheet it covers the tab's frame bar (its modes and Maximize);
+ * show the tab body. The sheet takes the pointer, so click its Hide by event.
+ */
+async function phoneTabBody(page, listTitle) {
+  const sheet = listSheet(page);
+  if (!(await sheet.isVisible().catch(() => false))) return;
+  const named = listTitle
+    ? sheet.getByRole('button', { name: `Hide ${listTitle}`, exact: true })
+    : undefined;
+  const hide =
+    named && (await named.isVisible().catch(() => false))
+      ? named
+      : sheet.getByRole('button', { name: /^Hide / }).first();
+  if (await hide.isVisible().catch(() => false)) {
+    await hide.dispatchEvent('click');
+    await page.waitForTimeout(600);
+  }
+}
+
+/** Open the study's science log from the workbench strip. */
+async function openScienceLog(page) {
+  await stripList(page, 'Science log');
+  // A list left open on the strip covers the study's own; show the study.
+  const show = control(page, 'button', 'Show Study', { exact: true });
+  // On a phone the canvas sheet takes the pointer; click by event.
+  if (await show.isVisible().catch(() => false)) await show.dispatchEvent('click');
+  await showsText(page, 'Was 2022 below baseline?');
+  await page.waitForTimeout(800);
+}
+
+/** Open the Opal vault: Sources list, Manage sources, the connected source, Open knowledge. */
+async function openVault(page) {
+  await stripList(page, 'Sources');
+  await page
+    .getByRole('region', { name: 'Sources list' })
+    .getByRole('button', { name: 'Manage sources' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Your sources', visible: true }).last();
+  // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
+  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
+  await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
+  // The vault opens as its own tab; a Sources tab still lit goes back to it.
+  const sources = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Sources', exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await sources.getAttribute('aria-pressed').catch(() => null)) === 'true')
+    await sources.click();
+  await page
+    .locator('[data-slot="knowledge-vault"], [aria-label="Knowledge source"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 15000 });
+  await Promise.any([
+    showsText(page, 'Opal sites'),
+    page
+      .locator('[aria-label="Note graph"]')
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 15000 }),
+  ]);
+}
+
+async function openVaultNote(page, title) {
+  await openVault(page);
+  // The vault's own file list sits beside the tab; its row picks the note and reads it.
+  const show = control(page, 'button', 'Show Vault', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  const name = new RegExp(`^${title}, \\d+ links?$`, 'u');
+  const row = page
+    .getByRole('list', { name: 'Vault files' })
+    .getByRole('button', { name })
+    .filter({ visible: true })
+    .first();
+  const node = control(page, 'button', new RegExp(`^Open ${title}, \\d+ links?`, 'u'));
+  const listed = await row
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (listed) await row.click();
+  else await node.click();
+  const body = page.getByText('The Opal network is 412').filter({ visible: true }).first();
+  const read = await body
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!read) await pickMode(page, ['Note']);
+  await showsText(page, 'The Opal network is 412');
+  await page.waitForTimeout(800);
+}
+
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
   await page.keyboard.type(text);
 }
 
+// Providers and Usage with the spec's servers and accounts (`settingsModels`
+// seeds the fixture: a scenario name, or `{scenario, failures}`), plus the
+// states behind a hover or a click and the failure states.
+function seededSettingsShots() {
+  const seeded = (state, url, setup, extra = {}) => ({
+    surface: 'settings',
+    state,
+    url,
+    setup,
+    settingsModels: 'spec',
+    ready: 'main',
+    settleMs: 1500,
+    ...extra,
+  });
+  const row = (page, slot, name) =>
+    page
+      .locator(`[data-slot="${slot}"]`)
+      .filter({ hasText: name })
+      .filter({ visible: true })
+      .first();
+  return [
+    seeded('providers-seeded', '/settings/providers'),
+    seeded(
+      'providers-row-actions',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'LM Studio').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    seeded('providers-remove-confirm', '/settings/providers', async (page) => {
+      const server = row(page, 'model-server-row', 'Workstation');
+      await server.hover();
+      const remove = server.getByRole('button', { name: 'Remove', exact: true });
+      // On a phone the row's actions fold into its ⋯ menu.
+      if (await remove.isVisible()) await remove.click();
+      else {
+        await press(page, 'button', 'More for Workstation');
+        await page.getByRole('menuitem', { name: /^Remove/u }).click();
+      }
+      await page.waitForTimeout(300);
+    }),
+    seeded('providers-details', '/settings/providers', async (page) => {
+      await row(page, 'model-server-row', 'Ollama').hover();
+      await press(page, 'button', 'More for Ollama');
+      await page.getByRole('menuitem', { name: /^Details/u }).click();
+      await page.waitForTimeout(600);
+    }),
+    seeded('providers-add-server', '/settings/providers', async (page) => {
+      await press(page, 'button', /^Add server/u);
+      await overlay(page);
+    }),
+    seeded('usage-seeded', '/settings/usage'),
+    seeded('usage-remaining', '/settings/usage', async (page) => {
+      await press(page, 'radio', 'Remaining');
+      await page.waitForTimeout(300);
+    }),
+    // Failure states: the fixture answers the named endpoints with an error.
+    seeded('models-error', '/settings/models', null, {
+      settingsModels: { scenario: 'spec', failures: ['providers-lm', 'fleet'] },
+    }),
+    seeded('providers-error', '/settings/providers', null, {
+      settingsModels: { scenario: 'spec', failures: ['servers'] },
+    }),
+    seeded('usage-error', '/settings/usage', null, {
+      settingsModels: { scenario: 'spec', failures: ['usage'] },
+    }),
+    seeded('usage-details', '/settings/usage', async (page) => {
+      const account = row(page, 'usage-account-row', 'ChatGPT Pro');
+      await account.hover();
+      await account.getByRole('button', { name: 'Details' }).click();
+      await page.waitForTimeout(600);
+    }),
+  ];
+}
+
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen, boot, update }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  const callbacks = new Map();
+  // With `update`, the signed feed offers it and its download stops part way:
+  // the host owns no runtime, so the page shows only the app's own download.
+  const answers = update
+    ? {
+        'plugin:updater|check': () => ({
+          rid: 1,
+          currentVersion: version,
+          version: update.version,
+          date: '2026-11-04T00:00:00Z',
+          body: '',
+          rawJson: {},
+        }),
+        has_managed_runtime: () => false,
+        managed_runtime_update_mode: () => 'external',
+        // The desktop host's own service is the fixture this run connects to.
+        get_backend: () => ({
+          url: JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')[0],
+          bearer_token: '',
+          status: { kind: 'ready' },
+        }),
+        'plugin:updater|download': ({ onEvent }) => {
+          // Channel ordering is `index` in newer @tauri-apps/api, `id` in older.
+          const send = (index, message) =>
+            callbacks.get(onEvent.id)?.({ id: index, index, message });
+          send(0, { event: 'Started', data: { contentLength: update.total } });
+          send(1, { event: 'Progress', data: { chunkLength: update.downloaded } });
+          return new Promise(() => undefined);
+        },
+      }
+    : {};
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (callback) => {
+      callbacks.set(++id, callback);
+      return id;
+    },
+    unregisterCallback: (callbackId) => callbacks.delete(callbackId),
+    // Only the app version (and an offered update) answers; everything else
+    // stays pending, as on a host that is still coming up.
+    invoke: (command, args) => {
+      if (command === 'plugin:app|version' && version) return Promise.resolve(version);
+      // Local startup: the service was found missing, and the runtime is being prepared.
+      if (boot && command === 'get_backend') {
+        const detail =
+          (boot.calls = (boot.calls ?? 0) + 1) > 1 ? 'installing_runtime' : 'checking_existing';
+        return Promise.resolve({ url: '', bearer_token: '', status: { kind: 'starting', detail } });
+      }
+      if (boot && command === 'read_logs')
+        return Promise.resolve(
+          '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
+        );
+      if (answers[command]) return Promise.resolve(answers[command](args ?? {}));
+      return new Promise(() => undefined);
+    },
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  const MB = 1024 * 1024;
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-downloading',
+      url: SESSION,
+      // The background check offers 0.11.4; its toast starts the update.
+      ready: '[data-sonner-toast] button',
+      setup: async (page) => {
+        await page
+          .locator('[data-sonner-toast] button')
+          .filter({ hasText: /^Update / })
+          .click();
+        await page.locator('[data-slot="step-list"]').getByText('41 of 66 MB').waitFor();
+      },
+      initScript: [
+        desktopStub,
+        {
+          desktop: true,
+          version: '0.11.3',
+          seen: '0.11.3',
+          update: { version: '0.11.4', total: 66 * MB, downloaded: 41 * MB },
+        },
+      ],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
-// Each shot: {surface, state, url, setup?, ready?, scenario?, connected?, route?}.
+// Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
+// fixtureDemo?, connected?, route?, keepPointer?, platform?, decision?,
+// initScript?: [fn, arg] run before the app}. `fixtureDemo` names a fixture
+// `POST /__test/<name>` switch applied after the scenario reset (for example
+// `science-views`). `platform: 'mac'` makes the page report a Mac, for its ? keys.
+// `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -166,6 +608,16 @@ function catalogue({ settings, infrastructure }) {
     });
   return [
     s('connect', 'first-run', '/', null, { connected: false, ready: 'main' }),
+    s('connect', 'local-startup', '/', null, {
+      connected: false,
+      ready: '[aria-label="Startup progress"] [aria-current="step"]',
+      allowLoading: true,
+      settleMs: 2500,
+      initScript: [
+        desktopStub,
+        { desktop: true, version: APP_VERSION, seen: APP_VERSION, boot: {} },
+      ],
+    }),
     s('connect', 'unreachable-service', '/', null, {
       connected: 'http://127.0.0.1:9',
       ready: 'main',
@@ -192,18 +644,39 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(600);
     }),
     s('session', 'activity-expanded', SESSION, async (page) => {
-      // Old transcript: an "Activity: …" accordion. v24 transcript: per-row disclosures.
-      const accordion = page.getByRole('button', { name: /^Activity: / }).filter({ visible: true });
-      const target = (await accordion.count())
-        ? accordion.last()
-        : page.locator('[data-slot="activity-disclosure"]').filter({ visible: true }).first();
-      await target.click();
+      await page
+        .getByRole('button', { name: /^Expand / })
+        .filter({ visible: true })
+        .last()
+        .click();
       await page.waitForTimeout(600);
     }),
     s('session', 'attention-technical-details', SESSION, async (page) => {
       await press(page, 'button', 'Technical details');
       await page.waitForTimeout(400);
     }),
+    // Data-dependent card parts: the script ask (Rest of this script) paged
+    // 1/2, the Runs on / Asked by / Folders facts, the plan, a dismissible question.
+    ...['script', 'facts', 'plan', 'question'].map((card) =>
+      s('session', `decision-${card}`, SESSION, null, {
+        decision: card,
+        ready: '[data-slot="ask-card"]',
+      }),
+    ),
+    s(
+      'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        // Transcript rows have their own Technical details; open the card's.
+        await page
+          .locator('[data-slot="ask-card"]')
+          .getByRole('button', { name: 'Technical details' })
+          .click();
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
     s(
       'session',
       'transcript-outline',
@@ -212,35 +685,90 @@ function catalogue({ settings, infrastructure }) {
         await press(page, 'button', 'Open transcript outline');
         await overlay(page);
       },
-      // Wider layouts show the transcript minimap instead of the outline button.
-      { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // A file opened from Files takes its tab; open Files again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
-    menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
-    menu('menu-attention-inbox', 'button', /needs your response/u),
-    menu('menu-service-status', 'button', /^Workspace Service status/u),
-    s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^Workspace Service status/u);
-      await overlay(page);
-      await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
-      await page.waitForTimeout(400);
-    }),
+    menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
+    s(
+      'session',
+      'menu-service-status',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+      },
+      { savedAgents: true },
+    ),
+    s(
+      'session',
+      'menu-clio-add-agent',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+        // By key, so moving the pointer away before the capture keeps it open.
+        await page.getByRole('menuitem', { name: /^Add an agent/u }).focus();
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(400);
+      },
+      { savedAgents: true },
+    ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
-      await press(page, 'button', 'Show infrastructure status');
+      await press(page, 'button', /^Infrastructure: /u);
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-open-questions', 'button', /open question/u),
-    menu('menu-version-status', 'button', /^Version status/u),
-    menu('menu-usage', 'button', /^Usage for this conversation/u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
-    menu('composer-execution-mode', 'button', /^Execution mode/u),
+    menu('composer-execution-mode', 'button', /^Mode: /u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
-    menu('composer-permission-duration', 'combobox', 'Permission duration'),
-    menu('composer-add-context', 'button', 'Add context'),
+    menu('composer-attach-files', 'button', 'Attach files'),
+    menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
       await typeInComposer(
         page,
@@ -257,13 +785,8 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('session', 'dialog-new-session', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-    }),
-    s('session', 'dialog-new-workspace', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      // New conversation is a draft in place (full-picture/08), not a dialog.
+      await press(page, 'button', 'New conversation', { exact: true });
       await page.waitForTimeout(300);
     }),
     // Decision cards: the fixture starts with a pending permission and a
@@ -337,7 +860,8 @@ function catalogue({ settings, infrastructure }) {
           await press(page, 'button', 'Change model');
           await overlay(page);
         }),
-      ];
+        // Develop captures the Windows sheet as keyboard--shortcut-sheet.
+      ].filter((shot) => platform === 'mac' || shot.state !== 'shortcut-sheet');
     }),
     s('keyboard', 'settings-window', SESSION, async (page) => {
       await page.keyboard.press('Control+Comma');
@@ -351,6 +875,103 @@ function catalogue({ settings, infrastructure }) {
       await page.keyboard.press('Control+Period');
       await page.waitForTimeout(700);
     }),
+    s('session', 'held-keys', SESSION, async (page) => {
+      // Holding the command key alone shows each control's shortcut badge.
+      await page.keyboard.down('Control');
+      await page.waitForTimeout(900);
+    }),
+    s('session', 'dialog-new-workspace', SESSION, async (page) => {
+      await press(page, 'button', 'New workspace', { exact: true });
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-allow-folder',
+      SESSION,
+      async (page) => {
+        // From the keyboard, so the focus ring shows where it starts (Cancel), as the spec draws.
+        await control(page, 'button', 'Allow opal').focus();
+        await page.keyboard.press('Enter');
+        await overlay(page);
+      },
+      { route: 'sandbox-blocked' },
+    ),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete…', { exact: true });
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
+    }),
+    s(
+      'session',
+      'dialog-archived',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Archived conversations', { exact: true });
+        await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s(
+      'session',
+      'dialog-archived-delete',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Archived conversations', { exact: true });
+        await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
+        await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s('session', 'dialog-share', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+      await page.getByRole('dialog', { name: /^Share / }).waitFor();
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-share-link',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Actions for /u);
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+        await page.getByRole('button', { name: 'Create share link' }).click();
+        await page.getByRole('textbox', { name: 'Share link' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'share-link' },
+    ),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -361,55 +982,166 @@ function catalogue({ settings, infrastructure }) {
         .click({ button: 'right' });
       await overlay(page);
     }),
+    // workbench-right-pocket "List hidden, tab menu open": the list's strip icon
+    // clicked again, a pinned tab first, the menu on the open middle tab.
+    s('canvas', 'tab-menu-list-hidden', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await openFile(page, 'results/vertical-displacement.png');
+      await stripList(page, 'Agent');
+      const tabs = page
+        .locator('[aria-label="Workspace canvas"] [role="tab"]')
+        .filter({ visible: true });
+      await tabs.filter({ hasText: 'stations.csv' }).first().click({ button: 'right' });
+      await overlay(page);
+      await page.getByRole('menuitem', { name: /^Pin/u }).click();
+      await page.waitForTimeout(300);
+      const image = tabs.filter({ hasText: 'vertical-displacement.png' }).first();
+      await image.click();
+      await page.waitForTimeout(300);
+      const lit = page
+        .getByRole('toolbar', { name: 'Workbench lists' })
+        .locator('button[aria-pressed="true"]')
+        .filter({ visible: true })
+        .first();
+      if (await lit.isVisible().catch(() => false)) await lit.click();
+      await page.waitForTimeout(400);
+      await image.click({ button: 'right' });
+      await overlay(page);
+    }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
+    s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
-    s('canvas', 'file-source', SESSION, (page) => openFile(page, 'scripts/regrid_stations.py')),
-    s('canvas', 'file-diff', SESSION, async (page) => {
-      await stripList(page, 'Activity');
-      await page
-        .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /regrid_stations\.py/u })
-        .first()
-        .click();
-      await page.waitForTimeout(800);
-    }),
-    // A list chosen with a tab open: a sheet over the tab at the default
-    // width, beside the tab once the pocket is wide (maximized).
-    s('canvas', 'narrow-sheet', SESSION, async (page) => {
+    // workbench-lineage "The tab row, as it narrows": several tabs, the last opened in front.
+    s(
+      'canvas',
+      'tabs-many',
+      SESSION,
+      async (page) => {
+        for (const path of [
+          'ndp/soil_sites.csv',
+          'scripts/soil_qc.py',
+          'ndp/soil_moisture.h5',
+          'plan.md',
+          'diagrams/pipeline.mmd',
+        ])
+          await openFile(page, path);
+      },
+      { scenario: { specFiles: true }, settleMs: 1500 },
+    ),
+    // workbench-lineage "Step 6, … open": narrowest (the Files column beside the
+    // tab), the modes are a checked list in …. Where the column is a sheet over
+    // the tab, it hides first.
+    s('canvas', 'file-csv-more', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
       await stripList(page, 'Files');
-    }),
-    s('canvas', 'list-beside', SESSION, async (page) => {
-      await openFile(page, 'results/stations.csv');
-      await press(page, 'button', 'Maximize canvas');
-      await page.waitForTimeout(600);
-      await stripList(page, 'Files');
+      const more = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (
+        !(await more.click({ timeout: 2000 }).then(
+          () => true,
+          () => false,
+        ))
+      ) {
+        await page
+          .getByRole('toolbar', { name: 'Workbench lists' })
+          .locator('button[aria-pressed="true"]')
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page.waitForTimeout(400);
+        await more.click();
+      }
+      await overlay(page);
     }),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
+    // A frame bar folded to its active mode and a chevron (390): the modes as a
+    // checked list with the key that works anywhere (workbench-keyboard).
+    s('canvas', 'file-csv-modes', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+      const fallback = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (await folded.isVisible().catch(() => false)) await folded.click();
+      else await fallback.click();
+      await overlay(page);
+    }),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // Work folds into Activity: a work row opens the Work tab; without
-    // recorded work, the Timeline tab shows the session's work over time.
-    s('canvas', 'work', SESSION, async (page) => {
-      await stripList(page, 'Activity');
-      const list = page.getByRole('region', { name: 'Activity list' });
-      const work = list.locator('[data-kind="work"]').first();
-      if (await work.count()) await work.click();
-      else await list.getByRole('button', { name: 'Open timeline and context' }).click();
-      await page.waitForTimeout(800);
-    }),
-    s('canvas', 'activity-detail', SESSION, async (page) => {
-      await stripList(page, 'Activity');
+    s(
+      'canvas',
+      'activity-relationships',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await pickMode(page, ['Relationships']);
+        await page.mouse.move(2, 2);
+      },
+      { settleMs: 1500 },
+    ),
+    // A pick in a list tab takes the tab's place, with Back to the list.
+    s('canvas', 'artifact-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
       await page
-        .getByRole('region', { name: 'Activity list' })
-        .locator('[data-kind="tool"], [data-kind="turn"]')
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
         .first()
         .click();
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    // Shift opens the pick in a tab of its own and keeps the list.
+    s('canvas', 'artifact-shift-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
+      await page
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
+        .first()
+        .click({ modifiers: ['Shift'] });
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    s('canvas', 'file-picked', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page.mouse.move(2, 2);
+    }),
+    // The former Work tab is now Activity's Events view, with its finished work.
+    s('canvas', 'work', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await pickMode(page, ['Events']);
+      const show = page
+        .getByRole('region', { name: 'Activity list' })
+        .getByRole('button', { name: 'Show finished work' })
+        .filter({ visible: true })
+        .first();
+      if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
+    // Activity leads with the causal timeline, here for a conversation family:
+    // delegated runs that finished, failed and are still running, and a fork.
+    s(
+      'canvas',
+      'activity-finished',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { fixtureDemo: 'conversation-family', settleMs: 1200 },
+    ),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
     s('canvas', 'file-csv-source', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -437,11 +1169,19 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(800);
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
-      await openCanvas(page);
+      // Maximize a real tab at every width: the tabs fill the canvas.
+      await openFile(page, 'results/stations.csv');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
-    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'h3' }),
+    s('canvas', 'maximized-activity', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await press(page, 'button', 'Maximize canvas');
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(600);
+    }),
+    // The welcome title; the left bar's headings are folded away at narrow widths.
+    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'main h1' }),
     ...settings.map(({ href, name }) =>
       s('settings', slug(name), href, null, {
         ready: 'main',
@@ -449,8 +1189,16 @@ function catalogue({ settings, infrastructure }) {
       }),
     ),
     s('settings', 'models-default-picker', '/settings/models', async (page) => {
-      await press(page, 'button', 'Change', { exact: true });
+      await press(page, 'button', 'Default model', { exact: true });
       await overlay(page);
+    }),
+    ...seededSettingsShots(),
+    ...updateShots(),
+    s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
+      await press(page, 'button', 'Add folder', { exact: true });
+      await overlay(page);
+      await page.getByRole('dialog').getByRole('textbox').first().fill('/scratch/jc/opal');
+      await page.waitForTimeout(300);
     }),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
@@ -463,29 +1211,53 @@ function catalogue({ settings, infrastructure }) {
       await page.keyboard.type('model');
       await page.waitForTimeout(700);
     }),
-    s('runs', 'executions', '/runs', null, { ready: 'h1' }),
+    s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
+    s(
+      'runs',
+      'selected',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button').first().click();
+        await page.waitForTimeout(600);
+      },
+      { ready: '[data-run-state]' },
+    ),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
     }),
-    s('runs', 'state-filter', '/runs', async (page) => {
-      // Wide bars show the states as a segmented control; narrow ones a select.
-      const select = page.getByRole('combobox', { name: 'Filter by state' });
-      if (await select.isVisible()) {
-        await select.click();
-        await overlay(page);
-      } else {
-        await press(page, 'radio', /^Needs attention/u);
+    s(
+      'runs',
+      'state-filter',
+      '/runs',
+      async (page) => {
+        // Narrow toolbars fold the state chips into one filter menu.
+        const chip = page.getByRole('radio', { name: /^Waiting for you/u });
+        if (await chip.isVisible().catch(() => false)) await chip.click();
+        else {
+          await press(page, 'button', /^Filter by state/u);
+          await press(page, 'menuitem', /^Waiting for you/u);
+        }
         await page.waitForTimeout(400);
-      }
-    }),
-    s('runs', 'details', '/runs', async (page) => {
-      await page
-        .getByRole('button', { name: /^Details for/u })
-        .first()
-        .click();
-      await overlay(page);
-    }),
+      },
+      { ready: '[data-run-state]' },
+    ),
+    // The selected run opens as a tab beside the list (a sheet below 1024px).
+    s(
+      'runs',
+      'details',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button[type="button"]').first().click();
+        await page
+          .locator('aside[aria-label^="Run: "]')
+          .filter({ visible: true })
+          .first()
+          .waitFor();
+        await page.waitForTimeout(500);
+      },
+      { ready: '[data-run-state]' },
+    ),
     ...infrastructure.map(({ href, name }) =>
       s('infrastructure', slug(name), href, null, { ready: 'h1', settleMs: 1200 }),
     ),
@@ -512,6 +1284,21 @@ function catalogue({ settings, infrastructure }) {
       },
       { ready: 'h1', settleMs: 1200 },
     ),
+    // A computer row with its hover actions showing (narrow, laid over the row's end).
+    // Touch layouts have no hover, so the row takes keyboard focus instead.
+    s(
+      'infrastructure',
+      'agent-hosts-hover',
+      '/infrastructure/agent',
+      async (page) => {
+        const host = page.locator('[data-slot="list-row"]', { hasText: 'utah-cluster' }).first();
+        await host.hover();
+        // The actions are hidden until then, so focus goes to the name's button.
+        await host.locator('button[aria-expanded]').first().focus();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, keepPointer: true },
+    ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
       scenario: { messages: 600, toolsPerMessage: 2 },
@@ -533,9 +1320,159 @@ function catalogue({ settings, infrastructure }) {
     s('scale', 'large-file-tree', SESSION, (page) => stripList(page, 'Files'), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
     }),
+    s('scale', 'large-file-tree-expanded', SESSION, (page) => expandedFiles(page, 6), {
+      scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
+    }),
     s('scale', 'large-csv', SESSION, (page) => openFile(page, 'perf/large-table.csv'), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
     }),
+    // One tab per viewer format, with the design specs' example files.
+    ...Object.entries({
+      table: 'ndp/soil_sites.csv',
+      markdown: 'plan.md',
+      code: 'scripts/soil_qc.py',
+      document: 'reports/opal_report.pdf',
+      image: 'figures/baseline_plot.png',
+      mermaid: 'diagrams/pipeline.mmd',
+      array: 'ndp/soil_moisture.h5',
+      'no-preview': 'ndp/forecast.grib2',
+      'state-too-large': 'figures/swath_mosaic.png',
+    }).map(([format, path]) =>
+      s('viewer', format, SESSION, (page) => openFile(page, path), {
+        scenario: { specFiles: true },
+        settleMs: 1500,
+      }),
+    ),
+    // A diagram's zoom icons leave the bar with the modes (workbench-lineage
+    // step 6: the name, comments and …) and are rows in its … menu.
+    s(
+      'viewer',
+      'mermaid-more',
+      SESSION,
+      async (page) => {
+        await openFile(page, 'diagrams/pipeline.mmd');
+        await page.waitForTimeout(1200);
+        await page
+          .getByRole('toolbar', { name: 'File' })
+          .filter({ visible: true })
+          .getByRole('button', { name: 'File actions' })
+          .first()
+          .click();
+        await overlay(page);
+      },
+      { scenario: { specFiles: true } },
+    ),
+    s(
+      'viewer',
+      'state-loading',
+      SESSION,
+      async (page) => {
+        // Hang only this file's read, after the app has booted.
+        await page.route('**/files/read*', () => undefined);
+        await openFile(page, 'ndp/soil_sites.csv', { settled: false });
+      },
+      { scenario: { specFiles: true }, allowLoading: true },
+    ),
+    s(
+      'viewer',
+      'state-error',
+      SESSION,
+      async (page) => {
+        await page.route('**/files/read*', (route) =>
+          route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: { code: 'unavailable', message: 'The workspace volume is not mounted.' },
+            }),
+          }),
+        );
+        await openFile(page, 'ndp/soil_sites.csv');
+      },
+      { scenario: { specFiles: true } },
+    ),
+    s('viewer', 'activity', SESSION, (page) => stripList(page, 'Activity'), {
+      scenario: { specFiles: true },
+    }),
+    s('viewer', 'browser-pages', SESSION, (page) => stripList(page, 'Browser pages'), {
+      scenario: { specFiles: true },
+    }),
+    // Science views (design spec "Science views are viewers in the one tab"):
+    // the fixture's Opal study, vault, dashboard and paper.
+    ...[
+      [
+        'science-log',
+        async (page) => {
+          await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
+          // The spec opens one observation in place.
+          const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
+          if (await row.isVisible().catch(() => false)) await row.dispatchEvent('click');
+          await page.waitForTimeout(600);
+        },
+      ],
+      [
+        'study-graph',
+        async (page) => {
+          await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
+          await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
+        },
+      ],
+      ['knowledge', (page) => openVaultNote(page, 'Opal sites')],
+      [
+        'knowledge-graph',
+        async (page) => {
+          await openVault(page);
+          await phoneTabBody(page);
+          await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
+        },
+      ],
+      [
+        'dashboard',
+        async (page) => {
+          await stripList(page, 'Artifacts');
+          await control(page, 'button', /^Open (Opal sites|opal-sites)/u).click();
+          await showsText(page, '2022 vs baseline');
+          await tabOnly(page, 'Artifacts');
+        },
+      ],
+      [
+        'latex',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, [
+            'Citation smap008 undefined',
+            'Overfull hbox',
+            'SMAP L3 soil moisture',
+          ]);
+          await tabOnly(page, 'Files', 'Outline');
+          await phoneTabBody(page, 'Outline');
+        },
+      ],
+      [
+        'latex-maximized',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, ['Overfull hbox', 'SMAP L3 soil moisture']);
+          await press(page, 'button', 'Maximize canvas');
+          await page.waitForTimeout(800);
+        },
+      ],
+      // Jupyter notebooks read as cells; Source keeps the JSON as written.
+      ['notebook', (page) => openFile(page, 'analysis/opal-gnss.ipynb')],
+      [
+        'notebook-source',
+        async (page) => {
+          await openFile(page, 'analysis/opal-gnss.ipynb');
+          await pickMode(page, ['Source']);
+        },
+      ],
+      ['notebook-cut-off', (page) => openFile(page, 'analysis/draft-cut-off.ipynb')],
+      ['notebook-empty', (page) => openFile(page, 'analysis/untitled.ipynb')],
+    ].map(([state, setup]) =>
+      s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
+    ),
   ];
 }
 
@@ -784,18 +1721,32 @@ function probe() {
 const MAC_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function newContext(browser, stack, { theme, width, connected = true, platform }) {
+/** Saved agents settle after their availability probes and retries. */
+async function settleSavedAgents(page) {
+  await page
+    .getByRole('menuitem', { name: /lab-shared.*Offline/u })
+    .waitFor({ timeout: 4000 })
+    .catch(() => undefined);
+}
+
+const SAVED_AGENTS = [
+  { endpoint: 'https://ares.iit.edu', label: 'ares-genesis' },
+  { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+];
+
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
-  // "notebook-dark"/"notebook-light" select the Notebook theme, which follows
-  // the system colour scheme.
-  const [themeId, scheme = themeId] = theme.split('-');
   const context = await browser.newContext({
     ...(platform === 'mac' ? { userAgent: MAC_AGENT } : {}),
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: scheme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -803,17 +1754,36 @@ async function newContext(browser, stack, { theme, width, connected = true, plat
   context.setDefaultTimeout(6000);
   await context.clock.setFixedTime(FROZEN_TIME);
   await context.addInitScript(
-    ({ theme, endpoint }) => {
+    ({ theme, endpoint, others }) => {
       try {
         localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme, motion: 'reduced' }));
-        if (endpoint) localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
-        else localStorage.removeItem('clio.recent-connections');
+        if (endpoint) {
+          localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint, ...others]));
+        } else localStorage.removeItem('clio.recent-connections');
       } catch {
         // Opaque-origin frames have no storage.
       }
     },
-    { theme: themeId, endpoint: connected === true ? stack.endpoint : connected || null },
+    {
+      theme,
+      endpoint: connected === true ? stack.endpoint : connected || null,
+      others: savedAgents ? SAVED_AGENTS : [],
+    },
   );
+  if (savedAgents) {
+    // Saved agents are client-side: one reachable (served by the fixture), one offline.
+    await context.route('https://ares.iit.edu/**', async (route) => {
+      const url = new URL(route.request().url());
+      const response = await route.fetch({ url: `${stack.endpoint}${url.pathname}${url.search}` });
+      await route.fulfill({ response });
+    });
+    await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
+  }
   return context;
 }
 
@@ -963,7 +1933,9 @@ async function capture(browser, stack, shot, { theme, width }) {
     width,
     connected: shot.connected ?? true,
     platform: shot.platform,
+    savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   // Fixture seeds (`/__test/...` or service POSTs) for states such as the
   // question tray; the fixture is reset again after the shot.
   for (const seed of [...globalSeeds, ...(shot.fixture ?? [])]) {
@@ -987,6 +1959,87 @@ async function capture(browser, stack, shot, { theme, width }) {
         body: JSON.stringify({
           error: { code: 'unavailable', message: 'The service is restarting.' },
         }),
+      }),
+    );
+    // An idle session, so the failure is not mistaken for a turn being set up.
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        for (const session of listing.sessions ?? []) session.state = 'idle';
+        await route.fulfill({ json: listing });
+      },
+    );
+  }
+  if (shot.route === 'sandbox-blocked') {
+    // The catalog search becomes a script the sandbox stopped from writing outside the workspace.
+    await page.route('**/v1/sessions/*/messages*', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const transcript = await (await route.fetch()).json();
+      transcript.tools = (transcript.tools ?? []).map((tool) =>
+        tool.id === 'tool_earthscope'
+          ? {
+              ...tool,
+              name: 'shell_bash',
+              title: 'Run',
+              state: 'failed',
+              input: { command: 'python qc_sites.py' },
+              error: 'Permission denied: /scratch/jc/opal/sites.csv',
+              output: {
+                boundary: {
+                  kind: 'write_denied',
+                  confidence: 'confirmed',
+                  paths: ['/scratch/jc/opal/sites.csv'],
+                  request_roots: ['/scratch/jc/opal'],
+                  message:
+                    "CLIO's sandbox blocked this write. /scratch/jc/opal is not a permitted folder.",
+                },
+              },
+            }
+          : tool,
+      );
+      await route.fulfill({ json: transcript });
+    });
+  }
+  if (shot.route === 'archived-sessions') {
+    // The fixture archives nothing; three archived rows as the spec draws them.
+    const archived = [
+      ['sess_archived_regrid', 'Soil moisture regrid', '2026-08-30T10:00:00Z'],
+      ['sess_archived_smap', 'SMAP granule audit', '2026-08-26T10:00:00Z'],
+      ['sess_archived_probe', 'Probe calibration notes', '2026-08-11T10:00:00Z'],
+    ];
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        const template = listing.sessions?.find((row) => !row.parent_session_id);
+        if (template) {
+          for (const [id, title, at] of archived) {
+            listing.sessions.push({
+              ...template,
+              id,
+              title,
+              state: 'completed',
+              archived: true,
+              pinned: false,
+              updated_at: at,
+            });
+          }
+          listing.total = listing.sessions.length;
+        }
+        await route.fulfill({ json: listing });
+      },
+    );
+  }
+  if (shot.route === 'share-link') {
+    await page.route('**/v1/sessions/*/share', (route) =>
+      route.fulfill({
+        json: {
+          token: 'shr_7f3k9q2m',
+          session_id: 'sess_flat_ndp',
+          url: '/s/7f3k9q2m',
+          expires_at: '2026-09-08T15:00:00Z',
+        },
       }),
     );
   }
@@ -1040,7 +2093,7 @@ async function capture(browser, stack, shot, { theme, width }) {
         .then(() => undefined)
         .catch(() => true);
     }
-    await page.mouse.move(0, VIEWPORTS[width] ?? 900);
+    if (!shot.keepPointer) await page.mouse.move(0, VIEWPORTS[width] ?? 900);
     const file = join(outDir, theme, String(width), `${shot.surface}--${shot.state}.png`);
     mkdirSync(dirname(file), { recursive: true });
     await page.screenshot({ path: file, fullPage: true, animations: 'disabled', caret: 'hide' });
@@ -1153,6 +2206,15 @@ function renderReport(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
+async function showDecisionCard(stack, card) {
+  const response = await fetch(`${stack.fixtureEndpoint}/__test/decision-cards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card }),
+  });
+  if (!response.ok) throw new Error(`decision card ${card} failed: ${response.status}`);
+}
+
 async function main() {
   const stack = await startStack({ portOffset, fixedClock: FIXTURE_TIME });
   const browser = await chromium.launch();
@@ -1177,24 +2239,54 @@ async function main() {
     );
     log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
-    let scenarioKey = '{}';
+    let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
+    const fixtureKey = (shot) =>
+      JSON.stringify([
+        shot.scenario ?? {},
+        shot.settingsModels ?? 'default',
+        shot.fixtureDemo ?? '',
+      ]);
     const ordered = [...shots].sort(
-      (a, b) => Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)),
+      (a, b) =>
+        Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)) ||
+        Number(Boolean(a.fixtureDemo)) - Number(Boolean(b.fixtureDemo)),
     );
     for (const shot of ordered) {
-      const key = JSON.stringify(shot.scenario ?? {});
+      const key = fixtureKey(shot);
       if (key !== scenarioKey) {
         await applyScenario(stack, shot.scenario ?? {});
+        if (shot.settingsModels) {
+          const seeded = await fetch(`${stack.fixtureEndpoint}/__test/settings-models`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              typeof shot.settingsModels === 'string'
+                ? { scenario: shot.settingsModels }
+                : shot.settingsModels,
+            ),
+          });
+          if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
+        }
+        if (shot.fixtureDemo) {
+          const demo = await fetch(`${stack.fixtureEndpoint}/__test/${shot.fixtureDemo}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (!demo.ok) throw new Error(`${shot.fixtureDemo} seed failed: ${demo.status}`);
+        }
         scenarioKey = key;
       }
+      if (shot.decision) await showDecisionCard(stack, shot.decision);
       const jobs = themes.flatMap((theme) =>
         widths
           .filter((width) => !(shot.maxWidth && width > shot.maxWidth))
           .map((width) => ({ theme, width })),
       );
       // Seeded shots change fixture state, so they run one at a time.
-      const lanes = shot.fixture?.length || globalSeeds.length ? 1 : concurrency;
+      const lanes = shot.fixture?.length || shot.decision || globalSeeds.length ? 1 : concurrency;
       const queue = [...jobs];
       await Promise.all(
         Array.from({ length: Math.min(lanes, jobs.length) }, async () => {
@@ -1211,6 +2303,7 @@ async function main() {
           }
         }),
       );
+      if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }
     const manifest = {

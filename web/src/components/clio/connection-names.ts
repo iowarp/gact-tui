@@ -1,10 +1,71 @@
+import type { StatusTone } from '@/components/clio/primitives/status-indicator';
+import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { vocab } from '@/lib/brand-vocabulary';
 
-/** One plain line for a row: the location, plus a user-defined agent name when there is one. */
-export function connectionDisplayName(endpoint: string, label?: string, location?: string): string {
-  const displayLocation = connectionLocation(endpoint, location);
-  const name = connectionAgentName(label, displayLocation);
-  return name === vocab.agent ? displayLocation : `${displayLocation} ${name}`;
+/**
+ * An agent's state word (connect-infrastructure "Switch to"): "Live" for the one the
+ * app talks to, "Online" for another that answers, "Offline" when it does not. "Ready"
+ * belongs to services and models, never to an agent. Other states keep their own word.
+ */
+export function agentAvailabilityLabel(
+  availability: Pick<ConnectionAvailability, 'state' | 'label'>,
+  current: boolean,
+): string {
+  if (availability.state === 'healthy') return current ? 'Live' : 'Online';
+  if (availability.state === 'unavailable') return 'Offline';
+  return availability.label;
+}
+
+/** The dot beside an agent's word: green when it answers, a hollow ring when it does not. */
+export const AGENT_AVAILABILITY_TONE: Record<ConnectionAvailability['state'], StatusTone> = {
+  healthy: 'success',
+  degraded: 'warning',
+  unavailable: 'idle',
+  checking: 'running',
+};
+
+const GENERIC_LABELS = ['this computer', 'this device', 'local'];
+const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+
+export interface AgentIdentity {
+  /** What the agent is called: the user's name for it, else "CLIO local" or its host name. */
+  name: string;
+  /** host[:port] from the address. */
+  address: string;
+  /** Where it runs, for the line under the name: "this computer" or the address. */
+  place: string;
+  /** Which icon fits: this computer, a bare IP address, or a named host. */
+  kind: 'local' | 'ip' | 'host';
+}
+
+/** The CLIO menu's two-line identity for an agent: its name and where it runs. */
+export function agentIdentity(endpoint: string, label?: string, location?: string): AgentIdentity {
+  let hostname = '';
+  let address = endpoint;
+  try {
+    const url = new URL(endpoint);
+    hostname = url.hostname.toLowerCase();
+    address = url.host;
+  } catch {
+    // An unparsable address is shown as typed.
+  }
+  const local = LOOPBACK_HOSTS.includes(hostname);
+  const trimmed = label?.trim();
+  const lower = trimmed?.toLocaleLowerCase();
+  const named =
+    trimmed && lower && !GENERIC_LABELS.includes(lower) && lower !== vocab.agent.toLocaleLowerCase()
+      ? trimmed
+      : undefined;
+  const place = cleanConnectionLocation(location);
+  const name =
+    named ??
+    (place && place !== 'Local' ? place : local ? `${vocab.agent} local` : hostname || address);
+  return {
+    name,
+    address,
+    place: local ? 'this computer' : address,
+    kind: local ? 'local' : /^[\d.]+$|:/u.test(hostname) ? 'ip' : 'host',
+  };
 }
 
 export function connectionAgentName(label: string | undefined, location: string): string {

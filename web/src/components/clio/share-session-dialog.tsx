@@ -1,17 +1,7 @@
-import { CheckIcon, CopyIcon, LinkIcon, LoaderCircleIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon, Share2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { copyText } from '@/lib/clipboard';
 import {
   Select,
   SelectContent,
@@ -19,6 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { copyText } from '@/lib/clipboard';
+import { cn } from '@/lib/utils';
+import { DialogFrame } from './primitives/dialog-frame';
+import { IconButton } from './primitives/icon-button';
+
+const EXPIRY_OPTIONS = [
+  { value: '3600', label: 'In 1 hour' },
+  { value: '86400', label: 'In 1 day' },
+  { value: '604800', label: 'In 7 days' },
+  { value: '2592000', label: 'In 30 days' },
+] as const;
 
 export interface ClioShareSessionDialogProps {
   open: boolean;
@@ -27,6 +28,10 @@ export interface ClioShareSessionDialogProps {
   onShare: (ttlSeconds: number) => Promise<string>;
 }
 
+/**
+ * Share a read-only snapshot. Once the link exists, Cancel becomes Done and
+ * Copy sits in the link's field.
+ */
 export function ClioShareSessionDialog({
   open,
   title,
@@ -70,57 +75,84 @@ export function ClioShareSessionDialog({
   };
 
   return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Share {title}</DialogTitle>
-          <DialogDescription>
-            Create an expiring, read-only link to a snapshot of this conversation. Anyone with the
-            link can view it until it expires.
-          </DialogDescription>
-        </DialogHeader>
+    <DialogFrame
+      open={open}
+      onOpenChange={handleOpenChange}
+      icon={<Share2Icon />}
+      title={`Share ${title}`}
+      description="A read-only snapshot. Anyone with the link can view it until it expires."
+      cancelLabel={shareUrl ? null : 'Cancel'}
+      confirm={
+        shareUrl
+          ? { label: 'Done', onConfirm: () => handleOpenChange(false), key: 'Enter' }
+          : {
+              label: pending ? 'Creating link…' : 'Create share link',
+              disabled: pending,
+              onConfirm: () => void createShare(),
+            }
+      }
+    >
+      <div className="grid gap-3">
+        <div className="grid gap-1.5">
+          <Label
+            htmlFor="session-share-expiry"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Link expires
+          </Label>
+          {/* The link is minted with its expiry: afterwards the field keeps its box and
+              chevron with muted text (spec "Share, after the link"). */}
+          <Select
+            disabled={Boolean(shareUrl) || pending}
+            onValueChange={setTtlSeconds}
+            value={ttlSeconds}
+          >
+            <SelectTrigger
+              className={cn(
+                'h-[30px] w-full text-[12.5px]',
+                shareUrl && 'disabled:cursor-default disabled:opacity-100 text-muted-foreground',
+              )}
+              id="session-share-expiry"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EXPIRY_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {shareUrl ? (
-          <div className="space-y-2">
-            <Label htmlFor="session-share-url">Share link</Label>
-            <div className="flex gap-2">
-              <Input id="session-share-url" readOnly ref={inputRef} value={shareUrl} />
-              <Button aria-label="Copy share link" onClick={() => void copy()} size="icon">
-                {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-              </Button>
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor="session-share-url"
+              className="text-xs font-normal text-muted-foreground"
+            >
+              Share link
+            </Label>
+            <div className="relative">
+              <Input
+                id="session-share-url"
+                readOnly
+                ref={inputRef}
+                value={shareUrl}
+                className="h-[30px] pr-8 font-mono text-[12px] md:text-[12px]"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <IconButton
+                size="sm"
+                label={copied ? 'Copied' : 'Copy share link'}
+                icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+                onClick={() => void copy()}
+                className="absolute top-1/2 right-[3px] size-6 -translate-y-1/2"
+              />
             </div>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="session-share-expiry">Link expires</Label>
-            <Select onValueChange={setTtlSeconds} value={ttlSeconds}>
-              <SelectTrigger className="w-full" id="session-share-expiry">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3600">In 1 hour</SelectItem>
-                <SelectItem value="86400">In 1 day</SelectItem>
-                <SelectItem value="604800">In 7 days</SelectItem>
-                <SelectItem value="2592000">In 30 days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <DialogFooter>
-          <Button disabled={pending} onClick={() => handleOpenChange(false)} variant="outline">
-            {shareUrl ? 'Done' : 'Cancel'}
-          </Button>
-          {!shareUrl ? (
-            <Button disabled={pending} onClick={() => void createShare()}>
-              {pending ? (
-                <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-              ) : (
-                <LinkIcon aria-hidden="true" />
-              )}
-              {pending ? 'Creating link…' : 'Create share link'}
-            </Button>
-          ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        ) : null}
+      </div>
+    </DialogFrame>
   );
 }

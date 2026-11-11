@@ -39,6 +39,34 @@ export function pendingSteerMessageIds(steers: readonly PendingSteer[]) {
   };
 }
 
+/**
+ * The service lists an input as pending mail until its turn finishes, so a
+ * pending prompt that a reply already follows is the running turn's input, not
+ * a queued one. Before that reply, a running turn's input is the earliest
+ * pending prompt: inputs are taken in order.
+ */
+export function unansweredMessageIds(
+  ids: ReadonlySet<string> | undefined,
+  messages: readonly { id: string; role: string }[],
+  running = false,
+): ReadonlySet<string> | undefined {
+  if (!ids?.size) return ids;
+  let replied = false;
+  const answered: string[] = [];
+  let earliest: string | undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === 'assistant') replied = true;
+    else if (message?.role === 'user' && ids.has(message.id)) {
+      earliest = message.id;
+      if (replied) answered.push(message.id);
+    }
+  }
+  if (running && !answered.length && earliest) answered.push(earliest);
+  if (!answered.length) return ids;
+  return new Set([...ids].filter((id) => !answered.includes(id)));
+}
+
 /** Counts authoritative work that can still advance without inventing progress. */
 export function countActiveWork(
   runs: readonly { state: RunState }[],
