@@ -61,7 +61,9 @@ describe('BrowserNewPage', () => {
   it('is the browser frame with its address field focused', () => {
     renderNewPage();
     expect(screen.getByRole('textbox', { name: 'Address' })).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(back).toHaveAttribute('aria-disabled', 'true');
+    expect(back).toHaveAccessibleDescription('Open a page first');
   });
 
   it('opens the address in the shared browser, then as a tab', async () => {

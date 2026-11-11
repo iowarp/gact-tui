@@ -456,8 +456,6 @@ describe('ClioWorkbench canvas', () => {
     );
 
     await user.click(strip().getByRole('button', { name: 'Terminal' }));
-    const list = screen.getByRole('region', { name: 'Terminal list' });
-    await user.click(within(list).getByRole('button', { name: /Open a terminal/ }));
 
     expect(onOpenTerminal).toHaveBeenCalledOnce();
   });
@@ -466,7 +464,7 @@ describe('ClioWorkbench canvas', () => {
     renderWorkbench();
 
     expect(strip().getByRole('button', { name: 'Terminal' })).toBeVisible();
-    expect(strip().getByRole('button', { name: 'Browser pages' })).toBeVisible();
+    expect(strip().getByRole('button', { name: 'Browser' })).toBeVisible();
   });
 
   it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
