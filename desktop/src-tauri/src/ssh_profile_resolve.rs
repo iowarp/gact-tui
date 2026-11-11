@@ -147,6 +147,7 @@ fn resolve_hosts_with(
 
 fn resolve_with_openssh(name: &str) -> Result<ResolvedHost, String> {
     let mut command = Command::new("ssh");
+    crate::host_env::for_host(&mut command);
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
     let output = command

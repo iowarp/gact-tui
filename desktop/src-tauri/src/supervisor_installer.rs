@@ -32,12 +32,19 @@ use crate::supervisor_update_verify::{bundled_update_verify_steps, run_verify_st
 /// `on_success` runs before the done event so that by the time the frontend
 /// re-polls `get_backend`, the supervisor is already back in `Starting` and
 /// will flip to `Ready` (not loop back to `NeedsInstall`).
+///
+/// A beta desktop installs and repairs the agent of its own beta release; with no
+/// options the installer would pick the latest stable release instead.
 pub fn install_clio<R, F>(app: AppHandle<R>, force: bool, on_success: F)
 where
     R: tauri::Runtime,
     F: FnOnce(),
 {
-    install_clio_versioned(app, force, None, on_success);
+    reset_boot_log(if force { "repair" } else { "install" });
+    let own_beta =
+        crate::package_version::beta_release_tag(&app.package_info().version.to_string());
+    let (program, args) = install_command_versioned(force, own_beta.as_deref());
+    run_install_command(app, program, args, Vec::new(), on_success);
 }
 
 /// Like {@link install_clio} but pins a specific clio-agent release ref (from
@@ -152,7 +159,7 @@ fn run_install_command<R, F>(
     F: FnOnce(),
 {
     let mut command = Command::new(&program);
-    command
+    crate::host_env::for_host(&mut command)
         .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

@@ -272,6 +272,7 @@ export function ViewerNoPreview({
   onShowText,
   format,
   reason,
+  title,
 }: {
   source: FileViewerSource;
   /** Read the file as text in this viewer. */
@@ -280,6 +281,11 @@ export function ViewerNoPreview({
   format?: string;
   /** Why this file has no viewer, a sentence before what still works. */
   reason?: string;
+  /**
+   * Names the cause when the format has a viewer that can't run here ("Preview needs
+   * the document runtime"). The detail then keeps to the reason and what still works.
+   */
+  title?: string;
 }) {
   const identity = fileViewerIdentity(source);
   const extension = fileExtension(identity.name);
@@ -294,15 +300,20 @@ export function ViewerNoPreview({
   return (
     <StateView
       actions={actions}
-      detail={`${reason ? `${reason} ` : ''}You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`}
+      detail={
+        title
+          ? `${reason ? `${reason} ` : ''}You can still @, comment on, copy or open it.`
+          : `${reason ? `${reason} ` : ''}You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`
+      }
       kind="no-preview"
       size="viewer"
       title={
-        format
+        title ??
+        (format
           ? `No viewer for ${format} yet`
           : extension
             ? `No viewer for ${extension} yet`
-            : `No viewer for ${identity.mediaType || 'this format'} yet`
+            : `No viewer for ${identity.mediaType || 'this format'} yet`)
       }
     />
   );

@@ -229,19 +229,17 @@ describe('authored dashboard', () => {
     expect(within(toolbar).getByText(report.title)).toBeInTheDocument();
     expect(within(toolbar).queryByText('design.dashboard.json')).toBeNull();
     // Capture is a row of the frame's options menu, not a bar button.
-    expect(
-      within(toolbar).queryByRole('button', { name: 'Capture labelled regions' }),
-    ).toBeNull();
+    expect(within(toolbar).queryByRole('button', { name: 'Capture labelled regions' })).toBeNull();
     expect(screen.queryByRole('heading', { name: report.title })).toBeNull();
     for (const label of ['PNG image (displayed view)', 'HTML dashboard (all tabs and data)']) {
-      await user.click(within(toolbar).getByRole('button', { name: 'Open options' }));
+      await user.click(within(toolbar).getByRole('button', { name: 'Download options' }));
       await user.click(
         await screen.findByRole('menuitem', {
           name: (name) => name.startsWith(`Export to ${label}`),
         }),
       );
       await waitFor(() =>
-        expect(within(toolbar).getByRole('button', { name: 'Open options' })).toBeEnabled(),
+        expect(within(toolbar).getByRole('button', { name: 'Download options' })).toBeEnabled(),
       );
     }
     await user.click(within(toolbar).getByRole('button', { name: 'Download' }));

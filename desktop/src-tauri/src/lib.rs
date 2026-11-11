@@ -26,6 +26,7 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+mod host_env;
 mod install_log;
 #[cfg(not(windows))]
 mod install_prepare;
@@ -327,6 +328,7 @@ pub fn run() {
             let resource_dir = app
                 .path()
                 .resource_dir()
+                .map(sidecar_setup::plain_path)
                 .map_err(|error| format!("resolve desktop resource directory: {error}"))?;
             let managed_storage = if brand_backend::is_managed_install() {
                 sidecar_setup::prepare_managed_storage_root(&resource_dir, &app_data)
