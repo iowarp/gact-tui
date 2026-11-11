@@ -1,6 +1,7 @@
 import { ClioRepository, type CommentAttachment } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChartLineIcon, XIcon } from 'lucide-react';
+import { ChartLineIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react';
 import { useReducedMotionConfig } from 'motion/react';
 import { ClioComposer } from '@/components/clio/composer';
@@ -380,7 +381,7 @@ export function TourPracticeStage({
                     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border py-1 pr-1 pl-3">
                       <h3 className="truncate text-sm font-medium">{PRACTICE_PLOT.name}</h3>
                       <IconButton
-                        icon={<XIcon />}
+                        icon={<CloseIcon />}
                         label={`Close ${PRACTICE_PLOT.name}`}
                         onClick={() => setViewer(false)}
                         size="toolbar"

@@ -364,8 +364,8 @@ export function WorkspaceNavigation({
                 icon={<CircleAlertIcon />}
                 label={
                   isOfflineError(workspacesState.error)
-                    ? 'Offline, no workspaces · Retry'
-                    : 'Workspaces not listed · Retry'
+                    ? 'Retry: offline, no workspaces'
+                    : 'Retry: workspaces not listed'
                 }
                 onClick={workspacesState.retry}
                 tooltipSide="right"

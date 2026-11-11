@@ -198,7 +198,7 @@ describe('frame bar modes at the narrowest fold', () => {
     expect(onChange).toHaveBeenLastCalledWith('lineage');
   });
 
-  it('labels Add to message in … with @, its letter in the bar, and runs it on @', async () => {
+  it('labels Add to message in … with its jump letter A and its chord, and runs it on A', async () => {
     const restore = narrowFrameBars();
     // The app's CSS for the fold flag; jsdom has no Tailwind.
     const style = document.createElement('style');
@@ -214,9 +214,10 @@ describe('frame bar modes at the narrowest fold', () => {
       );
       await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
       const add = screen.getByRole('menuitem', { name: /Add to message/ });
-      expect(add.textContent).toContain('@');
-      expect(add.textContent).not.toMatch(/Ctrl|⌘/u);
-      await userEvent.keyboard('@');
+      // The jump letter sits in the label; the key column keeps the global chord.
+      expect(add).toHaveAttribute('data-accelerator', 'A');
+      expect(add.textContent).toMatch(/Ctrl|⌘/u);
+      await userEvent.keyboard('a');
       expect(onAdd).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole('menu')).toBeNull();
     } finally {

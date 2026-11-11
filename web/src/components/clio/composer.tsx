@@ -25,6 +25,7 @@ import { brand } from '@brand';
 import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
+import { useSlowSend } from './use-slow-send';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
 import { useStableCallback } from '@/hooks/use-stable-callback';
 import { ComposerToolbarControls } from './composer-toolbar-controls';
@@ -351,17 +352,8 @@ export function ClioComposer({
   // typed while connecting. The run state is only current on a live stream, so a send
   // never picks its delivery from a stale one.
   const stream = useConnectionIndicatorState();
-  // A send the service is slow to take greys the draft; the row says why. The flag comes
-  // from the send itself, so it survives the welcome composer handing off to the docked one.
-  const [sendingSlow, setSendingSlow] = useState(false);
-  useEffect(() => {
-    if (!sending) {
-      setSendingSlow(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setSendingSlow(true), 700);
-    return () => window.clearTimeout(timer);
-  }, [sending]);
+  // A send the service is slow to take greys the draft; the row says why.
+  const sendingSlow = useSlowSend(sending);
   const offline = stream === 'offline' || stream === 'reconnecting' || stream === 'gapped';
   const streamOpening = stream === 'connecting';
   const awaitingService = connecting || offline || streamOpening;

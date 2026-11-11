@@ -1,6 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const loads = vi.hoisted(() => ({ runs: 0, settings: 0, infrastructure: 0, connection: 0 }));
+const loads = vi.hoisted(() => ({
+  runs: 0,
+  settings: 0,
+  infrastructure: 0,
+  connection: 0,
+  workspace: 0,
+  newConversation: 0,
+}));
+vi.mock('@/routes/workspace-page', () => (loads.workspace++, { WorkspacePage: () => null }));
+vi.mock(
+  '@/routes/new-conversation-page',
+  () => (loads.newConversation++, { NewConversationPage: () => null }),
+);
 vi.mock('@/routes/runs-page', () => (loads.runs++, { RunsPage: () => null }));
 vi.mock('@/routes/settings-page', () => (loads.settings++, { SettingsSection: () => null }));
 vi.mock(
@@ -27,7 +39,9 @@ describe('route chunks', () => {
     expect(routeChunkForPath('/settings/general')).toBe('settings');
     expect(routeChunkForPath('/infrastructure')).toBe('infrastructure');
     expect(routeChunkForPath('/infrastructure/models')).toBe('infrastructure');
-    expect(routeChunkForPath('/workspaces/w/sessions/s')).toBeUndefined();
+    expect(routeChunkForPath('/workspaces/w/sessions/s')).toBe('workspace');
+    expect(routeChunkForPath('/workspaces/w/new')).toBe('newConversation');
+    expect(routeChunkForPath('/workspaces/w/files')).toBeUndefined();
     expect(routeChunkForPath('/runsheet')).toBeUndefined();
   });
 
@@ -50,7 +64,13 @@ describe('route chunks', () => {
     expect(loads.settings).toBe(0);
     await vi.advanceTimersByTimeAsync(10_000);
     await vi.dynamicImportSettled();
-    expect(loads).toMatchObject({ runs: 1, settings: 1, infrastructure: 1 });
+    expect(loads).toMatchObject({
+      runs: 1,
+      settings: 1,
+      infrastructure: 1,
+      workspace: 1,
+      newConversation: 1,
+    });
     uninstall();
   });
 });

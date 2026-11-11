@@ -1,5 +1,5 @@
 import type { Artifact, PendingInteraction } from '@clio/core/v3';
-import { cleanup, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -325,11 +325,13 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
         showOwner={false}
       />,
     );
-    const row = screen.getByRole('status');
+    // The decided plan folds into one activity row; its chevron shows the plan again.
+    const row = screen.getByText('Plan approved').closest('[data-plan-decision]');
     expect(row).toHaveTextContent('Plan approvedInteractive, context cleared');
     expect(row).toHaveAttribute('data-plan-decision', 'interactive');
+    expect(screen.getByRole('img', { name: 'Done' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Execute plan' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Show plan' }));
+    await user.click(screen.getByRole('button', { name: 'Expand Plan approved' }));
     expect(
       await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
     ).toBeVisible();
@@ -355,7 +357,9 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
         showOwner={false}
       />,
     );
-    expect(within(screen.getByRole('status')).getByText('Changes requested')).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('Add rollback and verification steps.');
+    const row = screen.getByText('Changes requested').closest('[data-plan-decision]');
+    expect(row).toHaveAttribute('data-plan-decision', 'reject');
+    expect(row).toHaveTextContent('Add rollback and verification steps.');
+    expect(screen.getByRole('img', { name: 'Closed' })).toBeInTheDocument();
   });
 });

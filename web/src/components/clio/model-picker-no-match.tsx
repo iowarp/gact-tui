@@ -1,4 +1,5 @@
-import { SearchIcon, XIcon } from 'lucide-react';
+import { SearchIcon } from 'lucide-react';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ShortcutKeys } from './primitives/key-chip';
 import { cn } from '@/lib/utils';
@@ -122,7 +123,7 @@ export function ModelPickerNoMatch({
       if (found) {
         list.push({
           key: `drop:${token}`,
-          icon: <XIcon aria-hidden="true" />,
+          icon: <RemoveIcon aria-hidden="true" />,
           label: `Search without ${tokenName(token, quickFilters)}`,
           count: found,
           run: () => onTokensChange(without),
@@ -136,7 +137,7 @@ export function ModelPickerNoMatch({
       if (found) {
         list.push({
           key: 'every-type',
-          icon: <XIcon aria-hidden="true" />,
+          icon: <RemoveIcon aria-hidden="true" />,
           label: 'Search every model type',
           count: found,
           run: () => onTokensChange(everyType),
@@ -162,7 +163,7 @@ export function ModelPickerNoMatch({
     if (!list.length && text) {
       list.push({
         key: 'clear',
-        icon: <XIcon aria-hidden="true" />,
+        icon: <RemoveIcon aria-hidden="true" />,
         label: 'Clear the search',
         count: kept.length,
         run: () => onQueryChange(query.replace(text, '').trim()),

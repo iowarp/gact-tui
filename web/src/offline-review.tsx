@@ -17,10 +17,10 @@ import { archiveFileHref, archiveFolderPath } from './lib/session-export/archive
 import { ArchiveEvidence } from './lib/session-export/archive-evidence';
 import { ArchiveDashboard } from './lib/session-export/archive-dashboards';
 import { useArchiveDashboards } from './lib/session-export/archive-dashboards-query';
-import {
-  type RecordedPart,
-  type RecordedTool,
-  type SavedToolOutput,
+import type {
+  RecordedPart,
+  RecordedTool,
+  SavedToolOutput,
 } from './lib/session-export/archive-timeline';
 import { useA2uiSessionRegistry } from './lib/a2ui/processor-store';
 import { A2uiReferenceSessionProvider } from './lib/a2ui/reference-session';

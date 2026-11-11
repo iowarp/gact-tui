@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ClioPendingInteractions } from './pending-interactions';
@@ -9,6 +9,12 @@ import { AttentionDraftContext, createAttentionDraftStore } from './attention-dr
 afterEach(cleanup);
 // Every card carries the pager in its header; only the shown card's is accessible.
 const pager = () => screen.getByRole('navigation', { name: 'Pending requests' });
+// A bundle pages its own questions in the header; the footer's Next question advances.
+const questionPager = () => screen.getByRole('navigation', { name: 'Questions' });
+const nextQuestion = () =>
+  within(screen.getByRole('group', { name: 'Answers' })).getByRole('button', {
+    name: 'Next question',
+  });
 const question = (id: string): PendingInteraction => ({
   id,
   kind: 'question',
@@ -108,12 +114,12 @@ it('retains bundle page and answers when the responsive composer remounts', asyn
   );
   const { rerender } = render(renderPanel('desktop'));
   await user.click(screen.getByRole('radio', { name: 'Table' }));
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   await user.click(screen.getByRole('radio', { name: 'Other answer' }));
   await user.type(screen.getByRole('textbox'), 'New Zealand');
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   rerender(renderPanel('phone'));
-  expect(screen.getByText('Question 3 of 3')).toBeVisible();
+  expect(questionPager()).toHaveTextContent('3/3');
   await user.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('textbox')).toHaveValue('New Zealand');
   await user.click(screen.getByRole('button', { name: 'Back' }));
@@ -178,13 +184,13 @@ it('submits three answers together, preserves drafts across requests, and retain
     />,
   );
   await user.click(screen.getByRole('radio', { name: 'Table' }));
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   await user.click(screen.getByRole('radio', { name: 'Other answer' }));
   await user.type(screen.getByRole('textbox', { name: 'Which region?' }), 'New Zealand');
   await user.click(screen.getByRole('button', { name: 'Next request' }));
   await user.click(screen.getByRole('button', { name: 'Previous request' }));
   expect(screen.getByRole('textbox', { name: 'Which region?' })).toHaveValue('New Zealand');
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
   expect(screen.getByRole('button', { name: 'Submit all answers' })).toBeDisabled();
   expect(onResponse).not.toHaveBeenCalled();
   await user.type(screen.getByRole('textbox', { name: 'What should I emphasize?' }), 'Uncertainty');
@@ -193,8 +199,8 @@ it('submits three answers together, preserves drafts across requests, and retain
   await user.click(screen.getByRole('button', { name: 'Back' }));
   await user.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('radio', { name: 'Table' })).toBeChecked();
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
-  await user.click(screen.getByRole('button', { name: 'Next question' }));
+  await user.click(nextQuestion());
+  await user.click(nextQuestion());
   expect(screen.getByRole('textbox')).toHaveValue('Uncertainty');
   await user.click(screen.getByRole('button', { name: 'Submit all answers' }));
   await waitFor(() => expect(onResponse).toHaveBeenCalledTimes(2));

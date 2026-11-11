@@ -23,11 +23,7 @@ import {
   describeQueryFilter,
   mergeFilters,
 } from './data-query-filters';
-import {
-  type ClioDataColumn,
-  type ClioDataRow,
-  type ClioDataTableServerControl,
-} from './data-table';
+import type { ClioDataColumn, ClioDataRow, ClioDataTableServerControl } from './data-table';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
@@ -39,7 +35,7 @@ import {
   type SelectionState,
   type SelectionWriter,
 } from './selection-state';
-import { type SurfaceCapabilities, type SurfaceExportFormat } from './surface-toolbar';
+import type { SurfaceCapabilities, SurfaceExportFormat } from './surface-toolbar';
 import { filenameStemFromTitle } from './surface-export';
 import {
   downloadInlineRowsAsCsv,

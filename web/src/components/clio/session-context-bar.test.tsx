@@ -87,7 +87,7 @@ describe('ClioSessionContextBar', () => {
     expect(screen.queryByRole('button', { name: 'Open downloads' })).toBeNull();
   });
 
-  it('keeps conversation actions in Tauri while the native window owns the passive title', () => {
+  it('keeps the title and conversation actions in Tauri, where the native title bar is empty', () => {
     mockDesktopHost();
     try {
       render(
@@ -102,7 +102,7 @@ describe('ClioSessionContextBar', () => {
         />,
       );
 
-      expect(screen.queryByRole('heading', { name: session.title })).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: session.title })).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: `Actions for ${session.title}` }),
       ).toBeInTheDocument();

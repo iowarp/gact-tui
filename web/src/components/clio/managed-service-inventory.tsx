@@ -1,7 +1,7 @@
 import type { GpuFact, ManagedServiceDefinition, ModelAcquisition } from '@clio/core/v3';
 import { useState, type ReactNode } from 'react';
 import { ArrowLeftIcon, PackageIcon, ServerIcon } from 'lucide-react';
-import { type ServiceActionFeedback } from './service-management-panel';
+import type { ServiceActionFeedback } from './service-management-panel';
 import { ServiceConfirmSlot, ServiceFooterSlot } from './service-footer-slot';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 import { parseSpotterModelRef, spotterModelRef } from '@/lib/spotter-model-ref';
 
@@ -81,6 +82,7 @@ function renderComposer(props: Partial<ClioComposerProps> = {}) {
         />
       </PromptInputProvider>
     </QueryClientProvider>,
+    { wrapper: LiveConnection },
   );
   return onSubmit;
 }

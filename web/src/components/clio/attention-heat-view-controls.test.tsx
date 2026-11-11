@@ -57,5 +57,8 @@ it('turns Mean off, with the reason, when the result does not list every token',
   );
   const mean = screen.getByRole('radio', { name: 'Mean' });
   expect(mean).toBeDisabled();
-  expect(mean).toHaveAttribute('title', expect.stringContaining('does not list every token'));
+  // The reason is part of the Value control's name, and the ⓘ repeats it.
+  expect(mean.closest('[data-slot=segmented-control]')).toHaveAccessibleName(
+    expect.stringContaining('Mean: This result does not list every token'),
+  );
 });

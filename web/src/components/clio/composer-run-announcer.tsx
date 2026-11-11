@@ -1,5 +1,5 @@
 import type { RunState } from '@clio/core/v3';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { clioStatusLabel } from './status';
 
 const RUN_ANNOUNCEMENTS: Partial<Record<RunState, string>> = {
@@ -31,19 +31,18 @@ export function ComposerRunAnnouncer({
   sending: boolean;
   state: RunState;
 }) {
-  const [message, setMessage] = useState('');
-  const previous = useRef({ queued, state });
-  useEffect(() => {
-    const before = previous.current;
-    const settled = sending && state === 'queued' ? before.state : state;
-    previous.current = { queued, state: settled };
+  // Adjusted during render rather than in an effect, so the announcement lands
+  // in the same commit as the change it describes.
+  const [seen, setSeen] = useState({ message: '', queued, state });
+  const settled = sending && state === 'queued' ? seen.state : state;
+  if (settled !== seen.state || queued !== seen.queued) {
     const parts: string[] = [];
-    if (settled !== before.state)
-      parts.push(RUN_ANNOUNCEMENTS[settled] ?? clioStatusLabel(settled));
-    if (queued > before.queued) parts.push(`Message queued. ${queuedCount(queued)}`);
-    else if (queued < before.queued) parts.push(queued ? queuedCount(queued) : 'Queue is empty');
-    if (parts.length) setMessage(parts.join('. '));
-  }, [queued, sending, state]);
+    if (settled !== seen.state) parts.push(RUN_ANNOUNCEMENTS[settled] ?? clioStatusLabel(settled));
+    if (queued > seen.queued) parts.push(`Message queued. ${queuedCount(queued)}`);
+    else if (queued < seen.queued) parts.push(queued ? queuedCount(queued) : 'Queue is empty');
+    setSeen({ message: parts.length ? parts.join('. ') : seen.message, queued, state: settled });
+  }
+  const { message } = seen;
   return (
     <p aria-atomic="true" aria-live="polite" className="sr-only" data-slot="composer-run-status">
       {message}

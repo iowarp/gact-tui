@@ -1,5 +1,5 @@
 import type { AttentionProfile } from '@clio/core/v3';
-import { SlidersHorizontalIcon } from 'lucide-react';
+import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,7 +53,7 @@ export function AttentionProfileEditor({
     >
       <DialogTrigger asChild>
         {iconOnly ? (
-          <IconButton icon={<SlidersHorizontalIcon />} label={`Heat profile: ${profile.name}`} />
+          <IconButton icon={<AdjustIcon />} label={`Heat profile: ${profile.name}`} />
         ) : (
           <Button variant="outline" size="xs">
             Heat profile: {profile.name}
