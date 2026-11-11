@@ -156,12 +156,25 @@ fn refuses_duplicate_files_and_joins_writers_after_failure() {
         ("gact-runtime/file.py", tar::EntryType::Regular, b"first"),
         ("gact-runtime/file.py", tar::EntryType::Regular, b"second"),
     ]);
-    assert!(case
-        .unpack(&archive, Some(2))
-        .unwrap_err()
-        .contains("create runtime file"));
+    // The built-in writers; on Windows `unpack` hands the files to tar.exe.
+    let error =
+        unpack_runtime_with_workers(&archive, &case.0.join("staging"), Some(2), &|_| {}, WRITERS)
+            .unwrap_err();
+    assert!(error.contains("create runtime file"), "{error}");
     // A failure may not return while another writer still owns staging files.
     fs::remove_dir_all(case.0.join("staging")).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn system_tar_refuses_duplicate_files_before_writing() {
+    let case = Case::new();
+    let archive = case.pack(&[
+        ("gact-runtime/file.py", tar::EntryType::Regular, b"first"),
+        ("gact-runtime/file.py", tar::EntryType::Regular, b"second"),
+    ]);
+    let error = case.unpack(&archive, Some(2)).unwrap_err();
+    assert!(error.contains("repeats the file"), "{error}");
 }
 
 #[test]
