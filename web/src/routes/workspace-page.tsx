@@ -214,6 +214,7 @@ export function WorkspacePage() {
         actionLifecycles: entities.a2ui_action_lifecycles,
         artifacts: entities.artifacts,
         onOpenArtifact: openArtifact,
+        onFocusComposer: focusComposerForAnswer,
         capabilityError: responseReadFailure(
           data.interactionCapabilityError ?? undefined,
           connection,

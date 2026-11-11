@@ -1,6 +1,7 @@
 import {
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -127,6 +128,8 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   owner?: ReactNode;
   /** Header controls before the pager (Cancel). */
   headerActions?: ReactNode;
+  /** Read after the title by a screen reader only: the tool and what it was given. */
+  spokenDetail?: string;
 }
 
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
@@ -140,15 +143,26 @@ export function AskCard({
   metaMono,
   owner,
   headerActions,
+  spokenDetail,
   children,
   className,
   onKeyDown,
   ...props
 }: AskCardProps) {
+  const id = useId();
+  const labelledBy = [
+    `${id}-title`,
+    meta ? `${id}-meta` : undefined,
+    spokenDetail ? `${id}-detail` : undefined,
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <section
+      aria-labelledby={props['aria-label'] ? undefined : labelledBy}
       data-slot="ask-card"
       data-ask-kind={kind}
+      role="group"
       tabIndex={-1}
       onKeyDown={(event) => {
         onKeyDown?.(event);
@@ -181,12 +195,19 @@ export function AskCard({
             wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
           )}
           data-slot="pending-interaction-title"
+          id={`${id}-title`}
           title={titleText}
         >
           {title}
         </h2>
+        {spokenDetail ? (
+          <span className="sr-only" id={`${id}-detail`}>
+            {spokenDetail}
+          </span>
+        ) : null}
         {meta ? (
           <span
+            id={`${id}-meta`}
             className={cn(
               'min-w-0 flex-1 truncate text-muted-foreground',
               metaMono ? 'font-mono text-[11.5px]' : 'text-[12px]',
