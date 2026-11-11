@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { LazyHoverCard } from './primitives/lazy-hover-card';
 import { cn } from '@/lib/utils';
 import {
@@ -14,7 +15,15 @@ import {
  * `checking` (yellow) with its stage as the label until it settles back to
  * the row's real health. One component, so both surfaces read the same.
  */
-export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stage?: string }) {
+// Memoised: picker rows re-render on every keystroke for their counts, while a
+// provider's group and stage rarely change; its hover card subtree is skipped.
+export const ProviderHeartbeat = memo(function ProviderHeartbeat({
+  group,
+  stage,
+}: {
+  group: ProviderGroup;
+  stage?: string;
+}) {
   const presentation = stage
     ? { ...providerHealthPresentation('checking'), label: stage }
     : providerGroupStatus(group);
@@ -47,4 +56,4 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
       {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
     </LazyHoverCard>
   );
-}
+});
