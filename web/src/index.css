@@ -12,6 +12,9 @@
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import 'katex/dist/katex.min.css';
+/* Sonner injects this at runtime, which the desktop CSP nonce blocks. Kept
+   unlayered, like the injected copy, so it wins over Tailwind's layers the same way. */
+@import 'sonner/dist/styles.css';
 @import './theme/themes.css';
 
 /* Streamdown's utility classes live in the installed package, outside app source. */
@@ -592,6 +595,60 @@
 [data-radix-scroll-area-viewport]::-webkit-scrollbar,
 [data-radix-select-viewport]::-webkit-scrollbar {
   display: none;
+}
+
+/* Other libraries inject these rules as runtime <style> elements, which the
+   desktop CSP blocks for the same reason. react-remove-scroll-bar (Radix modal
+   scroll lock) computes a gap for a scrolling body; the app's body never
+   scrolls, so the gap is always 0. */
+.with-scroll-bars-hidden {
+  overflow: hidden !important;
+  padding-right: 0 !important;
+}
+
+body[data-scroll-locked] {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+  position: relative !important;
+  margin-left: 0;
+  margin-top: 0;
+  margin-right: 0 !important;
+  --removed-body-scroll-bar-size: 0px;
+}
+
+.right-scroll-bar-position {
+  right: 0 !important;
+}
+
+.width-before-scroll-bar {
+  margin-right: 0 !important;
+}
+
+.right-scroll-bar-position .right-scroll-bar-position {
+  right: 0 !important;
+}
+
+.width-before-scroll-bar .width-before-scroll-bar {
+  margin-right: 0 !important;
+}
+
+/* @a2ui/react's date-time input. */
+.a2ui-date-time-input::-webkit-datetime-edit,
+.a2ui-date-time-input::-webkit-datetime-edit-fields-wrapper {
+  color: var(--a2ui-datetimeinput-color, var(--a2ui-color-on-input, #333));
+}
+
+/* switchTheme() changes every color in one frame. */
+[data-theme-switching],
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}
+
+/* Toasts wait while the onboarding tour runs, so nothing covers its card. */
+html[data-clio-tour] [data-sonner-toaster] {
+  display: none !important;
 }
 
 /* Radix uses an inline table wrapper so generic scroll areas can measure

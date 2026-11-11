@@ -1,3 +1,4 @@
+import { adoptStyleSheet } from './adopted-style-sheet';
 import { rangeFromTextOffsets } from './attention-highlight-dom';
 import { searchMatchRanges } from './search-matches';
 
@@ -46,9 +47,10 @@ export function highlightSearchPassage(
     }
   };
   // Each mounted view owns its paint; no other conversation's highlights are cleared.
-  const style = document.createElement('style');
-  style.textContent = `::highlight(${name}) { background-color: var(--highlight); color: var(--highlight-foreground); }`;
-  document.head.append(style);
+  const unmountStyle = adoptStyleSheet(
+    `::highlight(${name}) { background-color: var(--highlight); color: var(--highlight-foreground); }`,
+    'clio-search-highlight',
+  );
   const observer = new MutationObserver(() => {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(paint);
@@ -68,6 +70,6 @@ export function highlightSearchPassage(
     container.removeEventListener('keydown', stopFocus);
     cancelAnimationFrame(frame);
     if (typeof CSS !== 'undefined') CSS.highlights?.delete(name);
-    style.remove();
+    unmountStyle();
   };
 }
