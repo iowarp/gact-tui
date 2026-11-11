@@ -405,7 +405,8 @@ function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): CSSPropert
     };
   }, [ref]);
   if (!edges.start && !edges.end) return undefined;
-  const mask = `linear-gradient(90deg, ${edges.start ? 'transparent' : '#000'}, #000 ${SCROLL_FADE_PX}px, #000 calc(100% - ${SCROLL_FADE_PX}px), ${edges.end ? 'transparent' : '#000'})`;
+  // A mask reads only alpha, so its stops are opaque/transparent, not theme colours.
+  const mask = `linear-gradient(90deg, ${edges.start ? 'transparent' : 'black'}, black ${SCROLL_FADE_PX}px, black calc(100% - ${SCROLL_FADE_PX}px), ${edges.end ? 'transparent' : 'black'})`;
   return { maskImage: mask, WebkitMaskImage: mask };
 }
 

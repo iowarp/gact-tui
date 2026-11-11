@@ -45,15 +45,21 @@ function Example() {
         hostLabel="CLIO"
         onBack={vi.fn()}
         onConnected={vi.fn()}
-        provider={{
-          id: 'github',
-          name: 'GitHub',
-          authentication: 'browser',
-          configured: true,
-          logo: 'github',
-          setup_requirement: null,
-          capabilities: { supported_modes: ['read_only'], unavailable_reasons: {} },
-        }}
+        initialChoice="github"
+        localConnection={false}
+        onConnectedMany={vi.fn()}
+        onSignIn={vi.fn()}
+        providers={[
+          {
+            id: 'github',
+            name: 'GitHub',
+            authentication: 'browser',
+            configured: true,
+            logo: 'github',
+            setup_requirement: null,
+            capabilities: { supported_modes: ['read_only'], unavailable_reasons: {} },
+          },
+        ]}
       />
     </QueryClientProvider>
   );

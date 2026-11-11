@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { useNotificationPreferences } from '@/providers/notification-preferences-provider';
 import { type AwayTone, awayRows } from './attention-away';
 import { NoticeFrame } from './attention-notice-frame';
-import { sessionPath } from './attention-notifier';
+import { sessionPath } from './session-path';
 import { AttentionUpdateRows } from './attention-update-rows';
 import { attentionUpdate } from './version-check-issue';
 import { IconButton } from './primitives/icon-button';

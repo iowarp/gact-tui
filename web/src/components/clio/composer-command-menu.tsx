@@ -24,8 +24,8 @@ import {
   MatchCount,
   ROW_CUT_SLOT,
   SuggestionDetail,
-  useHoveredRow,
 } from './composer-suggestion-popup';
+import { useHoveredRow } from './use-hovered-row';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (

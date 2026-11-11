@@ -1,13 +1,11 @@
 import {
   forwardRef,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type HTMLAttributes,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
@@ -15,7 +13,6 @@ import {
   fullTextOf,
   truncatedTextAt,
   truncatedTextForFocus,
-  truncatedTextWithin,
 } from '@/lib/truncation';
 
 /** The app's tooltip delay (TooltipProvider), so every hover name reads alike. */
@@ -181,26 +178,6 @@ function TruncationHintBubble({ hint }: { hint: Hint }) {
       {hint.text}
     </div>
   );
-}
-
-/** Whether any text inside `ref` is cut now, rechecked when its size changes. */
-export function useHasTruncatedText(ref: RefObject<HTMLElement | null>, watch: unknown = null) {
-  const [cut, setCut] = useState(false);
-  const measure = useCallback(() => {
-    const root = ref.current;
-    setCut(root ? truncatedTextWithin(root, 200).length > 0 : false);
-  }, [ref]);
-  useLayoutEffect(() => {
-    measure();
-  }, [measure, watch]);
-  useEffect(() => {
-    const root = ref.current;
-    if (!root || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, [measure, ref]);
-  return cut;
 }
 
 export interface TruncatedTextProps extends HTMLAttributes<HTMLSpanElement> {

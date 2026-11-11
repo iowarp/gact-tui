@@ -2,7 +2,7 @@ import { ChevronDownIcon } from 'lucide-react';
 import { useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
-import { useHasTruncatedText } from './primitives/truncated-text';
+import { useHasTruncatedText } from './primitives/use-has-truncated-text';
 
 export interface NoticeFrameProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   /** What the notice is about, for the expand control's name. */

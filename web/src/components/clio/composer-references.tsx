@@ -40,8 +40,8 @@ import {
   MatchCount,
   ROW_CUT_SLOT,
   SuggestionDetail,
-  useHoveredRow,
 } from './composer-suggestion-popup';
+import { useHoveredRow } from './use-hovered-row';
 
 const groups: Array<{
   defaultOpen: boolean;
