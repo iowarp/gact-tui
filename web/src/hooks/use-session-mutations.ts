@@ -35,6 +35,8 @@ import {
 import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { firstMessageMetadata } from '@/lib/a2ui/first-message-metadata';
+import { connectionScope } from '@/lib/connection-scope';
+import type { DraftBrowserPageState } from '@/lib/html-in-browser';
 
 interface UseSessionMutationsInput {
   openSubagent?: (subagent: SubagentRun, target: 'canvas') => void;
@@ -417,7 +419,30 @@ export function useSessionMutations({
     },
   });
 
-  function openStartedSession(created: Session, controller: AbortController | null) {
+  // A new conversation's Browser address: the person's page starts the conversation
+  // (no message needed), opens in it, and shows as its Browser tab there.
+  const openDraftBrowserPage = useStableCallback(async (url: string): Promise<void> => {
+    const controller = uploadController.current;
+    const target = await materializeDraft({
+      ...(activeProvider && activeModel
+        ? { provider_id: activeProvider, model_id: activeModel }
+        : {}),
+    });
+    const page = await repository.openBrowserPage(target.id, url);
+    const browserPage: DraftBrowserPageState = {
+      scope: connectionScope(settings),
+      pageId: page.id,
+      sessionId: target.id,
+      label: page.title || page.host || page.label,
+    };
+    openStartedSession(target, controller, { browserPage });
+  });
+
+  function openStartedSession(
+    created: Session,
+    controller: AbortController | null,
+    state?: Record<string, unknown>,
+  ) {
     // The new conversation is its own family and the newest row of its workspace's rail.
     queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
       created,
@@ -431,7 +456,7 @@ export function useSessionMutations({
     rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
     void navigate(
       `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
-      { replace: true },
+      { replace: true, ...(state ? { state } : {}) },
     );
   }
 
@@ -607,6 +632,7 @@ export function useSessionMutations({
     pendingSteers,
     prepareFiles,
     discardFiles,
+    openDraftBrowserPage,
     reconcileTurnMode,
     respondInteraction,
     respondPermission,
