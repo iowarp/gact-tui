@@ -67,6 +67,7 @@ import {
   newBrowserPageTab,
   WORKBENCH_LIST_TITLES,
 } from './workbench-tab-storage';
+import { browserPageLabel } from './use-browser-pages';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { focusListRow, focusOpenedFrame, refocusActiveCanvasTab } from './workbench-focus';
 import { WorkbenchTabRow } from './workbench-tab-row';
@@ -504,7 +505,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           kind: 'browser',
           pageId: page.id,
           sessionId: page.session_id,
-          label: page.label,
+          label: browserPageLabel(page),
         }),
       // A picked file always gets its tab, even HTML: its viewer opens the
       // shared browser on show and keeps the source if that fails.

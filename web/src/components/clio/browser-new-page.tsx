@@ -36,12 +36,13 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
   const [error, setError] = useState<string>();
   const [preparing, setPreparing] = useState(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // StrictMode runs effects twice in development: mark it mounted again each time.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const openPage = async (url: string): Promise<BrowserPage | undefined> => {
     const started = Date.now();
