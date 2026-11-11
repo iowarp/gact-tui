@@ -19,6 +19,19 @@ canvas. Maximization retains the phone dialog's pointer and focus boundary.
 
 ![Selected phone Lineage icon in dark styling](phone-docx-dark-lineage-tab.png)
 
+## Release refresh (2026-11-11)
+
+All six PNGs were recaptured from the develop build at `96dbbd2e1` with the same
+labelled fixture: the stateful E2E fixture server plus the DOCX/PDF route
+fixtures from `web/e2e/document-artifact-preview.spec.ts`. Sizes are unchanged
+(1280 × 720 and 390 × 844 at 0.8 device scale). The Artifacts list still omits the
+preview PDF. The Lineage view is now chosen from the frame bar's Read/Lineage icons,
+or from the ⋯ menu on a phone, instead of the earlier Preview/Versions/Lineage
+text tabs. The maximized Lineage view shows the DOCX → Render PDF preview → PDF
+graph. The dark crop comes from a dark-appearance session rather than injected CSS.
+The conversation, its pending permission card and the codex/luna model chip are
+fixture records, not a live run.
+
 ## Validation
 
 Six selected UI behaviours passed sequentially with one worker: preview filtering
