@@ -68,6 +68,7 @@ import {
   WORKBENCH_LIST_TITLES,
 } from './workbench-tab-storage';
 import { browserPageLabel } from './use-browser-pages';
+import { useBrowserPageTabs } from './use-browser-page-tabs';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { focusListRow, focusOpenedFrame, refocusActiveCanvasTab } from './workbench-focus';
 import { WorkbenchTabRow } from './workbench-tab-row';
@@ -204,6 +205,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       moveTab,
       stepTab,
     } = useWorkbenchTabState(workspaceId, sessionId, inStudy);
+    useBrowserPageTabs({ sessionId, workspaceId, activeTabId, setTabs, setActiveTabId });
     // Read by open requests, so their callback keeps its identity as tabs change.
     const latestTabs = useRef({ active: activeTab, tabs: orderedTabs });
     useLayoutEffect(() => {
