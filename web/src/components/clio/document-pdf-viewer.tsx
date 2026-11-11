@@ -346,10 +346,12 @@ export function ClioDocumentPdfViewer({
       </ViewerZoomControls>
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
-          to scroll — every host has to give it a bounded box. */}
+          to scroll — every host has to give it a bounded box. Scroll anchoring
+          is off: pages mounting at full size above a jump target would make
+          the browser shift scrollTop and land several pages late. */}
       <div
         aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
-        className="min-h-0 flex-1 overflow-auto px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="min-h-0 flex-1 overflow-auto [overflow-anchor:none] px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
