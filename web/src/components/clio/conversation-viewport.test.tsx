@@ -674,6 +674,9 @@ describe('ClioConversation transcript viewport', () => {
       />,
     );
     const column = view.container.querySelector('[data-slot="transcript-column"]');
+    // The first reading comes from the observer's initial report, after layout.
+    viewport.observe(800);
+    // The final row is 53px taller than its 180px estimate.
     expect(column).toHaveStyle({ height: '14453px' });
     finalHeight = 260;
     viewport.resizeTo(800);
