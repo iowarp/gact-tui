@@ -579,6 +579,21 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+/* Radix scroll and select viewports draw their own thin scrollbars and hide
+   the native ones with a runtime <style> element. The desktop CSP carries a
+   nonce, so that element is blocked there and WebView2 paints native arrow
+   bars on every axis Radix sets to overflow: scroll. Hide them here instead. */
+[data-radix-scroll-area-viewport],
+[data-radix-select-viewport] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar,
+[data-radix-select-viewport]::-webkit-scrollbar {
+  display: none;
+}
+
 /* Radix uses an inline table wrapper so generic scroll areas can measure
    horizontal content. Pending interactions are strictly vertical; forcing
    that wrapper to block layout prevents percentage-width fields from taking
