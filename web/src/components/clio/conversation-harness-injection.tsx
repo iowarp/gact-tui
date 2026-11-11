@@ -22,6 +22,23 @@ import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
+// Context the harness writes as markdown reads as prose; its exact text stays in ⓘ.
+const MARKDOWN_SOURCES = new Set(['memory', 'session_facts']);
+// The row body's text size, headings included, so a "## Memory" title doesn't outsize its row.
+const ROW_MARKDOWN =
+  'text-[13px] leading-[1.55] [&_h1]:text-[13px] [&_h2]:text-[13px] [&_h3]:text-[13px] [&_h4]:text-[13px] [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_h4]:my-1.5 [&_p]:my-1.5 [&_li]:my-0.5';
+
+/**
+ * Backslashes are literal (Windows paths), not markdown escapes. Session facts are
+ * one fact per line, so each line stays its own paragraph.
+ */
+function rowMarkdown(source: string, text: string): string {
+  const literal = text.replace(/\\/gu, '\\\\');
+  return source === 'session_facts'
+    ? literal.replace(/\n(?!\n|\s*[-*+] |\s*\d+\. )/gu, '\n\n')
+    : literal;
+}
+
 const INJECTION_LABELS: Record<string, string> = {
   goal_judgment: 'Goal judgment',
   loop_wake: 'Loop wake',
@@ -164,6 +181,10 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                 {presentation?.format === 'markdown' ? (
                   <GroundedMessageResponse mode="static">
                     {presentation.text}
+                  </GroundedMessageResponse>
+                ) : !presentation && MARKDOWN_SOURCES.has(block.source) ? (
+                  <GroundedMessageResponse mode="static" className={ROW_MARKDOWN}>
+                    {rowMarkdown(block.source, block.text)}
                   </GroundedMessageResponse>
                 ) : presentation?.format === 'text' ? (
                   <div className="whitespace-pre-wrap text-[13px] leading-[1.55] [overflow-wrap:anywhere]">

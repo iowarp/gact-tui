@@ -304,6 +304,7 @@ export function ClioToolInvocation({
                 live={active}
                 failure={terminalFailure}
                 failed={status === 'failed'}
+                stopped={status === 'cancelled'}
               />
             )}
           </ToolDetailsContent>
