@@ -166,7 +166,27 @@ export function WorkspaceFileView({
   ) : officeMediaType(path) ? (
     <WorkspaceDocumentView
       documentView={(artifact) => (
-        <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+        <ClioDocumentWorkspace
+          artifact={artifact}
+          fallbackPreview={
+            <WorkspaceBinaryView
+              mediaType={detected}
+              path={path}
+              size={size}
+              workspaceId={workspaceId}
+            />
+          }
+          unavailablePreview={
+            <WorkspaceBinaryView
+              mediaType={detected}
+              path={path}
+              reason="Its preview needs the document runtime, which isn't available here."
+              size={size}
+              workspaceId={workspaceId}
+            />
+          }
+          key={artifact.id}
+        />
       )}
       fallback={
         <WorkspaceBinaryView
@@ -176,6 +196,7 @@ export function WorkspaceFileView({
           workspaceId={workspaceId}
         />
       }
+      loading={<ResourceLoading label={`Opening ${fileName(path)}`} />}
       mediaType={officeMediaType(path)!}
       path={path}
       workspaceId={workspaceId}
@@ -248,9 +269,7 @@ function WorkspaceNetcdfView({
   });
   if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
   if (magic.isError)
-    return (
-      <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />
-    );
+    return <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />;
   if (isClassicNetcdf(magic.data?.subarray(0, 4)))
     return (
       <ViewerNoPreview
@@ -345,11 +364,14 @@ function WorkspaceBinaryView({
   path,
   mediaType,
   size,
+  reason,
 }: {
   workspaceId: string;
   path: string;
   mediaType: string;
   size?: number;
+  /** Why it has no viewer, before what still works. */
+  reason?: string;
 }) {
   const [asText, setAsText] = useState(false);
   return asText ? (
@@ -357,6 +379,7 @@ function WorkspaceBinaryView({
   ) : (
     <ViewerNoPreview
       onShowText={() => setAsText(true)}
+      reason={reason}
       source={{ kind: 'workspace', workspaceId, path, mediaType, size }}
     />
   );
