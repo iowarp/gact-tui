@@ -111,6 +111,8 @@ export interface WorkbenchListColumnProps {
   // Terminal and Browser
   onOpenTerminal?: () => void;
   onOpenBrowserPage: (page: BrowserPage) => void;
+  /** Browser as a new page: its address field opens focused, whatever the list holds. */
+  newPage?: boolean;
 }
 
 /**
@@ -670,15 +672,16 @@ function BrowserList({
   sessionId,
   tabs,
   activeTabId,
+  newPage,
   onOpenBrowserPage,
 }: WorkbenchListColumnProps) {
   // Mounted only while this list shows, so its poll runs only then.
   const pages = useBrowserPages(sessionId);
   const rows = (pages.data ?? []).filter((page) => !page.closed);
-  if (pages.isPending && sessionId)
-    return <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />;
-  if (!sessionId || (pages.error && !rows.length))
-    return (
+  const state =
+    pages.isPending && sessionId ? (
+      <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />
+    ) : !sessionId || (pages.error && !rows.length) ? (
       <StateView
         action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
         className="p-4"
@@ -691,31 +694,42 @@ function BrowserList({
         size="panel"
         title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
       />
-    );
+    ) : undefined;
+  // A new page keeps its address field while the list loads or can't be read.
+  if (state && !(newPage && sessionId)) return state;
   return (
-    <Rows label="Browser pages">
-      <BrowserNewPage onOpened={onOpenBrowserPage} sessionId={sessionId} startOpen={!rows.length} />
-      {rows.map((page) => {
-        const id = `browser:${page.id}`;
-        const open = tabs.some((tab) => tab.id === id);
-        return (
-          <div key={page.id} role="listitem" title={page.url || browserPageLabel(page)}>
-            <ListRow
-              aria-current={activeTabId === id || undefined}
-              badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
-              className="cursor-pointer text-[12.5px]"
-              description={page.host || 'Blank page'}
-              icon={<GlobeIcon />}
-              onClick={() => onOpenBrowserPage(page)}
-              onKeyDown={activateOnKey(() => onOpenBrowserPage(page))}
-              role="button"
-              selected={activeTabId === id}
-              tabIndex={0}
-              title={browserPageLabel(page)}
-            />
-          </div>
-        );
-      })}
-    </Rows>
+    <>
+      <Rows label="Browser pages">
+        <BrowserNewPage
+          onOpened={onOpenBrowserPage}
+          sessionId={sessionId}
+          startOpen={newPage || !rows.length}
+        />
+        {state
+          ? null
+          : rows.map((page) => {
+              const id = `browser:${page.id}`;
+              const open = tabs.some((tab) => tab.id === id);
+              return (
+                <div key={page.id} role="listitem" title={page.url || browserPageLabel(page)}>
+                  <ListRow
+                    aria-current={activeTabId === id || undefined}
+                    badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
+                    className="cursor-pointer text-[12.5px]"
+                    description={page.host || 'Blank page'}
+                    icon={<GlobeIcon />}
+                    onClick={() => onOpenBrowserPage(page)}
+                    onKeyDown={activateOnKey(() => onOpenBrowserPage(page))}
+                    role="button"
+                    selected={activeTabId === id}
+                    tabIndex={0}
+                    title={browserPageLabel(page)}
+                  />
+                </div>
+              );
+            })}
+      </Rows>
+      {state}
+    </>
   );
 }
