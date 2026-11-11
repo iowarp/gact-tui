@@ -53,14 +53,21 @@ UI aren't tracked.
   plugins lead the private marketplace
 - Failed sends and uploads explain what happened and offer Retry; a message sent while
   offline waits and goes out once the connection returns
-- The macOS app is signed with a Developer ID and notarized, requires macOS 14 or later,
+- The macOS app is signed with a Developer ID and notarized, requires macOS 15 or later,
   and has a native menu bar and Mac shortcuts
 - On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
   only while a conversation is still running
-- The bundled Windows setup installs about 20 s faster: it stores the already-compressed
-  runtime pack as is instead of zlib-compressing it again (the setup is about 3% larger)
-- Windows setup reads the runtime pack once and lets the system's tar tool write its
-  files, so a desktop install takes about half as long
+- The Windows setup no longer embeds the runtime: it unpacks the runtime archive while
+  `install.ps1` downloads it, with four parallel tar writers, and checks its hash before
+  activating it. The setup shrinks from about 780 MB to 43 MB, and a cold desktop
+  install with CLIO measured under a minute, download included
+- Tool, thought and update rows (Memory, Session facts) share one activity-row layout:
+  name, then input, then outcome. On a narrow window the name keeps its place and
+  outcome words stay whole; count recaps read "1 file matches"
+- Viewer rows say what they view (View PDF, View image); an inline PDF or image opens
+  in one frame with a one-row header, and a PDF fits the width
+- Memory and Session facts updates render as formatted text, and every stopped call
+  shows the same "Stopped" outcome
 
 ### Fixed
 
@@ -77,6 +84,15 @@ UI aren't tracked.
 - A flow that ended before its first checkpoint shows as ended, and a parallel group says
   how many of its calls run at once
 - Tokens left in browser storage by releases from May to August 2026 are removed on start
+- Jump to latest lands in one tap and keeps following a streaming reply
+- Reads that failed while the agent was unreachable are fetched again once it is back,
+  and the app shows Connecting, not Offline, before a stream's first attempt fails
+- An inline `view_pdf` preview lands on the cited page
+- Rail task rows show the task title and open the subagent instead of an empty flow
+  panel
+- Activity run counts match the rows they open
+- An interrupted tool call no longer shows a raw null result
+- Two- and three-digit list markers show whole
 
 ### Removed
 
