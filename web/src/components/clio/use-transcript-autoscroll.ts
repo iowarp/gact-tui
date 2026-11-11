@@ -200,7 +200,9 @@ export function useTranscriptAutoscroll(
   const engage = useCallback(() => {
     lastUserInputAtRef.current = Number.NEGATIVE_INFINITY;
     setEngaged(true);
-    scrollToBottom('smooth');
+    scrollToBottom(
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    );
   }, [scrollToBottom, setEngaged]);
 
   const disengage = useCallback(() => setEngaged(false), [setEngaged]);
