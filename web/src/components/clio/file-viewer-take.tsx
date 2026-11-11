@@ -222,7 +222,8 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
       >
         <TakeMenuRows
           rows={[
-            { ...row, label: 'Original', separatorBefore: false },
+            // Its own letter, underlined like Export's, not the download row's D.
+            { ...row, label: 'Original', accelerator: 'O', separatorBefore: false },
             ...exports.map((entry, index) => ({
               ...entry,
               accelerator: entry.accelerator ?? (index === 0 ? 'E' : undefined),
