@@ -149,15 +149,9 @@ export function ToolCompactRow({
         ? 'stopped'
         : (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
       : undefined;
-  const metadata = operation.metadata ? (
-    <span data-slot="activity-metadata" className="text-muted-foreground">
-      {operation.metadata}
-    </span>
-  ) : null;
   const outcome =
-    waiting || metadata || failureWord || denied ? (
+    waiting || failureWord || denied ? (
       <>
-        {metadata}
         {waiting}
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
@@ -221,6 +215,8 @@ export function ToolCompactRow({
       link={delegateLink}
       argument={delegate ? delegate.assignment : argument}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
+      recap={operation.metadata}
+      recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
       outcome={outcome}
       outcomeTone="muted"
       outcomeTitle={failure}
