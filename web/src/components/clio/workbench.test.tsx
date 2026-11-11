@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import userEvent from '@testing-library/user-event';
-import { createRef } from 'react';
+import { createRef, useContext } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 // Rendered workspace files resolve the Markdown renderer behind a React.lazy
 // boundary (MessageResponse -> ./markdown: streamdown, math, cjk). Loaded
@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // which has no timeout; the lazy boundary then resolves from the module cache.
 import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
+import { ObservabilityViewControl } from './observability-view-control';
 import { listTab, saveWorkbenchState } from './workbench-tab-storage';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { WorkspaceCanvasControlContext } from './workspace-canvas-visibility-context';
@@ -74,6 +75,20 @@ afterEach(() => {
   // read unless it is cleared here.
   window.localStorage.clear();
 });
+
+/**
+ * Stands in for the observability dock in the Activity tab: like the real one it
+ * draws the host's header (title and Activity views menu), then its view.
+ */
+function SessionViewWithHeader() {
+  const control = useContext(ObservabilityViewControl);
+  return (
+    <>
+      {control?.renderHeader?.(null)}
+      <p>Session intelligence</p>
+    </>
+  );
+}
 
 function BrokenCanvasItem(): never {
   throw new Error('broken source preview');
@@ -185,24 +200,45 @@ describe('ClioWorkbench canvas', () => {
 
   it('leads Activity with its timeline and switches to events or context in the tab', async () => {
     const user = userEvent.setup();
-    renderWorkbench();
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        diffs={[]}
+        files={[]}
+        onOpenSubagent={vi.fn()}
+        onUndoDiff={vi.fn()}
+        sessionId="session_parent"
+        sessionView={<SessionViewWithHeader />}
+        workspaceId="workspace_1"
+      />,
+    );
 
+    // A fresh pocket opens on Files; Activity opens from its strip icon.
     const activityButton = strip().getByRole('button', { name: 'Activity' });
+    await user.click(activityButton);
     expect(activityButton).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
     const activity = screen.getByRole('region', { name: 'Activity list' });
     expect(activity).toHaveAttribute('data-slot', 'workbench-list-tab');
     expect(within(activity).queryByRole('button', { name: /^Hide / })).not.toBeInTheDocument();
     expect(within(activity).getByText('Session intelligence')).toBeVisible();
-    expect(within(activity).getByRole('radio', { name: 'Timeline' })).toBeChecked();
+    // The other views are in the header's Activity views menu; Timeline leads.
+    const chooseView = async (name: string) => {
+      await user.click(within(activity).getByRole('button', { name: 'Activity views' }));
+      await user.click(await screen.findByRole('menuitemradio', { name }));
+    };
+    await user.click(within(activity).getByRole('button', { name: 'Activity views' }));
+    expect(await screen.findByRole('menuitemradio', { name: 'Timeline' })).toBeChecked();
+    await user.keyboard('{Escape}');
 
-    await user.click(within(activity).getByRole('radio', { name: 'Events' }));
+    await chooseView('Events');
     expect(within(activity).getByText('Nothing has run yet')).toBeVisible();
     expect(within(activity).queryByText('Session intelligence')).not.toBeInTheDocument();
 
-    await user.click(within(activity).getByRole('radio', { name: 'Context' }));
+    await chooseView('Context');
     expect(within(activity).getByText('Session intelligence')).toBeVisible();
-    expect(within(activity).getByRole('radio', { name: 'Context' })).toBeChecked();
+    await user.click(within(activity).getByRole('button', { name: 'Activity views' }));
+    expect(await screen.findByRole('menuitemradio', { name: 'Context' })).toBeChecked();
   });
 
   it('launches each list as a tab from the strip and returns on the lit icon', async () => {
@@ -221,8 +257,8 @@ describe('ClioWorkbench canvas', () => {
     // The lit icon again goes back to the tab shown before; the list tab stays for next time.
     await user.click(artifacts);
     expect(artifacts).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
-    expect(tabNames()).toEqual(['Activity', 'Artifacts']);
+    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+    expect(tabNames()).toEqual(['Files', 'Artifacts']);
 
     // A launcher focuses its tab rather than opening another, Files included.
     await user.click(artifacts);
@@ -246,7 +282,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('tab', { name: 'Agent' })).toHaveAttribute('aria-selected', 'true');
     await user.click(agent);
     expect(agent).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('turns a list column saved by an older build into its tab', () => {
@@ -305,7 +341,7 @@ describe('ClioWorkbench canvas', () => {
 
     // A click shows the artifact in the Artifacts tab itself...
     await user.click(within(list()).getByRole('button', { name: /report\.md/ }));
-    expect(tabNames()).toEqual(['Activity', 'report.md']);
+    expect(tabNames()).toEqual(['Files', 'report.md']);
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByLabelText('Artifact view: report.md')).toBeVisible();
     // ...where the strip no longer lights Artifacts, and Back returns to the list.
@@ -314,14 +350,14 @@ describe('ClioWorkbench canvas', () => {
       'false',
     );
     await user.click(screen.getByRole('button', { name: 'Back to Artifacts' }));
-    expect(tabNames()).toEqual(['Activity', 'Artifacts']);
+    expect(tabNames()).toEqual(['Files', 'Artifacts']);
     expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
 
     // Shift opens the pick in a tab of its own and keeps the list.
     await user.keyboard('{Shift>}');
     await user.click(within(list()).getByRole('button', { name: /stations\.csv/ }));
     await user.keyboard('{/Shift}');
-    expect(tabNames()).toEqual(['Activity', 'Artifacts', 'stations.csv']);
+    expect(tabNames()).toEqual(['Files', 'Artifacts', 'stations.csv']);
     expect(screen.getByRole('tab', { name: 'stations.csv' })).toHaveAttribute(
       'aria-selected',
       'true',
