@@ -10,6 +10,8 @@ const providerIdNames: Record<string, string> = {
   amsc_mag: 'AmSC Model Access Gateway',
   codex: 'OpenAI Codex',
   claude_code: 'Claude Code',
+  copilot: 'GitHub Copilot',
+  inception: 'Inception (Mercury)',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
@@ -24,22 +26,6 @@ const providerIdNames: Record<string, string> = {
   argonne_minerva: 'ALCF Minerva',
   argonne_tara: 'ALCF Tara',
   argonne_local_vllm: 'vLLM',
-};
-
-const providerSummaries: Record<string, string> = {
-  amsc_mag: 'Use models available through your American Science Cloud project allocation.',
-  codex: 'Use models included with your Codex subscription.',
-  claude_code: 'Use models included with your Claude subscription.',
-  openai: 'Use OpenAI models connected to this agent.',
-  anthropic: 'Use Anthropic models connected to this agent.',
-  openrouter: 'Use models available through your OpenRouter account.',
-  lm_studio: 'Use models served by LM Studio on the connected agent.',
-  ollama: 'Use models served by Ollama on the connected agent.',
-  argonne_metis: 'Use Metis models available through your ALCF account.',
-  argonne_sophia: 'Use Sophia models available through your ALCF account.',
-  argonne_minerva: 'Use Minerva models available through your ALCF account.',
-  argonne_tara: 'Use Tara models available through your ALCF account.',
-  argonne_local_vllm: 'Use a compatible model service connected to this agent.',
 };
 
 /**
@@ -58,17 +44,6 @@ export function providerDisplayName(
   );
 }
 
-/** Explain a provider in product language rather than exposing its adapter details. */
-export function providerSummary(
-  preset: LanguageModelPreset | undefined,
-  fallbackName?: string,
-): string {
-  return (
-    (preset ? providerSummaries[preset.id] : undefined) ??
-    `Use models made available by ${fallbackName || preset?.label || 'this provider'}.`
-  );
-}
-
 /**
  * Provider ids that resolve to DIFFERENT artwork than their own name (an
  * alias, a shared vendor mark for a family of ids, or a neutral fallback for
@@ -84,6 +59,7 @@ export const providerLogoIds: Record<string, string> = {
   bedrock: 'amazon-bedrock',
   codex: 'openai',
   claude_code: 'anthropic',
+  copilot: 'github-copilot',
   gemini: 'google',
   google_gemini: 'google',
   google_vertex: 'google',
@@ -102,6 +78,36 @@ export const providerLogoIds: Record<string, string> = {
   argonne_tara: 'argonne',
   argonne_local_vllm: 'argonne',
 };
+
+/**
+ * Provider kinds whose official client the service installs and updates in
+ * place (its provider components), each with the vendor that publishes the
+ * client. Kept equal to clio-agent's `providers/components/registry.py`.
+ */
+const managedClientVendors: Record<string, string> = {
+  codex: 'OpenAI',
+  claude_code: 'Anthropic',
+  copilot: 'GitHub',
+};
+
+/** The vendor of a provider kind's service-managed client, or undefined when it has none. */
+export function providerManagedClientVendor(providerKind: string | undefined): string | undefined {
+  return providerKind ? managedClientVendors[providerKind] : undefined;
+}
+
+/**
+ * The route as the model label writes it: lowercase, without the vendor word its
+ * logo already shows (OpenAI Codex → codex, GitHub Copilot → copilot).
+ */
+export function modelRouteName(providerId: string, providerName: string): string {
+  const vendor = managedClientVendors[providerId] ?? providerIdNames[providerLogoId(providerId)];
+  const name = providerName.trim();
+  const rest =
+    vendor && name.toLowerCase().startsWith(`${vendor.toLowerCase()} `)
+      ? name.slice(vendor.length).trim()
+      : name;
+  return rest.toLowerCase();
+}
 
 /** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {

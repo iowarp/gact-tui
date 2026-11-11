@@ -20,12 +20,15 @@ import {
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
 import { collectPlainText, editorCaretOffset, focusEditorAtOffset } from './composer-editor-model';
+import { useActiveOption } from './composer-reference-controller-active-option';
+import { StableInput } from './primitives/stable-input';
 
 interface ComposerInlineReferenceEditorProps {
   /**
    * DOM id of the option the popover has highlighted. The editor keeps focus
    * while the person arrows through the list, so this is what tells a screen
-   * reader which suggestion Enter would take.
+   * reader which suggestion Enter would take. A menu that publishes its own
+   * highlight (see `publishActiveOption`) needs no prop: the editor follows it.
    */
   activeOptionId?: string;
   className?: string;
@@ -44,6 +47,8 @@ interface ComposerInlineReferenceEditorProps {
   onOpenReference?: (reference: WorkspaceReference) => void;
   onReferencesChange: (references: InlineReferenceSelection[]) => void;
   placeholder: string;
+  /** Accessible name when it should differ from the placeholder. */
+  ariaLabel?: string;
   /**
    * DOM id of the popup this editor controls. `combobox` requires
    * `aria-controls`, so the id is stable whether or not the popup is mounted;
@@ -78,7 +83,7 @@ function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection):
     'aria-label',
     `Open ${referenceKindLabel(selection.reference.kind)} ${selection.reference.label}`,
   );
-  open.title = selection.reference.detail;
+  open.title = [selection.reference.label, selection.reference.detail].filter(Boolean).join(' — ');
   open.type = 'button';
   open.textContent = `@${selection.reference.label}`;
 
@@ -149,6 +154,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
 >(function ComposerInlineReferenceEditor(
   {
     activeOptionId,
+    ariaLabel,
     className,
     disabled = false,
     attachmentsEnabled = false,
@@ -169,6 +175,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
   const pasteSourceThreshold = usePasteSourceThreshold();
   const localRef = useRef<HTMLDivElement | null>(null);
   const renderedSignature = useRef('');
+  const publishedOptionId = useActiveOption(popoverId);
 
   useLayoutEffect(() => {
     const root = localRef.current;
@@ -272,6 +279,14 @@ export const ComposerInlineReferenceEditor = forwardRef<
     const range = selection.getRangeAt(0);
     if (!event.currentTarget.contains(range.commonAncestorContainer)) return;
     event.preventDefault();
+    // insertText goes through the browser's editing pipeline, so the paste
+    // joins the native undo stack and fires `input`, which syncs the model.
+    if (
+      typeof document.execCommand === 'function' &&
+      document.execCommand('insertText', false, text)
+    ) {
+      return;
+    }
     range.deleteContents();
     const textNode = document.createTextNode(text);
     range.insertNode(textNode);
@@ -285,14 +300,14 @@ export const ComposerInlineReferenceEditor = forwardRef<
 
   return (
     <>
-      <input name="message" type="hidden" value={value} />
+      <StableInput name="message" type="hidden" value={value} />
       <div
-        aria-activedescendant={expanded ? activeOptionId : undefined}
+        aria-activedescendant={expanded ? (activeOptionId ?? publishedOptionId) : undefined}
         aria-autocomplete="list"
         aria-controls={popoverId}
         aria-disabled={disabled}
         aria-expanded={expanded}
-        aria-label={placeholder}
+        aria-label={ariaLabel ?? placeholder}
         className={cn(
           'max-h-48 min-h-11 w-full flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
           disabled && 'cursor-not-allowed opacity-50',

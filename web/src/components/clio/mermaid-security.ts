@@ -43,10 +43,6 @@ export function parseDiagramSource(source: string): {
   return { source: rendered, folders };
 }
 
-export function validateMermaidSource(source: string): void {
-  parseDiagramSource(source);
-}
-
 /** CSS that reaches outside the drawing: an import, or a url() that is not a #fragment. */
 const EXTERNAL_CSS = /@import|url\s*\(\s*['"]?\s*(?!#)|expression\s*\(/iu;
 

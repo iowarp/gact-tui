@@ -1,7 +1,8 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
 import { ChevronRightIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { CloseIcon, MoreIcon, RetryIcon } from '@/lib/icon-vocabulary';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -16,30 +17,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { isSettledTaskActivity, taskActivity, type TaskActivity } from './task-activity';
 import { TaskActivityRow } from './task-activity-row';
+import { taskFlow } from './task-flow-state';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
+import { showCompletedWork, type TaskPageControls } from './task-history';
+export type { TaskPageControls } from './task-history';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
-
-export interface TaskPageControls {
-  hasMore: boolean;
-  pending: boolean;
-  loadMore: () => Promise<unknown>;
-  history?: {
-    visible: boolean;
-    toggle: () => void;
-    items: readonly AsyncProcess[];
-    hasMore: boolean;
-    pending: boolean;
-    loadMore: () => Promise<unknown>;
-    error: string;
-  };
-}
 
 /** Continue the same read; a page failure leaves the already loaded work visible. */
 export function TaskPageContinuation({
@@ -81,8 +70,8 @@ export interface AsyncTaskListProps {
   compact?: boolean;
   processes: readonly AsyncProcess[];
   subagents?: readonly SubagentRun[];
-  onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
-  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
+  onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
+  onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
   onCancelTask?: (task: AsyncProcess) => Promise<void>;
   onControlTask?: (task: AsyncProcess, action: 'pause' | 'resume' | 'restart') => Promise<void>;
   pagination?: TaskPageControls;
@@ -105,6 +94,13 @@ export function AsyncTaskList({
   const [restart, setRestart] = useState<AsyncProcess>();
   const [controlling, setControlling] = useState<Record<string, string>>({});
   const history = pagination?.history;
+  // A link asked for a task that has finished: its row is under Completed work, so open it.
+  const focusedTask = useWorkTaskFocus((state) => state.handle);
+  useEffect(() => {
+    if (!focusedTask || !history || history.visible) return;
+    if (!processes.some((task) => (task.handle ?? task.handle_id ?? task.id) === focusedTask))
+      history.toggle();
+  }, [focusedTask, history, processes]);
   const activeHandles = new Set(processes.map((task) => task.handle ?? task.handle_id ?? task.id));
   const visibleProcesses = history?.visible
     ? [
@@ -180,7 +176,7 @@ export function AsyncTaskList({
       (active || cancellable) &&
       (task.cancel_requested || requested.has(handle));
     const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
-    const restartKind = task.flow ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
+    const restartKind = taskFlow(task) ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
     return (
       <TaskActivityRow
         compact={compact}
@@ -225,7 +221,7 @@ export function AsyncTaskList({
                         variant="ghost"
                         size="icon"
                         aria-label={`${action} ${kind}: ${task.title}`}
-                        title={`${action === 'pause' ? 'Pause' : 'Resume'} ${task.flow ? 'flow' : 'agent'}`}
+                        title={`${action === 'pause' ? 'Pause' : 'Resume'} ${taskFlow(task) ? 'flow' : 'agent'}`}
                         disabled={Boolean(
                           controlling[handle] || cancelling || status === 'pause_requested',
                         )}
@@ -281,7 +277,7 @@ export function AsyncTaskList({
     <div className="min-w-0 space-y-0.5" aria-label="Background work">
       {currentRows.map(renderEntry)}
       <TaskPageContinuation pagination={pagination} />
-      {history ? (
+      {history && showCompletedWork(history, entries) ? (
         <Collapsible
           open={history.visible}
           onOpenChange={(open) => {

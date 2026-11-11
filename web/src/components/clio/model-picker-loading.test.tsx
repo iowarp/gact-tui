@@ -1,7 +1,7 @@
 import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import * as modelTags from '@/lib/model-capability-tags';
 import { capabilityRow } from '@/test-fixtures/model-picker/capability-rows';
@@ -12,13 +12,17 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
   return { useRepository: () => fixtures.repository };
 });
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 const frames = new Map<number, FrameRequestCallback>();
@@ -65,6 +69,29 @@ async function paintFrame(): Promise<void> {
 const search = () => screen.getByRole('combobox', { name: 'Search providers and models' });
 const skeleton = () => screen.getByRole('status', { name: 'Loading available models' });
 
+function tokens(): string[] {
+  return (
+    document.querySelector('[data-slot="model-picker-search"]')?.getAttribute('data-tokens') ?? ''
+  )
+    .split(' ')
+    .filter(Boolean);
+}
+
+/** The default tokens are not drawn as chips: they are switched off in the Filters panel. */
+async function dropDefault(user: ReturnType<typeof userEvent.setup>, token: string): Promise<void> {
+  if (!document.querySelector('[data-slot="facet-panel"]')) {
+    await user.click(screen.getByRole('button', { name: /^Filters/u }));
+  }
+  const fold = document.querySelector<HTMLElement>('[data-slot="facet-fold"]');
+  if (fold) await user.click(fold);
+  const panel = document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
+  const chip = panel.querySelector(`[data-token="${token}"]`);
+  if (!(chip instanceof HTMLElement))
+    throw new Error(`no ${token} chip in the Filters panel: ${panel.textContent}`);
+  await user.click(chip);
+  await user.keyboard('{Escape}');
+}
+
 describe('model picker catalog preparation', () => {
   it('prepares the selected provider first, warms the rest later and reopens from cache', async () => {
     const user = userEvent.setup();
@@ -82,6 +109,9 @@ describe('model picker catalog preparation', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(skeleton()).toBeVisible();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(screen.getByText('OpenRouter', { exact: true })).toBeVisible();
     expect(tags).not.toHaveBeenCalled();
@@ -96,6 +126,9 @@ describe('model picker catalog preparation', () => {
     await user.keyboard('{Escape}');
     tags.mockClear();
     await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(skeleton()).toBeVisible();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(screen.queryByRole('status', { name: 'Loading available models' })).toBeNull();
     expect(tags).not.toHaveBeenCalled();
@@ -115,6 +148,14 @@ describe('model picker catalog preparation', () => {
     expect(tags).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Models' }));
     expect(screen.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
+    expect(skeleton()).toBeVisible();
+    expect(screen.getByText('Loading AmSC Model Access Gateway models…')).toBeVisible();
+    // The dialog paints its skeleton before the catalog itself mounts.
+    expect(
+      screen.queryByRole('combobox', { name: 'Search providers and models' }),
+    ).not.toBeInTheDocument();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(skeleton()).toBeVisible();
     expect(screen.getByText('Loading AmSC Model Access Gateway models…')).toBeVisible();
@@ -184,7 +225,7 @@ describe('model picker catalog preparation', () => {
     await paintFrame();
     await paintFrame();
     await user.type(search(), 'model-new');
-    await user.click(screen.getByRole('button', { name: 'Remove output:text' }));
+    await dropDefault(user, 'output:text');
     tags.mockClear();
     // The refresh arrives externally while the modal is open.
     act(() => screen.getByText('Refresh catalog', { selector: 'button' }).click());
@@ -195,7 +236,7 @@ describe('model picker catalog preparation', () => {
     await paintFrame();
     expect(search()).toHaveValue('model-new');
     expect(search()).toHaveFocus();
-    expect(screen.queryByRole('button', { name: 'Remove output:text' })).not.toBeInTheDocument();
+    expect(tokens()).not.toContain('output:text');
     expect(screen.getByRole('option', { name: /model-new/u })).toBeVisible();
   });
 
@@ -220,6 +261,8 @@ describe('model picker catalog preparation', () => {
     renderPicker(<ReplacedPicker />);
     await user.click(screen.getByRole('button', { name: 'Models' }));
     await paintFrame();
+    await paintFrame();
+    await paintFrame();
     act(() => screen.getByText('Replace catalog', { selector: 'button' }).click());
     await paintFrame();
     expect(skeleton()).toBeVisible();
@@ -227,6 +270,45 @@ describe('model picker catalog preparation', () => {
     await paintFrame();
     expect(new Set(tags.mock.calls.map(([choice]) => choice))).toEqual(new Set(replacement));
     expect(search()).toBeVisible();
+  });
+
+  it('reopens a prepared large provider windowed, never mounting every row first', async () => {
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        options={large}
+        provider="amsc_mag"
+        onChange={vi.fn()}
+        trigger={<Button>Models</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    for (let frame = 0; frame < 4; frame += 1) await paintFrame();
+    expect(screen.getByRole('option', { name: /model-0/u })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    // Rows mounted for one commit and discarded leave records as removed nodes.
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((batch) => records.push(...batch));
+    observer.observe(document.body, { childList: true, subtree: true });
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    await paintFrame();
+    await paintFrame();
+    records.push(...observer.takeRecords());
+    observer.disconnect();
+    const optionsIn = (nodes: NodeList[]) =>
+      new Set(
+        nodes
+          .flatMap((list) => [...list])
+          .flatMap((node) =>
+            node instanceof Element ? [node, ...node.querySelectorAll('[role="option"]')] : [],
+          )
+          .filter((element) => element.matches('[role="option"]')),
+      );
+    const discarded = optionsIn(records.map((record) => record.removedNodes));
+    expect(screen.getByRole('option', { name: /model-0/u })).toBeVisible();
+    expect(screen.getAllByRole('option').length).toBeLessThan(large.length / 4);
+    expect(discarded.size).toBeLessThan(large.length / 4);
   });
 
   it('prepares generic large repositories too, while small catalogs open directly', async () => {

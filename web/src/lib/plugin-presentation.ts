@@ -6,9 +6,7 @@ import {
   type PluginDiagnostic,
   type PluginProvenance,
   type PromptFragment,
-  type RemovalPreview,
   type RemovedPlugin,
-  type ResolvedPlugin,
 } from '@clio/core/v3';
 
 /**
@@ -19,7 +17,7 @@ import {
 export function provenanceLabel(provenance: PluginProvenance): string {
   switch (provenance.source) {
     case 'core':
-      return 'Core';
+      return 'Built in';
     case 'agent':
       return provenance.via ? `From ${provenance.via}` : 'From the agent';
     case 'pack':
@@ -57,6 +55,7 @@ export const PROMPT_SECTION_LABELS: Record<string, string> = {
   rendering: 'Rendering',
   capabilities: 'Capabilities',
   domain: 'Domain',
+  plugins: 'Packages',
 };
 
 export function promptSectionLabel(section: string): string {
@@ -98,30 +97,6 @@ export function unwrapFragmentText(text: string): string {
   return out.join('\n');
 }
 
-/** The pack each active plugin arrived through, so a member can name its pack. */
-export function packOf(plugin: ResolvedPlugin): string | undefined {
-  return plugin.provenance.source === 'pack' && plugin.provenance.via
-    ? plugin.provenance.via
-    : undefined;
-}
-
-/** Plugins whose own provenance names `pluginId` (pack members, cascaded requirements). */
-export function broughtBy(resolution: AgentResolution, pluginId: string): ResolvedPlugin[] {
-  return resolution.plugins.filter(
-    (plugin) =>
-      plugin.id !== pluginId &&
-      (plugin.provenance.source === 'pack' || plugin.provenance.source === 'required') &&
-      plugin.provenance.via === pluginId,
-  );
-}
-
-/** Every plugin that leaves with a removal, the removed plugin first. */
-export function removalSet(preview: RemovalPreview): string[] {
-  const own = preview.removes.find((row) => row.id === preview.plugin);
-  const rest = preview.removes.filter((row) => row.id !== preview.plugin).map((row) => row.id);
-  return [own?.id ?? preview.plugin, ...rest];
-}
-
 /** A short name for an agent reference when the installed list does not carry it. */
 export function agentDisplayName(ref: string, agents: readonly AgentEntry[] | undefined): string {
   // A parent reference may carry a version range (`standard@^1`) or omit the marketplace.
@@ -160,11 +135,16 @@ type Contribution = AgentResolution['skills'][number];
 export interface PluginMcpServer {
   name: string;
   type: string;
+  /** The plugin declares this server's tools deferred (loaded with search_tools). */
+  deferred: boolean;
 }
 
 /** Everything the resolution attributes to one plugin, plus the plugins that require it. */
 export interface PluginContributions {
+  /** Tools whose schemas are in every request. */
   tools: string[];
+  /** Tools named in the prompt whose schemas the agent loads when it needs them. */
+  deferredTools: string[];
   skills: Contribution[];
   fragments: PromptFragment[];
   mcpServers: PluginMcpServer[];
@@ -185,14 +165,20 @@ export function pluginContributions(
   const own = <T extends { plugin?: string | null }>(rows: readonly T[]) =>
     rows.filter((row) => row.plugin === pluginId);
   return {
-    tools: own(resolution.tools).map((tool) => tool.name),
+    tools: own(resolution.tools)
+      .filter((tool) => tool.defer !== true)
+      .map((tool) => tool.name),
+    deferredTools: own(resolution.tools)
+      .filter((tool) => tool.defer === true)
+      .map((tool) => tool.name),
     skills: own(resolution.skills),
     fragments: resolution.prompt.sections.flatMap((section) => own(section.fragments)),
     mcpServers: Object.entries(resolution.mcp_servers)
       .filter(([, server]) => server.plugin === pluginId)
       .map(([name, server]) => {
-        const spec = (server as { spec?: { type?: unknown } }).spec;
-        return { name, type: typeof spec?.type === 'string' ? spec.type : '' };
+        const row = server as { spec?: { type?: unknown }; defer?: unknown };
+        const type = typeof row.spec?.type === 'string' ? row.spec.type : '';
+        return { name, type, deferred: row.defer === true };
       }),
     flows: own(resolution.flows),
     subagents: own(resolution.subagents),
@@ -213,7 +199,7 @@ function counted(count: number, singular: string, plural = `${singular}s`): stri
 /** A one-line count of what a plugin adds, such as "6 tools, 2 skills, 3 prompt parts". */
 export function capabilitySummary(contributions: PluginContributions): string {
   const parts = [
-    [contributions.tools.length, 'tool'],
+    [contributions.tools.length + contributions.deferredTools.length, 'tool'],
     [contributions.skills.length, 'skill'],
     [contributions.fragments.length, 'prompt part'],
     [contributions.mcpServers.length, 'MCP server'],
@@ -278,9 +264,28 @@ export function pluginChangeSummary(text: string): { added: string[]; removed: s
   return { added, removed: removed.filter(Boolean) };
 }
 
-/** "Plugins changed: +shell, −document-runtime", or "Plugins changed". */
+/**
+ * The tools a plugin change made callable now, from the note's "New tools you can call
+ * now" section (one "- name(arguments): description" line each).
+ */
+export function pluginChangeTools(text: string): string[] {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => line.startsWith('New tools you can call now'));
+  if (start < 0) return [];
+  const tools: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = /^- ([A-Za-z0-9_.-]+)\(/u.exec(line.trim());
+    if (!match) break;
+    tools.push(match[1]!);
+  }
+  return tools;
+}
+
+/** "Plugins changed: +shell, −document-runtime (2 new tools)", or "Plugins changed". */
 export function pluginChangeLabel(text: string): string {
   const { added, removed } = pluginChangeSummary(text);
   const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
-  return items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed';
+  const tools = pluginChangeTools(text).length;
+  const reach = tools ? ` (${tools} new ${tools === 1 ? 'tool' : 'tools'})` : '';
+  return (items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed') + reach;
 }

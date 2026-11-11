@@ -8,27 +8,33 @@ for (const width of [1280, 390]) {
     await page.goto('/tests/review/model-wait.html');
     const pill = page.getByRole('button', { name: 'Change model', exact: true });
     const fullName = 'AmSC Model Access Gateway / inkling-small-xhigh@cborg';
+    // The hover name ends with the picker's key chip (Ctrl ' off a Mac).
+    const hoverName = `${fullName}Ctrl '`;
     await expect(pill).toBeVisible();
     await expect(pill).toHaveAccessibleDescription(fullName);
     const provider = pill.locator('[data-slot="model-choice-provider"]');
     const model = pill.locator('[data-slot="model-choice-model"]');
-    for (const name of [provider, model]) {
-      await expect(name).toBeVisible();
-      await expect(name).toHaveCSS('text-overflow', 'ellipsis');
-      expect((await name.boundingBox())!.width).toBeGreaterThan(30);
-    }
-    expect(
-      Math.abs((await provider.boundingBox())!.width - (await model.boundingBox())!.width),
-    ).toBeLessThan(1);
+    // The route sits beside the model when both fit and wraps off the one-line
+    // label when they don't, so it never squeezes the model. Hover and the
+    // accessible description keep the full selection either way.
+    const routeClipped = () =>
+      provider.evaluate((node) => {
+        const line = node.closest('[data-slot="model-choice-label"]')!.getBoundingClientRect();
+        return node.getBoundingClientRect().top >= line.bottom - 1;
+      });
+    await expect(model).toBeVisible();
+    expect((await model.boundingBox())!.width).toBeGreaterThan(30);
+    // This long route and model can't share the capped button at any width.
+    expect(await routeClipped()).toBe(true);
     await pill.hover();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await page.screenshot({ path: test.info().outputPath(`model-label-hover-${width}.png`) });
     // Radix keeps a grace corridor from the trigger to its hoverable tooltip;
     // move through it instead of teleporting to the final pointer coordinate.
     await page.mouse.move(0, 0, { steps: 3 });
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await pill.focus();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await pill.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
     await page.keyboard.press('Escape');
@@ -45,22 +51,27 @@ for (const width of [1280, 390]) {
     await page.goto('/tests/review/model-wait.html');
     const waiting = page.locator('[data-slot="turn-response-wait"]');
     await expect(waiting).toBeVisible();
-    await expect(waiting).toContainText('Waiting for response');
+    // A silent wait reads as live thinking with its elapsed time.
+    await expect(waiting).toContainText('Thinking…');
     await expect(waiting).toContainText(/\d+s/);
     await page.screenshot({ path: test.info().outputPath(`model-wait-${width}.png`) });
     await page.getByRole('button', { name: 'reasoning', exact: true }).click();
     await expect(waiting).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Activity: Thinking', exact: true }),
-    ).toBeVisible();
+    const reasoning = page.locator('[data-slot="transcript-reasoning"]');
+    await expect(reasoning).toBeVisible();
+    await expect(reasoning).toHaveAttribute('aria-busy', 'true');
+    await expect(reasoning.locator('[data-slot="reasoning-summary"]')).toHaveText('Thinking…');
     const thinking = page.getByRole('button', {
       name: 'Thinking: Comparing the notes',
       exact: true,
     });
-    await expect(thinking).toBeVisible();
-    await thinking.click();
+    // A streaming passage with more to read is open until it settles or the reader folds it.
+    await expect(thinking).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByText('Simulated reasoning sample for this UI fixture.')).toBeVisible();
     await page.screenshot({ path: test.info().outputPath(`model-reasoning-${width}.png`) });
+    await thinking.click();
+    await expect(thinking).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByText('Simulated reasoning sample for this UI fixture.')).toHaveCount(0);
     await page.getByRole('button', { name: 'tool', exact: true }).click();
     await expect(waiting).toHaveCount(0);
     await page.getByRole('button', { name: 'wait', exact: true }).click();

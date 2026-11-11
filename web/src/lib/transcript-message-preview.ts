@@ -24,7 +24,7 @@ export function transcriptMessagePreviews(
     const consumed = boundary > 0 ? boundary : Math.min(sourceTitle.length, 95);
     const title = sourceTitle
       ? truncate(sourceTitle, Math.min(96, consumed + 1))
-      : `${message.role} activity`;
+      : truncate(fallbackTitle(message), 96);
     const remainder = text.slice(consumed).trim();
     // User landmarks preview the answer below their prompt, as a compact turn.
     // Keep one landmark per message so attention evidence still targets exact messages.
@@ -37,6 +37,52 @@ export function transcriptMessagePreviews(
     else if (message.role === 'assistant' && !reply && text) reply = text;
   }
   return previews;
+}
+
+/**
+ * A sentence-case name for a message without readable text, read from what
+ * it carries, so an outline row is never blank: "Activity: 3 tools",
+ * "Error: …", "Your message", "Reply".
+ */
+function fallbackTitle(message: Message): string {
+  let tools = 0;
+  let tasks = 0;
+  let delegates = 0;
+  let named = '';
+  for (const block of message.blocks) {
+    if (block.type === 'error') {
+      return firstLine(block.message) ? `Error: ${firstLine(block.message)}` : 'Error';
+    }
+    if (block.type === 'tool' || block.type === 'mcp_app') tools++;
+    else if (block.type === 'task') tasks++;
+    else if (block.type === 'subagent') delegates++;
+    else if (named) continue;
+    else if (block.type === 'action_card') named = block.title;
+    else if (block.type === 'plan') named = `Plan: ${block.title}`;
+    else if (block.type === 'diff') named = `Changed ${block.path}`;
+    else if (block.type === 'resource') named = block.name;
+    else if (block.type === 'artifact') named = 'File';
+    else if (block.type === 'a2ui') named = 'Visual result';
+  }
+  const activity = [
+    count(tools, 'tool'),
+    count(tasks, 'task'),
+    count(delegates, 'delegate'),
+  ].filter(Boolean);
+  if (activity.length) return `Activity: ${activity.join(', ')}`;
+  if (firstLine(named)) return firstLine(named);
+  if (message.role === 'user') return 'Your message';
+  if (message.role === 'assistant') return 'Reply';
+  if (message.role === 'system') return 'System note';
+  return 'Message';
+}
+
+function count(value: number, noun: string): string {
+  return value ? `${value} ${noun}${value === 1 ? '' : 's'}` : '';
+}
+
+function firstLine(text: string): string {
+  return (text.split('\n')[0] ?? '').trim();
 }
 
 function readableText(message: Message): string {

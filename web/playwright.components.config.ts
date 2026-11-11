@@ -9,7 +9,14 @@ const previewPort = Number.parseInt(process.env['CLIO_PREVIEW_PORT'] ?? '4173', 
 export default defineConfig({
   ...production,
   testIgnore: [],
-  testMatch: ['**/tool-result-presentation.spec.ts', '**/dialog-layout.spec.ts'],
+  testMatch: [
+    '**/tool-result-presentation.spec.ts',
+    '**/tool-operations.spec.ts',
+    '**/dialog-layout.spec.ts',
+    '**/fs-file-tools.spec.ts',
+    '**/component-gallery.spec.ts',
+    '**/parent-delegation.spec.ts',
+  ],
   webServer: [
     {
       command: 'node e2e/fixture-server.mjs',

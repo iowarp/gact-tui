@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { downloadFromFrame } from './file-viewer-setup';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
@@ -204,7 +205,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   });
   await page.goto(workspaceUrl);
   const composer = page.locator('form').filter({
-    has: page.getByRole('combobox', { name: /Ask .* to investigate, build, explain, or act/ }),
+    has: page.getByRole('combobox', { name: /^Ask / }),
   });
   await page
     .getByLabel('Upload files')
@@ -231,9 +232,10 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/v1/sessions/sess_flat_ndp/messages',
   );
-  await page.keyboard.down('Control');
-  await composer.getByRole('button', { name: 'Steer current work', exact: true }).click();
-  await page.keyboard.up('Control');
+  // Ctrl+click is a secondary click on macOS; the composer steers with Ctrl or Cmd.
+  await page.keyboard.down('ControlOrMeta');
+  await composer.getByRole('button', { name: 'Steer', exact: true }).click();
+  await page.keyboard.up('ControlOrMeta');
   expect((await accepted).ok()).toBe(true);
   await expect(
     composer.getByRole('button', { name: 'Open sent-figure.png', exact: true }),
@@ -242,7 +244,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   await expect(message.getByRole('img', { name: 'sent-figure.png', exact: true })).toBeVisible();
   await message.getByRole('button', { name: 'Open sent-figure.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+  const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(toolbar).toHaveCount(1);
   await expect(canvas.getByRole('img', { name: 'sent-figure.png', exact: true })).toBeVisible();
   const geometry = await toolbar.evaluate((element) => ({
@@ -252,9 +254,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   }));
   expect(geometry.height).toBeLessThanOrEqual(40);
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
-  const download = page.waitForEvent('download');
-  await toolbar.getByRole('button', { name: 'Download PNG', exact: true }).click();
-  const saved = await download;
+  const saved = await downloadFromFrame(page, toolbar);
   expect(saved.suggestedFilename()).toBe('sent-figure.png');
   const savedPath = await saved.path();
   expect(savedPath).not.toBeNull();

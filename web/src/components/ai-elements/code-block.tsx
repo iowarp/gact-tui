@@ -1,13 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { copyText } from '@/lib/clipboard';
 import { CheckIcon, CopyIcon } from 'lucide-react';
@@ -23,7 +16,6 @@ import {
   useState,
 } from 'react';
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
-import { createCssVariablesTheme, createHighlighter } from 'shiki';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -120,6 +112,8 @@ type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  /** The number of the first line when the code is a range of a larger file. */
+  startLine?: number;
 };
 
 interface TokenizedCode {
@@ -155,14 +149,24 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
-// Token colors are `var(--syntax-*)` references, so highlighting follows the
-// active theme (web/src/theme/themes.css) without re-tokenizing.
-const syntaxTheme = createCssVariablesTheme({
-  name: 'clio-syntax',
-  variablePrefix: '--syntax-',
-  variableDefaults: {},
-  fontStyle: true,
-});
+// Shiki loads on first highlight so it stays out of the initial bundle; raw
+// tokens render until it arrives. Token colors are `var(--syntax-*)`
+// references, so highlighting follows the active theme
+// (web/src/theme/themes.css) without re-tokenizing.
+const createLazyHighlighter = async (language: BundledLanguage) => {
+  const { createCssVariablesTheme, createHighlighter } = await import('shiki');
+  return createHighlighter({
+    langs: [language],
+    themes: [
+      createCssVariablesTheme({
+        name: 'clio-syntax',
+        variablePrefix: '--syntax-',
+        variableDefaults: {},
+        fontStyle: true,
+      }),
+    ],
+  });
+};
 
 const getHighlighter = (
   language: BundledLanguage,
@@ -172,10 +176,7 @@ const getHighlighter = (
     return cached;
   }
 
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: [syntaxTheme],
-  });
+  const highlighterPromise = createLazyHighlighter(language);
 
   highlighterCache.set(language, highlighterPromise);
   return highlighterPromise;
@@ -263,11 +264,13 @@ const CodeBlockBody = memo(
   ({
     tokenized,
     showLineNumbers,
+    startLine = 1,
     className,
     diff,
   }: {
     tokenized: TokenizedCode;
     showLineNumbers: boolean;
+    startLine?: number;
     className?: string;
     diff: boolean;
   }) => {
@@ -294,6 +297,9 @@ const CodeBlockBody = memo(
             'font-mono text-sm',
             showLineNumbers && '[counter-increment:line_0] [counter-reset:line]',
           )}
+          style={
+            showLineNumbers && startLine > 1 ? { counterReset: `line ${startLine - 1}` } : undefined
+          }
         >
           {keyedLines.map((keyedLine) => (
             <LineSpan
@@ -310,6 +316,7 @@ const CodeBlockBody = memo(
   (prevProps, nextProps) =>
     prevProps.tokenized === nextProps.tokenized &&
     prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.startLine === nextProps.startLine &&
     prevProps.diff === nextProps.diff &&
     prevProps.className === nextProps.className,
 );
@@ -387,10 +394,12 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
+  startLine,
 }: {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  startLine?: number;
 }) => {
   // A final newline is part of the file format, not another visible code row.
   // Keep `code` unchanged in CodeBlockContext for copying and technical detail,
@@ -441,6 +450,7 @@ export const CodeBlockContent = ({
     >
       <CodeBlockBody
         showLineNumbers={showLineNumbers}
+        startLine={startLine}
         tokenized={tokenized}
         diff={language === 'diff'}
       />
@@ -452,6 +462,7 @@ export const CodeBlock = ({
   code,
   language,
   showLineNumbers = false,
+  startLine,
   className,
   children,
   ...props
@@ -462,7 +473,12 @@ export const CodeBlock = ({
     <CodeBlockContext.Provider value={contextValue}>
       <CodeBlockContainer className={className} language={language} {...props}>
         {children}
-        <CodeBlockContent code={code} language={language} showLineNumbers={showLineNumbers} />
+        <CodeBlockContent
+          code={code}
+          language={language}
+          showLineNumbers={showLineNumbers}
+          startLine={startLine}
+        />
       </CodeBlockContainer>
     </CodeBlockContext.Provider>
   );
@@ -472,12 +488,15 @@ export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
+  /** What Copy copies when it differs from the text shown (default: the shown text). */
+  value?: string;
 };
 
 export const CodeBlockCopyButton = ({
   onCopy,
   onError,
   timeout = 2000,
+  value,
   children,
   className,
   ...props
@@ -494,7 +513,7 @@ export const CodeBlockCopyButton = ({
 
     try {
       if (!isCopied) {
-        await copyText(code);
+        await copyText(value ?? code);
         setIsCopied(true);
         onCopy?.();
         timeoutRef.current = window.setTimeout(() => setIsCopied(false), timeout);
@@ -502,7 +521,7 @@ export const CodeBlockCopyButton = ({
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [code, onCopy, onError, timeout, isCopied]);
+  }, [code, value, onCopy, onError, timeout, isCopied]);
 
   useEffect(
     () => () => {
@@ -525,41 +544,3 @@ export const CodeBlockCopyButton = ({
     </Button>
   );
 };
-
-export type CodeBlockLanguageSelectorProps = ComponentProps<typeof Select>;
-
-export const CodeBlockLanguageSelector = (props: CodeBlockLanguageSelectorProps) => (
-  <Select {...props} />
-);
-
-export type CodeBlockLanguageSelectorTriggerProps = ComponentProps<typeof SelectTrigger>;
-
-export const CodeBlockLanguageSelectorTrigger = ({
-  className,
-  ...props
-}: CodeBlockLanguageSelectorTriggerProps) => (
-  <SelectTrigger
-    className={cn('h-7 border-none bg-transparent px-2 text-xs shadow-none', className)}
-    size="sm"
-    {...props}
-  />
-);
-
-export type CodeBlockLanguageSelectorValueProps = ComponentProps<typeof SelectValue>;
-
-export const CodeBlockLanguageSelectorValue = (props: CodeBlockLanguageSelectorValueProps) => (
-  <SelectValue {...props} />
-);
-
-export type CodeBlockLanguageSelectorContentProps = ComponentProps<typeof SelectContent>;
-
-export const CodeBlockLanguageSelectorContent = ({
-  align = 'end',
-  ...props
-}: CodeBlockLanguageSelectorContentProps) => <SelectContent align={align} {...props} />;
-
-export type CodeBlockLanguageSelectorItemProps = ComponentProps<typeof SelectItem>;
-
-export const CodeBlockLanguageSelectorItem = (props: CodeBlockLanguageSelectorItemProps) => (
-  <SelectItem {...props} />
-);

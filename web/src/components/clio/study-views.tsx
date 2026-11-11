@@ -1,15 +1,15 @@
 import { a2uiSurfaceSchema, type ScienceStudy, type ScienceView } from '@clio/core/v3';
 import { useMemo, useState } from 'react';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useStudyViewFocus } from '@/lib/a2ui/open-view';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { ClioA2UISurface } from './a2ui-surface';
+import { StateView } from './primitives/state-view';
 import { branchTitle, studyViewDomId } from './science-log-model';
 
 /**
- * The study's views: the dashboards its conversations attached with `view`
- * entries, in the server's order (the root's first). Each is its owner's own
- * surface, so its actions go to the conversation that made it.
+ * One of the study's views: the dashboard a conversation attached with a `view`
+ * entry, opened from the study list or by a surface's `openView`. Each is its
+ * owner's own surface, so its actions go to the conversation that made it.
  */
 export function StudyViews({
   study,
@@ -24,7 +24,7 @@ export function StudyViews({
   );
   // Each owner's catalogs resolve its surface, whichever session this tab belongs to.
   useA2uiSessionRegistry(study.views.map((view) => view.session_id));
-  // One view at a time: a study's dashboards are alternatives to read, not one page.
+  // One view at a time: the last one asked for, else the study's first.
   const [chosen, setChosen] = useState<string>();
   const requested = useStudyViewFocus((state) => state.entry);
   const request = useStudyViewFocus((state) => state.nonce);
@@ -34,37 +34,12 @@ export function StudyViews({
     setChosen(requested);
   }
   const shown = study.views.find((view) => view.entry === chosen) ?? study.views[0];
-  const ownerOf = (view: ScienceView) =>
-    view.session_id === study.root_session_id
+  if (!shown) return null;
+  const owner =
+    shown.session_id === study.root_session_id
       ? 'the study'
-      : titles.get(view.session_id) || view.session_id;
-  return (
-    <div className="grid min-w-0 gap-4">
-      {study.views.length > 1 ? (
-        <ToggleGroup
-          aria-label="Study views"
-          className="flex-wrap justify-start"
-          onValueChange={(value) => {
-            if (value) setChosen(value);
-          }}
-          size="sm"
-          spacing={1}
-          type="single"
-          value={shown?.entry ?? ''}
-          variant="outline"
-        >
-          {study.views.map((view) => (
-            <ToggleGroupItem key={view.entry} value={view.entry}>
-              {view.title || 'Untitled view'}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      ) : null}
-      {shown ? (
-        <StudyViewPanel key={shown.entry} owner={ownerOf(shown)} readOnly={readOnly} view={shown} />
-      ) : null}
-    </div>
-  );
+      : titles.get(shown.session_id) || shown.session_id;
+  return <StudyViewPanel key={shown.entry} owner={owner} readOnly={readOnly} view={shown} />;
 }
 
 function StudyViewPanel({
@@ -83,27 +58,31 @@ function StudyViewPanel({
   return (
     <section
       aria-label={view.title || 'Study view'}
-      className="min-w-0 scroll-mt-3 space-y-2"
+      className="min-w-0 scroll-mt-3 space-y-3"
       data-slot="study-view"
       id={studyViewDomId(view.entry)}
     >
-      <header className="space-y-0.5 px-1">
-        <h3 className="text-sm font-medium">{view.title || 'Untitled view'}</h3>
+      <header className="space-y-0.5">
+        <h3 className="text-[13px] font-semibold">{view.title || 'Untitled view'}</h3>
         {view.purpose ? <p className="text-xs text-muted-foreground">{view.purpose}</p> : null}
         <p className="text-xs text-muted-foreground">Attached by {owner}</p>
+        {view.read_only ? (
+          <p className="text-xs text-muted-foreground">
+            Attached as a conversation view before study views were dashboards; shown as it is.
+          </p>
+        ) : null}
       </header>
       {!view.surface ? (
-        <p className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
-          The conversation that attached this view has since deleted its dashboard.
-        </p>
+        <StateView
+          kind="unavailable"
+          title="The conversation that attached this view has since deleted its dashboard."
+        />
       ) : parsed?.success ? (
         <div className="overflow-x-auto">
-          <ClioA2UISurface readOnly={readOnly} surface={parsed.data} />
+          <ClioA2UISurface readOnly={readOnly || view.read_only} surface={parsed.data} />
         </div>
       ) : (
-        <p className="rounded-md border px-3 py-2 text-xs text-destructive" role="alert">
-          This view's dashboard could not be read.
-        </p>
+        <StateView kind="error" title="This view's dashboard could not be read." />
       )}
     </section>
   );

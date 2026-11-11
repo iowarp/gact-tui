@@ -32,7 +32,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
 const desktopRoot = resolve(__dirname, '..');
 
-test('Windows runtime pack uses fast outer compression and preserves brand installer settings', () => {
+test('Windows runtime pack stores its zstd pack uncompressed and preserves brand installer settings', () => {
   const base = {
     bundle: {
       externalBin: ['binaries/clio-agent'],
@@ -45,13 +45,13 @@ test('Windows runtime pack uses fast outer compression and preserves brand insta
     resolve(desktopRoot, 'src-tauri/tauri.bundled.windows-pack.conf.json'),
   ]);
   const merged = mergeConfig(base, pack);
-  assert.equal(merged.bundle.windows.nsis.compression, 'zlib');
+  assert.equal(merged.bundle.windows.nsis.compression, 'none');
   assert.equal(merged.bundle.windows.nsis.headerImage, 'brand-header.bmp');
   assert.equal(merged.bundle.windows.nsis.installerHooks, 'brand-hooks.nsh');
   assert.deepEqual(merged.bundle.externalBin, ['binaries/clio-agent']);
   assert.equal(merged.bundle.createUpdaterArtifacts, true);
   assert.equal(merged.plugins.updater.pubkey, 'test-public-key');
-  assert.deepEqual(merged.bundle.resources, ['gact-runtime.tar.zst', 'gact-runtime.pack.json']);
+  assert.deepEqual(merged.bundle.resources, ['gact-runtime.pack.json']);
 });
 
 test('an explicit config resolves a temporary branding root, independent of any local override', () => {

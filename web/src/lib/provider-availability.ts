@@ -1,10 +1,4 @@
-import type { LanguageModelPreset, ProviderDefinition } from '@clio/core/v3';
-
-export interface ProviderAvailability {
-  label: string;
-  value: 'healthy' | 'degraded' | 'unavailable';
-  detail?: string;
-}
+import type { LanguageModelPreset } from '@clio/core/v3';
 
 function providerName(preset: LanguageModelPreset | undefined): string {
   return preset?.label.replace(/\s*\([^)]*\)\s*$/u, '') || 'this provider';
@@ -83,68 +77,6 @@ export function providerStatusDetail(
   return translateKnownProviderErrorReason(detail, providerName(preset));
 }
 
-/** Prefer the live preset status over a provider's coarse authentication capability. */
-export function providerAvailability(
-  provider: ProviderDefinition | undefined,
-  preset: LanguageModelPreset | undefined,
-): ProviderAvailability {
-  if (preset?.status === 'ready') return { label: 'Ready', value: 'healthy' };
-  if (preset?.status === 'unknown') {
-    return {
-      label: 'Not checked',
-      value: 'degraded',
-      detail: providerStatusDetail(preset, 'Run a provider check to verify availability.'),
-    };
-  }
-  if (preset?.status === 'auth_check_required') {
-    return {
-      label: 'Not checked',
-      value: 'degraded',
-      detail: providerStatusDetail(preset, 'Run a provider check to verify sign-in.'),
-    };
-  }
-  if (preset?.status === 'support_restoring') {
-    // The agent is reinstalling support it had before an update replaced its runtime.
-    return {
-      label: 'Restoring',
-      value: 'degraded',
-      detail: providerStatusDetail(preset, `Restoring ${providerName(preset)} support…`),
-    };
-  }
-  if (preset?.status === 'install_required') {
-    return {
-      label: 'Install needed',
-      value: 'unavailable',
-      detail: providerStatusDetail(preset, `${providerName(preset)} is not installed.`),
-    };
-  }
-  if (preset?.status === 'unavailable') {
-    return {
-      label: 'Unavailable',
-      value: 'unavailable',
-      detail: providerStatusDetail(preset),
-    };
-  }
-  if (preset?.status === 'missing_key' || preset?.status === 'auth_required') {
-    return {
-      label: providerCredentialNeededLabel(preset),
-      value: 'unavailable',
-      detail: providerStatusDetail(preset),
-    };
-  }
-  if (preset?.is_authenticated) return { label: 'Ready', value: 'healthy' };
-  if (preset) {
-    return {
-      label: providerCredentialNeededLabel(preset),
-      value: 'unavailable',
-      detail: providerStatusDetail(preset),
-    };
-  }
-  return provider?.is_authenticated
-    ? { label: 'Ready', value: 'healthy' }
-    : { label: 'Sign-in needed', value: 'unavailable' };
-}
-
 /** Which single blocking action a preset needs before its models are usable. */
 export type ProviderPrimaryAction = 'sign_in' | 'install' | 'api_key' | 'none';
 
@@ -163,11 +95,16 @@ export function providerNeedsReauthentication(
   );
 }
 
-export function providerPrimaryAction(preset: LanguageModelPreset | undefined): ProviderPrimaryAction {
+export function providerPrimaryAction(
+  preset: LanguageModelPreset | undefined,
+): ProviderPrimaryAction {
   if (!preset) return 'none';
   if (preset.status === 'install_required') return 'install';
   if (preset.status === 'support_restoring') return 'none';
-  if (!preset.is_authenticated && (preset.auth_method === 'oauth' || preset.auth_method === 'subscription'))
+  if (
+    !preset.is_authenticated &&
+    (preset.auth_method === 'oauth' || preset.auth_method === 'subscription')
+  )
     return 'sign_in';
   if (preset.requires_api_key && !preset.is_authenticated) return 'api_key';
   return 'none';
@@ -190,7 +127,11 @@ export function providerCredentialKind(
   preset: LanguageModelPreset | undefined,
 ): ProviderCredentialKind {
   if (!preset) return 'none';
-  if (preset.requires_api_key || preset.auth_method === 'api_key' || preset.status === 'missing_key')
+  if (
+    preset.requires_api_key ||
+    preset.auth_method === 'api_key' ||
+    preset.status === 'missing_key'
+  )
     return 'api_key';
   if (preset.provider === 'claude_code') return 'cli';
   if (preset.auth_method === 'oauth' || preset.auth_method === 'subscription') return 'sign_in';

@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { selectFileView } from './file-viewer-setup';
+import {
+  downloadFromFrame,
+  frameSettled,
+  openFrameOpenMenu,
+  selectFileView,
+} from './file-viewer-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
 // clio-agent's locked document_stack/smoke.py. Only API transport is a fixture:
@@ -90,7 +96,6 @@ for (const layout of [
           content_url: `/v1/artifacts/${sourceId}/document/content`,
           anchors: [],
           native_open: true,
-          embedded_editors: [],
           rendition_formats: ['pdf'],
           pdf_rendition_artifact_id: item.saved ? pdfId : '',
           provenance: {},
@@ -213,8 +218,21 @@ for (const layout of [
             await route.fulfill({ contentType: 'application/pdf', body: pdf });
           } else if (path === `/v1/artifacts/${sourceId}/bytes`) {
             await route.fulfill({ contentType: item.mime, body: source });
-          } else if (path === `/v1/artifacts/${sourceId}/reviews`) {
-            await route.fulfill({ json: { reviews: [] } });
+          } else if (path === `/v1/artifacts/${sourceId}/threads`) {
+            await route.fulfill({
+              json: {
+                artifact_id: sourceId,
+                head: {
+                  artifact_id: sourceId,
+                  name: item.name,
+                  workspace_id: 'ws',
+                  version: 1,
+                  sha256: '',
+                },
+                threads: [],
+                next_label: 'S1',
+              },
+            });
           } else if (path.endsWith('/renditions')) {
             conversions.push(path);
             if (!item.saved) {
@@ -243,9 +261,7 @@ for (const layout of [
         // The loading shell is replaced after session hydration. Drive the
         // mounted workspace so an early click is not lost with that shell.
         await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
-        await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-        await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-        await page.getByRole('menuitem', { name: 'Session artifacts', exact: true }).click();
+        await showWorkbenchList(page, 'Artifacts');
         const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
         await expect(
           canvas.getByRole('button', { name: `Open ${name}.v1.pdf`, exact: true }),
@@ -260,16 +276,27 @@ for (const layout of [
           await expect(canvas.getByText(/remains canonical/u)).toHaveCount(0);
           finishConversion();
         }
-        const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+        const toolbar = canvas.locator('[data-slot="frame-bar"]');
         await expect(toolbar).toHaveCount(1);
-        const previewTab = toolbar.getByRole('tab', { name: 'Preview', exact: true });
+        // A phone-width frame bar folds the modes to one menu; the document's Read mode holds.
+        const previewTab = toolbar.getByRole('tab', {
+          name: 'Read document',
+          exact: true,
+          includeHidden: true,
+        });
+        const viewer = canvas.locator('[data-slot="file-viewer"]');
         await expect(previewTab).toHaveAttribute('data-state', 'active');
         await expect
-          .poll(() =>
-            previewTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('1');
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toBeVisible();
+          .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe('rgba(0, 0, 0, 0)');
+        // An opened file widens the canvas, so on a desktop the zoom icons stay in
+        // the bar; at its narrowest fold (workbench-lineage step 6) they are rows in ⋯.
+        await expect(toolbar.locator('[data-slot="viewer-zoom-controls"]')).toBeAttached();
+        await frameSettled(toolbar);
+        const zoomInMenu = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible({
+          visible: !zoomInMenu,
+        });
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
           width: element.clientWidth,
@@ -277,21 +304,23 @@ for (const layout of [
         }));
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
-        await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeVisible();
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        if (zoomInMenu) {
+          await expect(page.getByRole('menuitem', { name: /^Zoom out/u })).toBeVisible();
+          await expect(page.getByRole('menuitem', { name: /^Zoom in/u })).toBeVisible();
+        }
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
-        await expect(
-          page.getByRole('dialog', { name: 'Copy to another workspace', exact: true }),
-        ).toBeVisible();
+        const copyDialog = page.getByRole('dialog', {
+          name: 'Copy to another workspace',
+          exact: true,
+        });
+        await expect(copyDialog).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-        const download = page.waitForEvent('download');
-        await toolbar
-          .getByRole('group', { name: 'File download', exact: true })
-          .getByRole('button', { name: /^Download /u })
-          .click();
-        const saved = await download;
+        // The closing dialog still hides the frame bar from the accessibility tree.
+        await expect(copyDialog).toBeHidden();
+        const saved = await downloadFromFrame(page, toolbar);
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
         expect(savedPath).not.toBeNull();
@@ -303,7 +332,7 @@ for (const layout of [
         await toolbar.screenshot({
           path: testInfo.outputPath(`${item.extension}-preview-tab.png`),
         });
-        await toolbar.getByRole('tab', { name: 'Lineage', exact: true }).click();
+        await selectFileView(page, viewer, 'Lineage');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         await toolbar.screenshot({
           path: testInfo.outputPath(`${item.extension}-lineage-tab.png`),
@@ -315,16 +344,33 @@ for (const layout of [
           });
           await page.evaluate(() => window.document.documentElement.classList.remove('dark'));
         }
-        await previewTab.click();
+        await selectFileView(page, viewer, 'Read document');
         await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
         const document = canvas.getByRole('region', { name: 'Document workspace' });
-        await expect(
-          document.getByText(`${item.pages} ${item.pages === 1 ? 'page' : 'pages'}`, {
-            exact: true,
-          }),
-        ).toBeVisible();
+        // A folded bar keeps its facts in the DOM, so the page fact is attached, not visible.
+        await expect(toolbar.getByText(`1 / ${item.pages}`, { exact: true })).toBeAttached();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
-        await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        // Maximized on a phone the bar stays at its narrowest fold, so the zoom
+        // icons are rows in its ? menu rather than buttons in the bar.
+        await frameSettled(toolbar);
+        const zoomFolded = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        const zoomRow = (name: string) =>
+          page.getByRole('menuitem', { name: new RegExp(`^${name}`, 'u') });
+        // The bar refolds as the zoom fact comes and goes; open … once it holds still.
+        const openFrameMenu = async () => {
+          await frameSettled(toolbar);
+          await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+          await expect(page.getByRole('menu', { name: 'File actions', exact: true })).toBeVisible();
+        };
+        if (zoomFolded) {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
+          await openFrameMenu();
+          await expect(zoomRow('Zoom in')).toBeVisible();
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom in')).toBeHidden();
+        } else {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        }
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
         await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
         const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -344,20 +390,37 @@ for (const layout of [
           width: innerWidth,
           density: devicePixelRatio,
         }));
+        const pageWidth = () =>
+          fittedPage.evaluate((element) => Math.round(element.getBoundingClientRect().width));
+        const fittedWidth = await pageWidth();
         await pdfScroller.hover();
         await page.keyboard.down('Control');
-        await page.mouse.wheel(0, 120);
+        await page.mouse.wheel(0, -120);
         await page.keyboard.up('Control');
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toHaveText(
-          '85%',
-        );
+        await expect(toolbar.getByText('115%', { exact: true })).toBeAttached();
+        await expect.poll(pageWidth).toBeGreaterThan(fittedWidth);
         expect(
           await page.evaluate(() => ({ width: innerWidth, density: devicePixelRatio })),
         ).toEqual(windowGeometry);
-        await canvas.getByRole('button', { name: 'Reset zoom', exact: true }).click();
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toHaveText(
-          '100%',
-        );
+        // Zooming out stops where the page fits.
+        if (zoomFolded) {
+          await openFrameMenu();
+          await zoomRow('Zoom out').click();
+        } else {
+          await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        }
+        await expect(toolbar.getByText('115%', { exact: true })).toHaveCount(0);
+        if (zoomFolded) {
+          await openFrameMenu();
+          await expect(zoomRow('Zoom out')).toHaveAttribute('aria-disabled', 'true');
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom out')).toBeHidden();
+        } else {
+          await expect(
+            toolbar.getByRole('button', { name: 'Zoom out', exact: true }),
+          ).toBeDisabled();
+        }
+        await expect.poll(pageWidth).toBe(fittedWidth);
         await expect.poll(pageFits).toBe(true);
         await expect
           .poll(async () =>
@@ -370,10 +433,11 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await canvas.getByRole('button', { name: 'Export to…', exact: true }).click();
-        await expect(page.getByRole('menuitem', { name: 'PDF', exact: true })).toBeVisible();
+        await openFrameOpenMenu(page, toolbar);
+        const exportPdf = page.getByRole('menuitem', { name: /^Export to PDF/u });
+        await expect(exportPdf).toBeVisible();
         const pdfDownload = page.waitForEvent('download');
-        await page.getByRole('menuitem', { name: 'PDF', exact: true }).click();
+        await exportPdf.click();
         const downloadedPdf = await pdfDownload;
         expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
         const downloadedStream = await downloadedPdf.createReadStream();
@@ -396,23 +460,23 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-pdf-preview.png`),
           fullPage: true,
         });
-        const lineageTab = toolbar.getByRole('tab', { name: 'Lineage', exact: true });
-        await lineageTab.click();
+        const lineageTab = toolbar.getByRole('tab', {
+          name: 'Lineage',
+          exact: true,
+          includeHidden: true,
+        });
+        await selectFileView(page, viewer, 'Lineage');
         await expect(lineageTab).toHaveAttribute('data-state', 'active');
         await expect
-          .poll(() =>
-            lineageTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('1');
+          .poll(() => lineageTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe('rgba(0, 0, 0, 0)');
         await expect
-          .poll(() =>
-            previewTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('0');
+          .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         const graph = canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true });
-        const sourceNode = graph.getByTestId(`rf__node-${sourceId}`);
-        const previewNode = graph.getByTestId(`rf__node-${pdfId}`);
+        const sourceNode = graph.locator(`[data-lineage-id="${sourceId}"]`);
+        const previewNode = graph.locator(`[data-lineage-id="${pdfId}"]`);
         await expect(sourceNode).toBeVisible();
         await expect(previewNode).toBeVisible();
         await expect(sourceNode).toContainText(name);
@@ -424,8 +488,7 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
-        await previewTab.click();
+        await selectFileView(page, viewer, 'Read document');
         holdRefresh = true;
         const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
         await fileActions.click();
@@ -436,6 +499,7 @@ for (const layout of [
         await refreshAction.click();
         const refreshing = fileActions;
         await expect(refreshing).toHaveAttribute('aria-busy', 'true');
+        await frameSettled(toolbar);
         await fileActions.click();
         await expect(
           page.getByRole('menuitem', {

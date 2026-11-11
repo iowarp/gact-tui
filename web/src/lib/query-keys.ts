@@ -15,18 +15,23 @@ export type ClioQueryNamespace =
   | 'artifact-lineage'
   | 'artifact-mesh'
   | 'artifact-raster'
-  | 'artifact-reviews'
   | 'artifact-table-preview'
   | 'artifact-table-query'
   | 'artifact-text'
   | 'capabilities'
   | 'commands'
+  | 'summon-targets'
   | 'connection-availability'
+  | 'served-endpoint-probe'
   | 'document-content'
   | 'document-editor-health'
+  | 'comment-crop'
+  | 'comment-threads'
+  | 'latex-report'
   | 'document-manifest'
   | 'document-pdf'
   | 'execution-provenance'
+  | 'hdf5-reference-rows'
   | 'hook-inspection'
   | 'language-model-configuration'
   | 'latest-release'
@@ -51,14 +56,17 @@ export type ClioQueryNamespace =
   | 'provider-catalog'
   | 'provider-components'
   | 'provider-component-update'
+  | 'provider-install-jobs'
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
   | 'task-flow'
   | 'science-log'
+  | 'stream-rows'
   | 'study-source'
   | 'flow-task-time'
   | 'flow-task-answer'
+  | 'flow-task-record'
   | 'flow-questions'
   | 'task-child-session'
   | 'transform-record'
@@ -133,9 +141,11 @@ export const queryKeys = {
     ['pending-steers', endpoint, sessionId] as const,
   queuedMessages: (endpoint: string, sessionId: string) =>
     ['queued-messages', endpoint, sessionId] as const,
+  /** Mutation key of a message being added to a session's queue. */
+  queueSend: (endpoint: string, sessionId: string) => ['queue-send', endpoint, sessionId] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
-  executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
-    ['execution-provenance', endpoint, sessionId, provider] as const,
+  executionProvenance: (endpoint: string, sessionId: string, provider: string, limit: number) =>
+    ['execution-provenance', endpoint, sessionId, provider, limit] as const,
   sessionArtifacts: (endpoint: string, sessionId: string) =>
     ['session-artifacts', endpoint, sessionId] as const,
   sessionContext: (endpoint: string, sessionId: string) =>
@@ -172,6 +182,13 @@ export const queryKeys = {
       : (['transcript', endpoint, sessionId] as const),
   workspaceFile: (endpoint: string, workspaceId: string, path: string) =>
     ['workspace-file', endpoint, workspaceId, path] as const,
+  /** Ranged windows of a large text file; nested under the file so its invalidation covers them. */
+  workspaceFileWindow: (
+    endpoint: string,
+    workspaceId: string,
+    path: string,
+    window: 'head' | 'tail',
+  ) => ['workspace-file', endpoint, workspaceId, path, 'window', window] as const,
   workspaceFileBytes: (endpoint: string, workspaceId: string, path: string) =>
     ['workspace-file-bytes', endpoint, workspaceId, path] as const,
   workspaceFiles: (endpoint: string, workspaceId: string) =>

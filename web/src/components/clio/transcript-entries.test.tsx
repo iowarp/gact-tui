@@ -80,13 +80,14 @@ it('keeps reasoning before its public update when a reconnect has no tool activi
   recovered.thinking[0].text = 'Continuing after reconnect.';
   recovered.nextThoughts = ['The results are saved.'];
   render(<ConversationTurn iterations={[recovered]} mode="chain" subagents={{}} />);
-  const thinking = screen.getByText('Continuing after reconnect.');
+  const thinking = screen.getByRole('button', { name: 'Thinking: Continuing after reconnect.' });
   const update = screen.getByText('The results are saved.');
   expect(thinking.compareDocumentPosition(update) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getAllByText('Continuing after reconnect.')).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: /^Thinking:/ })).toHaveLength(1);
+  expect(screen.queryByRole('group', { name: /^Activity:/ })).not.toBeInTheDocument();
 });
 
-it('alternates visible text entries and independently collapsed tool groups', async () => {
+it('alternates visible text entries with their own visible activity rows', async () => {
   const view = render(
     <ConversationTurn
       iterations={[iteration('one', 0), iteration('two', 1)]}
@@ -97,18 +98,21 @@ it('alternates visible text entries and independently collapsed tool groups', as
   expect(await screen.findByText('Public one update.')).toBeVisible();
   expect(await screen.findByText('Public two update.')).toBeVisible();
   expect(view.container.querySelectorAll('[data-slot="transcript-text-entry"]')).toHaveLength(2);
+  // Lanes never fold: each step's calls are rows in the conversation.
+  expect(screen.getAllByRole('group', { name: /^Activity:/ })).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   expect(
     screen
-      .getAllByRole('button', { name: /^Activity:/ })
-      .map((b) => b.getAttribute('aria-expanded')),
+      .getAllByRole('button', { name: /^Thinking:/ })
+      .map((button) => button.getAttribute('aria-expanded')),
   ).toEqual(['false', 'false']);
-  expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
-  fireEvent.click(screen.getAllByRole('button', { name: /^Activity:/ })[0]);
-  expect(await screen.findByText('Private recorded one reasoning.')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Technical details for Read one' })).toBeVisible();
-  expect(
-    screen.queryByRole('button', { name: 'Technical details for Read two' }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText('Private recorded one reasoning.')).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: 'Technical details for Read file' })).toHaveLength(
+    2,
+  );
+  expect(screen.getByText('one.md')).toBeVisible();
+  expect(screen.getByText('two.md')).toBeVisible();
 });
 
 it.each(['codex', 'claude_code', 'vllm'])(
@@ -127,23 +131,26 @@ it.each(['codex', 'claude_code', 'vllm'])(
     render(<ConversationTurn iterations={first.iterations} mode="chain" subagents={{}} />);
     expect(await screen.findAllByText('First public update.')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-    expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Update:/ })).not.toBeInTheDocument();
-    expect(await screen.findByText('Recorded reasoning.', { exact: true })).toBeVisible();
-    expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
+    const thinking = screen.getByRole('button', { name: 'Thinking: Recorded reasoning.' });
+    const lane = screen.getByRole('group', { name: /^Activity:/ });
+    expect(lane).not.toContainElement(thinking);
+    fireEvent.click(thinking);
+    expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+      'Recorded reasoning.',
     );
   },
 );
 
-it('leaves streaming thinking collapsed and retains the reader choice after completion', () => {
+it('opens streaming thinking and folds it once it completes, unless the reader chose', () => {
   const view = render(
     <ConversationTurn iterations={[iteration('one', 0, true)]} mode="chain" subagents={{}} />,
   );
-  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-  expect(screen.getByText('Private recorded one reasoning.')).toBeVisible();
+  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toBeVisible();
   view.rerender(
     <ConversationTurn
       answerStarted
@@ -151,10 +158,6 @@ it('leaves streaming thinking collapsed and retains the reader choice after comp
       mode="chain"
       subagents={{}}
     />,
-  );
-  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
-    'aria-expanded',
-    'true',
   );
   expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
     'aria-expanded',
@@ -162,44 +165,77 @@ it('leaves streaming thinking collapsed and retains the reader choice after comp
   );
 });
 
-it('keeps reasoning-only continuations and their tools in one ordered activity block', () => {
+it('folds a finished run into one counted row that opens to its ordered calls', () => {
   const first = iteration('one', 0);
   const second = { ...iteration('two', 1), nextThoughts: [] };
   const view = render(
     <ConversationTurn iterations={[first, second]} mode="chain" subagents={{}} />,
   );
-  expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(1);
+  expect(screen.getAllByRole('group', { name: /^Activity:/ })).toHaveLength(1);
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   expect(screen.getByText('Public one update.')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
   const timeline = view.container.querySelector('[data-slot="transcript-activity-timeline"]')!;
-  const ordered = Array.from(
-    timeline.querySelectorAll(
-      'button[aria-label^="Thinking:"],button[aria-label^="Technical details"]',
-    ),
-  ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
-  expect(ordered).toEqual([
+  const ordered = (root: ParentNode) =>
+    Array.from(
+      root.querySelectorAll(
+        'button[aria-label^="Thinking:"],button[aria-label^="Technical details"]',
+      ),
+    ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
+  // The first thought reads before its public update; the rest of the run folds into one row.
+  expect(ordered(timeline)).toEqual([]);
+  const run = screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' });
+  expect(timeline).toHaveAttribute('data-run-collapsed');
+  fireEvent.click(run);
+  expect(
+    screen.getByRole('button', { name: 'Collapse Called 2 tools, thought once' }),
+  ).toHaveAttribute('aria-expanded', 'true');
+  expect(ordered(view.container)).toEqual([
     'Thinking: Private recorded one reasoning.',
-    'Technical details for Read one',
+    'Technical details for Read file',
     'Thinking: Private recorded two reasoning.',
-    'Technical details for Read two',
+    'Technical details for Read file',
   ]);
+  expect(ordered(timeline)).toEqual(ordered(view.container).slice(1));
 });
 
-it('retains an opened tool group across live updates and answer arrival', () => {
+it('keeps a live run as flat rows until it settles', () => {
   const view = render(
-    <ConversationTurn iterations={[iteration('one', 0, true)]} mode="chain" subagents={{}} />,
-  );
-  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-  view.rerender(
     <ConversationTurn
-      answerStarted
-      iterations={[iteration('one', 0)]}
+      followLiveActivity
+      iterations={[iteration('one', 0), { ...iteration('two', 1, true), nextThoughts: [] }]}
       mode="chain"
       subagents={{}}
     />,
   );
-  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
+  expect(view.container.querySelector('[data-run-summary]')).toBeNull();
+  view.rerender(
+    <ConversationTurn
+      iterations={[iteration('one', 0), { ...iteration('two', 1), nextThoughts: [] }]}
+      mode="chain"
+      subagents={{}}
+    />,
+  );
+  expect(
+    screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' }),
+  ).toBeInTheDocument();
+});
+
+it('retains an opened tool result across live updates and answer arrival', async () => {
+  const view = render(
+    <ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Show result for Read file' }));
+  expect(await screen.findByText('Complete one result.')).toBeVisible();
+  view.rerender(
+    <ConversationTurn
+      answerStarted
+      iterations={[iteration('one', 0), iteration('two', 1, true)]}
+      mode="chain"
+      subagents={{}}
+    />,
+  );
+  expect(screen.getByText('Complete one result.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Collapse Read file' })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
@@ -208,15 +244,10 @@ it('retains an opened tool group across live updates and answer arrival', () => 
 it('retains reader choices when a virtualized row unmounts and returns', () => {
   const entry = <ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />;
   const view = render(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
-  fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
   fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
   view.rerender(<TranscriptDisclosures>{null}</TranscriptDisclosures>);
-  expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
   view.rerender(<TranscriptDisclosures>{entry}</TranscriptDisclosures>);
-  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
   expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
     'Private recorded one reasoning.',
   );
@@ -225,7 +256,7 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
     'true',
   );
   view.rerender(<TranscriptDisclosures key="another-conversation">{entry}</TranscriptDisclosures>);
-  expect(screen.getByRole('button', { name: /^Activity:/ })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
     'aria-expanded',
     'false',
   );
@@ -234,18 +265,17 @@ it('retains reader choices when a virtualized row unmounts and returns', () => {
 it('opens complete tool arguments and result from the keyboard and restores focus', async () => {
   const user = userEvent.setup();
   render(<ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />);
-  await user.click(screen.getByRole('button', { name: /^Activity:/ }));
-  const trigger = screen.getByRole('button', { name: 'Technical details for Read one' });
+  const trigger = screen.getByRole('button', { name: 'Technical details for Read file' });
   trigger.focus();
   await user.keyboard('{Enter}');
   expect(
-    await screen.findByRole('dialog', { name: 'Read one: Technical details' }),
+    await screen.findByRole('dialog', { name: 'Read file: Technical details' }),
   ).toHaveTextContent('one.md');
   await waitFor(() => expect(screen.getByText('Complete one result.')).toBeVisible());
   await user.keyboard('{Escape}');
   expect(trigger).toHaveFocus();
   expect(
-    screen.queryByRole('dialog', { name: 'Read one: Technical details' }),
+    screen.queryByRole('dialog', { name: 'Read file: Technical details' }),
   ).not.toBeInTheDocument();
 });
 
@@ -274,7 +304,7 @@ it('keeps unavailable invocations at their recorded place', () => {
 
 it('retains explicit false and zero results in technical details', async () => {
   const view = render(<ClioToolInvocation compact tool={{ ...call('one'), output: false }} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read one' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read file' }));
   expect(await screen.findByText('false', { exact: true })).toBeVisible();
   view.rerender(<ClioToolInvocation compact tool={{ ...call('one'), output: 0 }} />);
   expect(await screen.findByText('0', { exact: true })).toBeVisible();
@@ -321,10 +351,9 @@ it('renders the same alternating semantics from a saved assistant message', asyn
     expect(
       updates[index - 1].compareDocumentPosition(updates[index]) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-  expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(2);
-  expect(screen.getByText('2 (1 failed) tool calls')).toBeVisible();
-  for (const trigger of screen.getAllByRole('button', { name: /^Activity:/ })) {
-    expect(trigger).toHaveTextContent('Read files');
-    expect(trigger).not.toHaveTextContent(/completed|failed|\d|·/u);
-  }
+  const lanes = screen.getAllByRole('group', { name: /^Activity:/ });
+  expect(lanes).toHaveLength(2);
+  // The failed call says so at its own row rather than in a message-level count.
+  expect(screen.getByRole('img', { name: 'Failed: Failed' })).toBeInTheDocument();
+  for (const lane of lanes) expect(lane).toHaveAccessibleName('Activity: Read files');
 });

@@ -7,6 +7,7 @@ import {
   artifactSchema,
   a2uiSurfaceSchema,
   pendingInteractionSchema,
+  type Artifact,
   type SessionReviewSnapshot,
 } from '@clio/core/v3';
 import { ConversationMessageRow } from '@/components/clio/conversation-message-row';
@@ -47,6 +48,7 @@ export function ArchiveConversation({
   nodeFolder,
   onOpenSession,
   sessionAvailable,
+  artifactHref,
 }: {
   sessionId: string;
   metadata?: Record<string, unknown>;
@@ -64,6 +66,8 @@ export function ArchiveConversation({
   /** Open an exported session's section; only sessions `sessionAvailable` accepts open. */
   onOpenSession?: (sessionId: string) => void;
   sessionAvailable?: (sessionId: string) => boolean;
+  /** The archived file of an artifact, shown in place of a transport read. */
+  artifactHref?: (artifact: Artifact) => string | undefined;
 }) {
   const markedMessageIds = useMemo(() => messageMarkIds(metadata), [metadata]);
   const [modes, setModes] = useState<Record<string, ConversationDisplayMode>>({});
@@ -127,6 +131,7 @@ export function ArchiveConversation({
           nodeFolder,
           onOpenSession,
           sessionAvailable,
+          artifactHref,
         }}
       >
         <section id={sessionId} className="flex min-w-0 flex-col gap-6">

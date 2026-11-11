@@ -1,110 +1,79 @@
-import type { ContextControls } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useRepository } from '@/hooks/use-repository';
-import { queryKeys } from '@/lib/query-keys';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { ContextControl } from './context-control';
-import {
-  contextDraftError,
-  modelContextDraft,
-  modelEffectiveContext,
-  type ContextDraft,
-} from './context-control-model';
-import { InfoTip } from './info-tip';
+import { Input } from '@/components/ui/input';
+import { formatTokens, modelEffectiveContext } from './context-control-model';
+import { SettingsChoice, SettingsRow } from './settings-row';
+import type { WorkingContextState } from './use-working-context';
 
 /**
- * The working context of a model CLIO binds but does not run: what the agent
- * loop and auto-compaction budget against, bounded by the model's reported
- * maximum. The same context control as a managed deployment; Fit to GPU
- * appears only if the service offers it (it does not for a bound model).
+ * Context size as one setting row: Max or a typed number. The context in force
+ * shows under the label only when it differs from the field. A change applies
+ * from the next turn.
  */
-export function SettingsWorkingContext({
-  providerId,
-  modelId,
-  seed,
-}: {
-  providerId: string;
-  modelId: string;
-  /** The catalog row's `context_controls`, shown until the live control answers. */
-  seed: ContextControls;
-}) {
-  const repository = useRepository();
-  const client = useQueryClient();
-  const { settings } = useConnectionSettings();
-  const queryKey = queryKeys.key('working-context', settings.endpoint, providerId, modelId);
-  const controls = useQuery({
-    queryKey,
-    queryFn: ({ signal }) => repository.workingContext(providerId, modelId, '', signal),
-    placeholderData: seed,
-    staleTime: 30_000,
-  });
-  const current = controls.data ?? seed;
-  const [draft, setDraft] = useState<ContextDraft>();
-  const value = draft ?? modelContextDraft(current);
-  const save = useMutation({
-    mutationFn: (next: ContextDraft) =>
-      repository.saveWorkingContext(providerId, {
-        model: modelId,
-        choice: next.choice === 'number' ? 'number' : 'max',
-        tokens: next.choice === 'number' ? Number(next.tokens) : undefined,
-      }),
-    onSuccess: (saved) => {
-      client.setQueryData(queryKey, saved);
-      setDraft(undefined);
-      void client.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) });
-    },
-  });
-  const invalid = Boolean(
-    contextDraftError(value, { minimum: current.minimum, maximum: current.maximum }),
-  );
+export function WorkingContextRow({ state }: { state: WorkingContextState }) {
+  const { current, value, draft, setDraft, error, saving } = state;
+  const effective = modelEffectiveContext(current);
+  const shown =
+    value.choice === 'number'
+      ? value.tokens
+      : value.choice === 'max' && current.maximum !== undefined
+        ? String(current.maximum)
+        : '';
+  const inForce =
+    effective?.length !== undefined && String(effective.length) !== shown
+      ? effective.length
+      : undefined;
   return (
-    <section
-      aria-label="Working context"
-      className="flex flex-col gap-3"
-      data-slot="working-context"
+    <SettingsRow
+      dirty={Boolean(draft)}
+      error={error}
+      htmlFor="working-context-tokens"
+      info={`How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn.${
+        current.maximum_reason ? ` Max: ${current.maximum_reason}.` : ' Max: the model’s maximum.'
+      }`}
+      note={
+        inForce !== undefined ? (
+          <span data-slot="context-effective" title={effective?.reason}>
+            In force: {formatTokens(inForce)} tokens
+          </span>
+        ) : undefined
+      }
+      title="Context size"
     >
-      <h3 className="flex items-center gap-2 text-sm font-medium">
-        Working context
-        <InfoTip label="About working context">
-          How much of the conversation this model is given each turn. Compaction keeps the
-          conversation within it. A change applies from the next turn.
-        </InfoTip>
-      </h3>
-      <ContextControl
-        defaultDescription="Max: the model’s maximum."
-        disabled={save.isPending}
-        draft={value}
-        effective={modelEffectiveContext(current)}
-        fitToGpu={{
-          available: current.fit_to_gpu.available,
-          strategies: current.fit_to_gpu.strategies,
-          defaultStrategy: current.fit_to_gpu.strategy,
-          value: current.fit_to_gpu.value,
-        }}
-        id="working-context"
-        label="Context length"
-        maximum={current.maximum}
-        maximumReason={current.maximum_reason}
-        minimum={current.minimum}
-        onDraft={setDraft}
+      <SettingsChoice
+        id="working-context-choice"
+        label="Context size choice"
+        onChange={(choice) =>
+          setDraft(
+            choice === 'max'
+              ? { choice: 'max', tokens: '', strategy: '' }
+              : {
+                  choice: 'number',
+                  tokens: value.tokens || String(current.current ?? current.maximum ?? ''),
+                  strategy: '',
+                },
+          )
+        }
+        options={[
+          { value: 'max', label: 'Max', description: 'The model’s maximum' },
+          { value: 'number', label: 'Number', description: 'A typed number of tokens' },
+        ]}
+        value={value.choice === 'number' ? 'number' : 'max'}
       />
-      {save.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {save.error.message}
-        </p>
-      ) : null}
-      <div className="flex justify-end">
-        <Button
-          disabled={!draft || invalid || save.isPending}
-          onClick={() => draft && save.mutate(draft)}
-          size="sm"
-          type="button"
-        >
-          {save.isPending ? 'Saving…' : 'Save'}
-        </Button>
-      </div>
-    </section>
+      <Input
+        aria-invalid={error ? true : undefined}
+        className="h-[1.875rem] w-28 shrink-0 text-[0.78125rem] tabular-nums"
+        disabled={saving}
+        id="working-context-tokens"
+        inputMode="numeric"
+        max={current.maximum}
+        min={current.minimum}
+        onChange={(event) =>
+          setDraft({ choice: 'number', tokens: event.target.value, strategy: '' })
+        }
+        placeholder="Tokens"
+        step={1}
+        type="number"
+        value={shown}
+      />
+    </SettingsRow>
   );
 }

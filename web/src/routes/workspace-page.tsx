@@ -1,34 +1,25 @@
-import type { RunState, WorkspaceReference } from '@clio/core/v3';
-import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import type { AgentEntry, RunState, Workspace, WorkspaceReference } from '@clio/core/v3';
+import type { ObservabilityView } from '@/components/clio/observability-view-storage';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
-import { SessionAttentionTools } from '@/components/clio/session-attention-tools';
-import { ClioComposer } from '@/components/clio/composer';
-import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
-import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
-import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
-import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
-import { ClioWorkbench } from '@/components/clio/workbench';
+import { listState } from '@/lib/list-state';
+import { WorkspaceComposer } from '@/components/clio/workspace-composer';
+import { WorkspaceContextBar } from '@/components/clio/workspace-context-bar';
+import { WorkspaceObservabilityDock } from '@/components/clio/workspace-observability';
+import { WorkspaceTranscript } from '@/components/clio/workspace-transcript';
+import { WorkspaceWorkbench } from '@/components/clio/workspace-workbench';
 import {
-  TranscriptPresenceSurface,
   WorkspaceHydrating,
   WorkspaceUnavailable,
-  WorkspaceTranscriptAlerts,
-  WorkspaceActionAlerts,
 } from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { QuestionAnswerContext } from '@/components/clio/question-answer-context';
 import { useWorkspaceQuestions } from '@/components/clio/use-workspace-questions';
-import {
-  WorkspaceLiveConversation,
-  WorkspaceLiveObservabilityDock,
-  WorkspaceLiveObservabilityView,
-  WorkspaceLiveStatusStrip,
-} from '@/components/clio/workspace-live-projections';
+import { WorkspaceLiveStatusStrip } from '@/components/clio/workspace-live-projections';
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useOpenViewRuntime } from '@/hooks/use-open-view-runtime';
 import { useDashboardReviewOpening } from '@/hooks/use-dashboard-review-opening';
@@ -36,6 +27,7 @@ import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
 import { WorkspaceSessionProviders } from '@/components/clio/workspace-session-providers';
 import { useRepository } from '@/hooks/use-repository';
 import { useAttentionMode } from '@/hooks/use-attention-mode';
+import { useComposerReferenceNavigation } from '@/hooks/use-composer-reference-navigation';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -43,6 +35,7 @@ import { useScienceLog } from '@/hooks/use-science-log';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
@@ -54,19 +47,28 @@ import { useContextTargetSelection } from '@/hooks/use-context-target-selection'
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { responseReadFailure } from '@/components/clio/response-read-failure';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
-import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
-import { canForkSession, isManagedChildSession } from '@/lib/session-state';
-import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
-import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
+import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
+import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 
+const NO_AGENTS: readonly AgentEntry[] = [];
+const NO_WORKSPACES: readonly Workspace[] = [];
+
+/**
+ * One session in its workspace: loads the session's data and runtimes, then
+ * composes the shell from parts that each own one region (navigation, context
+ * bar, observability dock, workbench, transcript and message box).
+ */
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
   const showcaseSurfaceRef = useRef<HTMLElement>(null);
   const [searchParams] = useSearchParams();
   const { settings } = useConnectionSettings();
-  const navigate = useNavigate();
+  const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const a2uiCatalog = useA2uiCatalogRegistry(sessionId);
   const composerDraft = useComposerDraft(sessionId, { persist: true, endpoint: settings.endpoint });
@@ -83,56 +85,23 @@ export function WorkspacePage() {
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
-  const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
+  const sessionCommands = useSessionCommands(sessionId, workspaceId);
+  const data = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const {
-    agentLabel,
-    activeEffort,
-    configuredEffort,
-    activeModel,
-    activeProvider,
-    attentionInteractions,
-    installedAgents,
     allSessions,
-    artifacts,
-    artifactEvidence,
+    attentionInteractions,
     capabilities,
-    context,
-    contextObservability,
-    contextTargetOptions,
     entities,
-    executionProvenance,
-    familyObservability,
+    installedAgents,
     interactions,
-    interactionCapabilityError,
-    interactionsError,
-    interactionRootSessionId,
     interactionSessionIds,
-    interactionSurfaces,
-    refetchInteractionSurfaces,
-    modelOptions,
-    modelCatalogStatus,
-    parentSession,
-    providerCatalog,
-    processes,
-    workPages,
-    runs,
     session,
     sessionLookupPending,
-    sessionArtifacts,
-    sessionContext,
-    sessionObservability,
     sessions,
-    streamError,
-    subagents,
-    tasks,
-    tools,
     transcript,
     transcriptError,
-    supportsUnifiedInteractions,
-    workspaceFiles,
-    workspaceResources,
     workspaces,
-  } = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
+  } = data;
   const navigationSessions = useMemo(
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
@@ -152,6 +121,7 @@ export function WorkspacePage() {
     [interactionSessionIds, interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
+  const transcriptDamaged = workspaceRouteState.conversationDamaged(transcript.error);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
     (started: boolean) =>
@@ -163,79 +133,53 @@ export function WorkspacePage() {
   const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // Hydration can lag messageCount by a render. Check both to avoid remounting
   // the welcome composer and losing drafts or attachments during navigation.
-  const showConversationWelcome =
+  const welcomeCandidate =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
-    !transcript.isFetching &&
     !transcriptError &&
     !conversationStarted;
+  // Read at render for the first fetch; the leaf subscription catches later flips
+  // without re-rendering the page for a populated session's background refetches.
+  const transcriptFetching = useQueryFetching(data.transcriptKey, welcomeCandidate);
+  const showConversationWelcome = welcomeCandidate && !transcript.isFetching && !transcriptFetching;
 
-  const {
-    activeRequest: workbenchRequest,
-    openArtifact,
-    openDiff,
-    openParentSession,
-    openSubagent,
-    openFlow,
-    openWorkspaceFile,
-    conversationNavigation,
-    openWorkspaceResource,
-    revealWorkbench,
-    revealSurfaceOwner,
-  } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
-  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, () =>
-    revealWorkbench({ kind: 'session' }),
-  );
-  const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
-  const inStudy = useScienceLog(sessionId).data?.in_study;
-  const openAgent = useCallback(
-    () => revealWorkbench({ kind: 'resources', section: 'agent' }),
+  const workbench = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const { openArtifact, openFlow, openSubagent, revealWorkbench } = workbench;
+  const revealSessionView = useCallback(
+    (view?: ObservabilityView) => revealWorkbench({ kind: 'session', view }),
     [revealWorkbench],
   );
-  useDesktopTitleSync({
-    agent: agentLabel,
-    onOpenAgent: openAgent,
-    session: session?.title,
-    workspace: activeWorkspace?.display_name,
-  });
+  const { openObservability, requestedView } = useObservabilityNavigation(
+    sessionId,
+    revealSessionView,
+  );
+  const openTasks = useCallback(() => openObservability(), [openObservability]);
+  const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
+  const inStudy = useScienceLog(sessionId).data?.in_study;
+  const openWork = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'work' }),
+    [revealWorkbench],
+  );
   useRequestedFlow(searchParams.get('flow'), openFlow);
-  const workspaceResourceEntities = useWorkspaceResourceMap(workspaceResources.data);
-  const openComposerReference = useCallback(
-    async (reference: WorkspaceReference) => {
-      await navigateComposerReferenceOrToast({
-        artifacts,
-        diffs: sessionObservability.diffs.data ?? [],
-        openArtifact,
-        openDiff,
-        openExternal: openExternalUrlOrToast,
-        openSession: (targetWorkspaceId, targetSessionId) =>
-          void navigate(
-            `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
-          ),
-        openWorkspaceFile,
-        openWorkspaceResource,
-        reference,
-        repository,
-        resources: workspaceResourceEntities,
-        revealSession: () => revealWorkbench({ kind: 'session' }),
-        sessionId,
-        workspaceId,
-      });
-    },
-    [
-      artifacts,
-      navigate,
-      openArtifact,
-      openDiff,
-      openWorkspaceFile,
-      openWorkspaceResource,
-      repository,
-      revealWorkbench,
-      sessionId,
-      sessionObservability.diffs.data,
-      workspaceId,
-      workspaceResourceEntities,
-    ],
+  const workspaceResourceEntities = useWorkspaceResourceMap(data.workspaceResources.data);
+  const openComposerReference = useComposerReferenceNavigation({
+    artifacts: data.artifacts,
+    diffs: data.sessionObservability.diffs.data,
+    navigation: workbench,
+    resources: workspaceResourceEntities,
+    sessionId,
+    workspaceId,
+  });
+  // Stable, so a page render does not re-render every memoized transcript row.
+  // The navigation closes over artifacts and diffs that change while a reply
+  // streams; read the latest at click time instead of re-creating the callback.
+  const openComposerReferenceRef = useRef(openComposerReference);
+  useLayoutEffect(() => {
+    openComposerReferenceRef.current = openComposerReference;
+  }, [openComposerReference]);
+  const openReference = useCallback(
+    (reference: WorkspaceReference) => void openComposerReferenceRef.current(reference),
+    [],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
@@ -247,57 +191,134 @@ export function WorkspacePage() {
     repository,
   );
 
-  const {
-    actionCard,
-    cancel,
-    cancelPendingSteer,
-    deleteQueuedMessage,
-    pendingSteers,
-    promoteQueuedMessage,
-    prepareFiles,
-    discardFiles,
-    queuedMessages,
-    reorderQueuedMessages,
-    respondInteraction,
-    retry,
-    send,
-    updateQueuedMessage,
-    updateSessionBehavior,
-  } = useSessionMutations({
+  const mutations = useSessionMutations({
     openSubagent,
-    activeModel,
-    activeProvider,
+    activeModel: data.activeModel,
+    activeProvider: data.activeProvider,
     session,
     sessionId,
     workspaceId,
-    interactionRootSessionId,
-    supportsUnifiedInteractions,
+    interactionRootSessionId: data.interactionRootSessionId,
+    supportsUnifiedInteractions: data.supportsUnifiedInteractions,
   });
+  const hold = useSpotterQuarantine(session, mutations.actionCard.mutateAsync);
   const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel } =
     useWorkspaceQuestions({
       interactions,
-      tools,
+      tools: data.tools,
       messages: transcript.data?.messages ?? [],
       sessionId,
       endpoint: settings.endpoint,
       focusComposer: focusComposerForAnswer,
-      respondInteraction: respondInteraction.mutateAsync,
-      send: send.mutateAsync,
-      revealSurfaceOwner,
+      respondInteraction: mutations.respondInteraction.mutateAsync,
+      send: mutations.sendMessage,
+      revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
-        capabilityError: interactionCapabilityError ?? undefined,
-        error: interactionsError ?? undefined,
-        onRefetchSurfaces: refetchInteractionSurfaces,
+        artifacts: entities.artifacts,
+        onOpenArtifact: openArtifact,
+        onFocusComposer: focusComposerForAnswer,
+        capabilityError: responseReadFailure(
+          data.interactionCapabilityError ?? undefined,
+          connection,
+        ),
+        error: responseReadFailure(data.interactionsError ?? undefined, connection),
+        onRefetchSurfaces: data.refetchInteractionSurfaces,
+        onOpenScript: (interaction, callId) =>
+          revealWorkbench({
+            kind: 'tool-call',
+            callId,
+            sessionId: interaction.owner_session_id,
+            label: 'Script',
+          }),
         ownerLabels: interactionOwnerLabels,
-        surfaces: interactionSurfaces,
+        surfaces: data.interactionSurfaces,
         viewedSessionId: sessionId,
       },
     });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, sessionId);
+  const work = { runs: data.runs, tasks: data.tasks, tools: data.tools, processes: data.processes };
+  const openWorkspaceFiles = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'files' }),
+    [revealWorkbench],
+  );
+  const {
+    data: workspaceList,
+    isLoading: workspacesLoading,
+    isError: workspacesFailed,
+    error: workspacesError,
+    refetch: refetchWorkspaces,
+  } = workspaces;
+  const workspacesState = useMemo(
+    () =>
+      listState({
+        data: workspaceList,
+        isLoading: workspacesLoading,
+        isError: workspacesFailed,
+        error: workspacesError,
+        refetch: refetchWorkspaces,
+      }),
+    [refetchWorkspaces, workspaceList, workspacesError, workspacesFailed, workspacesLoading],
+  );
+  const agentList = installedAgents.data ?? NO_AGENTS;
+  // Same element while its inputs hold, so a streamed reply's page render
+  // does not re-render the whole left bar.
+  const sideNavigation = useMemo(
+    () => (
+      <ClioNavigation
+        activeSessionId={sessionId}
+        activeWorkspaceId={workspaceId}
+        actions={navigationActions}
+        attentions={sessionAttentions}
+        agents={agentList}
+        endpoint={settings.endpoint}
+        onOpenWorkspaceFiles={openWorkspaceFiles}
+        sessions={navigationSessions}
+        workspaces={workspaceList ?? NO_WORKSPACES}
+        workspacesState={workspacesState}
+      />
+    ),
+    [
+      agentList,
+      navigationActions,
+      navigationSessions,
+      openWorkspaceFiles,
+      sessionAttentions,
+      sessionId,
+      settings.endpoint,
+      workspaceId,
+      workspaceList,
+      workspacesState,
+    ],
+  );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
+  // Loading and unavailable keep the hydrated tree's providers and shell key, so
+  // the bars stay and finishing hydration updates the shell in place instead of
+  // remounting the sidebar (which would close any menu opened meanwhile).
+  const shellAround = (contextTitle: string, body: ReactNode, canvasLabel: string) => (
+    <WorkspaceSessionProviders
+      workspaceId={workspaceId}
+      sessionId={sessionId}
+      attention={attention.availability}
+    >
+      <QuestionAnswerContext.Provider value={questionAnswering.context}>
+        <ClioCommandMenu onOpenResource={revealWorkbench} />
+        <ClioAppShell
+          key="shell"
+          navigation={sideNavigation}
+          contextBar={<div className="min-w-0 truncate text-sm font-medium">{contextTitle}</div>}
+          statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
+          workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
+        >
+          {body}
+        </ClioAppShell>
+      </QuestionAnswerContext.Provider>
+    </WorkspaceSessionProviders>
+  );
+  const missingError = queryError ?? undefined;
   if (
     !session &&
+    !missingError &&
     (capabilities.isPending ||
       workspaces.isPending ||
       sessions.isPending ||
@@ -305,45 +326,21 @@ export function WorkspacePage() {
       sessionLookupPending)
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
-    return (
-      <>
-        <ClioCommandMenu onOpenResource={revealWorkbench} />
-        <ClioAppShell
-          navigation={
-            <ClioNavigation
-              activeSessionId={sessionId}
-              activeWorkspaceId={workspaceId}
-              actions={navigationActions}
-              attentions={sessionAttentions}
-              agents={installedAgents.data ?? []}
-              endpoint={settings.endpoint}
-              onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-              sessions={navigationSessions}
-              workspaces={workspaces.data ?? []}
-            />
-          }
-          contextBar={
-            <div className="min-w-0 truncate text-sm font-medium">
-              {rememberedSession?.title ?? 'Opening conversation'}
-            </div>
-          }
-          statusStrip={
-            <WorkspaceLiveStatusStrip
-              work={{ runs, tasks, tools, processes }}
-              sessionId={sessionId}
-            />
-          }
-          workbench={<div aria-label="Workspace canvas loading" className="h-full bg-background" />}
-        >
-          <WorkspaceHydrating />
-        </ClioAppShell>
-      </>
+    return shellAround(
+      rememberedSession?.title ?? 'Opening conversation',
+      <WorkspaceHydrating />,
+      'Workspace canvas loading',
     );
   }
-  if (queryError && !session) {
-    return (
+  if (!session) {
+    return shellAround(
+      'Conversation unavailable',
       <WorkspaceUnavailable
-        error={queryError.message}
+        back={{
+          label: activeWorkspace ? `Back to ${workspaceName(activeWorkspace)}` : 'Back to Conversations',
+          to: newConversationRoute(activeWorkspace ? workspaceId : DEFAULT_WORKSPACE_ID),
+        }}
+        error={missingError}
         onRetry={() => {
           void Promise.all([
             capabilities.refetch(),
@@ -353,140 +350,40 @@ export function WorkspacePage() {
             transcript.refetch(),
           ]);
         }}
-      />
-    );
-  }
-  if (!session) {
-    return (
-      <WorkspaceUnavailable
-        error="This agent service did not return the requested session."
-        onRetry={() => {
-          void Promise.all([workspaces.refetch(), sessions.refetch(), allSessions.refetch()]);
-        }}
-      />
+        subject="conversation"
+      />,
+      'Workspace canvas',
     );
   }
 
   const state: RunState =
-    session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
-  const { pendingMessageIds, cancellablePendingMessageIds } =
-    workspaceRouteState.pendingSteerMessageIds(pendingSteers.data ?? []);
+    session.state === 'running' ? 'running' : mutations.send.isPending ? 'queued' : session.state;
   const renderComposer = (variant: 'docked' | 'welcome') => (
-    <m.div
-      className={
-        variant === 'welcome'
-          ? 'w-full'
-          : 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
-      }
-      key={variant}
-      layout
-      layoutId={`session-composer:${sessionId}`}
-    >
-      {isManagedChildSession(session) ? (
-        <ClioChildSessionFooter
-          session={session}
-          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-          onReturnToParent={() => openParentSession(session)}
-          parentTitle={parentSession?.title ?? 'Parent conversation'}
-          pendingInteractions={pendingInteractionsPanel}
-          state={state}
-          variant={variant}
-        />
-      ) : (
-        <ClioComposer
-          sessionId={sessionId}
-          catalogPreparing={a2uiCatalog.isLoading}
-          attachments={workspaceRouteState.canUploadWorkspaceResources(
-            capabilities.data?.capabilities,
-          )}
-          contextReferences={workspaceRouteState.canUseContextReferences(
-            capabilities.data?.capabilities,
-          )}
-          commands={commands}
-          confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
-          disabled={!session || send.isPending || cancel.isPending || isPending}
-          effort={activeEffort}
-          configuredEffort={configuredEffort}
-          executionMode={
-            session.mode === 'plan'
-              ? 'plan'
-              : session.mode === 'architect'
-                ? 'deep_research'
-                : 'execute'
-          }
-          focusRequestKey={composerFocusKey}
-          // Keyed on the session alone: provider/model/effort resolving after
-          // navigation used to remount this whole subtree, silently dropping
-          // in-progress attachments and other composer-local state. ClioComposer
-          // reconciles those props into its own selection state (see
-          // `modelSelection`/`behaviorSelection`) instead of needing a remount.
-          key={`composer:${sessionId}`}
-          model={activeModel}
-          modelCatalogStatus={modelCatalogStatus}
-          modelOptions={modelOptions}
-          pendingInteractions={pendingInteractionsPanel}
-          onCommand={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await run(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
-          onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
-          onBehaviorChange={async (behavior) => {
-            await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
-          }}
-          onPrepareFiles={prepareFiles}
-          onDiscardFiles={discardFiles}
-          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-          onSubmit={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await questionAnswering.submit(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
-          onStop={() => cancel.mutate()}
-          onOpenResource={openWorkspaceResource}
-          onOpenReference={(reference) => void openComposerReference(reference)}
-          onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
-          onPromoteQueuedMessage={(message, delivery) =>
-            promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
-          }
-          onReorderQueuedMessages={(messages) =>
-            reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
-          }
-          onUpdateQueuedMessage={(message, text) =>
-            updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
-          }
-          annotations={composerDraft.annotations}
-          onAnnotationsChange={composerDraft.onAnnotationsChange}
-          onReferencesChange={composerDraft.onReferencesChange}
-          onValueChange={composerDraft.onValueChange}
-          provider={activeProvider}
-          queuedMessages={queuedMessages.data ?? []}
-          queuePaused={session?.metadata?.composer_queue_paused === true}
-          resources={workspaceResources.data ?? []}
-          queueBusy={
-            deleteQueuedMessage.isPending ||
-            promoteQueuedMessage.isPending ||
-            reorderQueuedMessages.isPending ||
-            updateQueuedMessage.isPending
-          }
-          state={state}
-          references={composerDraft.references}
-          value={composerDraft.value}
-          variant={variant}
-          workspaceId={workspaceId}
-        />
-      )}
-    </m.div>
+    <WorkspaceComposer
+      variant={variant}
+      session={session}
+      sessionId={sessionId}
+      workspaceId={workspaceId}
+      state={state}
+      data={data}
+      mutations={mutations}
+      commands={sessionCommands}
+      draft={composerDraft}
+      conversation={{
+        welcome: showConversationWelcome,
+        messageCount,
+        setStarted: setConversationStarted,
+      }}
+      hold={hold}
+      catalogPreparing={a2uiCatalog.isLoading}
+      focusRequestKey={composerFocusKey}
+      pendingInteractions={pendingInteractionsPanel}
+      submit={questionAnswering.submit}
+      onHeightChange={setDockedComposerHeight}
+      onReturnToParent={() => workbench.openParentSession(session)}
+      onOpenResource={workbench.openWorkspaceResource}
+      onOpenReference={openReference}
+    />
   );
   return (
     <WorkspaceSessionProviders
@@ -499,299 +396,89 @@ export function WorkspacePage() {
         <ClioMoreDetails
           composerDraft={composerDraft}
           focusComposer={() => setComposerFocusKey((key) => key + 1)}
-          model={activeModel}
-          provider={activeProvider}
+          model={data.activeModel}
+          provider={data.activeProvider}
           sessionId={sessionId}
           workspaceId={workspaceId}
         />
         <ClioAppShell
+          key="shell"
           toolbarActions={
-            <WorkspaceLiveObservabilityDock
-              {...familyObservability}
-              toolbar
-              surfaceRef={showcaseSurfaceRef}
-              workspaceId={workspaceId}
-              artifacts={artifacts}
-              context={context}
-              contextFiles={sessionObservability.contextFiles.data ?? []}
-              contextFrames={sessionObservability.contextFrames.data ?? []}
-              diffs={sessionObservability.diffs.data ?? []}
-              executionProvenance={executionProvenance.execution.data}
-              interactions={interactions}
-              onOpenCanvas={openObservability}
-              onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
-              onOpenArtifact={openArtifact}
-              onOpenDiff={openDiff}
-              onOpenFile={openWorkspaceFile}
-              onOpenResource={openWorkspaceResource}
-              onOpenSubagent={openSubagent}
-              onOpenFlow={openFlow}
-              onProvenanceProviderChange={executionProvenance.setProvider}
-              processes={processes}
-              workPages={workPages}
-              resources={workspaceResources.data ?? []}
-              provenanceDegradation={executionProvenance.degradation}
-              provenancePending={
-                executionProvenance.providers.isPending || executionProvenance.execution.isPending
-              }
-              provenanceProvider={executionProvenance.provider}
-              provenanceProviders={executionProvenance.providers.data?.providers}
-              artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-              runs={runs}
+            <WorkspaceObservabilityDock
+              data={data}
+              navigation={workbench}
               sessionId={sessionId}
+              workspaceId={workspaceId}
               sessionState={state}
-              subagents={subagents}
-              tasks={tasks}
-              tools={tools}
+              surfaceRef={showcaseSurfaceRef}
+              onOpenCanvas={openObservability}
+              onOpenWork={openWork}
             />
           }
-          navigation={
-            <ClioNavigation
-              activeSessionId={sessionId}
-              activeWorkspaceId={workspaceId}
-              actions={navigationActions}
-              attentions={sessionAttentions}
-              agents={installedAgents.data ?? []}
-              endpoint={settings.endpoint}
-              onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-              sessions={navigationSessions}
-              workspaces={workspaces.data ?? []}
-            />
-          }
+          navigation={sideNavigation}
           contextBar={
-            <ClioSessionContextBar
-              agentLabel={agentLabel}
-              management={
-                session
-                  ? { session, actions: navigationActions, endpoint: settings.endpoint }
-                  : undefined
-              }
-              actionsPending={
-                sessionHistory.fork.isPending ||
-                sessionHistory.compact.isPending ||
-                sessionHistory.undo.isPending ||
-                sessionHistory.rewind.isPending ||
-                sessionHistory.share.isPending
-              }
-              onCompact={async () => {
-                await sessionHistory.compact.mutateAsync();
-              }}
-              onFork={async () => {
-                await sessionHistory.fork.mutateAsync(undefined);
-              }}
-              onOpenAgent={openAgent}
-              onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
-              onReturnToParent={(parent) =>
-                navigate(
-                  `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,
-                )
-              }
-              onShare={async (ttlSeconds) =>
-                (await sessionHistory.share.mutateAsync(ttlSeconds)).url
-              }
-              onUndo={async () => {
-                await sessionHistory.undo.mutateAsync();
-              }}
-              parentSession={parentSession}
+            <WorkspaceContextBar
               session={session}
+              parentSession={data.parentSession}
+              workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
+              endpoint={settings.endpoint}
+              history={sessionHistory}
+              navigationActions={navigationActions}
+              terminalActions={terminalActions}
+              onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
             />
           }
           workbench={
-            <ClioWorkbench
-              artifacts={artifacts}
-              artifactsError={sessionArtifacts.error?.message}
-              artifactsPending={sessionArtifacts.isPending}
-              artifactsTruncated={sessionArtifacts.data?.truncated}
-              diffActionError={diffActions.undo.error?.message}
-              diffActionPending={diffActions.undo.isPending}
-              diffs={sessionObservability.diffs.data ?? []}
-              files={workspaceFiles.data?.entries ?? []}
-              filesError={workspaceFiles.error?.message}
-              filesFetching={workspaceFiles.isFetching}
-              filesPending={workspaceFiles.isPending}
-              filesTruncated={workspaceFiles.data?.truncated ?? false}
-              filesNextOffset={workspaceFiles.data?.next_offset}
-              onFilesViewActiveChange={setFilesViewActive}
-              onRefreshFiles={() => void workspaceFiles.refetch()}
-              resources={workspaceResources.data ?? []}
-              resourcesError={workspaceResources.error?.message}
-              resourcesPending={workspaceResources.isPending}
-              onOpenTerminal={terminalActions.onOpenTerminal}
-              onOpenSubagent={openSubagent}
-              subagents={subagents}
-              finishedWorkHidden={Boolean(workPages?.hasMore || workPages?.history)}
-              inStudy={inStudy}
-              onUndoDiff={(targetSessionId, targetWorkspaceId, changeId) =>
-                diffActions.undo.mutateAsync({
-                  sessionId: targetSessionId,
-                  workspaceId: targetWorkspaceId,
-                  changeId,
-                })
-              }
-              key={settings.endpoint}
-              requestedOpen={workbenchRequest}
+            <WorkspaceWorkbench
+              data={data}
+              navigation={workbench}
               sessionId={sessionId}
-              sessionView={
-                <WorkspaceLiveObservabilityView
-                  {...familyObservability}
-                  requestedView={requestedView}
-                  artifacts={artifactEvidence}
-                  artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-                  context={context}
-                  contextError={sessionContext.state.error?.message}
-                  contextFiles={contextObservability.contextFiles.data ?? []}
-                  contextFilesError={contextObservability.contextFiles.error?.message}
-                  contextFilesPending={contextObservability.contextFiles.isPending}
-                  contextFrames={contextObservability.contextFrames.data ?? []}
-                  contextFramesError={contextObservability.contextFrames.error?.message}
-                  contextFramesPending={contextObservability.contextFrames.isPending}
-                  contextPreferencesPending={sessionContext.preferences.isPending}
-                  contextTargets={contextTargetOptions}
-                  compactContextPending={sessionContext.compactPending}
-                  diffs={sessionObservability.diffs.data ?? []}
-                  diffsError={sessionObservability.diffs.error?.message}
-                  diffsPending={sessionObservability.diffs.isPending}
-                  processesError={sessionObservability.processes.error?.message}
-                  processesPending={sessionObservability.processes.isPending}
-                  executionProvenance={executionProvenance.execution.data}
-                  interactions={interactions}
-                  onOpenArtifact={openArtifact}
-                  onOpenDiff={openDiff}
-                  onOpenFile={openWorkspaceFile}
-                  onOpenResource={openWorkspaceResource}
-                  onOpenSubagent={openSubagent}
-                  onOpenFlow={openFlow}
-                  onCompactContext={() => sessionContext.compact.mutateAsync()}
-                  onContextTargetChange={setContextTargetId}
-                  onProvenanceProviderChange={executionProvenance.setProvider}
-                  onUpdateContextPreferences={(input) =>
-                    sessionContext.preferences.mutateAsync(input)
-                  }
-                  processes={processes}
-                  workPages={workPages}
-                  resources={workspaceResources.data ?? []}
-                  provenanceDegradation={executionProvenance.degradation}
-                  provenancePending={
-                    executionProvenance.providers.isPending ||
-                    executionProvenance.execution.isPending
-                  }
-                  provenanceProvider={executionProvenance.provider}
-                  provenanceProviders={executionProvenance.providers.data?.providers}
-                  runs={runs}
-                  sessionId={sessionId}
-                  subagents={subagents}
-                  selectedContextTargetId={contextTargetId}
-                  tasks={tasks}
-                  tools={tools}
-                />
-              }
               workspaceId={workspaceId}
+              endpoint={settings.endpoint}
+              inStudy={inStudy}
+              diffActions={diffActions}
+              terminalActions={terminalActions}
+              requestedView={requestedView}
+              contextTargetId={contextTargetId}
+              onContextTargetChange={setContextTargetId}
+              onFilesViewActiveChange={setFilesViewActive}
+              workspaceFolders={activeWorkspace?.source_folders}
             />
           }
-          workbenchRevealKey={workbenchRequest?.key}
+          workbenchReveal={workbench.requests}
           statusStrip={
             <WorkspaceLiveStatusStrip
-              work={{ runs, tasks, tools, processes }}
-              onInspectTasks={() => openObservability('evidence')}
-              onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
+              work={work}
+              onInspectTasks={() => openObservability()}
+              onOpenWork={openWork}
               sessionId={sessionId}
-              sessionState={session?.state}
+              sessionState={session.state}
             />
           }
         >
-          <section
-            ref={showcaseSurfaceRef}
-            data-slot="session-transcript"
-            className="relative flex h-full min-w-0 flex-col bg-background"
-          >
-            <WorkspaceTranscriptAlerts
-              sessionFailed={
-                session?.state === 'failed' &&
-                transcript.data?.messages.at(-1)?.stop_reason !== 'error'
-              }
-              streamError={streamError}
-              transcriptError={messageCount > 0 ? transcriptError : undefined}
-            />
-            <SessionAttentionTools attention={attention} sessionId={sessionId} />
-            <LayoutGroup id={`session-layout:${sessionId}`}>
-              <AnimatePresence initial={false} mode="popLayout">
-                {showConversationWelcome ? (
-                  <TranscriptPresenceSurface
-                    className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6"
-                    key="welcome"
-                  >
-                    <div className="flex min-h-full items-center">
-                      <ClioConversationWelcome
-                        disabled={!session || send.isPending || cancel.isPending || isPending}
-                        onSelectPrompt={(prompt) => {
-                          composerDraft.onValueChange(prompt);
-                          setComposerFocusKey((current) => current + 1);
-                        }}
-                      >
-                        {renderComposer('welcome')}
-                      </ClioConversationWelcome>
-                    </div>
-                  </TranscriptPresenceSurface>
-                ) : (
-                  <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
-                    <WorkspaceLiveConversation
-                      agentName={agentLabel}
-                      processes={processes}
-                      artifacts={artifacts}
-                      attentionData={attention.heat}
-                      bottomInset={dockedComposerHeight}
-                      error={transcriptError}
-                      hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
-                      loading={transcript.isFetching}
-                      onActionCardAction={actionCard.mutateAsync}
-                      {...conversationNavigation}
-                      onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
-                      onOpenReference={(reference) => void openComposerReference(reference)}
-                      onInteractionResponse={handleInteractionResponse}
-                      forkingMessageId={
-                        sessionHistory.fork.isPending && sessionHistory.fork.variables
-                          ? sessionHistory.fork.variables
-                          : undefined
-                      }
-                      onForkFromMessage={
-                        canForkSession(session) ? sessionHistory.fork.mutateAsync : undefined
-                      }
-                      onOpenSubagent={openSubagent}
-                      onOpenFlow={openFlow}
-                      onRewindToMessage={sessionHistory.rewind.mutateAsync}
-                      onRetryMessage={retry.mutateAsync}
-                      cancellablePendingMessageIds={cancellablePendingMessageIds}
-                      cancellingPendingMessageId={
-                        cancelPendingSteer.isPending ? cancelPendingSteer.variables : undefined
-                      }
-                      onCancelPendingSteer={cancelPendingSteer.mutateAsync}
-                      pendingMessageIds={pendingMessageIds}
-                      rewindingMessageId={
-                        sessionHistory.rewind.isPending
-                          ? sessionHistory.rewind.variables
-                          : undefined
-                      }
-                      retryingMessageId={retry.isPending ? retry.variables : undefined}
-                      resources={workspaceResourceEntities}
-                      mcpAppRepository={repository}
-                      interactions={interactions}
-                      sessionId={sessionId}
-                      subagents={subagents}
-                      sessionState={state}
-                      workspaceId={workspaceId}
-                    />
-                  </TranscriptPresenceSurface>
-                )}
-              </AnimatePresence>
-              <WorkspaceActionAlerts
-                actionError={actionCard.error?.message}
-                retryError={retry.error?.message}
-              />
-              <AnimatePresence initial={false}>
-                {showConversationWelcome ? null : renderComposer('docked')}
-              </AnimatePresence>
-            </LayoutGroup>
-          </section>
+          <WorkspaceTranscript
+            surfaceRef={showcaseSurfaceRef}
+            session={session}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+            state={state}
+            data={data}
+            mutations={mutations}
+            history={sessionHistory}
+            navigation={workbench}
+            attention={attention}
+            resources={workspaceResourceEntities}
+            repository={repository}
+            messageCount={messageCount}
+            damaged={transcriptDamaged}
+            navigationActions={navigationActions}
+            showWelcome={showConversationWelcome}
+            dockedComposerHeight={dockedComposerHeight}
+            composer={renderComposer}
+            onOpenReference={openReference}
+            onOpenTasks={openTasks}
+            onInteractionResponse={handleInteractionResponse}
+          />
         </ClioAppShell>
       </QuestionAnswerContext.Provider>
     </WorkspaceSessionProviders>

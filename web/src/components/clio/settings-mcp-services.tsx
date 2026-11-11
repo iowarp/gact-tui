@@ -1,13 +1,13 @@
-import type { McpServerDefinition, SavedMcpService, ToolCatalogItem } from '@clio/core/v3';
-import type { McpServiceEntry } from '@/lib/mcp-service-entries';
-import { BlocksIcon, ChevronRightIcon } from 'lucide-react';
-import { useState } from 'react';
-import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { truncate } from '@/lib/format';
-import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import type { McpServerDefinition, SavedMcpService } from '@clio/core/v3';
+import {
+  FolderIcon,
+  GlobeIcon,
+  ServerIcon,
+  TerminalIcon,
+  UnplugIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,363 +15,296 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { mcpServerPreparation, reconnectableNamespace } from '@/lib/mcp-preparation';
-import { McpServerPreparationNote } from './mcp-server-preparation';
+import { DeleteIcon, InfoIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import type { McpServiceEntry } from '@/lib/mcp-service-entries';
+import {
+  serviceEntryTitle,
+  serviceKind,
+  serviceOrigin,
+  serviceStatus,
+  serviceTarget,
+  type McpServiceKind,
+} from '@/lib/mcp-service-presentation';
+import { reconnectableNamespace } from '@/lib/mcp-preparation';
+import { handleRowMenuKey, ROW_MENU_OPEN_VISIBLE } from '@/lib/settings-row-keys';
+import { cn } from '@/lib/utils';
+import { IconButton } from './primitives/icon-button';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { ShortcutKeys } from './primitives/key-chip';
+import { MenuRow } from './primitives/menu-row';
+import { RowConfirm } from './primitives/row-confirm';
+import { StatusIndicator } from './primitives/status-indicator';
+import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
-import { ClioStatus, type ClioStatusValue } from './status';
-import { humanizeToolName } from './tool-presentation';
 
-/**
- * Every MCP service a conversation in the chosen workspace gets — built in, from the
- * agent's plugins, and the person's own — each listing the tools it brings, open.
- */
-export function McpServiceList({
-  entries,
-  reconnecting,
-  onDetails,
-  onReconnect,
-  onReconnectSession,
-  onDisconnect,
-  onRemoveSaved,
-  defaultOpen = true,
-  showConnection = true,
-}: {
-  entries: McpServiceEntry[];
-  /** The id of the server whose reconnect is in flight. */
-  reconnecting?: string;
-  onDetails?: (server: McpServerDefinition) => void;
-  onReconnect: (server: McpServerDefinition) => void;
-  /** Prepares a conversation's own server again (see `reconnectableNamespace`). */
-  onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
-  onDisconnect: (server: McpServerDefinition) => void;
-  onRemoveSaved: (service: SavedMcpService) => void;
-  defaultOpen?: boolean;
-  showConnection?: boolean;
-}) {
-  return (
-    <ul
-      aria-label="MCP services"
-      className="min-w-0 divide-y divide-border/70 border-y border-border/70"
-    >
-      {entries.map((entry) => (
-        <McpServiceItem
-          entry={entry}
-          key={entry.key}
-          onDetails={onDetails}
-          onDisconnect={onDisconnect}
-          onReconnect={onReconnect}
-          onReconnectSession={onReconnectSession}
-          onRemoveSaved={onRemoveSaved}
-          reconnecting={Boolean(entry.server && reconnecting === entry.server.id)}
-          defaultOpen={defaultOpen}
-          showConnection={showConnection}
-        />
-      ))}
-    </ul>
-  );
+const KIND_ICONS: Record<McpServiceKind, LucideIcon> = {
+  files: FolderIcon,
+  commands: TerminalIcon,
+  plugin: ServerIcon,
+  remote: GlobeIcon,
+  local: TerminalIcon,
+};
+
+export function McpServiceIcon({ entry }: { entry: Pick<McpServiceEntry, 'server' | 'saved'> }) {
+  const Icon = KIND_ICONS[serviceKind(entry)];
+  return <Icon aria-hidden="true" />;
 }
 
-function McpServiceItem({
-  entry,
-  reconnecting,
-  onDetails,
-  onReconnect,
-  onReconnectSession,
-  onDisconnect,
-  onRemoveSaved,
-  defaultOpen,
-  showConnection,
-}: {
-  entry: McpServiceEntry;
-  reconnecting: boolean;
-  onDetails?: (server: McpServerDefinition) => void;
-  onReconnect: (server: McpServerDefinition) => void;
-  onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
-  onDisconnect: (server: McpServerDefinition) => void;
-  onRemoveSaved: (service: SavedMcpService) => void;
-  defaultOpen: boolean;
-  showConnection: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const { server, saved } = entry;
-  const state = serviceState(entry);
-  const toolNames = entry.tools.length
-    ? entry.tools.map((tool) => tool.name)
-    : (server?.tools ?? []);
-  const title = serviceTitle(entry);
-  const runtime = server ? server.id.startsWith('mcp_ext_') : false;
-  const reconnectSession =
-    server && onReconnectSession && reconnectableNamespace(server)
-      ? () => onReconnectSession(server)
-      : undefined;
-  return (
-    <li className="min-w-0">
-      <Collapsible onOpenChange={setOpen} open={open}>
-        <div className="flex min-w-0 items-start gap-2 py-3">
-          <CollapsibleTrigger asChild>
-            <button
-              aria-label={`${open ? 'Hide' : 'Show'} the tools of ${title}`}
-              className="mt-0.5 rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-              type="button"
-            >
-              <ChevronRightIcon
-                aria-hidden="true"
-                className={cn('size-4 transition-transform duration-150', open && 'rotate-90')}
-              />
-            </button>
-          </CollapsibleTrigger>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="font-medium">{title}</h3>
-              <span className="text-xs text-muted-foreground">
-                {origin(entry)}, {countLabel(toolNames.length, state.known)}
-              </span>
-            </div>
-            {saved && showConnection ? (
-              <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                {savedTarget(saved)}
-              </p>
-            ) : null}
-            {mcpServerPreparation(server) ? (
-              <McpServerPreparationNote
-                onReconnect={reconnectSession}
-                reconnecting={reconnecting}
-                server={server}
-                title={title}
-              />
-            ) : server?.error ? (
-              <p className="mt-1 text-xs text-destructive">{server.error}</p>
-            ) : null}
-          </div>
-          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <ClioStatus className="size-4" compact label={state.label} value={state.value} />
-            <span aria-hidden="true">{state.label}</span>
-          </span>
-          <ServiceActions
-            onDetails={server && onDetails ? () => onDetails(server) : undefined}
-            onDisconnect={runtime && server ? () => onDisconnect(server) : undefined}
-            onReconnect={
-              runtime && server
-                ? () => onReconnect(server)
-                : state.value === 'failed'
-                  ? undefined // the visible Reconnect under its reason offers it
-                  : reconnectSession
-            }
-            onRemoveSaved={saved ? () => onRemoveSaved(saved) : undefined}
-            reconnecting={reconnecting}
-            title={title}
-          />
-        </div>
-        <CollapsibleContent>
-          {toolNames.length ? (
-            <ul aria-label={`Tools of ${title}`} className="mb-3 ml-7 min-w-0">
-              {toolNames.map((name) => (
-                <ToolLine
-                  key={name}
-                  name={name}
-                  tool={entry.tools.find((tool) => tool.name === name)}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="mb-3 ml-7 text-xs text-muted-foreground">{state.empty}</p>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </li>
-  );
-}
-
-function ToolLine({ name, tool }: { name: string; tool?: ToolCatalogItem }) {
-  const [open, setOpen] = useState(false);
-  const title = tool?.title?.trim() || name;
-  return (
-    <li>
-      <Collapsible onOpenChange={setOpen} open={open}>
-        <CollapsibleTrigger asChild>
-          <button
-            aria-label={`${title}: ${open ? 'hide' : 'show'} details`}
-            className="flex w-full min-w-0 flex-col gap-0.5 rounded-sm px-1 py-1.5 text-left hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring sm:flex-row sm:items-baseline sm:gap-3"
-            type="button"
-          >
-            <span className={cn('shrink-0 text-sm', !tool?.title && 'font-mono text-[13px]')}>
-              {title}
-            </span>
-            <span className="min-w-0 flex-1 text-xs text-muted-foreground sm:truncate">
-              {toolSummary(name, tool)}
-            </span>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="grid gap-1 pb-2 pl-1 text-xs text-muted-foreground">
-          <p>
-            Identifier <code className="font-mono text-foreground">{name}</code>
-          </p>
-          {tool?.description ? (
-            <p className="max-w-3xl whitespace-pre-line leading-5">{tool.description}</p>
-          ) : (
-            <p>The service describes this tool once it connects.</p>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </li>
-  );
-}
-
-function ServiceActions({
-  title,
-  reconnecting,
-  onDetails,
-  onReconnect,
-  onDisconnect,
-  onRemoveSaved,
-}: {
-  title: string;
-  reconnecting: boolean;
-  onDetails?: () => void;
-  onReconnect?: () => void;
-  onDisconnect?: () => void;
-  onRemoveSaved?: () => void;
-}) {
-  if (!onDetails && !onReconnect && !onDisconnect && !onRemoveSaved) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-busy={reconnecting}
-          aria-label={`Actions for ${title}`}
-          disabled={reconnecting}
-          size="icon-sm"
-          variant="ghost"
-        >
-          {reconnecting ? <RefreshIndicator refreshing /> : <MoreIcon aria-hidden="true" />}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-48">
-        {onDetails ? (
-          <DropdownMenuItem onSelect={onDetails}>
-            <BlocksIcon aria-hidden="true" /> Service details
-          </DropdownMenuItem>
-        ) : null}
-        {onReconnect ? (
-          <DropdownMenuItem onSelect={onReconnect}>
-            <RefreshIndicator refreshing={reconnecting} /> Reconnect
-          </DropdownMenuItem>
-        ) : null}
-        {onDisconnect || onRemoveSaved ? <DropdownMenuSeparator /> : null}
-        {onDisconnect ? (
-          <DropdownMenuItem onSelect={onDisconnect} variant="destructive">
-            <DeleteIcon aria-hidden="true" /> Disconnect
-          </DropdownMenuItem>
-        ) : null}
-        {onRemoveSaved ? (
-          <DropdownMenuItem onSelect={onRemoveSaved} variant="destructive">
-            <DeleteIcon aria-hidden="true" /> Remove
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function serviceTitle(entry: McpServiceEntry): string {
+/** How many tools the entry is known to bring, or undefined while that is unknown. */
+function serviceToolTotal(entry: McpServiceEntry): number | undefined {
   const server = entry.server;
-  if (server?.transport === 'in_process') {
-    if (server.name === 'fs') return 'Workspace files';
-    if (server.name === 'shell') return 'Local commands';
-    return humanizeToolName(server.name || server.id);
-  }
-  return entry.name;
+  if (!server) return undefined;
+  const count = Math.max(entry.tools.length, server.tools.length, server.tools_count ?? 0);
+  return server.status === 'ready' || count > 0 ? count : undefined;
 }
 
-function origin(entry: McpServiceEntry): string {
-  const server = entry.server;
-  if (server?.transport === 'in_process') return 'Built in';
-  if (server?.source === 'plugin')
-    return server.plugin ? `From plugin ${server.plugin}` : 'From a plugin';
-  const saved = entry.saved;
-  if (saved)
-    return `Yours, ${saved.transport === 'http' ? 'remote service' : 'local command'}${
-      saved.always_load ? ', every conversation' : ''
-    }`;
-  if (server?.transport === 'http' || server?.transport === 'streamable-http')
-    return 'Remote service';
-  return 'Local command';
-}
-
-function serviceState(entry: McpServiceEntry): {
-  label: string;
-  value: ClioStatusValue;
-  known: boolean;
-  empty: string;
-} {
-  const server = entry.server;
-  if (!server)
-    return {
-      label: 'Not started',
-      value: 'pending',
-      known: false,
-      empty: 'Starts in a conversation that uses it; its tools are listed once it connects.',
-    };
-  if (server.status === 'ready')
-    return {
-      label: 'Running',
-      value: 'healthy',
-      known: true,
-      empty: 'This service offers no tools.',
-    };
-  const preparation = mcpServerPreparation(server);
-  if (preparation)
-    return {
-      label: preparation.label,
-      value: preparation.value,
-      known: server.tools.length > 0,
-      empty:
-        preparation.state === 'preparing'
-          ? 'Its tools are listed once it is ready.'
-          : 'Its tools are listed once it is ready. Reconnect to try again.',
-    };
-  if (server.status === 'available')
-    return {
-      label: 'Starts when used',
-      value: 'pending',
-      known: server.tools.length > 0,
-      empty: 'Starts in a conversation that uses it; its tools are listed once it connects.',
-    };
-  return {
-    label: humanizeToolName(server.status) || 'Unavailable',
-    value: 'degraded',
-    known: server.tools.length > 0,
-    empty: server.error || 'The service did not report its tools.',
-  };
-}
-
-function countLabel(count: number, known: boolean): string {
-  if (!count && !known) return 'tools not known yet';
+function countWords(count: number): string {
   return `${count} ${count === 1 ? 'tool' : 'tools'}`;
 }
 
-function savedTarget(service: SavedMcpService): string {
-  const spec = service.spec;
-  if (service.transport === 'http') return String(spec.url ?? '');
-  const args = Array.isArray(spec.args) ? spec.args.map(String) : [];
-  return [String(spec.command ?? ''), ...args].join(' ');
+/**
+ * The meta line: where the service comes from, its tools, and the remote host (mono).
+ * Commands stay in the details pane's Connection view.
+ */
+export function McpServiceMeta({ entry }: { entry: McpServiceEntry }) {
+  const origin = serviceOrigin(entry);
+  const total = serviceToolTotal(entry);
+  const address = serviceTarget(entry);
+  const target = address?.kind === 'url' ? address : undefined;
+  const words = [origin, total === undefined ? '' : countWords(total), target?.short ?? '']
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <span title={words}>
+      <span>{origin}</span>
+      {total === undefined ? null : <span className="ml-2.5">{countWords(total)}</span>}
+      {target ? (
+        <span className="ml-2.5 font-mono text-[0.71875rem] whitespace-nowrap">{target.short}</span>
+      ) : null}
+    </span>
+  );
 }
 
-const KNOWN_SUMMARIES: Record<string, string> = {
-  fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-  fs_write_file:
-    'Creates a file or replaces its content in the workspace; each change can be undone.',
-  fs_edit_file: 'Replaces exact text in a workspace file; each change can be undone.',
-  shell_bash: 'Runs a command inside the workspace’s permitted folders.',
-};
+/** A runtime-installed server (the backend names those `mcp_ext_…`) can be reconnected and disconnected. */
+function runtimeServer(server: McpServerDefinition | undefined): server is McpServerDefinition {
+  return Boolean(server?.id.startsWith('mcp_ext_'));
+}
 
-function toolSummary(name: string, tool?: ToolCatalogItem): string {
-  if (KNOWN_SUMMARIES[name]) return KNOWN_SUMMARIES[name];
-  const description = tool?.description
-    ?.replace(/``(.+?)``/gu, '$1')
-    .replace(/\s+/gu, ' ')
-    .trim();
-  if (!description) return '';
-  const firstSentence = description.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? description;
-  return truncate(firstSentence, SUMMARY_TRUNCATE_CHARS);
+/**
+ * Every MCP service a conversation in the chosen workspace gets — built in, from
+ * the agent's plugins, and the person's own — one item row each: what it is,
+ * where it comes from, its state in words, and its actions on hover.
+ */
+export function McpServiceList({
+  entries,
+  label = 'MCP servers',
+  reconnecting,
+  selectedKey,
+  onDetails,
+  onReconnect,
+  onReconnectSession,
+  onDisconnect,
+  onRemoveSaved,
+}: {
+  entries: McpServiceEntry[];
+  label?: string;
+  /** The id of the server whose reconnect is in flight. */
+  reconnecting?: string;
+  /** The entry whose details are open beside the list. */
+  selectedKey?: string;
+  onDetails?: (entry: McpServiceEntry) => void;
+  onReconnect: (server: McpServerDefinition) => void;
+  /** Prepares a conversation's own server again (see `reconnectableNamespace`). */
+  onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
+  /** Disconnects once the row's inline confirm says so; a promise keeps the confirm waiting. */
+  onDisconnect: (server: McpServerDefinition) => unknown;
+  /** Removes the saved service once the row's inline confirm says so. */
+  onRemoveSaved: (service: SavedMcpService) => unknown;
+}) {
+  const rows = entries.map((entry) => {
+    const server = entry.server;
+    const status = serviceStatus(server);
+    const reconnect =
+      status.tone === 'running'
+        ? undefined
+        : runtimeServer(server)
+          ? () => onReconnect(server)
+          : server && onReconnectSession && reconnectableNamespace(server)
+            ? () => void onReconnectSession(server)
+            : undefined;
+    return { entry, status, reconnect, failed: status.tone === 'error' && Boolean(reconnect) };
+  });
+  const anySlot = rows.some((row) => row.failed);
+  return (
+    <ItemList className="border-t border-border/70" label={label}>
+      {rows.map(({ entry, status, reconnect, failed }) => (
+        <McpServiceRow
+          entry={entry}
+          key={entry.key}
+          onDetails={onDetails ? () => onDetails(entry) : undefined}
+          onDisconnect={runtimeServer(entry.server) ? () => onDisconnect(entry.server!) : undefined}
+          onReconnect={reconnect}
+          onRemoveSaved={entry.saved ? () => onRemoveSaved(entry.saved!) : undefined}
+          reconnecting={Boolean(entry.server && reconnecting === entry.server.id)}
+          selected={selectedKey === entry.key}
+          showSlot={anySlot}
+          failed={failed}
+          status={status}
+        />
+      ))}
+    </ItemList>
+  );
+}
+
+function McpServiceRow({
+  entry,
+  status,
+  reconnecting,
+  selected,
+  showSlot,
+  failed,
+  onDetails,
+  onReconnect,
+  onDisconnect,
+  onRemoveSaved,
+}: {
+  entry: McpServiceEntry;
+  status: ReturnType<typeof serviceStatus>;
+  reconnecting: boolean;
+  selected: boolean;
+  showSlot: boolean;
+  failed: boolean;
+  onDetails?: () => void;
+  onReconnect?: () => void;
+  onDisconnect?: () => unknown;
+  onRemoveSaved?: () => unknown;
+}) {
+  const title = serviceEntryTitle(entry);
+  // Disconnect and Remove saved ask on the row (spec: an inline confirm, focus stays put).
+  const [asking, setAsking] = useState<'disconnect' | 'remove'>();
+  const keep = () => setAsking(undefined);
+  const askDisconnect = onDisconnect ? () => setAsking('disconnect') : undefined;
+  const askRemove = onRemoveSaved ? () => setAsking('remove') : undefined;
+  const confirm =
+    asking === 'disconnect' && onDisconnect ? (
+      <RowConfirm
+        action="Disconnect"
+        busyAction="Disconnecting…"
+        onConfirm={onDisconnect}
+        onKeep={keep}
+        question={`Disconnect ${title}?`}
+      />
+    ) : asking === 'remove' && onRemoveSaved ? (
+      <RowConfirm
+        action="Remove"
+        busyAction="Removing…"
+        onConfirm={onRemoveSaved}
+        onKeep={keep}
+        question={`Remove ${title}?`}
+      />
+    ) : undefined;
+  const open = (event: MouseEvent<HTMLDivElement>) => {
+    // Buttons and menu items (portaled, but still bubbling through React) do their own thing.
+    if ((event.target as Element).closest('button, a, [role="menuitem"], [role="menu"]')) return;
+    if (confirm) return;
+    onDetails?.();
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || confirm) return;
+    if (handleRowMenuKey(event)) return;
+    if (event.key === 'Enter' && onDetails) {
+      event.preventDefault();
+      onDetails();
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+      const ask = askRemove ?? askDisconnect;
+      if (!ask) return;
+      event.preventDefault();
+      ask();
+    }
+  };
+  const hasMenu = Boolean(onDetails || onReconnect || onDisconnect || onRemoveSaved);
+  const slot =
+    showSlot && failed && onReconnect ? (
+      <SlotButton disabled={reconnecting} label={`Reconnect ${title}`} onClick={onReconnect}>
+        Reconnect
+      </SlotButton>
+    ) : null;
+  return (
+    <ItemRow
+      actions={
+        hasMenu ? (
+          <>
+            {onDetails ? (
+              <IconButton
+                aria-pressed={selected}
+                icon={<InfoIcon />}
+                label={`Details for ${title}`}
+                onClick={onDetails}
+              />
+            ) : null}
+            {onReconnect && !slot ? (
+              <IconButton
+                aria-busy={reconnecting}
+                disabled={reconnecting}
+                icon={<RefreshIndicator refreshing={reconnecting} />}
+                label={`Reconnect ${title}`}
+                onClick={onReconnect}
+              />
+            ) : null}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <IconButton icon={<MoreIcon />} label={`Actions for ${title}`} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-52">
+                {onDetails ? (
+                  <DropdownMenuItem onSelect={onDetails}>
+                    <MenuRow icon={<InfoIcon />} label="Details" />
+                    <ShortcutKeys className="pl-2" keys={['Enter']} variant="menu" />
+                  </DropdownMenuItem>
+                ) : null}
+                {onReconnect ? (
+                  <DropdownMenuItem disabled={reconnecting} onSelect={onReconnect}>
+                    <MenuRow icon={<RefreshIcon />} label="Reconnect" />
+                  </DropdownMenuItem>
+                ) : null}
+                {askDisconnect ? (
+                  <DropdownMenuItem onSelect={askDisconnect}>
+                    <MenuRow icon={<UnplugIcon />} label="Disconnect" />
+                  </DropdownMenuItem>
+                ) : null}
+                {onRemoveSaved && (onDetails || onReconnect || onDisconnect) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+                {askRemove ? (
+                  <DropdownMenuItem onSelect={askRemove}>
+                    <MenuRow icon={<DeleteIcon />} label="Remove saved" />
+                    <ShortcutKeys
+                      className="shrink-0 pl-2"
+                      keys={['Delete']}
+                      mac={['Backspace']}
+                      variant="text"
+                    />
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null
+      }
+      actionsVisible={reconnecting}
+      aria-current={selected || undefined}
+      className={cn(onDetails && 'cursor-default', ROW_MENU_OPEN_VISIBLE)}
+      data-mcp-service={entry.key}
+      icon={<McpServiceIcon entry={entry} />}
+      meta={<McpServiceMeta entry={entry} />}
+      confirm={confirm}
+      onClick={open}
+      onKeyDown={onKeyDown}
+      selected={selected}
+      slot={slot}
+      status={<StatusIndicator label={status.label} tone={status.tone} />}
+      tabIndex={0}
+      title={<span title={title}>{title}</span>}
+    />
+  );
 }

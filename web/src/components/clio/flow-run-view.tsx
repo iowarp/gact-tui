@@ -1,10 +1,14 @@
 import type { FlowRun, SubagentRun } from '@clio/core/v3';
-import { Maximize2Icon, Minimize2Icon, WorkflowIcon } from 'lucide-react';
+import { Maximize2Icon, MessagesSquareIcon, Minimize2Icon, WorkflowIcon } from 'lucide-react';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { useFlowQuestions, useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
+import {
+  useFlowQuestions,
+  useFlowRun,
+  useFlowTaskRecord,
+  useOpenTaskHandle,
+} from '@/hooks/use-flow-run';
 import {
   rowDuration,
   useFlowPresentation,
@@ -12,6 +16,8 @@ import {
   useSessionAgentRef,
   type FlowPresentation,
 } from '@/hooks/use-flow-presentation';
+import { formatDuration } from '@/lib/format';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
 import type { FlowQuestion } from './flow-run-edits';
@@ -23,10 +29,18 @@ import {
   FlowVerdictView,
   WorkflowBounds,
 } from './flow-run-parts';
-import { flowRunStatus, flowTaskHistoryUnavailable, stepTally } from './flow-run-presentation';
+import {
+  flowRunStatus,
+  flowTaskHistoryUnavailable,
+  settledTaskStatus,
+  stepTally,
+} from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { FlowTrack } from './flow-track';
 import { FlowUsageSummary } from './flow-run-usage';
+import { FrameBar, FrameCrumbs, type FrameCrumb } from './primitives/frame-bar';
+import { IconButton } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -35,17 +49,21 @@ import type { SubagentOpenTarget } from './subagent-card';
  * Pele railroad coloured by state, whose nodes open their instructions or
  * answers, and any typed stall. Each task handle opens its conversation; Full
  * screen shows the same run large, for following (or recording) it as it
- * changes.
+ * changes. Given `crumbs`, it brings its own frame bar (where it ran, its state,
+ * elapsed time and counts, Full screen and Open its conversation) and the body
+ * drops the matching header.
  */
 export function FlowRunView({
   sessionId,
   handle,
   label,
+  crumbs,
   onOpenSubagent,
 }: {
   sessionId: string;
   handle: string;
   label?: string;
+  crumbs?: readonly FrameCrumb[];
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
 }) {
   const run = useFlowRun(sessionId, handle);
@@ -60,32 +78,80 @@ export function FlowRunView({
   const presentation = useFlowPresentation(run.data, agentRef, args, sessionId);
   const [fullScreen, setFullScreen] = useState(false);
   const questions = useFlowQuestions(sessionId, run.data);
+  const task = useFlowTaskRecord(handle, run.data === null);
+  const ended = run.data === null && task.data ? settledTaskStatus(task.data) : undefined;
+  const framed = (body: ReactNode, what?: ReactNode, actions?: ReactNode) =>
+    crumbs ? (
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <FrameBar
+          actions={actions}
+          label="Flow run actions"
+          what={what}
+          where={<FrameCrumbs parts={crumbs} />}
+        />
+        {body}
+      </div>
+    ) : (
+      body
+    );
+  const stateSize = crumbs ? 'viewer' : 'panel';
   if (run.isPending) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground" role="status">
-        Loading the flow run…
-      </p>
+    return framed(
+      <StateView
+        className="min-h-0 flex-1"
+        kind="loading"
+        size={stateSize}
+        title="Loading the flow run"
+      />,
     );
   }
   if (run.error) {
-    return (
-      <Alert className="m-4 w-auto" variant="destructive">
-        <AlertTitle>Flow run unavailable</AlertTitle>
-        <AlertDescription>{run.error.message}</AlertDescription>
-      </Alert>
+    return framed(
+      <StateView
+        action={{
+          label: 'Retry',
+          icon: <RetryIcon />,
+          onClick: () => void run.refetch(),
+        }}
+        className="min-h-0 flex-1"
+        detail={run.error.message}
+        kind="error"
+        size={stateSize}
+        title="Flow run unavailable"
+      />,
+    );
+  }
+  if (!run.data && ended) {
+    return framed(
+      <div className="grid content-start gap-2 p-4 text-sm">
+        <ClioStatus className="justify-self-start" label={ended.label} value={ended.value} />
+        <p className="text-muted-foreground">
+          The task ended before its flow run was recorded
+          {task.data?.error_reason ? ':' : '.'}
+        </p>
+        {task.data?.error_reason ? (
+          <p className="[overflow-wrap:anywhere]">{task.data.error_reason}</p>
+        ) : null}
+      </div>,
+      <span data-frame-position="">{ended.label.toLowerCase()}</span>,
     );
   }
   if (!run.data) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground">
-        No flow run is recorded for this task yet. It appears once the flow starts.
-      </p>
+    return framed(
+      <StateView
+        className="min-h-0 flex-1"
+        detail="It appears once the flow starts."
+        kind="empty"
+        size={stateSize}
+        title="No flow run is recorded for this task yet."
+      />,
     );
   }
   const data = run.data;
   const details = (layout: 'panel' | 'wide') => (
     <FlowRunDetails
       args={args}
+      framed={Boolean(crumbs) && layout === 'panel'}
       handle={handle}
       label={label}
       layout={layout}
@@ -100,9 +166,42 @@ export function FlowRunView({
       run={data}
     />
   );
+  const facts = flowRunFacts(data, presentation);
   return (
     <>
-      <div className="h-full min-h-0 overflow-y-auto p-3 sm:p-4">{details('panel')}</div>
+      {crumbs ? (
+        framed(
+          <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
+            {details('panel')}
+          </div>,
+          <>
+            <span className="tabular-nums" data-frame-position="">
+              {facts.state}
+            </span>
+            {[facts.kind, facts.count, facts.tally, facts.depth].filter(Boolean).map((fact) => (
+              <span className="tabular-nums" key={fact}>
+                {fact}
+              </span>
+            ))}
+          </>,
+          <>
+            <IconButton
+              icon={<Maximize2Icon />}
+              label="Full screen"
+              onClick={() => setFullScreen(true)}
+              size="sm"
+            />
+            <IconButton
+              icon={<MessagesSquareIcon />}
+              label="Open its conversation"
+              onClick={() => openHandle(handle)}
+              size="sm"
+            />
+          </>,
+        )
+      ) : (
+        <div className="h-full min-h-0 overflow-y-auto p-3 sm:p-4">{details('panel')}</div>
+      )}
       <FlowRunFullScreen
         onOpenChange={setFullScreen}
         open={fullScreen}
@@ -151,6 +250,39 @@ export function FlowRunFullScreen({
   );
 }
 
+/**
+ * What a run is in words: its state with how long it has run ("running 2m"),
+ * then its kind, size, tally and nesting. The frame bar and the panel header
+ * read the same facts.
+ */
+function flowRunFacts(run: FlowRun, presentation: FlowPresentation) {
+  const status = flowRunStatus(run);
+  const { steps, members, runElapsed } = presentation;
+  const stepwise = Boolean(run.view || run.execution?.length);
+  const historyUnavailable = flowTaskHistoryUnavailable(
+    run,
+    stepwise ? steps.length : members.length,
+  );
+  const tally = historyUnavailable
+    ? ''
+    : stepTally((stepwise ? steps : members).map((row) => row.status));
+  const count = historyUnavailable
+    ? 'Task history not recorded'
+    : stepwise
+      ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
+      : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
+  const elapsed = runElapsed === undefined ? '' : formatDuration(runElapsed, 'compact');
+  return {
+    status,
+    historyUnavailable,
+    state: [status.label.toLowerCase(), elapsed].filter(Boolean).join(' '),
+    kind: flowLabel(run.flow),
+    count,
+    tally,
+    depth: run.depth > 1 ? `nested ${run.depth} flows deep` : '',
+  };
+}
+
 /** The run's header, outcome, track, script and result, shared by the panel and full screen. */
 export function FlowRunDetails({
   run,
@@ -159,12 +291,15 @@ export function FlowRunDetails({
   args,
   presentation,
   layout,
+  framed = false,
   onOpenHandle,
   onFullScreen,
   openError,
   questions = [],
 }: {
   run: FlowRun;
+  /** A frame bar above already names the run, its facts, Full screen and its conversation. */
+  framed?: boolean;
   /** The approval questions the run asked, with the answers. */
   questions?: readonly FlowQuestion[];
   handle: string;
@@ -176,24 +311,15 @@ export function FlowRunDetails({
   onFullScreen?: () => void;
   openError?: string;
 }) {
-  const status = flowRunStatus(run);
-  const { steps, members, verdict, closing, runElapsed } = presentation;
+  const facts = flowRunFacts(run, presentation);
+  const { status, historyUnavailable } = facts;
+  const { steps, verdict, closing, runElapsed } = presentation;
   const workflow = run.view;
-  const taskCount = workflow || run.execution?.length ? steps.length : members.length;
-  const historyUnavailable = flowTaskHistoryUnavailable(run, taskCount);
-  const tally = historyUnavailable
-    ? ''
-    : stepTally((workflow || run.execution?.length ? steps : members).map((row) => row.status));
-  const count = historyUnavailable
-    ? 'Task history not recorded'
-    : workflow || run.execution?.length
-      ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
-      : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
   const wide = layout === 'wide';
   const header = (
     <header className="grid min-w-0 gap-1">
       {/* Full screen names the run and its state in its own title bar. */}
-      {wide ? null : (
+      {wide || framed ? null : (
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold tracking-tight">
             <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
@@ -202,29 +328,25 @@ export function FlowRunDetails({
           <ClioStatus label={status.label} value={status.value} />
         </div>
       )}
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="min-w-0 text-xs text-muted-foreground">
-          {[
-            flowLabel(run.flow),
-            count,
-            tally,
-            rowDuration(runElapsed),
-            run.depth > 1 ? `nested ${run.depth} flows deep` : '',
-          ]
-            .filter(Boolean)
-            .join(', ')}
-        </p>
-        <div className="ml-auto flex items-center gap-1">
-          {onFullScreen ? (
-            <Button onClick={onFullScreen} size="xs" variant="ghost">
-              <Maximize2Icon aria-hidden="true" /> Full screen
+      {framed ? null : (
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="min-w-0 text-xs text-muted-foreground">
+            {[facts.kind, facts.count, facts.tally, rowDuration(runElapsed), facts.depth]
+              .filter(Boolean)
+              .join(', ')}
+          </p>
+          <div className="ml-auto flex items-center gap-1">
+            {onFullScreen ? (
+              <Button onClick={onFullScreen} size="xs" variant="ghost">
+                <Maximize2Icon aria-hidden="true" /> Full screen
+              </Button>
+            ) : null}
+            <Button onClick={() => onOpenHandle(handle)} size="xs" variant="ghost">
+              Open its conversation
             </Button>
-          ) : null}
-          <Button onClick={() => onOpenHandle(handle)} size="xs" variant="ghost">
-            Open its conversation
-          </Button>
+          </div>
         </div>
-      </div>
+      )}
       <FlowUsageSummary usage={run.usage} />
       {workflow ? <WorkflowBounds view={workflow} /> : null}
       {openError ? (

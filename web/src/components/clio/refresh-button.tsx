@@ -1,8 +1,10 @@
 import { useCallback, useContext, useMemo, useRef, useState, type ComponentProps } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction } from './viewer-toolbar';
 import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
 
@@ -54,25 +56,39 @@ export function RefreshButton({
   refreshing = false,
   disabled,
   children,
+  idleIcon: IdleIcon,
+  iconOnly = false,
   ...props
-}: RefreshProps) {
+}: RefreshProps & {
+  idleIcon?: LucideIcon;
+  /** Show only the icon; the label becomes its hover name. */
+  iconOnly?: boolean;
+}) {
   const { busy, refresh } = useRefresh(onRefresh, refreshing);
-  return (
+  const { title, ...buttonProps } = props;
+  const button = (
     <Button
-      {...props}
+      {...buttonProps}
+      title={iconOnly ? undefined : title}
       aria-label={label}
       aria-busy={busy}
       disabled={disabled || busy}
       onClick={() => void refresh()}
     >
-      <RefreshIndicator refreshing={busy} />
-      {children ?? label}
+      {IdleIcon && !busy ? <IdleIcon aria-hidden="true" /> : <RefreshIndicator refreshing={busy} />}
+      {iconOnly ? null : (children ?? label)}
       {busy ? (
         <span className="sr-only" role="status">
           Refreshing…
         </span>
       ) : null}
     </Button>
+  );
+  if (!iconOnly) return button;
+  return (
+    <NamedTooltip label={title ?? label} side="top">
+      {button}
+    </NamedTooltip>
   );
 }
 

@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { useInfrastructureTargetSelection } from '@/hooks/use-infrastructure-target-selection';
 import { useSearchParams } from 'react-router-dom';
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfrastructureActivity } from './infrastructure-activity';
 import { InfrastructureHosts } from './infrastructure-hosts';
 import { SshAuthentication } from './managed-service-target';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
-import { HostStorageSettings } from './host-storage-settings';
+import { StateView } from './primitives/state-view';
+import { useShownByPage } from './infrastructure-reachability';
 import { ModelAcquisitions } from './model-acquisition';
-import { InfrastructureOverview, InfrastructureHostInspection } from './infrastructure-overview';
+import { InfrastructureOverview } from './infrastructure-overview';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import type { SshHost } from '@/lib/ssh-hosts';
@@ -26,15 +27,26 @@ export function InfrastructureInventory({
   children?: ReactNode;
   /** Hosts: what on the connected agent's own computer needs attention. */
   localAttention?: string[];
-  overview?: Omit<ComponentProps<typeof InfrastructureOverview>, 'data' | 'targetId' | 'onTarget'>;
+  overview?: Omit<
+    ComponentProps<typeof InfrastructureOverview>,
+    'data' | 'targetId' | 'onReconnect' | 'reconnecting' | 'reconnectError'
+  >;
 }) {
   const repository = useRepository();
   const { settings, isManagedConnection } = useConnectionSettings();
-  const [storageOpen, setStorageOpen] = useState(false);
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', settings.endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
-    refetchInterval: 5000,
+    // Close follow-up only while work is underway; otherwise a slow check for outside changes.
+    refetchInterval: (query) =>
+      query.state.data?.operations.some(
+        (operation) => operation.state === 'queued' || operation.state === 'running',
+      ) ||
+      query.state.data?.model_acquisitions.some(
+        (model) => model.state === 'queued' || model.state === 'running',
+      )
+        ? 5000
+        : 30_000,
   });
   const {
     targetId,
@@ -66,39 +78,25 @@ export function InfrastructureInventory({
     )
       setTargetId(requestedTarget);
   }, [requestedTarget, targetId, inventory.data?.targets, setTargetId]);
+  const errorShownByPage = useShownByPage(inventory.error);
   if (inventory.error)
-    return (
-      <p role="alert" className="mt-6 text-destructive">
-        {inventory.error.message}
-      </p>
+    return errorShownByPage ? null : (
+      <StateView
+        className="mt-2"
+        kind="error"
+        size="row"
+        title="Infrastructure could not load"
+        detail={inventory.error.message}
+        action={{ label: 'Retry', onClick: () => void inventory.refetch() }}
+      />
     );
   if (!inventory.data)
-    return (
-      <p role="status" className="mt-6 text-muted-foreground">
-        Loading infrastructure…
-      </p>
-    );
+    return <StateView className="mt-2" kind="loading" size="row" title="Loading infrastructure…" />;
   const data = inventory.data;
   if (section === 'models')
     return (
-      <div className="mt-6 space-y-6">
-        <ManagedServiceHostSelector
-          targets={data.targets}
-          targetId={targetId}
-          canAdd={canConnectComputer}
-          onSshHost={connectComputer}
-          pending={registerTarget.isPending}
-          error={registerTarget.error?.message}
-          onSelect={(id) => {
-            setTargetId(id);
-            setParams({ target: id }, { replace: true });
-          }}
-        />
-        {connectionError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {connectionError}
-          </p>
-        ) : null}
+      <div className="flex min-w-0 flex-col">
+        {connectionError ? <StateView kind="error" size="row" title={connectionError} /> : null}
         {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
           <SshAuthentication
             prompt={transportStatus.prompt}
@@ -113,19 +111,21 @@ export function InfrastructureInventory({
               ? 'Local'
               : data.targets.find((host) => host.id === targetId)?.label || targetId
           }
+          hostSelector={
+            <ManagedServiceHostSelector
+              targets={data.targets}
+              targetId={targetId}
+              canAdd={canConnectComputer}
+              onSshHost={connectComputer}
+              pending={registerTarget.isPending}
+              error={registerTarget.error?.message}
+              onSelect={(id) => {
+                setTargetId(id);
+                setParams({ target: id }, { replace: true });
+              }}
+            />
+          }
         />
-        <details
-          className="border-t pt-4"
-          open={storageOpen}
-          onToggle={(event) => setStorageOpen(event.currentTarget.open)}
-        >
-          <summary className="cursor-pointer text-sm font-medium">Storage settings</summary>
-          {storageOpen ? (
-            <div className="mt-4">
-              <HostStorageSettings key={targetId} targetId={targetId} />
-            </div>
-          ) : null}
-        </details>
       </div>
     );
   if (section === 'activity') return <InfrastructureActivity data={data} />;
@@ -140,10 +140,16 @@ export function InfrastructureInventory({
         localAttention={localAttention}
       >
         {children}
-        <InfrastructureHostInspection targetId="local" />
       </InfrastructureHosts>
     );
   return (
-    <InfrastructureOverview {...overview} data={data} targetId={targetId} onTarget={setTargetId} />
+    <InfrastructureOverview
+      {...overview}
+      data={data}
+      targetId={targetId}
+      onReconnect={canConnectComputer ? connectComputer : undefined}
+      reconnecting={registerTarget.isPending}
+      reconnectError={registerTarget.error?.message}
+    />
   );
 }

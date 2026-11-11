@@ -6,7 +6,7 @@ import {
   type ToolInvocation,
   type TransportFrame,
 } from '@clio/core/v3';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,8 +16,8 @@ import { useLiveStore } from '@/store/live-store';
 import reloadFixture from '@/test-fixtures/variant-runs/refine-user-judged-reload.json';
 import { ClioConversation } from './conversation';
 
-// The tabs block inside the real conversation: where it lands, what it takes
-// out of the turn, and the pick it answers instead of a plain choice list.
+// The variant run inside the real conversation: where its row lands, what it
+// takes out of the turn, and the pick card it answers instead of a choice list.
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -54,7 +54,7 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation variant runs', () => {
-  it('rebuilds a finished run in its turn after a reload, with the try advice inside its tab', () => {
+  it('rebuilds a finished run in its turn after a reload, its try advice kept for the try tab', () => {
     act(() =>
       useLiveStore
         .getState()
@@ -74,23 +74,20 @@ describe('ClioConversation variant runs', () => {
     );
 
     const row = document.getElementById('message-msg_assistant_1')!;
-    const block = within(row).getByRole('group', { name: 'Alternative drafts' });
-    expect(within(block).getByRole('status')).toHaveTextContent('Draft 3 selected');
-    // The turn keeps its own injection; the try's advice moved into the try's tab.
-    fireEvent.click(within(row).getByRole('button', { name: /^Activity:/u }));
+    const record = row.querySelector<HTMLElement>('[data-slot="variant-run"]')!;
+    expect(record).toHaveTextContent('Draft 3 selected');
+    expect(within(record).getByRole('img', { name: 'Done' })).toBeInTheDocument();
+    // The turn keeps its own injection; the try's advice belongs to the try's tab.
     expect(within(row).getAllByText('Drafting alternatives')).toHaveLength(1);
-    const advice = within(row).getAllByText('Advice for this draft');
-    expect(advice).toHaveLength(1);
-    expect(block).toContainElement(advice[0]!);
-    expect(document.getElementById('message-msg_user_1')).not.toContainElement(block);
-    // The advice was injected in the resumed turn: its stamped block lands in the
-    // try's tab, never in that turn's own lane.
+    expect(within(row).queryByText('Advice for this draft')).toBeNull();
+    expect(document.getElementById('message-msg_user_1')).not.toContainElement(record);
+    // The advice was injected in the resumed turn: it never lands in that turn's own lane.
     const resumed = document.getElementById('message-msg_assistant_2')!;
     expect(within(resumed).queryByText('Advice for this draft')).toBeNull();
     expect(resumed).toHaveTextContent('Mesh study (0.6M, 1.2M, 2.1M cells)');
   });
 
-  it('answers a pending pick in the tabs block, never as a plain choice card', async () => {
+  it('answers a pending pick in the pick card, never as a plain choice card', async () => {
     let cursor = 0;
     const frame = (type: string, payload: Record<string, unknown>, id: string): TransportFrame => {
       cursor += 1;
@@ -212,9 +209,9 @@ describe('ClioConversation variant runs', () => {
       />,
     );
 
-    expect(document.querySelector('[data-slot="inline-question"]')).toBeNull();
-    const block = screen.getByRole('group', { name: 'Alternative drafts' });
-    await userEvent.click(within(block).getByRole('button', { name: 'Pick Draft 1' }));
+    const card = screen.getByRole('group', { name: 'Pick a draft' });
+    const options = within(card).getByRole('group', { name: 'Answer' });
+    await userEvent.click(within(options).getByRole('button', { name: 'Pick Draft 1' }));
     expect(onInteractionResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['main#run0'],

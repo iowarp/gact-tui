@@ -29,6 +29,11 @@ interface RawBrand {
   /** Legacy shared release index; used as the default for both products. */
   releaseUrl?: string;
   themeTokens?: Record<string, string>;
+  /** Where the agent's port is configured; see desktop/scripts/gen-brand-backend.mjs. */
+  backend?: {
+    portConfig?: { default?: number };
+    attachPort?: number;
+  };
   landing?: {
     eyebrow?: string;
     headline?: string;
@@ -36,12 +41,7 @@ interface RawBrand {
   };
   workspace?: {
     greeting?: string;
-    description?: string;
   };
-  starterPrompts?: Array<{
-    eyebrow?: string;
-    label?: string;
-  }>;
 }
 
 export interface ResolvedBrand {
@@ -58,6 +58,8 @@ export interface ResolvedBrand {
   workspaceNoun: string;
   desktopReleaseUrl: string | null;
   agentReleaseUrl: string | null;
+  /** The agent's default port: the brand's `backend.portConfig.default`. */
+  agentPort: number;
   themeTokens: Record<string, string>;
   landing: {
     eyebrow: string;
@@ -66,12 +68,7 @@ export interface ResolvedBrand {
   };
   workspace: {
     greeting: string;
-    description: string;
   };
-  starterPrompts: Array<{
-    eyebrow: string;
-    label: string;
-  }>;
   logoSvg: string | null;
   logoImage: string | null;
   iconSvg: string | null;
@@ -109,6 +106,18 @@ function readAsset(
   return `data:${mimeType(absolutePath)};base64,${readFileSync(absolutePath).toString('base64')}`;
 }
 
+/** The agent port when a brand names none. Mirrors desktop/scripts/gen-brand-backend.mjs. */
+const DEFAULT_AGENT_PORT = 17800;
+
+/** The brand's default agent port, resolved like `resolvePortConfig` in gen-brand-backend.mjs. */
+export function resolveAgentPort(backend: RawBrand['backend']): number {
+  const port = Number(backend?.portConfig?.default ?? backend?.attachPort ?? DEFAULT_AGENT_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`[brand] backend.portConfig.default must be a TCP port, got ${port}`);
+  }
+  return port;
+}
+
 export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand {
   const profileDirectory = resolve(brandingRoot, profile);
   const brandPath = resolve(profileDirectory, 'brand.json');
@@ -132,6 +141,7 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     workspaceNoun: raw.workspaceNoun?.trim() || 'workspace',
     desktopReleaseUrl: raw.desktopReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
     agentReleaseUrl: raw.agentReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
+    agentPort: resolveAgentPort(raw.backend),
     themeTokens: { ...(raw.themeTokens ?? {}) },
     landing: {
       eyebrow: raw.landing?.eyebrow?.trim() || name,
@@ -140,17 +150,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
         raw.landing?.description?.trim() || raw.tagline?.trim() || 'Open your agent workspace.',
     },
     workspace: {
-      greeting: raw.workspace?.greeting?.trim() || `What would you like to do with ${name}?`,
-      description:
-        raw.workspace?.description?.trim() ||
-        'Start with a question, a workspace resource, or one of these examples.',
+      greeting: raw.workspace?.greeting?.trim() || 'What can I help you with?',
     },
-    starterPrompts: (raw.starterPrompts ?? [])
-      .map((prompt) => ({
-        eyebrow: prompt.eyebrow?.trim() || '',
-        label: prompt.label?.trim() || '',
-      }))
-      .filter((prompt) => prompt.label.length > 0),
     logoSvg: readAsset(profileDirectory, raw.logoSvg, true),
     logoImage: readAsset(profileDirectory, raw.logoImage, false),
     iconSvg: readAsset(profileDirectory, raw.iconSvg, true),
@@ -166,6 +167,8 @@ const RESOLVED_ID = '\0@brand';
 const BRAND_FAVICON_PATH = '/brand-favicon.svg';
 /** The tracked, product-neutral fallback shipped in web/public. */
 const NEUTRAL_FAVICON_PATH = '/favicon.svg';
+/** The theme ids a brand's accent and theme tokens restyle. */
+export const BRANDED_THEMES = ['classic-light', 'classic-dark'] as const;
 
 export function brandPlugin(brandingRoot: string, profile: string, inlineAssets = false): Plugin {
   let cached: ResolvedBrand | undefined;
@@ -211,8 +214,9 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
     // its own any more; both come from here, for both dev and build.
     transformIndexHtml() {
       const brand = getBrand();
-      // A brand restyles the default Light and Dark themes; Notebook and Debug
-      // keep their own values. `html:root` outranks the theme blocks in
+      // A brand restyles only the Classic themes. Notebook (the `light` and
+      // `dark` ids, in which the design spec is drawn) and Debug keep their own
+      // values. `html:root` outranks the theme blocks in
       // web/src/theme/themes.css, and the rule is in place before first paint.
       const brandTokens = {
         ...brand.themeTokens,
@@ -228,7 +232,7 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
               {
                 tag: 'style',
                 attrs: { 'data-brand-tokens': '' },
-                children: `html:root:is([data-theme='light'], [data-theme='dark']) { ${declarations} }`,
+                children: `html:root:is(${BRANDED_THEMES.map((id) => `[data-theme='${id}']`).join(', ')}) { ${declarations} }`,
                 injectTo: 'head' as const,
               },
             ]

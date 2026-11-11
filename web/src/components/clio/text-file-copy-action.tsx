@@ -1,10 +1,14 @@
 import { CheckIcon, CopyIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { copyText } from '@/lib/clipboard';
+import { useFileViewerContentsRegistry } from './file-viewer-action-context';
 import { ToolbarAction } from './viewer-toolbar';
 
-/** Copy the active text representation without tying the action to its source panel. */
+/**
+ * Copy the active text representation without tying the action to its source panel.
+ * Inside a frame bar it renders nothing and becomes what Copy ▾ Contents copies.
+ */
 export function TextFileCopyAction({
   name,
   readText,
@@ -13,6 +17,31 @@ export function TextFileCopyAction({
   name: string;
   readText: () => string | undefined | Promise<string | undefined>;
   disabled?: boolean;
+}) {
+  const registry = useFileViewerContentsRegistry();
+  const id = useId();
+  const reader = useRef(readText);
+  useEffect(() => {
+    reader.current = readText;
+  });
+  const read = useCallback(() => reader.current(), []);
+  useEffect(() => {
+    if (!registry) return undefined;
+    registry(id, disabled ? undefined : read);
+    return () => registry(id);
+  }, [registry, id, disabled, read]);
+  if (registry) return null;
+  return <StandaloneCopy name={name} readText={readText} disabled={disabled} />;
+}
+
+function StandaloneCopy({
+  name,
+  readText,
+  disabled,
+}: {
+  name: string;
+  readText: () => string | undefined | Promise<string | undefined>;
+  disabled: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);

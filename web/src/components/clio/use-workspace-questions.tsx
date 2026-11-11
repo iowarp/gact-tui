@@ -7,7 +7,12 @@ import type {
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { AttentionDraftContext, createAttentionDraftStore } from './attention-drafts';
 import type { SessionSendInput } from '@/hooks/use-session-mutations';
-import { ClioPendingInteractions, type ClioPendingInteractionsProps } from './pending-interactions';
+import { useStableHandlers } from '@/hooks/use-stable-callback';
+import { useShallowStable } from '@/hooks/use-shallow-stable';
+import {
+  ClioPendingInteractionsDock,
+  type ClioPendingInteractionsProps,
+} from './pending-interactions';
 import { AgentQuestionDialog } from './agent-question-dialog';
 import { revealPendingInteraction } from './interaction-control';
 import { useQuestionAnswering } from './use-question-answering';
@@ -107,10 +112,30 @@ export function useWorkspaceQuestions({
     respond: handleInteractionResponse,
     send,
   });
-  const trayInteractions = workspaceRouteState.responseTrayInteractions(
-    interactions,
-    new Set(tools.map((tool) => tool.id)),
+  const trayToolIds = tools.map((tool) => tool.id).join('\n');
+  const trayInteractions = useMemo(
+    () =>
+      workspaceRouteState.responseTrayInteractions(
+        interactions,
+        new Set(trayToolIds.split('\n')),
+      ),
+    [interactions, trayToolIds],
   );
+  // The dock renders again when a card's data changes, not on every streamed token.
+  const surfaces = useShallowStable(tray.surfaces);
+  const ownerLabels = useShallowStable(tray.ownerLabels);
+  const artifacts = useShallowStable(tray.artifacts);
+  const actionLifecycles = useShallowStable(tray.actionLifecycles);
+  const dockProps = useStableHandlers({
+    ...tray,
+    surfaces,
+    ownerLabels,
+    artifacts,
+    actionLifecycles,
+    interactions: trayInteractions,
+    onResponse: handleInteractionResponse,
+    onOpenSurfaceQuestion: openSurfaceQuestion,
+  });
   const pendingInteractionsPanel = (
     <AttentionDraftContext.Provider value={drafts}>
       {questionAnswering.context.answeringId ? questionAnswering.notice : null}
@@ -119,12 +144,7 @@ export function useWorkspaceQuestions({
         onClose={() => setOpenedId(undefined)}
         onResponse={handleInteractionResponse}
       />
-      <ClioPendingInteractions
-        {...tray}
-        interactions={trayInteractions}
-        onResponse={handleInteractionResponse}
-        onOpenSurfaceQuestion={openSurfaceQuestion}
-      />
+      <ClioPendingInteractionsDock {...dockProps} />
     </AttentionDraftContext.Provider>
   );
   return {

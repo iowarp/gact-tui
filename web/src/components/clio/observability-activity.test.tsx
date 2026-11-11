@@ -353,6 +353,39 @@ describe('child work activity projection', () => {
     expect(projectedToolIds).toEqual(['projected:tool_leaf']);
   });
 
+  it('opens the file a child read or wrote, but not the folder it listed', () => {
+    const realTool = provenance.spans[0]!;
+    const withFiles: ExecutionProvenanceResult = {
+      ...provenance,
+      spans: [
+        {
+          ...realTool,
+          id: 'tool_read',
+          tool_name: 'fs_read_file',
+          attributes: { tool_input: { path: 'reports/very-long-station-quality-summary.md' } },
+        },
+        {
+          ...realTool,
+          id: 'tool_list',
+          tool_name: 'fs_list_directory',
+          attributes: { tool_input: { path: 'reports' } },
+        },
+      ],
+    };
+    const onOpenFile = vi.fn();
+
+    const items = childProjectionActivityItems(withFiles, processes, new Set(), onOpenFile);
+    const read = items.find((item) => item.id === 'projected:tool_read');
+    const listed = items.find((item) => item.id === 'projected:tool_list');
+
+    expect(read?.label).toBe('Read very-long-station-quality-summary.md');
+    // Humane action names, never the tool id.
+    expect(listed?.label).toBe('List reports');
+    read?.onActivate?.();
+    expect(onOpenFile).toHaveBeenCalledWith('reports/very-long-station-quality-summary.md');
+    expect(listed?.onActivate).toBeUndefined();
+  });
+
   it('reports what an MCP task recorded rather than restating that it is one', () => {
     const failed: AsyncProcess = {
       ...processes[2]!,
@@ -526,6 +559,8 @@ describe('child work activity projection', () => {
 
     const items = childProjectionActivityItems(untitledOwnerProvenance, []);
 
-    expect(items.find((item) => item.id === 'task_child:branch-open')?.label).toBe('Untitled task');
+    expect(items.find((item) => item.id === 'task_child:branch-open')?.label).toBe(
+      'Subagent started',
+    );
   });
 });

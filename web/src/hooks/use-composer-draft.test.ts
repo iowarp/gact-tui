@@ -1,7 +1,7 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { useComposerDraft } from './use-composer-draft';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useComposerDraft, useComposerDraftValue } from './use-composer-draft';
 
 const reference: WorkspaceReference = {
   kind: 'artifact',
@@ -25,7 +25,7 @@ describe('useComposerDraft', () => {
     expect(window.sessionStorage.length).toBe(0);
     first.unmount();
     const second = renderHook(() => useComposerDraft('workspace_1', { persist: false }));
-    expect(second.result.current.value).toBe('');
+    expect(second.result.current.readValue()).toBe('');
     expect(second.result.current.references).toEqual([]);
   });
 
@@ -37,11 +37,11 @@ describe('useComposerDraft', () => {
     act(() => result.current.onValueChange('local question'));
     act(() => result.current.onReferencesChange([{ offset: 0, reference }]));
     rerender({ endpoint: 'http://remote.test' });
-    expect(result.current.value).toBe('');
+    expect(result.current.readValue()).toBe('');
     expect(result.current.references).toEqual([]);
     act(() => result.current.onValueChange('remote question'));
     rerender({ endpoint: 'http://local.test' });
-    expect(result.current.value).toBe('local question');
+    expect(result.current.readValue()).toBe('local question');
   });
 
   it('restores unsent text after a page remount and clears it after send', () => {
@@ -50,12 +50,12 @@ describe('useComposerDraft', () => {
     first.unmount();
 
     const second = renderHook(() => useComposerDraft('session_reload', persistent));
-    expect(second.result.current.value).toBe('unsent field note');
+    expect(second.result.current.readValue()).toBe('unsent field note');
     act(() => second.result.current.onValueChange(''));
     second.unmount();
 
     const third = renderHook(() => useComposerDraft('session_reload', persistent));
-    expect(third.result.current.value).toBe('');
+    expect(third.result.current.readValue()).toBe('');
   });
 
   it('holds the text and the references of one draft together', () => {
@@ -64,7 +64,7 @@ describe('useComposerDraft', () => {
     act(() => result.current.onValueChange('needs a clearer legend'));
     act(() => result.current.onReferencesChange([{ offset: 0, reference }]));
 
-    expect(result.current.value).toBe('needs a clearer legend');
+    expect(result.current.readValue()).toBe('needs a clearer legend');
     expect(result.current.references).toEqual([{ offset: 0, reference }]);
   });
 
@@ -77,7 +77,7 @@ describe('useComposerDraft', () => {
     act(() => result.current.onReferencesChange([{ offset: 0, reference }]));
 
     rerender({ sessionId: 'session_2' });
-    expect(result.current.value).toBe('');
+    expect(result.current.readValue()).toBe('');
     expect(result.current.references).toEqual([]);
 
     // Writing in the second session must not resurrect the first session's chips.
@@ -92,7 +92,21 @@ describe('useComposerDraft', () => {
     act(() => result.current.onReferencesChange([{ offset: 12, reference }]));
     act(() => result.current.onReferencesChange([]));
 
-    expect(result.current.value).toBe('compare these');
+    expect(result.current.readValue()).toBe('compare these');
     expect(result.current.references).toEqual([]);
+  });
+
+  it('re-renders only the text subscriber while typing, not the draft owner', () => {
+    const ownerRender = vi.fn();
+    const owner = renderHook(() => {
+      ownerRender();
+      return useComposerDraft('session_1');
+    });
+    const text = renderHook(() => useComposerDraftValue(owner.result.current));
+    const before = ownerRender.mock.calls.length;
+    act(() => owner.result.current.onValueChange('C'));
+    act(() => owner.result.current.onValueChange('Co'));
+    expect(text.result.current).toBe('Co');
+    expect(ownerRender).toHaveBeenCalledTimes(before);
   });
 });

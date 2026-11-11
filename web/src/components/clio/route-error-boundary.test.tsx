@@ -27,6 +27,10 @@ vi.mock('./command-menu', () => ({
   },
 }));
 
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://agent.test' } }),
+}));
+
 vi.mock('@/components/ai-elements/prompt-input', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/ai-elements/prompt-input')>();
   return {

@@ -1,6 +1,7 @@
 import {
   GACT_HTTP_TIMEOUT_MS,
   MANAGED_BACKEND_POLL_MS,
+  MANAGED_BACKEND_PREPARE_POLL_MS,
   MANAGED_BACKEND_PREPARE_TIMEOUT_MS,
   MANAGED_BACKEND_READY_TIMEOUT_MS,
 } from '@/lib/runtime-limits';
@@ -179,14 +180,22 @@ export async function waitForManagedBackend(
   options: ManagedBackendOptions = {},
 ): Promise<ManagedBackendHandle> {
   const pollIntervalMs = options.pollIntervalMs ?? MANAGED_BACKEND_POLL_MS;
+  const preparePollIntervalMs = options.pollIntervalMs ?? MANAGED_BACKEND_PREPARE_POLL_MS;
   const timeoutMs = options.timeoutMs ?? MANAGED_BACKEND_READY_TIMEOUT_MS;
   let deadline = Date.now() + timeoutMs;
   let installStarted = false;
   let stage: string | undefined;
+  let reported: string | undefined;
 
   for (;;) {
     const handle = await getManagedBackend();
-    options.onStatus?.(handle.status);
+    // Each poll returns a fresh status object; reporting only real changes keeps the
+    // boot screen from re-rendering on every supervisor round trip.
+    const statusKey = managedStatusKey(handle.status);
+    if (statusKey !== reported) {
+      reported = statusKey;
+      options.onStatus?.(handle.status);
+    }
     if (handle.status.kind === 'starting' && handle.status.detail !== stage) {
       stage = handle.status.detail;
       // Package preparation precedes the service boot. Do not spend the
@@ -226,9 +235,16 @@ export async function waitForManagedBackend(
       throw new Error(`The managed ${vocab.agent} service did not become ready in time.`);
     }
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, pollIntervalMs);
+      window.setTimeout(
+        resolve,
+        stage === 'installing_runtime' ? preparePollIntervalMs : pollIntervalMs,
+      );
     });
   }
+}
+
+function managedStatusKey(status: ManagedBackendStatus): string {
+  return 'detail' in status ? `${status.kind}:${status.detail}` : status.kind;
 }
 
 /**

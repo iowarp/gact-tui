@@ -242,6 +242,8 @@ export interface ToolInvocation {
   completed_at?: string;
   duration_ms?: number;
   error?: string;
+  /** The call this one was made from (a run_code script's tool calls). */
+  parent_call_id?: string;
   /** The original submission RPC remains inspectable when execution is asynchronous. */
   submission?: {
     state: ToolState;
@@ -273,7 +275,7 @@ export interface ApprovalRequest {
   reason?: string;
   risk?: WireValue<'low' | 'medium' | 'high'>;
   status: WireValue<'pending' | 'approved' | 'denied' | 'cancelled'>;
-  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script'>;
   created_at: string;
   resolved_at?: string;
 }
@@ -415,7 +417,15 @@ export interface ContextFrame {
 
 export interface AsyncProcess {
   handle?: string;
-  task_kind?: 'Subagent' | 'Session' | 'MCP' | 'Download' | 'Indexing' | 'Shell' | 'Question';
+  task_kind?:
+    | 'Subagent'
+    | 'Session'
+    | 'MCP'
+    | 'Download'
+    | 'Indexing'
+    | 'Shell'
+    | 'Question'
+    | 'Code';
   question_id?: string;
   activity?: string;
   recording?: 'confirmed' | 'unconfirmed';
@@ -550,10 +560,19 @@ export interface PermissionPolicy {
   scope_id?: string;
   action: string;
   priority?: number;
-  kind?: 'tool' | 'domain' | 'fs_root' | 'plan_acl' | 'hook';
+  kind?:
+    | 'tool'
+    | 'domain'
+    | 'fs_root'
+    | 'plan_acl'
+    | 'hook'
+    | 'browser_host'
+    | 'browser_certificate';
   tool_name_pattern?: string;
   path_pattern?: string;
   host_pattern?: string;
+  /** A ``browser_certificate`` row's SHA-256 SPKI fingerprint: the key the person trusted. */
+  fingerprint?: string;
   modes?: string[];
   on?: string[];
   metadata: Record<string, unknown>;
@@ -603,6 +622,22 @@ export interface Message {
   cost_usd?: number;
   stop_reason?: string;
   error_info?: Record<string, unknown>;
+  /**
+   * Latest whole-answer snapshot from a diffusion model (`message.canvas`).
+   * Live only: each frame replaces the last, and the first block, delta or
+   * completion for this message clears it. Never persisted.
+   */
+  canvas?: MessageCanvas;
+}
+
+export interface MessageCanvas {
+  text: string;
+  step: number;
+  /**
+   * `snapshot`: one diffusion step's whole answer. `append`: the route answered
+   * with appended deltas, so `text` is the answer accumulated so far.
+   */
+  shape: 'snapshot' | 'append';
 }
 
 export interface A2UISurface {
@@ -631,7 +666,7 @@ export interface PermissionLedgerItem {
   reason?: string;
   created_at: string;
   status: string;
-  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace'>;
+  action?: WireValue<'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script'>;
   resolved_at?: string;
 }
 
@@ -661,6 +696,9 @@ export interface TranscriptPageOptions {
   limit?: number;
   before?: string;
 }
+
+/** An inclusive byte range of a file, or its last `suffix` bytes. */
+export type WorkspaceFileRange = { start: number; end: number } | { suffix: number };
 
 export interface EntityState {
   connection?: Connection;
@@ -701,6 +739,8 @@ export type { CompactionError, CompactionTrigger, PendingCompaction } from './co
 export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,
+  CommandKind,
+  SummonTargets,
   PromptDefinition,
   PromptProfileDefinition,
   ResolvedPromptDefinition,

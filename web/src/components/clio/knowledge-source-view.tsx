@@ -1,18 +1,52 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CodeIcon, EyeIcon, GitBranchIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
-import { KNOWLEDGE_ATTACH_EVENT, type KnowledgeAttachRequest } from '@/lib/knowledge-navigation';
+import { connectionScope } from '@/lib/connection-scope';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { FileModeControls, type FileMode } from './file-mode-controls';
 import { KnowledgeGraph } from './knowledge-graph';
-import { MarkdownFilePreview } from './markdown-file-preview';
-import { WorkspaceResourceCarousel } from './workspace-resource-view';
+import { KnowledgeNoteRead, KnowledgeNoteSource } from './knowledge-note-body';
+import { KnowledgeVaultTake } from './knowledge-vault-actions';
+import { KnowledgeVaultFiles } from './knowledge-vault-files';
+import { knowledgeDegrees } from './knowledge-vault-stats';
+import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { StateView } from './primitives/state-view';
+import { WorkbenchTabList, WorkbenchTabListToggle } from './workbench-tab-list';
+import { useWorkbenchTabListPicked } from './workbench-tab-list-context';
 
-/** Graph, list and reader share source identity and selection; content is fetched on demand. */
+type VaultMode = 'note' | 'markdown' | 'graph';
+
+const MODES: readonly FileMode[] = [
+  { value: 'note', label: 'Note', title: 'The selected note', icon: EyeIcon },
+  {
+    value: 'markdown',
+    label: 'Markdown',
+    title: 'The note’s Markdown',
+    icon: CodeIcon,
+    shortcut: 'render-source',
+  },
+  { value: 'graph', label: 'Note graph', title: 'How the notes link', icon: GitBranchIcon },
+];
+
+const BODY = 'm-0 min-h-0 min-w-0 flex-1 overflow-hidden';
+
+function accessWords(access: string | undefined) {
+  return access === 'publish_later'
+    ? 'Edits require review'
+    : access === 'write_through'
+      ? 'Edits update originals'
+      : 'Read only';
+}
+
+/**
+ * A knowledge vault as a workbench tab: Note renders the selected note,
+ * Markdown shows its source and Note graph how the notes link. The vault's
+ * files list beside the tabs; graph, list and note share one selection.
+ */
 export function KnowledgeSourceView({
   workspaceId,
   sourceId,
@@ -21,10 +55,12 @@ export function KnowledgeSourceView({
   sourceId: string;
 }) {
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
-  const [view, setView] = useState<'graph' | 'list'>('graph');
-  const [attachments, setAttachments] = useState(false);
+  const region = useRef<HTMLDivElement>(null);
+  const picked = useWorkbenchTabListPicked();
+  const [mode, setMode] = useState<VaultMode>('graph');
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   useEffect(() => {
@@ -33,347 +69,270 @@ export function KnowledgeSourceView({
   }, [query]);
   const [focus, setFocus] = useState('');
   const [selected, setSelected] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [attached, setAttached] = useState('');
+  const [attachments, setAttachments] = useState(false);
+  const key = useMemo(
+    () => ['knowledge', scope, workspaceId, sourceId] as const,
+    [scope, workspaceId, sourceId],
+  );
   const sources = useQuery({
-    queryKey: ['knowledge-source', scope, workspaceId, sourceId],
+    queryKey: [...key, 'sources'],
     queryFn: ({ signal }) => repository.connectedSources(workspaceId, signal),
   });
   const source = sources.data?.find((row) => row.id === sourceId);
-  const snapshot = useQuery({
-    queryKey: ['knowledge', scope, workspaceId, sourceId, view, search, focus, offset, attachments],
+  const headless = source?.connection === 'headless_sync';
+  const graph = useQuery({
+    queryKey: [...key, 'graph', search, focus, attachments],
     queryFn: ({ signal }) =>
-      view === 'graph'
-        ? repository.knowledgeGraph(
-            workspaceId,
-            sourceId,
-            { query: search, focus, attachments },
-            signal,
-          )
-        : repository.knowledgeSnapshot(
-            workspaceId,
-            sourceId,
-            { query: search, focus, offset },
-            signal,
-          ),
-    refetchInterval: source?.connection === 'headless_sync' ? 5000 : false,
+      repository.knowledgeGraph(
+        workspaceId,
+        sourceId,
+        { query: search, focus, attachments },
+        signal,
+      ),
+    refetchInterval: headless ? 5000 : false,
   });
   const note = useQuery({
-    queryKey: ['knowledge-note', scope, workspaceId, sourceId, selected, snapshot.data?.revision],
+    queryKey: [...key, 'note', selected, graph.data?.revision],
     queryFn: ({ signal }) => repository.knowledgeOpen(workspaceId, sourceId, selected, '', signal),
-    enabled: Boolean(selected) && snapshot.isSuccess,
+    enabled: Boolean(selected) && graph.isSuccess,
   });
   const sync = useQuery({
-    queryKey: ['knowledge-sync', scope, workspaceId, sourceId],
+    queryKey: [...key, 'sync'],
     queryFn: () => repository.knowledgeSync(workspaceId, sourceId),
-    enabled: source?.connection === 'headless_sync',
-    refetchInterval: source?.connection === 'headless_sync' ? 5000 : false,
+    enabled: headless,
+    refetchInterval: headless ? 5000 : false,
   });
   const controlSync = useMutation({
     mutationFn: (action: 'start' | 'stop') =>
       repository.knowledgeSync(workspaceId, sourceId, action),
-    onSuccess: () => {
-      void sync.refetch();
-    },
+    onSuccess: () => void sync.refetch(),
   });
-  const select = (path: string) => {
-    setSelected(path);
-    setAttached('');
+  const stats = useMemo(
+    () => (graph.data ? knowledgeDegrees(graph.data) : undefined),
+    [graph.data],
+  );
+  const opened = selected && note.data?.note.path === selected ? note.data : undefined;
+  const vaultName = source?.label ?? 'Vault';
+  const noteTitle =
+    opened?.note.title ??
+    graph.data?.notes.find((row) => row.path === selected)?.title ??
+    selected.split('/').at(-1);
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: key });
+  const focusOn = (path: string) => {
+    setFocus(path);
+    setQuery('');
+    setSearch('');
   };
-  const error = snapshot.error || note.error || controlSync.error || sources.error;
-  return (
-    <div className="@container flex h-full min-h-0 flex-col" aria-label="Knowledge source">
-      <div className="flex flex-wrap items-center gap-2 border-b p-3">
-        <div role="group" aria-label="Knowledge view">
-          <Button
-            size="sm"
-            variant={view === 'graph' ? 'secondary' : 'ghost'}
-            aria-pressed={view === 'graph'}
-            onClick={() => setView('graph')}
-          >
-            Graph
-          </Button>
-          <Button
-            size="sm"
-            variant={view === 'list' ? 'secondary' : 'ghost'}
-            aria-pressed={view === 'list'}
-            onClick={() => setView('list')}
-          >
-            Files
-          </Button>
-        </div>
-        <Input
-          aria-label="Search knowledge"
-          className="min-w-36 flex-1"
-          placeholder="Search notes, tags, aliases…"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOffset(0);
-          }}
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={async () => {
-            await Promise.all([snapshot.refetch(), sources.refetch()]);
-            if (selected) await note.refetch();
-            if (source?.connection === 'headless_sync') await sync.refetch();
-          }}
-        >
-          Refresh
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          {source?.link_access === 'read_only' || !source?.link_access
-            ? 'Read only'
-            : source.link_access === 'publish_later'
-              ? 'Edits require review'
-              : 'Edits update originals'}
-        </span>
-      </div>
-      {source?.connection === 'headless_sync' && (
-        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
-          <span>
-            Sync: {sync.data?.state ?? 'checking'}, {sync.data?.mode ?? 'pull-only'}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={controlSync.isPending}
-            onClick={() => controlSync.mutate(sync.data?.state === 'running' ? 'stop' : 'start')}
-          >
-            {sync.data?.state === 'running' ? 'Stop sync' : 'Start sync'}
-          </Button>
-          {sync.data?.error}
-        </div>
-      )}
-      {error && (
-        <p role="alert" className="p-3 text-sm text-destructive">
-          {error.message}
-        </p>
-      )}
-      {snapshot.isPending && (
-        <p role="status" className="p-3 text-sm">
-          Indexing vault notes…
-        </p>
-      )}
-      {snapshot.data && (
+  const pick = (path: string) => {
+    setSelected(path);
+    if (mode === 'graph') setMode('note');
+    picked();
+  };
+  const warnings = graph.data?.warnings ?? [];
+  const syncError = controlSync.error?.message ?? sync.data?.error ?? undefined;
+  const what = (
+    <>
+      {graph.data ? (
         <>
-          <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              {snapshot.data.total}{' '}
-              {view === 'graph' && !attachments
-                ? snapshot.data.total === 1
-                  ? 'note'
-                  : 'notes'
-                : snapshot.data.total === 1
-                  ? 'item'
-                  : 'items'}
-            </span>
-            {view === 'graph' && (
-              <label className="flex cursor-pointer items-center gap-1.5">
-                <Checkbox
-                  checked={attachments}
-                  onCheckedChange={(value) => setAttachments(value === true)}
-                />
-                Attachments
-              </label>
-            )}
-            {snapshot.data.relationships_truncated && (
-              <span>Relationship limit reached; explore a note neighborhood.</span>
-            )}
-            {snapshot.data.truncated && (
-              <span>
-                Showing{' '}
-                {view === 'graph'
-                  ? snapshot.data.notes.length
-                  : `${offset + 1}–${offset + snapshot.data.notes.length}`}
-                . Search, select a folder, or explore a note's links to narrow this view.
-              </span>
-            )}
-            {focus && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setFocus('');
-                  setQuery('');
-                  setOffset(0);
-                }}
-              >
-                All notes
-              </Button>
-            )}
-            {view === 'list' && (offset > 0 || snapshot.data.next_offset != null) && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!offset}
-                  onClick={() => setOffset(Math.max(0, offset - 200))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={snapshot.data.next_offset == null}
-                  onClick={() => setOffset(snapshot.data!.next_offset!)}
-                >
-                  Next
-                </Button>
-              </>
-            )}
-          </div>
-          {(snapshot.data.warnings?.length ?? 0) > 0 && (
-            <details className="px-3 text-xs">
-              <summary>{snapshot.data.warnings!.length} indexing warnings</summary>
-              {snapshot.data.warnings!.map((warning) => (
-                <p key={warning}>{warning}</p>
-              ))}
-            </details>
-          )}
-          <div
-            className={`grid min-h-0 flex-1 grid-cols-1 overflow-auto ${selected ? '@3xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)]' : ''}`}
+          <span
+            className="tabular-nums"
+            data-frame-position=""
+            title={accessWords(source?.link_access)}
           >
-            <div className={`min-h-80 min-w-0 ${selected ? 'border-r' : ''}`}>
-              {snapshot.data.total === 0 && !search && !focus ? (
-                <div role="status" className="grid gap-2 p-6 text-sm">
-                  <h3 className="font-medium">Your vault is ready</h3>
-                  <p className="text-muted-foreground">There are no notes yet.</p>
-                  <p className="max-w-xl leading-6 text-muted-foreground">
-                    {source?.capabilities?.note_write && source.link_access !== 'read_only'
-                      ? `Ask ${vocab.agent} to create notes in this vault, or add Markdown files to the folder and choose Refresh.`
-                      : 'Add Markdown files to the folder and choose Refresh. This connection is read only.'}
-                  </p>
-                </div>
-              ) : view === 'graph' ? (
-                <KnowledgeGraph snapshot={snapshot.data} selected={selected} onSelect={select} />
-              ) : (
-                <ul aria-label="Vault files" className="h-full overflow-auto p-2">
-                  {snapshot.data.notes.map((item) => (
-                    <li key={item.path}>
-                      <Button
-                        aria-label={`Open ${item.path}`}
-                        aria-pressed={selected === item.path}
-                        variant={selected === item.path ? 'secondary' : 'ghost'}
-                        className="h-auto w-full justify-start whitespace-normal text-left"
-                        onClick={() => select(item.path)}
-                      >
-                        <span>
-                          <span className="block">{item.title}</span>
-                          <span className="block break-all text-xs font-normal text-muted-foreground">
-                            {item.path}
-                          </span>
-                        </span>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {selected && (
-              <div
-                className="flex min-h-80 min-w-0 flex-col overflow-auto p-3"
-                aria-label="Knowledge reader"
-              >
-                {!selected && (
-                  <p className="m-auto text-sm text-muted-foreground">
-                    Select a note to read it and follow its links.
-                  </p>
-                )}
-                {note.isFetching && selected && <p role="status">Opening note…</p>}
-                {note.data && (
-                  <>
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setFocus(selected);
-                          setView('graph');
-                          setQuery('');
-                          setOffset(0);
-                        }}
-                      >
-                        Explore links
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          window.dispatchEvent(
-                            new CustomEvent<KnowledgeAttachRequest>(KNOWLEDGE_ATTACH_EVENT, {
-                              detail: { scope, workspaceId, resource: note.data.resource },
-                            }),
-                          );
-                          setAttached(selected);
-                        }}
-                      >
-                        {attached === selected ? 'Added to chat' : 'Attach note'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="ml-auto"
-                        onClick={() => select('')}
-                      >
-                        Close note
-                      </Button>
-                    </div>
-                    <p className="mb-2 break-all text-xs text-muted-foreground">
-                      {note.data.note.path}, captured revision{' '}
-                      {note.data.note.revision.slice(0, 12)}
-                    </p>
-                    <div className="min-h-64 flex-1">
-                      {note.data.note.kind === 'attachment' ? (
-                        <WorkspaceResourceCarousel
-                          resource={note.data.resource}
-                          resources={[note.data.resource]}
-                          workspaceId={workspaceId}
-                        />
-                      ) : (
-                        <MarkdownFilePreview name={note.data.note.title} content={note.data.text} />
-                      )}
-                    </div>
-                    <details className="mt-3 text-sm" open>
-                      <summary>Links and backlinks</summary>
-                      {note.data.relationships_truncated && (
-                        <p>More relationships are available. Use Explore links and pagination.</p>
-                      )}
-                      <ul>
-                        {note.data.links.map((link, index) => (
-                          <li key={index} className="py-1">
-                            {link.status === 'resolved' ? (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto max-w-full whitespace-normal break-all text-left"
-                                onClick={() =>
-                                  select(link.source === selected ? link.target : link.source)
-                                }
-                              >
-                                {link.source === selected
-                                  ? `→ ${link.target}${link.selector ? `#${link.selector}` : ''}`
-                                  : `← ${link.source}`}
-                                {link.kind === 'embed' ? ' (embed)' : ''}
-                              </Button>
-                            ) : (
-                              <span className="break-all text-muted-foreground">
-                                {link.target} ({link.status})
-                                {link.candidates?.length ? `: ${link.candidates.join(', ')}` : ''}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+            {graph.data.total} {attachments ? 'items' : graph.data.total === 1 ? 'note' : 'notes'}
+          </span>
+          <span className="tabular-nums">
+            {stats?.links ?? 0}
+            {graph.data.relationships_truncated ? '+' : ''} {stats?.links === 1 ? 'link' : 'links'}
+          </span>
         </>
-      )}
-    </div>
+      ) : null}
+      {focus ? <span>Linked to {focus.split('/').at(-1)}</span> : null}
+      {headless ? (
+        <span title={syncError}>
+          {sync.data?.state === 'running'
+            ? 'Sync running'
+            : sync.data?.state === 'failed'
+              ? 'Sync failed'
+              : sync.data
+                ? 'Sync stopped'
+                : 'Checking sync'}
+        </span>
+      ) : null}
+      {warnings.length ? (
+        <span title={warnings.join('\n')}>
+          {warnings.length} indexing {warnings.length === 1 ? 'warning' : 'warnings'}
+        </span>
+      ) : null}
+      {sources.error ? (
+        <span role="alert" className="text-destructive" title={sources.error.message}>
+          {sources.error.message}
+        </span>
+      ) : null}
+    </>
+  );
+  const emptyVault = graph.data?.total === 0 && !search && !focus;
+  const vaultState = graph.error ? (
+    <StateView
+      kind="error"
+      size="viewer"
+      title="The vault could not be read"
+      detail={graph.error.message}
+      action={{ label: 'Retry', onClick: refresh }}
+    />
+  ) : graph.isPending ? (
+    <StateView kind="loading" size="viewer" title="Indexing vault notes" />
+  ) : emptyVault ? (
+    <StateView
+      kind="empty"
+      size="viewer"
+      title="Your vault is ready"
+      detail={
+        source?.capabilities?.note_write && source.link_access !== 'read_only'
+          ? `There are no notes yet. Ask ${vocab.agent} to create notes in this vault, or add Markdown files to the folder and choose Refresh.`
+          : 'There are no notes yet. Add Markdown files to the folder and choose Refresh. This connection is read only.'
+      }
+    />
+  ) : null;
+  const noteState = !selected ? (
+    <StateView
+      kind="empty"
+      size="viewer"
+      title="No note selected"
+      detail="Choose one in the vault list or the note graph."
+    />
+  ) : note.error ? (
+    <StateView
+      kind="error"
+      size="viewer"
+      title="The note could not be opened"
+      detail={note.error.message}
+      action={{ label: 'Retry', onClick: () => void note.refetch() }}
+    />
+  ) : !opened ? (
+    <StateView kind="loading" size="viewer" title="Opening the note" />
+  ) : null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div
+        ref={region}
+        aria-label="Knowledge source"
+        data-slot="knowledge-vault"
+        className="flex h-full min-h-0 min-w-0 flex-col"
+      >
+        <Tabs
+          value={mode}
+          onValueChange={(next) => setMode(next as VaultMode)}
+          className="flex h-full min-h-0 min-w-0 flex-col gap-0"
+        >
+          <FrameBar
+            label="Vault actions"
+            where={
+              <FrameCrumbs
+                parts={
+                  selected && mode !== 'graph'
+                    ? [
+                        { label: vaultName, onSelect: () => setSelected('') },
+                        { label: noteTitle || selected },
+                      ]
+                    : [{ label: 'vault' }, { label: vaultName }]
+                }
+              />
+            }
+            what={what}
+            format={
+              <>
+                <FileModeControls
+                  modes={MODES}
+                  value={mode}
+                  onChange={(next) => setMode(next as VaultMode)}
+                  label="Vault views"
+                />
+                <WorkbenchTabListToggle />
+              </>
+            }
+            actions={
+              <KnowledgeVaultTake
+                source={source}
+                workspaceId={workspaceId}
+                selected={selected}
+                opened={opened}
+                region={region}
+                menu={{
+                  mode,
+                  selected,
+                  focus,
+                  setFocus: focusOn,
+                  attachments,
+                  setAttachments,
+                  refresh,
+                  sync: headless
+                    ? {
+                        running: sync.data?.state === 'running',
+                        pending: controlSync.isPending,
+                        toggle: () =>
+                          controlSync.mutate(sync.data?.state === 'running' ? 'stop' : 'start'),
+                      }
+                    : undefined,
+                }}
+              />
+            }
+          />
+          <WorkbenchTabList title="Vault">
+            <KnowledgeVaultFiles
+              queryKey={key}
+              workspaceId={workspaceId}
+              sourceId={sourceId}
+              query={query}
+              onQuery={setQuery}
+              search={search}
+              focus={focus}
+              selected={selected}
+              onPick={pick}
+              refetchInterval={headless ? 5000 : false}
+            />
+          </WorkbenchTabList>
+          {vaultState ? (
+            <div className={BODY}>{vaultState}</div>
+          ) : (
+            <>
+              <TabsContent value="note" className={BODY}>
+                {noteState ??
+                  (opened ? (
+                    <KnowledgeNoteRead
+                      opened={opened}
+                      workspaceId={workspaceId}
+                      onSelect={setSelected}
+                      notes={graph.data?.notes}
+                    />
+                  ) : null)}
+              </TabsContent>
+              <TabsContent value="markdown" className={BODY}>
+                {noteState ??
+                  (opened?.note.kind === 'attachment' ? (
+                    <StateView
+                      kind="no-preview"
+                      size="viewer"
+                      title="An attachment has no Markdown"
+                      detail="Choose Note to see it."
+                    />
+                  ) : opened ? (
+                    <KnowledgeNoteSource opened={opened} />
+                  ) : null)}
+              </TabsContent>
+              <TabsContent value="graph" className={BODY}>
+                {graph.data ? (
+                  <KnowledgeGraph
+                    snapshot={graph.data}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />
+                ) : null}
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

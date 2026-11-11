@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -8,6 +8,10 @@ import { editorCaretOffset } from './composer-editor-model';
 
 const repositoryMocks = vi.hoisted(() => ({
   workspaceReferences: vi.fn(),
+  capabilities: vi.fn(async () => ({ capabilities: { x_clio_hdf5_viewer: true } })),
+  readWorkspaceHdf5: vi.fn(async () =>
+    new TextEncoder().encode(JSON.stringify({ children: [{ name: 'entry', kind: 'group' }] })),
+  ),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks }));
@@ -18,9 +22,14 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: v
 
 afterEach(cleanup);
 
+/** The editor places the caret after a selected token on the next frame; type after it lands. */
+async function caretSettles(): Promise<void> {
+  await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 function placeCaret(editor: HTMLElement, offset: number): void {
@@ -109,8 +118,7 @@ const readmeReference = {
 };
 
 async function openPicker(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Add context' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
+  await user.click(screen.getByRole('button', { name: 'Add a reference' }));
   const search = await screen.findByPlaceholderText(/Search evidence/);
   // The menu that opened this hands focus back to its own trigger as it closes,
   // so the search box is focused here rather than relying on that race.
@@ -130,8 +138,10 @@ describe('composer reference popover contract', () => {
     expect(editor).toHaveAttribute('aria-controls');
     expect(editor).not.toHaveAttribute('aria-activedescendant');
 
-    await user.type(editor, '@');
+    await user.type(editor, '@Disp');
     await screen.findByRole('option', { name: /Displacement plot/ });
+    // The server search (mocked to return both) settles after the debounce.
+    await screen.findByRole('option', { name: /Review notes/ });
 
     expect(editor).toHaveAttribute('aria-expanded', 'true');
     const popover = document.getElementById(editor.getAttribute('aria-controls') ?? '');
@@ -231,7 +241,51 @@ describe('composer reference popover contract', () => {
   });
 });
 
+const runReference = {
+  kind: 'workspace_file' as const,
+  id: 'data/run.h5',
+  label: 'run.h5',
+  detail: 'data/run.h5 (40 KB)',
+  media_type: 'application/x-hdf5',
+  revision: 'stat:1:40960',
+  navigation: { path: 'data/run.h5' },
+};
+
+describe('composer HDF5 references', () => {
+  it('Tab on an HDF5 file lists its contents and Enter adds one object', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([runReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'plot @run');
+    await screen.findByRole('option', { name: /run\.h5/ });
+    await user.keyboard('{Tab}');
+
+    expect(editor).toHaveTextContent('plot @data/run.h5::/');
+    await user.click(await screen.findByRole('option', { name: /\/entry group/ }));
+    const chip = await screen.findByRole('button', { name: 'Open local file run.h5 › /entry' });
+    expect(chip).toHaveTextContent('@run.h5 › /entry');
+  });
+});
+
 describe('composer reference placement', () => {
+  it('starts an @ mention with only local files open and shows every match once a word is typed', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, '@');
+    expect(await screen.findByRole('button', { name: /Artifacts/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('option', { name: /Displacement plot/ })).not.toBeInTheDocument();
+    await user.type(editor, 'Disp');
+    expect(await screen.findByRole('option', { name: /Displacement plot/ })).toBeVisible();
+  });
+
   it('inserts a picked reference at the caret instead of at the end of the draft', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
     const user = userEvent.setup();
@@ -252,7 +306,8 @@ describe('composer reference placement', () => {
     expect(token?.nextSibling?.textContent).toBe(' after');
     expect(document.querySelector('input[name="message"]')).toHaveValue('before  after');
     await waitFor(() => expect(editor).toHaveFocus());
-    expect(editorCaretOffset(editor)).toBe('before '.length);
+    // Past the space after the reference, so the next word does not touch it.
+    expect(editorCaretOffset(editor)).toBe('before  '.length);
   });
 
   it('opens and replaces the mention under the caret in the middle of a draft', async () => {
@@ -314,6 +369,7 @@ describe('composer reference placement', () => {
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
     await screen.findByRole('button', { name: 'Open artifact Displacement plot' });
+    await caretSettles();
 
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));

@@ -127,7 +127,8 @@ it('shows authoritative work and exposes a compact canvas entry without toggling
   );
   expect(await screen.findByText('Verify readable output')).toBeVisible();
   expect(screen.getByRole('img', { name: 'In progress' })).toBeVisible();
-  expect(screen.getByText('No active schedules.')).toBeVisible();
+  expect(screen.queryByText('No active schedules.')).not.toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Schedules' })).toHaveTextContent('None active');
   expect(screen.getAllByRole('button', { name: /Previous 1/ })).toHaveLength(4);
   expect(screen.queryByText('Earlier checklist task')).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: /Previous 1 todo lists/ }));
@@ -157,7 +158,7 @@ it('distinguishes goal and todo semantics and sizes the footer control consisten
   mount(<SessionWorkStatus sessionId="s" onOpen={vi.fn()} fallback="No active work" />);
   const entry = await screen.findByRole('button', { name: 'Open session Work' });
   expect(entry).toHaveAttribute('data-work-kind', 'goal');
-  expect(entry).toHaveClass('h-6');
+  expect(entry).toHaveClass('h-7');
   expect(entry.querySelector('svg')).toHaveClass('size-3.5');
   expect(entry).toHaveTextContent('Goal active: Verify readable output');
   expect(entry).toHaveTextContent('Todos: 1/2 current');
@@ -171,20 +172,36 @@ it('does not call a completed goal active in the footer', async () => {
   );
 });
 
-it('makes every Work category independently collapsible and scrollable', async () => {
+it('lists only the kinds of work that have records, under plain headings', async () => {
+  repository.sessionWork.mockResolvedValue({ ...snapshot, loop: null, loops: [] });
   mount(<SessionWorkView sessionId="s" />);
 
   expect(await screen.findByText('Verify readable output')).toBeVisible();
-  expect(document.querySelectorAll('[data-slot="work-section-scroll"]')).toHaveLength(4);
   const todos = screen.getByRole('region', { name: 'Todos' });
-  const todosTrigger = within(todos).getByRole('button', { name: 'Todos: 1/2 current' });
-  expect(todosTrigger).toHaveAttribute('aria-expanded', 'true');
-  await userEvent.setup().click(todosTrigger);
-  expect(todosTrigger).toHaveAttribute('aria-expanded', 'false');
-  expect(within(todos).queryByText('Inspect evidence')).not.toBeInTheDocument();
+  expect(within(todos).getByRole('heading', { name: /Todos/ })).toHaveTextContent('1/2 current');
+  expect(within(todos).getByText('Inspect evidence')).toBeVisible();
   expect(
     within(screen.getByRole('region', { name: 'Goals' })).getByText('Verify readable output'),
   ).toBeVisible();
+  expect(screen.queryByRole('region', { name: 'Loops' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/recorded\.$/)).not.toBeInTheDocument();
+});
+
+it('shows one empty state when the session has no work', async () => {
+  repository.sessionWork.mockResolvedValue({
+    ...snapshot,
+    goal: null,
+    goals: [],
+    loops: [],
+    todos: [],
+    todo_history: [],
+    schedule_history: [],
+  });
+  mount(<SessionWorkView sessionId="s" />);
+
+  expect(await screen.findByText('No work recorded')).toBeVisible();
+  expect(screen.queryByRole('region', { name: 'Todos' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Schedules' })).not.toBeInTheDocument();
 });
 it('keeps stopped separate from paused and pages retained history', async () => {
   repository.sessionWork

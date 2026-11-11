@@ -1,44 +1,35 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { CircleAlertIcon, ListChecksIcon, LoaderCircleIcon } from 'lucide-react';
-import { Fragment, type ReactNode } from 'react';
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-} from '@/components/ai-elements/chain-of-thought';
-import { cn } from '@/lib/utils';
+import { Fragment } from 'react';
 import type {
   Artifact,
   ClioRepository,
   PendingInteraction,
   PendingInteractionResponse,
   SubagentRun,
-  Task,
   ToolInvocation,
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
-import { ClioStatus } from './status';
-import { getToolStatus } from './tool-presentation';
-import {
-  ClioAgentMessageLine,
-  ClioSubagentLifecycleLine,
-  type SubagentOpenTarget,
-} from './subagent-card';
-import { subagentsForTool } from './subagent-tool-link';
-import { ClioToolInvocation } from './tool-invocation';
+import type { SubagentOpenTarget } from './subagent-card';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
-import { questionInteractionsForTool } from './agent-answer-domain';
-import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
-import { bucketIntensity } from '@/lib/attention-text';
-import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
+import {
+  isCausalQuestionInteraction,
+  permissionInteractionForTool,
+  questionInteractionsForTool,
+  splitWaitingQuestion,
+} from './agent-answer-domain';
+import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
-import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { HarnessInjection } from './conversation-harness-injection';
 import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
-
-type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
+import { toolSandboxBoundary } from './sandbox-boundary';
+import { TurnSandboxNotices } from './sandbox-boundary-notice';
+import { ActivityLane } from './conversation-activity-lane';
+import {
+  IterationDetail,
+  McpAppActivity,
+  type McpAppActivityEntry,
+} from './conversation-iteration-detail';
 
 /** The flow a run_flow / run_workflow call started, once its start was accepted. */
 function startedFlow(
@@ -48,23 +39,21 @@ function startedFlow(
   return flow?.handle ? (flow as FlowToolDescriptor & { handle: string }) : undefined;
 }
 
-/** This tool's attention-mode badge, or `undefined` when it carried no traced heat. */
-function toolAttentionBadge(
-  tool: ToolInvocation,
-  index: MessageAttentionIndex | undefined,
-): { share: number; bucket: number } | undefined {
-  const entries = index?.toolStepsByToolId.get(tool.id);
-  const share = toolStepShare(entries);
-  return entries && share > 0
-    ? { share, bucket: bucketIntensity(share, index?.maxToolStepShare ?? 0) }
-    : undefined;
-}
-
 interface ConversationTurnProps {
   /** Retained for callers; live following uses the latest visible activity instead. */
   answerStarted?: boolean;
   /** Open the last live group until a newer entry arrives, unless the reader chose otherwise. */
   followLiveActivity?: boolean;
+  /**
+   * These calls are the agent's latest work and it is still going. They stay as
+   * rows until it moves past them, then fold into their counted row.
+   */
+  turnLive?: boolean;
+  /**
+   * The live message's latest calls: a call held for approval before the service
+   * projects it is shown here, even when a context injection follows these calls.
+   */
+  holdsWaitingCalls?: boolean;
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -75,6 +64,7 @@ interface ConversationTurnProps {
   messageSessionId?: string;
   artifacts?: Record<string, Artifact>;
   onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenFile?: (path: string) => void;
   onInteractionResponse?: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -84,10 +74,93 @@ interface ConversationTurnProps {
   flowCards?: boolean;
 }
 
+/**
+ * An answer delivered back to the agent ("Your answer") that its ask's own
+ * "Answered" row already shows is not said a second time.
+ */
+function withoutRestatedAnswers(
+  iterations: readonly ConversationIteration[],
+  interactions: readonly PendingInteraction[] | undefined,
+): readonly ConversationIteration[] {
+  const answered = new Set(
+    (interactions ?? []).flatMap((row) =>
+      row.status === 'answered' && row.task_id && isCausalQuestionInteraction(row)
+        ? [row.task_id]
+        : [],
+    ),
+  );
+  if (!answered.size) return iterations;
+  const restated = (entry: ConversationIteration['activity'][number]) => {
+    if (entry.kind !== 'injection' || entry.block.source !== 'question_answer') return false;
+    const handle = /; Question ([^\s:]+):/u.exec(entry.block.text)?.[1];
+    return Boolean(handle && answered.has(handle));
+  };
+  if (!iterations.some((iteration) => iteration.activity.some(restated))) return iterations;
+  return iterations.flatMap((iteration) => {
+    if (!iteration.activity.some(restated)) return [iteration];
+    const activity = iteration.activity.filter((entry) => !restated(entry));
+    return activity.length || iteration.thinking.length || iteration.nextThoughts.length
+      ? [{ ...iteration, activity }]
+      : [];
+  });
+}
+
+/**
+ * A call held for approval before the service projects it (a write outside the
+ * workspace asks for folder access first) still reads as the run's own row,
+ * "Write file · a.txt · waiting for you", rather than the run looking done.
+ */
+function withWaitingCalls(
+  iterations: readonly ConversationIteration[],
+  interactions: readonly PendingInteraction[] | undefined,
+  sessionId: string | undefined,
+): readonly ConversationIteration[] {
+  const last = iterations.at(-1);
+  if (!last || !sessionId || !interactions?.length) return iterations;
+  const tools = iterations.flatMap((iteration) => iteration.tools);
+  const standIns = interactions.flatMap((interaction): ToolInvocation[] => {
+    const call = interaction.payload?.tool_call;
+    const name = interaction.source.tool_name ?? call?.tool_name;
+    if (
+      interaction.kind !== 'permission' ||
+      interaction.status !== 'pending' ||
+      interaction.owner_session_id !== sessionId ||
+      !name
+    )
+      return [];
+    const invocation = interaction.source.invocation_id;
+    if (invocation && tools.some((tool) => tool.id === invocation)) return [];
+    const standIn: ToolInvocation = {
+      id: invocation || `waiting:${interaction.id}`,
+      session_id: sessionId,
+      name,
+      state: 'pending',
+      input: call?.input,
+    };
+    return tools.some((tool) => permissionInteractionForTool([interaction], tool) === interaction)
+      ? []
+      : [standIn];
+  });
+  if (!standIns.length) return iterations;
+  return [
+    ...iterations.slice(0, -1),
+    {
+      ...last,
+      activity: [
+        ...last.activity,
+        ...standIns.map((tool) => ({ kind: 'tool' as const, id: tool.id, tool })),
+      ],
+      tools: [...last.tools, ...standIns],
+    },
+  ];
+}
+
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
   followLiveActivity = false,
-  iterations,
+  turnLive = false,
+  holdsWaitingCalls = turnLive,
+  iterations: recordedIterations,
   mode,
   onOpenSubagent,
   subagents,
@@ -95,22 +168,30 @@ export function ConversationTurn({
   activeMcpAppId,
   mcpAppRepository,
   messageSessionId,
-  artifacts = {},
+  artifacts = NO_ARTIFACTS,
   onOpenArtifact,
+  onOpenFile,
   onInteractionResponse,
   messageAttentionIndex,
   flowCards = true,
 }: ConversationTurnProps) {
+  const iterations = withWaitingCalls(
+    withoutRestatedAnswers(recordedIterations, interactions),
+    holdsWaitingCalls ? interactions : undefined,
+    messageSessionId,
+  );
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
   // Split at the owning tool (including mid-iteration) without changing wire order.
-  // Pending questions stay answerable in the log. Settled question records
-  // return to Activity, preserving their original tool position and answer.
+  // A pending question is said on its own tool's row ("waiting for you"), so it
+  // stays in place; settled question records keep their tool position and answer.
   const planReviews =
     interactions?.filter(
       (item) =>
         item.source.tool_name === 'plan_exit' ||
-        (isToolAnchoredQuestion(item) && item.status === 'pending'),
+        (isToolAnchoredQuestion(item) &&
+          item.status === 'pending' &&
+          !splitWaitingQuestion([item]).waiting),
     ) ?? [];
   const boundaries = new Map(
     iterations.flatMap((iteration) =>
@@ -212,6 +293,8 @@ export function ConversationTurn({
               key={section.iterations[0].id}
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
+              turnLive={turnLive && index === sections.length - 1}
+              holdsWaitingCalls={false}
               mode={mode}
               subagents={subagents}
               interactions={activityInteractions}
@@ -221,6 +304,7 @@ export function ConversationTurn({
               messageSessionId={messageSessionId}
               artifacts={artifacts}
               onOpenArtifact={onOpenArtifact}
+              onOpenFile={onOpenFile}
               onInteractionResponse={onInteractionResponse}
               messageAttentionIndex={messageAttentionIndex}
               flowCards={false}
@@ -237,6 +321,7 @@ export function ConversationTurn({
           {iterations.map((iteration) => (
             <IterationDetail
               iteration={iteration}
+              flowCards={flowCards}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
               showTasks
@@ -248,6 +333,7 @@ export function ConversationTurn({
               artifacts={artifacts}
               onInteractionResponse={onInteractionResponse}
               onOpenArtifact={onOpenArtifact}
+              onOpenFile={onOpenFile}
               messageAttentionIndex={messageAttentionIndex}
             />
           ))}
@@ -264,73 +350,78 @@ export function ConversationTurn({
     else groups[groups.length - 1].push(iteration);
   }
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-slot="transcript-entry-sequence">
+    <div
+      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1"
+      data-slot="transcript-entry-sequence"
+    >
       {groups.map((group, index) => {
         const iteration = group[0];
-        const summary = transcriptActivitySummary(group);
+        const summary = transcriptActivitySummary(group, interactions);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
-            <TranscriptIterationText iteration={iteration} showReasoning={!hasActivity} />
+            {/* The step's thought reads first, then its public update, then its calls. */}
+            <TranscriptIterationText iteration={iteration} />
             {hasActivity ? (
-              <ActivityChain
+              <ActivityLane
                 id={iteration.id}
-                defaultOpen={followLiveActivity && index === groups.length - 1}
+                group={group}
+                label={summary.label}
+                live={followLiveActivity && index === groups.length - 1}
+                turnLive={(turnLive || followLiveActivity) && index === groups.length - 1}
+                subagents={subagents}
+                interactions={interactions}
+                rowInputs={[
+                  flowCards,
+                  onOpenSubagent,
+                  activeMcpAppId,
+                  mcpAppRepository,
+                  messageSessionId,
+                  artifacts,
+                  onInteractionResponse,
+                  onOpenArtifact,
+                  onOpenFile,
+                  messageAttentionIndex,
+                ]}
               >
-                <ChainOfThoughtHeader
-                  aria-label={`Activity: ${summary.label}`}
-                  className="min-h-7 [&>svg:first-child]:hidden"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    {summary.running ? (
-                      <LoaderCircleIcon
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0 animate-spin text-primary"
-                      />
-                    ) : null}
-                    <span className="min-w-0 truncate font-medium">{summary.label}</span>
-                    {summary.failed ? (
-                      <span
-                        className="shrink-0"
-                        data-slot="activity-failed-mark"
-                        title={summary.failed === 1 ? 'A call failed' : 'Calls failed'}
-                      >
-                        <CircleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
-                      </span>
-                    ) : null}
-                  </span>
-                </ChainOfThoughtHeader>
-                <ChainOfThoughtContent
-                  className="ml-1 mt-1 space-y-1 border-l pl-3"
-                  data-slot="transcript-activity-timeline"
-                >
-                  {group.map((item) => (
-                    <Fragment key={item.id}>
-                      <IterationReasoningText iteration={item} />
-                      <IterationDetail
-                        compact
-                        showText={false}
-                        iteration={item}
-                        onOpenSubagent={onOpenSubagent}
-                        subagents={subagents}
-                        interactions={interactions}
-                        activeMcpAppId={activeMcpAppId}
-                        mcpAppRepository={mcpAppRepository}
-                        messageSessionId={messageSessionId}
-                        artifacts={artifacts}
-                        onInteractionResponse={onInteractionResponse}
-                        onOpenArtifact={onOpenArtifact}
-                        messageAttentionIndex={messageAttentionIndex}
-                      />
-                    </Fragment>
-                  ))}
-                </ChainOfThoughtContent>
-              </ActivityChain>
+                {(item) => (
+                  <Fragment key={item.id}>
+                    <IterationReasoningText iteration={item} />
+                    <IterationDetail
+                      compact
+                      flowCards={flowCards}
+                      showText={false}
+                      iteration={item}
+                      onOpenSubagent={onOpenSubagent}
+                      subagents={subagents}
+                      interactions={interactions}
+                      activeMcpAppId={activeMcpAppId}
+                      mcpAppRepository={mcpAppRepository}
+                      messageSessionId={messageSessionId}
+                      artifacts={artifacts}
+                      onInteractionResponse={onInteractionResponse}
+                      onOpenArtifact={onOpenArtifact}
+                      onOpenFile={onOpenFile}
+                      messageAttentionIndex={messageAttentionIndex}
+                    />
+                  </Fragment>
+                )}
+              </ActivityLane>
             ) : (
               group
                 .slice(1)
                 .map((item) => <IterationReasoningText key={item.id} iteration={item} />)
             )}
+            {/* A call the sandbox blocked is said where the person reads, with its Allow
+                control, not only inside the folded activity. */}
+            <TurnSandboxNotices
+              boundaries={group.flatMap((item) =>
+                item.tools.flatMap((tool) => {
+                  const boundary = toolSandboxBoundary(tool);
+                  return boundary ? [boundary] : [];
+                }),
+              )}
+            />
           </Fragment>
         );
       })}
@@ -338,228 +429,4 @@ export function ConversationTurn({
   );
 }
 
-/**
- * Follow the latest live work while retaining explicit reader choices.
- */
-function ActivityChain({
-  children,
-  id,
-  defaultOpen,
-}: {
-  children: ReactNode;
-  id: string;
-  defaultOpen: boolean;
-}) {
-  const [readerOpen, setReaderOpen] = useTranscriptDisclosure(`activity:${id}`, defaultOpen);
-  // Only activity boundaries add room; adjacent prose retains its normal gap.
-  return (
-    <ChainOfThought
-      className="@container my-3 space-y-0"
-      onOpenChange={setReaderOpen}
-      open={readerOpen}
-    >
-      {children}
-    </ChainOfThought>
-  );
-}
-
-function IterationDetail({
-  iteration,
-  onOpenSubagent,
-  subagents,
-  interactions,
-  showTasks = true,
-  showSubagents = true,
-  showQuestionInteractions = true,
-  showText = true,
-  compact = false,
-  activeMcpAppId,
-  hiddenMcpAppIds,
-  mcpAppRepository,
-  messageSessionId,
-  artifacts,
-  onOpenArtifact,
-  onInteractionResponse,
-  messageAttentionIndex,
-}: {
-  iteration: ConversationIteration;
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  subagents: Record<string, SubagentRun>;
-  interactions?: readonly PendingInteraction[];
-  showTasks?: boolean;
-  showSubagents?: boolean;
-  showQuestionInteractions?: boolean;
-  showText?: boolean;
-  compact?: boolean;
-  activeMcpAppId?: string;
-  hiddenMcpAppIds?: readonly string[];
-  mcpAppRepository?: ClioRepository;
-  messageSessionId?: string;
-  artifacts: Record<string, Artifact>;
-  onOpenArtifact?: (artifact: Artifact) => void;
-  messageAttentionIndex?: MessageAttentionIndex;
-  onInteractionResponse?: (
-    interaction: PendingInteraction,
-    response: PendingInteractionResponse,
-  ) => Promise<void>;
-}) {
-  const explicitSubagentIds = new Set(
-    iteration.activity.flatMap((entry) =>
-      entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
-    ),
-  );
-  return (
-    <article>
-      <div className="space-y-2">
-        {showText ? <TranscriptIterationText iteration={iteration} /> : null}
-
-        {/*
-          One ordered lane: a Task carries no owning-tool field, so its position
-          beside a tool is the only record of what it belongs to. Rendering all
-          tools and then all tasks would destroy that correlation.
-        */}
-        {iteration.activity.map((entry) =>
-          entry.kind === 'tool' ? (
-            <Fragment key={`tool:${entry.id}`}>
-              <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
-                <ClioToolInvocation
-                  compact={compact}
-                  attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
-                  attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
-                  sessionId={messageSessionId}
-                  tool={entry.tool}
-                />
-                {!compact && messageSessionId && startedFlow(entry.tool) ? (
-                  <FlowRunCard flow={startedFlow(entry.tool)!} sessionId={messageSessionId} />
-                ) : null}
-                {subagentsForTool(entry.tool, subagents)
-                  .filter((subagent) => !explicitSubagentIds.has(subagent.id))
-                  .map((subagent) => (
-                    <ClioSubagentLifecycleLine
-                      key={subagent.id}
-                      onOpen={onOpenSubagent}
-                      subagent={subagent}
-                      stage="delegate.started"
-                    />
-                  ))}
-              </div>
-              {showQuestionInteractions
-                ? questionInteractionsForTool(interactions, entry.id).map((interaction) => (
-                    <ConversationInteractionActivity
-                      artifacts={artifacts}
-                      interaction={interaction}
-                      key={interaction.id}
-                      onOpenArtifact={onOpenArtifact}
-                      onResponse={onInteractionResponse}
-                    />
-                  ))
-                : null}
-            </Fragment>
-          ) : entry.kind === 'injection' ? (
-            <div
-              data-call-id={entry.block.call_id}
-              data-turn-activity={`injection:${entry.id}`}
-              key={`injection:${entry.id}`}
-            >
-              <HarnessInjection block={entry.block} compact={compact} />
-            </div>
-          ) : entry.kind === 'subagent' ? (
-            showSubagents ? (
-              <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
-                <ClioSubagentLifecycleLine
-                  onOpen={onOpenSubagent}
-                  stage={entry.block.stage ?? 'delegate.unknown'}
-                  subagent={subagents[entry.block.subagent_id]}
-                  task={entry.block.task}
-                />
-              </div>
-            ) : null
-          ) : entry.kind === 'agent_message' ? (
-            <div data-turn-activity={`agent-message:${entry.id}`} key={`agent-message:${entry.id}`}>
-              <ClioAgentMessageLine
-                block={entry.block}
-                onOpen={onOpenSubagent}
-                subagent={subagents[entry.block.subagent_id]}
-              />
-            </div>
-          ) : entry.kind === 'mcp_app' ? (
-            hiddenMcpAppIds?.includes(entry.block.app_instance_id) ? null : (
-              <McpAppActivity
-                activeMcpAppId={activeMcpAppId}
-                entry={entry}
-                key={`mcp-app:${entry.id}`}
-                mcpAppRepository={mcpAppRepository}
-                messageSessionId={messageSessionId}
-              />
-            )
-          ) : showTasks ? (
-            <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
-          ) : null,
-        )}
-        {iteration.interrupted &&
-        !iteration.tools.some((tool) => getToolStatus(tool) === 'interrupted') ? (
-          <ClioStatus value="interrupted" />
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function McpAppActivity({
-  activeMcpAppId,
-  entry,
-  mcpAppRepository,
-  messageSessionId,
-}: {
-  activeMcpAppId?: string;
-  entry: McpAppActivityEntry;
-  mcpAppRepository?: ClioRepository;
-  messageSessionId?: string;
-}) {
-  return (
-    <div data-turn-activity={`mcp-app:${entry.id}`}>
-      {entry.block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
-        <McpAppSurface
-          appInstanceId={entry.block.app_instance_id}
-          dataRef={entry.block.data_ref}
-          height={entry.block.height}
-          repository={mcpAppRepository}
-          resourceUri={entry.block.resource_uri}
-          sessionId={messageSessionId}
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      ) : (
-        <McpAppHistoryLine
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      )}
-    </div>
-  );
-}
-/**
- * A task line is a plain span, and ARIA prohibits naming a generic element, so
- * its state and detail are rendered as real content (visible or screen-reader
- * only) rather than hidden behind an `aria-label` assistive technology is free
- * to ignore.
- */
-function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
-  return (
-    <span
-      className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
-      data-turn-activity={`task:${task.id}`}
-      title={task.detail}
-    >
-      <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-foreground/85">{task.title}</span>
-      <ClioStatus
-        className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
-        value={task.state}
-      />
-      <span className="min-w-0 max-w-[45%] truncate" title={task.detail || 'No detail reported'}>
-        {task.detail || 'No detail reported'}
-      </span>
-    </span>
-  );
-}
+const NO_ARTIFACTS: Record<string, Artifact> = {};

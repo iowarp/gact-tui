@@ -1,584 +1,208 @@
-import { queryKeys } from '@/lib/query-keys';
 import type { PermissionPolicy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  FolderKeyIcon,
-  Globe2Icon,
-  LoaderCircleIcon,
-  ShieldCheckIcon,
-  WrenchIcon,
-} from 'lucide-react';
-import { AddIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/clio/settings-frame';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { queryKeys } from '@/lib/query-keys';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioStatus } from './status';
+import { InfoTip } from './info-tip';
+import { ItemList } from './primitives/item-row';
+import { SaveBar } from './primitives/save-bar';
+import { StateView } from './primitives/state-view';
+import { AccessRuleDialog } from './settings-access-rule-dialog';
+import {
+  changeSummary,
+  draftForPolicy,
+  emptyDraft,
+  policyFromDraft,
+  priorityChoices,
+  priorityRanks,
+  type PolicyDraft,
+} from './settings-access-rule-model';
+import { AccessRuleRow } from './settings-access-rule-row';
+import { GroupEmptyLine, GroupErrorLine } from './settings-permissions-lines';
+import { AnnounceStates } from './settings-a11y';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
+import { PermissionRequests } from './settings-permissions-requests';
+import { SettingsGroupLabel } from './settings-row';
+import { SettingsSectionHeading } from './settings-section-heading';
 
-type PolicyKind = NonNullable<PermissionPolicy['kind']>;
-
-interface PolicyDraft {
-  kind: PolicyKind;
-  scope: 'session' | 'workspace';
-  scopeId: string;
-  action: string;
-  subject: string;
-  pathPattern: string;
-  priority: string;
-  modes: string;
-  events: string;
+/** A rule in the working set; `origin` is its index in the saved set. */
+interface StagedRule {
+  id: string;
+  policy: PermissionPolicy;
+  origin?: number;
+  changed?: boolean;
 }
 
-const emptyDraft: PolicyDraft = {
-  kind: 'tool',
-  scope: 'workspace',
-  scopeId: '',
-  action: 'ask',
-  subject: '*',
-  pathPattern: '',
-  priority: '',
-  modes: '',
-  events: '',
-};
+let nextRuleId = 0;
 
-const actionLabels: Record<string, string> = {
-  allow: 'Allow',
-  allow_session: 'Allow for session',
-  allow_workspace: 'Allow for workspace',
-  ask: 'Ask every time',
-  deny: 'Block',
-};
-
-const kindLabels: Record<PolicyKind, string> = {
-  tool: 'Tool action',
-  domain: 'Internet domain',
-  fs_root: 'File location',
-  plan_acl: 'Planning mode action',
-  hook: 'Tool lifecycle event',
-};
-
-function inferredKind(policy: PermissionPolicy): PolicyKind {
-  if (policy.kind) return policy.kind;
-  if (policy.host_pattern) return 'domain';
-  return 'tool';
-}
-
-function draftForPolicy(policy: PermissionPolicy): PolicyDraft {
-  const kind = inferredKind(policy);
-  return {
-    kind,
-    scope: policy.scope === 'session' ? 'session' : 'workspace',
-    scopeId: policy.scope_id ?? '',
-    action: policy.action,
-    subject:
-      kind === 'domain'
-        ? (policy.host_pattern ?? '')
-        : kind === 'fs_root'
-          ? (policy.path_pattern ?? '')
-          : (policy.tool_name_pattern ?? '*'),
-    pathPattern:
-      kind === 'tool' || kind === 'plan_acl' || kind === 'hook' ? (policy.path_pattern ?? '') : '',
-    priority: policy.priority === undefined ? '' : String(policy.priority),
-    modes: (policy.modes ?? []).join(', '),
-    events: (policy.on ?? []).join(', '),
-  };
-}
-
-function splitList(value: string): string[] | undefined {
-  const values = value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  return values.length ? values : undefined;
-}
-
-function policyFromDraft(draft: PolicyDraft): PermissionPolicy {
-  const policy: PermissionPolicy = {
-    kind: draft.kind,
-    scope: draft.kind === 'domain' ? 'workspace' : draft.scope,
-    scope_id: draft.scopeId || undefined,
-    action: draft.action,
-    priority: draft.priority ? Number.parseInt(draft.priority, 10) : undefined,
-    modes: splitList(draft.modes),
-    on: splitList(draft.events),
-    metadata: {},
-  };
-  if (draft.kind === 'domain') policy.host_pattern = draft.subject;
-  else if (draft.kind === 'fs_root') policy.path_pattern = draft.subject;
-  else {
-    policy.tool_name_pattern = draft.subject;
-    policy.path_pattern = draft.pathPattern || undefined;
-  }
-  return policy;
-}
-
-function PolicyIcon({ kind }: { kind: PolicyKind }) {
-  const Icon = kind === 'domain' ? Globe2Icon : kind === 'fs_root' ? FolderKeyIcon : WrenchIcon;
-  return <Icon aria-hidden="true" className="mt-0.5 size-4 text-primary" />;
-}
-
-function isWildcardPattern(value?: string): boolean {
-  return !value || value === '*' || value === '**';
-}
-
-function policySummary(policy: PermissionPolicy): string {
-  const kind = inferredKind(policy);
-  if (kind === 'domain') {
-    return isWildcardPattern(policy.host_pattern)
-      ? 'All internet domains'
-      : `Domain pattern ${policy.host_pattern}`;
-  }
-  if (kind === 'fs_root') {
-    return isWildcardPattern(policy.path_pattern)
-      ? 'All permitted file locations'
-      : `File location ${policy.path_pattern}`;
-  }
-
-  const allTools = isWildcardPattern(policy.tool_name_pattern);
-  const allPaths = isWildcardPattern(policy.path_pattern);
-  const subject = allTools ? 'All tool actions' : `Tool pattern ${policy.tool_name_pattern}`;
-  return allPaths
-    ? `${subject} in all permitted locations`
-    : `${subject} limited to ${policy.path_pattern}`;
-}
-
+/**
+ * Access rules (D rows, F dialog, H save bar). Adding, editing and removing
+ * stage changes; the save bar replaces the complete set in one request, so an
+ * invalid set leaves every saved rule unchanged.
+ */
 export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number>();
-  const [draft, setDraft] = useState<PolicyDraft>(emptyDraft);
-  const [removeIndex, setRemoveIndex] = useState<number>();
+  const policiesKey = queryKeys.key('permission-policies', settings.endpoint);
   const policies = useQuery({
-    queryKey: queryKeys.key('permission-policies', settings.endpoint),
+    queryKey: policiesKey,
     queryFn: ({ signal }) => repository.policies(signal),
   });
   const workspaces = useQuery({
-    queryKey: queryKeys.key('workspaces', settings.endpoint, 'permission-settings'),
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
+  const [staged, setStaged] = useState<StagedRule[] | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string>();
+  const [editor, setEditor] = useState<{ open: boolean; editingId?: string }>({ open: false });
+  const [draft, setDraft] = useState<PolicyDraft>(emptyDraft);
+  const [saveError, setSaveError] = useState<string>();
+
+  const saved = policies.data ?? [];
+  const rules: StagedRule[] =
+    staged ?? saved.map((policy, index) => ({ id: `saved-${index}`, policy, origin: index }));
+  const added = rules.filter((rule) => rule.origin === undefined).length;
+  const changed = rules.filter((rule) => rule.origin !== undefined && rule.changed).length;
+  const removed = staged ? saved.length - (rules.length - added) : 0;
+  const count = added + changed + removed;
+  const ranks = priorityRanks(rules.map((rule) => rule.policy));
+  const editorIndex = rules.findIndex((rule) => rule.id === editor.editingId);
+
+  const stage = (next: StagedRule[]) => {
+    setStaged(next);
+    setSaveError(undefined);
+  };
   const replace = useMutation({
     mutationFn: (next: PermissionPolicy[]) => repository.updatePolicies(next),
     onSuccess: (next) => {
-      queryClient.setQueryData(queryKeys.key('permission-policies', settings.endpoint), next);
-      setEditorOpen(false);
-      setRemoveIndex(undefined);
+      queryClient.setQueryData(policiesKey, next);
+      setStaged(null);
+      setSaveError(undefined);
       toast.success('Access rules saved');
     },
-    onError: (error) =>
-      toast.error('Access rules were not changed', { description: error.message }),
+    onError: () => setSaveError('The service did not accept these rules. Nothing changed.'),
   });
-  const openEditor = (policy?: PermissionPolicy, index?: number) => {
-    setEditingIndex(index);
+
+  const openEditor = (rule?: StagedRule, asCopy = false) => {
+    setConfirmingId(undefined);
     setDraft(
-      policy
-        ? draftForPolicy(policy)
+      rule
+        ? draftForPolicy(rule.policy)
         : { ...emptyDraft, scopeId: initialWorkspaceId ?? emptyDraft.scopeId },
     );
-    setEditorOpen(true);
+    setEditor({ open: true, editingId: rule && !asCopy ? rule.id : undefined });
   };
-  const save = () => {
-    const row = policyFromDraft(draft);
-    const current = policies.data ?? [];
-    const next =
-      editingIndex === undefined
-        ? [...current, row]
-        : current.map((policy, index) => (index === editingIndex ? row : policy));
-    replace.mutate(next);
+  const confirmEditor = () => {
+    const policy = policyFromDraft(draft);
+    stage(
+      editor.editingId === undefined
+        ? [...rules, { id: `new-${nextRuleId++}`, policy }]
+        : rules.map((rule) =>
+            rule.id === editor.editingId ? { ...rule, policy, changed: true } : rule,
+          ),
+    );
+    setEditor({ open: false });
   };
-  const remove = () => {
-    if (removeIndex === undefined) return;
-    replace.mutate((policies.data ?? []).filter((_policy, index) => index !== removeIndex));
-  };
-  const set = (field: keyof PolicyDraft, value: string) =>
-    setDraft((current) => ({ ...current, [field]: value }));
-  const selectedWorkspace = workspaces.data?.find((workspace) => workspace.id === draft.scopeId);
-  const subjectLabel =
-    draft.kind === 'domain'
-      ? 'Domain pattern'
-      : draft.kind === 'fs_root'
-        ? 'File location pattern'
-        : 'Tool name pattern';
-  const saveDisabled =
-    !draft.subject ||
-    replace.isPending ||
-    (draft.priority !== '' && !/^-?\d+$/.test(draft.priority));
 
   return (
-    <Frame spacing="lg">
-      <FrameHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <FrameTitle>Access rules</FrameTitle>
-            <FrameDescription>
-              Persistent protection rules evaluated before tools, file access, and network
-              connections.
-            </FrameDescription>
-          </div>
-          <Button onClick={() => openEditor()}>
-            <AddIcon /> New rule
-          </Button>
-        </div>
-      </FrameHeader>
-      <Alert>
-        <ShieldCheckIcon aria-hidden="true" />
-        <AlertTitle>Precedence is explicit</AlertTitle>
-        <AlertDescription>
-          Higher priority wins. At the same priority, the more restrictive decision wins. Saving
-          replaces the complete rule set atomically; invalid rules leave every existing rule
-          unchanged.
-        </AlertDescription>
-      </Alert>
-      <FramePanel className="grid gap-2 p-2">
-        {policies.data?.map((policy, index) => {
-          const kind = inferredKind(policy);
-          const scopeWorkspace = policy.scope_id
-            ? workspaces.data?.find((workspace) => workspace.id === policy.scope_id)
-            : undefined;
-          const missingScopeId = policy.scope_id && !scopeWorkspace ? policy.scope_id : undefined;
-          const scopeName = policy.scope_id
-            ? scopeWorkspace?.display_name || `Unregistered ${vocab.workspace}`
-            : `Any ${policy.scope}`;
-          return (
-            <div
-              className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors hover:border-border hover:bg-accent/40"
-              key={`${policy.scope}:${policy.scope_id}:${policy.priority}:${index}`}
-            >
-              <PolicyIcon kind={kind} />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{actionLabels[policy.action] ?? policy.action}</p>
-                  <ClioStatus
-                    label={
-                      policy.action === 'deny'
-                        ? 'Blocked'
-                        : policy.action === 'ask'
-                          ? 'Confirmation required'
-                          : 'Allowed'
-                    }
-                    value={
-                      policy.action === 'deny'
-                        ? 'failed'
-                        : policy.action === 'ask'
-                          ? 'degraded'
-                          : 'healthy'
-                    }
-                  />
-                  <Badge variant="outline">{kindLabels[kind]}</Badge>
-                  <Badge
-                    aria-label={
-                      missingScopeId
-                        ? `Unregistered workspace. Identifier ${missingScopeId}`
-                        : undefined
-                    }
-                    title={missingScopeId}
-                    variant="outline"
-                  >
-                    {scopeName}
-                  </Badge>
-                  {policy.priority !== undefined ? (
-                    <Badge variant="outline">Priority {policy.priority}</Badge>
-                  ) : null}
-                </div>
-                <p className="mt-1 break-all text-xs text-muted-foreground">
-                  {policySummary(policy)}
-                </p>
-                {policy.modes?.length ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Modes: {policy.modes.join(', ')}
-                  </p>
-                ) : null}
-                {policy.on?.length ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Events: {policy.on.join(', ')}
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                aria-label={`Edit rule ${index + 1}`}
-                onClick={() => openEditor(policy, index)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <EditIcon />
-              </Button>
-              <Button
-                aria-label={`Remove rule ${index + 1}`}
-                onClick={() => setRemoveIndex(index)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <DeleteIcon />
-              </Button>
-            </div>
-          );
-        })}
-        {!policies.isPending && !policies.data?.length ? (
-          <p className="p-5 text-sm text-muted-foreground">
-            No persistent access rules. Protected actions follow the service defaults and ask when
-            required.
-          </p>
-        ) : null}
-        {policies.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Access rules unavailable</AlertTitle>
-            <AlertDescription>{policies.error.message}</AlertDescription>
-          </Alert>
-        ) : null}
-      </FramePanel>
-
-      <Dialog onOpenChange={setEditorOpen} open={editorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingIndex === undefined ? 'Create access rule' : 'Edit access rule'}
-            </DialogTitle>
-            <DialogDescription>
-              The connected service validates the complete rule set before applying any change.
-            </DialogDescription>
-          </DialogHeader>
-          <FieldGroup>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel>Applies to</FieldLabel>
-                <Select
-                  onValueChange={(value: PolicyKind) =>
-                    setDraft((current) => ({
-                      ...current,
-                      kind: value,
-                      scope: value === 'domain' ? 'workspace' : current.scope,
-                    }))
-                  }
-                  value={draft.kind}
-                >
-                  <SelectTrigger aria-label="Rule kind">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(kindLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel>Decision</FieldLabel>
-                <Select onValueChange={(value) => set('action', value)} value={draft.action}>
-                  <SelectTrigger aria-label="Rule decision">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(actionLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="policy-subject">{subjectLabel}</FieldLabel>
-              <Input
-                id="policy-subject"
-                onChange={(event) => set('subject', event.target.value)}
-                placeholder={
-                  draft.kind === 'domain'
-                    ? '*.earthscope.org'
-                    : draft.kind === 'fs_root'
-                      ? 'D:/science/**'
-                      : 'fs_*'
-                }
-                value={draft.subject}
-              />
-              <FieldDescription>
-                Patterns use the service’s exact matching rules; identifiers remain visible because
-                they define the security boundary.
-              </FieldDescription>
-            </Field>
-            {draft.kind !== 'domain' && draft.kind !== 'fs_root' ? (
-              <Field>
-                <FieldLabel htmlFor="policy-path">Limit to file paths</FieldLabel>
-                <Input
-                  id="policy-path"
-                  onChange={(event) => set('pathPattern', event.target.value)}
-                  placeholder="Optional"
-                  value={draft.pathPattern}
-                />
-              </Field>
-            ) : null}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel>Scope</FieldLabel>
-                <Select
-                  disabled={draft.kind === 'domain'}
-                  onValueChange={(value: 'session' | 'workspace') =>
-                    setDraft((current) => ({ ...current, scope: value, scopeId: '' }))
-                  }
-                  value={draft.kind === 'domain' ? 'workspace' : draft.scope}
-                >
-                  <SelectTrigger aria-label="Rule scope">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="workspace">{capitalize(vocab.workspace)}</SelectItem>
-                    <SelectItem value="session">Session</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel>
-                  {draft.scope === 'workspace' || draft.kind === 'domain'
-                    ? capitalize(vocab.workspace)
-                    : 'Session ID'}
-                </FieldLabel>
-                {draft.scope === 'workspace' || draft.kind === 'domain' ? (
-                  <Select
-                    onValueChange={(value) => set('scopeId', value === 'any' ? '' : value)}
-                    value={draft.scopeId || 'any'}
-                  >
-                    <SelectTrigger aria-label="Rule workspace">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any workspace</SelectItem>
-                      {workspaces.data?.map((workspace) => (
-                        <SelectItem key={workspace.id} value={workspace.id}>
-                          {workspace.display_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    aria-label="Rule session ID"
-                    onChange={(event) => set('scopeId', event.target.value)}
-                    placeholder="Any session"
-                    value={draft.scopeId}
-                  />
-                )}
-                {!draft.scopeId ? (
-                  <FieldDescription>
-                    A blank identity applies to any{' '}
-                    {draft.kind === 'domain'
-                      ? 'workspace, but domain rules require a specific workspace to take effect'
-                      : draft.scope}
-                    .
-                  </FieldDescription>
-                ) : null}
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="policy-priority">Priority</FieldLabel>
-              <Input
-                id="policy-priority"
-                inputMode="numeric"
-                onChange={(event) => set('priority', event.target.value)}
-                placeholder="Assigned after existing rules"
-                value={draft.priority}
-              />
-              <FieldDescription>
-                Higher values win. Leave blank to append this rule at the lowest priority.
-              </FieldDescription>
-            </Field>
-            {draft.kind === 'plan_acl' || draft.modes ? (
-              <Field>
-                <FieldLabel htmlFor="policy-modes">Modes</FieldLabel>
-                <Input
-                  id="policy-modes"
-                  onChange={(event) => set('modes', event.target.value)}
-                  placeholder="plan, architect"
-                  value={draft.modes}
-                />
-              </Field>
-            ) : null}
-            {draft.kind === 'hook' || draft.events ? (
-              <Field>
-                <FieldLabel htmlFor="policy-events">Tool events</FieldLabel>
-                <Input
-                  id="policy-events"
-                  onChange={(event) => set('events', event.target.value)}
-                  placeholder="PreToolUse"
-                  value={draft.events}
-                />
-              </Field>
-            ) : null}
-            {selectedWorkspace ? (
-              <p className="text-xs text-muted-foreground">
-                This rule is scoped to {selectedWorkspace.display_name}.
-              </p>
-            ) : null}
-          </FieldGroup>
-          <DialogFooter>
-            <Button disabled={saveDisabled} onClick={save}>
-              {replace.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-              Save rule set
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        onOpenChange={(open) => !open && setRemoveIndex(undefined)}
-        open={removeIndex !== undefined}
+    <section aria-labelledby="access-rules-heading">
+      <SettingsGroupLabel
+        addLabel="New access rule"
+        onAdd={policies.data ? () => openEditor() : undefined}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this access rule?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Future matching actions will fall through to the next rule or the service default.
-              Existing transcript and audit evidence is not deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep rule</AlertDialogCancel>
-            <AlertDialogAction onClick={remove} variant="destructive">
-              Remove rule
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Frame>
+        <span className="flex items-center gap-1.5" id="access-rules-heading">
+          Access rules
+          <InfoTip label="About access rules">
+            Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid
+            set leaves every saved rule unchanged.
+          </InfoTip>
+        </span>
+      </SettingsGroupLabel>
+      <ItemList label="Access rules">
+        {rules.map((rule, index) => (
+          <AccessRuleRow
+            confirming={confirmingId === rule.id}
+            dirty={rule.origin === undefined || Boolean(rule.changed)}
+            key={rule.id}
+            onAskRemove={() => setConfirmingId(rule.id)}
+            onDuplicate={() => openEditor(rule, true)}
+            onEdit={() => openEditor(rule)}
+            onKeep={() => setConfirmingId(undefined)}
+            onRemove={() => {
+              setConfirmingId(undefined);
+              stage(rules.filter((entry) => entry.id !== rule.id));
+            }}
+            policy={rule.policy}
+            position={index + 1}
+            rank={ranks[index]}
+            workspaces={workspaces.data}
+          />
+        ))}
+        {policies.isPending ? (
+          <StateView kind="loading" size="row" title="Loading access rules…" />
+        ) : null}
+        {policies.isSuccess && rules.length === 0 ? (
+          <GroupEmptyLine>
+            No access rules. Protected actions follow the service defaults.
+          </GroupEmptyLine>
+        ) : null}
+        {policies.isError && !staged ? (
+          <GroupErrorLine onRetry={() => void policies.refetch()} retrying={policies.isFetching}>
+            Couldn’t load the access rules.
+          </GroupErrorLine>
+        ) : null}
+      </ItemList>
+      <SaveBar
+        count={count}
+        error={saveError}
+        label={
+          <>
+            {changeSummary(added, changed, removed)}
+            <span className="ml-3 text-muted-foreground">rules save together</span>
+          </>
+        }
+        onDiscard={() => {
+          setStaged(null);
+          setConfirmingId(undefined);
+          setSaveError(undefined);
+        }}
+        onSave={() => replace.mutate(rules.map((rule) => rule.policy))}
+        saving={replace.isPending}
+      />
+      <AccessRuleDialog
+        draft={draft}
+        editing={editor.editingId !== undefined}
+        onConfirm={confirmEditor}
+        onDraftChange={setDraft}
+        onOpenChange={(open) => setEditor((current) => ({ ...current, open }))}
+        open={editor.open}
+        priorities={priorityChoices(
+          rules.map((rule) => rule.policy),
+          editorIndex === -1 ? undefined : editorIndex,
+        )}
+        workspaces={workspaces.data}
+      />
+    </section>
+  );
+}
+
+export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
+  return (
+    <div className="min-w-0">
+      <AnnounceStates />
+      <SettingsSectionHeading
+        info="Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions."
+        title="Permissions"
+      />
+      {/* Both lists sit in the setting column (spec `.xrw`). */}
+      <div className={SETTINGS_COLUMN} onKeyDown={rowArrowKeyDown}>
+        <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
+        <PermissionRequests />
+      </div>
+    </div>
   );
 }

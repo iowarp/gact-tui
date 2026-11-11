@@ -6,7 +6,7 @@ import {
   translateKnownProviderErrorReason,
 } from '@/lib/provider-availability';
 import type { ProviderGroup } from './model-picker-model';
-import type { ProviderActionFlow } from './provider-action-steps';
+import type { ProviderActionFlow } from './provider-action-flows';
 import type { useProviderActions } from './provider-actions';
 
 export type ProviderActions = ReturnType<typeof useProviderActions>;
@@ -113,6 +113,7 @@ export function providerActionError(
   return (
     actions.saveApiKey.error?.message ??
     actions.installProvider.error?.message ??
+    actions.installFailure ??
     actions.authenticate.error?.message ??
     (actions.authFailedReason || undefined) ??
     actions.handshake.error?.message ??

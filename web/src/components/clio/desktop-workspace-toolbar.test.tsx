@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { createContext, useContext } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,7 +8,7 @@ import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 afterEach(() => {
   cleanup();
   useDesktopWorkspaceToolbar.setState({ host: null, navigationHost: null });
-  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  clearDesktopHost();
   document.querySelectorAll('[data-test-toolbar-host]').forEach((element) => element.remove());
 });
 
@@ -25,7 +26,7 @@ describe('Workspace toolbar placement', () => {
   });
 
   it('places native controls in the title bar and keeps their route context and events', () => {
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     const RouteContext = createContext('unavailable');
     let clicked = '';
     function SessionAction() {

@@ -106,22 +106,23 @@ for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/workspaces/ws_flat_ndp/sessions/${sid}`);
       const panel = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
-      await expect(panel.getByText('1 / 3', { exact: true })).toBeVisible();
+      // Every card carries its own pager; read the one on the visible page.
+      const visible = panel.locator('[data-attention-item]:visible');
+      await expect(visible.getByText('1/3', { exact: true })).toBeVisible();
       await expect(panel.locator('[data-attention-item]:visible')).toHaveCount(1);
       await expect(panel.getByText('Read file', { exact: true })).toBeVisible();
       await expect(panel.getByText('results/stations.csv', { exact: true })).toBeVisible();
       await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`permission-${theme}-${width}.png`) });
-      await panel.getByRole('combobox', { name: 'Permission duration' }).click();
-      await expect(page.getByRole('option', { name: 'This workspace' })).toBeVisible();
-      await page.screenshot({
-        path: testInfo.outputPath(`permission-scope-${theme}-${width}.png`),
-      });
-      await page.getByRole('option', { name: 'This session' }).click();
+      await expect(panel.getByRole('button', { name: 'Allow for this workspace' })).toBeVisible();
       await panel.getByRole('button', { name: 'Next request' }).click();
-      await expect(panel.getByText('2 / 3', { exact: true })).toBeVisible();
+      await expect(visible.getByText('2/3', { exact: true })).toBeVisible();
+      const questions = panel.getByRole('navigation', { name: 'Questions', exact: true });
+      const answers = panel.getByRole('group', { name: 'Answers', exact: true });
+      await expect(questions.getByText('1/3', { exact: true })).toBeVisible();
       await panel.getByRole('radio', { name: /Station table/ }).click();
-      await panel.getByRole('button', { name: 'Next question' }).click();
+      await answers.getByRole('button', { name: 'Next question' }).click();
+      await expect(questions.getByText('2/3', { exact: true })).toBeVisible();
       await panel.getByRole('radio', { name: 'Other answer' }).click();
       await panel.getByRole('textbox', { name: 'Which region?' }).fill('New Zealand');
       await page.setViewportSize({ width: width === 390 ? 1280 : 390, height: 900 });
@@ -133,19 +134,25 @@ for (const theme of ['light', 'dark']) {
         'New Zealand',
       );
       await panel.getByRole('button', { name: 'Next request' }).click();
-      await panel.getByRole('textbox').fill('Keep uncertainty visible.');
+      // A written-answer native question is answered in the composer, not the card.
+      const composer = page.getByRole('combobox', { name: /^Ask / });
+      await expect(panel.getByRole('textbox')).toHaveCount(0);
+      await panel.getByRole('button', { name: 'Type your answer below' }).click();
+      await expect(composer).toBeFocused();
+      await expect(panel.getByText('Type your answer in the message box below')).toBeVisible();
+      await composer.fill('Keep uncertainty visible.');
       await panel.getByRole('button', { name: 'Previous request' }).click();
       await expect(panel.getByRole('textbox', { name: 'Which region?' })).toHaveValue(
         'New Zealand',
       );
-      await panel.getByRole('button', { name: 'Next question' }).click();
+      await answers.getByRole('button', { name: 'Next question' }).click();
       await expect(panel.getByRole('button', { name: 'Submit all answers' })).toBeDisabled();
       expect(submissions).toHaveLength(0);
       await panel.getByRole('textbox').fill('Measurement quality');
       await page.screenshot({ path: testInfo.outputPath(`bundle-${theme}-${width}.png`) });
       await panel.getByRole('button', { name: 'Submit all answers' }).click();
-      await expect(panel.getByText('2 / 2', { exact: true })).toBeVisible();
-      await expect(panel.getByRole('textbox')).toHaveValue('Keep uncertainty visible.');
+      await expect(visible.getByText('2/2', { exact: true })).toBeVisible();
+      await expect(composer).toHaveText('Keep uncertainty visible.');
       expect(submissions).toEqual([
         {
           id: 'question:bundle',
@@ -162,14 +169,11 @@ for (const theme of ['light', 'dark']) {
         },
       ]);
       await panel.getByRole('button', { name: 'Previous request' }).click();
-      await expect(panel.getByRole('combobox', { name: 'Permission duration' })).toContainText(
-        'This session',
-      );
-      await panel.getByRole('button', { name: 'Allow for session' }).click();
-      await expect(panel.getByText('1 / 1', { exact: true })).toHaveCount(0);
+      await panel.getByRole('button', { name: 'Allow for this session' }).click();
+      await expect(panel.getByText('1/1', { exact: true })).toHaveCount(0);
       await expect(panel.getByRole('button', { name: 'Previous request' })).toHaveCount(0);
       await expect(panel.getByRole('button', { name: 'Next request' })).toHaveCount(0);
-      await expect(panel.getByRole('textbox')).toHaveValue('Keep uncertainty visible.');
+      await expect(composer).toHaveText('Keep uncertainty visible.');
       expect(submissions[1]).toEqual({ id: 'permission:read', body: { action: 'allow_session' } });
       const bounds = await panel.boundingBox();
       expect(bounds).not.toBeNull();

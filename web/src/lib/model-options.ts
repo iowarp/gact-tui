@@ -48,6 +48,8 @@ export interface ClioModelOption {
   reasoning?: ModelReasoningLevels;
   /** Whether the model calls tools natively, when the live catalog says. */
   toolCalling?: boolean;
+  /** How the model streams; `snapshot` is a diffusion model. */
+  streamShape?: 'append' | 'snapshot';
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
   /** Maximum generated tokens reported by this deployment. */
@@ -355,6 +357,7 @@ function liveProviderOptions(
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
+      streamShape: model.stream_shape,
       contextWindow: model.loaded_context_window || model.context_window,
       outputLimit: model.output_limit,
       contextBasis: model.context_basis,
@@ -394,4 +397,35 @@ function matchesProvider(preset: LanguageModelPreset, providerId: string): boole
 function conciseModelName(modelId: string): string {
   const segments = modelId.split('/');
   return segments.at(-1) || modelId;
+}
+
+const GPT_FAMILY = /^gpt-(\d+(?:\.\d+)*)-(luna|sol|terra)$/;
+const CLAUDE_FAMILY = /^claude-(opus|sonnet|haiku)-(\d+)(?:[-.](\d{1,2}))?(?:-\d{8})?$/;
+const CLAUDE_FAMILY_LEGACY = /^claude-(\d+)(?:[-.](\d{1,2}))?-(opus|sonnet|haiku)(?:-\d{8})?$/;
+
+/**
+ * The model's family and version (gpt-6.1-luna → luna 6.1, claude-sonnet-5-5 →
+ * sonnet 5.5), so variants of one family stay apart. Other models keep their label.
+ */
+export function compactModelName(modelId: string, label: string): string {
+  const id = conciseModelName(modelId).toLowerCase();
+  const gpt = id.match(GPT_FAMILY);
+  if (gpt) return `${gpt[2]} ${gpt[1]}`;
+  const claude = id.match(CLAUDE_FAMILY);
+  if (claude) return `${claude[1]} ${claude[2]}${claude[3] ? `.${claude[3]}` : ''}`;
+  const legacy = id.match(CLAUDE_FAMILY_LEGACY);
+  if (legacy) return `${legacy[3]} ${legacy[1]}${legacy[2] ? `.${legacy[2]}` : ''}`;
+  return label;
+}
+
+/** The provider that is the model maker's own API, where naming the route adds nothing. */
+const VENDOR_API: readonly [RegExp, string][] = [
+  [/^(?:gpt|o\d|chatgpt|codex)\b/, 'openai'],
+  [/^claude\b/, 'anthropic'],
+];
+
+/** Whether the model is reached through its maker's own API (gpt-* through OpenAI). */
+export function isVendorApi(providerId: string, modelId: string): boolean {
+  const id = conciseModelName(modelId).toLowerCase();
+  return VENDOR_API.some(([family, vendor]) => family.test(id) && providerId === vendor);
 }

@@ -3,6 +3,8 @@ import { sessionSchema } from './schemas.js';
 export const fleetSettingsSchema = z.object({
   revision: z.string(),
   search: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
+  /** SPOTTER review's default model; null uses the conversation's, absent predates it. */
+  spotter: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   judges: z.object({
     goals: z.object({ provider_id: z.string(), model_id: z.string() }).nullable(),
     variants: z.object({ provider_id: z.string(), model_id: z.string() }).nullable(),
@@ -15,7 +17,10 @@ export const fleetSettingsSchema = z.object({
       .object({ provider_id: z.string(), model_id: z.string() })
       .nullable()
       .optional(),
+    explore: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   }),
+  /** The explore note: a reminder after a run of reading calls, never a spawn. */
+  explore_nudge: z.object({ enabled: z.boolean(), after: z.number().int().min(0) }).optional(),
 });
 import { InfrastructureRepository } from './infrastructure-repository.js';
 import { spotterAvailabilitySchema, type SpotterAvailability } from './spotter-domain.js';

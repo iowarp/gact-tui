@@ -1,3 +1,4 @@
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -49,7 +50,7 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 import { SystemSettings } from './settings-operations';
@@ -58,7 +59,11 @@ afterEach(cleanup);
 
 function renderQuery(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>,
+  );
 }
 
 describe('administration settings', () => {
@@ -75,12 +80,10 @@ describe('administration settings', () => {
     expect(screen.queryByText(/13 processes do not descend/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Technical details' }));
     expect(screen.getByText('13 processes do not descend from server pid 42.')).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'Activity' }));
     expect(await screen.findByText('42')).toBeInTheDocument();
     expect(screen.getByText('95% within 2m 5s')).toBeInTheDocument();
     expect(screen.getByText('Scientific remote connection')).toBeInTheDocument();
     expect(screen.queryByText(/p95/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Memory' }));
     expect(await screen.findByText('75%')).toBeInTheDocument();
   });
 
@@ -90,12 +93,52 @@ describe('administration settings', () => {
       global: { conversations_total: 0, invocations_total: 0 },
       metadata: {},
     });
-    const user = userEvent.setup();
     renderQuery(<SystemSettings />);
 
-    await user.click(screen.getByRole('tab', { name: 'Memory' }));
     expect(await screen.findByText('Unavailable')).toBeInTheDocument();
     expect(screen.getByText('No cache activity has been reported yet.')).toBeInTheDocument();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('shows every group on one page, names tools by label and explains failures in plain language', async () => {
+    repository.hooks.mockResolvedValueOnce({
+      backend: 'declarative',
+      enabled: true,
+      hooks: [{ id: 'audit', title: 'Audit writes', on: ['pre_tool'], scope: 'workspace' }],
+      recent_invocations: [
+        { hook_id: 'audit', event: 'pre_tool', tool: 'workspace.read', outcome: 'blocked', at: '' },
+      ],
+    });
+    repository.runtimeMetrics.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with 503 Service Unavailable'), { status: 503 }),
+    );
+    const user = userEvent.setup();
+    renderQuery(<SystemSettings />);
+
+    for (const group of ['Health', 'Storage', 'Metrics', 'Hooks'])
+      expect(screen.getAllByText(group).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Workspace read')).toHaveAttribute('title', 'workspace.read');
+    expect(screen.queryByText('workspace.read')).not.toBeInTheDocument();
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
+    const failure = await screen.findByRole('alert');
+    expect(failure).toHaveTextContent('Activity metrics unavailable.');
+    expect(failure).not.toHaveTextContent(/503|Request failed/);
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('95% within 2m 5s')).toBeInTheDocument();
+  });
+
+  it('shows a feature the service does not offer as a neutral row without Retry', async () => {
+    repository.memoryStatistics.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with 404 Not Found'), { status: 404 }),
+    );
+    renderQuery(<SystemSettings />);
+
+    expect(
+      await screen.findByText('This agent doesn’t offer storage statistics.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Storage statistics unavailable.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
 });

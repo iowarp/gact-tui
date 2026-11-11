@@ -1,48 +1,27 @@
 import { queryKeys } from '@/lib/query-keys';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
-import type { MemoryStatistics, RuntimeMetrics, ServiceIntegrationHealth } from '@clio/core/v3';
+import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ActivityIcon,
-  BrainCircuitIcon,
-  ChevronDownIcon,
-  GaugeIcon,
-  HeartPulseIcon,
-  WebhookIcon,
-} from 'lucide-react';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/clio/settings-frame';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { ChevronDownIcon, HeartPulseIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus } from './status';
+import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { AnnounceStates } from './settings-a11y';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
+import { SettingsLoadError, UnofferedParts } from './settings-health-load-error';
+import { notOffered } from './settings-health-reason';
+import { HooksGroup, MetricsGroup, StorageGroup } from './settings-health-views';
+import { SettingsGroupLabel } from './settings-row';
+import { SettingsSectionHeading } from './settings-section-heading';
 import { humanizeToolName } from './tool-presentation';
-
-function SectionHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <header>
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
-    </header>
-  );
-}
 
 function statusValue(status: string) {
   if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
@@ -50,10 +29,11 @@ function statusValue(status: string) {
   return 'unavailable';
 }
 
-function statusLabel(status: string) {
-  if (['ready', 'healthy', 'live'].includes(status)) return 'Ready';
-  if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'Needs attention';
-  return 'Unavailable';
+function statusOf(status: string): { tone: StatusTone; label: string } {
+  const value = statusValue(status);
+  if (value === 'healthy') return { tone: 'success', label: 'Ready' };
+  if (value === 'degraded') return { tone: 'warning', label: 'Needs attention' };
+  return { tone: 'error', label: 'Unavailable' };
 }
 
 const integrationTitles: Record<string, string> = {
@@ -67,15 +47,28 @@ const integrationTitles: Record<string, string> = {
   gateway: 'Tools',
   api: 'Workspace service',
   clio_core: 'Memory storage',
+  clio_core_attach: 'Memory service attachment',
+  cte_store_location: 'Stored memory location',
+  cte_metadata_log: 'Stored memory log',
   sandbox: 'Protected execution',
   sandbox_conformance: 'Execution protection coverage',
   child_reaper: 'Process cleanup',
   child_processes: 'Background processes',
   child_parentage: 'Background process ownership',
+  compaction_prompt: 'Compaction instructions',
+  browser: 'Browser',
+  ripgrep: 'File search',
+  managed_packages: 'Managed packages',
+  store_migrations: 'Stored data upgrades',
+  arc_store_format: 'Stored data format',
 };
 
 function integrationTitle(name: string) {
-  return integrationTitles[name] ?? humanizeToolName(name);
+  const title = integrationTitles[name] ?? humanizeToolName(name);
+  // An unknown identifier still reads as words, never as snake_case.
+  return /_/u.test(title)
+    ? title.charAt(0).toUpperCase() + title.slice(1).replaceAll('_', ' ')
+    : title;
 }
 
 function integrationCopy(integration: ServiceIntegrationHealth) {
@@ -103,294 +96,287 @@ function integrationCopy(integration: ServiceIntegrationHealth) {
   };
 }
 
-function metricTitle(name: string) {
-  return humanizeToolName(
-    name
-      .replace(/^tool:/, '')
-      .replace(/^remote_(?:scientific_)?/, '')
-      .replace(/^(jarvis|spack|plot)_\1_/, '$1_'),
-  );
+function recordedAction(integration: ServiceIntegrationHealth) {
+  return integration.next_action && integration.next_action !== 'No action required.'
+    ? integration.next_action
+    : undefined;
 }
 
-function number(value: number) {
-  return new Intl.NumberFormat().format(value);
-}
-
-function duration(seconds: number) {
-  if (seconds < 60) return `${seconds}s`;
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
-
-function metricDuration(milliseconds: number) {
-  const seconds = Math.max(0, milliseconds / 1000);
-  if (seconds < 10) return `${seconds.toFixed(1)}s`;
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-}
-
-function metricContext(name: string) {
-  if (name.includes('remote_scientific_')) return 'Scientific remote connection';
-  if (name.includes('remote_')) return 'Remote connection';
-  return undefined;
-}
-
-function ErrorState({ title, message }: { title: string; message: string }) {
+/** One integration's summary, what to do next and the reported technical details. */
+function IntegrationDetail({
+  integration,
+  onClose,
+}: {
+  integration: ServiceIntegrationHealth;
+  onClose: () => void;
+}) {
+  const copy = integrationCopy(integration);
+  const recorded = recordedAction(integration);
+  const status = statusOf(integration.status);
+  const hasTechnicalDetails =
+    copy.summary !== copy.fallbackSummary ||
+    copy.nextAction !== recorded ||
+    Boolean(integration.endpoint);
+  const next = copy.nextAction && copy.nextAction !== 'No action required.' ? copy.nextAction : '';
   return (
-    <Alert variant="destructive">
-      <ActivityIcon aria-hidden="true" />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
-  );
-}
-
-function HealthTab({ integrations }: { integrations: readonly ServiceIntegrationHealth[] }) {
-  return (
-    <Accordion className="rounded-xl border px-4" type="multiple">
-      {integrations.map((integration) => {
-        const copy = integrationCopy(integration);
-        const recordedAction =
-          integration.next_action && integration.next_action !== 'No action required.'
-            ? integration.next_action
-            : undefined;
-        const hasTechnicalDetails =
-          copy.summary !== copy.fallbackSummary ||
-          copy.nextAction !== recordedAction ||
-          Boolean(integration.endpoint);
-        return (
-          <AccordionItem key={integration.name} value={integration.name}>
-            <AccordionTrigger>
-              <span className="flex min-w-0 items-center gap-3 text-left">
-                <HeartPulseIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-                <span className="truncate font-medium">{integrationTitle(integration.name)}</span>
-                <ClioStatus
-                  className="ml-auto mr-2 shrink-0"
-                  label={statusLabel(integration.status)}
-                  value={statusValue(integration.status)}
+    <DetailPane
+      icon={<HeartPulseIcon />}
+      onClose={onClose}
+      title={integrationTitle(integration.name)}
+    >
+      <div className="grid gap-3 pt-1 leading-5">
+        <StatusIndicator label={status.label} tone={status.tone} />
+        <p className="text-muted-foreground">{copy.summary}</p>
+        {next ? (
+          <div>
+            <SettingsGroupLabel className="mt-0">What to do next</SettingsGroupLabel>
+            <p>{next}</p>
+          </div>
+        ) : null}
+        {hasTechnicalDetails ? (
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button className="group -ml-2" size="sm" variant="ghost">
+                Technical details
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="motion-safe:transition-transform group-data-[state=open]:rotate-180"
                 />
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="space-y-3 pl-7 text-sm leading-6 text-muted-foreground">
-              <p>{copy.summary}</p>
-              {copy.nextAction ? (
-                <Alert>
-                  <AlertTitle>What to do next</AlertTitle>
-                  <AlertDescription>{copy.nextAction}</AlertDescription>
-                </Alert>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1 grid gap-1.5 border-l border-border pl-3 text-xs text-muted-foreground">
+              <p>{copy.fallbackSummary}</p>
+              {recorded ? <p>Recorded next action: {recorded}</p> : null}
+              {integration.endpoint ? (
+                <p className="font-mono break-all">{integration.endpoint}</p>
               ) : null}
-              {hasTechnicalDetails ? (
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button className="group" size="sm" variant="ghost">
-                      Technical details
-                      <ChevronDownIcon className="transition-transform group-data-[state=open]:rotate-180" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
-                    <p>{copy.fallbackSummary}</p>
-                    {recordedAction ? <p>Recorded next action: {recordedAction}</p> : null}
-                    {integration.endpoint ? (
-                      <p className="break-all font-mono">{integration.endpoint}</p>
-                    ) : null}
-                  </CollapsibleContent>
-                </Collapsible>
-              ) : null}
-            </AccordionContent>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
+      </div>
+    </DetailPane>
   );
 }
 
-function MetricsTab({ metrics }: { metrics: RuntimeMetrics }) {
-  const latencyRows = Object.entries(metrics.latencies)
-    .sort((left, right) => right[1].p95_ms - left[1].p95_ms)
-    .slice(0, 12);
+function IntegrationList({
+  integrations,
+  openName,
+  setOpenName,
+}: {
+  integrations: readonly ServiceIntegrationHealth[];
+  openName?: string;
+  setOpenName: (update: (current?: string) => string | undefined) => void;
+}) {
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Sessions" value={number(metrics.sessions.total)} />
-        <Metric label="Messages" value={number(metrics.messages.total)} />
-        <Metric
-          label="Tokens"
-          value={number(metrics.tokens.input_total + metrics.tokens.output_total)}
-        />
-        <Metric label="Uptime" value={duration(metrics.uptime_s)} />
-      </div>
-      <Frame spacing="sm">
-        <FrameHeader>
-          <FrameTitle>Slowest reported activity</FrameTitle>
-          <FrameDescription>
-            The duration within which 95% of reported calls completed, slowest first.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="grid gap-1 p-2">
-          {latencyRows.map(([name, latency]) => {
-            const context = metricContext(name);
+    <>
+      {integrations.length ? (
+        <ItemList label="Integrations">
+          {integrations.map((integration) => {
+            const copy = integrationCopy(integration);
+            const status = statusOf(integration.status);
+            const next = recordedAction(integration) ?? copy.nextAction;
+            const meta =
+              next && next !== 'No action required.'
+                ? next
+                : (integration.summary ?? integration.detail);
+            const toggle = () =>
+              setOpenName((current) =>
+                current === integration.name ? undefined : integration.name,
+              );
             return (
-              <ClioInteractiveRow key={name} title={name}>
-                <div className="flex min-w-0 items-center gap-3">
-                  <GaugeIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{metricTitle(name)}</p>
-                    {context ? (
-                      <p className="truncate text-xs text-muted-foreground">{context}</p>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-right text-xs text-muted-foreground">
-                    <p>95% within {metricDuration(latency.p95_ms)}</p>
-                    <p>{number(latency.count)} reported calls</p>
-                  </div>
-                </div>
-              </ClioInteractiveRow>
+              <ItemRow
+                aria-expanded={openName === integration.name}
+                className="cursor-pointer"
+                icon={<HeartPulseIcon />}
+                key={integration.name}
+                meta={meta ? <span title={meta}>{meta}</span> : undefined}
+                onClick={toggle}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  toggle();
+                }}
+                role="button"
+                selected={openName === integration.name}
+                status={<StatusIndicator label={status.label} tone={status.tone} />}
+                statusWidth={140}
+                tabIndex={0}
+                title={integrationTitle(integration.name)}
+              />
             );
           })}
-        </FramePanel>
-      </Frame>
-    </div>
+        </ItemList>
+      ) : (
+        <StateView kind="empty" size="row" title="No integrations reported" />
+      )}
+    </>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Frame spacing="sm">
-      <FramePanel>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-      </FramePanel>
-    </Frame>
-  );
+function QueryState({
+  error,
+  pending,
+  title,
+  noun,
+  loading,
+  retry,
+  retrying,
+}: {
+  error: Error | null;
+  pending: boolean;
+  title: string;
+  noun: string;
+  loading: string;
+  retry: () => void;
+  retrying: boolean;
+}) {
+  if (error)
+    return (
+      <SettingsLoadError
+        error={error}
+        noun={noun}
+        onRetry={retry}
+        retrying={retrying}
+        title={title}
+      />
+    );
+  return pending ? <StateView kind="loading" size="row" title={loading} /> : null;
 }
 
-function MemoryTab({ memory }: { memory: MemoryStatistics }) {
-  const cacheSamples = memory.cache.hits + memory.cache.misses;
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Metric label="Remembered conversations" value={number(memory.global.conversations_total)} />
-      <Metric label="Remembered tool invocations" value={number(memory.global.invocations_total)} />
-      <Frame className="sm:col-span-2" spacing="sm">
-        <FramePanel>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="flex items-center gap-2 font-medium">
-              <BrainCircuitIcon aria-hidden="true" className="size-4 text-primary" /> Cache
-              effectiveness
-            </span>
-            <span>
-              {cacheSamples ? `${Math.round(memory.cache.hit_rate * 100)}%` : 'Unavailable'}
-            </span>
-          </div>
-          {cacheSamples ? <Progress className="mt-3" value={memory.cache.hit_rate * 100} /> : null}
-          <p className="mt-2 text-xs text-muted-foreground">
-            {cacheSamples
-              ? `${number(memory.cache.hits)} hits and ${number(memory.cache.misses)} misses`
-              : 'No cache activity has been reported yet.'}
-          </p>
-        </FramePanel>
-      </Frame>
-    </div>
-  );
-}
+const PARTS = ['health details', 'storage statistics', 'activity metrics', 'hook inspection'];
 
+/** A feature the service does not offer will not appear by polling. */
+const pollUnlessNotOffered = (query: { state: { error: Error | null } }) =>
+  notOffered(query.state.error) ? false : OPERATIONS_POLL_MS;
+
+/** Health, storage, metrics and hooks of the connected service as groups on one flat page. */
 export function SystemSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const [openName, setOpenName] = useState<string>();
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const metrics = useQuery({
     queryKey: queryKeys.key('runtime-metrics', settings.endpoint),
     queryFn: ({ signal }) => repository.runtimeMetrics(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const memory = useQuery({
     queryKey: queryKeys.key('memory-statistics', settings.endpoint),
     queryFn: ({ signal }) => repository.memoryStatistics(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const hooks = useQuery({
     queryKey: queryKeys.key('hook-inspection', settings.endpoint),
     queryFn: ({ signal }) => repository.hooks(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
+  const integrations = health.data?.integrations ?? [];
+  const open = integrations.find((integration) => integration.name === openName);
+  const ready = integrations.filter((row) => statusValue(row.status) === 'healthy').length;
+  // One list-width column, so the rows, counts and integrations share the ItemList edge.
+  const list = (
+    <UnofferedParts order={PARTS}>
+      <div className={cn('@container min-w-0', !open && SETTINGS_COLUMN)}>
+        {notOffered(health.error) ? null : (
+          <SettingsGroupLabel
+            className="mt-2"
+            actions={
+              integrations.length ? (
+                <span className="tabular-nums">
+                  {ready} of {integrations.length} ready
+                </span>
+              ) : undefined
+            }
+            info="Each service the agent depends on. Open one for what to do next."
+          >
+            Integrations
+          </SettingsGroupLabel>
+        )}
+        {health.data ? (
+          <IntegrationList
+            integrations={integrations}
+            openName={openName}
+            setOpenName={setOpenName}
+          />
+        ) : null}
+        <QueryState
+          error={health.error}
+          loading="Checking service health…"
+          pending={health.isPending}
+          retry={() => void health.refetch()}
+          retrying={health.isFetching}
+          noun="health details"
+          title="Health details unavailable."
+        />
+        {notOffered(memory.error) ? null : (
+          <SettingsGroupLabel info="What the agent's memory store holds and how often its cache answers.">
+            Storage
+          </SettingsGroupLabel>
+        )}
+        {memory.data ? <StorageGroup memory={memory.data} /> : null}
+        <QueryState
+          error={memory.error}
+          loading="Loading memory statistics…"
+          pending={memory.isPending}
+          retry={() => void memory.refetch()}
+          retrying={memory.isFetching}
+          noun="storage statistics"
+          title="Storage statistics unavailable."
+        />
+        {notOffered(metrics.error) ? null : (
+          <SettingsGroupLabel info="Totals since the agent started.">Metrics</SettingsGroupLabel>
+        )}
+        {metrics.data ? <MetricsGroup metrics={metrics.data} /> : null}
+        <QueryState
+          error={metrics.error}
+          loading="Loading activity…"
+          pending={metrics.isPending}
+          retry={() => void metrics.refetch()}
+          retrying={metrics.isFetching}
+          noun="activity metrics"
+          title="Activity metrics unavailable."
+        />
+        {notOffered(hooks.error) ? null : (
+          <SettingsGroupLabel info="Automation that runs before or after tools, and what it recently did.">
+            Hooks
+          </SettingsGroupLabel>
+        )}
+        {hooks.data ? <HooksGroup hooks={hooks.data} /> : null}
+        <QueryState
+          error={hooks.error}
+          loading="Loading hooks…"
+          pending={hooks.isPending}
+          retry={() => void hooks.refetch()}
+          retrying={hooks.isFetching}
+          noun="hook inspection"
+          title="Hook inspection unavailable."
+        />
+      </div>
+    </UnofferedParts>
+  );
   return (
-    <div className="grid gap-6">
-      <SectionHeading
-        description="Review service health, activity, memory, and automation hooks. Status comes from your connected service."
-        title="System"
+    <div className="min-w-0" onKeyDown={rowArrowKeyDown}>
+      <AnnounceStates />
+      <SettingsSectionHeading
+        info="Review service health, storage, activity and automation hooks. Status comes from your connected service."
+        title="Health"
       />
-      <Tabs defaultValue="health">
-        <TabsList className="flex h-auto flex-wrap justify-start">
-          <TabsTrigger value="health">Health</TabsTrigger>
-          <TabsTrigger value="metrics">Activity</TabsTrigger>
-          <TabsTrigger value="memory">Memory</TabsTrigger>
-          <TabsTrigger value="hooks">Hooks</TabsTrigger>
-        </TabsList>
-        <TabsContent className="mt-4" value="health">
-          {health.data ? <HealthTab integrations={health.data.integrations} /> : null}
-          {health.error ? (
-            <ErrorState message={health.error.message} title="Health details unavailable" />
-          ) : null}
-        </TabsContent>
-        <TabsContent className="mt-4" value="metrics">
-          {metrics.data ? <MetricsTab metrics={metrics.data} /> : null}
-          {metrics.error ? (
-            <ErrorState message={metrics.error.message} title="Activity metrics unavailable" />
-          ) : null}
-        </TabsContent>
-        <TabsContent className="mt-4" value="memory">
-          {memory.data ? <MemoryTab memory={memory.data} /> : null}
-          {memory.error ? (
-            <ErrorState message={memory.error.message} title="Memory statistics unavailable" />
-          ) : null}
-        </TabsContent>
-        <TabsContent className="mt-4" value="hooks">
-          {hooks.data ? (
-            <Frame spacing="lg">
-              <FrameHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <FrameTitle>Automation hooks</FrameTitle>
-                    <FrameDescription>
-                      {hooks.data.hooks.length} loaded, {hooks.data.recent_invocations.length}{' '}
-                      recent invocations
-                    </FrameDescription>
-                  </div>
-                  <ClioStatus
-                    label={hooks.data.enabled ? 'Enabled' : 'Disabled'}
-                    value={hooks.data.enabled ? 'healthy' : 'unavailable'}
-                  />
-                </div>
-              </FrameHeader>
-              <FramePanel className="grid gap-2 p-2">
-                {hooks.data.hooks.map((hook, index) => (
-                  <ClioInteractiveRow key={String(hook.id ?? index)}>
-                    <div className="flex items-center gap-3">
-                      <WebhookIcon aria-hidden="true" className="size-4 text-primary" />
-                      <p className="font-medium">{String(hook.title ?? hook.id ?? 'Hook')}</p>
-                      <Badge className="ml-auto" variant="outline">
-                        {String(hook.scope ?? hook.source ?? hooks.data.backend)}
-                      </Badge>
-                    </div>
-                  </ClioInteractiveRow>
-                ))}
-                {!hooks.data.hooks.length ? (
-                  <p className="p-5 text-sm text-muted-foreground">No hooks are loaded.</p>
-                ) : null}
-              </FramePanel>
-            </Frame>
-          ) : null}
-          {hooks.error ? (
-            <ErrorState message={hooks.error.message} title="Hook inspection unavailable" />
-          ) : null}
-        </TabsContent>
-      </Tabs>
+      <ListDetailLayout
+        detail={
+          open ? (
+            <IntegrationDetail
+              integration={open}
+              key={open.name}
+              onClose={() => setOpenName(undefined)}
+            />
+          ) : undefined
+        }
+        list={list}
+      />
     </div>
   );
 }

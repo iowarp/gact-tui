@@ -3,9 +3,79 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AsyncTaskList } from './async-task-list';
+import { AsyncTaskList, type TaskPageControls } from './async-task-list';
 
 afterEach(cleanup);
+
+const emptyHistory: NonNullable<TaskPageControls['history']> = {
+  loaded: true,
+  visible: false,
+  toggle: vi.fn(),
+  items: [],
+  hasMore: false,
+  pending: false,
+  loadMore: async () => {},
+  error: '',
+};
+
+it('hides a verified empty history even while current work is running', () => {
+  render(
+    <AsyncTaskList
+      processes={[current]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: emptyHistory,
+      }}
+    />,
+  );
+  expect(screen.getByText(current.title)).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
+});
+
+it('keeps lazy history discoverable, then removes it once an empty read settles', () => {
+  const view = render(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: { ...emptyHistory, loaded: false },
+      }}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Completed work' })).toBeVisible();
+  view.rerender(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: emptyHistory,
+      }}
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
+});
+
+it('does not hide a history read failure as an empty category', () => {
+  render(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: { ...emptyHistory, visible: true, error: 'History read failed' },
+      }}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Completed work' })).toBeVisible();
+  expect(screen.getByRole('alert')).toHaveTextContent('History read failed');
+});
 
 const current: AsyncProcess = {
   id: 'current',

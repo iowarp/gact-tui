@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import type { Artifact, DocumentManifest } from '@clio/core/v3';
 import '../../src/index.css';
 import { ClioDocumentWorkspace } from '../../src/components/clio/document-workspace';
-import { MarkdownFilePreview } from '../../src/components/clio/markdown-file-preview';
+import { FileTextView } from '../../src/components/clio/file-text-view';
 import { TranscriptTextBlock } from '../../src/components/clio/transcript-text-block';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
 import { queryKeys } from '../../src/lib/query-keys';
@@ -43,7 +43,6 @@ const manifest: DocumentManifest = {
   content_url: '/v1/artifacts/collatz-report/document/content',
   anchors: ['text-quote'],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   provenance: {},
 };
@@ -85,7 +84,7 @@ createRoot(document.getElementById('root')!).render(
             <section aria-label="File" className="min-w-0">
               <h2 className="mb-3 font-medium">File preview</h2>
               <div className="h-[850px] rounded-lg border">
-                <MarkdownFilePreview name="REPORT.md" content={source} />
+                <FileTextView name="REPORT.md" content={source} format="markdown" />
               </div>
             </section>
             <section aria-label="Artifact" className="min-w-0">

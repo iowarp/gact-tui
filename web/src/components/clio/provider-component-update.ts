@@ -6,6 +6,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { providerManagedClientVendor } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ProviderGroup } from './model-picker-model';
@@ -57,9 +58,7 @@ export function useProviderComponentUpdate({
     queryFn: ({ signal }) => repository.providerComponents(presetId, { refresh: true }, signal),
     // Direct Codex has updatable components but runs no CLI and therefore
     // carries no client fact. Do not make its update control depend on one.
-    enabled:
-      open &&
-      Boolean(presetId && (preset?.provider === 'claude_code' || preset?.provider === 'codex')),
+    enabled: open && Boolean(presetId && providerManagedClientVendor(preset?.provider)),
     staleTime: COMPONENTS_STALE_MS,
   });
   const [tracking, setTracking] = useState(false);

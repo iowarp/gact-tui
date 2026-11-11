@@ -4,7 +4,7 @@ use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
 };
-use tauri::{utils::config::WindowConfig, webview::DownloadEvent, Manager};
+use tauri::{utils::config::WindowConfig, webview::DownloadEvent, Manager, WebviewWindowBuilder};
 
 /// Defer configured startup windows so their download handler can be installed before navigation.
 pub(crate) fn defer_configured_windows(config: &mut tauri::Config) -> Vec<WindowConfig> {
@@ -22,20 +22,29 @@ pub(crate) fn defer_configured_windows(config: &mut tauri::Config) -> Vec<Window
 }
 
 /// Create each requested startup window with the platform's native download integration.
-pub(crate) fn create_configured_windows(
+/// `prepare` adjusts each window's builder before it is built.
+pub(crate) fn create_configured_windows<F>(
     app: &tauri::App,
     windows: &[WindowConfig],
-) -> tauri::Result<()> {
+    prepare: F,
+) -> tauri::Result<Vec<tauri::WebviewWindow>>
+where
+    F: for<'a> Fn(
+        &WindowConfig,
+        WebviewWindowBuilder<'a, tauri::Wry, tauri::App>,
+    ) -> WebviewWindowBuilder<'a, tauri::Wry, tauri::App>,
+{
+    let mut created = Vec::with_capacity(windows.len());
     for config in windows {
-        let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+        let builder = prepare(config, WebviewWindowBuilder::from_config(app, config)?);
         // WebKit requires a handler to save downloads, including Blob exports
         // and downloads from embedded frames. WebView2 keeps its own default
         // transfer UI instead; our plugin only reveals that native history.
         #[cfg(not(target_os = "windows"))]
         let builder = builder.on_download(handle_download);
-        builder.build()?;
+        created.push(builder.build()?);
     }
-    Ok(())
+    Ok(created)
 }
 
 /// Accept WebKit downloads and reveal Downloads after a successful transfer.

@@ -200,10 +200,11 @@ export interface CascaderVirtualItemsProps {
  * indexed rows while Base UI still owns the composite list.
  */
 function CascaderVirtualItems(props: CascaderVirtualItemsProps) {
-  const { virtualized, registerVirtualRenderer } = useCascaderActions();
+  const { virtualized, windowingPending, registerVirtualRenderer } = useCascaderActions();
 
   React.useLayoutEffect(() => registerVirtualRenderer(), [registerVirtualRenderer]);
 
+  if (windowingPending) return null;
   if (!virtualized) return <CascaderItems />;
 
   return <CascaderVirtualRows {...props} />;
@@ -312,10 +313,24 @@ function CascaderVirtualColumn({
   footer,
   empty,
 }: CascaderVirtualColumnProps) {
-  const { virtualized, registerVirtualRenderer, virtualize, virtualizeThreshold } =
-    useCascaderActions();
+  const {
+    virtualized,
+    windowingPending,
+    registerVirtualRenderer,
+    virtualize,
+    virtualizeThreshold,
+  } = useCascaderActions();
 
   React.useLayoutEffect(() => registerVirtualRenderer(), [registerVirtualRenderer]);
+
+  if (column.active && windowingPending) {
+    // An empty row set, not `undefined`: the panel would map every row.
+    return (
+      <CascaderColumnPanel column={column} footer={footer} virtualized>
+        {[]}
+      </CascaderColumnPanel>
+    );
+  }
 
   const windowed = column.active
     ? virtualized
@@ -409,7 +424,7 @@ function CascaderVirtualColumnRows({
             indeterminate={isIndeterminate(node)}
             {...getCascaderMoreProps(node, loadStates)}
             data-open={open || undefined}
-            className={open ? 'bg-accent/60 text-accent-foreground' : undefined}
+            className={open ? 'bg-menu-highlight text-foreground' : undefined}
             /* Only the listbox column may carry an index or listbox metadata.
                A trail row is a `role="button"`, which allows neither. */
             {...(column.active

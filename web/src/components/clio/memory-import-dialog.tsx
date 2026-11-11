@@ -1,158 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CopyIcon } from 'lucide-react';
-import { useState } from 'react';
+import { BotIcon, CircleAlertIcon, CopyIcon, FileArchiveIcon, UploadIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
-import { MemoryScopePicker, type MemoryScopeOptions } from './memory-scope-picker';
+import { memoryErrorText } from './memory-document-helpers';
+import { MemoryPicker, MemoryScopePicker, type MemoryScopeOptions } from './memory-scope-picker';
+import { DialogFrame } from './primitives/dialog-frame';
+import { SegmentedControl } from './primitives/segmented-control';
+import { SettingsRow } from './settings-row';
 
-function ArchiveImport({ onDone }: { onDone: () => void }) {
-  const repository = useRepository();
-  const client = useQueryClient();
-  const [file, setFile] = useState<File>();
-  const run = useMutation({
-    mutationFn: async (chosen: File) =>
-      repository.importMemoryArchive(new Uint8Array(await chosen.arrayBuffer())),
-    onSuccess: (report) => {
-      void client.invalidateQueries({ queryKey: ['memory'] });
-      toast.success(
-        `Imported: ${report.added} added, ${report.updated} updated, ${report.skipped} unchanged`,
-      );
-      onDone();
-    },
-  });
-  return (
-    <form
-      className="grid gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (file) run.mutate(file);
-      }}
-    >
-      <Label htmlFor="memory-archive">Memory export (.zip)</Label>
-      <Input
-        accept=".zip,application/zip"
-        id="memory-archive"
-        onChange={(event) => setFile(event.target.files?.[0])}
-        type="file"
-      />
-      <p className="text-xs text-muted-foreground">
-        Facts merge by id. Importing the same export twice changes nothing.
-      </p>
-      {run.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {run.error.message}
-        </p>
-      ) : null}
-      <Button className="w-fit" disabled={!file || run.isPending} type="submit">
-        {run.isPending ? 'Importing…' : 'Import'}
-      </Button>
-    </form>
-  );
-}
-
-function AssistantImport({
-  onDone,
-  open,
-  ...scopeOptions
-}: MemoryScopeOptions & { onDone: () => void; open: boolean }) {
-  const repository = useRepository();
-  const client = useQueryClient();
-  const [text, setText] = useState('');
-  const [scope, setScope] = useState('user');
-  const prompt = useQuery({
-    queryKey: ['memory', 'assistant-prompt'],
-    queryFn: ({ signal }) => repository.assistantImportPrompt(signal),
-    enabled: open,
-    staleTime: Infinity,
-  });
-  const run = useMutation({
-    mutationFn: () => repository.importFromAssistant(text, scope),
-    onSuccess: (report) => {
-      void client.invalidateQueries({ queryKey: ['memory'] });
-      toast.success(
-        report.candidates
-          ? `${report.candidates} candidate facts found. Memory creation is running.`
-          : 'No facts found in the pasted text.',
-      );
-      setText('');
-      onDone();
-    },
-  });
-  return (
-    <div className="grid gap-3">
-      <p className="text-sm text-muted-foreground">
-        Paste another assistant's notes. This uses your background memory models and follows the
-        review policy in Memory settings.
-      </p>
-      <details>
-        <summary className="cursor-pointer text-sm text-muted-foreground">
-          Get a prompt for another assistant
-        </summary>
-        <div className="relative mt-2">
-          <Textarea
-            aria-label="Prompt to give your other assistant"
-            className="pr-10 text-xs"
-            readOnly
-            rows={5}
-            value={prompt.data ?? 'Loading…'}
-          />
-          <Button
-            aria-label="Copy the prompt"
-            className="absolute top-1 right-1"
-            disabled={!prompt.data}
-            onClick={() => {
-              if (!prompt.data) return;
-              void navigator.clipboard.writeText(prompt.data).then(() => toast.success('Copied'));
-            }}
-            size="icon"
-            variant="ghost"
-          >
-            <CopyIcon aria-hidden="true" />
-          </Button>
-        </div>
-      </details>
-      <MemoryScopePicker
-        id="memory-import-scope"
-        value={scope}
-        onChange={setScope}
-        disabled={run.isPending}
-        {...scopeOptions}
-      />
-      <Label htmlFor="memory-assistant-text">Their answer</Label>
-      <Textarea
-        id="memory-assistant-text"
-        onChange={(event) => setText(event.target.value)}
-        rows={8}
-        value={text}
-        disabled={run.isPending}
-      />
-      {run.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {run.error.message}
-        </p>
-      ) : null}
-      <Button
-        className="w-fit"
-        disabled={!text.trim() || run.isPending}
-        onClick={() => run.mutate()}
-      >
-        {run.isPending ? 'Reading…' : 'Import notes'}
-      </Button>
-    </div>
-  );
-}
+type ImportSource = 'archive' | 'assistant';
 
 /** Import a CLIO memory export, or what another assistant knows about you. */
 export function MemoryImportDialog({
@@ -164,39 +24,222 @@ export function MemoryImportDialog({
 }: Partial<MemoryScopeOptions> & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The assistant import started a background creation run. */
   onStarted?: () => void;
 }) {
-  const done = () => onOpenChange(false);
+  const repository = useRepository();
+  const client = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [source, setSource] = useState<ImportSource>('archive');
+  // Under 1120 px the 36% dialog is too narrow for both labels; the other choice keeps its name on hover.
+  const narrow = useMediaQuery('(max-width: 1119px)');
+  const [file, setFile] = useState<File>();
+  const [text, setText] = useState('');
+  const [scope, setScope] = useState('user');
+  const prompt = useQuery({
+    queryKey: ['memory', 'assistant-prompt'],
+    queryFn: ({ signal }) => repository.assistantImportPrompt(signal),
+    enabled: open && source === 'assistant',
+    staleTime: Infinity,
+  });
+  const close = (next: boolean) => {
+    onOpenChange(next);
+    if (next) return;
+    setFile(undefined);
+    setText('');
+    archive.reset();
+    assistant.reset();
+  };
+  const archive = useMutation({
+    mutationFn: async (chosen: File) =>
+      repository.importMemoryArchive(new Uint8Array(await chosen.arrayBuffer())),
+    onSuccess: (report) => {
+      void client.invalidateQueries({ queryKey: ['memory'] });
+      toast.success(
+        `Imported: ${report.added} added, ${report.updated} updated, ${report.skipped} unchanged`,
+      );
+      close(false);
+    },
+  });
+  const assistant = useMutation({
+    mutationFn: () => repository.importFromAssistant(text, scope),
+    onSuccess: (report) => {
+      void client.invalidateQueries({ queryKey: ['memory'] });
+      toast.success(
+        report.candidates
+          ? `${report.candidates} candidate facts found. Memory creation is running.`
+          : 'No facts found in the pasted text.',
+      );
+      close(false);
+      onStarted?.();
+    },
+  });
+  const busy = archive.isPending || assistant.isPending;
+  const error = source === 'archive' ? archive.error : assistant.error;
+  const ready = source === 'archive' ? Boolean(file) : Boolean(text.trim());
+  const confirm = () => {
+    if (!ready || busy) return;
+    if (source === 'archive' && file) archive.mutate(file);
+    else assistant.mutate();
+  };
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Import memory</DialogTitle>
-          <DialogDescription>
-            Bring in an export, or another assistant&apos;s notes.
-          </DialogDescription>
-        </DialogHeader>
-        <Tabs defaultValue="archive">
-          <TabsList>
-            <TabsTrigger value="archive">Memory export</TabsTrigger>
-            <TabsTrigger value="assistant">From another assistant</TabsTrigger>
-          </TabsList>
-          <TabsContent className="pt-3" value="archive">
-            <ArchiveImport onDone={done} />
-          </TabsContent>
-          <TabsContent className="pt-3" value="assistant">
-            <AssistantImport
-              onDone={() => {
-                done();
-                onStarted?.();
+    <DialogFrame
+      confirm={{
+        label: busy
+          ? source === 'archive'
+            ? 'Importing…'
+            : 'Reading…'
+          : source === 'archive'
+            ? 'Import'
+            : 'Import notes',
+        disabled: !ready || busy,
+        onConfirm: confirm,
+      }}
+      icon={<UploadIcon />}
+      onOpenChange={close}
+      open={open}
+      title="Import memory"
+    >
+      <div className="grid">
+        <SettingsRow title="From">
+          <SegmentedControl
+            iconOnly={narrow ? 'others' : false}
+            label="Import from"
+            onValueChange={setSource}
+            options={[
+              {
+                value: 'archive',
+                label: 'Memory export',
+                icon: narrow ? <FileArchiveIcon /> : undefined,
+              },
+              {
+                value: 'assistant',
+                label: 'Another assistant',
+                icon: narrow ? <BotIcon /> : undefined,
+              },
+            ]}
+            value={source}
+          />
+        </SettingsRow>
+        {source === 'archive' ? (
+          <SettingsRow
+            htmlFor="memory-archive-choose"
+            info="A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
+            title="File"
+          >
+            <div className="flex w-full min-w-0 items-center gap-2">
+              <span
+                className="flex h-[1.875rem] min-w-0 flex-1 items-center truncate rounded-md border border-input bg-input/30 px-2.5 font-mono text-[12px] text-foreground"
+                title={file?.name}
+              >
+                {file ? (
+                  <span className="truncate">{file.name}</span>
+                ) : (
+                  <span className="truncate text-faint">No file</span>
+                )}
+              </span>
+              <Button
+                className="shrink-0"
+                data-initial-focus=""
+                disabled={busy}
+                id="memory-archive-choose"
+                onClick={() => fileInput.current?.click()}
+                size="sm"
+                variant="outline"
+              >
+                Choose…
+              </Button>
+              <input
+                accept=".zip,application/zip"
+                aria-label="Memory export (.zip)"
+                className="sr-only"
+                onChange={(event) => setFile(event.target.files?.[0])}
+                ref={fileInput}
+                tabIndex={-1}
+                type="file"
+              />
+            </div>
+          </SettingsRow>
+        ) : (
+          <SettingsRow
+            info="Ask your other assistant this, then paste its answer below."
+            title="Prompt"
+          >
+            <Button
+              className="w-fit"
+              data-initial-focus=""
+              disabled={!prompt.data}
+              onClick={() => {
+                if (!prompt.data) return;
+                void navigator.clipboard
+                  .writeText(prompt.data)
+                  .then(() => toast.success('Prompt copied'));
               }}
-              open={open}
+              size="sm"
+              variant="outline"
+            >
+              <CopyIcon aria-hidden="true" />
+              {prompt.isPending ? 'Loading prompt…' : 'Copy the prompt'}
+            </Button>
+          </SettingsRow>
+        )}
+        <SettingsRow
+          htmlFor="memory-import-scope"
+          info={
+            source === 'archive'
+              ? 'An export keeps each memory where it was saved.'
+              : 'Uses your background memory models and follows the review policy in Create memories.'
+          }
+          title="Remember in"
+        >
+          {source === 'archive' ? (
+            <MemoryPicker
+              disabled
+              id="memory-import-scope"
+              label="Remember in"
+              onChange={() => undefined}
+              options={[]}
+              placeholder="As in the export"
+              searchPlaceholder="Search workspaces…"
+              value=""
+            />
+          ) : (
+            <MemoryScopePicker
+              disabled={busy}
+              id="memory-import-scope"
+              onChange={setScope}
+              value={scope}
               workspaces={workspaces}
               {...scopeOptions}
             />
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+          )}
+        </SettingsRow>
+        {source === 'assistant' ? (
+          <div className="grid gap-1.5 py-2">
+            <label className="text-[12.5px] font-medium" htmlFor="memory-assistant-text">
+              Their answer
+            </label>
+            <Textarea
+              className="max-h-48 min-h-24 text-[13px]"
+              disabled={busy}
+              id="memory-assistant-text"
+              onChange={(event) => setText(event.target.value)}
+              rows={5}
+              value={text}
+            />
+          </div>
+        ) : null}
+        {error ? (
+          <p
+            className="flex min-w-0 items-center gap-1.5 pt-2 text-destructive"
+            role="alert"
+            title={memoryErrorText(error)}
+          >
+            <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="truncate">{memoryErrorText(error)}</span>
+          </p>
+        ) : null}
+      </div>
+    </DialogFrame>
   );
 }

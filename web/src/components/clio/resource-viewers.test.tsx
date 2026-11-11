@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { OPEN_BROWSER_PAGE_EVENT } from '@/lib/html-in-browser';
+import { rangeReadsFromText } from '@/test/workspace-file-range';
+import { narrowFrameBars } from '@/test/narrow-frame-bars';
 import { ArtifactView, WorkspaceFileView } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
@@ -13,39 +17,19 @@ const { repository } = vi.hoisted(() => ({
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
     readWorkspaceFileBytes: vi.fn(),
+    readWorkspaceFileRange: vi.fn(),
     workspaceFiles: vi.fn(),
+    openBrowserFile: vi.fn(),
+    commentTarget: vi.fn(),
+    createCommentTarget: vi.fn(),
+    // No x_clio_hdf5_viewer unless a test grants it: HDF5 then opens as binary.
+    capabilities: vi.fn(),
   },
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
-}));
-vi.mock('ace-builds/src-noconflict/mode-json', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-markdown', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-python', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-sh', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-text', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-toml', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-yaml', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-github', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-one_dark', () => ({}));
-vi.mock('react-ace', () => ({
-  default: ({
-    value,
-    onChange,
-    'aria-label': ariaLabel,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    'aria-label'?: string;
-  }) => (
-    <textarea
-      aria-label={ariaLabel}
-      onChange={(event) => onChange(event.target.value)}
-      value={value}
-    />
-  ),
 }));
 vi.mock('./document-workspace', () => ({
   ClioDocumentWorkspace: ({ fallbackPreview }: { fallbackPreview: ReactNode }) => (
@@ -57,6 +41,10 @@ vi.mock('./document-pdf-viewer', () => ({
     <div aria-label={`PDF ${name}`}>{`${bytes.byteLength} bytes`}</div>
   ),
 }));
+
+repository.readWorkspaceFileRange.mockImplementation(
+  rangeReadsFromText(repository.readWorkspaceFile),
+);
 
 beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 afterEach(() => {
@@ -205,6 +193,13 @@ describe('ArtifactView', () => {
     expect(imageCanvas.closest('[data-slot="scroll-area"]')).toBeNull();
     expect(imageCanvas.closest('[role="tabpanel"]')?.firstElementChild).toHaveClass('h-full');
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
+    // Ctrl or âŒ˜ with the wheel zooms, so the zoom icons may fold from a narrow frame.
+    const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
+    expect(zoomOut).toBeDisabled();
+    fireEvent.wheel(imageCanvas, { deltaY: -100 });
+    expect(zoomOut).toBeDisabled();
+    fireEvent.wheel(imageCanvas, { ctrlKey: true, deltaY: -100 });
+    expect(zoomOut).toBeEnabled();
   });
 });
 
@@ -214,7 +209,7 @@ describe('WorkspaceFileView', () => {
     return render(<QueryClientProvider client={queryClient}>{view}</QueryClientProvider>);
   }
 
-  it('shows CSV identity once in the preview control and keeps the count in pagination', async () => {
+  it('shows CSV identity once in the preview control and every row in one continuous grid', async () => {
     repository.readWorkspaceFile.mockResolvedValue(
       `station,count\n${Array.from({ length: 25 }, (_, index) => `MTA${index},${index}`).join('\n')}`,
     );
@@ -222,15 +217,17 @@ describe('WorkspaceFileView', () => {
       <WorkspaceFileView path="stations.csv" mediaType="text/csv" workspaceId="workspace_1" />,
     );
     expect(await screen.findByText('MTA0')).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveTextContent('stations.csv');
+    expect(screen.getByLabelText('Location')).toHaveTextContent('stations.csv');
     expect(screen.getAllByText('stations.csv', { exact: true })).toHaveLength(1);
     expect(screen.queryByText('CSV preview')).not.toBeInTheDocument();
     expect(screen.queryByText(/parsed rows/u)).not.toBeInTheDocument();
-    expect(screen.getByText('1 - 10 of 25')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: '2' }));
-    expect(screen.getByText('11 - 20 of 25')).toBeVisible();
-    expect(screen.getByText('MTA10')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download CSV' })).toBeEnabled();
+    const grid = screen.getByRole('grid', { name: 'stations.csv' });
+    expect(grid).toHaveAttribute('aria-rowcount', '26');
+    expect(within(grid).getByText('MTA24')).toBeVisible();
+    expect(screen.queryByText(/Rows per page/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1 - 10 of/u)).not.toBeInTheDocument();
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeEnabled();
   });
 
   it.each([
@@ -247,48 +244,52 @@ describe('WorkspaceFileView', () => {
         expect(screen.queryByLabelText(`Loading ${name}`)).not.toBeInTheDocument(),
       );
       expect(screen.getAllByText(name, { exact: true })).toHaveLength(1);
-      const toolbar = document.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
-      expect(
-        within(toolbar).getByRole('tab', { name: 'Preview', selected: true }),
-      ).toHaveTextContent(name);
+      const toolbar = document.querySelector('[data-slot="frame-bar"]') as HTMLElement;
+      expect(within(toolbar).getByLabelText('Location')).toHaveTextContent(name);
       const source = screen.queryByRole('tab', { name: 'Source' });
       if (source) await userEvent.click(source);
       expect(document.querySelector('pre')).toHaveTextContent(content);
-      expect(screen.getByRole('button', { name: `Copy ${name}` })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Copy contents' })).toBeVisible();
       expect(screen.getAllByText(name, { exact: true })).toHaveLength(1);
     },
   );
 
   it.each(['cat.html', 'cat.HTM', 'unlabelled.txt'])(
-    'renders HTML %s with its exact source available',
+    'opens HTML %s in the shared browser by its path and shows its exact source',
     async (path) => {
       repository.readWorkspaceFile.mockResolvedValue('<h1>Pedal!</h1>');
+      repository.openBrowserFile.mockResolvedValue({ id: 'p7', title: 'Pedal', url: '', host: '' });
+      const shown: unknown[] = [];
+      const listen = (event: Event) => shown.push((event as CustomEvent).detail);
+      window.addEventListener(OPEN_BROWSER_PAGE_EVENT, listen);
       renderFile(
-        <WorkspaceFileView
-          mediaType="text/html; charset=utf-8"
-          path={path}
-          size={100}
-          workspaceId="workspace_1"
-        />,
+        <MemoryRouter initialEntries={['/workspaces/workspace_1/sessions/sess_1']}>
+          <Routes>
+            <Route
+              element={
+                <WorkspaceFileView
+                  mediaType="text/html; charset=utf-8"
+                  path={path}
+                  size={100}
+                  workspaceId="workspace_1"
+                />
+              }
+              path="/workspaces/:workspaceId/sessions/:sessionId"
+            />
+          </Routes>
+        </MemoryRouter>,
       );
-      expect(await screen.findByTitle(`HTML preview of ${path}`)).toBeVisible();
-      expect(document.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
-      const toolbar = screen
-        .getByRole('tab', { name: 'Preview' })
-        .closest('[data-slot="viewer-toolbar"]');
-      expect(toolbar).not.toBeNull();
-      expect(toolbar).toContainElement(screen.getByRole('tab', { name: 'Source' }));
-      expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
+      await waitFor(() =>
+        expect(repository.openBrowserFile).toHaveBeenCalledWith('sess_1', { path }),
+      );
+      await waitFor(() =>
+        expect(shown).toEqual([{ pageId: 'p7', sessionId: 'sess_1', label: 'Pedal' }]),
+      );
       expect(document.querySelector('[data-language="html"]')).toHaveTextContent('<h1>Pedal!</h1>');
-      await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
-      expect(screen.getByTitle(`HTML preview of ${path}`)).toBeVisible();
+      expect(screen.queryByTitle(`HTML preview of ${path}`)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
       expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(1);
-      expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
-        'workspace_1',
-        path,
-        expect.any(AbortSignal),
-      );
+      window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, listen);
     },
   );
 
@@ -315,6 +316,33 @@ describe('WorkspaceFileView', () => {
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
   });
 
+  it('reads a large unsized log as ranged windows with a virtualized source and its end on request', async () => {
+    const lines = Array.from({ length: 30_000 }, (_, index) => `line ${index} processed`);
+    repository.readWorkspaceFile.mockResolvedValue(lines.join('\n'));
+    renderFile(
+      <WorkspaceFileView path="run.log" mediaType="text/plain" workspaceId="workspace_1" />,
+    );
+    expect(await screen.findByText(/^Showing the first [\d.]+ [KM]i?B\.$/u)).toBeVisible();
+    expect(repository.readWorkspaceFileRange).toHaveBeenCalledWith(
+      'workspace_1',
+      'run.log',
+      { start: 0, end: 512 * 1024 },
+      expect.anything(),
+    );
+    expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-slot="virtual-source"]')).toBeInTheDocument();
+    expect(document.querySelector('pre')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the last 512 KB' }));
+    expect(await screen.findByText(/^Showing the last [\d.]+ [KM]i?B\.$/u)).toBeVisible();
+    expect(repository.readWorkspaceFileRange).toHaveBeenCalledWith(
+      'workspace_1',
+      'run.log',
+      { suffix: 512 * 1024 },
+      expect.anything(),
+    );
+    expect(screen.getByRole('button', { name: 'Show beginning' })).toBeVisible();
+  });
+
   it('shows the read error instead of an endless PDF loading state', async () => {
     repository.readWorkspaceFileBytes.mockRejectedValue(new Error('file not found: missing.pdf'));
     renderFile(
@@ -325,11 +353,95 @@ describe('WorkspaceFileView', () => {
       />,
     );
 
-    expect(await screen.findByText('PDF preview unavailable')).toBeVisible();
-    expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
+    expect(await screen.findByText("Couldn't read it")).toBeVisible();
+    // The server's own words are the reason, never a bare status line.
+    expect(
+      screen.getByText(
+        'The file server said "file not found: missing.pdf". Nothing in the file changed.',
+      ),
+    ).toBeVisible();
   });
 
-  it('presents unsupported binary metadata and controls instead of a code block', async () => {
+  it('offers an image too large to read inline instead of reading it', async () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="image/png"
+        path="figures/mosaic.png"
+        size={2_254_857_830}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="state-view"][data-kind="too-large"]'),
+      ).toBeInTheDocument(),
+    );
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('presents an unsupported binary as the frame no-preview state, not a code block', async () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="application/octet-stream"
+        path="data/run.grib2"
+        size={4096}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    // The frame bar stays, with the extension and size as facts.
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByLabelText('Location')).toHaveTextContent('run.grib2');
+    expect(await within(frame).findByText('.grib2')).toBeVisible();
+    expect(within(frame).getByText('4.0 KB')).toBeVisible();
+    const state = document.querySelector<HTMLElement>(
+      '[data-slot="state-view"][data-kind="no-preview"]',
+    )!;
+    expect(state).toHaveTextContent('.grib2');
+    expect(state).toHaveTextContent('No viewer for .grib2 yet');
+    // The frame bar and the state both offer the original download; Open does not repeat it.
+    expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
+    expect(document.querySelector('pre code')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
+    expect(screen.queryByRole('menuitem', { name: /^Download/u })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(within(frame).getByRole('button', { name: 'Download' }));
+    await waitFor(() =>
+      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.grib2'),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
+    expect(await screen.findByText('data/run.grib2')).toBeVisible();
+  });
+
+  it.each([
+    ['application/x-hdf5', 'data/run.h5'],
+    [undefined, 'data/scan.nxs'],
+    [undefined, 'data/swath.he5'],
+  ])(
+    'opens HDF5 (%s, %s) in the HDF5 viewer when the service serves it, without reading the whole file',
+    async (mediaType, path) => {
+      repository.capabilities.mockResolvedValue({ capabilities: { x_clio_hdf5_viewer: true } });
+      renderFile(
+        <WorkspaceFileView
+          mediaType={mediaType}
+          path={path}
+          size={4096}
+          workspaceId="workspace_1"
+        />,
+      );
+
+      expect(await screen.findByTitle(`HDF5 viewer: ${path}`)).toBeInTheDocument();
+      expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+      expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+      repository.capabilities.mockReset();
+    },
+  );
+
+  it('opens an HDF5 file as a binary file when the service has no HDF5 viewer', async () => {
     renderFile(
       <WorkspaceFileView
         mediaType="application/x-hdf5"
@@ -340,15 +452,102 @@ describe('WorkspaceFileView', () => {
     );
 
     expect(screen.getByText('run.h5')).toBeVisible();
-    expect(screen.getByText(/application\/x-hdf5/u)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
-    expect(screen.getAllByRole('button', { name: 'Download file' })).toHaveLength(1);
-    expect(document.querySelector('pre code')).not.toBeInTheDocument();
-    expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
-    expect(screen.queryByText('data/run.h5')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
-    expect(await screen.findByText('data/run.h5')).toBeVisible();
+    const state = document.querySelector<HTMLElement>(
+      '[data-slot="state-view"][data-kind="no-preview"]',
+    )!;
+    expect(state).toHaveTextContent('.h5');
+    expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeVisible();
+    expect(screen.queryByTitle('HDF5 viewer: data/run.h5')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('shows a .tex listed as a generic binary as its source, not as a binary file', async () => {
+    repository.readWorkspaceFile.mockResolvedValue('\\section{Scaling}\nText.');
+    renderFile(
+      <WorkspaceFileView
+        mediaType="application/octet-stream"
+        path="paper/sections/eval.tex"
+        workspaceId="workspace_1"
+      />,
+    );
+    expect(await screen.findByText(/\\section\{Scaling\}/u)).toBeTruthy();
+    expect(screen.queryByText(/No inline preview/u)).toBeNull();
+  });
+
+  it('offers to build a paper entry opened in a conversation before it is an artifact', async () => {
+    repository.readWorkspaceFile.mockResolvedValue(
+      '\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}',
+    );
+    repository.commentTarget.mockResolvedValue(null);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/sessions/sess_1']}>
+          <Routes>
+            <Route
+              element={
+                <WorkspaceFileView
+                  mediaType="application/x-tex"
+                  path="paper/main.tex"
+                  workspaceId="workspace_1"
+                />
+              }
+              path="/sessions/:sessionId"
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('button', { name: 'Build this paper' })).toBeTruthy();
+    expect(await screen.findByText(/\\documentclass\{article\}/u)).toBeTruthy();
+    expect(repository.commentTarget).toHaveBeenCalledWith(
+      'workspace_1',
+      'paper/main.tex',
+      expect.anything(),
+    );
+  });
+
+  it('moves Build this paper into the frameâ€™s â€¦ menu at the narrowest fold', async () => {
+    const restore = narrowFrameBars();
+    try {
+      repository.readWorkspaceFile.mockResolvedValue(
+        '\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}',
+      );
+      repository.commentTarget.mockResolvedValue(null);
+      repository.createCommentTarget.mockReturnValue(new Promise(() => {}));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/sessions/sess_1']}>
+            <Routes>
+              <Route
+                element={
+                  <WorkspaceFileView
+                    mediaType="application/x-tex"
+                    path="paper/main.tex"
+                    workspaceId="workspace_1"
+                  />
+                }
+                path="/sessions/:sessionId"
+              />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      const build = await screen.findByRole('button', { name: 'Build this paper' });
+      expect(build).toHaveAttribute('data-frame-tool');
+      await waitFor(() => expect(build).toBeEnabled());
+      await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Build this paper' }));
+      expect(repository.createCommentTarget).toHaveBeenCalledWith('workspace_1', {
+        path: 'paper/main.tex',
+        session_id: 'sess_1',
+      });
+    } finally {
+      restore();
+    }
   });
 
   it('aborts the previous text preview when selection changes', async () => {

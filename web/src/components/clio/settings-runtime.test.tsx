@@ -1,3 +1,4 @@
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { RuntimeSettings } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -7,7 +8,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const repository = vi.hoisted(() => ({ runtimeSettings: vi.fn(), updateRuntimeSettings: vi.fn() }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 import { RuntimeSettingsPanel } from './settings-runtime';
 
@@ -64,7 +65,9 @@ function showSettings() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <RuntimeSettingsPanel />
+      <TooltipProvider>
+        <RuntimeSettingsPanel />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -104,8 +107,8 @@ it('saves Unlimited explicitly and restores the last finite limit without a rest
   await user.type(input, '6');
   await user.click(screen.getByRole('switch', { name: 'Unlimited concurrent subagents' }));
   expect(input).toBeDisabled();
-  expect(input).toHaveAttribute('placeholder', 'Unlimited');
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  expect(input).toHaveValue(null);
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({
       revision: 'first',
@@ -115,7 +118,7 @@ it('saves Unlimited explicitly and restores the last finite limit without a rest
   await user.click(screen.getByRole('switch', { name: 'Unlimited concurrent subagents' }));
   expect(input).toBeEnabled();
   expect(input).toHaveValue(6);
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
       revision: 'saved',
@@ -160,7 +163,7 @@ it('preserves an edited draft after a conflict and sends only owned changes', as
   expect(screen.getByRole('switch', { name: 'Save model reasoning' })).toBeDisabled();
   await user.clear(input);
   await user.type(input, '75');
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await screen.findByText(/Your edits are still here/);
   expect(input).toHaveValue(75);
   expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({
@@ -179,7 +182,7 @@ it('preserves an edited draft after a conflict and sends only owned changes', as
   repository.runtimeSettings.mockResolvedValue(fresh);
   await user.click(screen.getByRole('button', { name: 'Reload current settings' }));
   await waitFor(() => expect(input).toHaveValue(90));
-  expect(screen.getByRole('button', { name: 'Save defaults' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 });
 
 it('removes only the selected override and displays the returned inherited value', async () => {
@@ -199,7 +202,7 @@ it('removes only the selected override and displays the returned inherited value
   await user.click(screen.getByRole('button', { name: 'Use inherited model request timeout' }));
   expect(input).toBeDisabled();
   expect(screen.getByText('Will inherit after saving')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(input).toHaveValue(50));
   expect(input).toBeEnabled();
   await user.click(screen.getByRole('button', { name: 'About Model request timeout' }));
@@ -219,11 +222,11 @@ it('shows a load failure and retries instead of remaining on a loading message',
   await screen.findByText('Service unavailable');
   expect(screen.queryByText('Loading configuration…')).not.toBeInTheDocument();
   repository.runtimeSettings.mockResolvedValue(initial);
-  await user.click(screen.getByRole('button', { name: 'Retry loading settings' }));
+  await user.click(screen.getByRole('button', { name: 'Retry' }));
   await screen.findByRole('spinbutton', { name: 'Model request timeout' });
 });
 
-it('keeps setting descriptions visible and places provenance and effect in the info tip', async () => {
+it('places setting descriptions, provenance and effect in the info tip', async () => {
   const user = userEvent.setup();
   const defaults = {
     ...initial.settings[0]!,
@@ -246,10 +249,12 @@ it('keeps setting descriptions visible and places provenance and effect in the i
   });
   showSettings();
 
-  expect(await screen.findByText('Maximum time for a request.')).toBeVisible();
+  await screen.findByRole('button', { name: 'About Model request timeout' });
+  expect(screen.queryByText('Maximum time for a request.')).not.toBeInTheDocument();
   expect(screen.queryByText('Applies to subsequent model requests.')).not.toBeInTheDocument();
   expect(screen.queryByText(/ default$/iu)).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'About Model request timeout' }));
+  expect(await screen.findByText('Maximum time for a request.')).toBeVisible();
   expect(
     await screen.findByText(
       (_, node) => node?.textContent === 'Effect: Applies to subsequent model requests.',
@@ -368,7 +373,7 @@ it('saves named duration presets and custom numeric values through the same runt
   await user.click(await screen.findByRole('option', { name: 'After each completed turn' }));
   expect(idlePreset).toHaveTextContent('After each completed turn');
 
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
       revision: 'first',
@@ -381,7 +386,7 @@ it('saves named duration presets and custom numeric values through the same runt
   const input = screen.getByRole('spinbutton', { name: 'Expire unused memories after' });
   await user.clear(input);
   await user.type(input, '45');
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
       revision: 'saved',
@@ -394,14 +399,14 @@ it('saves named duration presets and custom numeric values through the same runt
   });
   await user.click(acceptance);
   await user.click(await screen.findByRole('option', { name: 'All eligible changes' }));
-  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
       revision: 'saved',
       changes: { 'memory.auto_accept': 'all' },
     }),
   );
-});
+  expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+}, 20_000);
 
 it('makes the full configuration path available on hover and removes one-entry copy guidance', async () => {
   const user = userEvent.setup();
@@ -424,4 +429,55 @@ it('makes the full configuration path available on hover and removes one-entry c
     if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
     else Reflect.deleteProperty(navigator, 'clipboard');
   }
+});
+
+it('saves a text setting trimmed and clears it back to unset', async () => {
+  const user = userEvent.setup();
+  const browser: RuntimeSettings = {
+    ...initial,
+    settings: [
+      {
+        ...initial.settings[0]!,
+        key: 'browser.cdp_url',
+        title: 'Running browser to connect to',
+        group: 'Browser',
+        kind: 'text',
+        value: '',
+        default_value: '',
+        minimum: null,
+        unit: null,
+        has_user_value: false,
+      },
+    ],
+  };
+  repository.runtimeSettings.mockResolvedValue(browser);
+  repository.updateRuntimeSettings.mockImplementation(async (request) => ({
+    ...browser,
+    revision: 'saved',
+    settings: browser.settings.map((row) => ({
+      ...row,
+      value: request.changes[row.key] ?? '',
+      has_user_value: request.changes[row.key] !== null,
+    })),
+  }));
+  showSettings();
+  const input = await screen.findByRole('textbox', { name: 'Running browser to connect to' });
+  expect(input).toHaveAttribute('placeholder', 'Not set');
+  await user.type(input, ' chrome ');
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({
+      revision: 'first',
+      changes: { 'browser.cdp_url': 'chrome' },
+    }),
+  );
+  await waitFor(() => expect(input).toHaveValue('chrome'));
+  await user.clear(input);
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
+      revision: 'saved',
+      changes: { 'browser.cdp_url': null },
+    }),
+  );
 });

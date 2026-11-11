@@ -1,28 +1,8 @@
-import { ActionCardButton } from './action-card-button';
+import { ActionAlertCard } from './action-alert-card';
 import { responseArtifactBlocks } from '@/lib/artifact-presentation';
-import type {
-  A2UIActionLifecycle,
-  A2UISurface,
-  Artifact,
-  MessageBlock,
-  WorkspaceReference,
-} from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  ExternalLinkIcon,
-  FileCode2Icon,
-  PanelsTopLeftIcon,
-  RouteIcon,
-} from 'lucide-react';
-import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
+import type { A2UIActionLifecycle, A2UISurface, Artifact, MessageBlock } from '@clio/core/v3';
+import { AlertTriangleIcon, ExternalLinkIcon, RouteIcon } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Plan,
   PlanAction,
@@ -32,7 +12,6 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -40,14 +19,17 @@ import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
-import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
-import { referenceKindIcon } from './composer-reference-presentation';
+import { ContextReferenceLink } from './context-reference-link';
+import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inline-references';
+import { SummonChip } from './summon-chip';
+import { sentDataReferences } from '@/lib/sent-data-references';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { TranscriptTextBlock } from './transcript-text-block';
-import { toolOutputDiffKey } from './declared-diff-key';
+import { toolOutputDiffKey, toolShowsDiff } from './declared-diff-key';
+import { TranscriptDiffCard } from './transcript-diff-card';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { AnswerHookNotice } from './answer-hook-notice';
 import { ANSWER_HOOK_SOURCE, answerRevisions } from './answer-revisions';
@@ -55,8 +37,8 @@ import { SummarizationInjection, TranscriptNotice } from './conversation-summari
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
-import { BoundedResult } from './bounded-result';
-import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -140,6 +122,7 @@ export function DeferredA2UISurface({
     <div
       aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      {...tourAnchor('interactive-surface')}
       onFocusCapture={() => setHasInteracted(true)}
       onPointerDownCapture={() => setHasInteracted(true)}
       ref={hostRef}
@@ -161,7 +144,81 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
   compactReferences?: boolean;
+  /** Reference blocks a sent message can show at their `@mention` in its text. */
+  inlineReferences?: readonly InlineReferenceBlock[];
+  /** The message already shows answer text, so an error stopped it partway. */
+  replyStarted?: boolean;
 };
+
+/**
+ * A reply that failed, as one 28px error line: what happened in product words
+ * and Retry beside it. The service's reason is its hover name and accessible
+ * text, so the line stays short at any width.
+ */
+export function ReplyErrorLine({
+  title,
+  reason,
+  onRetry,
+  retrying = false,
+  kind = 'error',
+  icon,
+}: {
+  title: string;
+  reason?: string;
+  /** Present while this reply can be retried. */
+  onRetry?: () => void;
+  retrying?: boolean;
+  kind?: 'error' | 'marker';
+  icon?: StateViewProps['icon'];
+}) {
+  const retry: StateAction | undefined = onRetry
+    ? { label: retrying ? 'Retrying' : 'Retry', disabled: retrying, onClick: onRetry }
+    : undefined;
+  return (
+    <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
+      <StateView
+        action={retry}
+        icon={icon}
+        kind={kind}
+        size="row"
+        title={
+          <>
+            {title}
+            {reason ? <span className="sr-only">: {reason}</span> : null}
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+function ReplyError({
+  block,
+  messageId,
+  onRetryMessage,
+  replyStarted,
+  retrying,
+}: {
+  block: Extract<MessageBlock, { type: 'error' }>;
+  messageId?: string;
+  onRetryMessage?: (messageId: string) => void | Promise<unknown>;
+  replyStarted?: boolean;
+  retrying: boolean;
+}) {
+  const code = humanizeProtocolValue(block.code);
+  return (
+    <ReplyErrorLine
+      reason={block.message && block.message !== code ? `${block.message} ? ${code}` : code}
+      onRetry={
+        block.recoverable && messageId && onRetryMessage
+          ? () => void onRetryMessage(messageId)
+          : undefined
+      }
+      retrying={retrying}
+      title={replyStarted ? 'This reply didn’t finish' : 'This reply didn’t load'}
+    />
+  );
+}
 
 function MessageBlockView({
   block,
@@ -187,8 +244,11 @@ function MessageBlockView({
   interactions,
   onInteractionResponse,
   compactReferences,
+  inlineReferences,
+  onRetryMessage,
+  replyStarted,
+  retryingMessageId,
 }: MessageBlockViewProps) {
-  const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
     case 'text': {
       return (
@@ -196,6 +256,8 @@ function MessageBlockView({
           block={block}
           messageId={messageId}
           compactReferences={compactReferences}
+          inlineReferences={inlineReferences}
+          onOpenReference={onOpenReference}
         />
       );
     }
@@ -262,23 +324,7 @@ function MessageBlockView({
       );
     }
     case 'action_card':
-      return (
-        <Alert variant={block.severity === 'critical' ? 'destructive' : 'default'}>
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{block.title}</AlertTitle>
-          <AlertDescription>
-            {block.detail}
-            {block.source ? (
-              <span className="mt-2 block text-xs">Raised by {block.source}</span>
-            ) : null}
-          </AlertDescription>
-          <div className="col-start-2 mt-3 flex flex-wrap gap-2">
-            {block.actions.map((action) => (
-              <ActionCardButton action={action} key={action.id} onAction={onActionCardAction} />
-            ))}
-          </div>
-        </Alert>
-      );
+      return <ActionAlertCard block={block} onAction={onActionCardAction} />;
     case 'a2ui': {
       const surface = surfaces[block.surface_id];
       if (surfaceAwaitsPendingResponse(interactions, block.surface_id)) return null;
@@ -319,41 +365,16 @@ function MessageBlockView({
         </ExternalLink>
       );
     case 'diff':
-      return (
-        <BoundedResult lines={previewLines} title="File changes">
-          <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
-            <CodeBlockHeader>
-              <CodeBlockTitle>
-                <FileCode2Icon aria-hidden="true" className="size-3.5" />
-                <CodeBlockFilename>{block.path}</CodeBlockFilename>
-              </CodeBlockTitle>
-              <CodeBlockActions>
-                {onOpenFile ? (
-                  <Button
-                    aria-label={`Open ${block.path} in workspace`}
-                    onClick={() => onOpenFile(block.path)}
-                    size="icon-xs"
-                    variant="ghost"
-                  >
-                    <PanelsTopLeftIcon aria-hidden="true" />
-                  </Button>
-                ) : null}
-                <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
-              </CodeBlockActions>
-            </CodeBlockHeader>
-          </CodeBlock>
-        </BoundedResult>
-      );
+      return <TranscriptDiffCard block={block} onOpenFile={onOpenFile} />;
     case 'error':
       return (
-        <Alert variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{humanizeProtocolValue(block.code)}</AlertTitle>
-          <AlertDescription>
-            {block.message}
-            {block.recoverable ? ' You can retry this step.' : ''}
-          </AlertDescription>
-        </Alert>
+        <ReplyError
+          block={block}
+          messageId={messageId}
+          onRetryMessage={onRetryMessage}
+          replyStarted={replyStarted}
+          retrying={retryingMessageId !== undefined && retryingMessageId === messageId}
+        />
       );
     case 'routing':
       if (block.label === 'Unknown' && !block.detail) return null;
@@ -374,40 +395,10 @@ function MessageBlockView({
           resources={resources}
         />
       );
-    case 'context_reference': {
-      const reference: WorkspaceReference = {
-        kind: block.ref_kind,
-        id: block.ref_id,
-        label: block.label,
-        // The transcript block carries no description of its own. Repeating the
-        // label here would invent one, and every surface downstream would read
-        // it as something the service said.
-        detail: '',
-        media_type: block.media_type,
-        revision: block.revision,
-        navigation: block.navigation,
-      };
-      const kind = referenceKindLabel(block.ref_kind);
-      return (
-        <button
-          aria-label={`Open referenced ${kind} ${block.label}`}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          // The revision is an addressing token, not something to read. It stays
-          // available for support and correlation without being shown.
-          data-reference-revision={block.revision}
-          disabled={!onOpenReference}
-          onClick={() => onOpenReference?.(reference)}
-          title={kind}
-          type="button"
-        >
-          {createElement(referenceKindIcon(block.ref_kind), {
-            'aria-hidden': 'true',
-            className: 'size-3.5 shrink-0',
-          })}
-          <span className="truncate">{block.label}</span>
-        </button>
-      );
-    }
+    case 'context_reference':
+      return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
+    case 'summon':
+      return <SummonChip block={block} />;
     case 'unknown':
       return (
         <Alert>
@@ -420,6 +411,17 @@ function MessageBlockView({
         </Alert>
       );
   }
+}
+
+function sentInlineReferences(blocks: readonly MessageBlock[]) {
+  const references = blocks.filter(
+    (block): block is InlineReferenceBlock =>
+      block.type === 'context_reference' || block.type === 'summon',
+  );
+  const texts = blocks.flatMap((block) =>
+    block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
+  );
+  return { references, shown: inlinedReferenceIds(texts, references) };
 }
 
 export function MessageBlockSequence({
@@ -444,15 +446,20 @@ export function MessageBlockSequence({
       ]
     : uniqueBlocks;
   const rendered: ReactNode[] = [];
-  const inlineDiffs = new Set(
-    orderedBlocks.flatMap((block) => {
-      if (block.type !== 'tool') return [];
-      const key = toolOutputDiffKey(props.tools[block.tool_id]);
-      return key ? [key] : [];
-    }),
-  );
+  const inlineDiffTools = orderedBlocks.flatMap((block) => {
+    if (block.type !== 'tool') return [];
+    const tool = props.tools[block.tool_id];
+    return tool && toolOutputDiffKey(tool) ? [tool] : [];
+  });
   // An answer a hook revised folds behind the hook's `revised` notice.
   const revisions = answerRevisions(messageBlocks ?? orderedBlocks);
+  // A sent message shows each reference where it was typed; the rest stay below it.
+  const inline = props.compactReferences
+    ? sentInlineReferences(messageBlocks ?? orderedBlocks)
+    : undefined;
+  const replyStarted = (messageBlocks ?? orderedBlocks).some(
+    (block) => block.type === 'text' && block.text.trim().length > 0,
+  );
   let index = 0;
 
   while (index < orderedBlocks.length) {
@@ -488,7 +495,15 @@ export function MessageBlockSequence({
       continue;
     }
 
-    if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
+    if (
+      (block.type === 'context_reference' || block.type === 'summon') &&
+      inline?.shown.has(block.id)
+    ) {
+      index += 1;
+      continue;
+    }
+
+    if (block.type === 'diff' && inlineDiffTools.some((tool) => toolShowsDiff(tool, block))) {
       index += 1;
       continue;
     }
@@ -514,7 +529,15 @@ export function MessageBlockSequence({
     }
 
     if (block.type !== 'artifact' || !props.artifacts[block.artifact_id]) {
-      rendered.push(<MessageBlockView block={block} key={`${block.id}-${keyIndex}`} {...props} />);
+      rendered.push(
+        <MessageBlockView
+          block={block}
+          inlineReferences={inline?.references}
+          key={`${block.id}-${keyIndex}`}
+          replyStarted={replyStarted}
+          {...props}
+        />,
+      );
       index += 1;
       continue;
     }

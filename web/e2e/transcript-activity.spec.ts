@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('renders reader-controlled causal entries and a truthful completion footer at desktop and phone widths', async ({
+test('renders always-visible causal rows and a truthful completion footer at desktop and phone widths', async ({
   page,
 }) => {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -18,48 +18,60 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   }, endpoint);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  await expect(page.getByRole('button', { name: /^Evidence layout: /u })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Conversation rail', exact: true })).toBeVisible();
   await page.request.post(`${endpoint}/__test/transcript-activity`, {
     data: { phase: 'thinking' },
   });
   const message = page.locator('#message-msg_flat_assistant');
-  const activity = message.getByRole('button', { name: /^Activity:/ });
-  await expect(activity).toHaveAttribute('aria-expanded', 'true');
-  await activity.click();
-  await expect(activity).toHaveAttribute('aria-expanded', 'false');
-  const thinking = message.locator('[data-slot="transcript-reasoning"]');
-  await expect(thinking).toHaveCount(0);
-  await expect(message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u })).toHaveCount(0);
-  await expect(activity.locator('svg.animate-spin')).toHaveCount(1);
-  await expect(
-    message
-      .locator('p')
-      .filter({ hasText: /^Read the fixture notes before preparing the report\.$/u }),
-  ).toHaveCount(1);
-  await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
-  await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
-  const update = message.locator('p').filter({
-    hasText: /^Read the fixture notes before preparing the report\.$/u,
-  });
-  await expect
-    .poll(async () => {
-      // The streaming fixture changes virtualized row heights. A detached row
-      // has no geometry; wait for its mounted measurements before comparing.
-      const [updateBounds, activityBounds] = await Promise.all([
-        update.boundingBox(),
-        activity.boundingBox(),
-      ]);
-      if (!updateBounds || !activityBounds) return -1;
-      return activityBounds.y - updateBounds.y - updateBounds.height;
-    })
-    .toBeGreaterThanOrEqual(18);
-  await activity.click();
-  await expect(message.getByRole('button', { name: /^Thinking:/ })).toHaveCount(0);
-  await expect(thinking).toBeVisible();
   const reasoning = message.locator('[data-slot="transcript-reasoning"]');
+  const thought = reasoning.locator('[data-slot="reasoning-summary"]');
+  const toggle = message.getByRole('button', { name: /^Thinking:/u });
+  const thoughtDetails = message.getByRole('region', { name: 'Thinking details' });
+  const timeline = message.locator('[data-slot="transcript-activity-timeline"]');
+  // The chevron opens a row at every width; phones hide the action name.
+  const readName = /^(?:Expand|Collapse) Read file$/u;
+  const runName = /^(?:Expand|Collapse) Run command$/u;
+  const read = message.getByRole('button', { name: readName });
+  const run = message.getByRole('button', { name: runName });
+  const readRow = message
+    .locator('[data-slot="activity-row"]')
+    .filter({ has: page.getByRole('button', { name: readName }) });
+  const runRow = message
+    .locator('[data-slot="activity-row"]')
+    .filter({ has: page.getByRole('button', { name: runName }) });
+  // Markdown paragraphs end with a line break that keeps their boundary in the DOM text.
+  const update = message
+    .locator('p')
+    .filter({ hasText: /^Read the fixture notes before preparing the report\.\n?$/u });
+  // While the model thinks, its thought is a live row and every call is already a visible row.
   await expect(reasoning).toHaveCount(1);
   await expect(reasoning).toHaveAttribute('aria-busy', 'true');
-  await expect(reasoning).toContainText('Read the fixture notes before preparing the report.');
+  await expect(thought).toHaveText('Thinking…');
+  await expect(reasoning.getByRole('img', { name: 'Thinking' })).toBeVisible();
+  await expect(read).toBeVisible();
+  await expect(run).toBeVisible();
+  await expect(update).toHaveCount(1);
+  await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
+  // A one-line thought stays closed until the reader opens it.
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(thoughtDetails).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(thoughtDetails).toContainText('Read the fixture notes before preparing the report.');
+  await toggle.click();
+  await expect(thoughtDetails).toHaveCount(0);
+  // Thinking reads before the step's prose, and the prose before its calls.
+  await expect
+    .poll(async () => {
+      const [thinkingBounds, updateBounds, readBounds] = await Promise.all([
+        reasoning.boundingBox(),
+        update.boundingBox(),
+        read.boundingBox(),
+      ]);
+      if (!thinkingBounds || !updateBounds || !readBounds) return false;
+      return thinkingBounds.y < updateBounds.y && updateBounds.y < readBounds.y;
+    })
+    .toBe(true);
   await page.request.post(`${endpoint}/__test/transcript-activity`, { data: { phase: 'answer' } });
   const persisted = await (
     await page.request.get(`${endpoint}/v1/sessions/sess_flat_ndp/messages`)
@@ -71,7 +83,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     ),
   ).toBe(true);
   // Completion changes virtualized row heights. Keep the current message
-  // mounted before inspecting its content; this does not toggle the activity.
+  // mounted before inspecting its content.
   let completedMeasurements = 0;
   await expect
     .poll(async () => {
@@ -81,20 +93,23 @@ test('renders reader-controlled causal entries and a truthful completion footer 
       const completed = await message.evaluateAll((nodes) =>
         nodes.some(
           (node) =>
-            node.querySelector('button[aria-label^="Activity:"]')?.getAttribute('aria-expanded') ===
-              'true' &&
-            node
-              .querySelector('[data-slot="message-completion-footer"]')
-              ?.textContent?.includes('Done'),
+            node.querySelector('[data-slot="activity-row"]') !== null &&
+            node.querySelector('[data-slot="message-completion-footer"]') !== null,
         ),
       );
       completedMeasurements = completed ? completedMeasurements + 1 : 0;
       return completedMeasurements;
     })
     .toBeGreaterThanOrEqual(3);
-  await expect(activity).toHaveAttribute('aria-expanded', 'true');
-  await expect(activity).not.toContainText(/\d+ tools|·/u);
-  await expect(thinking).toBeVisible();
+  // The settled thought is no longer live and keeps its text.
+  await expect(reasoning).not.toHaveAttribute('aria-busy');
+  await expect(thought).toHaveText(/^Thought/u);
+  // The finished turn folds its run into one counted row that opens to its calls.
+  const runSummary = message.getByRole('button', { name: 'Expand Called 2 tools' });
+  await expect(runSummary).toBeVisible();
+  await expect(read).toHaveCount(0);
+  await runSummary.click();
+  await expect(read).toBeVisible();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     // Let virtualized row measurements settle before measuring the actual click.
@@ -125,79 +140,62 @@ test('renders reader-controlled causal entries and a truthful completion footer 
         { intervals: [50, 100, 200], timeout: 10000 },
       )
       .toBeGreaterThanOrEqual(3);
-    if ((await activity.getAttribute('aria-expanded')) === 'true') {
-      await activity.focus();
-      await activity.press('Enter');
-      await expect(activity).toHaveAttribute('aria-expanded', 'false');
-    }
-    await activity.scrollIntoViewIfNeeded();
-    const before = await activity.boundingBox();
-    await page.mouse.click(before!.x + 20, before!.y + before!.height / 2);
-    await expect(activity).toHaveAttribute('aria-expanded', 'true');
-    const timeline = message.locator('[data-slot="transcript-activity-timeline"]');
-    await expect(timeline).toBeVisible();
+    await expect(timeline.first()).toBeVisible();
+    for (const lane of await timeline.all())
+      expect(await lane.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(thoughtDetails).toContainText(
+      'Read the fixture notes before preparing the report.',
+    );
+    expect(await reasoning.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await toggle.click();
+    await expect(thoughtDetails).toHaveCount(0);
+    expect((await reasoning.boundingBox())!.y).toBeLessThan(
+      (await message
+        .getByRole('button', { name: 'Technical details for Read file' })
+        .boundingBox())!.y,
+    );
+    // The action is the row's button; its target and outcome read beside it.
+    await expect(readRow).toContainText('notes.md');
+    await expect(readRow).toContainText('61 lines');
+    await expect(runRow).toContainText('failed');
+    expect((await read.boundingBox())!.y).toBeLessThan((await run.boundingBox())!.y);
+    const footer = message.locator('[data-slot="message-completion-footer"]');
+    await expect(footer).toContainText('129K in, 3K out');
+    await expect(footer).not.toContainText('Done');
+    await expect(footer).not.toContainText('·');
+    await footer.locator('[data-slot="message-reply-meta"]').hover();
+    const used = page.getByRole('region', { name: 'This reply used' });
+    await expect(used).toContainText('$0');
+    await expect(used).toContainText('2 tool calls, 1 failed');
+    await page.mouse.move(0, 0);
+    // The usage card closes once the pointer leaves; it can overlay the rows.
+    await expect(used).toBeHidden();
+    expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    // Opening a row grows its body below it without moving the row itself.
+    await read.scrollIntoViewIfNeeded();
+    const before = await read.boundingBox();
+    await page.mouse.click(before!.x + before!.width / 2, before!.y + before!.height / 2);
+    await expect(read).toHaveAttribute('aria-expanded', 'true');
     await test.info().attach(`activity-expansion-${width}`, {
-      body: JSON.stringify({ width, before, after: await activity.boundingBox() }),
+      body: JSON.stringify({ width, before, after: await read.boundingBox() }),
       contentType: 'application/json',
     });
-    expect(Math.abs((await activity.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
-    await expect(message.getByRole('button', { name: /^Reasoning:/ })).toHaveCount(0);
-    await expect(thinking).toBeVisible();
-    await expect(reasoning).not.toHaveAttribute('aria-busy');
-    await expect(reasoning).toContainText('Read the fixture notes before preparing the report.');
-    expect(await reasoning.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-    // A thought reads as one line; only a line that is cut off opens in place on click.
-    const thought = reasoning.locator('[data-slot="reasoning-summary"]');
-    const clipped = await thought.evaluate((node) => node.scrollWidth > node.clientWidth + 1);
-    const toggle = message.getByRole('button', { name: /^Thinking:/ });
-    await expect(toggle).toHaveCount(clipped ? 1 : 0);
-    if (clipped) {
-      await toggle.click();
-      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(await thought.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-      await toggle.click();
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    }
-    expect((await thinking.boundingBox())!.y).toBeLessThan(
-      (await message.getByRole('button', { name: 'Technical details for Read' }).boundingBox())!.y,
-    );
-    const read = message.getByRole('button', { name: 'Show result for Read' });
-    const run = message.getByRole('button', { name: 'Show result for Run' });
-    const reasoningToToolGap = async () => {
-      const [reasoningBounds, readBounds] = await Promise.all([
-        reasoning.boundingBox(),
-        read.boundingBox(),
-      ]);
-      if (!reasoningBounds || !readBounds) return -1;
-      return readBounds.y - reasoningBounds.y - reasoningBounds.height;
-    };
-    // Expanded activity entries stay dense; public text-to-activity separation
-    // is verified independently above.
-    await expect.poll(reasoningToToolGap).toBeGreaterThanOrEqual(4);
-    await expect.poll(reasoningToToolGap).toBeLessThanOrEqual(8);
-    await expect(read).toContainText('61 lines');
-    await expect(run).toContainText('failed');
-    expect((await read.boundingBox())!.y).toBeLessThan((await run.boundingBox())!.y);
-    expect(await timeline.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-    const footer = message.locator('[data-slot="message-completion-footer"]');
-    await expect(footer).toContainText('Done');
-    await expect(footer).toContainText('129K in / 3K out');
-    await expect(footer).toContainText('$0');
-    await expect(footer).toContainText('2 (1 failed) tool calls');
-    await expect(footer).not.toContainText('·');
-    expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-    await read.click();
-    const details = message.getByRole('region', { name: 'Read: Result' });
-    await expect(details).toContainText('notes.md');
+    expect(Math.abs((await read.boundingBox())!.y - before!.y)).toBeLessThanOrEqual(2);
+    const details = message.getByRole('region', { name: 'Read file: Result' });
+    await expect(details).toHaveCount(1);
+    // A named (not linked) subject stays the row's target when the row is open.
+    await expect(readRow).toContainText('notes.md');
     await expect(details).not.toContainText('Arguments');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await read.focus();
     await read.press('Enter');
     await expect(details).toHaveCount(0);
     await expect(read).toBeFocused();
-    await message.getByRole('button', { name: 'Technical details for Read' }).click();
+    await message.getByRole('button', { name: 'Technical details for Read file' }).click();
     await expect(page.getByRole('dialog')).toContainText('Complete fixture file contents.');
     await page.keyboard.press('Escape');
-    await activity.click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   }
 });

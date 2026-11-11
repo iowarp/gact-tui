@@ -3,8 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { useEffect, useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { ClioComposerAnnotations } from './composer-annotations';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  FileViewerActionRegistry,
+  FileViewerContentsRegistry,
+  type FileViewerAction,
+} from './file-viewer-action-context';
+import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { SelectionActionsProvider } from './selection-actions';
 
 /**
@@ -31,7 +39,12 @@ vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
     onSvgOutputChange,
   }: {
     chart: string;
-    controls: (api: { zoomIn: () => void; zoomOut: () => void; centerView: () => void; scalePercent: number }) => ReactNode;
+    controls: (api: {
+      zoomIn: () => void;
+      zoomOut: () => void;
+      centerView: () => void;
+      scalePercent: number;
+    }) => ReactNode;
     onSvgOutputChange: (svg: string) => void;
   }) => {
     // Stands in for a successful mermaid.js render: reports a fixed, valid
@@ -40,7 +53,12 @@ vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
     useEffect(() => {
       onSvgOutputChange(SAMPLE_SVG);
     }, [chart, onSvgOutputChange]);
-    return <div data-slot="mermaid-preview">{controls({ zoomIn: () => {}, zoomOut: () => {}, centerView: () => {}, scalePercent: 100 })}{chart}</div>;
+    return (
+      <div data-slot="mermaid-preview">
+        {controls({ zoomIn: () => {}, zoomOut: () => {}, centerView: () => {}, scalePercent: 100 })}
+        {chart}
+      </div>
+    );
   },
 }));
 
@@ -86,15 +104,15 @@ function selectMenuItem(item: HTMLElement) {
 
 /** Mirrors `a2ui-chart.test.tsx`'s harness: attaches "Reference this" clicks to a real composer-annotations list. */
 function ComposerHarness({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
-      <ClioComposerAnnotations
-        annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
-      />
+      <ClioComposerAnnotations annotations={annotations} onChange={setAnnotations} />
+      <output data-testid="sent-comments" hidden>
+        {JSON.stringify(annotations)}
+      </output>
     </>
   );
 }
@@ -249,13 +267,13 @@ describe('ClioMermaidDiagram', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Pipeline');
     expect(attached).toHaveTextContent('the whole diagram');
 
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('artifact_pipeline01');
   });
 
@@ -271,10 +289,94 @@ describe('ClioMermaidDiagram', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('inline diagram');
     expect(popoverBody).toHaveTextContent('flowchart LR'); // the query JSON names the diagram by its source
+  });
+});
+
+describe('ClioMermaidDiagram framed in a file viewer', () => {
+  type FrameHost = {
+    setFacts: ReturnType<typeof vi.fn<(id: string, facts?: readonly string[]) => void>>;
+    setContents: ReturnType<typeof vi.fn<(id: string, read?: () => unknown) => void>>;
+  };
+  function frameHost(): FrameHost {
+    return { setFacts: vi.fn(), setContents: vi.fn() };
+  }
+
+  function Framed({
+    frame,
+    register,
+    children,
+  }: {
+    frame: FrameHost;
+    register: (id: string, actions?: readonly FileViewerAction[]) => void;
+    children: ReactNode;
+  }) {
+    const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
+    return (
+      <TooltipProvider>
+        <FileViewerFactsRegistry.Provider value={frame.setFacts}>
+          <FileViewerContentsRegistry.Provider value={frame.setContents}>
+            <FileViewerActionRegistry.Provider value={register}>
+              <div data-slot="viewer-toolbar" data-testid="format" ref={setToolbar} />
+              <ViewerToolbarHost.Provider value={toolbar}>
+                {wrap(children)}
+              </ViewerToolbarHost.Provider>
+            </FileViewerActionRegistry.Provider>
+          </FileViewerContentsRegistry.Provider>
+        </FileViewerFactsRegistry.Provider>
+      </TooltipProvider>
+    );
+  }
+
+  it('registers SVG, PNG and source as Export to… formats and copies the source', async () => {
+    const frame = frameHost();
+    const register = vi.fn<(id: string, actions?: readonly FileViewerAction[]) => void>();
+    const capturedBlobs: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(((blob: Blob) => {
+      capturedBlobs.push(blob);
+      return 'blob:fake';
+    }) as typeof URL.createObjectURL);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(
+      <Framed frame={frame} register={register}>
+        <ClioMermaidDiagram framed source={SOURCE} title="Pipeline" />
+      </Framed>,
+    );
+
+    await waitFor(() =>
+      expect(register.mock.calls.at(-1)?.[1]?.every((action) => !action.disabled)).toBe(true),
+    );
+    const actions = register.mock.calls.at(-1)?.[1] ?? [];
+    expect(actions.map((action) => [action.label, action.kind])).toEqual([
+      ['SVG image', 'download'],
+      ['PNG image', 'download'],
+      ['Mermaid source', 'download'],
+    ]);
+
+    await actions[0]!.onSelect();
+    expect(await capturedBlobs.at(-1)!.text()).toBe(SAMPLE_SVG);
+
+    const copy = frame.setContents.mock.calls.at(-1)?.[1] as () => string;
+    expect(copy()).toBe(SOURCE);
+  });
+
+  it('keeps its own header when a frame hosts it without framed (a dashboard)', () => {
+    const frame = frameHost();
+    const register = vi.fn();
+    render(
+      <Framed frame={frame} register={register}>
+        <ClioMermaidDiagram source={SOURCE} title="Pipeline" />
+      </Framed>,
+    );
+
+    expect(screen.queryByRole('group', { name: 'Diagram zoom' })).not.toBeInTheDocument();
+    expect(frame.setContents).not.toHaveBeenCalled();
+    expect(register.mock.calls.every(([, actions]) => !actions?.length)).toBe(true);
   });
 });

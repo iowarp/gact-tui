@@ -13,26 +13,32 @@ for (const theme of ['light', 'dark'] as const) {
       { connection: endpoint, theme },
     );
     await page.goto('/workspaces/ws_flat_ndp/new');
-    const newSession = page.getByRole('button', { name: 'New session in flat-NDP', exact: true });
+    const newSession = page.getByRole('button', {
+      name: 'New conversation in flat-NDP',
+      exact: true,
+      includeHidden: true,
+    });
+    await page.getByRole('button', { name: /^(?:Collapse|Expand) workspace flat-NDP$/u }).hover();
     await newSession.hover();
     await expect(newSession).toHaveCSS('cursor', 'pointer');
     await expect(newSession.locator('svg')).toHaveCSS('cursor', 'pointer');
-    await newSession.click();
+    await page.getByRole('button', { name: 'New workspace', exact: true }).click();
 
-    const create = page.getByRole('dialog', { name: 'Create', exact: true });
-    await expect(create.getByRole('tab', { name: 'Workspace', exact: true })).toHaveCSS(
-      'cursor',
-      'pointer',
-    );
-    await expect(create.getByRole('textbox', { name: 'Session name', exact: true })).toHaveCSS(
+    // New workspace is the only create dialog; a new conversation is a draft page.
+    const create = page.getByRole('dialog', { name: 'New workspace', exact: true });
+    await expect(create.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveCSS(
       'cursor',
       'text',
     );
-    await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveCSS(
+    await expect(create.getByRole('textbox', { name: 'Workspace folder', exact: true })).toHaveCSS(
+      'cursor',
+      'text',
+    );
+    await expect(create.getByRole('button', { name: 'Browse', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
     );
-    const disabledCreate = create.getByRole('button', { name: 'Create session', exact: true });
+    const disabledCreate = create.getByRole('button', { name: 'Create workspace', exact: true });
     await expect(disabledCreate).toBeDisabled();
     await expect(disabledCreate).not.toHaveCSS('cursor', 'pointer');
     await create.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -40,11 +46,13 @@ for (const theme of ['light', 'dark'] as const) {
     const overflow = page.getByRole('button', {
       name: 'Workspace actions for flat-NDP',
       exact: true,
+      includeHidden: true,
     });
+    await page.getByRole('button', { name: /^(?:Collapse|Expand) workspace flat-NDP$/u }).hover();
     await overflow.hover();
     await expect(overflow).toHaveCSS('cursor', 'pointer');
     await overflow.click();
-    const editWorkspace = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const editWorkspace = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await editWorkspace.hover();
     await expect(editWorkspace).toHaveCSS('cursor', 'pointer');
     await page.keyboard.press('Escape');
@@ -59,16 +67,34 @@ for (const theme of ['light', 'dark'] as const) {
     const files = page.getByRole('menuitem', { name: 'Workspace files', exact: true });
     await expect(files).toHaveCSS('cursor', 'pointer');
     await files.click();
+    const filesList = page
+      .getByRole('toolbar', { name: 'Workbench lists', exact: true })
+      .getByRole('button', { name: 'Files', exact: true });
+    await expect(filesList).toHaveAttribute('aria-pressed', 'true');
+    await expect(filesList).toHaveCSS('cursor', 'pointer');
+    const tree = page.getByRole('region', { name: 'Workspace file tree', exact: true });
+    await tree.getByRole('button', { name: 'Expand folder results', exact: true }).click();
+    await tree
+      .getByRole('treeitem', { name: /stations\.csv/ })
+      .first()
+      .click();
     // Canvas tabs are also reorder handles: retain their explicit grab cursor.
-    await expect(page.getByRole('tab', { name: 'Files', exact: true })).toHaveCSS('cursor', 'grab');
+    await expect(page.getByRole('tab', { name: /stations\.csv/ }).first()).toHaveCSS(
+      'cursor',
+      'grab',
+    );
     const resize = page.getByRole('separator', { name: 'Resize navigation', exact: true });
     await resize.hover();
     await expect(resize).not.toHaveCSS('cursor', 'pointer');
     await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
+    // The left bar folds for the workbench at 1280 and stays folded; reopen it.
+    await page.locator('[data-slot="sidebar-trigger"]').click();
 
     const sessionLink = page.getByRole('link', { name: /^EarthScope NDP evidence review/ });
     await expect(sessionLink).toHaveCSS('cursor', 'pointer');
-    await expect(sessionLink.locator('[role="status"]')).toHaveCSS('cursor', 'pointer');
+    await expect(
+      page.locator('[data-session-row]').filter({ has: sessionLink }).locator('[role="status"]'),
+    ).toHaveCSS('cursor', 'pointer');
     await sessionLink.click();
     const sessionActions = page.getByRole('button', {
       name: 'Session actions for EarthScope NDP evidence review',
@@ -77,19 +103,17 @@ for (const theme of ['light', 'dark'] as const) {
     await sessionActions.hover();
     await expect(sessionActions).toHaveCSS('cursor', 'pointer');
     await sessionActions.click();
-    const exportSession = page.getByRole('menuitem', { name: 'Export session', exact: true });
+    const exportSession = page.getByRole('menuitem', { name: 'Export', exact: true });
     await expect(exportSession).toHaveCSS('cursor', 'pointer');
     await exportSession.hover();
     const workspaceFiles = page.getByRole('menuitemcheckbox', {
-      name: 'Include workspace files',
+      name: 'Workspace files',
       exact: true,
     });
     await expect(workspaceFiles).toHaveCSS('cursor', 'pointer');
     await workspaceFiles.click();
     await expect(workspaceFiles).toBeChecked();
-    await expect(
-      page.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
-    ).toBeChecked();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toBeChecked();
     await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toHaveCSS(
       'cursor',
       'pointer',

@@ -1,4 +1,5 @@
-import { createContext } from 'react';
+import { createContext, useMemo } from 'react';
+import type { Artifact } from '@clio/core/v3';
 import type { ClioConversationProps } from './conversation-types';
 
 type Navigation = Pick<
@@ -12,6 +13,8 @@ type Navigation = Pick<
   | 'onOpenFolder'
   | 'onOpenFileReference'
   | 'onOpenWork'
+  | 'onOpenTasks'
+  | 'onOpenWebPage'
   | 'onOpenSubagent'
   | 'onOpenFlow'
 > &
@@ -41,5 +44,82 @@ type Navigation = Pick<
      */
     onOpenSession?: (sessionId: string) => void;
     sessionAvailable?: (sessionId: string) => boolean;
+    /**
+     * Where an artifact's bytes sit beside this page (an offline export carries them as
+     * files). An image with an address here is shown from it directly: a page opened
+     * from disk cannot read its own files through the transport.
+     */
+    artifactHref?: (artifact: Artifact) => string | undefined;
   };
 export const PresentationNavigation = createContext<Navigation | null>(null);
+
+// Only the navigation fields, so a parent render that leaves them unchanged does not
+// re-render every row's context consumers (links, hover cards, variant runs). The
+// messages change with each streamed chunk, so the live transcript carries them in
+// TranscriptMessagesContext instead; an export may still pass them here.
+export function usePresentationNavigation({
+  artifacts,
+  interactions,
+  onInteractionResponse,
+  onOpenArtifact,
+  onOpenFile,
+  onOpenFileReference,
+  onOpenFlow,
+  onOpenFolder,
+  onOpenResource,
+  onOpenSubagent,
+  onOpenTasks,
+  onOpenWebPage,
+  onOpenWork,
+  resources,
+  sessionId,
+  subagents,
+  surfaces,
+  tools,
+  workspaceId,
+}: ClioConversationProps): Navigation {
+  return useMemo(
+    () => ({
+      artifacts,
+      interactions,
+      onInteractionResponse,
+      onOpenArtifact,
+      onOpenFile,
+      onOpenFileReference,
+      onOpenFlow,
+      onOpenFolder,
+      onOpenResource,
+      onOpenSubagent,
+      onOpenTasks,
+      onOpenWebPage,
+      onOpenWork,
+      resources,
+      sessionId,
+      subagents,
+      surfaces,
+      tools,
+      workspaceId,
+    }),
+    [
+      artifacts,
+      interactions,
+      onInteractionResponse,
+      onOpenArtifact,
+      onOpenFile,
+      onOpenFileReference,
+      onOpenFlow,
+      onOpenFolder,
+      onOpenResource,
+      onOpenSubagent,
+      onOpenTasks,
+      onOpenWebPage,
+      onOpenWork,
+      resources,
+      sessionId,
+      subagents,
+      surfaces,
+      tools,
+      workspaceId,
+    ],
+  );
+}

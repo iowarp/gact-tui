@@ -9,30 +9,37 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxIcon,
   FileDiffIcon,
   FileTextIcon,
   ListChecksIcon,
   ListTreeIcon,
-  ServerIcon,
   WaypointsIcon,
-  WrenchIcon,
 } from 'lucide-react';
 import { formatBytes, formatDuration } from '@/lib/format';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import type { EvidenceFile, EvidencePlan } from './session-evidence-projection';
 import { diffStatus, friendlyStatus, type EvidenceSource } from './observability-evidence-sources';
 import { SessionSummaryRow } from './session-summary-row';
 import { clioStatusLabel } from './status';
 import { ClioToolInvocation } from './tool-invocation';
 import { AsyncTaskList } from './async-task-list';
+import { showCompletedWork } from './task-history';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
 
 import type { SessionRailItem } from './session-rail-layout';
 import { ArtifactRailRow } from './artifact-rail-row';
 
+/** "+48 ?3" when the diffs report line counts. */
+export function changedLines(diffs: readonly SessionDiff[]): string | undefined {
+  if (!diffs.some((diff) => diff.lines_added !== undefined || diff.lines_removed !== undefined))
+    return undefined;
+  const added = diffs.reduce((sum, diff) => sum + (diff.lines_added ?? 0), 0);
+  const removed = diffs.reduce((sum, diff) => sum + (diff.lines_removed ?? 0), 0);
+  return `+${added.toLocaleString()} \u2212${removed.toLocaleString()}`;
+}
+
 export type SessionEvidenceSummaryProps = Pick<
-  ClioEvidenceViewProps,
+  SessionEvidenceActions,
   | 'onOpenArtifact'
   | 'onOpenFile'
   | 'onOpenDiff'
@@ -77,13 +84,13 @@ export function sessionEvidenceItems({
     ? activity.filter((entry) => !isSettledTaskActivity(entry)).length
     : activity.length;
   // Finished work sits behind Completed work: a count of 0 would read as none ever ran.
-  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || history);
+  const completedWork = showCompletedWork(history, activity);
+  const finishedWorkHidden = Boolean(actions.workPages?.hasMore || completedWork);
   return [
     ...(runs.length
       ? [
           {
             id: 'runs' as const,
-            icon: ActivityIcon,
             count: runs.length,
             defaultOpen: true,
             content: (
@@ -111,7 +118,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'tasks' as const,
-            icon: ListChecksIcon,
             count: tasks.length,
             defaultOpen: true,
             content: (
@@ -135,7 +141,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'tools' as const,
-            icon: WrenchIcon,
             count: tools.length,
             defaultOpen: false,
             content: (
@@ -148,27 +153,24 @@ export function sessionEvidenceItems({
           },
         ]
       : []),
-    ...(activity.length || actions.workPages?.hasMore || history
+    ...(activity.length || actions.workPages?.hasMore || completedWork
       ? [
           {
-            id: 'background' as const,
-            icon: ServerIcon,
+            id: 'running' as const,
             count: activeCount,
             summary: !activeCount && finishedWorkHidden ? 'none running' : undefined,
             defaultOpen: true,
             content: (
-              <>
-                <AsyncTaskList
-                  compact
-                  processes={backgroundProcesses}
-                  subagents={subagents}
-                  onOpenSubagent={actions.onOpenSubagent}
-                  onOpenFlow={actions.onOpenFlow}
-                  onCancelTask={actions.onCancelTask}
-                  onControlTask={actions.onControlTask}
-                  pagination={actions.workPages}
-                />
-              </>
+              <AsyncTaskList
+                compact
+                processes={backgroundProcesses}
+                subagents={subagents}
+                onOpenSubagent={actions.onOpenSubagent}
+                onOpenFlow={actions.onOpenFlow}
+                onCancelTask={actions.onCancelTask}
+                onControlTask={actions.onControlTask}
+                pagination={actions.workPages}
+              />
             ),
           },
         ]
@@ -177,7 +179,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'files' as const,
-            icon: FileTextIcon,
             count: files.length,
             defaultOpen: true,
             content: (
@@ -201,8 +202,8 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'changes' as const,
-            icon: FileDiffIcon,
             count: diffs.length,
+            summary: changedLines(diffs),
             defaultOpen: true,
             content: (
               <>
@@ -224,7 +225,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'artifacts' as const,
-            icon: BoxIcon,
             count: outputs.length,
             defaultOpen: true,
             content: (
@@ -247,7 +247,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'plans' as const,
-            icon: ListTreeIcon,
             count: plans.length,
             defaultOpen: true,
             content: (
@@ -276,7 +275,6 @@ export function sessionEvidenceItems({
       ? [
           {
             id: 'sources' as const,
-            icon: WaypointsIcon,
             count: sources.length,
             defaultOpen: true,
             content: (

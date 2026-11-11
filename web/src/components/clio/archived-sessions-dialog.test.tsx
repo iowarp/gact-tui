@@ -2,6 +2,7 @@ import type { Session, Workspace } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
@@ -33,19 +34,21 @@ const session: Session = {
 };
 
 describe('ClioArchivedSessionsDialog', () => {
-  it('restores or permanently deletes archived sessions without exposing workspace paths', async () => {
+  it('restores or permanently deletes archived conversations without exposing workspace paths', async () => {
     const user = userEvent.setup();
     const onRestore = vi.fn().mockResolvedValue(undefined);
     const onDelete = vi.fn().mockResolvedValue(undefined);
     render(
-      <ClioArchivedSessionsDialog
-        onDelete={onDelete}
-        onOpenChange={vi.fn()}
-        onRestore={onRestore}
-        open
-        sessions={[session]}
-        workspaces={[workspace]}
-      />,
+      <TooltipProvider>
+        <ClioArchivedSessionsDialog
+          onDelete={onDelete}
+          onOpenChange={vi.fn()}
+          onRestore={onRestore}
+          open
+          sessions={[session]}
+          workspaces={[workspace]}
+        />
+      </TooltipProvider>,
     );
 
     expect(screen.getByRole('dialog')).toHaveTextContent('EarthScope NDP');
@@ -54,7 +57,9 @@ describe('ClioArchivedSessionsDialog', () => {
     await waitFor(() => expect(onRestore).toHaveBeenCalledWith(session.id));
 
     await user.click(screen.getByRole('button', { name: 'Delete Older station review' }));
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('This cannot be undone.');
+    expect(screen.getByRole('dialog', { name: 'Delete Older station review?' })).toHaveTextContent(
+      'This can’t be undone.',
+    );
     await user.click(screen.getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(session.id));
   });

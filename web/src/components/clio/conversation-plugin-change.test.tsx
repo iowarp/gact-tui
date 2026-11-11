@@ -29,6 +29,22 @@ describe('plugin_change injection', () => {
     expect(pluginChangeLabel('Something else entirely.')).toBe('Plugins changed');
   });
 
+  it('names the tools a change made callable now', async () => {
+    const withTools = [
+      NOTE,
+      'New tools you can call now, though they are not in your tool list until the next compaction:',
+      '- shell_bash(command: string): Run one local shell command per call.',
+      '- shell_which(name: string): Find an executable.',
+    ].join('\n');
+    expect(pluginChangeLabel(withTools)).toBe(
+      'Plugins changed: +shell, −document-runtime, −pdf (2 new tools)',
+    );
+    const user = userEvent.setup();
+    render(<HarnessInjection block={block(withTools)} />);
+    await user.hover(screen.getByRole('button', { name: /2 new tools/ }));
+    expect(await screen.findByText('shell_bash, shell_which')).toBeInTheDocument();
+  });
+
   it('renders as a chip whose hover shows what the agent got', async () => {
     const user = userEvent.setup();
     render(<HarnessInjection block={block(NOTE)} />);

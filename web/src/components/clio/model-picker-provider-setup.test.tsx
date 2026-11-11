@@ -1,6 +1,6 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import {
   defaultConfiguration,
@@ -13,13 +13,17 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
   return { useRepository: () => fixtures.repository };
 });
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 afterEach(() => {
@@ -55,6 +59,12 @@ function sentence(): HTMLElement | null {
   return document.querySelector('[data-slot="provider-connect-sentence"]');
 }
 
+function settingsLink(): HTMLElement {
+  const footer = document.querySelector<HTMLElement>('[data-slot="provider-panel-footer"]');
+  expect(footer).not.toBeNull();
+  return within(footer!).getByRole('link', { name: 'Provider settings' });
+}
+
 async function open(
   pickerOptions: Parameters<typeof ClioModelPicker>[0]['options'],
   provider?: string,
@@ -74,11 +84,12 @@ async function open(
 }
 
 describe('ClioModelPicker: a usable provider', () => {
-  it('lists its models with one action row: Refresh, Reload models, Log out', async () => {
+  it('lists its models with one action row: Refresh, Reload models, Settings, Log out', async () => {
     await open(options, 'codex');
 
     expect(screen.getByText('Luna')).toBeVisible();
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models', 'Log out']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=codex');
     // One transport: never an "or".
     expect(document.querySelector('[data-slot="transport-separator"]')).toBeNull();
     // No floating settings icon.
@@ -120,6 +131,7 @@ describe('ClioModelPicker: a usable provider', () => {
     await screen.findByText('gpt-4o-mini');
 
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models', 'Remove key']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=openai');
     await user.click(screen.getByRole('button', { name: 'Remove key' }));
     await waitFor(() => expect(repository.clearProviderApiKey).toHaveBeenCalledWith('openai'));
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
@@ -156,6 +168,7 @@ describe('ClioModelPicker: a usable provider', () => {
     await screen.findByText('Sonnet');
 
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models']);
+    expect(settingsLink()).toHaveAttribute('href', '/settings/providers?provider=claude_code');
   });
 
   it('Refresh runs one check: the stage shows in the row and the heartbeat, then settles', async () => {
@@ -196,6 +209,35 @@ describe('ClioModelPicker: a usable provider', () => {
 });
 
 describe('ClioModelPicker: a provider that is not usable yet', () => {
+  it('one column: its manage row offers Log in, and the sign-in hand-off opens under it', async () => {
+    setWideViewport(false);
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-1',
+      browser: {
+        authorization_url: 'https://auth.openai.com/oauth/authorize?state=1',
+        loopback: true,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending', reason: '' });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    const manage = await screen.findByRole('group', { name: 'Manage Codex' });
+    expect(manage).toHaveTextContent('Needs sign-in');
+    expect(repository.authenticateProvider).not.toHaveBeenCalled();
+
+    await user.click(within(manage).getByRole('button', { name: 'Log in' }));
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', {
+        force: true,
+        method: 'browser',
+      }),
+    );
+    expect(await screen.findByLabelText('Complete Codex sign-in')).toBeVisible();
+  });
+
   it('signed out: one sentence and Log in; opening it never starts a flow', async () => {
     repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
     const user = await open([codexProviderRow, options[1]!]);
@@ -238,11 +280,105 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     );
     expect(await screen.findByLabelText('Complete Codex sign-in')).toBeVisible();
     expect(document.querySelector('[data-slot="provider-action-steps"]')).toHaveTextContent(
-      'Waiting for you',
+      'Logging in',
     );
     await waitFor(
       () => expect(screen.queryByLabelText('Complete Codex sign-in')).not.toBeInTheDocument(),
       { timeout: 3000 },
+    );
+  });
+
+  it('a completed sign-in holds Verifying until the agent reports the provider ready, then loads models', async () => {
+    // The agent accepted the credential but still installs the client and
+    // checks its models: it reports the provider signed out meanwhile.
+    let agentReady = false;
+    const readyCodex = {
+      ...defaultConfiguration,
+      // Signed in with no model chosen yet is not signed out.
+      configured: false,
+      presets: defaultConfiguration.presets.map((preset) =>
+        preset.id === 'codex' ? { ...preset, status: 'ready' } : preset,
+      ),
+    };
+    repository.languageModelConfiguration.mockImplementation(async () =>
+      agentReady ? readyCodex : signedOutCodex,
+    );
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-verify',
+      device: {
+        user_code: 'ABCD-1234',
+        verification_url: 'https://github.com/login/device',
+        interval: 5,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'complete', reason: '' });
+    repository.providerHandshake.mockResolvedValue({
+      connectivity: 'ok',
+      auth: 'rejected',
+      error: '',
+      models: [],
+      source: 'live',
+      generated_at: '',
+    });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    await user.click(screen.getByText('Codex'));
+    await user.click(await screen.findByRole('button', { name: 'Log in' }));
+
+    const steps = () => document.querySelector('[data-slot="provider-action-steps"]');
+    await waitFor(() => expect(steps()).toHaveTextContent('Verifying Codex…'), { timeout: 3000 });
+    expect(sentence()).toHaveTextContent('Signed in to Codex.');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+    // It asks the provider itself instead of waiting for a manual refresh.
+    await waitFor(() =>
+      expect(repository.providerHandshake).toHaveBeenCalledWith(
+        'codex',
+        expect.objectContaining({ refresh: true }),
+      ),
+    );
+
+    // Still signed out on the next read: it keeps verifying, never Log in.
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    expect(steps()).toHaveTextContent('Verifying Codex…');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+
+    agentReady = true;
+    await waitFor(() => expect(steps()).toBeNull(), { timeout: 4000 });
+    expect(repository.providerCatalog).toHaveBeenCalledWith(false, undefined, 'codex');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+    expect(sentence()).not.toHaveTextContent(/Log in/u);
+  }, 12_000);
+
+  it('a device-code-only sign-in opens the page where the code is entered', async () => {
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-device',
+      device: {
+        user_code: 'ABCD-1234',
+        verification_url: 'https://github.com/login/device',
+        interval: 5,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending', reason: '' });
+    const windowOpen = vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    await user.click(screen.getByText('Codex'));
+    await user.click(await screen.findByRole('button', { name: 'Log in' }));
+
+    const panel = await screen.findByLabelText('Complete Codex sign-in');
+    expect(windowOpen).toHaveBeenCalledWith(
+      'https://github.com/login/device',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(within(panel).getByText('ABCD-1234')).toBeVisible();
+    expect(within(panel).getByRole('link', { name: 'Enter the code' })).toHaveAttribute(
+      'href',
+      'https://github.com/login/device',
     );
   });
 
@@ -263,7 +399,7 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
         },
       ],
     });
-    repository.installProviderSupport.mockRejectedValueOnce(
+    repository.startProviderInstall.mockRejectedValueOnce(
       new Error('Claude Code could not be installed.'),
     );
     const user = await open([
@@ -283,7 +419,7 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     expect(sentence()).toHaveTextContent("Claude Code isn't installed yet.");
     await user.click(await screen.findByRole('button', { name: 'Install' }));
     await waitFor(() =>
-      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
+      expect(repository.startProviderInstall).toHaveBeenCalledWith('claude_code'),
     );
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Claude Code could not be installed.',

@@ -70,7 +70,7 @@ No row becomes accepted because a route, tab, card, or test fixture exists.
 | Blueprint sources/marketplaces          | blueprint source CRUD/refresh                               | Implemented, not accepted | Authenticated source and failure/recovery browser evidence.                                   |
 | Blueprint install/update/remove         | blueprint lifecycle routes                                  | Implemented, not accepted | Validation-first destructive workflows and progress/error evidence.                           |
 | Expert packs                            | expert-pack lifecycle routes                                | Implemented, not accepted | Live install/update/remove failure and recovery evidence with a disposable marketplace.       |
-| Document review/edit/renditions         | document and review routes                                  | Implemented, not accepted | Live pointer review, PDF rendition, embedded editors, conflicts, and native Tauri acceptance. |
+| Document review/edit/renditions         | document and review routes                                  | Implemented, not accepted | Live pointer review, PDF rendition, conflicts, and native Tauri acceptance.                    |
 
 ## Observability and operations
 

@@ -62,6 +62,32 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
+  it('names a stream as a stream, gives it the live-feed icon and offers no file to download', () => {
+    const { container } = render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ClioArtifactCard
+          artifact={{
+            id: 'artifact_feed',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'sensor_readings',
+            media_type: 'application/vnd.clio.stream+json',
+            uri: 'artifact://workspace_1/sensor_readings@v1',
+            producer: { designation: 'stream', stream_id: 'stream_1' },
+          }}
+          onOpen={vi.fn()}
+          preview={false}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Stream')).toBeVisible();
+    // A stream has no file type: its icon is the live feed, never the blank-file icon.
+    expect(container.querySelector('svg.lucide-radio')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Download/u })).toBeNull();
+  });
+
   it.each([undefined, '0'.repeat(64), 'matching'])(
     'verifies mutable workspace recovery before showing a saved preview (%s)',
     async (checksum) => {
@@ -281,5 +307,45 @@ describe('ClioArtifactCard', () => {
 
     expect(screen.getByText(/did not report a size for this image/u)).toBeVisible();
     expect(repository.readArtifactBytesFor).not.toHaveBeenCalled();
+  });
+});
+
+describe('a paper card', () => {
+  it('reads as the paper: its title, type, venue and pages, not a file name and size', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ClioArtifactCard
+          artifact={{
+            id: 'artifact_paper',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'paper-bb',
+            media_type: 'application/pdf',
+            uri: 'artifact://workspace_1/paper-bb@v3',
+            size: 52_000,
+            version: 3,
+            producer: {
+              designation: 'scientific-document',
+              title: 'Burst Buffers and Checkpoint Performance',
+              document_type: 'Paper',
+              venue: 'IEEE conference',
+              page_count: 4,
+            },
+          }}
+          onOpen={vi.fn()}
+          preview={false}
+        />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Open Burst Buffers and Checkpoint Performance' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Paper')).toBeTruthy();
+    expect(screen.getByText('IEEE conference')).toBeTruthy();
+    expect(screen.getByText('4 pages')).toBeTruthy();
+    expect(screen.getByText('v3')).toBeTruthy();
+    expect(screen.queryByText('paper-bb')).toBeNull();
+    expect(screen.queryByText(/50\.8 KB|52 KB/u)).toBeNull();
   });
 });

@@ -110,14 +110,12 @@ describe('tool-scoped harness additions', () => {
       tools,
     );
     expect(view.iterations.map((iteration) => iteration.activity.map((entry) => entry.id))).toEqual(
-      [
-        ['reminder', 'call_read', 'note'],
-        ['summary', 'call_run'],
-      ],
+      [['reminder', 'call_read', 'note'], ['call_run']],
     );
     expect(view.compactionRecords.map((record) => record.block.id)).toEqual(['summary']);
+    // The compaction is a divider between the runs around it, not a lane entry.
     expect(
       view.segments.map((segment) => (segment.kind === 'block' ? segment.block.id : 'activity')),
-    ).toEqual(['activity']);
+    ).toEqual(['activity', 'summary', 'activity']);
   });
 });

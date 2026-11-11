@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session, Workspace } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -22,7 +23,6 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 vi.mock('./navigation-header', () => ({ NavigationHeader: () => null }));
-vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
   ClioAttentionNotifier: () => null,
@@ -58,7 +58,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   nativeDownloads.mockClear();
-  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  clearDesktopHost();
 });
 
 it.each([
@@ -71,15 +71,13 @@ it.each([
 ] as const)(
   'downloads %s as %s through the common handler (desktop=%s)',
   async (mode, extension, desktop) => {
-    if (desktop)
-      Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    if (desktop) mockDesktopHost();
     const filename = `export-example.${extension}`;
     const exportSession = vi
       .fn()
       .mockResolvedValue({ download_path: '/v1/session-export/file', filename });
     const actions: ResourceActions = {
       createWorkspace: vi.fn(),
-      createSession: vi.fn(),
       renameWorkspace: vi.fn(),
       updateWorkspace: vi.fn().mockResolvedValue(undefined),
       grantWorkspaceFolder: vi.fn(),
@@ -125,14 +123,13 @@ it.each([
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     await screen.findByRole('menuitem', { name: 'Download HTML' });
-    if (mode !== 'transcript')
-      fireEvent.click(
-        screen.getByRole('menuitemcheckbox', {
-          name: mode === 'full' ? 'Include workspace files' : 'Include session artifacts',
-        }),
-      );
+    // Nothing ticked is the HTML transcript; ticking files turns it into a ZIP.
+    if (mode === 'effects')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+    if (mode === 'full')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     fireEvent.click(
       screen.getByRole('menuitem', {
         name: extension === 'html' ? 'Download HTML' : 'Download ZIP',

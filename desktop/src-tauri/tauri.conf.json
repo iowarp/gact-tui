@@ -4,7 +4,7 @@
   "version": "0.7.3",
   "identifier": "ai.iowarp.gact.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/workspace build",
+    "beforeBuildCommand": "pnpm --filter @clio/workspace build:bundle",
     "beforeDevCommand": "pnpm --filter @clio/workspace dev",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"
@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' blob: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:* https://api.github.com https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://tile.openstreetmap.org; media-src 'self' blob:; frame-src 'self' http: https:; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' blob: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:* https://api.github.com https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://tile.openstreetmap.org; media-src 'self' blob:; frame-src 'self' http: https: gact-viewer:; script-src 'self'"
     }
   },
   "bundle": {
@@ -41,7 +41,12 @@
       "icons/icon.ico"
     ],
     "externalBin": [],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements/app.entitlements"
+    }
   },
   "plugins": {
     "updater": {

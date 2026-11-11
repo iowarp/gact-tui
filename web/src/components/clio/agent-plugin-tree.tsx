@@ -24,6 +24,7 @@ import {
 } from '@/lib/plugin-presentation';
 import { PluginExplorer } from './plugin-explorer';
 import { PluginChangePendingNotice } from './plugin-change-pending-notice';
+import { StateView } from './primitives/state-view';
 
 const STILL_IN_PROMPT = 'Still in the agent’s prompt until compaction';
 
@@ -38,6 +39,13 @@ export interface AgentPluginTreeProps {
   basis?: PromptBasis;
   compacting?: boolean;
   onCompact?: () => void;
+  /**
+   * Lists only the plugins whose contributions match (a pack when one of its
+   * members does), with a control to show every plugin.
+   */
+  filter?: (contributions: PluginContributions) => boolean;
+  /** What the filter keeps, as a plural noun: "tools", "skills". */
+  filterNoun?: string;
 }
 
 /**
@@ -56,7 +64,10 @@ export function AgentPluginTree({
   basis,
   compacting = false,
   onCompact,
+  filter,
+  filterNoun = 'these',
 }: AgentPluginTreeProps) {
+  const [showAll, setShowAll] = useState(false);
   const pendingChange = basis?.pending ? basis : undefined;
   const announced = new Set(pendingChange?.added);
   const inPrompt = new Set(pendingChange?.removed);
@@ -75,6 +86,16 @@ export function AgentPluginTree({
     (reference) => !byId.has(pluginReferenceId(reference)),
   );
   const cascaded = resolution.removed.filter((row) => !removedIds.has(row.id));
+  const filtering = Boolean(filter) && !showAll;
+  const matches = (plugin: ResolvedPlugin): boolean =>
+    !filter ||
+    filter(pluginContributions(resolution, plugin.id)) ||
+    plugin.members.some((member) => {
+      const row = byId.get(member);
+      return row ? matches(row) : false;
+    });
+  const shown = (plugin: ResolvedPlugin) => !filtering || matches(plugin);
+  const topLevel = resolution.plugins.filter((plugin) => !nested(plugin) && shown(plugin));
   const allExpanded = resolution.plugins.every((plugin) => expanded.has(plugin.id));
   const toggle = (id: string, open: boolean) =>
     setExpanded((current) => {
@@ -114,7 +135,21 @@ export function AgentPluginTree({
       ) : null}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Select a plugin to see what it adds.</p>
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            Select a plugin to see what it adds.
+          </p>
+          {filter ? (
+            <Button
+              aria-pressed={showAll}
+              className="ml-auto"
+              onClick={() => setShowAll((current) => !current)}
+              size="xs"
+              title={showAll ? `Show only the plugins that add ${filterNoun}` : undefined}
+              variant="ghost"
+            >
+              Show all {resolution.plugins.length} plugins
+            </Button>
+          ) : null}
           <Button
             onClick={() =>
               setExpanded(
@@ -127,41 +162,43 @@ export function AgentPluginTree({
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </Button>
         </div>
+        {topLevel.length === 0 ? (
+          <StateView kind="empty" size="row" title={`No plugin adds ${filterNoun}`} />
+        ) : null}
         <ul aria-label="Active plugins" className="grid grid-cols-[minmax(0,1fr)] gap-0.5">
-          {resolution.plugins
-            .filter((plugin) => !nested(plugin))
-            .map((plugin) => (
-              <li key={plugin.id}>
-                {node(plugin)}
-                {plugin.kind === 'pack' && expanded.has(plugin.id) ? (
-                  <ul
-                    aria-label={`Members of ${plugin.id}`}
-                    className="ml-[0.9rem] grid grid-cols-[minmax(0,1fr)]"
-                  >
-                    {plugin.members.map((member) => {
-                      const row = byId.get(member);
-                      return (
-                        <li
-                          className="relative pl-4 before:absolute before:top-[0.95rem] before:left-0 before:w-3 before:border-t after:absolute after:top-0 after:left-0 after:h-full after:border-l last:after:h-[0.95rem]"
-                          key={member}
-                        >
-                          {row ? (
-                            node(row)
-                          ) : (
-                            <p className="flex min-w-0 items-center gap-1.5 py-1.5 pl-5 text-sm text-muted-foreground opacity-75">
-                              <PackageIcon aria-hidden="true" className="size-4 shrink-0" />
-                              <span className="min-w-0 truncate">
-                                {member} (not in this conversation)
-                              </span>
-                            </p>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
+          {topLevel.map((plugin) => (
+            <li key={plugin.id}>
+              {node(plugin)}
+              {plugin.kind === 'pack' && expanded.has(plugin.id) ? (
+                <ul
+                  aria-label={`Members of ${plugin.id}`}
+                  className="ml-[0.9rem] grid grid-cols-[minmax(0,1fr)]"
+                >
+                  {plugin.members.map((member) => {
+                    const row = byId.get(member);
+                    if (filtering && !(row && matches(row))) return null;
+                    return (
+                      <li
+                        className="relative pl-4 before:absolute before:top-[0.95rem] before:left-0 before:w-3 before:border-t after:absolute after:top-0 after:left-0 after:h-full after:border-l last:after:h-[0.95rem]"
+                        key={member}
+                      >
+                        {row ? (
+                          node(row)
+                        ) : (
+                          <p className="flex min-w-0 items-center gap-1.5 py-1.5 pl-5 text-sm text-muted-foreground opacity-75">
+                            <PackageIcon aria-hidden="true" className="size-4 shrink-0" />
+                            <span className="min-w-0 truncate">
+                              {member} (not in this conversation)
+                            </span>
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </li>
+          ))}
         </ul>
       </div>
       {removedByPerson.length || cascaded.length ? (
@@ -333,6 +370,15 @@ function PluginDetails({
             <NameChips names={c.tools} />
           </DetailRow>
         ) : null}
+        {c.deferredTools.length ? (
+          <DetailRow label={`Loaded when needed (${c.deferredTools.length})`}>
+            <p className="mb-1 text-xs text-muted-foreground">
+              Named in the prompt; the agent loads their details with a tool search before using
+              them.
+            </p>
+            <NameChips names={c.deferredTools} />
+          </DetailRow>
+        ) : null}
         {c.skills.length ? (
           <DetailRow label={`Skills (${c.skills.length})`}>
             <DescribedList rows={c.skills} />
@@ -361,6 +407,9 @@ function PluginDetails({
                   <span className="font-mono text-xs">{server.name}</span>
                   {server.type ? (
                     <span className="text-xs text-muted-foreground">{server.type}</span>
+                  ) : null}
+                  {server.deferred ? (
+                    <span className="text-xs text-muted-foreground">tools loaded when needed</span>
                   ) : null}
                 </li>
               ))}

@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClioEvidenceView, type ClioEvidenceViewProps } from './observability-evidence';
 import { SessionRailContent } from './session-rail-content';
 import { QuestionAnswerContext } from './question-answer-context';
 import type { PendingInteraction } from '@clio/core/v3';
@@ -28,15 +27,6 @@ beforeEach(() => {
   localStorage.clear();
   window.dispatchEvent(new StorageEvent('storage', { key: null }));
 });
-
-function renderEvidence(props: ClioEvidenceViewProps) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ClioEvidenceView {...props} />
-    </QueryClientProvider>,
-  );
-}
 
 const evidence = {
   artifacts: [
@@ -67,18 +57,18 @@ const evidence = {
 };
 
 describe('session showcase inventory', () => {
-  it('shows the context breakdown and flat artifact rows in Session, with work kept separate', () => {
+  it('keeps the context bar visible, folds its breakdown and lists running children as runs', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const view = render(
+    render(
       <QueryClientProvider client={client}>
         <SessionRailContent
-          kind="session"
           onOpenSource={vi.fn()}
           evidence={{
             ...evidence,
             contextFrames: [],
             tools: [],
             runs: [],
+            onOpenCanvas: vi.fn(),
             context: {
               session_id: 'session',
               provenance: {
@@ -94,33 +84,20 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
+    const context = screen.getByRole('region', { name: 'Context section' });
+    expect(within(context).getByRole('img', { name: /^Context token composition/ })).toBeVisible();
+    expect(within(context).getByRole('button', { name: 'Expand Context' })).toHaveTextContent(
+      '2.2K of 10K',
+    );
+    expect(screen.queryByText('Tool definitions')).not.toBeInTheDocument();
+    await userEvent.click(within(context).getByRole('button', { name: 'Expand Context' }));
     expect(screen.getByText('Tool definitions')).toBeVisible();
     expect(screen.getByText('Messages')).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Context token composition' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Tasks section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <SessionRailContent
-          kind="work"
-          onOpenSource={vi.fn()}
-          evidence={{
-            ...evidence,
-            contextFrames: [],
-            tools: [],
-            runs: [],
-          }}
-        />
-      </QueryClientProvider>,
-    );
+    expect(screen.getByRole('button', { name: 'Open full context view' })).toBeVisible();
+    const running = screen.getByRole('region', { name: 'Running section' });
+    expect(within(running).getByRole('button', { name: 'Researcher' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Tasks section' })).toBeInTheDocument();
-    const background = screen.getByRole('region', { name: 'Background tasks section' });
-    expect(
-      within(background).getByRole('button', { name: 'Task details: Researcher' }),
-    ).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Artifacts section' })).not.toBeInTheDocument();
     client.clear();
   });
   it('keeps live questions reachable through the existing workspace answer owner', async () => {
@@ -155,25 +132,10 @@ describe('session showcase inventory', () => {
         </QuestionAnswerContext.Provider>
       </QueryClientProvider>,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Questions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
     expect(openQuestion).toHaveBeenCalledWith(interaction);
     client.clear();
-  });
-  it('puts artifacts and context files in the data section without work categories', () => {
-    renderEvidence({ ...evidence, compact: true, section: 'data' });
-    expect(screen.getByText('Report.docx')).toBeVisible();
-    expect(screen.getByText('sensor.csv')).toBeVisible();
-    expect(screen.queryByRole('button', { name: /^Tasks,/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Child agents,/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('Progress and outputs')).not.toBeInTheDocument();
-    expect(screen.queryByText('Used in this session')).not.toBeInTheDocument();
-  });
-  it('puts tasks and agents in the work section without files or artifacts', () => {
-    renderEvidence({ ...evidence, compact: true, section: 'work' });
-    expect(screen.getByText('Review evidence')).toBeVisible();
-    expect(screen.getByText('Researcher')).toBeVisible();
-    expect(screen.queryByText('Report.docx')).not.toBeInTheDocument();
-    expect(screen.queryByText('sensor.csv')).not.toBeInTheDocument();
   });
   it('reads connected sources, current todos and schedules from their authoritative inventories', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -192,76 +154,80 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('Sensor repository')).toBeVisible();
-    expect(await screen.findByText('Check the report')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
+    expect(await screen.findByText('Check the report')).toBeVisible();
     expect(await screen.findByText('Review tomorrow')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
+    expect(await screen.findByText('Sensor repository')).toBeVisible();
     expect(screen.queryByText('Disconnected source')).not.toBeInTheDocument();
     expect(repository.sessionWork).toHaveBeenCalledWith('session', 0, expect.any(AbortSignal));
     expect(repository.scheduledTurns).toHaveBeenCalledWith('session', expect.any(AbortSignal));
     expect(repository.connectedSources).toHaveBeenCalledWith('workspace', expect.any(AbortSignal));
     client.clear();
   });
-  it('opens an artifact from one compact line with a direct download action', () => {
-    const onOpenArtifact = vi.fn();
-    const artifact = { ...evidence.artifacts[0]!, size: 158, created_at: '2026-10-08T12:00:00Z' };
-    renderEvidence({
-      ...evidence,
-      artifacts: [artifact],
-      compact: true,
-      section: 'data',
-      onOpenArtifact,
+  it('shows the live session plan above todos and drops its earlier proposal from Plans', async () => {
+    repository.sessionWork.mockResolvedValueOnce({
+      todos: [{ content: 'Check the report', status: 'in_progress' }],
+      plan: {
+        path: 'D:/workspace/.clio/plans/plan.md',
+        status: 'approved',
+        text: '# Objective\n\nFind the regression.',
+      },
     });
-    const row = screen.getByRole('button', { name: 'Open Report.docx' });
-    expect(row).toHaveTextContent('158 B');
-    expect(row.querySelector('time')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Download Report.docx' })).toBeVisible();
-    expect(document.querySelector('[data-slot="file-identity-row"]')).toBeNull();
-    expect(screen.queryByText('Output')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="artifact"]')).toBeNull();
-    fireEvent.click(row);
-    expect(onOpenArtifact).toHaveBeenCalledWith(artifact);
-  });
-  it('routes compact files, tasks, and agent runs to their actual full views', () => {
-    const onOpenFile = vi.fn();
-    const onOpenWork = vi.fn();
-    const onOpenActivity = vi.fn();
-    renderEvidence({
-      ...evidence,
-      compact: true,
-      onOpenFile,
-      onOpenWork,
-      onOpenActivity,
-      runs: [{ id: 'run', session_id: 'session', state: 'completed', summary: 'Checked sensors' }],
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Open sensor.csv' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Review evidence' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Checked sensors' }));
-    expect(onOpenFile).toHaveBeenCalledWith('sensor.csv');
-    expect(onOpenWork).toHaveBeenCalledOnce();
-    expect(onOpenActivity).toHaveBeenCalledOnce();
-  });
-  it('opens the canonical technical details dialog from a compact tool row', async () => {
-    renderEvidence({
-      ...evidence,
-      compact: true,
-      section: 'work',
-      tools: [
-        {
-          id: 'tool',
-          session_id: 'session',
-          name: 'write_file',
-          input: { path: 'report.txt' },
-          output: 'Saved report',
-          state: 'succeeded',
+    const proposal = (id: string, file: string, title: string): PendingInteraction => ({
+      id,
+      kind: 'question',
+      owner_session_id: 'session',
+      attended_session_id: 'session',
+      status: 'answered',
+      title: 'Review execution plan',
+      requires_human_response: true,
+      prompt: 'Approve the saved plan?',
+      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: id },
+      created_at: '2026-09-05T00:00:00Z',
+      payload: {
+        answer_metadata: {},
+        options: [],
+        plan_exit: {
+          plan_file: file,
+          plan_content: `# ${title}`,
+          plan_content_status: 'complete',
+          summary: title,
         },
-      ],
+      },
+      actions: [],
     });
-    expect(screen.queryByText('Saved report')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Tool calls,/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Technical details for/ }));
-    const dialog = screen.getByRole('dialog');
-    expect(await within(dialog).findByText(/Saved report/)).toBeVisible();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <SessionRailContent
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+            sessionId: 'session',
+            workspaceId: 'workspace',
+            interactions: [
+              proposal('a', 'd:\\workspace\\.clio\\plans\\plan.md', 'Same plan'),
+              proposal('b', 'D:/workspace/.clio/plans/older.md', 'Older plan'),
+            ],
+          }}
+          onOpenSource={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    const plan = await screen.findByRole('region', { name: 'Plan section' });
+    fireEvent.click(within(plan).getByRole('button', { name: 'Expand Plan' }));
+    expect(await within(plan).findByText('Find the regression.')).toBeVisible();
+    const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(regions.indexOf('Plan section')).toBeLessThan(regions.indexOf('Todos section'));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Earlier plans' }));
+    const plans = screen.getByRole('region', { name: 'Earlier plans section' });
+    expect(within(plans).queryByText('Same plan')).not.toBeInTheDocument();
+    expect(await within(plans).findByText('Older plan')).toBeInTheDocument();
+    client.clear();
   });
   it('opens the selected connected source and current work instead of embedding their pages', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -283,10 +249,12 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Sensor repository' }));
     expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'source' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Review tomorrow' }));
     expect(onOpenWork).toHaveBeenCalledTimes(2);
     client.clear();

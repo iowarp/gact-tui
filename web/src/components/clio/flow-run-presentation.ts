@@ -1,4 +1,10 @@
-import type { FlowCall, FlowRun, WorkflowStep } from '@clio/core/v3';
+import {
+  operationalRunStateSchema,
+  type AgentTaskRecord,
+  type FlowCall,
+  type FlowRun,
+  type WorkflowStep,
+} from '@clio/core/v3';
 import type { ClioStatusValue } from './status';
 
 /**
@@ -35,6 +41,30 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
     return { value: 'task_state_uncertain', label: 'Needs inspection' };
   if (run.status === 'cancelled') return { value: 'cancelled', label: 'Cancelled' };
   return { value: 'failed', label: `Stopped: ${run.status.replaceAll('_', ' ')}` };
+}
+
+/**
+ * A flow task's terminal state with its text label, or `undefined` while the task
+ * has not settled. Used when the task has no flow checkpoint to read the run from.
+ */
+export function settledTaskStatus(
+  task: Pick<AgentTaskRecord, 'status' | 'live_state'>,
+): { value: ClioStatusValue; label: string } | undefined {
+  const state = operationalRunStateSchema.parse(task.live_state || task.status);
+  switch (state) {
+    case 'completed':
+      return { value: state, label: 'Completed' };
+    case 'failed':
+      return { value: state, label: 'Failed' };
+    case 'cancelled':
+      return { value: state, label: 'Cancelled' };
+    case 'interrupted':
+      return { value: state, label: 'Interrupted' };
+    case 'stopped':
+      return { value: state, label: 'Stopped' };
+    default:
+      return undefined;
+  }
 }
 
 /** Whether an empty task list is an unrecorded history rather than a live prelaunch state. */
@@ -155,6 +185,8 @@ export interface FlowStep {
   handle?: string;
   /** `flow` when the step runs another flow, `editor` when it may edit the workflow. */
   kind: 'agent' | 'flow' | 'editor' | 'proposal' | 'action';
+  /** The limit of the gather that started this step's call; 0 or absent for none. */
+  gatherLimit?: number;
   label?: string;
   /** The editor that added this step while the workflow ran. */
   addedBy?: string;
@@ -171,6 +203,7 @@ export interface FlowStep {
 /** The workflow's steps, in workflow order, then the proposals still waiting for approval. */
 export function workflowSteps(run: FlowRun, agentRef: string): FlowStep[] {
   if (run.execution?.length) {
+    const limits = new Map(run.calls.map((call) => [call.invocation, call.gather_limit]));
     const seen = new Map<string, number>();
     const totals = new Map<string, number>();
     for (const row of run.execution) totals.set(row.label, (totals.get(row.label) ?? 0) + 1);
@@ -189,6 +222,7 @@ export function workflowSteps(run: FlowRun, agentRef: string): FlowStep[] {
         ...(row.handle ? { handle: row.handle } : {}),
         kind: row.kind === 'flow' ? 'flow' : row.kind === 'action' ? 'action' : 'agent',
         ...(row.detail ? { note: row.detail } : {}),
+        ...(limits.get(row.invocation) ? { gatherLimit: limits.get(row.invocation) } : {}),
         attempts: row.status === 'not_run' ? 0 : 1,
       };
     });
@@ -354,6 +388,8 @@ export interface FlowMember {
   perspective?: string;
   /** Shared by the calls the flow started together (one gather). */
   together?: string;
+  /** How many of those calls the flow let run at once; absent when it set no bound. */
+  atOnce?: number;
 }
 
 /** The judge's verdict or the synthesis a finished council or arena returned. */
@@ -441,10 +477,22 @@ export function flowMembers(
       status: flowCallStatus(call.status),
       ...(call.handle ? { handle: call.handle } : {}),
       ...(call.together ? { together: call.together } : {}),
+      ...(atOnce(run.max_concurrency, call.gather_limit)
+        ? { atOnce: atOnce(run.max_concurrency, call.gather_limit) }
+        : {}),
       chosen: run.flow === 'arena' && verdict.winner === index + 1,
       ...(perspective ? { perspective } : {}),
     };
   });
+}
+
+/**
+ * How many calls may run at once under the bounds given (the flow's
+ * `max_concurrency`, a gather's limit): the tightest one set, or 0 when none is.
+ */
+export function atOnce(...bounds: (number | undefined)[]): number {
+  const set = bounds.filter((bound): bound is number => Boolean(bound && bound > 0));
+  return set.length ? Math.min(...set) : 0;
 }
 
 /** Counts of steps by state, in words: "1 done, 1 failed, 3 skipped". */

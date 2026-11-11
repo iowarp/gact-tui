@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { ProvenanceConnection } from '@clio/core/v3';
 import { ProvenanceConnections } from './provenance-connections';
 import { vocab } from '@/lib/brand-vocabulary';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   provenanceConnections: vi.fn(),
@@ -16,7 +17,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
-    settings: { endpoint: 'http://node:8787', label: 'Delta CLIO' },
+    settings: { endpoint: 'http://node', label: 'Delta CLIO' },
   }),
 }));
 afterEach(() => {
@@ -40,7 +41,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      {children}
+      <TooltipProvider>{children}</TooltipProvider>
     </QueryClientProvider>
   );
 }

@@ -44,7 +44,11 @@ describe('ClioDataTable', () => {
     expect(screen.getByRole('region', { name: 'Station catalog columns' })).toHaveClass(
       'overflow-x-auto',
     );
-    expect(screen.getByRole('separator', { name: 'Resize station' })).toBeInTheDocument();
+    const resize = screen.getByRole('separator', { name: 'Resize station' });
+    // The resize handle cancels touchstart from a native non-passive listener;
+    // React's own touchstart listener is passive and cannot.
+    expect(fireEvent.touchStart(resize, { touches: [{ clientX: 40, clientY: 4 }] })).toBe(false);
+    fireEvent.touchEnd(document);
     expect(screen.getByText('station-1')).toBeVisible();
     expect(screen.queryByText('station-11')).not.toBeInTheDocument();
 

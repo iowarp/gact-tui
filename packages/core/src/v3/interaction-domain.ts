@@ -71,6 +71,8 @@ export interface PendingInteractionPayload {
     scope: 'workspace';
   };
   tool_call?: { tool_name?: string; input?: unknown };
+  /** The run_code script a nested call's question was asked from. */
+  script?: { call_id: string; code: string };
   revision?: number;
   server_id?: string;
   awaiting_question?: boolean;

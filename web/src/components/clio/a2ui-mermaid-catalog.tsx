@@ -38,7 +38,7 @@ function ClioMermaidArtifactSource({
     return (
       <div
         aria-label={`Loading ${title || 'diagram'}`}
-        className="h-48 animate-pulse rounded-lg bg-muted"
+        className="h-48 motion-safe:animate-pulse rounded-lg bg-muted"
       />
     );
   }

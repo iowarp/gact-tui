@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CLIO workbench · eighteenth pass</title>
+<style>
+  /* Notebook dark tokens, copied from gact-tui web/src/theme/themes.css */
+  :root{
+    --background:#1e1c19; --foreground:#e8e3d8; --card:#27251f; --popover:#2f2c26;
+    --muted:#2a2823; --muted-foreground:#9c9588; --accent:#21403d; --accent-foreground:#9fd3cb;
+    --border:#3a3630; --input:#4a453d; --ring:#5fa8a0; --primary:#5fa8a0; --primary-foreground:#16211f;
+    --action:#e8a05f; --sidebar:#1a1916; --destructive:#e5675c; --info:#8db4da; --success:#5fa8a0; --warning:#e8c27a;
+    --faint:#6f695f; --hover:#25231f;
+    --heading:"Literata","Iowan Old Style","Palatino Linotype",Georgia,serif;
+    --ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+    --mono:"IBM Plex Mono","Cascadia Mono",Consolas,monospace;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#141311;color:var(--foreground);font:13px/1.4 var(--ui);padding:28px 32px 40px}
+  h1{font:600 26px var(--heading);margin:0 0 4px}
+  h2{font:600 17px var(--heading);margin:0 0 10px}
+  .lede{color:var(--muted-foreground);max-width:1060px;margin:0 0 24px;font-size:14px}
+  .row{display:flex;gap:26px;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:9px}
+  .cap{font:600 15px var(--heading)}
+  .sub{color:var(--muted-foreground);font-size:12px;max-width:320px}
+  code{font:11.5px var(--mono);color:#cfc8ba;background:#2a2823;padding:1px 4px;border-radius:4px}
+  svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  svg.s{width:13px;height:13px} svg.xs{width:11px;height:11px}
+  hr.sep{border:0;border-top:1px solid var(--border);margin:30px 0 24px}
+
+  /* ---------- sidebar ---------- */
+  .bar{width:292px;height:940px;background:var(--sidebar);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .hdr{display:flex;align-items:center;gap:6px;padding:9px 8px 8px}
+  .brandbtn{display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:5px 6px;border-radius:7px}
+  .brandbtn.open{background:var(--hover);box-shadow:inset 0 0 0 1px var(--border)}
+  .brand{width:26px;height:26px;display:grid;place-items:center;color:var(--primary);flex:none}
+  .bt{min-width:0;flex:1}
+  .bt b{font:600 15px var(--heading);display:flex;align-items:center;gap:5px;letter-spacing:.01em}
+  .bt small{display:flex;align-items:center;gap:5px;color:var(--muted-foreground);font-size:11.5px;white-space:nowrap}
+  .bt small .at{color:var(--faint)}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;flex:none}
+  .ib{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--muted-foreground);position:relative;flex:none}
+  .ib .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--action);border:1.5px solid var(--sidebar)}
+  .nav{padding:2px 8px 4px}
+  .it{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;white-space:nowrap}
+  .it.primary{background:var(--card);border:1px solid var(--border);font-weight:600}
+  .kbd{margin-left:auto;font:10.5px var(--mono);color:var(--faint)}
+  .cnt{margin-left:auto;font-size:11px;color:var(--muted-foreground);display:flex;align-items:center;gap:5px}
+  .grp{display:flex;align-items:center;gap:6px;padding:12px 16px 4px;color:var(--muted-foreground);font-size:11.5px;font-weight:600}
+  .grp .act{margin-left:auto;display:flex;gap:1px}
+  .grp .act .ib{width:22px;height:22px}
+  .when{padding:7px 16px 2px;color:var(--faint);font-size:11px}
+  .scroll{flex:1;overflow:hidden}
+  .cv{display:flex;align-items:center;gap:8px;padding:5px 8px 5px 10px;margin:0 8px;border-radius:7px;color:#ddd7cb;position:relative;white-space:nowrap}
+  .cv .t{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .cv .m{font-size:11px;color:var(--faint);flex:none}
+  .cv.sel{background:var(--accent);color:#eafffb;box-shadow:inset 2px 0 0 var(--primary)}
+  .cv.sel .m{color:var(--accent-foreground)}
+  .tw{width:14px;color:var(--faint);display:grid;place-items:center;flex:none}
+  .cv.child{padding-left:30px}
+  .cv.child::before{content:"";position:absolute;left:17px;top:-4px;bottom:50%;width:9px;border-left:1px solid #403b34;border-bottom:1px solid #403b34;border-bottom-left-radius:5px}
+  .cv.child.mid::after{content:"";position:absolute;left:17px;top:50%;bottom:-4px;border-left:1px solid #403b34}
+  .cv.in{padding-left:36px}
+  .cv.in::before{content:"";position:absolute;left:21px;top:0;bottom:0;border-left:1px solid #34302a}
+  .chip{font-size:10.5px;padding:1px 6px;border-radius:9px;background:#2c2a25;color:var(--muted-foreground);flex:none}
+  .spin{width:11px;height:11px;border-radius:50%;border:2px solid #2f5551;border-top-color:var(--primary);flex:none}
+  .more{padding:3px 16px 3px 36px;color:var(--faint);font-size:12px}
+  .ws{display:flex;align-items:center;gap:7px;padding:4px 8px 4px 6px;margin:0 8px;border-radius:7px;font-weight:600;white-space:nowrap}
+  .ws .m{margin-left:auto;font-weight:400;font-size:11px;color:var(--faint)}
+  .ws.hov{background:var(--hover)}
+  .ws .dots{color:var(--muted-foreground);margin-left:2px}
+
+  /* ReUI IconTile soft: fill and ring derive from currentColor */
+  .tile{position:relative;isolation:isolate;display:inline-grid;place-items:center;flex:none;width:22px;height:22px;border-radius:6px;padding:2px;background:color-mix(in oklab,currentColor 12%,transparent)}
+  .tile::after{content:"";position:absolute;inset:2px;z-index:-1;border-radius:4px;border:1px solid color-mix(in oklab,currentColor 22%,transparent);background:color-mix(in oklab,currentColor 6%,transparent)}
+  .tile svg{width:12px;height:12px}
+  .tile.sm{width:32px;height:32px;border-radius:8px}.tile.sm::after{border-radius:6px}.tile.sm svg{width:16px;height:16px}
+  .tile.md{width:28px;height:28px;border-radius:7px}.tile.md svg{width:14px;height:14px}
+  .c-teal{color:#5fa8a0}.c-amber{color:#e8c27a}.c-rose{color:#e8a595}.c-blue{color:#8db4da}.c-violet{color:#b9a3e3}.c-green{color:#8fc48a}.c-orange{color:#e8a05f}.c-stone{color:#b3ac9f}
+
+  .foot{border-top:1px solid var(--border);padding:7px 8px 8px}
+  .status{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;color:var(--muted-foreground);font-size:12px}
+  .me{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px}
+  .me.open{background:var(--hover);box-shadow:inset 0 0 0 1px var(--border)}
+  .av{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);display:grid;place-items:center;font:600 11px var(--ui);flex:none}
+  .me .n{flex:1;min-width:0}
+  .me .n small{display:block;color:var(--faint);font-size:11px}
+
+  .n1{position:absolute;width:18px;height:18px;border-radius:50%;background:#e8b04b;color:#1b1a18;font:700 11px var(--ui);display:grid;place-items:center;z-index:3;box-shadow:0 0 0 2px var(--sidebar)}
+
+  /* ---------- shadcn popover / dropdown ---------- */
+  .pop{background:var(--popover);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.45);color:var(--foreground)}
+  .menu{width:372px;padding:4px}
+  .mlabel{padding:7px 8px 4px;font-size:11px;color:var(--muted-foreground);font-weight:500}
+  .mitem{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px}
+  .mitem.hl{background:#38342d}
+  .mitem .d{display:block;color:var(--muted-foreground);font-size:11.5px;margin-top:1px}
+  .mitem .r{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted-foreground);font-size:11px}
+  .msep{height:1px;background:var(--border);margin:4px -4px}
+  .addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:11px var(--mono);color:var(--muted-foreground)}
+
+  /* ReUI Frame (spacing sm) */
+  .frame{background:color-mix(in oklab,var(--muted) 50%,transparent);border:1px solid var(--border);border-radius:12px;padding:3px;display:flex;flex-direction:column;gap:3px}
+  .fhead{padding:6px 12px;display:flex;align-items:center;gap:10px}
+  .ftitle{font-size:13.5px;font-weight:600}
+  .fdesc{color:var(--muted-foreground);font-size:12px}
+  .fpanel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 12px;box-shadow:0 1px 2px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
+  .ffoot{padding:6px 8px 5px 12px;display:flex;align-items:center;gap:8px}
+  /* shadcn Field / Input / Button */
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12.5px;font-weight:500}
+  .field .fd{font-size:11.5px;color:var(--muted-foreground)}
+  .input{height:32px;border-radius:6px;border:1px solid var(--input);background:color-mix(in oklab,var(--input) 30%,transparent);padding:0 10px;display:flex;align-items:center;font-size:13px}
+  .input.focus{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 22%,transparent)}
+  .input .ph{color:var(--faint)}
+  .caret{width:1px;height:15px;background:var(--foreground);margin-left:1px}
+  .btn{height:30px;padding:0 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;font-weight:500;font-size:12.5px}
+  .btn.p{background:var(--primary);color:var(--primary-foreground)}
+  .btn.g{color:var(--foreground)}
+  .btn.o{border:1px solid var(--border);background:color-mix(in oklab,var(--input) 30%,transparent)}
+  /* ReUI Badge */
+  .badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+  .badge.success-light{border-color:color-mix(in oklab,var(--success) 25%,transparent);background:color-mix(in oklab,var(--success) 15%,transparent);color:var(--success)}
+  .badge.info-light{border-color:color-mix(in oklab,var(--info) 25%,transparent);background:color-mix(in oklab,var(--info) 15%,transparent);color:var(--info)}
+  .badge.warning-light{border-color:color-mix(in oklab,var(--warning) 25%,transparent);background:color-mix(in oklab,var(--warning) 15%,transparent);color:var(--warning)}
+  .badge.outline{border-color:var(--border);color:var(--muted-foreground)}
+  .notice{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:7px;border:1px solid color-mix(in oklab,var(--info) 22%,transparent);background:color-mix(in oklab,var(--info) 8%,transparent);font-size:12px;color:#d4dbe2}
+  .notice svg{color:var(--info);margin-top:1px}
+  .sw{display:flex;gap:7px;flex-wrap:wrap}
+  .swc{width:20px;height:20px;border-radius:50%;background:currentColor;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+  .swc.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px currentColor}
+  .igrid{display:grid;grid-template-columns:repeat(6,32px);gap:7px}
+  .igrid .tile{outline-offset:2px}
+  .igrid .on{outline:2px solid currentColor}
+  .switch{width:30px;height:17px;border-radius:9px;background:var(--primary);position:relative;flex:none}
+  .switch::after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:var(--primary-foreground)}
+  .switch.off{background:var(--input)}.switch.off::after{right:auto;left:2px;background:#bdb6a9}
+  .srow{display:flex;align-items:center;gap:10px}
+  .srow .tx{flex:1}
+  .srow .tx small{display:block;color:var(--muted-foreground);font-size:11.5px}
+  .comp{font:10.5px var(--mono);color:#8f887b;margin-top:4px}
+
+  /* notes */
+  .notes{flex:1;min-width:300px;max-width:440px}
+  .notes ol{margin:0;padding:0;list-style:none;counter-reset:n}
+  .notes ol>li{counter-increment:n;position:relative;padding:0 0 11px 29px;color:#d6d0c4}
+  .notes ol>li::before{content:counter(n);position:absolute;left:0;top:1px;width:19px;height:19px;border-radius:50%;background:#e8b04b;color:#1b1a18;font:700 11px var(--ui);display:grid;place-items:center}
+  .notes ol>li b{color:var(--foreground)}
+  .notes ol>li span{color:var(--muted-foreground)}
+  .box{background:#1b1a17;border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+  .box h3{font:600 14px var(--heading);margin:0 0 6px}
+  .box p,.box ul{margin:0;color:#cfc9bd;font-size:12.5px}
+  .box ul{padding-left:17px}.box li{margin:3px 0}
+  .before{display:flex;gap:14px;align-items:flex-start}
+  .before img{width:230px;border-radius:8px;border:1px solid var(--border);flex:none}
+  .arrow{color:var(--faint);font-size:20px;align-self:center}
+
+.nfbell{position:relative;display:inline-flex}
+.nfbell b{position:absolute;right:-8px;top:-7px;min-width:15px;height:15px;border-radius:8px;background:var(--warning);color:#2a2010;font:700 9.5px/15px var(--ui);text-align:center;padding:0 4px;box-sizing:border-box}
+.nfbell i{position:absolute;right:-1px;top:-1px;width:6px;height:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 2px var(--sidebar)}
+.nfbo{padding:5px;margin:-5px;border-radius:7px;background:var(--hover)}
+.nfbo svg.i{color:var(--foreground) !important}
+.nfm{position:absolute;left:226px;top:52px;width:420px;z-index:6;box-sizing:border-box;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,.45);padding:12px 6px 8px;font-size:12.5px;color:#ddd7cb}
+.nfh{display:flex;align-items:center;gap:14px;padding:0 10px 4px;font:600 13.5px var(--ui);color:var(--foreground)}
+.nfh .nfa{margin-left:auto;font-weight:500;font-size:12px;color:var(--accent-foreground)}
+.nfh svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+.nfg{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--muted-foreground);padding:12px 10px 4px}
+.nfg .nfc{color:var(--warning)}
+.nfr{display:grid;grid-template-columns:16px 1fr auto;column-gap:10px;padding:8px 10px;border-radius:8px}
+.nfr.hv{background:rgba(255,255,255,.045)}
+.nfr>svg.i{width:15px;height:15px;margin-top:1px;color:var(--muted-foreground)}
+.nfr .nft{color:var(--muted-foreground);line-height:1.4}
+.nfr .nft b{color:var(--foreground);font-weight:600}
+.nfr .nftm{font-size:11px;color:var(--faint);white-space:nowrap;padding-top:1px}
+.nfr .nfd{grid-column:2/4;color:var(--muted-foreground);line-height:1.45;margin-top:2px}
+.nfr .nfd code{font-family:var(--mono);font-size:11.5px;color:#e6dfd2}
+.nfr .nfx{grid-column:2/4;display:flex;align-items:center;gap:16px;margin-top:8px;font-size:12px}
+.nfb{padding:3px 12px;border-radius:6px;background:var(--primary);color:#10201e;font-weight:600}
+.nfl{color:var(--accent-foreground);font-weight:500}
+.nfq{color:var(--muted-foreground)}
+.nfx .nfl:last-child{margin-left:auto}
+.nfr.rd .nft,.nfr.rd .nft b,.nfr.rd .nfd{color:var(--faint)}
+.nfr .nfd1{grid-column:2/3}
+.nfr .nfa1{grid-column:3;align-self:end;text-align:right;color:var(--accent-foreground);font-weight:500;font-size:12px;padding-left:10px}
+.nfmore{padding:8px 10px 2px;color:var(--faint);font-size:12px;display:flex;align-items:center;gap:6px}
+.nfmore svg.i{width:13px;height:13px}
+.nfrow{display:flex;gap:40px;margin-top:34px;align-items:flex-start}
+.nftab{border-collapse:collapse;width:860px;font-size:12.5px}
+.nftab th{text-align:left;font-size:11px;color:var(--faint);font-weight:600;padding:0 14px 8px 0;border-bottom:1px solid var(--border)}
+.nftab td{padding:9px 14px 9px 0;border-bottom:1px solid var(--border);color:var(--muted-foreground);vertical-align:top;line-height:1.45}
+.nftab td:first-child{color:var(--foreground);white-space:nowrap}
+.nftab td:first-child svg.i{width:14px;height:14px;margin-right:9px;vertical-align:-2px;color:var(--muted-foreground)}
+.nftab tr.nfsec td{padding:16px 0 6px;font-size:11px;font-weight:600;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+.nftab .nfnew{color:var(--accent-foreground)}
+.nfst{width:330px;box-sizing:border-box;background:var(--popover);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:12.5px;color:#ddd7cb}
+.nfst .yr{color:var(--foreground)}
+.nfst .nfbell{width:36px;justify-content:center;flex:none}
+.nfst .nfbell svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+</style>
+
+<style>
+  /* sidebar: every trailing element ends on one edge, 18px from the bar */
+  .sb{width:292px;height:700px;background:var(--sidebar);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;position:relative;overflow:visible}
+  .sb .zone{padding:0 8px}
+  .r{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:7px;white-space:nowrap;color:#ddd7cb;position:relative}
+  .r>svg.i{color:var(--muted-foreground)}
+  .r .t{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:12px;color:var(--faint);font-size:11px}
+  .r .t svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .r.g{height:26px;margin-top:10px;font-size:11.5px;font-weight:600;color:var(--muted-foreground)}
+  .r.ws{font-weight:600;color:var(--foreground)}
+  .r.in{padding-left:34px}
+  .r.hov{background:var(--hover)}
+  .r.ctx{background:var(--hover);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--primary) 45%,transparent)}
+  .r.sel{background:var(--accent);color:#eafffb}
+  .r.sel .t{color:var(--accent-foreground)}
+  .r.new{font-weight:600;color:var(--foreground)}
+  .r.new>svg.i{color:var(--primary)}
+  .r .tw{width:12px;display:grid;place-items:center;color:var(--faint);margin-right:-3px}
+  .r .tw svg{width:12px;height:12px}
+  .gi{flex:none;display:grid;place-items:center;width:16px;height:16px}
+  .gi svg,.gi .i{width:16px;height:16px;color:inherit !important}
+  .when{padding:8px 18px 2px;color:var(--faint);font-size:11px}
+  .more2{padding:2px 10px 2px 34px;color:var(--faint);font-size:12px;height:24px;display:flex;align-items:center}
+  .sbhead{display:flex;align-items:center;gap:9px;padding:10px 18px 10px 18px}
+  .sbhead .bt b{font:600 15px var(--heading);display:flex;align-items:center;gap:5px}
+  .sbhead .bt small{display:flex;align-items:center;gap:5px;color:var(--muted-foreground);font-size:11.5px;white-space:nowrap}
+  .sbhead .bt small .at{color:var(--faint)}
+  .sbhead .t{margin-left:auto;display:flex;gap:12px;align-items:center}
+  .sbhead .t svg{width:15px;height:15px;color:var(--muted-foreground)}
+  .sbfoot{margin-top:auto;border-top:1px solid var(--border);padding:8px}
+  .guide{position:absolute;top:0;bottom:0;right:14px;border-right:1px dashed color-mix(in oklab,#e8b04b 70%,transparent);pointer-events:none}
+  .guide span{position:absolute;top:-19px;right:-38px;font:600 10.5px var(--ui);color:#e8b04b;white-space:nowrap}
+  .tip{position:absolute;z-index:5;background:#e8e3d8;color:#1b1a18;font-size:11.5px;font-weight:500;padding:4px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .tip .k{font:10.5px var(--mono);color:#6b665c;margin-left:8px}
+  .tip::before{content:"";position:absolute;right:10px;top:-4px;border:4px solid transparent;border-top:0;border-bottom-color:#e8e3d8}
+  .ib2{position:relative;display:grid;place-items:center}
+  .ib2.on::after{content:"";position:absolute;inset:-5px;border-radius:6px;background:color-mix(in oklab,var(--foreground) 10%,transparent);z-index:-1}
+  .ib2.on svg{color:var(--foreground) !important}
+  /* context menus: flat, text only, letter shortcuts */
+  .cm{width:250px;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:5px;color:var(--foreground)}
+  .cm .it2{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:7px;font-size:13px}
+  .cm .it2 .k{margin-left:auto;font:11.5px var(--ui);color:var(--muted-foreground)}
+  .cm .it2 svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .cm .it2.hl{background:#38342d}
+  .cm .it2.del{color:var(--destructive)}
+  .cm .s{height:1px;background:var(--border);margin:5px -5px}
+  .cm .lab{padding:6px 10px 3px;font-size:11px;color:var(--muted-foreground)}
+  .cm .it2 .cur{margin-left:auto;font-size:11px;color:var(--muted-foreground)}
+  .menus{display:flex;align-items:flex-start;gap:6px}
+  .rule{max-width:420px}
+  .rule h3{font:600 15px var(--heading);margin:0 0 8px}
+  .rl{list-style:none;margin:0 0 18px;padding:0}
+  .rl li{padding:8px 0;border-top:1px solid var(--border);font-size:12.5px;color:#d6d0c4}
+  .rl li b{color:var(--foreground)}
+</style>
+
+<style>
+  .app{position:relative;display:grid;grid-template-columns:292px 1fr 340px;grid-template-rows:48px 1fr;width:1616px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#1e1c19}
+  .app.web{grid-template-rows:48px 70px}
+  .app.coll{grid-template-columns:56px 1fr 340px;grid-template-rows:48px 120px}
+  .app.noright{grid-template-columns:292px 1fr}
+  .tsb,.trp{background:var(--sidebar);border-bottom:1px solid var(--border)}
+  .tsb{border-right:1px solid var(--border);display:flex;align-items:center;gap:9px;padding:0 18px 0 14px}
+  .tct{border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 16px;min-width:0}
+  .trp{border-left:1px solid var(--border);display:flex;align-items:center;gap:4px;padding:0 0 0 10px}
+  .bsb{background:var(--sidebar);border-right:1px solid var(--border);padding:6px 0 0;display:flex;flex-direction:column}
+  .bct{padding:22px 60px;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .brp{background:var(--sidebar);border-left:1px solid var(--border);padding:8px}
+  .tsb .bt b{font:600 15px var(--heading);display:flex;align-items:center;gap:5px}
+  .tsb .bt small{display:flex;align-items:center;gap:5px;color:var(--muted-foreground);font-size:11.5px;white-space:nowrap}
+  .tsb .bt small .at{color:var(--faint)}
+  .tsb .t,.tct .t{margin-left:auto;display:flex;gap:14px;align-items:center}
+  .tsb .t svg,.tct svg.i,.trp svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .nav2{display:flex;gap:12px;align-items:center}
+  .nav2 .off{opacity:.4}
+  .crumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);white-space:nowrap}
+  .crumb b{color:var(--foreground);font-weight:600;display:flex;align-items:center;gap:6px}
+  .crumb .sepc{color:var(--faint)}
+  .tab{display:flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:7px;font-size:12.5px;color:var(--muted-foreground)}
+  .tab.on{background:var(--hover);color:var(--foreground)}
+  .tab svg.i{width:13px !important;height:13px !important}
+  .wc{margin-left:auto;display:flex;height:100%}
+  .wc span{width:46px;display:grid;place-items:center}
+  .wc svg.i{width:14px !important;height:14px !important;stroke-width:1.4;color:#cfc9bd !important}
+  .wc.nr{margin-left:0}
+  .ddrag{color:var(--faint);font-size:11px;white-space:nowrap}
+  .msg-u{align-self:flex-end;background:#2a2823;border-radius:12px;padding:9px 13px;font-size:13px;max-width:520px}
+  .msg-a{font-size:13px;color:#d6d0c4;line-height:1.55;max-width:760px}
+  .comp{margin-top:auto;border:1px solid var(--input);border-radius:12px;padding:12px 14px;color:var(--faint);font-size:13px;display:flex;align-items:center}
+  .comp .t{margin-left:auto;display:flex;gap:12px;align-items:center}
+  .fl{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;font-size:12.5px;color:#d6d0c4;border-radius:6px}
+  .fl svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .fl.in{padding-left:28px}
+  .rail{display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:6px}
+  .rail svg.i{width:16px;height:16px;color:var(--muted-foreground)}
+  /* settings dialog */
+  .scrim{position:absolute;left:0;right:0;top:48px;bottom:0;background:rgba(10,9,8,.62)}
+  .dlg{position:absolute;left:50%;top:84px;transform:translateX(-50%);width:960px;height:500px;background:var(--popover);border:1px solid var(--border);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.55);display:grid;grid-template-columns:250px 1fr;overflow:hidden}
+  .dlp{background:#292620;padding:16px 10px;display:flex;flex-direction:column;gap:1px}
+  .dlp h4{font:600 15px var(--heading);margin:0 8px 12px}
+  .dsearch{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border:1px solid var(--input);border-radius:8px;color:var(--faint);font-size:12.5px;margin:0 0 10px}
+  .dsearch svg.i{width:13px;height:13px}
+  .dsearch .k{margin-left:auto;font:10.5px var(--mono);color:var(--faint)}
+  .nl{display:flex;align-items:center;gap:7px;padding:10px 8px 4px;font-size:11px;font-weight:600;color:var(--muted-foreground)}
+  .nl .gi svg{width:13px;height:13px}
+  .nv{display:flex;align-items:center;gap:9px;height:29px;padding:0 8px;border-radius:7px;font-size:12.5px;color:#d6d0c4}
+  .nv svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .nv.on{background:var(--accent);color:#eafffb}
+  .nv.on svg.i{color:var(--accent-foreground)}
+  .drp{padding:22px 28px;position:relative}
+  .drp .xx{position:absolute;right:16px;top:16px}
+  .drp .xx svg.i{width:16px;height:16px;color:var(--muted-foreground)}
+  .drp h2{font:600 20px var(--heading);margin:0 0 4px}
+  .scope{display:flex;align-items:center;gap:6px;color:var(--muted-foreground);font-size:12.5px;margin-bottom:16px}
+  .srw{display:flex;align-items:center;gap:20px;padding:13px 0;border-top:1px solid var(--border)}
+  .srw .l{font-size:13px}
+  .srw .l small{display:block;color:var(--muted-foreground);font-size:11.5px;margin-top:2px}
+  .srw .c{margin-left:auto}
+  .selbox{display:flex;align-items:center;gap:8px;border:1px solid var(--input);border-radius:7px;padding:5px 10px;font-size:12.5px;white-space:nowrap}
+  .selbox svg.i{width:12px;height:12px;color:var(--muted-foreground)}
+  .tg{width:32px;height:18px;border-radius:9px;background:var(--primary);position:relative}
+  .tg::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#f2efe8}
+  /* schematics */
+  .sch{width:330px;height:180px;border:1px solid var(--border);border-radius:8px;overflow:hidden;display:grid;background:#1e1c19}
+  .sch.over{grid-template-columns:90px 1fr;grid-template-rows:22px 1fr}
+  .sch.over .tb{grid-column:1/3;background:#3a3630}
+  .sch.int{grid-template-columns:90px 1fr;grid-template-rows:22px 1fr}
+  .sch .sb1{background:var(--sidebar);border-right:1px solid var(--border)}
+  .sch.int .sbt1{background:#2c2a25;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .sch.int .ctt1{background:#2a2823;border-bottom:1px solid var(--border)}
+  .sch .lbl{font-size:10px;color:var(--muted-foreground);padding:5px 7px}
+  .pick{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:var(--accent-foreground);background:var(--accent);border-radius:999px;padding:2px 8px}
+  .note2{max-width:1180px}
+  .note2 .rl li{font-size:13px}
+  .sect{font:600 17px var(--heading);margin:34px 0 4px}
+  .sect + .sub{margin-bottom:12px}
+</style>
+<style>
+  .sbx{width:292px;background:var(--sidebar);border:1px solid var(--border);border-radius:10px;padding:8px 0 10px}
+  .r .t .ha{display:flex;gap:12px;align-items:center}
+  .r .t .ha svg.i{color:var(--foreground)}
+  .r .t .ha .on{position:relative}
+  .r .t .ha .on::after{content:"";position:absolute;inset:-5px;border-radius:6px;background:color-mix(in oklab,var(--foreground) 12%,transparent);z-index:0}
+  .r.draft{font-style:italic}
+  .lg{font-size:11px;color:var(--faint)}
+  .tip2{position:absolute;z-index:5;background:#e8e3d8;color:#1b1a18;font-size:11.5px;font-style:normal;font-weight:500;padding:4px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .tip2::before{content:"";position:absolute;right:10px;top:-4px;border:4px solid transparent;border-top:0;border-bottom-color:#e8e3d8}
+</style>
+<style>
+  .center{margin:auto;width:700px;display:flex;flex-direction:column;gap:14px}
+  .logo{display:grid;place-items:center}
+  .logo svg.i{width:44px;height:44px;color:var(--primary);stroke-width:1.5}
+  .greet{font:600 26px var(--heading);text-align:center;margin-bottom:6px}
+  .chips{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-foreground)}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:7px;background:var(--hover);color:var(--foreground);font-size:13px}
+  .chip svg.i{width:13px;height:13px}
+  .chip .gi,.chip .gi svg{width:14px;height:14px}
+  .chip .n{font-size:11.5px;color:var(--accent-foreground);margin-left:2px}
+  .lnk{color:var(--muted-foreground);display:inline-flex;align-items:center;gap:5px;padding:3px 6px}
+  .lnk svg.i{width:13px;height:13px}
+  .cp{border:1px solid var(--input);border-radius:14px;background:#23211d}
+  .cp .tx{padding:14px 16px 6px;color:var(--faint);font-size:13.5px;height:44px}
+  .cp .tb{display:flex;align-items:center;gap:2px;padding:6px 8px 8px 8px}
+  .cp .tb .gap{margin-left:auto}
+  .ib{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;position:relative}
+  .ib svg.i{width:17px;height:17px;color:var(--muted-foreground)}
+  .ib.on svg.i{color:var(--accent-foreground)}
+  .ib.hv{background:var(--hover)}
+  .ib.hv svg.i{color:var(--foreground)}
+  .tip{position:absolute;bottom:38px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#f1ece2;color:#1e1c19;font-size:11.5px;padding:4px 8px;border-radius:6px}
+  .tb .mode{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:7px;font-size:12.5px;color:#d6d0c4}
+  .tb .mode svg.i{width:12px;height:12px;color:var(--muted-foreground)}
+  .mb{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:7px;font-size:12.5px;color:var(--foreground);margin-right:4px}
+  .mb svg.i{width:14px;height:14px;color:var(--foreground)}
+  .mb .pv{color:var(--muted-foreground)}
+  .mb.acc{background:var(--accent);color:#eafffb}
+  .mb.acc svg.i{color:var(--accent-foreground)}
+  .send{width:28px;height:28px;border-radius:50%;background:var(--primary);display:grid;place-items:center}
+  .send svg.i{width:14px !important;height:14px !important;color:#10201e !important}
+  .send.off{background:#3a3630}
+  .send.off svg.i{color:var(--faint) !important}
+  .empty{padding:2px 10px 6px 18px;color:var(--faint);font-size:12px}
+  .ap{display:flex;flex-direction:column;height:100%;margin:-8px}
+  .ap .hd{padding:14px 16px 12px;border-bottom:1px solid var(--border)}
+  .ap .hd b{font:600 15px var(--heading);display:flex;align-items:center;gap:8px}
+  .ap .hd small{display:block;color:var(--muted-foreground);font-size:11.5px;margin-top:3px}
+  .ap .tabs{display:flex;gap:18px;padding:0 16px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted-foreground)}
+  .ap .tabs span{padding:9px 0}
+  .ap .tabs .on{color:var(--foreground);box-shadow:inset 0 -2px 0 var(--foreground)}
+  .ap .sh{display:flex;align-items:center;padding:12px 16px 6px;font-size:11px;font-weight:600;color:var(--muted-foreground)}
+  .ap .sh .t{margin-left:auto;display:flex;align-items:center;gap:5px;font-weight:500;color:var(--foreground)}
+  .ap .sh svg.i{width:13px;height:13px}
+  .pr{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--border);font-size:12.5px}
+  .pr small{display:block;color:var(--muted-foreground);font-size:11px;margin-top:1px}
+  .pr .t{margin-left:auto;font-size:11px;color:var(--muted-foreground)}
+  .pr.add .t{color:var(--accent-foreground)}
+  .pr.rm{color:var(--faint)}
+  .pr.rm span:first-child{text-decoration:line-through}
+  .ap .ft{margin-top:auto;border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted-foreground)}
+  .ap .ft .b{margin-left:auto;display:flex;gap:6px}
+  .bb{padding:5px 10px;border-radius:7px;font-size:12px;color:var(--foreground)}
+  .bb.p{background:var(--primary);color:#10201e;font-weight:600}
+  .cm .it2 small{display:block;color:var(--muted-foreground);font-size:11px;margin-top:1px;white-space:normal}
+  .cm .it2.tall{height:auto;padding:7px 10px;align-items:flex-start}
+  .cm .it2.tall>svg.i{margin-top:2px}
+  .cm .it2 .ck{margin-left:auto;color:var(--foreground)}
+  .cm .it2.sel2{background:var(--accent)}
+  .cm .it2.sel2>svg.i,.cm .it2.sel2 .ck svg.i{color:var(--accent-foreground)}
+  .cm .it2.sel2 small{color:#b9d9d3}
+  .cm .it2.danger>svg.i{color:var(--destructive)}
+  .anchor{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+  .anchor .ib{margin-left:6px}
+</style>
+<style>
+.ytoday{width:1616px;height:36px;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:#1b1a17;display:flex;align-items:center;gap:20px;padding:0 16px;font-size:11px;color:var(--muted-foreground)}
+.ytoday .mono{font-family:var(--mono)}
+.ytoday span{display:flex;align-items:center;gap:6px}
+.ytoday svg.i{width:13px;height:13px}
+.yn{width:16px;height:16px;border-radius:50%;background:var(--accent);color:var(--accent-foreground);font:600 10px var(--ui);display:inline-grid !important;place-items:center;flex:none}
+.ybell{position:relative;display:inline-flex}
+.ybell i{position:absolute;right:-1px;top:-1px;width:6px;height:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 2px var(--sidebar)}
+.yrb{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--foreground)}
+.yrb .spin{width:11px;height:11px}
+.yc{width:300px;box-sizing:border-box;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,.45);padding:12px 14px;font-size:12.5px;color:#ddd7cb}
+.yc.yst{position:absolute;left:62px;top:54px;z-index:5}
+.yh{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--foreground)}
+.yh .yv{margin-left:auto;color:var(--faint);font-weight:400;font-size:11.5px}
+.ymono{font-family:var(--mono);font-size:11px;color:var(--muted-foreground);margin:4px 0 8px 14px}
+.yr{display:flex;align-items:center;gap:8px;height:28px;color:var(--muted-foreground);white-space:nowrap}
+.yr svg.i{width:14px;height:14px;flex:none}
+.yr .yv{margin-left:auto;color:var(--foreground);font-family:var(--mono);font-size:11.5px}
+.yr .ya{margin-left:auto;color:var(--accent-foreground);display:flex;align-items:center;gap:6px;font-weight:500}
+.yr.ok{color:var(--foreground)}
+.yr.ok>svg.i{color:var(--primary)}
+.yr.lk{color:var(--accent-foreground)}
+.ysep{height:1px;background:var(--border);margin:8px 0}
+.ygrp{font-size:11px;font-weight:600;color:var(--muted-foreground);margin:12px 0 4px}
+.ygrp:first-child{margin-top:0}
+.ymb{display:inline-flex;align-items:center;gap:6px;min-width:44px;color:var(--foreground);font-size:11.5px}
+.ymb svg.i{width:15px;height:15px}
+.ymap{width:600px;flex:none}
+.yrow{display:grid;grid-template-columns:22px 118px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.5;align-items:start}
+.yrow .yn{margin-top:2px}
+.yrow .ytd{color:var(--muted-foreground);font-family:var(--mono);font-size:11.5px;padding-top:1px}
+.yrow b{color:var(--foreground);font-weight:600}
+.yrow p{margin:0;color:var(--muted-foreground)}
+.ysch{position:relative;height:120px;border:1px solid var(--border);border-radius:8px;background:#1e1c19;overflow:hidden;margin:6px 0 2px}
+.ysch i{display:block;height:4px;border-radius:2px;background:#3a3630;margin:0 0 7px}
+.ytx{position:absolute;left:12px;top:14px;width:90px}
+.yfl{position:absolute;right:112px;top:8px;bottom:8px;width:72px;box-sizing:border-box;padding:6px;background:var(--popover);border:1px solid #4a453d;border-radius:6px;box-shadow:0 8px 18px rgba(0,0,0,.45)}
+.yfl svg.i,.ywb svg.i{width:11px;height:11px;margin-bottom:6px;color:var(--foreground)}
+.yfl i{background:#4a453d}
+.ywb{position:absolute;right:0;top:0;bottom:0;width:100px;box-sizing:border-box;padding:8px;background:var(--sidebar);border-left:1px solid var(--border)}
+.ywb span{display:flex;gap:8px}
+.ywb span svg.i{color:var(--muted-foreground)}
+.yc.ym{width:330px;left:10px;top:58px}
+.yag{height:auto;padding:5px 0}
+.ynm{display:flex;flex-direction:column;color:var(--foreground);line-height:1.3;font-weight:500}
+.ynm small{color:var(--faint);font-size:11px;font-weight:400}
+.ylive{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted-foreground)}
+.ydet{margin:2px 0 2px 6px;padding-left:16px;border-left:1px solid var(--border)}
+.ydet .ymono{margin:2px 0 2px 0}
+.ydet .yr{height:26px}
+.ygrp.ylr{display:flex;align-items:center}
+.ygrp .ya{margin-left:auto;color:var(--accent-foreground);display:flex;gap:5px;align-items:center;font-weight:500}
+.ygrp .ya svg.i{width:12px;height:12px}
+.yoff{opacity:.7}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/></symbol>
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="runs" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="infra" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="branch" viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="panel" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="updown" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
+  <symbol id="right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="filter" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></symbol>
+  <symbol id="archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="lock" viewBox="0 0 24 24"><rect width="16" height="10" x="4" y="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="brain" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v13"/></symbol>
+  <symbol id="laptop" viewBox="0 0 24 24"><rect width="16" height="11" x="4" y="4" rx="2"/><path d="M2 20h20"/></symbol>
+  <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+  <symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+  <symbol id="flask" viewBox="0 0 24 24"><path d="M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0M5.52 16h12.96"/></symbol>
+  <symbol id="atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></symbol>
+  <symbol id="book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+  <symbol id="leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></symbol>
+  <symbol id="chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></symbol>
+  <symbol id="layers" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></symbol>
+  <symbol id="shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="clio" viewBox="0 0 24 24"><path d="M17.5 6.5A8 8 0 1 0 17.5 17.5"/><circle cx="12" cy="12" r="2.6"/><path d="M12 4v2.2M12 17.8V20"/></symbol>
+</defs></svg>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+</defs></svg>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="fwd" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="wmin" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="wmax" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
+  <symbol id="panelr" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="panelb" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/></symbol>
+  <symbol id="file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+</defs></svg>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="compose" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+  <symbol id="at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></symbol>
+  <symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="pask" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="pedit" viewBox="0 0 24 24"><path d="M10 20H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v3"/><path d="M19.4 12.6a1.9 1.9 0 0 1 2.7 2.7L17 20.4l-3.4.9.9-3.4z"/></symbol>
+  <symbol id="ptarget" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><path d="M16 8l5-5"/></symbol>
+  <symbol id="poff" viewBox="0 0 24 24"><path d="M19.7 14.6c.2-.8.3-1.6.3-2.6V5l-8-3-3.5 1.3"/><path d="M5.2 5.2 4 5.7V12c0 6 8 10 8 10a17 17 0 0 0 4.6-3.6"/><path d="M2 2l20 20"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></symbol>
+  <symbol id="orouter" viewBox="0 0 24 24"><path d="M2 12h5c2.5 0 3.5-5 7-5h6"/><path d="M7 12c2.5 0 3.5 5 7 5h6"/><path d="M17 4l3 3-3 3M17 14l3 3-3 3"/></symbol>
+  <symbol id="ghcop" viewBox="0 0 24 24"><path d="M5 9c0-3 3-5 7-5s7 2 7 5v6c0 3-3 5-7 5s-7-2-7-5z"/><path d="M5 12H3v3h2M19 12h2v3h-2"/><path d="M9.5 12v2M14.5 12v2"/></symbol>
+</defs></svg>
+
+<style>
+  .tr{width:740px;margin:0 auto;display:flex;flex-direction:column;gap:6px;padding:28px 0 18px}
+  .um{align-self:flex-end;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:560px;margin-top:14px}
+  .ub{background:#2c2924;padding:9px 14px;border-radius:12px;font-size:13.5px}
+  .acts{display:flex;align-items:center;gap:12px;height:22px;font-size:11.5px;color:var(--muted-foreground);position:relative}
+  .acts svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .acts .tm{position:relative}
+  .tt{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#f1ece2;color:#1e1c19;font-size:11.5px;padding:4px 8px;border-radius:6px;z-index:2}
+  .am{font:15px/1.6 var(--heading);color:#e9e3d6;margin-top:10px}
+  .af{display:flex;align-items:center;gap:14px;height:26px;font-size:11.5px;color:var(--muted-foreground);margin-top:4px;position:relative}
+  .af .meta{display:flex;align-items:center;gap:14px}
+  .af .meta span{display:inline-flex;align-items:center;gap:5px}
+  .af svg.i{width:13px;height:13px;color:var(--muted-foreground)}
+  .af .chg{color:var(--accent-foreground)}
+  .af .chg svg.i{color:var(--accent-foreground)}
+  .af .right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .af .right svg.i{width:14px;height:14px}
+  .af .fail{color:var(--destructive)}
+  .card{position:absolute;left:0;bottom:30px;width:300px;background:var(--popover);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:8px 0;z-index:3;font-size:12px;color:var(--foreground)}
+  .card .row{display:flex;align-items:center;gap:9px;padding:4px 12px}
+  .card .row svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .card .row .v{margin-left:auto;color:var(--muted-foreground)}
+  .card .row .v.on{color:var(--accent-foreground)}
+  .card .hd2{padding:2px 12px 6px;font-size:11px;color:var(--muted-foreground)}
+  .card .s{height:1px;background:var(--border);margin:6px 0}
+  .dock{width:740px;margin:0 auto 18px}
+  .bct.col{display:flex;flex-direction:column;justify-content:space-between;padding:0 !important}
+  .ibl{display:inline-flex}
+  .kb{display:inline-block;background:#d9d3c7;border-radius:4px;padding:0 5px;margin-left:4px;font-size:10.5px}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="thumb" viewBox="0 0 24 24"><path d="M7 10v11H4V10zM7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18 21H7"/></symbol>
+  <symbol id="bmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+  <symbol id="fork" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 12v5"/></symbol>
+  <symbol id="rewind" viewBox="0 0 24 24"><path d="M11 19l-8-7 8-7zM21 19l-8-7 8-7z"/></symbol>
+  <symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></symbol>
+  <symbol id="retry" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="pencil" viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+  <symbol id="coin" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+</defs></svg>
+
+<style>
+  .rail2{display:flex;flex-direction:column;height:100%;padding:0 0 6px}
+  .ctxl{padding:10px 10px 12px;position:relative}
+  .ctxl .top{display:flex;align-items:center;font-size:12.5px;color:#ddd7cb}
+  .ctxl .top span{margin-left:auto;font-size:11px;color:var(--muted-foreground)}
+  .seg{display:flex;height:4px;border-radius:2px;overflow:hidden;background:#2c2924;margin-top:8px}
+  .seg i{display:block;height:100%}
+  .r.two{height:auto;white-space:normal;align-items:flex-start;padding:6px 10px;line-height:1.45}
+  .r.two>svg.i{margin-top:2px}
+  .r.two .tw{margin-top:2px}
+  .r.qa>svg.i,.r.qa .t{color:var(--accent-foreground)}
+  .r.done{color:var(--muted-foreground)}
+  .r .t .ha svg.i{width:14px;height:14px}
+  .r .ring{width:13px;height:13px;border-radius:50%;border:1.5px solid #5a544a;flex:none;margin:0 1px}
+  .r .t .spin{margin:0}
+  .rt{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .trp .t{margin-left:auto;display:flex;align-items:center;gap:14px;height:100%}
+  .trp .t .ic{display:flex;gap:14px;padding-right:2px}
+  .tct .on2 svg.i{color:var(--foreground) !important}
+  .row3{display:flex;gap:40px;align-items:flex-start;margin:8px 0 30px;flex-wrap:wrap}
+  .blk{display:flex;flex-direction:column;gap:8px}
+  .blk .kcap{font-size:11px;color:var(--muted-foreground)}
+  .tbs{width:470px;height:46px;border:1px solid var(--border);border-radius:8px;background:#1e1c19;display:flex;align-items:center;gap:16px;padding:0 16px;position:relative;font-size:12.5px;color:var(--muted-foreground)}
+  .tbs svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .tbs .lbl{width:150px;color:#ddd7cb}
+  .tbs .gp{margin-left:auto;display:flex;align-items:center;gap:16px}
+  .tbs .gp>span{display:flex;align-items:center;gap:5px}
+  .tbs .n{font-size:11px;color:var(--accent-foreground);font-weight:600}
+  .tbs .fg svg.i{color:var(--foreground)}
+  .tbs .old{display:flex;align-items:center;gap:10px}
+  .tbs .tipx{position:absolute;right:8px;top:48px;background:#f1ece2;color:#1e1c19;font-size:11.5px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:2}
+  .tbs .tipx .kb{background:#d9d2c4;color:#1e1c19}
+  .ccard{width:320px;background:var(--popover);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:8px 0;font-size:12px}
+  .ccard .hd3{display:flex;padding:4px 12px 8px;font-weight:600}
+  .ccard .hd3 span{margin-left:auto;font-weight:400;color:var(--muted-foreground)}
+  .ccard .row{display:flex;align-items:center;gap:9px;padding:4px 12px}
+  .ccard .row .sw2{width:10px;height:3px;border-radius:2px;flex:none}
+  .ccard .row .v{margin-left:auto;color:var(--muted-foreground);display:flex;gap:14px}
+  .ccard .row .v b{font-weight:500;color:var(--foreground);width:38px;text-align:right}
+  .ccard .row.m{color:var(--muted-foreground)}
+  .ccard .s2{height:1px;background:var(--border);margin:6px 0}
+  .ccard .lk{padding:6px 12px 2px;color:var(--accent-foreground)}
+  .pop2{width:300px;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:6px;font-size:12.5px}
+  .pop2 .lb2{padding:8px 8px 3px;font-size:10.5px;color:var(--muted-foreground)}
+  .pr2{display:flex;align-items:center;gap:9px;height:29px;padding:0 8px;border-radius:6px}
+  .pr2 svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .pr2 .gr{color:#5a544a;width:12px;height:12px}
+  .pr2.off{color:var(--faint)}
+  .pr2.dragging{background:#38342d}
+  .ksw{margin-left:auto;width:26px;height:15px;border-radius:8px;background:#4a453d;position:relative;flex:none}
+  .ksw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#9c9588}
+  .ksw.on{background:var(--primary)}
+  .ksw.on::after{left:13px;background:#f1ece2}
+  .pop2 .s2{height:1px;background:var(--border);margin:6px 2px}
+  .pop2 .rs{padding:6px 8px;color:var(--muted-foreground)}
+  .mini{width:340px;height:210px;background:var(--sidebar);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .mini .tp{height:44px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 14px}
+  .mini .tp svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .mini .bd{padding:0 8px}
+  .mini .em{padding:8px 10px;font-size:12px;color:var(--faint)}
+  .hint{position:absolute;left:10px;top:44px;z-index:4}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="kplan" viewBox="0 0 24 24"><rect x="5.5" y="3" width="14" height="18" rx="2"/><path d="M3.5 7.5h3.5M3.5 12h3.5M3.5 16.5h3.5M10.5 8h5.5M10.5 12h5.5"/></symbol>
+  <symbol id="kdiff" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 11v6M9 14h6"/></symbol>
+  <symbol id="kh5" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+  <symbol id="kgrid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+  <symbol id="kglobe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></symbol>
+  <symbol id="kwrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.7-1.3a4 4 0 0 0-5-5L13 5z" transform="rotate(0)"/><path d="M3 21l6-6"/></symbol>
+  <symbol id="kgrip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/></symbol>
+  <symbol id="ktarget" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/></symbol>
+  <symbol id="kq" viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.4 7.6L3 21l1.4-5.6A8.5 8.5 0 1 1 21 12z"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.5M12 17h.01"/></symbol>
+  <symbol id="kterm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+  <symbol id="kopen" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="klist" viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11"/><circle cx="5.2" cy="18" r="1.4"/></symbol>
+  <symbol id="krail" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M10.5 8.5h6M10.5 12h6M10.5 15.5h6"/><circle cx="7.6" cy="8.5" r="1" style="fill:currentColor;stroke:none"/><circle cx="7.6" cy="12" r="1" style="fill:currentColor;stroke:none"/><circle cx="7.6" cy="15.5" r="1" style="fill:currentColor;stroke:none"/></symbol><symbol id="kevid" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="6" rx="1.5"/><path d="M3 12h18"/><rect x="4" y="15" width="16" height="6" rx="1.5" style="fill:currentColor"/></symbol>
+</defs></svg>
+
+<style>
+  .zr{position:absolute;right:14px;top:14px;max-height:calc(100% - 28px);width:330px;background:var(--popover);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,.45);display:flex;flex-direction:column;overflow:hidden;font-size:12.5px;color:#ddd7cb}
+  .zr.st{position:relative;right:auto;top:auto;bottom:auto}
+  .zh{display:flex;align-items:center;height:40px;padding:0 14px;font-size:12px;font-weight:600;color:var(--muted-foreground);flex:none}
+  .zh .ic{margin-left:auto;display:flex;gap:14px}
+  .zh svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .zb{padding:0 6px 8px;overflow:auto;min-height:0}
+  .zg{padding:10px 8px 4px;font-size:11px;font-weight:600;color:var(--muted-foreground)}
+  .zx{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:6px;white-space:nowrap;position:relative}
+  .zx>svg.i{width:14px;height:14px;color:var(--muted-foreground);flex:none}
+  .zx .tw{width:12px;display:grid;place-items:center;color:var(--faint);flex:none}
+  .zx .tw svg{width:12px;height:12px}
+  .zx .t{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--faint);font-size:11px}
+  .zx .t svg.i{width:14px;height:14px;color:var(--foreground)}
+  .zx.h{font-weight:500;color:var(--foreground)}
+  .zx.w{height:auto;white-space:normal;align-items:flex-start;padding:4px 8px;line-height:1.45}
+  .zx.w>svg.i,.zx.w .spin,.zx.w .ring{margin-top:2px}
+  .zx.hov{background:#38342d}
+  .zx.lnk{color:var(--accent-foreground)}
+  .zx.lnk>svg.i{color:var(--accent-foreground)}
+  .zx.dn{color:var(--muted-foreground)}
+  .zx.qa .t{color:var(--accent-foreground);font-weight:500}
+  .zx .ring{width:12px;height:12px;border-radius:50%;border:1.5px solid #5a544a;flex:none;margin:0 1px}
+  .zx .spin{width:12px;height:12px;flex:none}
+  .zx.mut{color:var(--faint);font-size:11.5px}
+  .zk{margin-left:20px;border-left:1px solid #46413a;padding-left:6px;margin-bottom:4px}
+  .zbar{display:flex;height:4px;border-radius:2px;overflow:hidden;background:#24221e;margin:2px 8px 6px 28px}
+  .zbar i{display:block;height:100%}
+  .zx .sw2{width:10px;height:3px;border-radius:2px;flex:none}
+  .zx .pc{width:36px;text-align:right;color:var(--foreground)}
+  .zsep{height:1px;background:var(--border);margin:4px 8px}
+  .bct.col .tr,.bct.col .dock{position:relative;left:-172px;width:660px}
+  .row4{display:flex;gap:40px;align-items:flex-start;margin:8px 0 30px}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="clip" viewBox="0 0 24 24"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+  <symbol id="box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
+  <symbol id="act" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="min2" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
+</defs></svg>
+<style>
+  .app.wbo{grid-template-columns:292px 1fr 40%}
+  .app.wbo .tct{grid-column:2/4}
+  .app.wbo.coll{grid-template-columns:56px 1fr 40%;grid-template-rows:48px 1fr}
+  .wbp{grid-column:3;grid-row:2;display:flex;border-left:1px solid var(--border);background:var(--background);min-width:0;position:relative}
+  .wbx{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--background);position:relative}
+  .ed{flex:1;min-width:0;display:flex;flex-direction:column}
+  .bc{width:36%;flex:none;border-left:1px solid var(--border);background:var(--sidebar);display:flex;flex-direction:column;min-width:0}
+  .bc.w{width:46%}
+  .st{width:44px;flex:none;border-left:1px solid var(--border);background:var(--sidebar);display:flex;flex-direction:column;align-items:center;padding:6px 0 8px;gap:2px}
+  .si{width:44px;height:36px;display:grid;place-items:center;color:var(--muted-foreground);position:relative}
+  .si svg.i{width:17px;height:17px}
+  .si.on{color:var(--foreground)}
+  .si.on::after{content:"";position:absolute;right:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--primary)}
+  .si.hov{color:var(--foreground)}
+  .si .stip{position:absolute;right:48px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#f1ece2;color:#1e1c19;font-size:11.5px;padding:3px 8px;border-radius:5px;z-index:5}
+  .si .stip .kb{background:#d9d2c4;color:#1e1c19}
+  .st .sp{margin-top:auto}
+  .st .ss{width:20px;height:1px;background:var(--border);margin:5px 0}
+  .tabs{height:40px;flex:none;display:flex;align-items:center;border-bottom:1px solid var(--border);padding:0 0 0 6px;min-width:0}
+  .tabs .tl{flex:1;min-width:0;display:flex;gap:2px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .app.wbo .bct.col .tr,.app.wbo .bct.col .dock{left:0}
+  .tab{height:40px;flex:none;display:flex;align-items:center;gap:7px;padding:0 9px;color:var(--muted-foreground);white-space:nowrap;min-width:0;position:relative}
+  .tab svg.i{width:14px;height:14px;flex:none}
+  .tab .nm{overflow:hidden;text-overflow:ellipsis}
+  .tab .x{width:13px;height:13px;color:var(--faint);visibility:hidden}
+  .tab.on{color:var(--foreground);box-shadow:inset 0 -2px 0 var(--primary)}
+  .tab.on .x{visibility:visible}
+  .tab.chg .nm{color:var(--accent-foreground)}
+  .tab.pin{padding:0 10px}
+  .tab .spin{width:10px;height:10px}
+  .tabs .end{margin-left:auto;display:flex;gap:12px;padding:0 8px 0 10px;flex:none}
+  .tabs .end svg.i{width:15px;height:15px;color:var(--muted-foreground)}
+  .eh{display:flex;align-items:center;gap:7px;padding:10px 14px 8px;font-size:12px;color:var(--muted-foreground);white-space:nowrap}
+  .eh .sepc{color:var(--faint)}
+  .eh b{color:var(--foreground);font-weight:500}
+  .eh .t{margin-left:auto;display:flex;gap:12px;align-items:center;color:var(--faint);font-size:11px}
+  .eh .t svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .tbl{border-collapse:collapse;width:calc(100% - 28px);margin:0 14px;font:12px var(--mono)}
+  .tbl th{text-align:left;font:500 11px var(--ui);color:var(--muted-foreground);padding:6px 8px;border-bottom:1px solid var(--border)}
+  .tbl td{padding:6px 8px;border-bottom:1px solid #2c2924;color:#ddd7cb;white-space:nowrap}
+  .tbl td.n{color:var(--faint);width:28px}
+  .tbl tr.hl td{background:#25231f}
+  .bh{height:40px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;font-size:12px;font-weight:600;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+  .bh .t{margin-left:auto;display:flex;gap:12px}
+  .bh svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .bb{padding:4px 4px 8px;overflow:hidden;flex:1;min-height:0}
+  .zx.chg{color:var(--accent-foreground)}
+  .zx.chg>svg.i{color:var(--accent-foreground)}
+  .zx.sl{background:var(--accent);color:#eafffb}
+  .zx.sl>svg.i{color:var(--accent-foreground)}
+  .zx.sl .t{color:var(--accent-foreground)}
+  .fm{font:12.5px var(--mono);color:var(--accent-foreground);text-decoration:underline;text-decoration-color:color-mix(in oklab,var(--accent-foreground) 35%,transparent);text-underline-offset:3px}
+  .pre{font:11.5px/1.55 var(--mono);color:#d6d0c4;padding:8px 14px;white-space:pre}
+  .pre .k{color:#8db4da}.pre .s{color:#b5cf8f}.pre .c{color:var(--faint)}
+  .lbl2{padding:12px 14px 2px;font-size:11px;font-weight:600;color:var(--muted-foreground);display:flex}
+  .lbl2 span{margin-left:auto;font-weight:400;color:var(--faint)}
+  .kv{display:flex;align-items:center;padding:7px 14px;gap:10px;border-bottom:1px solid #2c2924}
+  .kv .k2{width:118px;color:var(--muted-foreground);flex:none}
+  .kv .v2{display:flex;align-items:center;gap:7px;min-width:0}
+  .kv .v2 svg.i{width:14px;height:14px}
+  .kv .v2.on{color:var(--accent-foreground)}
+  .kv .rt2{margin-left:auto;color:var(--faint);font-size:11px}
+  .ctxm{position:absolute;width:236px;padding:4px;z-index:6}
+  .cm{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px;border-radius:6px}
+  .cm svg.i{width:14px;height:14px;color:var(--muted-foreground)}
+  .cm .kl{margin-left:auto;font:10.5px var(--mono);color:var(--faint)}
+  .cm.hl{background:#38342d}
+  .cms{height:1px;background:var(--border);margin:4px -4px}
+  .rowv{display:flex;gap:36px;align-items:flex-start;margin:10px 0 34px;flex-wrap:wrap}
+  .cv3{display:flex;flex-direction:column;gap:8px}
+  .cv3 .cap{font:600 15px var(--heading)}
+  .cv3 .sub{max-width:520px}
+  .sz{width:500px;height:150px;border:1px solid var(--border);border-radius:9px;display:flex;overflow:hidden;background:#1e1c19;position:relative;font-size:11px}
+  .sz>div{display:flex;flex-direction:column;justify-content:flex-end;padding:8px 9px;gap:2px;border-right:1px solid var(--border);min-width:0}
+  .sz>div:last-child{border-right:0}
+  .sz b{font-weight:600;color:var(--foreground);font-size:11.5px;white-space:nowrap}
+  .sz span{color:var(--muted-foreground);white-space:nowrap}
+  .sz .lb{background:var(--sidebar)}
+  .sz .wb{background:#23211d}
+  .sz .wb b{color:var(--accent-foreground)}
+  .sz .ov{position:absolute;right:0;top:0;bottom:0;width:86%;background:#23211d;border-left:1px solid var(--border);box-shadow:-14px 0 30px rgba(0,0,0,.45);display:flex;flex-direction:column;justify-content:flex-end;padding:8px 9px}
+  .sz .ov b{color:var(--accent-foreground)}
+  .sz .ov span{color:var(--muted-foreground)}
+  .ttab{border-collapse:collapse;font-size:12.5px;width:100%;max-width:1240px}
+  .ttab th{text-align:left;font:500 11.5px var(--ui);color:var(--muted-foreground);padding:6px 10px;border-bottom:1px solid var(--border)}
+  .ttab td{padding:8px 10px;border-bottom:1px solid #2c2924;vertical-align:top}
+  .ttab td:first-child{white-space:nowrap;color:var(--muted-foreground)}
+  .ttab td:nth-child(2){white-space:nowrap}
+  .ttab td svg.i{width:14px;height:14px;vertical-align:-2px;margin-right:7px;color:var(--muted-foreground)}
+  .ttab .new{color:var(--accent-foreground)}
+  .sect2{font:600 20px var(--heading);margin:40px 0 4px}
+  .rl2{margin:8px 0 0;padding-left:18px;max-width:1180px;line-height:1.55;color:#d6d0c4}
+  .rl2 li{margin:4px 0}
+  .amb{color:var(--warning)}
+</style>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="cols" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></symbol>
+  <symbol id="rows" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/></symbol>
+  <symbol id="zin" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></symbol>
+  <symbol id="zout" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></symbol>
+  <symbol id="wrap" viewBox="0 0 24 24"><path d="M3 6h18M3 12h14a3 3 0 0 1 0 6h-4m0 0 2-2m-2 2 2 2M3 18h6"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></symbol>
+  <symbol id="undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="img" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="doc" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></symbol>
+  <symbol id="py" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/></symbol>
+  <symbol id="mdi" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 15V9l2.5 3L11 9v6M17 9v6m0 0-2-2m2 2 2-2"/></symbol>
+</defs></svg>
+<style>
+  .acts2{margin-left:auto;display:flex;align-items:center;gap:1px;padding:0 6px 0 8px;flex:none}
+  .ab{width:26px;height:26px;display:grid;place-items:center;border-radius:6px;color:var(--muted-foreground);position:relative;flex:none}
+  .ab svg.i{width:15px;height:15px}
+  .ab.hv,.spl.hv{background:#2e2b26;color:var(--foreground)}
+  .spl{display:flex;align-items:center;border-radius:6px;position:relative;flex:none}
+  .spl .ab{width:24px}
+  .spl .chev{width:13px;height:26px;display:grid;place-items:center;color:var(--faint)}
+  .spl .chev svg.i{width:11px;height:11px}
+  .spl.hv .chev{color:var(--foreground)}
+  .sg2{display:flex;background:#24221e;border-radius:7px;padding:2px;gap:1px;flex:none;position:relative}
+  .sg2 .ab{width:24px;height:22px;border-radius:5px}
+  .sg2 .ab.on{background:#3a362e;color:var(--foreground)}
+  .dv{width:1px;height:16px;background:var(--border);margin:0 5px;flex:none}
+  .pg{font:11px var(--mono);color:var(--faint);padding:0 4px;flex:none}
+  .htip{position:absolute;top:31px;left:50%;transform:translateX(-50%);background:#f1ece2;color:#1e1c19;font:500 11.5px var(--ui);padding:3px 8px;border-radius:5px;white-space:nowrap;z-index:7;display:flex;gap:7px;align-items:center}
+  .htip .kb{background:#d9d2c4;color:#1e1c19}
+  .ttp{position:absolute;top:38px;left:4px;background:#f1ece2;color:#1e1c19;font-size:11.5px;padding:6px 9px;border-radius:6px;z-index:7;line-height:1.5;white-space:nowrap}
+  .ttp b{font-weight:600;display:block}
+  .ttp span{color:#5d574d;font-family:var(--mono);font-size:11px}
+  .mp{width:516px;height:262px}
+  .mp .ed{min-width:0}
+  .grid3{display:grid;grid-template-columns:repeat(3,516px);gap:30px 34px;margin:14px 0 30px}
+  .grid4{display:grid;grid-template-columns:repeat(4,383px);gap:0 28px;margin:14px 0 30px}
+  .grid2{display:grid;grid-template-columns:repeat(2,790px);gap:28px 36px;margin:14px 0 30px}
+  .cap2{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .cap2 b{font:600 15px var(--heading)}
+  .cap2 span{color:var(--muted-foreground);font-size:12px}
+  .bodyc{flex:1;min-height:0;overflow:hidden;position:relative}
+  .md{padding:14px 18px;color:#ddd7cb;line-height:1.55}
+  .md h3{font:600 17px var(--heading);margin:0 0 6px;color:var(--foreground)}
+  .md ol{margin:4px 0 0;padding-left:20px}
+  .md li{margin:3px 0}
+  .md code{font:12px var(--mono);color:var(--accent-foreground)}
+  .code{font:11.5px/1.65 var(--mono);color:#d6d0c4;padding:8px 0;white-space:pre}
+  .code .ln{display:inline-block;width:34px;text-align:right;padding-right:12px;color:var(--faint)}
+  .code .k{color:#c69bd9}.code .s{color:#b5cf8f}.code .f{color:#8db4da}.code .c{color:var(--faint)}
+  .code .add{background:rgba(64,170,150,.13);display:block}
+  .code .del{background:rgba(220,90,80,.12);display:block;color:#cfa8a2}
+  .pdfbg{position:absolute;inset:0;background:#2a2723;display:flex;justify-content:center;padding-top:14px}
+  .pdfpg{width:250px;height:330px;background:#f4f1ea;border-radius:2px;padding:20px 22px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+  .pdfpg i{display:block;height:6px;background:#cfc9bd;border-radius:3px;margin:7px 0}
+  .pdfpg i.h{height:10px;width:60%;background:#8a8378;margin-bottom:12px}
+  .h5{display:flex;height:100%}
+  .h5 .tr5{width:44%;border-right:1px solid var(--border);padding:6px 4px}
+  .h5 .hm{flex:1;display:grid;grid-template-columns:repeat(14,1fr);gap:2px;padding:12px;align-content:start}
+  .h5 .hm i{aspect-ratio:1;border-radius:2px}
+  .term{font:11.5px/1.6 var(--mono);color:#d6d0c4;padding:10px 14px;white-space:pre}
+  .term .p{color:var(--accent-foreground)}
+  .term .c{color:var(--faint)}
+  .tx2{padding:10px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#ddd7cb;line-height:1.5}
+  .tx2 .row{display:flex;gap:8px;align-items:flex-start}
+  .tx2 .row svg.i{width:14px;height:14px;margin-top:3px;color:var(--muted-foreground);flex:none}
+  .tx2 .tool{font:11.5px var(--mono);color:var(--muted-foreground)}
+  .stt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted-foreground);font-size:12.5px}
+  .stt svg.i{width:26px;height:26px;color:var(--faint)}
+  .stt .bt2{display:flex;gap:4px}
+  .sk{position:absolute;inset:14px;display:flex;flex-direction:column;gap:10px}
+  .sk i{height:9px;border-radius:4px;background:#2b2824}
+  .rowm{display:flex;gap:84px;align-items:flex-start;margin:14px 0 30px;flex-wrap:wrap}
+  .mnu{display:flex;flex-direction:column;gap:6px}
+  .mnu .anchor{display:flex;align-items:center;gap:6px;height:34px;padding:0 6px;background:var(--background);border:1px solid var(--border);border-radius:8px;width:max-content}
+  .pop2{width:212px;padding:4px;margin-top:2px}
+  .mi{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px;border-radius:6px;color:var(--muted-foreground)}
+  .mi.df{color:var(--foreground);font-weight:600}
+  .mi.hl{background:#38342d;color:var(--foreground)}
+  .mi svg.i{width:14px;height:14px}
+  .mi .kl{margin-left:auto;font:10.5px var(--mono);color:var(--faint)}
+  .rulebox{max-width:420px;color:#d6d0c4;line-height:1.6;font-size:13px}
+  .rulebox p{margin:0 0 10px}
+  .rulebox b{color:var(--foreground)}
+  .rowno{position:absolute;left:-30px;width:22px;height:22px;border-radius:11px;background:var(--warning);color:#1e1c19;font:700 11.5px var(--ui);display:grid;place-items:center}
+  .rowno.ok{background:var(--accent-foreground)}
+  .cmp{position:relative;margin-left:30px}
+  .cbar{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 12px;border-bottom:1px solid var(--border);color:var(--muted-foreground);font-size:12px;white-space:nowrap}
+  .cbar svg.i{width:14px;height:14px}
+  .cbar b{color:var(--foreground);font-weight:500}
+  .cbar .t{margin-left:auto;display:flex;gap:12px;align-items:center}
+  .badge{font:700 8.5px var(--ui);background:#c0473b;color:#fff;border-radius:3px;padding:2px 3px}
+  .anat{display:flex;gap:48px;align-items:flex-start;margin:14px 0 30px}
+  .anat .wbx{width:860px;height:420px}
+  .callout{position:absolute;z-index:8;display:flex;align-items:center;gap:8px;font:600 12px var(--ui);color:#1e1c19}
+  .callout i{font-style:normal;width:22px;height:22px;border-radius:11px;background:var(--warning);display:grid;place-items:center}
+  .brk{position:absolute;border:1.5px dashed var(--warning);border-radius:8px;z-index:6;pointer-events:none}
+  .legend{display:flex;flex-direction:column;gap:18px;max-width:560px}
+  .legend .lg{display:flex;gap:12px}
+  .legend .lg i{font-style:normal;flex:none;width:22px;height:22px;border-radius:11px;background:var(--warning);color:#1e1c19;font:700 11.5px var(--ui);display:grid;place-items:center}
+  .legend .lg div{color:#d6d0c4;line-height:1.55}
+  .legend .lg b{color:var(--foreground);display:block;font-size:14px}
+  .contract{font:12px/1.7 var(--mono);color:#d6d0c4;background:#1e1c19;border:1px solid var(--border);border-radius:9px;padding:12px 16px;white-space:pre}
+  .contract .k{color:#c69bd9}.contract .c{color:var(--faint)}
+</style>
+
+<h1>CLIO workbench, eighteenth pass</h1><p class="lede">One tab, one frame, one renderer per format. One row of chrome. Icons, with names on hover.</p>
+<div class="app wbo" style="height:700px"><div class="tsb">
+  <span class="brandbtn" style="margin-left:-6px"><span class="brand"><svg class="i" style="width:22px;height:22px;color:var(--primary)"><use href="#clio"/></svg></span>
+  <span class="bt"><b>CLIO <svg class="i" style=""><use href="#updown"/></svg></b><small><span class="dot"></span><span>CLIO local <span class="at">@</span> this computer</span></small></span></span>
+  <span class="t"><span class="nfbell"><svg class="i" style=""><use href="#bell"/></svg></span><svg class="i" style=""><use href="#panel"/></svg></span>
+</div><div class="tct"><span class="nav2"><svg class="i" style=""><use href="#back"/></svg><svg class="i" style=""><use href="#fwd"/></svg></span>
+  <span class="crumb"><span class="gi c-violet"><svg class="i" style=""><use href="#flask"/></svg></span><span>genesis-opal</span><span class="sepc">›</span><b>Soil moisture survey</b><svg class="i" style=""><use href="#down"/></svg></span>
+  <span class="t"><span class="yrb"><span class="spin"></span>2<svg class="i" style=""><use href="#krail"/></svg></span><span class="on2"><svg class="i" style=""><use href="#panelr"/></svg></span><svg class="i" style=""><use href="#more"/></svg><span class="wc nr"><span><svg class="i" style=""><use href="#wmin"/></svg></span><span><svg class="i" style=""><use href="#wmax"/></svg></span><span><svg class="i" style=""><use href="#x"/></svg></span></span></span>
+</div><div class="bsb"><div class="zone">
+    <div class="r new"><svg class="i" style=""><use href="#compose"/></svg>New conversation<span class="t"><svg class="i" style=""><use href="#upload"/></svg></span></div>
+    <div class="r"><svg class="i" style=""><use href="#search"/></svg>Search</div>
+    <div class="r g">Workspaces<span class="t"><svg class="i" style=""><use href="#plus"/></svg></span></div>
+    <div class="r ws"><span class="tw"><svg class="i" style=""><use href="#down"/></svg></span><span class="gi c-violet"><svg class="i" style=""><use href="#flask"/></svg></span>genesis-opal<span class="t">7</span></div>
+    <div class="r in sel">Soil moisture survey<span class="t"><span class="spin" style="margin:0"></span></span></div>
+    <div class="r in">Opal rollout<span class="t">1h</span></div>
+    <div class="r in">Darshan traces<span class="t">Tue</span></div>
+    <div class="r ws"><span class="tw"><svg class="i" style=""><use href="#right"/></svg></span><span class="gi c-blue"><svg class="i" style=""><use href="#atom"/></svg></span>scientific-pi<span class="t">4</span></div>
+    <div class="r g">Conversations<span class="t"><svg class="i" style=""><use href="#filter"/></svg><svg class="i" style=""><use href="#gear"/></svg></span></div>
+    <div class="r">Lighthouse at dawn<span class="t">2h</span></div>
+    <div class="r">Copilot live test<span class="t">3h</span></div>
+  </div>
+  <div class="sbfoot"><div class="r" style="height:40px"><span class="av">JC</span><span style="line-height:1.25">Jaime Cernuda<small style="display:block;color:var(--faint);font-size:11px">Local profile</small></span><span class="t"><svg class="i" style=""><use href="#archive"/></svg><svg class="i" style=""><use href="#gear"/></svg></span></div></div>
+</div><div class="bct col" style="position:relative"><div class="tr" style="width:560px">
+  <div class="um"><div class="ub">Find soil moisture data since 2020 for the Opal sites and plan the comparison.</div><div class="acts"></div></div>
+  <div class="am">I've handed the NDP search to NDP explorer and drafted a four-step plan in <span class="fm">plan.md</span>. SMAP L3 is downloading into <span class="fm">soil_moisture.h5</span>, and the SCAN stations are in <span class="fm">soil_sites.csv</span>. I also updated <span class="fm">align_grids.sh</span> to read the station list. Before I align the grids: which years should the baseline cover?</div>
+  <div class="af"><span class="meta"><span><svg class="i" style=""><use href="#orouter"/></svg>mercury-3</span><span>18.4K in, 212 out</span><span>6s</span></span></div>
+</div><div class="dock" style="width:560px"><div class="cp"><div class="tx">Ask CLIO anything, or describe a task…</div>
+  <div class="tb"><span class="ib"><svg class="i" style=""><use href="#plus"/></svg></span><span class="ib"><svg class="i" style=""><use href="#at"/></svg></span><span class="ib"><svg class="i" style=""><use href="#pask"/></svg></span><span class="ib"><svg class="i" style=""><use href="#chart"/></svg></span><span class="ib"><svg class="i" style=""><use href="#play"/></svg></span><span class="gap"></span><span class="mb"><svg class="i" style=""><use href="#orouter"/></svg><span><span class="pv">OpenRouter /</span> mercury-3</span></span><span class="send off"><svg class="i" style=""><use href="#send"/></svg></span></div></div></div></div>
+<div class="wbp"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab pin"><svg class="i" style=""><use href="#kplan"/></svg></span><span class="tab on"><svg class="i" style=""><use href="#kgrid"/></svg><span class="nm">soil_sites.csv</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab chg"><svg class="i" style=""><use href="#kdiff"/></svg><span class="nm">align_grids.sh</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab "><svg class="i" style=""><use href="#mdi"/></svg><span class="nm">plan.md</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#kgrid"/></svg></span><span class="ab "><svg class="i" style=""><use href="#code"/></svg><span class="htip">Source<span class="kb">Ctrl Shift V</span></span></span></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span><span class="ttp" style="left:46px"><b>soil_sites.csv</b><span>data/ndp/soil_sites.csv</span><br><span>412 rows, 38 KB</span></span></div><div class="bodyc"><table class="tbl" style="margin-top:6px"><tr><th></th><th>site_id</th><th>lat</th><th>lon</th><th>network</th></tr><tr class=""><td class="n">1</td><td>2015</td><td>41.82</td><td>-87.62</td><td>SCAN</td></tr><tr class=""><td class="n">2</td><td>2017</td><td>40.11</td><td>-88.24</td><td>SCAN</td></tr><tr class="hl"><td class="n">3</td><td>2031</td><td>39.78</td><td>-89.65</td><td>SCAN</td></tr><tr class=""><td class="n">4</td><td>2104</td><td>38.63</td><td>-90.20</td><td>USCRN</td></tr><tr class=""><td class="n">5</td><td>2118</td><td>42.27</td><td>-89.09</td><td>SCAN</td></tr><tr class=""><td class="n">6</td><td>2187</td><td>41.59</td><td>-93.62</td><td>USCRN</td></tr><tr class=""><td class="n">7</td><td>2200</td><td>39.10</td><td>-94.58</td><td>SCAN</td></tr><tr class=""><td class="n">8</td><td>2214</td><td>40.81</td><td>-96.70</td><td>SCAN</td></tr><tr class=""><td class="n">9</td><td>2236</td><td>43.07</td><td>-89.40</td><td>USCRN</td></tr><tr class=""><td class="n">10</td><td>2251</td><td>44.98</td><td>-93.27</td><td>SCAN</td></tr><tr class=""><td class="n">11</td><td>2263</td><td>37.69</td><td>-97.34</td><td>SCAN</td></tr><tr class=""><td class="n">12</td><td>2290</td><td>35.47</td><td>-97.52</td><td>USCRN</td></tr><tr class=""><td class="n">13</td><td>2302</td><td>36.16</td><td>-86.78</td><td>SCAN</td></tr><tr class=""><td class="n">14</td><td>2318</td><td>38.25</td><td>-85.76</td><td>SCAN</td></tr><tr class=""><td class="n">15</td><td>2330</td><td>40.44</td><td>-86.91</td><td>SCAN</td></tr><tr class=""><td class="n">16</td><td>2347</td><td>41.01</td><td>-92.41</td><td>USCRN</td></tr><tr class=""><td class="n">17</td><td>2361</td><td>39.32</td><td>-91.07</td><td>SCAN</td></tr></table></div></div><div class="st"><span class="si"><svg class="i" style=""><use href="#folder"/></svg></span><span class="si"><svg class="i" style=""><use href="#clip"/></svg></span><span class="si"><svg class="i" style=""><use href="#box"/></svg></span><span class="si"><svg class="i" style=""><use href="#act"/></svg></span><span class="si"><svg class="i" style=""><use href="#bot"/></svg></span><span class="ss"></span><span class="si"><svg class="i" style=""><use href="#kterm"/></svg></span><span class="si"><svg class="i" style=""><use href="#kglobe"/></svg></span><span class="si sp"><svg class="i" style=""><use href="#gear"/></svg></span></div></div></div>
+<div class="sect2">Three parts</div>
+<div class="anat">
+<div style="position:relative">
+ <div class="wbx " style="width:860px;height:300px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab "><svg class="i" style=""><use href="#kgrid"/></svg><span class="nm">soil_sites.csv</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab on chg"><svg class="i" style=""><use href="#kdiff"/></svg><span class="nm">align_grids.sh</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#cols"/></svg></span><span class="ab "><svg class="i" style=""><use href="#rows"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#undo"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="code"><span class="ln">11</span>module load hdf5/1.14
+<span class="ln">12</span>module load python/3.12
+<span class="del"><span class="ln">13</span>python regrid.py --all</span><span class="add"><span class="ln">13</span>SITES=data/ndp/soil_sites.csv</span><span class="add"><span class="ln">14</span>python scripts/soil_qc.py "$SITES" \</span><span class="add"><span class="ln">15</span>    --grid 0.25 --from 2020</span><span class="ln">16</span>srun -n 4 regrid.py</div></div></div></div>
+ <div class="brk" style="left:-4px;top:-4px;width:430px;height:48px"></div>
+ <div class="brk" style="left:574px;top:-4px;width:290px;height:48px"></div>
+ <div class="brk" style="left:-4px;top:48px;width:868px;height:256px"></div>
+ <div class="callout" style="left:400px;top:-30px"><i>1</i></div>
+ <div class="callout" style="left:834px;top:-30px"><i>2</i></div>
+ <div class="callout" style="left:834px;top:270px"><i>3</i></div>
+</div>
+<div class="legend">
+ <div class="lg"><i>1</i><div><b>Tab</b>One tab for everything. Icon and name, teal when the conversation changed it, a spinner while it runs. The path shows on hover.</div></div>
+ <div class="lg"><i>2</i><div><b>Frame</b>One frame around every body. It owns the row end (copy, open, maximize), find, comments, and loading, error, and too-large states. The format's own icons sit left of the divider.</div></div>
+ <div class="lg"><i>3</i><div><b>Renderer</b>The only part that differs per format. It draws the body and can add up to two icons. No bars of its own.</div></div>
+</div></div>
+<div style="display:flex;gap:40px;align-items:flex-start;margin-bottom:30px">
+<div class="contract"><span class="c">// a renderer is all a new format needs</span>
+<span class="k">renderer</span> diff {
+  opens    change
+  modes    split, unified        <span class="c">// becomes the toggle</span>
+  icons    undo                  <span class="c">// at most two</span>
+  body     (change, mode) → lines
+}</div>
+<div class="contract"><span class="k">renderer</span> table {
+  opens    .csv .tsv .parquet .xlsx
+  modes    table, source
+  icons    none
+  body     (bytes, mode) → grid
+}</div>
+<div class="rulebox" style="max-width:520px"><p><b>Where the bytes come from doesn't pick the viewer.</b> A workspace file, an artifact, a source, an attachment and a tool output with the same type open in the same renderer.</p><p><b>Fix once, fixed everywhere.</b> Change the too-large notice, the find bar or Copy, and every format gets it.</p></div>
+</div>
+<div class="sect2">Same frame, nine formats</div><div class="sub">Only the body and the icons left of the divider change.</div>
+<div class="grid3">
+<div><div class="cap2"><b>Table</b><span>csv, tsv, parquet, xlsx</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#kgrid"/></svg><span class="nm">soil_sites.csv</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#kgrid"/></svg></span><span class="ab "><svg class="i" style=""><use href="#code"/></svg></span></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><table class="tbl" style="margin-top:6px"><tr><th></th><th>site_id</th><th>lat</th><th>lon</th><th>network</th></tr><tr class=""><td class="n">1</td><td>2015</td><td>41.82</td><td>-87.62</td><td>SCAN</td></tr><tr class=""><td class="n">2</td><td>2017</td><td>40.11</td><td>-88.24</td><td>SCAN</td></tr><tr class=""><td class="n">3</td><td>2031</td><td>39.78</td><td>-89.65</td><td>SCAN</td></tr><tr class=""><td class="n">4</td><td>2104</td><td>38.63</td><td>-90.20</td><td>USCRN</td></tr><tr class=""><td class="n">5</td><td>2118</td><td>42.27</td><td>-89.09</td><td>SCAN</td></tr><tr class=""><td class="n">6</td><td>2187</td><td>41.59</td><td>-93.62</td><td>USCRN</td></tr><tr class=""><td class="n">7</td><td>2200</td><td>39.10</td><td>-94.58</td><td>SCAN</td></tr></table></div></div></div></div>
+<div><div class="cap2"><b>Markdown</b><span>md</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#mdi"/></svg><span class="nm">plan.md</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#eye"/></svg></span><span class="ab "><svg class="i" style=""><use href="#code"/></svg></span></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="md"><h3>Soil moisture comparison</h3>
+<ol><li>Pull SMAP L3 since 2020 into <code>soil_moisture.h5</code></li>
+<li>Match SCAN and USCRN stations from <code>soil_sites.csv</code></li>
+<li>Regrid to 0.25° with <code>align_grids.sh</code></li>
+<li>Compare against the baseline years</li></ol></div></div></div></div></div>
+<div><div class="cap2"><b>Code</b><span>py, sh, json, yaml, logs</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#py"/></svg><span class="nm">soil_qc.py</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#wrap"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="code"><span class="ln">1</span><span class="k">import</span> pandas <span class="k">as</span> pd
+<span class="ln">2</span><span class="k">import</span> h5py
+<span class="ln">3</span>
+<span class="ln">4</span><span class="k">def</span> <span class="f">load_sites</span>(path):
+<span class="ln">5</span>    sites = pd.<span class="f">read_csv</span>(path)
+<span class="ln">6</span>    <span class="k">return</span> sites[sites.network.<span class="f">isin</span>([<span class="s">"SCAN"</span>, <span class="s">"USCRN"</span>])]
+<span class="ln">7</span>
+<span class="ln">8</span><span class="k">def</span> <span class="f">flag</span>(series, lo=<span class="s">0.0</span>, hi=<span class="s">0.6</span>):
+<span class="ln">9</span>    <span class="c"># volumetric water content, m³/m³</span>
+<span class="ln">10</span>   <span class="k">return</span> (series &lt; lo) | (series &gt; hi)</div></div></div></div></div>
+<div><div class="cap2"><b>Document</b><span>pdf, docx, pptx</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#doc"/></svg><span class="nm">opal_report.pdf</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#zout"/></svg></span><span class="pg">3 / 12</span><span class="ab "><svg class="i" style=""><use href="#zin"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="pdfbg"><div class="pdfpg"><i class="h"></i><i></i><i style="width:92%"></i><i style="width:80%"></i><i></i><i style="width:64%"></i><i style="margin-top:16px"></i><i style="width:88%"></i><i style="width:70%"></i></div></div></div></div></div></div>
+<div><div class="cap2"><b>Image</b><span>png, jpg, svg</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#img"/></svg><span class="nm">baseline_plot.png</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#zout"/></svg></span><span class="ab "><svg class="i" style=""><use href="#zin"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><svg viewBox="0 0 480 200" style="width:100%;height:100%;padding:10px 14px 4px">
+<g stroke="#34312b" stroke-width="1"><line x1="34" y1="20" x2="470" y2="20"/><line x1="34" y1="80" x2="470" y2="80"/><line x1="34" y1="140" x2="470" y2="140"/><line x1="34" y1="180" x2="470" y2="180"/></g>
+<g fill="#8a8378" font-size="10" font-family="monospace"><text x="4" y="24">0.4</text><text x="4" y="84">0.3</text><text x="4" y="144">0.2</text>
+<text x="40" y="196">2020</text><text x="150" y="196">2021</text><text x="260" y="196">2022</text><text x="370" y="196">2023</text></g>
+<polyline fill="none" stroke="#c9a14a" stroke-width="1.6" stroke-dasharray="4 3" points="40,110 95,98 150,104 205,92 260,100 315,95 370,102 425,97 465,100"/>
+<polyline fill="none" stroke="#4fb3a5" stroke-width="2" points="40,120 95,84 150,128 205,70 260,142 315,88 370,60 425,96 465,78"/>
+<g fill="#4fb3a5"><circle cx="40" cy="120" r="3"/><circle cx="150" cy="128" r="3"/><circle cx="260" cy="142" r="3"/><circle cx="370" cy="60" r="3"/><circle cx="465" cy="78" r="3"/></g></svg></div></div></div></div>
+<div><div class="cap2"><b>Array</b><span>h5, nc, zarr</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab "><svg class="i" style=""><use href="#kgrid"/></svg></span><span class="ab on"><svg class="i" style=""><use href="#img"/></svg></span></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="h5"><div class="tr5">
+  <div class="zx"><span class="tw"><svg class="i" style=""><use href="#down"/></svg></span><svg class="i" style=""><use href="#folder"/></svg>2020</div>
+  <div class="zx sl" style="padding-left:28px"><svg class="i" style=""><use href="#kgrid"/></svg>sm<span class="t">f32</span></div>
+  <div class="zx" style="padding-left:28px"><svg class="i" style=""><use href="#kgrid"/></svg>sm_qc<span class="t">u8</span></div>
+  <div class="zx"><span class="tw"><svg class="i" style=""><use href="#right"/></svg></span><svg class="i" style=""><use href="#folder"/></svg>2021</div>
+  <div class="zx"><span class="tw"><svg class="i" style=""><use href="#right"/></svg></span><svg class="i" style=""><use href="#folder"/></svg>2022</div>
+  <div class="zx mut" style="margin-top:6px">365 × 720 × 1440</div>
+</div><div class="hm"><i style="background:hsl(182,39%,25%)"></i><i style="background:hsl(176,34%,19%)"></i><i style="background:hsl(196,49%,36%)"></i><i style="background:hsl(172,32%,16%)"></i><i style="background:hsl(191,46%,32%)"></i><i style="background:hsl(184,40%,26%)"></i><i style="background:hsl(172,31%,15%)"></i><i style="background:hsl(190,45%,31%)"></i><i style="background:hsl(171,31%,15%)"></i><i style="background:hsl(187,43%,28%)"></i><i style="background:hsl(172,32%,16%)"></i><i style="background:hsl(173,32%,17%)"></i><i style="background:hsl(186,42%,28%)"></i><i style="background:hsl(203,54%,42%)"></i><i style="background:hsl(174,33%,18%)"></i><i style="background:hsl(178,36%,21%)"></i><i style="background:hsl(195,48%,35%)"></i><i style="background:hsl(207,58%,46%)"></i><i style="background:hsl(193,47%,33%)"></i><i style="background:hsl(185,41%,27%)"></i><i style="background:hsl(209,59%,47%)"></i><i style="background:hsl(171,31%,15%)"></i><i style="background:hsl(204,55%,43%)"></i><i style="background:hsl(181,38%,23%)"></i><i style="background:hsl(175,34%,18%)"></i><i style="background:hsl(174,33%,18%)"></i><i style="background:hsl(182,39%,24%)"></i><i style="background:hsl(202,54%,41%)"></i><i style="background:hsl(177,35%,20%)"></i><i style="background:hsl(193,47%,33%)"></i><i style="background:hsl(195,49%,35%)"></i><i style="background:hsl(184,41%,26%)"></i><i style="background:hsl(191,46%,32%)"></i><i style="background:hsl(172,31%,16%)"></i><i style="background:hsl(172,31%,16%)"></i><i style="background:hsl(178,36%,21%)"></i><i style="background:hsl(197,50%,37%)"></i><i style="background:hsl(187,42%,28%)"></i><i style="background:hsl(182,39%,24%)"></i><i style="background:hsl(193,47%,33%)"></i><i style="background:hsl(188,43%,29%)"></i><i style="background:hsl(181,38%,24%)"></i><i style="background:hsl(201,53%,41%)"></i><i style="background:hsl(197,50%,37%)"></i><i style="background:hsl(179,37%,22%)"></i><i style="background:hsl(192,47%,33%)"></i><i style="background:hsl(191,45%,31%)"></i><i style="background:hsl(205,56%,43%)"></i><i style="background:hsl(199,51%,38%)"></i><i style="background:hsl(181,38%,23%)"></i><i style="background:hsl(209,59%,47%)"></i><i style="background:hsl(174,33%,18%)"></i><i style="background:hsl(186,42%,28%)"></i><i style="background:hsl(200,52%,39%)"></i><i style="background:hsl(176,34%,19%)"></i><i style="background:hsl(189,44%,30%)"></i><i style="background:hsl(171,31%,15%)"></i><i style="background:hsl(196,50%,36%)"></i><i style="background:hsl(200,52%,39%)"></i><i style="background:hsl(192,47%,33%)"></i><i style="background:hsl(205,56%,43%)"></i><i style="background:hsl(182,39%,24%)"></i><i style="background:hsl(197,50%,37%)"></i><i style="background:hsl(193,47%,34%)"></i><i style="background:hsl(193,47%,33%)"></i><i style="background:hsl(188,43%,29%)"></i><i style="background:hsl(203,55%,42%)"></i><i style="background:hsl(207,58%,46%)"></i><i style="background:hsl(188,44%,30%)"></i><i style="background:hsl(196,49%,36%)"></i><i style="background:hsl(172,31%,16%)"></i><i style="background:hsl(198,51%,37%)"></i><i style="background:hsl(195,49%,36%)"></i><i style="background:hsl(209,59%,47%)"></i><i style="background:hsl(202,54%,41%)"></i><i style="background:hsl(181,38%,23%)"></i><i style="background:hsl(185,41%,27%)"></i><i style="background:hsl(196,50%,36%)"></i><i style="background:hsl(170,30%,14%)"></i><i style="background:hsl(188,43%,29%)"></i><i style="background:hsl(176,35%,19%)"></i><i style="background:hsl(174,33%,17%)"></i><i style="background:hsl(172,31%,16%)"></i><i style="background:hsl(200,53%,40%)"></i><i style="background:hsl(175,33%,18%)"></i><i style="background:hsl(179,37%,22%)"></i><i style="background:hsl(185,41%,27%)"></i><i style="background:hsl(204,56%,43%)"></i><i style="background:hsl(173,32%,16%)"></i><i style="background:hsl(187,43%,29%)"></i><i style="background:hsl(191,46%,32%)"></i><i style="background:hsl(205,56%,44%)"></i><i style="background:hsl(202,54%,41%)"></i><i style="background:hsl(204,55%,43%)"></i><i style="background:hsl(181,38%,23%)"></i><i style="background:hsl(186,42%,28%)"></i><i style="background:hsl(184,40%,26%)"></i><i style="background:hsl(205,56%,44%)"></i><i style="background:hsl(208,58%,46%)"></i><i style="background:hsl(176,34%,19%)"></i><i style="background:hsl(177,35%,19%)"></i><i style="background:hsl(179,36%,21%)"></i><i style="background:hsl(179,37%,21%)"></i><i style="background:hsl(189,44%,30%)"></i><i style="background:hsl(193,47%,34%)"></i><i style="background:hsl(180,37%,22%)"></i><i style="background:hsl(170,30%,14%)"></i><i style="background:hsl(186,42%,28%)"></i><i style="background:hsl(184,41%,26%)"></i><i style="background:hsl(192,46%,33%)"></i><i style="background:hsl(208,58%,46%)"></i><i style="background:hsl(197,50%,37%)"></i><i style="background:hsl(190,45%,31%)"></i><i style="background:hsl(194,48%,34%)"></i><i style="background:hsl(197,50%,36%)"></i><i style="background:hsl(172,31%,15%)"></i><i style="background:hsl(205,56%,44%)"></i><i style="background:hsl(201,53%,40%)"></i><i style="background:hsl(204,56%,43%)"></i><i style="background:hsl(201,53%,41%)"></i><i style="background:hsl(185,41%,27%)"></i><i style="background:hsl(185,41%,27%)"></i><i style="background:hsl(174,33%,17%)"></i><i style="background:hsl(195,49%,35%)"></i><i style="background:hsl(172,31%,16%)"></i><i style="background:hsl(172,32%,16%)"></i></div></div></div></div></div></div>
+<div><div class="cap2"><b>Diff</b><span>a change the agent made</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kdiff"/></svg><span class="nm">align_grids.sh</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#cols"/></svg></span><span class="ab "><svg class="i" style=""><use href="#rows"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#undo"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="code"><span class="ln">11</span>module load hdf5/1.14
+<span class="ln">12</span>module load python/3.12
+<span class="del"><span class="ln">13</span>python regrid.py --all</span><span class="add"><span class="ln">13</span>SITES=data/ndp/soil_sites.csv</span><span class="add"><span class="ln">14</span>python scripts/soil_qc.py "$SITES" \</span><span class="add"><span class="ln">15</span>    --grid 0.25 --from 2020</span><span class="ln">16</span>srun -n 4 regrid.py</div></div></div></div></div>
+<div><div class="cap2"><b>Terminal</b><span>a shell or a job</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#kterm"/></svg><span class="nm">regrid</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#stop"/></svg></span><span class="ab "><svg class="i" style=""><use href="#trash"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="term"><span class="p">$</span> srun -n 4 python regrid.py --grid 0.25
+<span class="c">[rank 0] reading data/ndp/soil_moisture.h5</span>
+<span class="c">[rank 0] 2020/sm  365×720×1440</span>
+<span class="c">[rank 1] 2021/sm  365×720×1440</span>
+<span class="c">[rank 2] regridding 0.25° …  41%</span>
+<span class="c">[rank 3] regridding 0.25° …  38%</span></div></div></div></div></div>
+<div><div class="cap2"><b>Transcript</b><span>a subagent or a flow</span></div><div class="wbx mp" style=""><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#bot"/></svg><span class="nm">NDP explorer</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#msg"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="tx2">
+<div class="row"><svg class="i" style=""><use href="#msg"/></svg><span>Find SMAP L3 granules since 2020 over the Opal sites and fetch them.</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_search  SMAP_L3_SM_P  12 hits</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_fetch  1,462 granules  62%</span></div>
+<div class="row"><svg class="i" style=""><use href="#bot"/></svg><span>Version 009 covers the full range. Writing into data/ndp/soil_moisture.h5 by year.</span></div>
+</div></div></div></div></div>
+</div>
+<div class="sect2">Same states, every format</div>
+<div class="grid4">
+<div><div class="cap2"><b>Loading</b></div><div class="wbx " style="width:383px;height:200px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="sk"><i style="width:70%"></i><i></i><i style="width:85%"></i><i style="width:60%"></i><i></i></div></div></div></div></div>
+<div><div class="cap2"><b>Couldn't read it</b></div><div class="wbx " style="width:383px;height:200px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="stt"><svg class="i" style=""><use href="#shield"/></svg><span>Couldn't read soil_moisture.h5</span><span class="bt2"><span class="ab "><svg class="i" style=""><use href="#retry"/></svg></span></span></div></div></div></div></div>
+<div><div class="cap2"><b>Too large</b></div><div class="wbx " style="width:383px;height:200px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="stt"><svg class="i" style=""><use href="#kh5"/></svg><span>2.1 GB</span><span class="bt2"><span class="ab "><svg class="i" style=""><use href="#eye"/></svg></span><span class="ab "><svg class="i" style=""><use href="#dl"/></svg></span></span></div></div></div></div></div>
+<div><div class="cap2"><b>No preview</b></div><div class="wbx " style="width:383px;height:200px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on chg"><svg class="i" style=""><use href="#kh5"/></svg><span class="nm">soil_moisture.h5</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="stt"><svg class="i" style=""><use href="#file"/></svg><span>.grib2</span><span class="bt2"><span class="ab "><svg class="i" style=""><use href="#kopen"/></svg></span><span class="ab "><svg class="i" style=""><use href="#dl"/></svg></span></span></div></div></div></div></div>
+</div>
+<div class="sect2">Icons, names on hover</div>
+<div class="rowm">
+<div class="mnu"><div class="anchor"><span class="spl hv"><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span></div><div class="pop pop2"><div class="mi df">Contents<span class="kl">C</span></div><div class="mi ">Absolute path<span class="kl">A</span></div><div class="mi hl">Relative to workspace<span class="kl">W</span></div><div class="mi ">As @ mention<span class="kl">@</span></div></div></div>
+<div class="mnu"><div class="anchor"><span class="spl hv"><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span></div><div class="pop pop2"><div class="mi df">In a browser tab<span class="kl">B</span></div><div class="mi ">In the system app<span class="kl">S</span></div><div class="mi ">Show in Files<span class="kl">F</span></div><div class="cms"></div><div class="mi ">Download<span class="kl">D</span></div></div></div>
+<div class="mnu"><div class="anchor"><span class="sg2"><span class="ab on"><svg class="i" style=""><use href="#eye"/></svg></span><span class="ab "><svg class="i" style=""><use href="#code"/></svg><span class="htip">Source<span class="kb">Ctrl Shift V</span></span></span><span class="ab "><svg class="i" style=""><use href="#cols"/></svg></span></span></div></div>
+<div class="mnu"><div class="anchor"><span class="ab hv"><svg class="i" style=""><use href="#expand"/></svg><span class="htip">Maximize<span class=kb>Ctrl Shift M</span></span></span></div></div>
+<div class="rulebox"><p><b>An icon, and its name on hover.</b> No words in the row.</p><p><b>A chevron means variants of the same verb.</b> The icon does the first one; the chevron lists the rest.</p><p><b>Toggles are icons side by side.</b> Only the modes the renderer has.</p></div>
+</div>
+<div class="sect2">Headers, today and after</div>
+<div class="grid2">
+<div><div class="cap2"><b>Today: a file</b><span>The tab says the name, then the viewer row says it again.</span></div><div class="cmp"><span class="rowno" style="top:9px">1</span><span class="rowno" style="top:49px">2</span>
+<div class="wbx" style="width:760px;height:220px"><div class="ed">
+<div class="tabs"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#doc"/></svg><span class="nm">opal_report.pdf</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab"><svg class="i" style=""><use href="#mdi"/></svg><span class="nm">plan.md</span></span></div><span class="end"><svg class="i" style=""><use href="#plus"/></svg><svg class="i" style=""><use href="#expand"/></svg></span></div>
+<div class="cbar"><span class="badge">PDF</span><b>opal_report.pdf</b><span class="t"><svg class="i" style=""><use href="#zout"/></svg><svg class="i" style=""><use href="#zin"/></svg><svg class="i" style=""><use href="#dl"/></svg><svg class="i" style=""><use href="#more"/></svg><svg class="i" style=""><use href="#expand"/></svg></span></div>
+<div class="bodyc"><div class="pdfbg"><div class="pdfpg"><i class="h"></i><i></i><i style="width:92%"></i><i style="width:80%"></i><i></i><i style="width:64%"></i><i style="margin-top:16px"></i><i style="width:88%"></i><i style="width:70%"></i></div></div></div></div></div></div></div>
+<div><div class="cap2"><b>After</b><span>One row. The name is on the tab; the path is on hover and in Copy.</span></div><div class="cmp"><span class="rowno ok" style="top:9px">1</span>
+<div class="wbx " style="width:760px;height:220px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#doc"/></svg><span class="nm">opal_report.pdf</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab "><svg class="i" style=""><use href="#mdi"/></svg><span class="nm">plan.md</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab "><svg class="i" style=""><use href="#zout"/></svg></span><span class="pg">3 / 12</span><span class="ab "><svg class="i" style=""><use href="#zin"/></svg></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="pdfbg"><div class="pdfpg"><i class="h"></i><i></i><i style="width:92%"></i><i style="width:80%"></i><i></i><i style="width:64%"></i><i style="margin-top:16px"></i><i style="width:88%"></i><i style="width:70%"></i></div></div></div></div></div></div></div>
+<div><div class="cap2"><b>Today: a subagent</b><span>Its own bar, its own words, its own menu.</span></div><div class="cmp"><span class="rowno" style="top:9px">1</span><span class="rowno" style="top:49px">2</span>
+<div class="wbx" style="width:760px;height:220px"><div class="ed">
+<div class="tabs"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#bot"/></svg><span class="nm">NDP explorer</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab"><svg class="i" style=""><use href="#doc"/></svg><span class="nm">opal_report.pdf</span></span></div><span class="end"><svg class="i" style=""><use href="#plus"/></svg><svg class="i" style=""><use href="#expand"/></svg></span></div>
+<div class="cbar"><svg class="i" style=""><use href="#bot"/></svg><b>NDP explorer</b><span>running</span><span class="t"><span style="color:var(--muted-foreground)">Open conversation</span><svg class="i" style=""><use href="#more"/></svg></span></div>
+<div class="bodyc"><div class="tx2">
+<div class="row"><svg class="i" style=""><use href="#msg"/></svg><span>Find SMAP L3 granules since 2020 over the Opal sites and fetch them.</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_search  SMAP_L3_SM_P  12 hits</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_fetch  1,462 granules  62%</span></div>
+<div class="row"><svg class="i" style=""><use href="#bot"/></svg><span>Version 009 covers the full range. Writing into data/ndp/soil_moisture.h5 by year.</span></div>
+</div></div></div></div></div></div>
+<div><div class="cap2"><b>After</b><span>Same frame as the file. Its one action is an icon.</span></div><div class="cmp"><span class="rowno ok" style="top:9px">1</span>
+<div class="wbx " style="width:760px;height:220px"><div class="ed"><div class="tabs" style="position:relative"><div class="tl"><span class="tab on"><svg class="i" style=""><use href="#bot"/></svg><span class="nm">NDP explorer</span><svg class="i x" style=""><use href="#x"/></svg></span><span class="tab "><svg class="i" style=""><use href="#doc"/></svg><span class="nm">opal_report.pdf</span><svg class="i x" style=""><use href="#x"/></svg></span></div><span class="acts2"><span class="ab hv"><svg class="i" style=""><use href="#msg"/></svg><span class="htip">Open as conversation</span></span><span class="dv"></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#copy"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="spl "><span class="ab"><svg class="i" style=""><use href="#kopen"/></svg></span><span class="chev"><svg class="i" style=""><use href="#down"/></svg></span></span><span class="ab "><svg class="i" style=""><use href="#expand"/></svg></span></span></div><div class="bodyc"><div class="tx2">
+<div class="row"><svg class="i" style=""><use href="#msg"/></svg><span>Find SMAP L3 granules since 2020 over the Opal sites and fetch them.</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_search  SMAP_L3_SM_P  12 hits</span></div>
+<div class="row"><svg class="i" style=""><use href="#kterm"/></svg><span class="tool">ndp_fetch  1,462 granules  62%</span></div>
+<div class="row"><svg class="i" style=""><use href="#bot"/></svg><span>Version 009 covers the full range. Writing into data/ndp/soil_moisture.h5 by year.</span></div>
+</div></div></div></div></div></div>
+</div>
+<div class="sect2">Today and after</div>
+<table class="ttab"><tr><th>Today on develop</th><th>Becomes</th><th>Why</th></tr>
+<tr><td>16 tab kinds, each its own component</td><td class="new">1 tab, 1 frame, renderers</td><td>The kinds become renderers. Tab, frame, states and actions are written once.</td></tr>
+<tr><td>Format checks per origin (isImagePath for files, isImageArtifact for artifacts)</td><td class="new">One registry by type</td><td>Files, artifacts, sources, attachments and tool outputs are only where the bytes come from.</td></tr>
+<tr><td>Viewer row repeats the file name</td><td class="new">Gone</td><td>The tab has the name. Path on hover and in Copy.</td></tr>
+<tr><td>Diff, subagent, flow, knowledge, science log and browser draw their own bars</td><td class="new">Icons in the one slot</td><td>Up to two per renderer, left of the divider.</td></tr>
+<tr><td>v17's path row and Agent title</td><td class="new">Gone</td><td>Same rule applied to my own last pass.</td></tr>
+<tr><td>Loading, errors and size notices per viewer</td><td class="new">Owned by the frame</td><td>Four states, the same for every format.</td></tr>
+<tr><td>Word buttons and "…" menus</td><td class="new">Icon, or icon + chevron</td><td>Names and shortcuts on hover.</td></tr>
+<tr><td>FileViewerShell, ToolbarAction, ViewerToolbarContent, the one PDF preview</td><td>Kept and widened</td><td>Develop already started this for files. Finish it for every tab.</td></tr>
+</table>
+<div class="sect2">Notes</div><ul class="rl2">
+<li><b>Three parts.</b> Tab, frame, renderer. A new format is one renderer; nothing else changes.</li>
+<li><b>One row.</b> Tabs on the left, the active tab's icons on the right. Nothing stacks under it.</li>
+<li><b>The row end never moves.</b> Copy, Open, Maximize are always last, in that order. Format icons sit left of the divider.</li>
+<li><b>Icons with names on hover.</b> A chevron beside an icon lists variants of that verb.</li>
+<li><b>Four shared states.</b> Loading, couldn't read, too large, no preview.</li>
+</ul>
+<div class="sect2">Open questions</div><ul class="rl2">
+<li><b>Copy's default.</b> Contents (shown), or the path like your file browser?</li>
+<li><b>Two format icons, at most?</b> Anything more would go into the renderer's body, not a menu.</li>
+<li><b>Agent and Activity.</b> They're a form and a list, not files. Same frame (my lean), or their own?</li>
+</ul>
+</body></html>

@@ -1,10 +1,10 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ClioEvidenceView } from './observability-evidence';
 import { AsyncTaskList } from './async-task-list';
 import { asyncProcessDetail } from './observability-activity';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(cleanup);
 
@@ -169,20 +169,7 @@ it('shows a question waiting for its answer and reveals the stored answer on dem
 
 it('shows one compact task row and discloses complete assignments and technical identity by keyboard', async () => {
   const user = userEvent.setup();
-  render(
-    <ClioEvidenceView
-      compact
-      section="work"
-      artifacts={[]}
-      contextFiles={[]}
-      diffs={[]}
-      messages={[]}
-      processes={[task]}
-      subagents={[child]}
-    />,
-  );
-  expect(screen.getByRole('button', { name: 'Background tasks, 1 recorded' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
+  render(<AsyncTaskList compact processes={[task]} subagents={[child]} />);
   const row = screen.getByRole('button', { name: 'Task details: Worker #1' });
   expect(row).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByRole('region', { name: 'Assignment: Worker #1' })).toBeNull();
@@ -312,33 +299,7 @@ it('identifies missing older assignments explicitly only when details are opened
   expect(screen.getByText('Description unavailable for this older task')).toBeVisible();
 });
 
-it('retains one navigable durable child row in the full evidence view', async () => {
-  const open = vi.fn();
-  render(
-    <ClioEvidenceView
-      artifacts={[]}
-      contextFiles={[]}
-      diffs={[]}
-      messages={[]}
-      processes={[task]}
-      subagents={[child]}
-      onOpenSubagent={open}
-    />,
-  );
-  expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: 'Background tasks, 1 recorded' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Task details: Worker #1' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Open child conversation Worker #1' }));
-  expect(open).toHaveBeenLastCalledWith(child, 'canvas');
-  const user = userEvent.setup();
-  await user.keyboard('{Shift>}');
-  await user.click(screen.getByRole('button', { name: 'Open child conversation Worker #1' }));
-  await user.keyboard('{/Shift}');
-  expect(open).toHaveBeenLastCalledWith(child, 'conversation');
-  expect(open).toHaveBeenCalledTimes(2);
-});
-
-it('names a task that runs a flow as that run and opens the run view', async () => {
+it('names a task that runs a flow by its title and opens the run view', async () => {
   const user = userEvent.setup();
   const openFlow = vi.fn();
   const openChild = vi.fn();
@@ -355,7 +316,7 @@ it('names a task that runs a flow as that run and opens the run view', async () 
     supported_actions: ['cancel'],
   };
   render(<AsyncTaskList processes={[flowTask]} onOpenFlow={openFlow} onOpenSubagent={openChild} />);
-  expect(screen.getByText('Workflow run')).toBeVisible();
+  expect(screen.getByText('Field sites workflow')).toBeVisible();
   expect(screen.getByRole('img', { name: 'Flow: running' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Task details: Field sites workflow' }));
   await user.click(
@@ -404,6 +365,7 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
           ...task,
           id: 'flow',
           handle: 'flow',
+          title: 'Station follow-up',
           effective_status: 'completed',
           live_state: 'completed',
           flow: { id: 'deep-research', status: 'not_run', previous_handle: 'old' },
@@ -415,19 +377,109 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
       onControlTask={vi.fn()}
     />,
   );
-  expect(screen.getByText('Deep research follow-up')).toBeVisible();
+  expect(screen.getByText('Station follow-up')).toBeVisible();
   expect(screen.getByText('Flow: No new run')).toBeVisible();
   expect(document.querySelector('[data-work-kind="workflow"]')).toHaveAttribute(
     'data-work-status',
     'not_run',
   );
   expect(document.querySelector('[data-work-kind="agent"]')).not.toBeNull();
-  const row = screen.getByText('Deep research follow-up').closest('button')!;
+  const row = screen.getByText('Station follow-up').closest('button')!;
   await userEvent.click(row);
   await userEvent.click(screen.getByRole('button', { name: 'Open earlier flow attempt' }));
   expect(open).toHaveBeenCalledWith('old', 'Deep research run');
   await userEvent.click(
-    row.parentElement!.querySelector('[aria-label="More actions for Worker #1"]')!,
+    row.parentElement!.querySelector('[aria-label="More actions for Station follow-up"]')!,
   );
   expect(screen.getByRole('menuitem', { name: 'Restart flow' })).toBeVisible();
+});
+
+it('says a running script state in words in the compact rail, with its progress', () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'watcher',
+    handle: 'task_watcher',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'printer-watch',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    progress: { message: '2 min 5 s, 40 calls, 35 MB' },
+    supported_actions: ['observe', 'cancel'],
+  };
+  render(<AsyncTaskList processes={[script]} compact />);
+  expect(screen.getByText(/^Script: Running/)).toBeVisible();
+  expect(screen.getByText(/40 calls/)).toBeVisible();
+});
+
+it('opens the row a link asked Work to show, once', async () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'script',
+    handle: 'task_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'Printer watch',
+    description: 'Poll the printer every 5 s',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    supported_actions: ['cancel'],
+  };
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(<AsyncTaskList processes={[script]} />);
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
+  act(() => useWorkTaskFocus.getState().focus('task_script'));
+  expect(await screen.findByRole('region', { name: 'Assignment: Printer watch' })).toBeVisible();
+  expect(useWorkTaskFocus.getState().handle).toBeUndefined();
+  // The reader can still close it; the request does not reopen it.
+  await userEvent.click(screen.getByRole('button', { name: 'Task details: Printer watch' }));
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
+});
+
+it('opens Completed work when a link asks for a task that has finished', () => {
+  const finished: AsyncProcess = {
+    ...task,
+    id: 'done-script',
+    handle: 'task_done_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'lister',
+    description: 'List the folder six times',
+    child_session_id: undefined,
+    effective_status: 'completed',
+    live_state: 'completed',
+    status: 'completed',
+    raw_status: 'completed',
+    supported_actions: [],
+  };
+  const toggle = vi.fn();
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: {
+          visible: false,
+          toggle,
+          items: [finished],
+          hasMore: false,
+          pending: false,
+          loadMore: async () => {},
+          error: '',
+        },
+      }}
+    />,
+  );
+  expect(toggle).not.toHaveBeenCalled();
+  act(() => useWorkTaskFocus.getState().focus('task_done_script'));
+  expect(toggle).toHaveBeenCalledTimes(1);
 });

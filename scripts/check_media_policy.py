@@ -36,9 +36,11 @@ _ALLOWED_IMAGE_PREFIXES: tuple[str, ...] = (
     "docs/screenshots/",              # curated doc images (sole screenshot home)
     "branding/",                      # branding mechanism assets
     "docs/ref/",                      # small static design-reference images
+    "docs/design/visual-language/previews/",  # reference design mockups for the visual-language spec
     "ref/",                           # design reference
     "logo/",                          # logo art
     "desktop/src-tauri/icons/",       # functional desktop app icons (build input)
+    "desktop/src-tauri/gen/tray-template.png",  # generated brand tray icon, include_bytes! input
     "web/public/provider-logos/",     # provider identity assets used by the product UI
     "web/tests/",                     # visual-test fixtures (build input)
 )
@@ -100,6 +102,7 @@ def _selftest() -> int:
         "docs/ref/ours.png",
         "web/public/provider-logos/flowcept.png",
         "desktop/src-tauri/icons/icon.png",  # functional desktop app icon
+        "desktop/src-tauri/gen/tray-template.png",  # generated tray icon (build input)
         "web/tests/visual/fixtures/MTA1_GNSS_timeseries_displacement.png",  # visual-test fixture
         "tui/testdata/tapes/x.tape",
         "README.md",
@@ -133,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "\nCurated doc screenshots live under docs/screenshots/ (the sole home); "
         "brand/design art under design, branding, docs/ref; functional "
-        "build assets under desktop/src-tauri/icons and web/tests. "
+        "build assets under desktop/src-tauri/icons, the generated tray icon and web/tests. "
         "Run/eval outputs are regenerable — remove them from tracking (git rm "
         "--cached) and rely on .gitignore. Screenshots are tape-regenerated, not "
         "committed elsewhere; no Git LFS."

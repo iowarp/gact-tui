@@ -17,6 +17,11 @@ import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { ClioModelPicker } from './model-picker';
 import type { ClioWorkbenchOpenRequest } from './workbench';
 import { ClioConversation } from './conversation';
+import { NamedTooltip } from './primitives/icon-button';
+import { useKeysAria } from '@/lib/shortcuts/hooks';
+
+/** Back to the results: Shift+Tab from the question, or Esc anywhere in the assistant. */
+const BACK_KEYS = ['Shift+Tab', 'Esc'] as const;
 
 /** An isolated real CLIO session: Tab selects the mode; Enter starts inference. */
 export function ClioSearchAssistant({
@@ -37,6 +42,7 @@ export function ClioSearchAssistant({
   onOpenResource?: (request: ClioWorkbenchOpenRequest) => void;
 }) {
   const repository = useRepository();
+  const backAria = useKeysAria(BACK_KEYS);
   const { settings } = useConnectionSettings();
   const [session, setSession] = useState<Session>();
   const [model, setModel] = useState<ClioModelOption>();
@@ -46,7 +52,7 @@ export function ClioSearchAssistant({
   const sending = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const { entities, messages, transcript } = useLiveSessionTranscript(
+  const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
     session?.workspace_id ?? workspaceId,
     session?.id,
     'search',
@@ -118,15 +124,17 @@ export function ClioSearchAssistant({
   return (
     <div className="flex min-h-0 flex-col" data-slot="search-assistant">
       <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Back to search results"
-          title="Back to search results (Shift+Tab or Esc)"
-          onClick={onBack}
-        >
-          <ArrowLeftIcon />
-        </Button>
+        <NamedTooltip label="Back to search results" keys={BACK_KEYS}>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Back to search results"
+            aria-keyshortcuts={backAria}
+            onClick={onBack}
+          >
+            <ArrowLeftIcon />
+          </Button>
+        </NamedTooltip>
         <SparklesIcon aria-hidden="true" className="size-4 text-info" />
         <span className="text-sm font-semibold">{vocab.agent} Search</span>
         <ClioModelPicker
@@ -211,6 +219,7 @@ export function ClioSearchAssistant({
           <ClioConversation
             sessionId={session.id}
             workspaceId={session.workspace_id}
+            earlier={earlier}
             messages={messages}
             tools={entities.tools}
             tasks={entities.tasks}

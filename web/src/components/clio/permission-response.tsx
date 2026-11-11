@@ -1,35 +1,166 @@
-import { useAttentionDraft } from './attention-drafts';
 import type { PendingInteraction } from '@clio/core/v3';
-import { ShieldQuestionIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
-import type { ClioPendingInteractionsProps } from './pending-interactions';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
-import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
-import { TechnicalDetails } from './technical-details';
-import { PermissionOperationDetails } from './permission-operation-details';
-import { permissionOperationLabel } from './permission-operation-labels';
-import { FlowTrustDetails } from './flow-trust-details';
+import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
+import { cn } from '@/lib/utils';
+import {
+  AskBody,
+  AskButton,
+  AskCard,
+  AskCode,
+  AskDetails,
+  AskError,
+  AskOptions,
+  AskSection,
+  type AskFact,
+} from './ask-card';
+import { FlowTrustDetails } from './flow-trust-details';
+import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import type { ClioPendingInteractionsProps } from './pending-interactions';
+import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
+import { permissionOperationLabel } from './permission-operation-labels';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 
 const SCOPES = [
-  { action: 'allow', label: 'Once', button: 'Allow once' },
-  { action: 'allow_session', label: 'This session', button: 'Allow for session' },
-  { action: 'allow_workspace', label: 'This workspace', button: 'Allow for workspace' },
+  { action: 'allow', label: 'Allow once', name: 'Allow once' },
+  { action: 'allow_session', label: 'This session', name: 'Allow for this session' },
+  { action: 'allow_workspace', label: 'This workspace', name: 'Allow for this workspace' },
+  // Offered only on a question asked from a run_code script.
+  {
+    action: 'allow_script',
+    label: 'Rest of this script',
+    name: 'Allow for the rest of this script',
+  },
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
 
-/** One permission decision with explicit duration and only server-offered actions. */
+/** The tool's own arguments: CLIO's `_clio_*` annotations ride along but are not for people. */
+function agentArguments(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !key.startsWith('_clio_')));
+}
+
+/**
+ * Arguments that carry code (run_code's `code`) read as code with its real lines, and the
+ * rest as key-values. Arguments without a multi-line string stay one JSON block. Code the
+ * card already shows as its Script is named, not repeated.
+ */
+function argumentParts(
+  input: unknown,
+  script: string | undefined,
+): { blocks: [string, string][]; facts: KeyValueItem[] } | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const entries = Object.entries(input as Record<string, unknown>);
+  const multiline = (value: unknown): value is string =>
+    typeof value === 'string' && value.includes('\n');
+  const shown = (value: unknown) => script !== undefined && value === script;
+  if (!entries.some(([, value]) => multiline(value) || shown(value))) return undefined;
+  const blocks = entries.filter(
+    (entry): entry is [string, string] => multiline(entry[1]) && !shown(entry[1]),
+  );
+  const facts = entries
+    .filter(([, value]) => !multiline(value) || shown(value))
+    .map(([key, value]): KeyValueItem =>
+      shown(value)
+        ? {
+            label: key,
+            value: <span className="text-muted-foreground">same as Script above</span>,
+          }
+        : {
+            label: key,
+            mono: true,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          },
+    );
+  return { blocks, facts };
+}
+
+function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
+  const input = interaction.payload?.tool_call?.input;
+  const fields =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+  const legacy =
+    interaction.title === `destructive tool call: ${toolName}` ||
+    interaction.title === `tool call: ${toolName}` ||
+    interaction.title === `external MCP tool call: ${toolName}`;
+  if (!legacy) return interaction.title;
+  if (toolName === 'connected_data_connect')
+    return typeof fields.label === 'string' && fields.label.trim()
+      ? `Connect ${fields.label}`
+      : 'Connect source';
+  if (toolName === 'connected_data_download') return 'Download source';
+  return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
+}
+
+/**
+ * The script the decision is about: the script a tool was called from, or run_code's own code
+ * (spec 04, "A whole script"). Only a script already running has a call to open as a tab.
+ */
+function permissionScript(
+  interaction: PendingInteraction,
+  toolName: string | undefined,
+): { code: string; call_id?: string } | undefined {
+  if (interaction.payload?.script) return interaction.payload.script;
+  const input = interaction.payload?.tool_call?.input;
+  if (toolName !== 'run_code' || !input || typeof input !== 'object') return undefined;
+  const code = (input as Record<string, unknown>).code;
+  return typeof code === 'string' && code.trim() ? { code } : undefined;
+}
+
+/** Who asked, when it is not the conversation on screen. */
+function askedBy(
+  interaction: PendingInteraction,
+  ownerLabel: string | undefined,
+  show: boolean,
+): AskFact[] {
+  if (!show) return [];
+  return [
+    {
+      label: 'Asked by',
+      icon: <UserRoundIcon />,
+      title: ownerLabel ?? `Requested by session ${interaction.owner_session_id}`,
+      // Who asked moves into Technical details at a fifth of the window.
+      narrow: false,
+      value: ownerLabel ? (
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate text-accent-foreground">{ownerLabel}</span>
+        </span>
+      ) : (
+        <span className="min-w-0 truncate text-muted-foreground">Session not listed yet</span>
+      ),
+    },
+  ];
+}
+
+/** What a screen reader hears after the title: the tool, then its script or arguments. */
+function spokenToolCall(
+  toolName: string | undefined,
+  args: unknown,
+  code: string | undefined,
+): string | undefined {
+  if (!toolName) return undefined;
+  const clip = (text: string) => (text.length > 160 ? `${text.slice(0, 159)}…` : text);
+  if (code) {
+    const lines = code.replace(/\n$/u, '').split('\n');
+    const first = lines.find((line) => line.trim())?.trim() ?? '';
+    return clip(`${toolName}, ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}: ${first}`);
+  }
+  if (args && typeof args === 'object' && !Array.isArray(args)) {
+    const values = Object.entries(args)
+      .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
+      .map(([key, value]) => `${key} ${String(value).replace(/\s+/gu, ' ')}`);
+    if (values.length) return clip(`${toolName}: ${values.join(', ')}`);
+  }
+  return toolName;
+}
+
+/** One permission decision: facts, the exact command, then numbered scopes the server offered. */
 export function PermissionResponse({
   disabled,
   interaction,
+  onOpenScript,
   onResponse,
   ownerLabel,
   responseError,
@@ -37,6 +168,7 @@ export function PermissionResponse({
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
+  onOpenScript?: ClioPendingInteractionsProps['onOpenScript'];
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
   responseError?: Error;
@@ -45,134 +177,174 @@ export function PermissionResponse({
   // Running a flow from a plugin not trusted yet: the decision is trusting its
   // plugin, which lasts, so it is offered once ("Trust and run") without a duration.
   const flowTrust = flowTrustRequest(interaction);
+  const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const scopes = SCOPES.filter(
-    (scope) =>
-      (!interaction.actions || interaction.actions.includes(scope.action)) &&
-      (!flowTrust || scope.action === 'allow'),
+    (scope) => offered(scope.action) && (!flowTrust || scope.action === 'allow'),
   );
-  const [scopeAction, setScopeAction] = useAttentionDraft(`${interaction.id}:scope`, 'allow');
-  const scope = scopes.find((scope) => scope.action === scopeAction) ?? scopes[0];
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
-  const input =
-    toolCall?.input && typeof toolCall.input === 'object'
-      ? (toolCall.input as Record<string, unknown>)
-      : {};
-  const legacyTitle =
-    interaction.title === `destructive tool call: ${toolName}` ||
-    interaction.title === `tool call: ${toolName}` ||
-    interaction.title === `external MCP tool call: ${toolName}`;
+  const script = permissionScript(interaction, toolName);
+  const scriptCallId = script?.call_id;
+  // The script block carries the lines run_code's own title summarises ("Run a Python script
+  // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const title = flowTrust
     ? `Running flow ${flowTrust.flow}`
-    : legacyTitle && toolName === 'connected_data_connect'
-      ? typeof input.label === 'string' && input.label.trim()
-        ? `Connect ${input.label}`
-        : 'Connect source'
-      : legacyTitle && toolName === 'connected_data_download'
-        ? 'Download source'
-        : legacyTitle
-          ? (permissionOperationLabel(toolName ?? '', input) ?? interaction.title)
-          : interaction.title;
+    : script && !interaction.payload?.script
+      ? 'Run script'
+      : permissionTitle(interaction, toolName);
+  const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
+  const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
+  const owner = askedBy(interaction, ownerLabel, showOwner);
+  const cwd = interaction.payload?.execution?.cwd;
+  const args = toolCall?.input === undefined ? undefined : agentArguments(toolCall.input);
+  const parts = argumentParts(args, script?.code);
+  const argsLanguage = (args as { language?: unknown } | undefined)?.language;
+  const codeLanguage =
+    argsLanguage === 'python' || (toolName === 'run_code' && argsLanguage === undefined)
+      ? 'python'
+      : undefined;
+  const detailFacts: KeyValueItem[] = [
+    ...(owner.length
+      ? [
+          {
+            label: 'Asked by',
+            title: owner[0]?.title,
+            // Beside the facts while they show it; here once they give it up, at a fifth.
+            wide: false as const,
+            value: (
+              <span className="min-w-0 truncate text-accent-foreground">
+                {ownerLabel ?? `session ${interaction.owner_session_id}`}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(toolName && !flowTrust ? [{ label: 'Tool', value: toolName, mono: true }] : []),
+    ...((toolName === 'web_fetch' || toolName === 'web_search') && cwd
+      ? [{ label: 'Working folder', value: cwd, mono: true }]
+      : []),
+    ...(parts?.facts ?? []),
+  ];
   return (
-    <section
-      className="min-w-0 px-3 pb-3"
+    <AskCard
       data-interaction-kind="permission"
+      icon={ShieldQuestionIcon}
       id={pendingInteractionDomId(interaction.id)}
-      tabIndex={-1}
+      kind="permission"
+      spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
+      title={title}
+      titleText={title}
     >
-      <div className="mb-3 flex items-start gap-2.5">
-        <ShieldQuestionIcon
-          aria-hidden="true"
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-        />
-        <div className="min-w-0">
-          <p
-            className="line-clamp-3 text-sm font-medium"
-            data-slot="pending-interaction-title"
+      <AskBody>
+        {flowTrust ? (
+          <AskSection className="mt-1">
+            <FlowTrustDetails request={flowTrust} />
+          </AskSection>
+        ) : (
+          <PermissionOperationDetails
+            extraFacts={owner}
+            interaction={interaction}
+            pathsInline={false}
+            showCommand={!script}
             title={title}
-          >
-            {title}
-          </p>
-          <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
-        </div>
-      </div>
-      {flowTrust ? (
-        <FlowTrustDetails request={flowTrust} />
-      ) : (
-        <PermissionOperationDetails interaction={interaction} />
-      )}
-      {toolName || toolCall?.input !== undefined ? (
-        <TechnicalDetails className="mt-3 text-xs text-muted-foreground" title="Technical details">
-          {toolName ? <p className="font-mono">{toolName}</p> : null}
-          {(toolName === 'web_fetch' || toolName === 'web_search') &&
-          interaction.payload?.execution?.cwd ? (
-            <p className="my-2 break-all">Working folder: {interaction.payload.execution.cwd}</p>
-          ) : null}
-          {toolCall?.input === undefined ? null : (
-            <CodeBlock
-              className="mt-2 max-h-40"
-              code={JSON.stringify(toolCall.input, null, 2)}
-              language="json"
-            >
-              <CodeBlockCopyButton aria-label="Copy protected action details" />
-            </CodeBlock>
-          )}
-        </TechnicalDetails>
+          />
+        )}
+      </AskBody>
+      {script ? (
+        // Under a cap the script gives up height first, down to two lines with its fade and
+        // footer, so the facts above stay whole. The script stands in for the command line.
+        // A script of one or two lines keeps its own height: the floor would only pad it.
+        <AskCode
+          className={cn('flex flex-col', scriptLines > 2 && 'min-h-20 shrink-[100]')}
+          code={script.code}
+          copyLabel="Copy script"
+          icon={FileCode2Icon}
+          label="Script"
+          language="python"
+          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
+          name="Script"
+          onOpen={
+            onOpenScript && scriptCallId
+              ? () => onOpenScript(interaction, scriptCallId)
+              : undefined
+          }
+          wrapToggle
+        />
       ) : null}
-      <ResponseErrorNotice error={responseError} />
-      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-2 bg-background/95 py-2 backdrop-blur-sm">
-        {!interaction.actions || interaction.actions.includes('deny') ? (
-          <Button
-            size="sm"
-            variant="ghost"
+      <AskError error={responseError} />
+      <AskOptions aria-label="Decision">
+        {scopes.map((scope, index) => (
+          <AskButton
+            aria-label={flowTrust ? 'Trust and run' : scope.name}
             disabled={disabled}
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'deny' }))}
+            hint={index === 0 ? 'Enter' : undefined}
+            key={scope.action}
+            number={index + 1}
+            onClick={() => respond(scope.action)}
+            primary={index === 0}
           >
-            Deny
-          </Button>
-        ) : null}
-        {scope ? (
-          <>
-            {scopes.length > 1 ? (
-              <Select value={scope.action} onValueChange={setScopeAction} disabled={disabled}>
-                <SelectTrigger size="sm" aria-label="Permission duration">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {scopes.map((scope) => (
-                    <SelectItem key={scope.action} value={scope.action}>
-                      {scope.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : flowTrust ? null : (
-              <span className="text-xs text-muted-foreground">{scope.label}</span>
-            )}
-            <Button
-              size="sm"
-              disabled={disabled}
-              aria-label={flowTrust ? 'Trust and run' : scope.button}
-              onClick={() => respondFromControl(onResponse(interaction, { action: scope.action }))}
-            >
-              {flowTrust ? 'Trust and run' : 'Allow'}
-            </Button>
-          </>
-        ) : null}
+            {flowTrust ? 'Trust and run' : scope.label}
+          </AskButton>
+        ))}
         {(interaction.actions ?? [])
           .filter((action) => !KNOWN_ACTIONS.has(action))
           .map((action) => (
-            <Button
-              key={action}
-              size="sm"
-              variant="outline"
-              disabled
-              title={`This client cannot offer "${action}" yet.`}
-            >
+            <AskButton disabled key={action} title={`This client cannot offer "${action}" yet.`}>
               {action}
-            </Button>
+            </AskButton>
           ))}
-      </div>
-    </section>
+        {offered('deny') ? (
+          <AskButton disabled={disabled} hint="Escape" onClick={() => respond('deny')}>
+            Deny
+          </AskButton>
+        ) : null}
+      </AskOptions>
+      {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
+        <AskDetails hint="raw arguments, as the agent sent them">
+          <div className="grid gap-2.5">
+            {detailFacts.length ? (
+              <div data-slot="ask-details-facts">
+                {/* The facts' own 110px label column, so details values share their x;
+                    labels stay as words when narrow (details rows carry no icons). */}
+                <KeyValueGrid
+                  className="@max-[420px]:grid-cols-[110px_minmax(0,1fr)]"
+                  items={detailFacts}
+                  variant="facts"
+                />
+              </div>
+            ) : null}
+            <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
+            {args === undefined ? null : parts ? (
+              parts.blocks.map(([key, code]) => {
+                const lines = code.replace(/\n$/u, '').split('\n').length;
+                return (
+                  <AskCode
+                    className="mt-1 ml-0"
+                    code={code}
+                    copyLabel={`Copy ${key}`}
+                    key={key}
+                    label={`Argument ${key}`}
+                    language={codeLanguage}
+                    meta={`${codeLanguage === 'python' ? 'Python, ' : ''}${lines} ${lines === 1 ? 'line' : 'lines'}`}
+                    name={key}
+                    previewLines={12}
+                  />
+                );
+              })
+            ) : (
+              <AskCode
+                className="mt-1 ml-0"
+                code={JSON.stringify(args, null, 2)}
+                copyLabel="Copy arguments"
+                label="Arguments"
+                language="json"
+                name="Arguments"
+                previewLines={12}
+              />
+            )}
+          </div>
+        </AskDetails>
+      ) : null}
+    </AskCard>
   );
 }

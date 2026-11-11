@@ -1,9 +1,8 @@
 import { toast } from 'sonner';
+import { composerFailureReason } from './composer-failure';
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { CameraIcon, ChevronDownIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { MarkdownText } from '@/components/ai-elements/markdown';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -25,11 +24,10 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { ComposerAnnotation, RegionCaptureAnnotation } from '@/lib/composer-annotations';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RemoveIcon, RetryIcon } from '@/lib/icon-vocabulary';
-import { AttachmentQueueRow } from './attachment-queue-row';
+import { RetryIcon } from '@/lib/icon-vocabulary';
+import { ComposerAttachmentChip } from './composer-attachment-chip';
+import { focusEditorAtOffset } from './composer-editor-model';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -58,16 +56,12 @@ export interface ResourceUploadFailure {
 
 /** Adaptive AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
-  annotations = [],
-  onRemoveCapture,
   onPrepareFiles,
   onDiscardFiles,
   resources = [],
   uploadFailure,
   uploadProgress,
 }: {
-  annotations?: readonly ComposerAnnotation[];
-  onRemoveCapture?: (annotation: RegionCaptureAnnotation) => void;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
@@ -79,21 +73,6 @@ export function ClioComposerAttachments({
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
-  const captureByFilename = new Map(
-    annotations
-      .filter(
-        (annotation): annotation is RegionCaptureAnnotation => annotation.kind === 'region-capture',
-      )
-      .map((annotation) => [annotation.filename, annotation]),
-  );
-  useEffect(() => {
-    const addCapture = (event: Event) => {
-      const file = (event as CustomEvent<{ file?: File }>).detail?.file;
-      if (file) attachments.add([file]);
-    };
-    window.addEventListener('clio:add-region-capture', addCapture);
-    return () => window.removeEventListener('clio:add-region-capture', addCapture);
-  }, [attachments]);
   const [previewId, setPreviewId] = useState<string>();
   const preparingAttachmentIds = useRef(new Set<string>());
   const preparationControllers = useRef(new Map<string, AbortController>());
@@ -104,6 +83,24 @@ export function ClioComposerAttachments({
     Record<string, ResourceUploadFailure>
   >({});
   const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+  // A keyboard removal hands focus on once the removed chip has left the DOM.
+  const removalFocus = useRef<{
+    editor: HTMLDivElement | null;
+    group: HTMLElement;
+    id: string;
+    index: number;
+  }>(undefined);
+
+  useLayoutEffect(() => {
+    const pending = removalFocus.current;
+    if (!pending || attachments.files.some((file) => file.id === pending.id)) return;
+    removalFocus.current = undefined;
+    const next = attachments.files[pending.index];
+    const chip = next && pending.group.isConnected ? pending.group.children[pending.index] : null;
+    const button = chip?.querySelector<HTMLElement>('button');
+    if (button) button.focus();
+    else focusEditorAtOffset(pending.editor);
+  }, [attachments.files]);
 
   useEffect(() => {
     const attachedIds = new Set(attachments.files.map((file) => file.id));
@@ -161,7 +158,7 @@ export function ClioComposerAttachments({
             ...current,
             [file.id]: {
               filename: file.filename,
-              message: error instanceof Error ? error.message : 'The upload failed.',
+              message: composerFailureReason(error, 'The upload failed.'),
             },
           }));
         })
@@ -188,14 +185,27 @@ export function ClioComposerAttachments({
   };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
+    // Removing the chip that holds focus keeps focus in the composer: on the
+    // chip that takes its place, or else the editor.
+    const focused = document.activeElement;
+    const group =
+      focused instanceof HTMLElement
+        ? focused.closest<HTMLElement>('[aria-label="Pending attachments"]')
+        : null;
+    const editor =
+      group
+        ?.closest('[data-slot="clio-composer"]')
+        ?.querySelector<HTMLDivElement>('[contenteditable="true"]') ?? null;
     preparationControllers.current.get(file.id)?.abort();
     preparationControllers.current.delete(file.id);
     try {
       await onDiscardFiles?.([file]);
+      const index = attachments.files.findIndex((candidate) => candidate.id === file.id);
+      if (group && index >= 0) removalFocus.current = { editor, group, id: file.id, index };
       attachments.remove(file.id);
     } catch (error) {
       toast.error('Could not remove attachment', {
-        description: error instanceof Error ? error.message : String(error),
+        description: composerFailureReason(error, 'The service did not remove it.'),
       });
     }
   };
@@ -230,13 +240,12 @@ export function ClioComposerAttachments({
       >
         <Attachments
           aria-label="Pending attachments"
-          className="w-full min-w-0 flex-wrap justify-start gap-2 p-3"
+          className="w-full min-w-0 flex-wrap items-center justify-start gap-1.5 px-0 pt-0.5 pb-1"
           role="group"
           variant="composer"
         >
           {attachments.files.map((file) => {
             const filename = file.filename ?? 'Attachment';
-            const capture = captureByFilename.get(filename);
             const mediaCategory = getMediaCategory(file);
             const visual = mediaCategory === 'image' || mediaCategory === 'video';
             const prepared = preparedResources[file.id];
@@ -251,71 +260,11 @@ export function ClioComposerAttachments({
                   Boolean(onPrepareFiles),
                 );
             const progress = attachmentProgress[file.id] ?? uploadProgress;
-            if (capture) {
-              return (
-                <div
-                  className="flex min-w-0 w-full items-center gap-2 rounded-lg border bg-muted/40 px-2 py-2"
-                  key={file.id}
-                >
-                  <button
-                    aria-label={`Open ${filename}`}
-                    className="size-14 shrink-0 overflow-hidden rounded border bg-background"
-                    onClick={() => setPreviewId(file.id)}
-                    type="button"
-                  >
-                    <Attachment className="size-full" data={file}>
-                      <AttachmentPreview />
-                    </Attachment>
-                  </button>
-                  <CameraIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[0.6875rem] font-medium text-muted-foreground">
-                      {capture.title}
-                    </p>
-                    <p className="truncate text-xs text-foreground">{capture.summary}</p>
-                  </div>
-                  <ResourcePipelineSummaryIcon stages={stages} />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        aria-label={`Show the full ${capture.title} reference`}
-                        className="size-6 shrink-0"
-                        size="icon"
-                        title="Show details"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ChevronDownIcon aria-hidden="true" className="size-3.5" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="end"
-                      className="max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto text-xs"
-                    >
-                      <MarkdownText mode="static">{capture.markdown}</MarkdownText>
-                    </PopoverContent>
-                  </Popover>
-                  <Button
-                    aria-label={`Remove ${capture.title}`}
-                    className="size-6 shrink-0"
-                    onClick={() => {
-                      void removeFile(file).then(() => onRemoveCapture?.(capture));
-                    }}
-                    size="icon"
-                    title="Remove"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <RemoveIcon aria-hidden="true" className="size-3.5" />
-                  </Button>
-                </div>
-              );
-            }
             return (
               <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
                 <AttachmentHoverCardTrigger asChild>
                   {!visual ? (
-                    <AttachmentQueueRow
+                    <ComposerAttachmentChip
                       name={filename}
                       mediaType={file.mediaType || ''}
                       size={(file as UploadableFilePart).file?.size ?? resource?.declared_size}

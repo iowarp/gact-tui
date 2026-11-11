@@ -1,4 +1,4 @@
-import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type { PendingInteraction } from '@clio/core/v3';
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
@@ -15,13 +15,13 @@ import {
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ActivityRow } from './activity-row';
+import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { revealPendingInteraction } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
-import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { InlineQuestionCard } from './inline-question-card';
 
 /**
  * Scrolls the transcript reader straight to this interaction's card in the
@@ -48,29 +48,46 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
   );
 }
 
+/**
+ * The spec's waiting outcome: "waiting for you" on the asking row, which jumps
+ * to the answer card below. The word is the row's state, so it never wraps.
+ * Before the call's interaction has loaded, the server's `pending` state alone
+ * says it; there is no card to jump to yet.
+ */
+export function WaitingForYou({ interaction }: { interaction?: PendingInteraction }) {
+  if (!interaction)
+    return (
+      <span className="text-warning" data-slot="activity-waiting">
+        waiting for you
+      </span>
+    );
+  const label = interaction.prompt ?? interaction.title;
+  const verb = interaction.kind === 'permission' ? 'Review below' : 'Answer below';
+  return (
+    <button
+      aria-label={`${verb}: ${label}`}
+      className="rounded-[4px] text-warning outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+      data-slot="activity-waiting"
+      onClick={() => revealPendingInteraction(interaction.id)}
+      title={verb}
+      type="button"
+    >
+      waiting for you
+    </button>
+  );
+}
+
 /** Quiet lifecycle attribution for a question routed to an agent. */
 export function AgentAnswerActivity({
   interaction,
   compact = false,
-  onResponse,
 }: {
   interaction: PendingInteraction;
   compact?: boolean;
-  onResponse?: (
-    interaction: PendingInteraction,
-    response: PendingInteractionResponse,
-  ) => Promise<void>;
 }) {
+  // A pending question is answered once, in the ask card above the composer;
+  // the log keeps only its activity row.
   if (!isAgentMcpInteraction(interaction)) {
-    // The agent's own pending question is answered right here, in the log.
-    if (
-      !compact &&
-      onResponse &&
-      interaction.status === 'pending' &&
-      isToolAnchoredQuestion(interaction)
-    ) {
-      return <InlineQuestionCard interaction={interaction} onResponse={onResponse} />;
-    }
     return <HumanQuestionActivity compact={compact} interaction={interaction} />;
   }
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
@@ -267,24 +284,37 @@ function HumanQuestionActivity({
     );
   }
 
+  const activity = {
+    'data-human-question-state': interaction.status,
+    'data-interaction-id': interaction.id,
+    'data-invocation-id': interaction.source.invocation_id,
+    'data-task-id': interaction.task_id,
+    'data-turn-activity': `interaction:${interaction.id}`,
+  };
+  if (interaction.status === 'pending') {
+    // The spec's waiting row: one 28px line whose outcome jumps to the card below.
+    const prompt = interaction.prompt ?? interaction.title;
+    return (
+      <ActivityRow
+        {...activity}
+        argument={prompt}
+        argumentTitle={prompt}
+        icon={<MessageCircleQuestionIcon aria-hidden="true" />}
+        name={isMcp ? requestLabel : 'Question'}
+        outcome={<WaitingForYou interaction={interaction} />}
+        outcomeTone="warning"
+        status={
+          <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+        }
+      />
+    );
+  }
+
   return (
-    <div
-      className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
-      data-human-question-state={interaction.status}
-      data-interaction-id={interaction.id}
-      data-invocation-id={interaction.source.invocation_id}
-      data-task-id={interaction.task_id}
-      data-turn-activity={`interaction:${interaction.id}`}
-    >
-      {interaction.status === 'pending' ? (
-        <ActivityStep icon={RouteIcon} title="Waiting for your response">
-          <AnswerBelowLink interaction={interaction} />
-        </ActivityStep>
-      ) : (
-        <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
-          {interaction.prompt}
-        </ActivityStep>
-      )}
+    <div className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs" {...activity}>
+      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
+        {interaction.prompt}
+      </ActivityStep>
       {answered ? (
         <>
           <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You responded'}>

@@ -1,4 +1,3 @@
-import { NDPSourcePicker } from './ndp-source-picker';
 import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import { openKnowledge } from '@/lib/knowledge-navigation';
@@ -8,36 +7,38 @@ import type { ConnectedSourceState, SourceProvider, WorkspaceReference } from '@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloseIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import {
   ArrowRightIcon,
   CheckIcon,
   ChevronRightIcon,
   DatabaseIcon,
   FolderUpIcon,
+  LogInIcon,
   PaperclipIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-} from '@/components/ui/dialog';
+import { DialogFrame } from './primitives/dialog-frame';
+import { IconButton } from './primitives/icon-button';
+import { ItemRow } from './primitives/item-row';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
-import { linkAccessNames } from './connected-source-labels';
+import { connectedSourceErrorMessage } from './connected-source-error';
+import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
 import { SourceProviderLogo } from './source-provider-logo';
 import { SourceProviderInfo } from './source-provider-info';
 import type { ObsidianChoice } from './obsidian-source-form';
+import type { SourceChoiceId } from './source-form-parts';
+import {
+  SourceFooterSecondary,
+  SourceFooterStart,
+  SourceFrameFooterProvider,
+} from './source-frame-footer';
+import { useSourceFrameFooter, useSourceFrameFooterHost } from './use-source-frame-footer';
 import { InfoTip } from './info-tip';
-import { DesktopFolderUpload } from './desktop-folder-upload';
 import { ConnectedSourceActions } from './connected-source-actions';
 import { ConnectedAccountActions } from './connected-account-actions';
 import { ConnectedAccountSignIn } from './connected-source-auth';
@@ -60,6 +61,9 @@ export function ConnectedSourcePicker({
   initialProviderId,
   initialObsidianChoice,
   manageOnly = false,
+  intent,
+  title,
+  initialEdit = false,
   onDownloadStarted,
 }: {
   workspaceId: string;
@@ -76,6 +80,15 @@ export function ConnectedSourcePicker({
   initialProviderId?: string;
   initialObsidianChoice?: ObsidianChoice;
   manageOnly?: boolean;
+  /**
+   * `connect`: the Sources pocket's `+`: a folder or a provider to connect, without
+   * the list of sources the pocket already shows.
+   */
+  intent?: 'connect';
+  /** The frame's title when it opens on one source (its name). */
+  title?: string;
+  /** Opens `initialSourceId` straight into its edit form. */
+  initialEdit?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
     operationId: string,
@@ -83,7 +96,6 @@ export function ConnectedSourcePicker({
   ) => void;
 }) {
   const { settings } = useConnectionSettings();
-  const titleRef = useRef<HTMLHeadingElement>(null);
   const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(null);
   const scope = `${connectionScope(settings)}:${workspaceId}`;
   const activeScope = useRef(scope);
@@ -93,48 +105,54 @@ export function ConnectedSourcePicker({
       activeScope.current = '';
     };
   }, [scope]);
+  const connect = intent === 'connect' && !manageOnly && !onSelect;
+  const { footer, setFooter } = useSourceFrameFooterHost();
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="flex max-h-[88dvh] flex-col overflow-hidden sm:max-w-2xl"
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          titleRef.current?.focus();
-        }}
-      >
-        <DialogHeader className="shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
-              {manageOnly ? 'Sources' : onSelect ? 'Attach' : 'Connected data'}
-            </DialogTitle>
-            <div className="flex items-center gap-1">
-              <div ref={setHeaderActions} className="flex items-center gap-1" />
-              <DialogClose asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Close and keep setup"
-                  title="Close and keep setup"
-                >
-                  <CloseIcon aria-hidden="true" />
-                </Button>
-              </DialogClose>
-            </div>
-          </div>
-          <DialogDescription>
-            {manageOnly
-              ? 'Manage existing sources. Use Attach in the message box to add data for the agent.'
-              : 'Choose files, folders, or a connected source.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="-mx-4 min-h-0 overflow-y-auto px-4">
-          {open && (
+    <DialogFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      confirm={
+        footer?.confirm && footer.onConfirm
+          ? { ...footer.confirm, onConfirm: footer.onConfirm }
+          : undefined
+      }
+      footerStart={footer?.start ? <SourceFooterStart start={footer.start} /> : undefined}
+      secondary={
+        footer?.secondary ? <SourceFooterSecondary secondary={footer.secondary} /> : undefined
+      }
+      icon={onSelect && !manageOnly ? <PaperclipIcon /> : connect ? <AddIcon /> : <DatabaseIcon />}
+      title={
+        title ??
+        (manageOnly
+          ? 'Sources'
+          : onSelect
+            ? 'Attach'
+            : connect
+              ? 'Connect a data source'
+              : 'Connected data')
+      }
+      description={
+        manageOnly || connect ? undefined : 'Choose files, folders, or a connected source.'
+      }
+      srDescription={
+        connect
+          ? `Choose a provider to bring its files or datasets into this workspace.`
+          : undefined
+      }
+      // The spec's dialog rule (36%, from 340 px) reaching `.c3d`'s 480 px at 1280.
+      className={connect ? 'w-[clamp(340px,37.5vw,480px)]' : undefined}
+      titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
+    >
+      <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">
+        {open && (
+          <SourceFrameFooterProvider register={setFooter}>
             <ConnectedSourceContents
               key={`${scope}:${initialSourceId ?? ''}`}
               workspaceId={workspaceId}
               sessionId={sessionId}
               manageOnly={manageOnly}
+              connectOnly={connect}
+              initialEdit={initialEdit}
               onDownloadStarted={onDownloadStarted}
               onUploadFiles={onUploadFiles}
               initialFolderFiles={initialFolderFiles}
@@ -144,6 +162,7 @@ export function ConnectedSourcePicker({
               initialProviderId={initialProviderId}
               initialObsidianChoice={initialObsidianChoice}
               headerActions={headerActions}
+              frameTitle={title}
               onDiscard={() => {
                 if (activeScope.current === scope) onOpenChange(false);
               }}
@@ -158,10 +177,10 @@ export function ConnectedSourcePicker({
                 if (activeScope.current === scope) onChanged?.();
               }}
             />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          </SourceFrameFooterProvider>
+        )}
+      </div>
+    </DialogFrame>
   );
 }
 
@@ -183,10 +202,15 @@ export function ConnectedSourceContents({
   headerActions,
   onDiscard,
   settingsView = false,
+  connectOnly = false,
+  initialEdit = false,
+  frameTitle,
 }: {
   workspaceId: string;
   sessionId?: string;
   manageOnly: boolean;
+  connectOnly?: boolean;
+  initialEdit?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
     operationId: string,
@@ -204,6 +228,8 @@ export function ConnectedSourceContents({
   headerActions: HTMLDivElement | null;
   onDiscard: () => void;
   settingsView?: boolean;
+  /** The frame's own title, so the detail does not repeat a source's name. */
+  frameTitle?: string;
 }) {
   const repository = useRepository();
   const folderReference = useSourceFolderReference(workspaceId, onSelect);
@@ -228,12 +254,19 @@ export function ConnectedSourceContents({
   const [initialFolderSourceId] = useState(selectedId);
   const select = (id: string) =>
     privateSelection ? setManagedSelection(id) : queryClient.setQueryData(selectionKey, id);
-  const [provider, setProvider] = useState<SourceProvider>();
-  const [providerIntent, setProviderIntent] = useState(initialProviderId);
+  // The connect form, and the provider it opens on. `+` opens it straight away.
+  const [form, setForm] = useState<{ choice?: SourceChoiceId } | undefined>(() =>
+    initialFolderFiles?.length
+      ? { choice: 'upload' }
+      : initialProviderId
+        ? { choice: initialProviderId as SourceChoiceId }
+        : connectOnly
+          ? {}
+          : undefined,
+  );
   const [obsidianChoice, setObsidianChoice] = useState(initialObsidianChoice);
   const [accountLogin, setAccountLogin] = useState<SourceProvider>();
-  const [editing, setEditing] = useState<ConnectedSourceState>();
-  const [desktopUpload, setDesktopUpload] = useState(Boolean(initialFolderFiles?.length));
+  const [editRequest, setEditRequest] = useState(0);
   const sources = useQuery({
     queryKey: [...key, 'sources'],
     queryFn: ({ signal }) => repository.connectedSources(workspaceId, signal),
@@ -252,30 +285,31 @@ export function ConnectedSourceContents({
     queryFn: ({ signal }) => repository.hostStorageSettings('local', signal),
     retry: false,
   });
-  const hostLabel = host.data?.hostname || `the connected ${vocab.agent}`;
+  // Plain and stable: never the raw machine name, and not swapped once a request lands.
+  const hostLabel = `${vocab.agent}'s computer`;
   const source = sources.data?.find((row) => row.id === selectedId);
-  const edit = (row: ConnectedSourceState) => {
-    setEditing(row);
-    setProvider(
-      providers.data?.providers.find((item) => item.id === row.provider) ?? {
-        id: row.provider,
-        name: row.label,
-        logo: row.provider,
-        authentication: ['google_drive', 'globus', 'github', 'ndp'].includes(row.provider)
-          ? 'browser'
-          : 'none',
-        configured: true,
-        setup_requirement: null,
-        capabilities: {
-          supported_modes: row.capabilities.supported_modes ?? [row.mode ?? 'read_only'],
-          unavailable_reasons: Object.fromEntries(
-            Object.entries(row.capabilities.unavailable_reasons ?? {}).filter(
-              (entry): entry is [string, string] => typeof entry[1] === 'string',
-            ),
+  const providerFor = (row: ConnectedSourceState): SourceProvider =>
+    providers.data?.providers.find((item) => item.id === row.provider) ?? {
+      id: row.provider,
+      name: row.label,
+      logo: row.provider,
+      authentication: ['google_drive', 'globus', 'github', 'ndp'].includes(row.provider)
+        ? 'browser'
+        : 'none',
+      configured: true,
+      setup_requirement: null,
+      capabilities: {
+        supported_modes: row.capabilities.supported_modes ?? [row.mode ?? 'read_only'],
+        unavailable_reasons: Object.fromEntries(
+          Object.entries(row.capabilities.unavailable_reasons ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
           ),
-        },
+        ),
       },
-    );
+    };
+  const edit = (row: ConnectedSourceState) => {
+    select(row.id);
+    setEditRequest((count) => count + 1);
   };
   const removed = (id: string) => {
     queryClient.setQueryData(
@@ -288,6 +322,26 @@ export function ConnectedSourceContents({
       queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
     });
     onChanged?.();
+  };
+  // A row's Edit opens its fields once the provider list has answered.
+  const [pendingEdit, setPendingEdit] = useState(initialEdit);
+  if (pendingEdit && source && (providers.data || providers.error)) {
+    setPendingEdit(false);
+    setEditRequest((count) => count + 1);
+  }
+  const connected = (row: ConnectedSourceState) => {
+    queryClient.setQueryData([...key, 'sources'], (previous: ConnectedSourceState[] = []) => [
+      ...previous.filter((item) => item.id !== row.id),
+      row,
+    ]);
+    select(row.id);
+    setForm(undefined);
+    onChanged?.();
+    if (row.source_kind === 'knowledge') {
+      openKnowledge(connectionScope(settings), workspaceId, row);
+      onDiscard();
+    } else if (row.origin === 'desktop_upload' && onSelect)
+      folderReference.mutate({ source: row, draftId: row.draft_id });
   };
   const toolbar = (row: ConnectedSourceState, editable = true) =>
     headerActions &&
@@ -306,121 +360,54 @@ export function ConnectedSourceContents({
     );
   if (accountLogin)
     return (
-      <div className="space-y-4">
-        <Button variant="ghost" onClick={() => setAccountLogin(undefined)}>
-          Back
-        </Button>
-        <div className="flex items-center gap-3">
-          <SourceProviderLogo provider={accountLogin.id} />
-          <h3 className="font-medium">Sign in to {accountLogin.name}</h3>
-        </div>
-        <ConnectedAccountSignIn
-          provider={accountLogin.id}
-          appUrl={accountLogin.account_url}
-          onComplete={() => {
-            void queryClient.invalidateQueries({ queryKey: ['connected-storage', scope] });
-            setAccountLogin(undefined);
-          }}
-        />
-      </div>
+      <AccountLogin
+        provider={accountLogin}
+        onBack={() => setAccountLogin(undefined)}
+        onComplete={() => {
+          void queryClient.invalidateQueries({ queryKey: ['connected-storage', scope] });
+          void queryClient.invalidateQueries({ queryKey: ['ndp-catalog', scope] });
+          setAccountLogin(undefined);
+        }}
+      />
     );
-  if (desktopUpload)
+  if (form)
     return (
-      <DesktopFolderUpload
-        initialFiles={initialFolderFiles}
+      <ConnectedSourceForm
         workspaceId={workspaceId}
+        providers={providers.data?.providers ?? []}
+        initialChoice={form.choice}
+        localConnection={localConnection}
         hostLabel={hostLabel}
-        onBack={() => setDesktopUpload(false)}
-        onComplete={(connected) => {
-          queryClient.setQueryData(
-            [...key, 'sources'],
-            [...(sources.data ?? []).filter((row) => row.id !== connected.id), connected],
-          );
-          select(connected.id);
-          setDesktopUpload(false);
-          onChanged?.();
-          if (onSelect) folderReference.mutate({ source: connected, draftId: connected.draft_id });
-        }}
-      />
-    );
-  const activeProvider =
-    provider?.id === 'ndp'
-      ? (providers.data?.providers.find((row) => row.id === 'ndp') ?? provider)
-      : (provider ?? providers.data?.providers.find((row) => row.id === providerIntent));
-  if (activeProvider?.id === 'ndp' && !editing)
-    return (
-      <NDPSourcePicker
-        workspaceId={workspaceId}
-        provider={activeProvider}
-        onConnected={(connected) => {
+        browseStartPath={host.data?.effective.root}
+        obsidianChoice={obsidianChoice}
+        uploadFiles={initialFolderFiles}
+        onConnected={connected}
+        onConnectedMany={(rows) => {
           queryClient.setQueryData([...key, 'sources'], (previous: ConnectedSourceState[] = []) => [
-            ...previous.filter((row) => !connected.some((item) => item.id === row.id)),
-            ...connected,
+            ...previous.filter((row) => !rows.some((item) => item.id === row.id)),
+            ...rows,
           ]);
-          if (connected[0]) select(connected[0].id);
-          setProvider(undefined);
-          setProviderIntent(undefined);
+          if (rows[0]) select(rows[0].id);
+          setForm(undefined);
           onChanged?.();
         }}
-        onBack={() => {
-          setProvider(undefined);
-          setProviderIntent(undefined);
-        }}
+        onSignIn={setAccountLogin}
+        onBack={connectOnly ? undefined : () => setForm(undefined)}
       />
-    );
-  if (activeProvider)
-    return (
-      <>
-        {editing && toolbar(editing, false)}
-        <ConnectedSourceForm
-          workspaceId={workspaceId}
-          provider={activeProvider}
-          obsidianChoice={obsidianChoice}
-          source={editing}
-          hostLabel={hostLabel}
-          browseStartPath={host.data?.effective.root}
-          onBack={() => {
-            setProvider(undefined);
-            setProviderIntent(undefined);
-            setEditing(undefined);
-          }}
-          onConnected={(connected) => {
-            queryClient.setQueryData(
-              [...key, 'sources'],
-              [...(sources.data ?? []).filter((row) => row.id !== connected.id), connected],
-            );
-            select(connected.id);
-            setProvider(undefined);
-            setProviderIntent(undefined);
-            setEditing(undefined);
-            onChanged?.();
-            if (connected.source_kind === 'knowledge') {
-              openKnowledge(connectionScope(settings), workspaceId, connected);
-              onDiscard();
-            }
-          }}
-        />
-      </>
     );
   if (source)
     return (
       <>
         {toolbar(source)}
-        {source.source_kind === 'knowledge' && source.connected && (
-          <Button
-            onClick={() => {
-              openKnowledge(connectionScope(settings), workspaceId, source);
-              onDiscard();
-            }}
-          >
-            Open knowledge
-          </Button>
-        )}
         <ConnectedSourceDetail
           key={source.id}
           workspaceId={workspaceId}
           sessionId={sessionId}
           source={source}
+          provider={providers.data || providers.error ? providerFor(source) : undefined}
+          browseStartPath={host.data?.effective.root}
+          editRequest={editRequest}
+          showName={frameTitle !== source.label}
           initialFolder={source.id === initialFolderSourceId ? initialFolder : undefined}
           initialDownloaded={source.id === initialFolderSourceId ? initialDownloaded : undefined}
           manageOnly={manageOnly}
@@ -428,34 +415,48 @@ export function ConnectedSourceContents({
           hostLabel={hostLabel}
           onBack={() => select('')}
           onSelect={onSelect}
-          onChanged={() => onChanged?.()}
+          onChanged={() => {
+            void queryClient.invalidateQueries({ queryKey: [...key, 'sources'] });
+            onChanged?.();
+          }}
+          onOpenKnowledge={
+            source.source_kind === 'knowledge' && source.connected
+              ? () => {
+                  openKnowledge(connectionScope(settings), workspaceId, source);
+                  onDiscard();
+                }
+              : undefined
+          }
         />
         {folderReference.error && (
           <p role="alert" className="text-sm text-destructive">
-            {folderReference.error.message}
+            {connectedSourceErrorMessage(folderReference.error)}
           </p>
         )}
       </>
     );
+  // Section labels are the spec's `.zg`: 11px, semibold, muted.
+  const sectionLabel = 'text-[11px] font-semibold text-muted-foreground';
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <DatabaseIcon aria-hidden="true" className="size-4" />
-        <span className="min-w-0 truncate">{hostLabel}</span>
+    <div className="space-y-4">
+      <div className="flex min-h-[26px] items-center gap-1.5 text-[12px] text-muted-foreground">
+        <span className="min-w-0 truncate">Files are saved on {hostLabel}</span>
         <InfoTip label="About connected data">
           Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this
           workspace. Changes to the originals are not copied automatically.
         </InfoTip>
       </div>
       {(sources.error || providers.error || folderReference.error) && (
-        <p role="alert" className="text-sm text-destructive">
-          {(sources.error || providers.error || folderReference.error)?.message}
+        // The spec's status line (`.c3s`): an icon and a sentence, no box.
+        <p role="alert" className="flex min-h-[26px] items-center gap-2 text-[12px]">
+          <InfoIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+          {connectedSourceErrorMessage(sources.error || providers.error || folderReference.error)}
         </p>
       )}
       {!manageOnly && !settingsView && (
         <section className="space-y-2" aria-label="From your computer">
           <div>
-            <h3 className="text-sm font-medium">
+            <h3 className={sectionLabel}>
               {localConnection ? 'From this computer' : 'Upload from your computer'}
             </h3>
             {!localConnection && (
@@ -472,115 +473,116 @@ export function ConnectedSourceContents({
             )}
             <Button
               variant="outline"
-              onClick={() => {
-                const local = providers.data?.providers.find((row) => row.id === 'local');
-                if (localConnection && local) setProvider(local);
-                else setDesktopUpload(true);
-              }}
+              onClick={() =>
+                setForm({
+                  choice:
+                    localConnection && providers.data?.providers.some((row) => row.id === 'local')
+                      ? 'local'
+                      : 'upload',
+                })
+              }
             >
               <FolderUpIcon aria-hidden="true" /> Choose folder
             </Button>
           </div>
         </section>
       )}
-      {!manageOnly && (
+      {!manageOnly && Boolean(providers.data?.providers.length) && (
         <section className="space-y-2" aria-label="Connect a data source">
-          <h3 className="text-sm font-medium">
+          <h3 className={sectionLabel}>
             {settingsView ? 'Accounts and providers' : 'From a connected source'}
           </h3>
-          <div className="divide-y rounded-lg border">
+          <div className="@container -mx-2">
             {providers.data?.providers
               .filter((row) => settingsView || !localConnection || row.id !== 'local')
               .map((row) => (
-                <div key={row.id} className="flex flex-wrap items-center gap-3 p-3">
-                  <div className="flex min-w-48 flex-1 items-center gap-3">
-                    <SourceProviderLogo provider={row.id} />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-2 text-sm font-medium">
+                <ItemRow
+                  key={row.id}
+                  className="border-b-0"
+                  icon={<SourceProviderLogo provider={row.id} size="icon" />}
+                  title={
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate">
                         {row.id === 'local' ? `Use a folder on ${hostLabel}` : row.name}
-                        <SourceProviderInfo provider={row} />
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.id === 'obsidian' ? (
-                          'Knowledge graphs from linked notes'
-                        ) : row.id === 'local' ? (
-                          'Choose data already on this machine'
-                        ) : row.authentication === 'browser' ? (
-                          row.authenticated ? (
-                            <span className="inline-flex items-center gap-1">
-                              <CheckIcon aria-hidden="true" className="size-3" /> Signed in
-                            </span>
-                          ) : (
-                            'Browser sign in'
-                          )
-                        ) : row.id === 'github' ? (
-                          'Public or private repository folder'
-                        ) : (
-                          'Saved or new SSH host'
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                    {row.id === 'obsidian' && (
-                      <Button
+                      </span>
+                      <SourceProviderInfo provider={row} />
+                    </span>
+                  }
+                  meta={
+                    row.id === 'obsidian' ? (
+                      'Knowledge graphs from linked notes'
+                    ) : row.id === 'local' ? (
+                      'Choose data already on this machine'
+                    ) : row.authentication === 'browser' ? (
+                      row.authenticated ? (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckIcon aria-hidden="true" className="size-3" /> Signed in
+                        </span>
+                      ) : (
+                        'Sign in for private data'
+                      )
+                    ) : row.id === 'github' ? (
+                      'Public or private repository folder'
+                    ) : (
+                      'Saved or new SSH host'
+                    )
+                  }
+                  actionsVisible
+                  actionsWidth={52}
+                  actions={
+                    row.id === 'obsidian' ? (
+                      <IconButton
                         size="sm"
-                        variant="outline"
+                        label="New vault"
+                        icon={<AddIcon />}
                         disabled={!workspaceId}
                         onClick={() => {
                           setObsidianChoice('new');
-                          setProvider(row);
+                          setForm({ choice: row.id });
                         }}
-                      >
-                        New vault
-                      </Button>
-                    )}
-                    {row.authentication === 'browser' &&
-                      (row.authenticated ? (
+                      />
+                    ) : row.authentication === 'browser' ? (
+                      row.authenticated ? (
                         <ConnectedAccountActions provider={row} />
                       ) : (
-                        <TooltipProvider delayDuration={150}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                aria-label={`Sign in to ${row.name}`}
-                                onClick={() => setAccountLogin(row)}
-                              >
-                                Sign in
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Sign in to access private data.</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ))}
+                        <IconButton
+                          size="sm"
+                          label={`Sign in to ${row.name}`}
+                          icon={<LogInIcon />}
+                          onClick={() => setAccountLogin(row)}
+                        />
+                      )
+                    ) : undefined
+                  }
+                  slotWidth={76}
+                  slot={
                     <Button
                       size="sm"
                       variant="outline"
+                      className="w-full"
                       disabled={!workspaceId}
                       onClick={() => {
                         setObsidianChoice('existing');
-                        setProvider(row);
+                        setForm({ choice: row.id });
                       }}
                     >
                       Connect
                     </Button>
-                  </div>
-                </div>
+                  }
+                />
               ))}
           </div>
         </section>
       )}
-      {sources.isPending && workspaceId && (
+      {sources.isPending && workspaceId && !connectOnly && (
         <p role="status" className="text-sm text-muted-foreground">
           Loading sources…
         </p>
       )}
-      {sources.data?.length ? (
+      {connectOnly ? null : sources.data?.length ? (
         <Collapsible defaultOpen={!collapsibleSources} asChild>
           <section className="space-y-2" aria-label="Your connected sources">
-            <h3 className="text-sm font-medium">
+            <h3 className={sectionLabel}>
               {collapsibleSources ? (
                 <CollapsibleTrigger asChild>
                   <Button
@@ -613,7 +615,9 @@ export function ConnectedSourceContents({
                     >
                       <SourceProviderLogo provider={row.provider} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{row.label}</span>
+                        <span className="block truncate text-sm font-medium" title={row.label}>
+                          {row.label}
+                        </span>
                         <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                           <span>
                             {row.linked
@@ -635,7 +639,7 @@ export function ConnectedSourceContents({
                                   ? 'Linked folder'
                                   : row.materialization === 'not_materialized'
                                     ? 'Ready to use'
-                                    : row.materialization?.replaceAll('_', ' ')}
+                                    : sourceStatus(row).label}
                           </span>
                         </span>
                       </span>
@@ -678,35 +682,54 @@ export function ConnectedSourceContents({
             </CollapsibleContent>
           </section>
         </Collapsible>
-      ) : !sources.isPending && !sources.error ? (
-        <div
-          className={
-            settingsView
-              ? 'rounded-lg border px-4 py-3 text-center'
-              : 'rounded-lg border border-dashed px-4 py-6 text-center'
-          }
-        >
-          {!settingsView && <FolderEmpty />}
-          <p className="mt-2 text-sm font-medium">
-            {settingsView
-              ? 'No saved sources in this workspace'
-              : manageOnly
-                ? 'No connected sources'
-                : 'Bring your data into this workspace'}
+      ) : !sources.isPending && !sources.error && !providers.error ? (
+        settingsView ? (
+          <div className="rounded-lg border px-4 py-3 text-center">
+            <p className="mt-2 text-sm font-medium">No saved sources in this workspace</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Workspace files stay available. Connect a source for additional data.
+            </p>
+          </div>
+        ) : (
+          <p className="text-[12.5px] text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {manageOnly ? 'No connected sources.' : 'Nothing connected yet.'}
+            </span>{' '}
+            {manageOnly
+              ? 'Add one with + in the Sources list.'
+              : 'Connect a folder to browse and attach its files.'}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {settingsView
-              ? 'Workspace files stay available. Connect a source for additional data.'
-              : manageOnly
-                ? 'Use Attach in the message box to add a folder or source.'
-                : 'Connect a folder to browse and attach its files.'}
-          </p>
-        </div>
+        )
       ) : null}
     </div>
   );
 }
 
-function FolderEmpty() {
-  return <DatabaseIcon aria-hidden="true" className="mx-auto size-6 text-muted-foreground" />;
+/** Signing in to a provider's account, in the picker's frame with Back in the footer. */
+function AccountLogin({
+  provider,
+  onBack,
+  onComplete,
+}: {
+  provider: SourceProvider;
+  onBack: () => void;
+  onComplete: () => void;
+}) {
+  const footer = useSourceFrameFooter({
+    start: { label: 'Back', back: true, onClick: onBack },
+  });
+  return (
+    <div className="flex min-w-0 flex-col gap-[13px]">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <SourceProviderLogo provider={provider.id} />
+        <h3 className="truncate text-[13px] font-medium">Sign in to {provider.name}</h3>
+      </div>
+      <ConnectedAccountSignIn
+        provider={provider.id}
+        appUrl={provider.account_url}
+        onComplete={onComplete}
+      />
+      {footer}
+    </div>
+  );
 }

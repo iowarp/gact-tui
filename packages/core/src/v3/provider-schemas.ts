@@ -70,6 +70,8 @@ export const languageModelPresetSchema = z.object({
         description: optionalWireString(),
         placeholder: optionalWireString(),
         required: z.boolean().default(false),
+        // A closed choice (e.g. "off"/"on"); empty means free text.
+        options: z.array(z.string()).default([]),
       }),
     )
     .default([]),

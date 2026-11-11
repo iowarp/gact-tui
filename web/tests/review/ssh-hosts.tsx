@@ -11,6 +11,7 @@ import { sshHostUsesProfile, type SshHost } from '../../src/lib/ssh-hosts';
 // Test-only transport adapter. Profile data and mutations come from the real
 // native Rust owners over localhost, confined to a new acceptance directory.
 Object.assign(window, {
+  __CLIO_DESKTOP__: { version: 'review' },
   __TAURI_INTERNALS__: {
     invoke: async (command: string, args: unknown) => {
       const response = await fetch('http://127.0.0.1:8200/invoke', {

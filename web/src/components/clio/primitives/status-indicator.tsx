@@ -1,0 +1,120 @@
+import { memo, type ReactNode } from 'react';
+import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { RingSpinner } from './ring-spinner';
+import { statusWordClass } from './status-word-tone';
+
+export type StatusTone =
+  | 'running'
+  | 'waiting'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info'
+  | 'idle'
+  | 'inactive'
+  | 'stopped';
+
+/**
+ * Shape as well as color, so the mark never relies on color alone: a turning
+ * ring for work in progress, a hollow ring for idle, a square for stopped, a
+ * dot for an outcome, a faint dot for something switched off. A label always
+ * goes with it.
+ */
+const MARK: Record<Exclude<StatusTone, 'running'>, string> = {
+  waiting: 'size-1.5 rounded-full bg-action ring-2 ring-action/25',
+  success: 'size-1.5 rounded-full bg-success',
+  warning: 'size-1.5 rounded-full bg-warning',
+  error: 'size-1.5 rounded-full bg-destructive',
+  info: 'size-1.5 rounded-full bg-info',
+  idle: 'size-1.5 rounded-full border border-faint',
+  inactive: 'size-1.5 rounded-full bg-faint',
+  stopped: 'size-1.5 rounded-[1px] bg-muted-foreground',
+};
+
+export interface StatusIndicatorProps {
+  tone: StatusTone;
+  /** What the state is, in words ("Running", "Needs you"). Always required. */
+  label: string;
+  /**
+   * `visible` shows the label beside the mark. `column` shows only the mark in
+   * a fixed 16px status column; the label becomes its accessible name and
+   * hover name, and the row must also say the state (a badge or the elapsed
+   * time) so it is never color alone.
+   */
+  display?: 'visible' | 'column';
+  /**
+   * `glyph` draws an outcome as an icon (a check, an alert, a stop sign), as
+   * activity rows do; work in progress is the same spinner either way.
+   */
+  mark?: 'dot' | 'glyph';
+  /** A domain's own 14px glyph for this state (a run's question bubble); replaces the mark. */
+  icon?: ReactNode;
+  className?: string;
+}
+
+const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
+  success: <CheckIcon className="size-3.5 text-primary" />,
+  error: <CircleAlertIcon className="size-3.5 text-destructive" />,
+  warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
+  stopped: <OctagonIcon className="size-3.5 text-muted-foreground" />,
+};
+
+/**
+ * The one status word: a mark carrying the colour and a 12px word, muted except
+ * for an error or warning, so a state reads the same in every list, menu and
+ * panel. Aligns in a fixed column.
+ */
+export const StatusIndicator = memo(function StatusIndicator({
+  tone,
+  label,
+  display = 'visible',
+  mark: markStyle = 'dot',
+  icon,
+  className,
+}: StatusIndicatorProps) {
+  const glyph = icon ?? (markStyle === 'glyph' ? GLYPH[tone] : undefined);
+  // Work in progress is the shared teal ring; in a glyph column, a wait on the person turns amber.
+  const mark =
+    glyph ??
+    (tone === 'running' ? (
+      <RingSpinner className={markStyle === 'glyph' ? undefined : 'size-[11px]'} />
+    ) : markStyle === 'glyph' && tone === 'waiting' ? (
+      <span
+        aria-hidden="true"
+        className="block size-3 rounded-full border-[1.5px] border-warning border-t-transparent motion-safe:animate-spin motion-safe:will-change-transform"
+      />
+    ) : (
+      <span aria-hidden="true" className={cn('block', MARK[tone])} />
+    ));
+  if (display === 'column') {
+    return (
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        data-slot="status-indicator"
+        data-tone={tone}
+        className={cn('inline-grid size-4 shrink-0 place-items-center', className)}
+      >
+        {mark}
+      </span>
+    );
+  }
+  return (
+    <span
+      data-slot="status-indicator"
+      data-tone={tone}
+      className={cn(
+        'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
+        statusWordClass(tone),
+        className,
+      )}
+    >
+      <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
+        {mark}
+      </span>
+      <span className="truncate">{label}</span>
+    </span>
+  );
+});

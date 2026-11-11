@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 
@@ -99,7 +99,7 @@ const snapshot: TranscriptSnapshot = {
 };
 
 function Harness() {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   return (
     <>
       <div
@@ -120,7 +120,9 @@ function Harness() {
         workspaceId="ws_1"
       />
       <output data-testid="attached">
-        {annotations.map((item) => (item.kind === 'text-quote' ? item.text : '')).join('|')}
+        {annotations
+          .flatMap((item) => item.marks.map((mark) => mark.anchor.exact ?? ''))
+          .join('|')}
       </output>
     </>
   );

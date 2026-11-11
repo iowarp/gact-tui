@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { searchMatchRanges } from '@/lib/search-matches';
 
-/** Blue matches remain readable in both selected and unselected search results. */
+/** The typed match reads as emphasised text (weight and the accent ink), never a filled box. */
 export function SearchHighlight({
   text,
   query,
@@ -21,7 +21,7 @@ export function SearchHighlight({
         return (
           <Fragment key={start}>
             {before}
-            <mark className="rounded-sm bg-highlight px-0.5 text-highlight-foreground">
+            <mark className="bg-transparent font-semibold text-accent-foreground">
               {text.slice(start, end)}
             </mark>
           </Fragment>

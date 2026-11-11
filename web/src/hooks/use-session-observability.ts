@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRepository } from './use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
+import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 
 export function sessionObservabilityQueryKey(endpoint: string, sessionId: string) {
   return queryKeys.sessionObservability(endpoint, sessionId);
@@ -22,18 +23,21 @@ export function useSessionObservability(
 
   const diffs = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'diffs'),
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.sessionDiffs(sessionId, signal)),
     enabled,
   });
   const contextFiles = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-files'),
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.contextFiles(sessionId, signal)),
     enabled,
   });
   const contextFrames = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-frames'),
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.contextFrames(sessionId, signal)),
     enabled,
@@ -85,6 +89,7 @@ export function useSessionObservability(
     pending: processes.isFetchingNextPage,
     loadMore: () => processes.fetchNextPage({ throwOnError: true }),
     history: {
+      loaded: history.isFetched,
       visible: showHistory,
       toggle: () => setHistorySession((value) => (value === sessionId ? null : sessionId)),
       items: history.data?.pages.flatMap((page) => page.items) ?? [],

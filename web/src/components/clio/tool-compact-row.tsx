@@ -1,179 +1,318 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import type { ReactNode } from 'react';
-import { useState } from 'react';
-import {
-  CheckIcon,
-  ChevronRightIcon,
-  CircleAlertIcon,
-  Clock3Icon,
-  LoaderCircleIcon,
-  OctagonIcon,
-} from 'lucide-react';
+import { createElement, Fragment, useState, type ReactNode } from 'react';
+import { CheckIcon, CopyIcon, OctagonMinusIcon, ShieldQuestionIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { copyText } from '@/lib/clipboard';
 import { formatDuration } from '@/lib/format';
+import { toolKindIcon } from '@/lib/tool-kind-icons';
 import { cn } from '@/lib/utils';
 import {
   getToolActionLabel,
   getToolFailureDetail,
-  getToolCompactMetadata,
   getToolStatus,
-  getToolSubject,
   getToolInterruptionDetail,
 } from './tool-presentation';
+import { PresentationLink } from './presentation-link';
+import type { ToolOperation } from './tool-operation';
+import { clioStatusLabel } from './status';
+import { ActivityDisclosure, ActivityRow } from './activity-row';
+import { NamedTooltip } from './primitives/icon-button';
+import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
-/** One recorded call occupies one line; its disclosure owns the complete result. */
+const ARGUMENT_CLASS = 'font-mono text-[11.5px] text-muted-foreground no-underline hover:underline';
+const AGENT_LINK_CLASS =
+  'max-w-[16rem] truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
+
+/** One tool call as an activity row: name, argument, outcome, then fixed right columns. */
 export function ToolCompactRow({
   tool,
+  operation,
   attention,
+  badge,
   duration,
   expanded,
   surface = 'transcript',
+  onOpenFlow,
+  onExpandedChange,
+  info,
+  waiting,
 }: {
   tool: ToolInvocation;
+  operation: ToolOperation;
   attention?: ReactNode;
+  /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
+  waiting?: ReactNode;
+  /** The 58px badge column: Sandbox or Blocked. */
+  badge?: ReactNode;
   duration?: number;
   expanded: boolean;
   surface?: 'transcript' | 'evidence';
+  onOpenFlow?: () => void;
+  onExpandedChange?: (open: boolean) => void;
+  /** The ⓘ technical-details control. */
+  info?: ReactNode;
 }) {
   const status = getToolStatus(tool);
-  const evidence = surface === 'evidence';
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
   const interrupted = status === 'interrupted';
-  const outcomeColor = status === 'unknown' || interrupted ? 'text-warning' : 'text-destructive';
-  const pendingSnapshot = tool.presentation?.blocks.some(
-    (block) => block.result_kind === 'snapshot' && block.status === 'pending',
-  );
-  const action = getToolActionLabel(tool);
-  const subject = getToolSubject(tool);
-  const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
-  const detail = subject?.label || subject?.text || terminal?.command;
-  const showDetail = !(expanded && subject);
-  const metadata = getToolCompactMetadata(tool);
+  const cancelled = status === 'cancelled';
+  // A call the person refused folds into the spec's decision row: "Denied · target · you denied it".
+  const denied = !waiting && status === 'denied';
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
-  const [tooltip, setTooltip] = useState({ failure, open: false });
-  // Keep the trigger mounted across lifecycle changes, but discard an old reason's open state.
-  if (tooltip.failure !== failure) setTooltip({ failure, open: false });
-  const row = (
-    <CollapsibleTrigger asChild>
-      <Button
-        variant="ghost"
-        aria-label={`Show result for ${action}`}
-        title={failure ? undefined : [action, detail, metadata].filter(Boolean).join(', ')}
-        className={cn(
-          'group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal',
-          evidence && 'min-h-11 rounded-md px-2 py-2',
-        )}
-      >
-        {interrupted ? (
-          <OctagonIcon
-            aria-hidden="true"
-            data-slot="tool-interrupted-mark"
-            className="size-3.5 shrink-0 text-warning"
+  const action = operation.action || getToolActionLabel(tool);
+  // A question still waiting on the person is work in progress, even when its
+  // call has already returned, so the row never shows a done mark beside it.
+  const statusLabel = waiting
+    ? 'Waiting for you'
+    : denied
+      ? 'Denied'
+      : interrupted
+        ? failure || clioStatusLabel(status)
+        : cancelled
+          ? 'Stopped'
+          : failure
+            ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+            : clioStatusLabel(status);
+  const tone: StatusTone = waiting
+    ? 'running'
+    : interrupted || cancelled || denied
+      ? 'stopped'
+      : active
+        ? 'running'
+        : success
+          ? 'success'
+          : status === 'unknown' || status === 'degraded'
+            ? 'warning'
+            : 'error';
+  const argument = operation.subjects.length ? (
+    <>
+      {operation.subjects.map((subject, index) => (
+        <Fragment key={`${subject.id}-${index}`}>
+          {index && index === operation.subjects.length - 1 ? ' and ' : null}
+          {onOpenFlow && index === 0 ? (
+            <Button
+              variant="link"
+              className="h-auto p-0 text-[12.5px] font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              onClick={onOpenFlow}
+            >
+              {subject.label || subject.text}
+            </Button>
+          ) : subject.type === 'link' ? (
+            <PresentationLink
+              block={subject}
+              compact
+              className={ARGUMENT_CLASS}
+            />
+          ) : subject.id === 'operation-command' ? (
+            (subject.text || subject.label || '').split('\n', 1)[0]
+          ) : (
+            subject.label || subject.text
+          )}
+          {index < operation.subjects.length - 2 ? ', ' : null}
+        </Fragment>
+      ))}
+      {operation.qualifier ? ` ${operation.qualifier}` : null}
+    </>
+  ) : operation.qualifier ? (
+    operation.qualifier
+  ) : undefined;
+  // One assignment reads as the spec's delegate row: Delegate, the agent as a link, the task.
+  const delegate =
+    operation.kind === 'assignments' && operation.tasks?.length === 1
+      ? operation.tasks[0]
+      : undefined;
+  const delegateLink = delegate ? (
+    delegate.subject.type === 'link' ? (
+      <PresentationLink block={delegate.subject} compact className={AGENT_LINK_CLASS} />
+    ) : (
+      <span className={AGENT_LINK_CLASS}>{delegate.subject.label || delegate.subject.text}</span>
+    )
+  ) : undefined;
+  const argumentTitle = operation.subjects
+    .map((subject) => subject.text || subject.uri || subject.label)
+    .filter(Boolean)
+    .join(', ');
+  // A failure is named in words, not only by its mark's colour; success stays quiet and a
+  // partial outcome is counted in words by the operation's own metadata.
+  const failureWord =
+    !waiting &&
+    !denied &&
+    !active &&
+    !success &&
+    !interrupted &&
+    !(status === 'degraded' && operation.metadata)
+      ? cancelled
+        ? 'stopped'
+        : (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
+      : undefined;
+  const outcome =
+    waiting || failureWord || denied ? (
+      <>
+        {waiting}
+        {denied ? (
+          <span data-slot="tool-outcome" className="text-warning">
+            {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')?.text ||
+              'you denied it'}
+          </span>
+        ) : null}
+        {failureWord ? (
+          <span
+            data-slot="tool-outcome"
+            className={
+              cancelled
+                ? 'text-muted-foreground'
+                : status === 'unknown' || status === 'degraded'
+                  ? 'text-warning'
+                  : 'text-destructive'
+            }
+          >
+            {failureWord}
+          </span>
+        ) : null}
+      </>
+    ) : undefined;
+  const copyValue = copyTarget(operation);
+  const openSubject = operation.subjects.find(
+    (subject) => subject.type === 'link' && subject.target && subject.target !== 'url',
+  );
+  return (
+    <ActivityRow
+      {...(surface === 'evidence' ? {} : tourAnchor('tool-activity'))}
+      className={cn('flex-1', surface === 'evidence' && 'h-8')}
+      open={expanded}
+      onOpenChange={operation.expandable ? onExpandedChange : undefined}
+      disclosure={
+        operation.expandable ? (
+          <ActivityDisclosure
+            open={expanded}
+            label={`${expanded ? 'Collapse' : 'Expand'} ${action}`}
+            asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
           />
-        ) : active ? (
-          <LoaderCircleIcon
-            aria-hidden="true"
-            className="size-3.5 shrink-0 animate-spin text-primary"
-          />
-        ) : pendingSnapshot ? (
-          <Clock3Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-        ) : success ? (
-          <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
-        ) : (
-          <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
-        )}
-        {evidence ? (
-          <span className="grid min-w-0 flex-1 gap-0.5 text-left @min-[640px]/evidence-tools:flex @min-[640px]/evidence-tools:items-center @min-[640px]/evidence-tools:gap-4">
-            <span className="truncate text-sm font-medium @min-[640px]/evidence-tools:max-w-[45%] @min-[640px]/evidence-tools:shrink-0">
-              {action}
-            </span>
-            {(detail && showDetail) || metadata ? (
-              <span className="flex min-w-0 gap-2 text-xs text-muted-foreground @min-[640px]/evidence-tools:flex-1">
-                {detail && showDetail ? (
-                  <span className="min-w-0 flex-1 truncate">{detail}</span>
-                ) : null}
-                {metadata ? (
-                  <span className={cn('truncate', detail && showDetail && 'max-w-[45%] shrink-0')}>
-                    {metadata}
-                  </span>
-                ) : null}
+        ) : null
+      }
+      icon={
+        denied ? <ShieldQuestionIcon aria-hidden="true" /> : createElement(toolKindIcon(tool.name))
+      }
+      name={
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            disabled={!operation.expandable}
+            aria-label={`Show result for ${denied ? `denied ${action}` : action}`}
+            data-slot="tool-action-text"
+            // The chevron is the row's tab stop; the name repeats it for the pointer.
+            tabIndex={-1}
+            className="cursor-pointer rounded-[3px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
+          >
+            {denied ? 'Denied' : action}
+          </button>
+        </CollapsibleTrigger>
+      }
+      link={delegateLink}
+      argument={delegate ? delegate.assignment : argument}
+      argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
+      recap={operation.metadata}
+      recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
+      outcome={outcome}
+      outcomeTone="muted"
+      outcomeTitle={failure}
+      marks={attention}
+      badge={badge}
+      actions={
+        copyValue || openSubject ? (
+          <>
+            {copyValue ? (
+              <CopyAction value={copyValue.value} label={copyValue.label} />
+            ) : (
+              <span className="w-[22px]" />
+            )}
+            {openSubject ? (
+              <span data-activity-action="open" className="grid size-[22px] place-items-center">
+                <PresentationLink block={openSubject} compact iconOnly />
               </span>
             ) : null}
-          </span>
-        ) : (
-          <>
-            <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
-              {action}
-            </span>
-            {detail && showDetail ? (
-              <span
-                className={cn(
-                  'min-w-0 flex-1 truncate text-left',
-                  (subject?.target === 'file' || terminal?.command) && 'font-mono',
-                )}
-              >
-                {detail}
-              </span>
-            ) : (
-              <span className="min-w-0 flex-1" />
-            )}
           </>
-        )}
-        {metadata && !evidence ? (
+        ) : null
+      }
+      elapsed={
+        duration !== undefined ? (
           <span
-            className={cn(
-              'min-w-0 text-muted-foreground',
-              // A phone keeps the call's subject readable; the outcome is in the result below.
-              pendingSnapshot
-                ? 'whitespace-normal text-right'
-                : 'max-w-[35%] truncate max-sm:hidden',
-            )}
-          >
-            {metadata}
-          </span>
-        ) : null}
-        {!active && !success && !interrupted ? (
-          <span className={cn('shrink-0', outcomeColor)}>
-            {status === 'unknown' ? 'Unknown' : status}
-          </span>
-        ) : null}
-        {duration !== undefined ? (
-          <span
-            className="shrink-0 tabular-nums text-muted-foreground"
             data-slot="tool-duration"
             title={active ? 'Elapsed time; updates while running' : 'Execution time'}
           >
-            {formatDuration(duration, 'tenths')}
+            {formatDuration(duration, 'elapsed')}
           </span>
-        ) : null}
-        {attention}
-        <ChevronRightIcon
-          aria-hidden="true"
-          className={cn(
-            'size-3 shrink-0 text-muted-foreground transition-transform',
-            expanded && 'rotate-90',
-          )}
+        ) : null
+      }
+      status={
+        <StatusIndicator
+          tone={tone}
+          label={statusLabel}
+          display="column"
+          mark="glyph"
+          icon={
+            denied ? (
+              <OctagonMinusIcon aria-hidden="true" className="size-3.5 text-warning" />
+            ) : undefined
+          }
         />
-      </Button>
-    </CollapsibleTrigger>
+      }
+      info={info}
+    />
   );
+}
+
+/** The copy hover action: the command, path or output the row names. */
+export function CopyAction({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <TooltipProvider>
-      <Tooltip
-        open={Boolean(failure) && tooltip.failure === failure && tooltip.open}
-        onOpenChange={(open) => setTooltip({ failure, open: Boolean(failure) && open })}
+    <NamedTooltip label={copied ? 'Copied' : label}>
+      <Button
+        variant="ghost"
+        aria-label={label}
+        data-activity-action="copy"
+        className="size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]"
+        onClick={() => {
+          void copyText(value).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1200);
+          });
+        }}
       >
-        <TooltipTrigger asChild>{row}</TooltipTrigger>
-        {failure ? (
-          <TooltipContent className="max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
-            {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
-          </TooltipContent>
-        ) : null}
-      </Tooltip>
-    </TooltipProvider>
+        {copied ? (
+          <CheckIcon aria-hidden="true" className="size-[13px]" />
+        ) : (
+          <CopyIcon aria-hidden="true" className="size-[13px]" />
+        )}
+      </Button>
+    </NamedTooltip>
   );
+}
+
+function copyTarget(operation: ToolOperation): { value: string; label: string } | undefined {
+  const command = operation.subjects.find((subject) => subject.id === 'operation-command');
+  if (command?.text) return { value: command.text, label: 'Copy command' };
+  const file = operation.subjects.find((subject) => subject.target === 'file');
+  if (file?.uri || file?.text) return { value: file.uri || file.text || '', label: 'Copy path' };
+  const first = operation.subjects[0];
+  const text = first?.text || first?.uri || first?.label;
+  return text ? { value: text, label: 'Copy' } : undefined;
+}
+
+function exitCodeOf(tool: ToolInvocation): string | undefined {
+  const output = tool.output as Record<string, unknown> | undefined;
+  const nested =
+    output && typeof output === 'object'
+      ? ((output.structuredContent as Record<string, unknown> | undefined) ??
+        ((output.result as Record<string, unknown> | undefined)?.structuredContent as
+          | Record<string, unknown>
+          | undefined) ??
+        output)
+      : undefined;
+  const code = nested?.exit_code;
+  return typeof code === 'number' && code !== 0 ? `exit ${code}` : undefined;
 }

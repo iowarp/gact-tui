@@ -13,7 +13,8 @@ export interface ResolvedTheme {
 }
 
 function availableTheme(value: unknown): ThemePreference | undefined {
-  if (value === 'system') return 'system';
+  // Notebook followed the OS scheme; Light and Dark now carry its look, so System keeps it.
+  if (value === 'system' || value === 'notebook') return 'system';
   const theme = THEMES.find((candidate) => candidate.id === value);
   if (!theme || (theme.development && !import.meta.env.DEV)) return undefined;
   return theme.id;
@@ -39,7 +40,7 @@ export function readThemePreference(storage: Pick<Storage, 'getItem'>): ThemePre
   }
 }
 
-/** Light and Dark are fixed; System and system-following themes take the OS scheme. */
+/** Fixed themes keep their scheme; System and system-following themes take the OS scheme. */
 export function resolveTheme(preference: ThemePreference, systemDark: boolean): ResolvedTheme {
   if (preference === 'system') return { id: systemDark ? 'dark' : 'light', dark: systemDark };
   const theme = THEMES.find((candidate) => candidate.id === preference)!;
@@ -60,7 +61,22 @@ export function switchTheme(root: HTMLElement, theme: ResolvedTheme): void {
   document.head.append(pause);
   applyTheme(root, theme);
   void getComputedStyle(root).color;
-  window.setTimeout(() => pause.remove(), 1);
+  // Keep the pause until the new colors have painted; a 1 ms timeout can fire before
+  // the frame on WebKit, letting every surface's color transition run visibly.
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => pause.remove()));
+}
+
+/**
+ * Follow OS scheme changes in the frame they happen. The media-query change
+ * event fires before that frame's style and paint, while a React effect runs
+ * after it, so switching here keeps every surface from showing one stale frame.
+ */
+export function followSystemScheme(preference: () => ThemePreference): () => void {
+  const query = window.matchMedia(DARK_SCHEME_QUERY);
+  const follow = (event: MediaQueryListEvent) =>
+    switchTheme(document.documentElement, resolveTheme(preference(), event.matches));
+  query.addEventListener('change', follow);
+  return () => query.removeEventListener('change', follow);
 }
 
 /** Run before first paint by the boot script that `vite-plugin-theme.ts` injects. */

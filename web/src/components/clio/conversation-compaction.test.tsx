@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { A2UISurface, Message, PendingCompaction, PendingInteraction } from '@clio/core/v3';
 import type { ReactElement } from 'react';
@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
+import { SummarizationInjection } from './conversation-summarization';
 
 // Compaction rendering gets its own file rather than adding to
 // `conversation.test.tsx`, which is already at the frontend file-size cap.
@@ -141,14 +142,12 @@ function conversation(
   {
     interactions,
     surfaces = {},
-    expandActivity = true,
   }: {
     interactions?: PendingInteraction[];
     surfaces?: Record<string, A2UISurface>;
-    expandActivity?: boolean;
   } = {},
 ) {
-  const view = renderConversation(
+  return renderConversation(
     <ClioConversation
       artifacts={{}}
       compactions={compactions}
@@ -160,14 +159,6 @@ function conversation(
       tools={{}}
     />,
   );
-  // Content and ownership checks inspect the disclosure the user opens.
-  // The default-state test opts out and verifies the collapsed experience.
-  if (expandActivity) {
-    for (const button of screen.queryAllByRole('button', { name: /^Activity:/u })) {
-      if (button.getAttribute('aria-expanded') === 'false') fireEvent.click(button);
-    }
-  }
-  return view;
 }
 
 function progressRow(): HTMLElement | null {
@@ -175,21 +166,21 @@ function progressRow(): HTMLElement | null {
 }
 
 describe('ClioConversation summarization injection', () => {
-  it('keeps a reloaded summary inside Activity and discloses its exact text', async () => {
+  it('marks a reloaded summary in place and discloses its exact text', async () => {
     const user = userEvent.setup();
-    conversation([userMessage, summaryMessage], undefined, { expandActivity: false });
+    conversation([userMessage, summaryMessage]);
 
     expect(
       document.querySelector('[data-slot="harness-injection"][data-source="summarization"]'),
-    ).toBeNull();
-    await user.click(screen.getByRole('button', { name: /^Activity:/u }));
-    expect(screen.getByText('Summarization')).toBeInTheDocument();
-    expect(screen.getByText('Automatic')).toBeInTheDocument();
+    ).not.toBeNull();
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
 
-    const disclosure = screen.getByRole('button', { name: /Injection Summarization/u });
+    const disclosure = screen.getByRole('button', {
+      name: 'Compacted here, earlier messages summarized',
+    });
+    expect(disclosure).toHaveAccessibleDescription('Started automatically');
     await user.click(disclosure);
-    expect(screen.getByText(/unique-marker-tail/u).textContent).toBe(summary);
+    expect(screen.getByText(/unique-marker-tail/u).textContent?.trim()).toBe(summary);
     await user.click(disclosure);
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
   });
@@ -223,33 +214,64 @@ describe('ClioConversation summarization injection', () => {
       { ...summaryMessage, blocks: [{ ...summaryBlock, text: `${summary}\n\n${recall}` }] },
     ]);
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Injection Summarization/u }));
-    expect(screen.getByText(/call recall_context to retrieve it/u).textContent).toBe(
-      `${summary}\n\n${recall}`,
+    await user.click(
+      screen.getByRole('button', { name: 'Compacted here, earlier messages summarized' }),
     );
+    const recallLine = screen.getByText(/call recall_context to retrieve it/u);
+    expect(recallLine.textContent?.trim()).toBe(recall);
+    expect(recallLine.closest('[data-source="summarization"]')).toHaveTextContent(summary);
   });
 
-  it('labels a user-requested summary distinctly from an automatic one', () => {
+  it('names a user-requested summary distinctly from an automatic one', () => {
     conversation([
       {
         ...summaryMessage,
         blocks: [{ ...summaryBlock, text: 'Short summary.', trigger: 'manual' }],
       },
     ]);
-    expect(screen.getByText('Requested')).toBeInTheDocument();
-    expect(screen.queryByText('Automatic')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Compacted here, earlier messages summarized' }),
+    ).toHaveAccessibleDescription('Requested');
+  });
+
+  it('marks a compaction as one line that discloses the summary on press', () => {
+    render(<SummarizationInjection block={summaryBlock} />);
+    const line = screen.getByRole('button', {
+      name: 'Compacted here, earlier messages summarized',
+    });
+    expect(line).toHaveAttribute('aria-expanded', 'false');
+    expect(line).toHaveAttribute('title', 'Started automatically');
+    expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
+    fireEvent.click(line);
+    expect(line).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/unique-marker-tail/u)).toBeInTheDocument();
+  });
+
+  it('counts the summarized messages and opens to the prompt, summary and kept turns', () => {
+    render(
+      <SummarizationInjection
+        block={{ ...summaryBlock, metadata: { compacted_message_ids: ['m1', 'm2', 'm3'] } }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compacted here, 3 messages summarized' }));
+    const record = screen.getByRole('group', { name: 'What the agent kept' });
+    // The summary opens with the record; parts the record lacks say so instead.
+    expect(within(record).getByText(/unique-marker-tail/u)).toBeInTheDocument();
+    expect(within(record).getByText('System prompt')).toBeInTheDocument();
+    expect(within(record).getByText('Recent turns kept verbatim')).toBeInTheDocument();
+    // Neither the system prompt nor the kept turns were sent with this record.
+    expect(within(record).getAllByText('Not recorded')).toHaveLength(2);
   });
 });
 
 describe('ClioConversation compaction progress', () => {
-  it('shows a running compaction in place after the open turn, badged Automatic', () => {
+  it('shows a running compaction in place after the open turn, named as automatic', () => {
     conversation([userMessage, assistantMessage], [pending()]);
 
     const row = progressRow();
     expect(row).not.toBeNull();
-    expect(row).toHaveAttribute('role', 'status');
-    expect(row).toHaveTextContent('Summarizing context');
-    expect(row).toHaveTextContent('Automatic');
+    expect(within(row!).getByRole('status')).toHaveTextContent('Summarizing earlier messages…');
+    expect(row).toHaveAttribute('title', 'Started automatically');
     // In place: inside the open turn's assistant message, after its content.
     expect(document.getElementById('message-message_assistant')?.contains(row)).toBe(true);
     expect(
@@ -258,10 +280,9 @@ describe('ClioConversation compaction progress', () => {
     ).toBeTruthy();
   });
 
-  it('badges a user-requested compaction as Requested', () => {
+  it('names a user-requested compaction as Requested', () => {
     conversation([userMessage, assistantMessage], [pending({ trigger: 'manual' })]);
-    expect(progressRow()).toHaveTextContent('Requested');
-    expect(progressRow()).not.toHaveTextContent('Automatic');
+    expect(progressRow()).toHaveAttribute('title', 'Requested');
   });
 
   it('replaces the shimmer with the summary once the summary block is in the transcript', () => {
@@ -277,7 +298,7 @@ describe('ClioConversation compaction progress', () => {
       ],
     );
     expect(progressRow()).toBeNull();
-    expect(screen.getByText('Summarization')).toBeInTheDocument();
+    expect(screen.getByText('Compacted here, earlier messages summarized')).toBeInTheDocument();
   });
 
   it('shows the typed error in place of the shimmer when the compaction fails', () => {
@@ -292,7 +313,7 @@ describe('ClioConversation compaction progress', () => {
     );
     expect(progressRow()).toBeNull();
     const failure = document.querySelector('[data-slot="compaction-failed"]');
-    expect(failure).toHaveTextContent('Context could not be summarized');
+    expect(failure).toHaveTextContent('Earlier messages weren’t summarized');
     expect(failure).toHaveTextContent('No language model is bound.');
     expect(failure).toHaveTextContent('Compaction unavailable');
     expect(document.getElementById('message-message_assistant')?.contains(failure)).toBe(true);
@@ -301,10 +322,10 @@ describe('ClioConversation compaction progress', () => {
   it('renders a reloaded failure notice with the in-place error look', () => {
     conversation([userMessage, assistantMessage, noticeMessage]);
     const failure = document.querySelector('[data-slot="compaction-failed"]');
-    expect(failure).toHaveTextContent('Context could not be summarized');
+    expect(failure).toHaveTextContent('Earlier messages weren’t summarized');
     expect(failure).toHaveTextContent('No language model is bound.');
     expect(failure).toHaveTextContent('Compaction unavailable');
-    expect(failure).toHaveTextContent('Requested');
+    expect(failure?.getAttribute('title')).toContain('Requested');
     expect(document.getElementById('message-msg_notice_ab12')?.contains(failure)).toBe(true);
   });
 
@@ -321,7 +342,7 @@ describe('ClioConversation compaction progress', () => {
       },
     ]);
     const failure = document.querySelector('[data-slot="compaction-failed"]');
-    expect(failure).toHaveTextContent('Automatic');
+    expect(failure?.getAttribute('title')).toContain('Started automatically');
     expect(document.getElementById('message-message_assistant')?.contains(failure)).toBe(true);
     expect(
       failure!.compareDocumentPosition(screen.getByText('Final answer text.')) &
@@ -368,7 +389,7 @@ describe('ClioConversation compaction progress', () => {
   it('places a compaction with no resident anchor after the last message', () => {
     conversation([userMessage], [pending({ anchor_message_id: undefined, turn_id: '' })]);
     expect(document.querySelector('[data-slot="trailing-compactions"]')).toHaveTextContent(
-      'Summarizing context',
+      'Summarizing earlier messages…',
     );
   });
 });

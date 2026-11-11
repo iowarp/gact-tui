@@ -21,7 +21,7 @@ export function ConversationInspector({
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const preview = useConversationPreview(session.id);
-  const history = conversationPreview(session, preview.messages);
+  const history = conversationPreview(session, preview.messages, preview.partial);
   const parent = sessions.find((candidate) => candidate.id === session.parent_session_id);
   return (
     <aside

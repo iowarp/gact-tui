@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { ConnectedDataSetupLink } from './connected-data-setup-link';
+import { ArtifactImagePreview } from './artifact-image-preview';
+import { showTaskInWork } from './work-task-focus';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
 
 /** Resolve declared result links through the conversation's existing workbench. */
@@ -16,10 +18,13 @@ export function PresentationLink({
   block,
   compact = false,
   iconOnly = false,
+  className: extraClassName,
 }: {
   block: ToolPresentationBlock;
   compact?: boolean;
   iconOnly?: boolean;
+  /** Restyles the label, e.g. as an activity row's mono argument. */
+  className?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
   const hasRouter = useInRouterContext();
@@ -27,6 +32,11 @@ export function PresentationLink({
   if (block.target === 'connected_data')
     return iconOnly ? null : <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
+  // A row names an absolute path by its folder and file; the tooltip keeps the whole path.
+  const shown =
+    compact && /^(?:[a-z]:[\\/]|\/)/iu.test(label)
+      ? label.split(/[\\/]/u).filter(Boolean).slice(-2).join('/')
+      : label;
   const filename = compact && block.target === 'file';
   const text = iconOnly ? (
     block.target === 'url' ? (
@@ -36,15 +46,19 @@ export function PresentationLink({
     )
   ) : filename ? (
     <span className="flex min-w-0">
-      <span className="truncate">{label.slice(0, -12)}</span>
-      <span className="shrink-0">{label.slice(-12)}</span>
+      <span className="truncate">{shown.slice(0, -12)}</span>
+      <span className="shrink-0">{shown.slice(-12)}</span>
     </span>
   ) : (
-    <span className={compact ? 'truncate' : undefined}>{label}</span>
+    <span className={compact ? 'truncate' : undefined}>{shown}</span>
   );
   const className = iconOnly
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
-    : cn('text-sm', compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words');
+    : cn(
+        'text-sm',
+        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        extraClassName,
+      );
   const withTooltip = (element: React.ReactElement) =>
     compact ? (
       <TooltipProvider>
@@ -80,7 +94,11 @@ export function PresentationLink({
   )
     open = () => navigation.onOpenSession?.(uri);
   else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
-  else if (block.target === 'surface' && navigation?.surfaces?.[uri])
+  else if (block.target === 'task' && uri && navigation?.onOpenTasks) {
+    // The background tasks open at the row of the task the link names.
+    const openTasks = navigation.onOpenTasks;
+    open = () => showTaskInWork(uri, openTasks);
+  } else if (block.target === 'surface' && navigation?.surfaces?.[uri])
     open = () => {
       const surface = document.getElementById(a2uiSurfaceDomId(uri));
       surface?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -89,9 +107,34 @@ export function PresentationLink({
   else if (
     (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
+    block.line !== undefined &&
+    navigation?.onOpenFileReference
+  )
+    // A link that names a line (a read range, a search hit) opens the file there.
+    open = () => navigation.onOpenFileReference?.(uri, { line: block.line });
+  else if (
+    (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
+    /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
     navigation?.onOpenFile
   )
     open = () => navigation.onOpenFile?.(uri);
+  if (
+    block.target === 'artifact' &&
+    artifact &&
+    /^image\//u.test(block.media_type ?? '') &&
+    !iconOnly
+  )
+    return (
+      <span className="flex flex-col items-start gap-1">
+        <ArtifactImagePreview
+          artifact={artifact}
+          mediaType={block.media_type ?? 'image/png'}
+          label={label}
+          onOpen={open ? () => open?.({ shiftKey: false }) : undefined}
+        />
+        <span className={className}>{label}</span>
+      </span>
+    );
   if (open)
     return withTooltip(
       <Button
@@ -111,7 +154,7 @@ export function PresentationLink({
   if (block.target === 'url' && /^https?:\/\//iu.test(uri))
     return withTooltip(
       <ExternalLink
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         href={uri}
         aria-label={iconOnly ? `Open ${label}` : undefined}
       >
@@ -123,7 +166,7 @@ export function PresentationLink({
   if (block.target === 'session' && uri && hasRouter)
     return withTooltip(
       <Link
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         relative="path"
         aria-label={iconOnly ? `Open ${label}` : undefined}
         to={`../${encodeURIComponent(uri)}`}
@@ -134,7 +177,7 @@ export function PresentationLink({
   if (block.target === 'memory' && uri && hasRouter)
     return withTooltip(
       <Link
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         aria-label={iconOnly ? `Open ${label} in memory` : undefined}
         to={`/settings/memory?${memoryLinkParams(uri)}`}
       >
@@ -151,6 +194,7 @@ export function PresentationLink({
 
 /** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
 function memoryLinkParams(uri: string): URLSearchParams {
+  if (uri.startsWith('scope:')) return new URLSearchParams({ scope: uri.slice(6) });
   const [doc = uri, fact] = uri.split('#', 2);
   return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

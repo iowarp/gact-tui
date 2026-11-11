@@ -1,16 +1,18 @@
-import { ChevronDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
 import { cachedModelFacts } from './model-picker-fact-cache';
-import { tagFilterToken, type ModelFilterToken } from '@/lib/model-filter-tokens';
+import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cn } from '@/lib/utils';
-import { ModelCapabilityTags } from './model-capability-tags';
+import { KeyCap } from './primitives/key-chip';
+import { ModelRowFacts } from './model-row-facts';
 import { ModelDescriptionHint } from './model-description-hint';
-import type { PickerNodeData } from './model-picker-model';
+import { providerGroupStatus, providerRunning, type PickerNodeData } from './model-picker-model';
 import type { ProviderFilterCount } from './model-picker-tree';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
+import { providerActionStageWord } from './provider-action-flows';
 import type { ProviderSearchCount } from './use-model-picker-search-view';
 
 interface PickerRowLabelProps {
@@ -22,7 +24,14 @@ interface PickerRowLabelProps {
    * header -- "matches / total" and a fold chevron, which pressing the row
    * turns (the picker folds the group rather than drilling in).
    */
-  search?: { count: ProviderSearchCount; collapsed: boolean };
+  search?: {
+    count: ProviderSearchCount;
+    collapsed: boolean;
+    /** A narrow picker's group header with no search typed: "OpenRouter 3". */
+    plain?: boolean;
+    /** Two columns: the providers column, "name heartbeat 3 ›" (the cascader's chevron). */
+    column?: boolean;
+  };
   /** Clicking a row's tag adds its filter token. */
   onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
@@ -31,6 +40,11 @@ interface PickerRowLabelProps {
   onToggleVisibility?: () => void;
   /** The running action's stage for THIS provider: the heartbeat turns yellow. */
   stage?: string;
+  /**
+   * One column: a model's name sits on the group label's edge, with the ✓
+   * leading only the chosen row (no reserved check slot).
+   */
+  flush?: boolean;
   state: CascaderItemState<PickerNodeData>;
 }
 
@@ -50,8 +64,8 @@ function CountLabel({ shown, total, verb }: { shown: number; total: number; verb
  * One picker row's label. A provider row is the owner's template -- `name
  * heartbeat count ›` -- with the eye only while managing visibility; during a
  * search it becomes its results group's header (`name heartbeat 11 / 458 ⌄`).
- * A model row is its name over its capability chips, each chip adding its
- * filter token when clicked.
+ * A model row is one line: its name, then its facts (context, price and
+ * capability icons, each adding its filter token when clicked) at the end.
  */
 export function PickerRowLabel({
   eyeAsStaticElement,
@@ -63,14 +77,89 @@ export function PickerRowLabel({
   node,
   onToggleVisibility,
   stage,
+  flush = false,
+  state,
 }: PickerRowLabelProps) {
+  if (node.data?.kind === 'provider-more') {
+    // A truncated group's last model row: "309 more", opened with → or ↵.
+    return (
+      <span className="flex w-full min-w-0 items-center gap-2" data-slot="provider-more">
+        <span className="min-w-0 truncate text-start text-muted-foreground">{node.label}</span>
+        <span className="ms-auto hidden items-center gap-1 in-data-highlighted:inline-flex">
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">→</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">↵</KeyCap>
+        </span>
+      </span>
+    );
+  }
+  if (node.data?.kind === 'search-all') {
+    return (
+      <span className="flex w-full min-w-0 items-center gap-1.5" data-slot="search-all-providers">
+        <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
+        <span
+          aria-label={`${node.data.matches} models match`}
+          className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+        >
+          {node.data.matches}
+        </span>
+      </span>
+    );
+  }
+  if (node.data?.kind === 'provider' && search?.plain) {
+    // One column: a small muted group label with only its count; its manage
+    // row (status and actions) ends the group. Pressing it folds the group.
+    return (
+      <span
+        className="flex w-full min-w-0 items-center gap-[7px] text-[11px] font-semibold text-muted-foreground"
+        data-collapsed={search.collapsed ? '' : undefined}
+        data-slot="provider-group-header"
+      >
+        <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
+        <span
+          aria-label={`${search.count.matches} models`}
+          className="shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums"
+          data-slot="provider-filter-count"
+        >
+          {search.count.matches || null}
+        </span>
+        <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+      </span>
+    );
+  }
   if (node.data?.kind === 'provider') {
     // The model count and the drill chevron are the Cascader's own trailing
     // slots and render after this label -- except in search results, where
     // the picker hides them and this label draws the group's own.
     return (
-      <span className="flex w-full min-w-0 items-center gap-1.5" data-collapsed={search?.collapsed ? '' : undefined}>
-        <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
+      <span
+        className="flex w-full min-w-0 items-center gap-1.5"
+        data-collapsed={search?.collapsed ? '' : undefined}
+      >
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate text-start',
+            !providerRunning(node.data.group) && !stage && 'text-muted-foreground',
+          )}
+        >
+          {node.label}
+        </span>
+        {!stage ? (
+          <span
+            className="shrink-0 text-[11px] text-muted-foreground"
+            data-slot="provider-row-status"
+            title={node.data.group.detail}
+          >
+            {providerGroupStatus(node.data.group).label}
+          </span>
+        ) : stage ? (
+          <span
+            className="shrink-0 text-[11px] text-muted-foreground"
+            data-slot="provider-row-status"
+            title={stage}
+          >
+            {providerActionStageWord(stage)}
+          </span>
+        ) : null}
         {managingVisibility && onToggleVisibility ? (
           <ProviderEyeToggle
             asStaticElement={eyeAsStaticElement}
@@ -80,7 +169,17 @@ export function PickerRowLabel({
           />
         ) : null}
         <ProviderHeartbeat group={node.data.group} stage={stage} />
-        {search ? (
+        {search?.column ? (
+          search.count.total > 0 ? (
+            <span
+              aria-label={`${search.count.matches} of ${search.count.total} models match`}
+              className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+              data-slot="provider-filter-count"
+            >
+              {search.count.matches}
+            </span>
+          ) : null
+        ) : search ? (
           <>
             <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
             <ChevronDownIcon
@@ -102,26 +201,37 @@ export function PickerRowLabel({
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
   const facts = choice ? cachedModelFacts(choice) : undefined;
   const allTags = facts?.tags ?? [];
-  const tags = displayedTags(allTags);
   // A router's name does not say what it routes to: its description does.
   const router = allTags.some((tag) => tag.axis === 'kind' && tag.value === 'router');
   const description = router ? facts?.facts.description : undefined;
   return (
-    <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
-      <span className="flex w-full min-w-0 items-center gap-1">
-        <span className="min-w-0 truncate text-start" data-slot="model-row-name">
-          {node.label}
+    <span className="flex w-full min-w-0 flex-1 items-center gap-2">
+      {/* The spec's ✓ leads the row; in columns every model keeps the slot so names align. */}
+      {flush && !state.selected ? null : (
+        <span aria-hidden="true" className="grid w-3.5 shrink-0 place-items-center">
+          {state.selected ? <CheckIcon className="size-3.5 text-accent-foreground" /> : null}
         </span>
-        {description ? <ModelDescriptionHint description={description} name={node.label} /> : null}
+      )}
+      <span
+        className={cn(
+          'min-w-0 truncate text-start font-normal',
+          state.selected && 'text-accent-foreground',
+        )}
+        data-slot="model-row-name"
+      >
+        {node.label}
       </span>
-      <ModelCapabilityTags
-        onTagClick={(tag) => {
-          const token = tagFilterToken(tag);
-          if (token) onTagToken(token);
-        }}
-        size="sm"
-        tags={tags}
+      {description ? <ModelDescriptionHint description={description} name={node.label} /> : null}
+      <ModelRowFacts
+        className="ms-auto"
+        contextWindow={facts?.facts.contextWindow}
+        inputPrice={facts?.facts.inputPrice}
+        onTagToken={onTagToken}
+        tags={displayedTags(allTags)}
       />
+      <KeyCap size="row" className="hidden in-data-highlighted:inline-flex">
+        ↵
+      </KeyCap>
     </span>
   );
 }

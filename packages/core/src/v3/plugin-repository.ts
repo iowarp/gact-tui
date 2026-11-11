@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   agentEntrySchema,
+  localLibrarySchema,
+  type LocalLibrary,
   agentResolutionSchema,
   marketplaceSummarySchema,
   pluginCatalogSchema,
@@ -23,6 +25,12 @@ import {
 } from './plugin-domain.js';
 import { pluginReviewSchema, type PluginReview } from './plugin-review-schemas.js';
 import { SessionObservabilityRepository } from './session-observability-repository.js';
+import {
+  toolSettingsSchema,
+  type ToolRule,
+  type ToolSettings,
+  type ToolSettingsUpdate,
+} from './tool-settings-schemas.js';
 
 const PLUGIN_REVIEW_PATH = /^\/v1\/plugins\/[^/?#]+\/review$/u;
 
@@ -62,6 +70,15 @@ export interface LocalExtensionInput {
 
 /** Plugins, marketplaces, agents, user agents and the session's pinned agent. */
 export class PluginRepository extends SessionObservabilityRepository {
+  /** Read local source locations without installing or publishing a marketplace. */
+  public localLibrary(signal?: AbortSignal): Promise<LocalLibrary> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/plugins/local',
+      signal,
+      decode: (value) => localLibrarySchema.parse(value),
+    });
+  }
   public discoverMcp(search: string, cursor = '', signal?: AbortSignal): Promise<McpRegistryPage> {
     return this.transport.request({
       method: 'GET',
@@ -100,6 +117,39 @@ export class PluginRepository extends SessionObservabilityRepository {
       path: `/v1/plugins/upload?${new URLSearchParams({ name, ...(kind ? { kind } : {}) })}`,
       body: { archive },
       decode: (value) => marketplaceSummarySchema.parse(value),
+    });
+  }
+  /** One plugin's tools with their permission and I/O settings (the tools page). */
+  public toolSettings(ref: string, signal?: AbortSignal): Promise<ToolSettings> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/settings/tools?${new URLSearchParams({ ref })}`,
+      signal,
+      decode: (value) => toolSettingsSchema.parse(value),
+    });
+  }
+  /** Save the person's permission rule and/or I/O choice for some tools. */
+  public updateToolSettings(body: ToolSettingsUpdate): Promise<{ tools: string[] }> {
+    return this.transport.request({
+      method: 'PUT',
+      path: '/v1/settings/tools',
+      body,
+      decode: (value) => z.object({ tools: z.array(z.string()) }).parse(value),
+    });
+  }
+  /** Remove one of the person's saved rules for a tool. */
+  public removeToolRule(tool: string, rule: ToolRule): Promise<{ removed: number }> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/settings/tools/rules/remove',
+      body: {
+        tool,
+        scope: rule.scope,
+        scope_id: rule.scope_id,
+        action: rule.action,
+        path_pattern: rule.path_pattern,
+      },
+      decode: (value) => z.object({ removed: z.number() }).parse(value),
     });
   }
   /** Inspect one exact catalog reference without executing source or changing trust. */

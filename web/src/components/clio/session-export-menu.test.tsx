@@ -7,11 +7,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SessionExportMenu } from './session-export-menu';
+import { selectMenuKey } from './select-menu-key';
 
 afterEach(cleanup);
 
 describe('session export modes', () => {
-  it('defaults to transcript and enforces full implies effects', async () => {
+  it('is one download: HTML with nothing ticked, a ZIP once files are ticked', async () => {
     const user = userEvent.setup();
     const download = vi.fn();
     render(
@@ -23,16 +24,92 @@ describe('session export modes', () => {
       </DropdownMenu>,
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
-    expect(screen.getByRole('menuitem', { name: 'Download HTML' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
-    expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
-    ).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
-    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAccessibleDescription(
+      'files the agent made',
+    );
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Download ZIP' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Download HTML' })).not.toHaveAttribute(
+      'aria-disabled',
+    );
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Download HTML' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Download ZIP' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
-    expect(download).toHaveBeenCalledWith('effects');
+    expect(download).toHaveBeenCalledWith('full');
+  });
+
+  it('downloads with one key, whichever format the ticks choose', async () => {
+    const user = userEvent.setup();
+    const download = vi.fn();
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent onKeyDown={selectMenuKey}>
+          <SessionExportMenu onExport={download} />
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
+    await user.keyboard('s');
+    expect(download).toHaveBeenCalledWith('transcript');
+  });
+});
+
+describe('session export on a phone', () => {
+  const width = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = width;
+  });
+
+  it('opens its options in place, with the submenu keys', async () => {
+    window.innerWidth = 390;
+    const user = userEvent.setup();
+    const download = vi.fn();
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent onKeyDown={selectMenuKey}>
+          <SessionExportMenu onExport={download} />
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    const exportItem = screen.getByRole('menuitem', { name: 'Export' });
+    expect(exportItem).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('menuitem', { name: 'Download HTML' })).toBeNull();
+
+    exportItem.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(exportItem).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('group', { name: 'Export' })).toBeVisible();
+    // One menu: nothing is layered over the rows Export belongs to.
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.queryByRole('group', { name: 'Export' })).toBeNull();
+
+    await user.click(exportItem);
+    expect(exportItem).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('s');
+    expect(download).toHaveBeenCalledWith('transcript');
   });
 });

@@ -10,7 +10,7 @@ test.afterEach(async ({ page }) => {
 });
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`${theme}: open questions remain reachable above the composer and link to their source`, async ({
+  test(`${theme}: an open question is asked once, above the composer that answers it`, async ({
     page,
   }, testInfo) => {
     expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -53,66 +53,35 @@ for (const theme of ['light', 'dark'] as const) {
     });
 
     const draft = 'Use the documented category labels.';
+    const dock = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
+    const composer = page.getByRole('combobox', { name: /^Ask / });
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      const tracker = page.getByRole('button', { name: '1 open question', exact: true });
-      await expect(tracker).toBeVisible();
-      // A real click must reach the tracker; no forced clicks through the docked composer.
-      await tracker.click();
-      const questions = page.getByRole('dialog', { name: 'Open questions', exact: true });
-      await expect(questions).toContainText(prompt);
-      // Loading the transcript must preserve an already-open question list.
-      await expect(
-        questions.getByRole('button', { name: 'Go to question 1', exact: true }),
-      ).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath(`question-list-${theme}-${width}.png`) });
-      await questions.getByRole('button', { name: 'Expand question 1', exact: true }).click();
-      await expect(questions.getByText('Answer when ready', { exact: true })).toBeVisible();
-      await expect(questions.getByRole('button', { name: 'Collapse question 1' })).toBeVisible();
-      await questions
-        .getByRole('button', { name: 'Read and answer question 1', exact: true })
-        .click();
-      const dialog = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
-      await expect(dialog).toContainText(prompt);
-      await expect(dialog.getByRole('textbox')).toBeVisible();
-      const title = dialog.locator('[data-slot="pending-interaction-title"]');
+      // One ask card above the composer; no floating question pill.
+      await expect(page.getByRole('button', { name: /open questions?$/u })).toHaveCount(0);
+      const card = dock.locator('[data-slot="ask-card"]:visible');
+      await expect(card).toContainText(prompt);
+      const title = card.locator('[data-slot="pending-interaction-title"]');
       expect(await title.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-      await page.screenshot({ path: testInfo.outputPath(`question-answer-${theme}-${width}.png`) });
+      // A written answer goes in the composer; the card keeps no second field.
+      await expect(card.getByRole('textbox')).toHaveCount(0);
       if (width === 1280) {
-        await expect(dialog.getByRole('textbox')).toHaveValue('');
-        await expect(dialog.getByRole('button', { name: 'Send response' })).toBeDisabled();
-        await dialog.getByRole('textbox').fill(draft);
-      } else {
-        await expect(dialog.getByRole('textbox')).toHaveValue(draft);
+        await expect(composer).toHaveText('');
+        await card.getByRole('button', { name: 'Type your answer below' }).click();
+        await expect(composer).toBeFocused();
+        await composer.fill(draft);
       }
-      await expect(dialog.getByRole('button', { name: 'Send response' })).toBeEnabled();
-      // Inspecting or drafting an answer never resolves the question.
-      await dialog.getByRole('button', { name: 'Agent needs your attention', exact: true }).click();
-      await tracker.click();
-      await questions.getByRole('button', { name: 'Go to question 1', exact: true }).click();
-      await expect(page).toHaveURL(/#message-msg_stream\/activity-tool_fixture_question$/);
-      const summary = page.locator('#question-tool_fixture_question');
-      await expect(summary).toBeVisible();
-      await expect(summary).toBeFocused();
-      const geometry = await summary.evaluate((node) => {
-        const style = getComputedStyle(node);
-        return {
-          paddingTop: Number.parseFloat(style.paddingTop),
-          paddingBottom: Number.parseFloat(style.paddingBottom),
-          lineHeight: Number.parseFloat(style.lineHeight),
-          fontSize: Number.parseFloat(style.fontSize),
-          overflow: node.scrollWidth > node.clientWidth,
-        };
-      });
-      expect(geometry.paddingTop).toBeGreaterThanOrEqual(10);
-      expect(geometry.paddingBottom).toBeGreaterThanOrEqual(10);
-      expect(geometry.lineHeight / geometry.fontSize).toBeGreaterThanOrEqual(1.4);
-      expect(geometry.overflow).toBe(false);
-      await page.screenshot({ path: testInfo.outputPath(`question-${theme}-${width}.png`) });
-      await summary.click();
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole('button', { name: 'Agent needs your attention', exact: true }).click();
-      await expect(tracker).toBeVisible();
+      await expect(card.getByText('Type your answer in the message box below')).toBeVisible();
+      await expect(composer).toHaveText(draft);
+      await page.screenshot({ path: testInfo.outputPath(`question-answer-${theme}-${width}.png`) });
+      // The transcript keeps only the activity row, which leads to the card.
+      const activity = page.getByRole('button', { name: `Answer below: ${prompt}`, exact: true });
+      await activity.scrollIntoViewIfNeeded();
+      await expect(activity).toBeVisible();
+      await expect(page.locator('[data-inline-question]')).toHaveCount(0);
+      await activity.click();
+      await expect(card).toBeInViewport();
+      await expect(composer).toHaveText(draft);
     }
     expect(submittedAnswers).toEqual([]);
   });

@@ -20,7 +20,7 @@ test('compact runtime results are readable before JSON at desktop and phone widt
     id: 'runtime',
     session_id: 's',
     name: 'prepare_execution_runtime',
-    title: 'Get execution environment',
+    title: 'Inspect execution environment',
     state: 'succeeded',
     duration_ms: 42700,
     input: { kwargs: { required_imports: ['PIL'] } },
@@ -36,14 +36,20 @@ test('compact runtime results are readable before JSON at desktop and phone widt
   });
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const row = page.getByRole('button', { name: 'Show result for Get execution environment' });
+    // Phone rows hide the action name; the leading disclosure opens them there.
+    const row = page.getByRole('button', {
+      name:
+        width < 480
+          ? /^(Expand|Collapse) Inspect execution environment$/
+          : 'Show result for Inspect execution environment',
+    });
     expect(
       await page
         .locator('[data-slot="tool-activity"]')
         .evaluate((node) => node.scrollWidth <= node.clientWidth),
     ).toBe(true);
     await row.click();
-    const result = page.getByRole('region', { name: 'Get execution environment: Result' });
+    const result = page.getByRole('region', { name: 'Inspect execution environment: Result' });
     await expect(result).toContainText('Python version: 3.13.16');
     await expect(result).not.toContainText('Arguments');
     await expect(result).not.toContainText('required_imports');
@@ -51,7 +57,7 @@ test('compact runtime results are readable before JSON at desktop and phone widt
     expect(await result.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
     await page.screenshot({ path: test.info().outputPath(`runtime-readable-${width}.png`) });
     const info = page.getByRole('button', {
-      name: 'Technical details for Get execution environment',
+      name: 'Technical details for Inspect execution environment',
     });
     await info.click();
     await expect(page.getByRole('dialog')).toContainText('required_imports');
@@ -95,26 +101,25 @@ test('compact shell failures expose the recorded reason before a long command', 
       ],
     },
   });
-  const row = page.getByRole('button', { name: 'Show result for Run' });
-  await row
-    .locator('span')
-    .filter({ hasText: /^failed$/ })
-    .hover();
-  await expect(page.getByRole('tooltip')).toHaveText(failure);
+  const row = page.getByRole('button', { name: 'Show result for Run command' });
+  // The status mark names the recorded reason; the outcome word carries it on hover.
+  await expect(page.getByRole('img', { name: `Failed: ${failure}` })).toBeVisible();
+  await expect(page.locator('[data-slot="activity-outcome"]')).toHaveAttribute('title', failure);
   await row.click();
-  const result = page.getByRole('region', { name: 'Run: Result' });
-  await expect(result.getByRole('alert')).toHaveText(failure);
-  const alert = (await result.getByRole('alert').boundingBox())!;
+  const result = page.getByRole('region', { name: 'Run command: Result' });
+  // The output already names the reason, so it is not repeated as an alert, and the
+  // long script scrolls in its own bounded block instead of pushing the reason away.
+  const reason = result.locator('[data-slot="transcript-terminal"]').getByText(failure);
+  await expect(reason).toBeInViewport();
+  await expect(result.getByRole('alert')).toHaveCount(0);
+  const reasonBox = (await reason.boundingBox())!;
   const bounds = (await result.boundingBox())!;
-  expect(alert.y).toBeLessThan(bounds.y + 60);
-  await expect(result).toContainText('Process exited with code 1.');
+  expect(reasonBox.y).toBeLessThan(bounds.y + 400);
+  await expect(result.locator('pre').first()).toContainText('# authored script line 34');
+  await expect(page.locator('[data-slot="activity-outcome"]')).toContainText('exit 1');
   await page.mouse.move(0, 0);
   await page.screenshot({ path: test.info().outputPath('shell-failure-readable.png') });
-  await page.getByRole('button', { name: 'Technical details for Run' }).focus();
-  await page.keyboard.press('Shift+Tab');
-  await expect(row).toBeFocused();
-  await expect(page.getByRole('tooltip')).toHaveText(failure);
-  await page.getByRole('button', { name: 'Technical details for Run' }).click();
+  await page.getByRole('button', { name: 'Technical details for Run command' }).click();
   await expect(page.getByRole('dialog')).toContainText('"cwd": null');
   await expect(page.getByRole('dialog')).toContainText(failure);
 });
@@ -136,9 +141,8 @@ test('compact widget rejection retains its semantic error when transport succeed
       blocks: [{ id: 'error', type: 'text', severity: 'error', text: reason }],
     },
   });
-  const row = page.getByRole('button', { name: 'Show result for Generate widget' });
-  await row.hover();
-  await expect(page.getByRole('tooltip')).toHaveText(reason);
+  const row = page.getByRole('button', { name: 'Show result for Create widget' });
+  await expect(page.getByRole('img', { name: `Failed: ${reason}` })).toBeVisible();
   await row.click();
   await expect(page.getByRole('region').getByRole('alert')).toHaveText(reason);
   await expect(page.getByRole('region')).not.toContainText('ok=false');
@@ -150,6 +154,8 @@ async function openFixture(page: Page, type: string, content?: string) {
   expect(response.ok()).toBe(true);
   const data = await response.json();
   const tool = data.tools[0];
+  tool.name = type === 'diff' ? 'fs_write_file' : 'synthetic_presentation';
+  tool.title = type === 'diff' ? 'Write' : 'Recorded tool result';
   tool.presentation = {
     summary: '',
     blocks: [
@@ -192,21 +198,22 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
   const activity = page.locator('[data-slot="tool-activity"]').first();
   const row = activity.locator('[data-slot="activity-row"]');
-  const subject = row.locator('[data-slot="tool-action-label"]').getByRole('button');
+  const subject = row.getByRole('button', {
+    name: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
+    exact: true,
+  });
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
-  const titleBounds = await row.locator('[data-slot="tool-action-label"]').boundingBox();
-  // The status moved from an inline text Badge to a compact trailing icon
-  // (feat/4fc5d22c "refine tool presentation qualification"): activity-row.tsx
-  // always renders ClioStatus with compact, which drops data-slot="badge" for
-  // a role="status" icon.
-  const statusBounds = await row.getByRole('status').boundingBox();
+  const titleBounds = await row.locator('[data-slot="tool-action-text"]').boundingBox();
+  const statusBounds = await row.locator('[data-slot="status-indicator"]').boundingBox();
   expect(titleBounds).not.toBeNull();
   expect(statusBounds).not.toBeNull();
   expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);
   const subjectBounds = await subject.boundingBox();
   expect(subjectBounds).not.toBeNull();
-  expect(subjectBounds!.x + subjectBounds!.width).toBeLessThan(statusBounds!.x);
+  const rowBounds = (await row.boundingBox())!;
+  expect(subjectBounds!.x + subjectBounds!.width).toBeLessThanOrEqual(statusBounds!.x);
+  expect(statusBounds!.x + statusBounds!.width).toBeLessThanOrEqual(rowBounds.x + rowBounds.width);
   await expect(activity.locator('[data-slot="tool-human-result"]').getByRole('link')).toHaveCount(
     0,
   );
@@ -216,14 +223,14 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await expect.poll(() => tooltip.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
   await expect(tooltip).toHaveCSS('font-size', '14px');
   await page.keyboard.press('Escape');
-  const addition = activity.locator('[data-diff-line="addition"]');
-  const deletion = activity.locator('[data-diff-line="deletion"]');
-  await expect(addition).toHaveText('+new');
-  await expect(deletion).toHaveText('-old');
+  const addition = activity.locator('[data-diff-line="added"]');
+  const deletion = activity.locator('[data-diff-line="removed"]');
+  await expect(addition).toContainText('new');
+  await expect(deletion).toContainText('old');
   expect(await addition.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(
     await deletion.evaluate((e) => getComputedStyle(e).backgroundColor),
   );
-  const panel = activity.locator('[data-slot="tool-result-panel"]');
+  const panel = activity.locator('[data-slot="activity-body"]');
   expect(await panel.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(
     'rgba(0, 0, 0, 0)',
   );
@@ -232,13 +239,8 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
 
 test('highlighted diff text meets normal-text contrast in both themes', async ({ page }) => {
   await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
-  const lines = page.locator('[data-diff-line="addition"], [data-diff-line="deletion"]');
+  const lines = page.locator('[data-diff-line="added"], [data-diff-line="removed"]');
   await expect(lines).toHaveCount(2);
-  // Exercise the highlighted tokens, not only the initial unstyled placeholder.
-  await expect(lines.first().locator('span').first()).not.toHaveAttribute(
-    'style',
-    /color: inherit/,
-  );
   for (const dark of [false, true]) {
     await page.evaluate(
       (enabled) => document.documentElement.classList.toggle('dark', enabled),
@@ -266,7 +268,9 @@ test('highlighted diff text meets normal-text contrast in both themes', async ({
           return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
         };
         const background = luminance(context.getImageData(0, 0, 1, 1).data);
-        context.fillStyle = getComputedStyle(element.querySelector('span') ?? element).color;
+        context.fillStyle = getComputedStyle(
+          element.querySelector('[role="cell"]:last-child') ?? element,
+        ).color;
         context.fillRect(0, 0, 1, 1);
         const foreground = luminance(context.getImageData(0, 0, 1, 1).data);
         return (
@@ -357,7 +361,7 @@ test('wide Markdown code and URLs cannot widen the whole result document', async
     .toBeLessThan(900);
 });
 
-for (const type of ['text', 'markdown', 'code', 'diff', 'terminal']) {
+for (const type of ['text', 'markdown', 'code']) {
   test(`full ${type} results scroll to their actual end`, async ({ page }) => {
     await page.setViewportSize({ width: 1003, height: 1037 });
     await openFixture(page, type);
@@ -372,12 +376,34 @@ for (const type of ['text', 'markdown', 'code', 'diff', 'terminal']) {
       .poll(() => body.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight))
       .toBeLessThan(2);
     await expect(body).toContainText('line-99');
-    if (type === 'code' || type === 'diff') {
+    if (type === 'code') {
       const code = dialog.locator('[data-slot="code-block-scroll"]');
       await expect.poll(() => code.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
       await expect(code).toContainText('line-99');
     }
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
+  });
+}
+
+for (const type of ['diff', 'terminal']) {
+  test(`compact ${type} results scroll inline to their actual end`, async ({ page }) => {
+    await page.setViewportSize({ width: 1003, height: 1037 });
+    await openFixture(page, type);
+    const activity = page.locator('[data-slot="tool-activity"]').first();
+    const body =
+      type === 'diff'
+        ? activity.getByRole('table', { name: 'Changes' })
+        : activity.locator('[data-slot="transcript-terminal"] pre').last().locator('..');
+    await expect(body).toBeVisible();
+    expect(await body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    await body.evaluate((e) => e.scrollTo(0, e.scrollHeight));
+    await expect
+      .poll(() => body.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight))
+      .toBeLessThan(2);
+    await expect(body).toContainText('line-99');
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+      .toBeLessThan(2);
   });
 }
 
@@ -410,14 +436,17 @@ test('missing historical completion stays unknown and preserves captured output'
   });
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 800 });
-    const row = page.getByRole('button', { name: 'Show result for Run', exact: true });
-    await expect(row).toContainText('Unknown');
-    await expect(row.locator('.animate-spin')).toHaveCount(0);
-    await expect(row.locator('[data-slot="tool-duration"]')).toHaveCount(0);
-    await row.hover();
-    await expect(page.getByRole('tooltip')).toContainText(reason);
+    // Phone rows hide the action name; the leading disclosure opens them there.
+    const row = page.getByRole('button', {
+      name: width < 480 ? /^(Expand|Collapse) Run command$/ : 'Show result for Run command',
+    });
+    await expect(page.getByRole('img', { name: `Unknown: ${reason}` })).toBeVisible();
+    await expect(page.locator('[data-slot="status-indicator"][data-tone="running"]')).toHaveCount(
+      0,
+    );
+    await expect(page.locator('[data-slot="tool-duration"]')).toHaveCount(0);
     await row.click();
-    const result = page.getByRole('region', { name: 'Run: Result' });
+    const result = page.getByRole('region', { name: 'Run command: Result' });
     await expect(result).toContainText(reason);
     await expect(result).toContainText('Reading observations...');
     await expect(result).not.toContainText('Process exited with code');

@@ -1,7 +1,7 @@
 import { ChartLineIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useSelectionAction } from './use-selection-action';
-import { annotationFromSelection } from '@/lib/composer-annotations';
+import { markFromSelection, withMark } from '@/lib/composer-annotations';
 import type { SelectionAction } from '@/lib/selection-actions';
 import type { ComposerDraft } from './use-composer-draft';
 
@@ -29,7 +29,10 @@ export function useReferenceThisSelectionAction(
       kinds: ['data-surface-zone'],
       run: (target) => {
         const { draft: current, focusComposer: focus } = latest.current;
-        current.onAnnotationsChange([...current.annotations, annotationFromSelection(target)]);
+        const mark = markFromSelection(target);
+        current.onAnnotationsChange(
+          withMark(current.annotations, mark.kind, mark.title, mark.anchor),
+        );
         focus();
       },
     }),

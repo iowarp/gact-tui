@@ -15,7 +15,15 @@ export interface ToolPresentationBlock {
   media_type?: string;
   text?: string;
   label?: string;
+  /** A child report's name (its task label). */
+  title?: string;
+  /** The model a child report's agent ran on. */
+  model?: string;
   language?: string;
+  /** `code`: the file line number of the block's first line. */
+  start_line?: number;
+  /** `link` to a file: the line it opens at. */
+  line?: number;
   /** "workspace_file" only: the workspace + workspace-relative path the agent
    * inspected via view_image/view_pdf, and the sha256 it verified before the
    * model saw it. Never carries bytes. */
@@ -33,6 +41,7 @@ export interface ToolPresentationBlock {
     | 'work'
     | 'surface'
     | 'connected_data'
+    | 'task'
     | 'memory';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';

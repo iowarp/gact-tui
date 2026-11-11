@@ -1,150 +1,170 @@
-import type { Artifact, DocumentEditorHealth, DocumentManifest } from '@clio/core/v3';
-import { ChevronDownIcon, ExternalLinkIcon, FolderOpenIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { fileFormatLabel } from '@/lib/media-types';
+import type { Artifact, DocumentManifest } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
+import { ExternalLinkIcon, FileTextIcon, FolderOpenIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
+import { useMemo } from 'react';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { vocab } from '@/lib/brand-vocabulary';
-import type { DocumentApplication } from '@/tauri/documents';
-import { FileTypeIcon } from './file-type-icon';
-import { hasEmbeddedDocumentEditors } from './document-open-policy';
+import { documentApplications, type DocumentApplication } from '@/tauri/documents';
 import { AssociatedApplicationItems } from './associated-application-items';
+import type { FileViewerAction } from './file-viewer-action-context';
 
-export type DocumentOpenTarget =
-  | { kind: 'native'; application: DocumentApplication; format: 'original' | 'pdf' }
-  | { kind: 'embedded'; provider: 'onlyoffice' | 'collabora' };
+export interface DocumentOpenTarget {
+  kind: 'native';
+  application: DocumentApplication;
+  format: 'original' | 'pdf';
+}
 
-/** Application launching stays separate from file downloading and format conversion. */
-export function DocumentOpenMenu({
+interface DocumentOpenHandlers {
+  onOpen: (target: DocumentOpenTarget) => void;
+  onReveal: () => void;
+  onPdf: () => Promise<void>;
+  onCloseWorkingCopy: () => void;
+}
+
+/** Whether the document has a PDF copy beside its original. */
+export function documentHasPdf(manifest: DocumentManifest | undefined) {
+  return Boolean(
+    manifest &&
+      manifest.profile !== 'pdf' &&
+      (manifest.pdf_rendition_artifact_id || manifest.rendition_formats.includes('pdf')),
+  );
+}
+
+/**
+ * A document's rows in the frame's Open ▾, so it has one Open like any file:
+ * With another app edits its working copy (or shows a desktop copy in its
+ * folder), PDF copy opens the rendition in a PDF app, Close working copy ends
+ * an open one, and its PDF joins Export to…. Register them with
+ * `useFileViewerActions`; the app rows are desktop-only. Pass stable handlers:
+ * the rows are rebuilt whenever one changes.
+ */
+export function useDocumentOpenActions({
   artifact,
   manifest,
-  applications,
-  pdfApplications,
-  applicationsPending = false,
-  applicationsError,
-  pdfApplicationsPending = false,
-  pdfApplicationsError,
-  editorHealth,
   openPending,
   pdfPending,
+  revealPending,
+  workingCopyActive,
+  closePending,
   onOpen,
   onReveal,
-  revealPending = false,
+  onPdf,
+  onCloseWorkingCopy,
 }: {
   artifact: Artifact;
-  manifest: DocumentManifest;
-  applications: readonly DocumentApplication[];
-  pdfApplications: readonly DocumentApplication[];
-  applicationsPending?: boolean;
-  applicationsError?: string;
-  pdfApplicationsPending?: boolean;
-  pdfApplicationsError?: string;
-  editorHealth?: DocumentEditorHealth;
+  manifest?: DocumentManifest;
   openPending: boolean;
   pdfPending: boolean;
-  onOpen: (target: DocumentOpenTarget) => void;
-  onReveal?: () => void;
-  revealPending?: boolean;
-}) {
+  revealPending: boolean;
+  workingCopyActive: boolean;
+  closePending: boolean;
+} & DocumentOpenHandlers): readonly FileViewerAction[] {
   const native = inTauri();
-  const pdf =
-    native &&
-    manifest.profile !== 'pdf' &&
-    (Boolean(manifest.pdf_rendition_artifact_id) || manifest.rendition_formats.includes('pdf'));
-  const providers = hasEmbeddedDocumentEditors(manifest.profile) ? manifest.embedded_editors : [];
-  const configuredProviders = providers.filter((provider) =>
-    editorHealth?.editors.some((editor) => editor.provider === provider && editor.configured),
-  );
-  const label = 'Open in';
-  const canReveal = native && Boolean(onReveal);
-  const hasOriginal =
-    (manifest.native_open && native) || configuredProviders.length > 0 || canReveal;
-  const appItems = (
-    apps: readonly DocumentApplication[],
-    format: 'original' | 'pdf',
-    pending: boolean,
-    error?: string,
-  ) => (
-    <AssociatedApplicationItems
-      applications={apps}
-      pending={pending}
-      error={error}
-      disabled={openPending || pdfPending || revealPending}
-      pdfCopy={format === 'pdf'}
-      onSelect={(application) => onOpen({ kind: 'native', application, format })}
-    />
-  );
-  if (!hasOriginal && !pdf) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={label}
-          title={label}
-          className="h-7 gap-1 px-2 text-xs @max-[520px]/viewer:px-1.5"
-          size="sm"
-          variant="outline"
-        >
-          <FileTypeIcon name={artifact.name} mediaType={artifact.media_type} className="size-3.5" />
-          <span className="@max-[520px]/viewer:sr-only">{label}</span>
-          <ChevronDownIcon aria-hidden="true" className="size-3 @max-[360px]/viewer:hidden" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56 max-w-72">
-        {hasOriginal ? (
-          <DropdownMenuGroup
-            aria-label={`Original ${fileFormatLabel(artifact.name, artifact.media_type)}`}
-          >
-            <DropdownMenuLabel>
-              {fileFormatLabel(artifact.name, artifact.media_type)}
-            </DropdownMenuLabel>
-            {manifest.native_open && native
-              ? appItems(applications, 'original', applicationsPending, applicationsError)
-              : null}
-            {configuredProviders.map((provider) => {
-              const health = editorHealth?.editors.find((entry) => entry.provider === provider);
-              if (!health?.configured) return null;
-              return (
-                <DropdownMenuItem
-                  disabled={openPending || !health.healthy}
-                  key={provider}
-                  onSelect={() => onOpen({ kind: 'embedded', provider })}
-                  title={health.error}
-                >
-                  <ExternalLinkIcon aria-hidden="true" />
-                  {provider === 'onlyoffice' ? 'ONLYOFFICE' : 'Collabora'} (in {vocab.agent})
-                  {!health.healthy ? ' — unavailable' : ''}
-                </DropdownMenuItem>
-              );
-            })}
-            {canReveal ? (
-              <DropdownMenuItem disabled={openPending || revealPending} onSelect={onReveal}>
-                <FolderOpenIcon aria-hidden="true" />
-                Open in folder
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuGroup>
-        ) : null}
-        {pdf ? (
+  const pdf = documentHasPdf(manifest);
+  const nativeOpen = native && Boolean(manifest?.native_open);
+  const applications = useQuery({
+    queryKey: ['document-applications', artifact.name, artifact.media_type],
+    queryFn: () => documentApplications(artifact.name, artifact.media_type),
+    enabled: nativeOpen,
+    staleTime: 60_000,
+  });
+  const pdfApplications = useQuery({
+    queryKey: ['document-applications', 'file.pdf', 'application/pdf'],
+    queryFn: () => documentApplications('file.pdf', 'application/pdf'),
+    enabled: native && pdf,
+    staleTime: 60_000,
+  });
+  const busy = openPending || pdfPending || revealPending;
+  return useMemo<FileViewerAction[]>(() => {
+    if (!manifest) return [];
+    const open = (application: DocumentApplication, format: DocumentOpenTarget['format']) =>
+      onOpen({ kind: 'native', application, format });
+    const rows: FileViewerAction[] = [];
+    if (native)
+      rows.push({
+        kind: 'open',
+        label: 'With another app',
+        description: nativeOpen ? 'Edits become new revisions' : undefined,
+        icon: ExternalLinkIcon,
+        pending: openPending,
+        onSelect: () => undefined,
+        submenu: (
           <>
-            {hasOriginal ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuGroup aria-label="PDF copy">
-              <DropdownMenuLabel>PDF copy</DropdownMenuLabel>
-              {native
-                ? appItems(pdfApplications, 'pdf', pdfApplicationsPending, pdfApplicationsError)
-                : null}
-            </DropdownMenuGroup>
+            {nativeOpen ? (
+              <>
+                <AssociatedApplicationItems
+                  applications={applications.data ?? []}
+                  pending={applications.isPending}
+                  error={applications.error?.message}
+                  disabled={busy}
+                  onSelect={(application) => open(application, 'original')}
+                />
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem disabled={busy} onSelect={onReveal}>
+              <FolderOpenIcon aria-hidden="true" />
+              Open in folder
+            </DropdownMenuItem>
           </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+        ),
+      });
+    if (native && pdf)
+      rows.push({
+        kind: 'open',
+        label: 'PDF copy with another app',
+        icon: FileTextIcon,
+        onSelect: () => undefined,
+        submenu: (
+          <AssociatedApplicationItems
+            applications={pdfApplications.data ?? []}
+            pending={pdfApplications.isPending}
+            error={pdfApplications.error?.message}
+            disabled={busy}
+            pdfCopy
+            onSelect={(application) => open(application, 'pdf')}
+          />
+        ),
+      });
+    if (workingCopyActive)
+      rows.push({
+        kind: 'open',
+        label: 'Close working copy',
+        description: closePending ? 'Closing…' : undefined,
+        icon: CloseIcon,
+        disabled: closePending,
+        pending: closePending,
+        onSelect: onCloseWorkingCopy,
+      });
+    if (pdf)
+      rows.push({
+        kind: 'download',
+        label: 'PDF',
+        icon: FileTextIcon,
+        pending: pdfPending,
+        onSelect: onPdf,
+      });
+    return rows;
+  }, [
+    manifest,
+    native,
+    nativeOpen,
+    pdf,
+    busy,
+    openPending,
+    pdfPending,
+    workingCopyActive,
+    closePending,
+    onOpen,
+    onReveal,
+    onPdf,
+    onCloseWorkingCopy,
+    applications.data,
+    applications.isPending,
+    applications.error,
+    pdfApplications.data,
+    pdfApplications.isPending,
+    pdfApplications.error,
+  ]);
 }

@@ -144,6 +144,8 @@ export const pendingInteractionSchema = z.object({
           input: z.unknown().optional(),
         })
         .optional(),
+      /** The run_code script a nested call's question was asked from. */
+      script: z.object({ call_id: z.string(), code: z.string() }).optional(),
       revision: z.number().int().nonnegative().optional(),
       server_id: z.string().optional(),
       awaiting_question: z.boolean().optional(),

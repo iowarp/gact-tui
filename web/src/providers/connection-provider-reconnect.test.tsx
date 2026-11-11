@@ -2,6 +2,7 @@
 // ratchet): reconnect-time target rebuild/reuse/route-matching and the
 // found-CLIO conflict pause, all reached through the same public
 // `resolveConnection` entry point as the rest of that file's tests.
+import { brand } from '@brand';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -216,7 +217,11 @@ describe('connection provider reconnect (#1528)', () => {
       target_id: 'ares-lab-2',
       action: 'install',
       variant_id: 'released',
-      configuration: { port: '17800', desktop_id: 'desktop-test', keep_running: 'false' },
+      configuration: {
+        port: String(brand.agentPort),
+        desktop_id: 'desktop-test',
+        keep_running: 'false',
+      },
     });
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('ares-lab-2', 'connected');
   });
@@ -275,7 +280,11 @@ describe('connection provider reconnect (#1528)', () => {
       target_id: 'ares-already-here',
       action: 'install',
       variant_id: 'released',
-      configuration: { port: '17800', desktop_id: 'desktop-test', keep_running: 'false' },
+      configuration: {
+        port: String(brand.agentPort),
+        desktop_id: 'desktop-test',
+        keep_running: 'false',
+      },
     });
   });
 
@@ -411,7 +420,7 @@ describe('connection provider reconnect (#1528)', () => {
       action: 'install',
       variant_id: 'released',
       configuration: {
-        port: '17800',
+        port: String(brand.agentPort),
         desktop_id: 'desktop-test',
         keep_running: 'false',
         on_conflict: 'connect',

@@ -7,6 +7,7 @@ import {
   type ToolState,
   type PendingSteer,
   type AsyncProcess,
+  TransportError,
 } from '@clio/core/v3';
 
 /** Name only owners discovered through this session's hierarchy. */
@@ -36,6 +37,34 @@ export function pendingSteerMessageIds(steers: readonly PendingSteer[]) {
       steers.filter((steer) => steer.state === 'pending').map((steer) => steer.message_id),
     ),
   };
+}
+
+/**
+ * The service lists an input as pending mail until its turn finishes, so a
+ * pending prompt that a reply already follows is the running turn's input, not
+ * a queued one. Before that reply, a running turn's input is the earliest
+ * pending prompt: inputs are taken in order.
+ */
+export function unansweredMessageIds(
+  ids: ReadonlySet<string> | undefined,
+  messages: readonly { id: string; role: string }[],
+  running = false,
+): ReadonlySet<string> | undefined {
+  if (!ids?.size) return ids;
+  let replied = false;
+  const answered: string[] = [];
+  let earliest: string | undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === 'assistant') replied = true;
+    else if (message?.role === 'user' && ids.has(message.id)) {
+      earliest = message.id;
+      if (replied) answered.push(message.id);
+    }
+  }
+  if (running && !answered.length && earliest) answered.push(earliest);
+  if (!answered.length) return ids;
+  return new Set([...ids].filter((id) => !answered.includes(id)));
 }
 
 /** Counts authoritative work that can still advance without inventing progress. */
@@ -98,6 +127,21 @@ export function canUseContextReferences(
 /** Surfaces the service's own failure text; `details` stays display-only metadata. */
 export function conversationUnavailableMessage(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined;
+}
+
+/**
+ * True when the service reports the stored transcript itself is damaged
+ * (`503 messages_unavailable`, cause `transcript_corrupt`). Retrying cannot
+ * help, so the only offer is removing the conversation; an unreachable store
+ * (cause `storage_unreachable`) stays a plain retryable error.
+ */
+export function conversationDamaged(error: unknown): boolean {
+  return (
+    error instanceof TransportError &&
+    error.code === 'messages_unavailable' &&
+    isRecord(error.details) &&
+    error.details.cause === 'transcript_corrupt'
+  );
 }
 
 /** Keep human requests together; draft picks and anchored plans retain their dedicated views. */

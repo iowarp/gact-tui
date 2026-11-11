@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { isMacOS } from '@/lib/platform';
-import { AlertTriangleIcon, Loader2 } from 'lucide-react';
+import { useReducedMotionConfig } from 'motion/react';
 import { updateTextLayerGeometry, type TextLayerGeometry } from './text-layer-geometry';
+import { ZoomPanStatusLayer } from './zoom-pan-status';
 import { readThemeColor, resolveThemeColor } from '@/theme/runtime';
 
 /**
@@ -113,6 +114,7 @@ export function ZoomPan({
 
   // Animation/Raf ref
   const rafRef = React.useRef<number | null>(null);
+  const reducedMotion = useReducedMotionConfig();
   const hasCentered = React.useRef(false);
   const isFitView = React.useRef(true);
 
@@ -221,7 +223,12 @@ export function ZoomPan({
 
   // Mode 2: Smooth Update (Interpolated)
   // Used for buttons (zoom in/out, reset, center) to provide a nice feel
+  // With reduced motion, the buttons jump like the wheel does.
   const updateSmooth = React.useCallback(() => {
+    if (reducedMotion) {
+      updateImmediate();
+      return;
+    }
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     const loop = () => {
@@ -255,7 +262,7 @@ export function ZoomPan({
     };
 
     rafRef.current = requestAnimationFrame(loop);
-  }, [render]);
+  }, [reducedMotion, render, updateImmediate]);
 
   // Clean up RAF on unmount
   React.useEffect(() => {
@@ -516,8 +523,10 @@ export function ZoomPan({
     updateImmediate();
   };
 
+  // No preventDefault here: React's touch listeners are passive, so it would only
+  // log a console error. The viewport and canvas are `touch-none`
+  // (`touch-action: none`), which already stops the browser panning or zooming.
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
     if (!touchStartRef.current) return;
 
     if (e.touches.length === 1 && isDragging.current) {
@@ -751,23 +760,11 @@ export function ZoomPan({
             {children}
           </div>
 
-          {isLoading && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50">
-              {loadingFallback || <Loader2 className="size-8 animate-spin text-muted-foreground" />}
-            </div>
-          )}
-          {error || imageError ? (
-            <div
-              className="absolute inset-0 z-40 grid place-items-center bg-background/95 p-6 text-center"
-              role="alert"
-            >
-              <div className="max-w-md">
-                <AlertTriangleIcon aria-hidden="true" className="mx-auto size-5 text-destructive" />
-                <p className="mt-2 text-sm font-medium">Preview unavailable</p>
-                <p className="mt-1 text-xs text-muted-foreground">{error || imageError}</p>
-              </div>
-            </div>
-          ) : null}
+          <ZoomPanStatusLayer
+            error={error || imageError}
+            isLoading={isLoading}
+            loadingFallback={loadingFallback}
+          />
         </div>
       </div>
     </div>

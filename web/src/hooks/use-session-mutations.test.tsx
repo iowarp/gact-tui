@@ -161,6 +161,9 @@ describe('presentation-only conversation', () => {
     expect(mocks.repository.createSession).toHaveBeenCalledWith({
       workspace_id: 'ws_1',
       title: 'New conversation',
+      // The created session carries the turn's model, so the conversation names it at once.
+      provider_id: 'codex',
+      model_id: 'gpt-5.6-luna',
       mode: 'edit',
       routing_mode: 'auto',
       approval_mode: 'ask',
@@ -188,6 +191,22 @@ describe('presentation-only conversation', () => {
       expect.objectContaining({
         agent_ref: 'clio/standard',
         agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+      }),
+    );
+  });
+
+  it('creates a SPOTTER conversation on the model chosen before sending', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    await result.current.send.mutateAsync({
+      ...draft,
+      behavior: { ...draft.behavior, confirmation_policy: 'spotter-ai' },
+      spotterModel: 'server-vllm-spotter/qwen3',
+    });
+    expect(mocks.repository.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approval_mode: 'spotter-ai',
+        spotter_model: 'server-vllm-spotter/qwen3',
       }),
     );
   });

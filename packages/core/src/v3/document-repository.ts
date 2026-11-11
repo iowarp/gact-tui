@@ -1,12 +1,8 @@
 import { z } from 'zod';
 import type {
-  ArtifactReview,
-  DocumentEditorHealth,
-  DocumentEditorSession,
   DocumentManifest,
   DocumentRendition,
   DocumentWorkingCopy,
-  SubmitArtifactReviewInput,
 } from './document-domain.js';
 import { readBytesPath } from './artifact-custody.js';
 import { PluginRepository } from './plugin-repository.js';
@@ -33,8 +29,9 @@ const anchorProfileSchema = z.enum([
   'slide-shape',
   'native-comment',
   'source-map',
+  'region',
 ]);
-const documentAnchorSchema = z.object({
+export const documentAnchorSchema = z.object({
   profile: anchorProfileSchema,
   exact: optionalString,
   prefix: optionalString,
@@ -66,6 +63,14 @@ const documentAnchorSchema = z.object({
   slide_id: optionalString,
   shape_id: optionalString,
   native_comment_id: optionalString,
+  rect: z.array(z.number()).optional(),
+  natural_width: z.number().nullish().transform((value) => value ?? undefined),
+  natural_height: z.number().nullish().transform((value) => value ?? undefined),
+  crop_asset: optionalString,
+  tag: optionalString,
+  text_excerpt: optionalString,
+  html_excerpt: optionalString,
+  viewport_width: z.number().nullish().transform((value) => value ?? undefined),
   source: z.record(z.string(), z.unknown()).default({}),
 });
 const documentManifestSchema = z.object({
@@ -86,17 +91,17 @@ const documentManifestSchema = z.object({
     'odf-text',
     'odf-sheet',
     'odf-slides',
+    'image',
     'binary',
   ]),
   content_url: z.string(),
   anchors: z.array(anchorProfileSchema).default([]),
   native_open: z.boolean(),
-  embedded_editors: z.array(z.enum(['onlyoffice', 'collabora'])).default([]),
   rendition_formats: z.array(z.string()).default([]),
   pdf_rendition_artifact_id: optionalString,
   provenance: z.record(z.string(), z.unknown()).default({}),
 });
-const artifactReviewSchema = z.object({
+export const artifactReviewSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   workspace_id: z.string(),
@@ -106,13 +111,32 @@ const artifactReviewSchema = z.object({
   artifact_sha256: z.string(),
   anchor: documentAnchorSchema,
   text: z.string(),
-  status: z.enum(['queued', 'dispatched', 'human-note', 'failed', 'stale']),
+  status: z.enum([
+    'draft',
+    'queued',
+    'dispatched',
+    'human-note',
+    'failed',
+    'stale',
+    'discarded',
+  ]),
   native: z.boolean().default(false),
   native_text_hash: optionalString,
   idempotency_key: optionalString,
   message_id: optionalString,
   created_at: z.string(),
   error: optionalString,
+  label: optionalString,
+  session_key: optionalString,
+  send_to_agent: z.boolean().default(true),
+  reply_text: optionalString,
+  reply_message_id: optionalString,
+  reply_version_artifact_id: optionalString,
+  reply_error: optionalString,
+  anchor_state: z.enum(['current', 'moved', 'outdated']).default('current'),
+  current_artifact_id: optionalString,
+  current_anchor: documentAnchorSchema.nullish().transform((value) => value ?? undefined),
+  updated_at: optionalString,
 });
 const workingCopySchema = z.object({
   id: z.string(),
@@ -126,7 +150,6 @@ const workingCopySchema = z.object({
   base_sha256: z.string(),
   last_sha256: z.string(),
   path: z.string(),
-  provider: z.enum(['native', 'onlyoffice', 'collabora']),
   writable: z.boolean(),
   auto_checkpoint: z.boolean(),
   status: z.enum(['active', 'conflict', 'closed', 'missing', 'error']),
@@ -138,29 +161,6 @@ const workingCopySchema = z.object({
   error: optionalString,
   native_comment_fingerprints: z.array(z.string()).default([]),
 });
-const editorSessionSchema = z.object({
-  id: z.string(),
-  working_copy_id: z.string(),
-  provider: z.enum(['onlyoffice', 'collabora']),
-  status: z.enum(['ready', 'unavailable', 'closed']),
-  editor_url: optionalString,
-  token: optionalString,
-  expires_at: optionalString,
-  config: z.record(z.string(), z.unknown()).default({}),
-  error: optionalString,
-});
-const editorHealthSchema = z.object({
-  editors: z.array(
-    z.object({
-      provider: z.enum(['onlyoffice', 'collabora']),
-      url: z.string().default(''),
-      configured: z.boolean(),
-      healthy: z.boolean(),
-      error: optionalString,
-    }),
-  ),
-});
-
 /** Immutable document review, rendition, and working-copy workflows. */
 export class DocumentRepository extends PluginRepository {
   public documentManifest(artifactId: string, signal?: AbortSignal): Promise<DocumentManifest> {
@@ -178,33 +178,6 @@ export class DocumentRepository extends PluginRepository {
       `/v1/artifacts/${encodeURIComponent(artifactId)}/document/content`,
       signal,
     );
-  }
-
-  public async artifactReviews(
-    artifactId: string,
-    signal?: AbortSignal,
-  ): Promise<ArtifactReview[]> {
-    const result = await this.transport.request({
-      method: 'GET',
-      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/reviews`,
-      decode: (value) => z.object({ reviews: z.array(artifactReviewSchema) }).parse(value),
-      signal,
-    });
-    return result.reviews as ArtifactReview[];
-  }
-
-  public submitArtifactReview(
-    sessionId: string,
-    input: SubmitArtifactReviewInput,
-    signal?: AbortSignal,
-  ): Promise<ArtifactReview> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/artifact-reviews`,
-      body: input,
-      decode: (value) => artifactReviewSchema.parse(value),
-      signal,
-    });
   }
 
   public createDocumentRendition(
@@ -233,7 +206,6 @@ export class DocumentRepository extends PluginRepository {
     artifactId: string,
     input: {
       session_id: string;
-      provider: 'native' | 'onlyoffice' | 'collabora';
       writable?: boolean;
       auto_checkpoint?: boolean;
     },
@@ -285,29 +257,6 @@ export class DocumentRepository extends PluginRepository {
       path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}/conflict`,
       body: input,
       decode: (value) => workingCopySchema.parse(value),
-      signal,
-    });
-  }
-
-  public documentEditorHealth(signal?: AbortSignal): Promise<DocumentEditorHealth> {
-    return this.transport.request({
-      method: 'GET',
-      path: '/v1/document-editors/health',
-      decode: (value) => editorHealthSchema.parse(value),
-      signal,
-    });
-  }
-
-  public createDocumentEditorSession(
-    workingCopyId: string,
-    provider: 'onlyoffice' | 'collabora',
-    signal?: AbortSignal,
-  ): Promise<DocumentEditorSession> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}/editor-sessions`,
-      body: { provider },
-      decode: (value) => editorSessionSchema.parse(value),
       signal,
     });
   }

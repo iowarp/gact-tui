@@ -1,13 +1,16 @@
 import type { InfrastructureInventory } from '@clio/core/v3';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-import { Input } from '@/components/ui/input';
-
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
-
 import { InfrastructureActivityRow } from './infrastructure-activity-row';
+import { InfraFilterMenu, InfraSearchField } from './infrastructure-filter-menu';
+import { InfraList } from './infrastructure-row';
+import { InfraTabActions } from './infrastructure-tab-actions';
+import { MenuRow } from './primitives/menu-row';
+import { StateView } from './primitives/state-view';
 
 type ActivityFilter = 'all' | 'active' | 'failed' | 'completed';
 const activeStates = new Set(['queued', 'running']);
@@ -21,10 +24,23 @@ const stateLabels: Record<string, string> = {
   cancelled: 'Cancelled',
   removed: 'Removed',
 };
+const filterLabels: Record<ActivityFilter, string> = {
+  all: 'All',
+  active: 'In progress',
+  failed: 'Failed',
+  completed: 'Completed',
+};
+
+const SEARCH_LABEL = 'Search actions, computers or results';
+
+const sentence = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
 /** Recent operations in one timeline; host and result stay visible before opening details. */
 export function InfrastructureActivity({ data }: { data: InfrastructureInventory }) {
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const narrowSearch = useRef<HTMLDivElement>(null);
+  const searchShown = searchOpen || Boolean(search);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const hosts = new Map(
     data.targets.map((host) => [host.id, host.kind === 'local' ? 'Local' : host.label]),
@@ -33,7 +49,9 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
     ...data.operations.map((operation) => ({
       id: operation.id,
       target: operation.target_id,
-      title: `${operation.action.replaceAll('_', ' ')} ${infrastructureServiceName(operation.service_id)}`,
+      title: sentence(
+        `${operation.action.replaceAll('_', ' ')} ${infrastructureServiceName(operation.service_id)}`,
+      ),
       state: operation.state,
       time: new Date(operation.updated_at).getTime(),
       detail: operation.error || operation.progress,
@@ -67,72 +85,123 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
         ? completedStates.has(state)
         : state === 'failed');
   const rows = history.filter((row) => matchesFilter(row.state, filter));
+  const filtered = Boolean(search) || filter !== 'all';
+  const filterOptions = (['all', 'active', 'failed', 'completed'] as const).map((value) => ({
+    value,
+    label: filterLabels[value],
+    count: history.filter((row) => matchesFilter(row.state, value)).length,
+  }));
+  const filterMenu = (
+    <InfraFilterMenu
+      label="Activity filter"
+      onValueChange={setFilter}
+      options={filterOptions}
+      value={filter}
+    />
+  );
+  const focusSearch = useRef(false);
+  const openNarrowSearch = () => {
+    focusSearch.current = true;
+    setSearchOpen(true);
+  };
   return (
-    <section className="mt-6" aria-label="Infrastructure activity">
-      <Input
-        aria-label="Search activity"
-        placeholder="Search actions, computers or results"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
+    <>
+      <InfraTabActions
+        fold={{
+          label: 'Activity actions',
+          onCloseAutoFocus: (event) => {
+            if (!focusSearch.current) return;
+            focusSearch.current = false;
+            event.preventDefault();
+            narrowSearch.current?.querySelector('input')?.focus();
+          },
+          verb: (
+            <>
+              <InfraSearchField
+                label={SEARCH_LABEL}
+                onValueChange={setSearch}
+                placeholder={SEARCH_LABEL}
+                value={search}
+              />
+              {filterMenu}
+            </>
+          ),
+          menu: (
+            <>
+              <DropdownMenuItem onSelect={openNarrowSearch}>
+                <MenuRow icon={<SearchIcon aria-hidden="true" />} label="Search" />
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {filterOptions.map((option) => (
+                <DropdownMenuItem key={option.value} onSelect={() => setFilter(option.value)}>
+                  <MenuRow
+                    checked={option.value === filter}
+                    label={option.label}
+                    value={String(option.count)}
+                  />
+                </DropdownMenuItem>
+              ))}
+            </>
+          ),
+        }}
       />
-      <div aria-label="Activity status" className="mt-3 flex flex-wrap items-center gap-2">
-        {(['all', 'active', 'failed', 'completed'] as const).map((value) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={filter === value ? 'secondary' : 'ghost'}
-            aria-pressed={filter === value}
-            onClick={() => setFilter(value)}
-          >
-            {{ all: 'All', active: 'In progress', failed: 'Failed', completed: 'Completed' }[value]}{' '}
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {history.filter((row) => matchesFilter(row.state, value)).length}
-            </span>
-          </Button>
-        ))}
-      </div>
-      <div className="mt-4 divide-y border-y">
-        {rows.length ? (
-          rows.map((row) => (
+      {/* Under 600px the bar holds only ⋯; an open search or a chosen filter stays visible here. */}
+      {searchShown || filter !== 'all' ? (
+        <div
+          className="mb-1.5 hidden min-w-0 items-center gap-1.5 @max-[600px]/infra-page:flex"
+          ref={narrowSearch}
+        >
+          {searchShown ? (
+            <InfraSearchField
+              className="w-auto flex-1"
+              label={SEARCH_LABEL}
+              onEscape={() => setSearchOpen(false)}
+              onValueChange={setSearch}
+              placeholder={SEARCH_LABEL}
+              value={search}
+            />
+          ) : (
+            <span className="flex-1" />
+          )}
+          {filterMenu}
+        </div>
+      ) : null}
+      {rows.length ? (
+        <InfraList hover={26} label="Infrastructure activity">
+          {rows.map((row) => (
             <InfrastructureActivityRow
               key={row.target + ':' + row.id}
               row={row}
               host={hosts.get(row.target) || row.target}
               status={stateLabels[row.state] || row.state}
             />
-          ))
-        ) : (
-          <div className="py-6 text-sm text-muted-foreground">
-            <p>
-              {search || filter !== 'all'
-                ? 'No matching activity.'
-                : 'No infrastructure operations yet.'}
-            </p>
-            {search || filter !== 'all' ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setSearch('');
-                  setFilter('all');
-                }}
-              >
-                Clear filters
-              </Button>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <Link to="/infrastructure/services">Set up a service</Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link to="/infrastructure/models">Download a model</Link>
-                </Button>
-              </div>
-            )}
+          ))}
+        </InfraList>
+      ) : filtered ? (
+        <StateView
+          action={{
+            label: 'Clear filters',
+            onClick: () => {
+              setSearch('');
+              setFilter('all');
+            },
+          }}
+          kind="empty"
+          size="row"
+          title="No matching activity."
+        />
+      ) : (
+        <StateView kind="empty" size="row" title="No infrastructure operations yet.">
+          <div className="ml-auto flex shrink-0 gap-1.5">
+            <Button asChild size="xs" variant="outline">
+              <Link to="/infrastructure/services">Set up a service</Link>
+            </Button>
+            <Button asChild size="xs" variant="outline">
+              <Link to="/infrastructure/models">Download a model</Link>
+            </Button>
           </div>
-        )}
-      </div>
-    </section>
+        </StateView>
+      )}
+    </>
   );
 }

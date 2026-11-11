@@ -1,6 +1,14 @@
-import type { ComposerMessagePart, WorkspaceReference } from '@clio/core/v3';
+import type {
+  ComposerMessagePart,
+  SummonPart,
+  SummonTargets,
+  WorkspaceReference,
+} from '@clio/core/v3';
 
-export type ReferencePart = Exclude<ComposerMessagePart, { type: 'text' }>;
+export type ReferencePart = Exclude<
+  ComposerMessagePart,
+  { type: 'text' } | { type: 'comment_session' }
+>;
 
 /**
  * One reference the person put in a draft, and where it sits in the draft text.
@@ -15,13 +23,42 @@ export interface InlineReferenceSelection {
 }
 
 export function referenceIdentity(part: ReferencePart): string {
+  if (part.type === 'summon') return `${part.target_kind}:${part.target}:`;
   return part.type === 'resource_ref'
     ? `resource:${part.resource_id}:${part.resource_revision}`
     : `${part.ref_kind}:${part.ref_id}:${part.revision ?? ''}`;
 }
 
-export function referenceLabel(part: ReferencePart): string {
-  return part.type === 'resource_ref' ? part.name : part.label;
+const SUMMON_KINDS: ReadonlySet<string> = new Set(['subagent', 'workflow', 'flow', 'server']);
+
+/** A subagent, workflow, flow or MCP server the person can `@`-summon, as the popover lists it. */
+export function isSummonReference<T extends { kind: string }>(
+  reference: T,
+): reference is T & { kind: SummonPart['target_kind'] } {
+  return SUMMON_KINDS.has(reference.kind);
+}
+
+/**
+ * How a reference reads in the sent text, the way `@path` reads in a Claude Code
+ * prompt: a workspace file by its path (with any `::/object` locator), anything
+ * else by its label. The structured part still travels beside the text; the
+ * mention keeps the reference where the person put it in the sentence.
+ */
+export function referenceMention(reference: { kind: string; id: string; label: string }): string {
+  return `@${reference.kind === 'workspace_file' ? reference.id : reference.label}`;
+}
+
+/** The draft text with each selected reference written back in at its offset. */
+export function withReferenceMentions(
+  input: string,
+  selections: readonly InlineReferenceSelection[],
+): string {
+  return [...selections]
+    .sort((left, right) => right.offset - left.offset)
+    .reduce((text, { offset, reference }) => {
+      const at = Math.max(0, Math.min(offset, text.length));
+      return `${text.slice(0, at)}${referenceMention(reference)}${text.slice(at)}`;
+    }, input);
 }
 
 export function workspaceReferenceIdentity(reference: WorkspaceReference): string {
@@ -42,9 +79,13 @@ const REFERENCE_KIND_LABELS: Record<string, string> = {
   context_frame: 'context record',
   diff: 'changed file',
   evidence_source: 'source',
+  flow: 'flow',
   plan: 'plan',
   resource: 'source',
+  server: 'tools',
   session: 'conversation',
+  subagent: 'agent',
+  workflow: 'workflow',
   workspace_file: 'local file',
 };
 
@@ -59,6 +100,14 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     // this build has no wire mapping for. Explicit so a future caller gets a
     // refusal instead of an invalid ref_kind on the wire.
     throw new Error('This version cannot send a reference of an unrecognized kind.');
+  }
+  if (
+    reference.kind === 'subagent' ||
+    reference.kind === 'workflow' ||
+    reference.kind === 'flow' ||
+    reference.kind === 'server'
+  ) {
+    return { type: 'summon', target_kind: reference.kind, target: reference.id };
   }
   if (reference.kind === 'resource') {
     return {
@@ -75,4 +124,119 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     label: reference.label,
     revision: reference.revision || undefined,
   };
+}
+
+/**
+ * The session's summon targets as popover rows: Agents (subagents), Workflows,
+ * Flows and Tools (servers).
+ */
+export function summonReferences(targets?: SummonTargets): WorkspaceReference[] {
+  if (!targets) return [];
+  const row = (
+    kind: SummonPart['target_kind'],
+    id: string,
+    detail: string,
+  ): WorkspaceReference => ({
+    kind,
+    id,
+    label: id,
+    detail,
+    media_type: '',
+    revision: '',
+    navigation: {},
+  });
+  return [
+    ...targets.subagents.map((agent) => row('subagent', agent.id, agent.description)),
+    ...(targets.workflows ?? []).map((workflow) =>
+      row(
+        'workflow',
+        workflow.id,
+        [
+          workflow.description,
+          workflow.inputs.length
+            ? `takes ${workflow.inputs.map((input) => input.name).join(', ')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      ),
+    ),
+    ...(targets.flows ?? []).map((flow) => row('flow', flow.id, flow.description)),
+    ...targets.servers.map((server) =>
+      row(
+        'server',
+        server.name,
+        [
+          server.description,
+          server.tools !== null
+            ? `${server.tools} tool${server.tools === 1 ? '' : 's'}`
+            : server.deferred
+              ? 'tools load when used'
+              : '',
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      ),
+    ),
+  ];
+}
+
+/**
+ * The summon rows a typed `@query` offers, best first: a name that starts with
+ * the query, then a name that contains it, then a description that mentions it.
+ * Enter picks the first row, so `@rev` must offer `review` before an agent whose
+ * description merely says "review".
+ */
+export function matchingSummons(
+  rows: readonly WorkspaceReference[],
+  query: string,
+): WorkspaceReference[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return [...rows];
+  const rank = (row: WorkspaceReference): number => {
+    const name = row.label.toLocaleLowerCase();
+    if (name.startsWith(needle)) return 0;
+    if (name.includes(needle)) return 1;
+    return row.detail.toLocaleLowerCase().includes(needle) ? 2 : -1;
+  };
+  return rows
+    .map((row, index) => ({ row, index, rank: rank(row) }))
+    .filter((entry) => entry.rank >= 0)
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map((entry) => entry.row);
+}
+
+const TYPED_MENTION = /(?:^|(?<=[\s([{"'“]))@([\w-]+)(?=$|[\s,;:!?)\]}"'”]|\.(?:\s|$))/gu;
+
+/**
+ * Summon parts for each `@name` the person typed in full, as its own word, that
+ * exactly names one of the conversation's summon targets. Anything else
+ * stays prose: `bob@example.org` is an address, `@explorer` names nobody.
+ */
+export function typedSummons(
+  text: string,
+  targets: SummonTargets | undefined,
+  picked: readonly ReferencePart[],
+): SummonPart[] {
+  if (!targets) return [];
+  const kinds = new Map<string, SummonPart['target_kind']>([
+    ...targets.servers.map((server) => [server.name, 'server'] as const),
+    ...(targets.flows ?? []).map((flow) => [flow.id, 'flow'] as const),
+    ...(targets.workflows ?? []).map((workflow) => [workflow.id, 'workflow'] as const),
+    ...targets.subagents.map((agent) => [agent.id, 'subagent'] as const),
+  ]);
+  const seen = new Set(
+    picked.flatMap((part) =>
+      part.type === 'summon' ? [`${part.target_kind}:${part.target}`] : [],
+    ),
+  );
+  const found: SummonPart[] = [];
+  for (const match of text.matchAll(TYPED_MENTION)) {
+    const name = match[1] ?? '';
+    const kind = kinds.get(name);
+    if (!kind || seen.has(`${kind}:${name}`)) continue;
+    seen.add(`${kind}:${name}`);
+    found.push({ type: 'summon', target_kind: kind, target: name });
+  }
+  return found;
 }

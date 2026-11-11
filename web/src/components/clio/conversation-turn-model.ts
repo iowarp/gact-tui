@@ -1,5 +1,6 @@
 import {
   PLUGIN_CHANGE_INJECTION_SOURCE,
+  isNestedToolInvocation,
   type Message,
   type MessageBlock,
   type Task,
@@ -9,6 +10,7 @@ import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
 import { isParentDelegation } from './parent-delegation';
+import { toolShowsDiff } from './declared-diff-key';
 
 /**
  * One correlated unit of work inside an iteration, carrying the kind so the
@@ -36,6 +38,12 @@ export type ConversationActivity =
       kind: 'mcp_app';
       id: string;
       block: Extract<MessageBlock, { type: 'mcp_app' }>;
+    }
+  /** A file change reported after a call; it belongs to that call's run. */
+  | {
+      kind: 'diff';
+      id: string;
+      block: Extract<MessageBlock, { type: 'diff' }>;
     };
 
 export interface ConversationIteration {
@@ -192,7 +200,12 @@ function fallbackIterations(
       segments.push({ kind: 'block', block });
       continue;
     }
-    if (block.type === 'notice' && block.source === 'compaction_failed') {
+    // A compaction is a transcript boundary, drawn as a divider at its place,
+    // never one call inside a folded run.
+    if (
+      (block.type === 'notice' && block.source === 'compaction_failed') ||
+      (block.type === 'injection' && block.source === 'summarization')
+    ) {
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });
       consumed.add(block.id);
@@ -210,10 +223,6 @@ function fallbackIterations(
     // Harness additions belong to the same activity lane as thinking and tools,
     // including reminders and delivered results without an owning tool call.
     if (block.type === 'injection') {
-      if (block.source === 'summarization') {
-        flush();
-        compactionRecords.push({ afterIteration: iterations.length, block });
-      }
       if (!alreadyInLane(current, 'injection', block.id)) {
         current.activity.push({ kind: 'injection', id: block.id, block });
       }
@@ -262,12 +271,23 @@ function fallbackIterations(
       continue;
     }
     if (block.type === 'tool') {
-      const tool = tools[block.tool_id];
+      const recorded = tools[block.tool_id];
+      // A call whose outcome went unrecorded when its turn ended was cut off with
+      // the turn: it reads as stopped, not as an unexplained unknown.
+      const tool =
+        recorded?.state === 'unknown' && (message.stop_reason || message.completed_at)
+          ? { ...recorded, state: 'cancelled' as const }
+          : recorded;
       // An unresolved invocation contributes nothing here; the block stays in the
       // residual lane so its typed unavailable state renders at its own position.
       if (!tool) {
         flush();
         segments.push({ kind: 'block', block });
+        continue;
+      }
+      if (isNestedToolInvocation(tool, tools)) {
+        // A run_code script's call shows under the script's row, not as its own.
+        consumed.add(block.id);
         continue;
       }
       if (!alreadyInLane(current, 'tool', tool.id)) {
@@ -329,6 +349,25 @@ function fallbackIterations(
       }
       consumed.add(block.id);
       continue;
+    }
+    // A change reported after a call belongs to that call's run: it folds with
+    // the run and shows when the run opens. One its call already shows is dropped.
+    if (block.type === 'diff') {
+      const lastSegment = segments.at(-1);
+      const lane = current.activity.some((entry) => entry.kind === 'tool')
+        ? current
+        : !hasIterationContent(current) && lastSegment?.kind === 'iterations'
+          ? lastSegment.iterations.at(-1)
+          : undefined;
+      if (lane?.activity.some((entry) => entry.kind === 'tool')) {
+        const shown = lane.activity.some(
+          (entry) => entry.kind === 'tool' && toolShowsDiff(entry.tool, block),
+        );
+        if (!shown && !alreadyInLane(lane, 'diff', block.id))
+          lane.activity.push({ kind: 'diff', id: block.id, block });
+        consumed.add(block.id);
+        continue;
+      }
     }
     flush(
       block.type === 'text' &&

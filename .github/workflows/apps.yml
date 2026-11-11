@@ -18,6 +18,8 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   pull_request:
+    # `labeled` lets adding `full-ci` start the full tier without a push.
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'web/**'
       - 'packages/core/**'
@@ -35,16 +37,57 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   workflow_dispatch:
+    inputs:
+      clio_runtime_run:
+        description: >-
+          clio-agent Actions run ID whose macos-source-dmg artifact supplies the
+          macOS bundle's gact-runtime (empty: the reference release)
+        required: false
+        default: ''
+      clio_ref:
+        description: clio-agent ref for the CLIO brand (empty - the reference release)
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '22.x'
   PNPM_VERSION: '9.15.9'
 
 jobs:
-  ci:
-    name: lint · typecheck · test · build · visual
+  # Two tiers keep scarce runners for runs that need them. Every pull request
+  # push runs the light tier (checks, unit, build). The full tier (browser e2e,
+  # components, the WebView proof and the 3-OS Tauri jobs) runs for pushes to
+  # develop or main, pull requests into them, tags, dispatches and pull
+  # requests labelled `full-ci`.
+  tier:
+    name: CI tier
     runs-on: ubuntu-22.04
-    timeout-minutes: 40
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.tier.outputs.full }}
+    steps:
+      - id: tier
+        env:
+          FULL: >-
+            ${{ github.event_name == 'workflow_dispatch'
+            || startsWith(github.ref, 'refs/tags/')
+            || (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'))
+            || (github.event_name == 'pull_request' && (github.base_ref == 'develop' || github.base_ref == 'main'
+            || contains(github.event.pull_request.labels.*.name, 'full-ci'))) }}
+        run: |
+          echo "full=$FULL" >> "$GITHUB_OUTPUT"
+          echo "Full CI tier: $FULL"
+
+  # The web gate runs as parallel jobs; `ci` aggregates them so required checks
+  # and release `needs: ci` keep their name and meaning.
+  checks:
+    name: lint ? typecheck ? package tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -68,39 +111,188 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
-      - name: Unit and integration tests
-        run: pnpm test
+      - name: Core, viewer and desktop script tests
+        run: pnpm -r --workspace-concurrency=1 --filter '!@clio/workspace' test
+
+  unit:
+    name: web unit tests ? ${{ matrix.shard }}/2
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Web unit and integration tests
+        run: pnpm --dir web exec vitest run --shard=${{ matrix.shard }}/2
+
+  build:
+    name: production build ? packaged corpus
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - name: Production build
         run: pnpm build
       - name: Install Playwright Chromium
         run: pnpm --dir web exec playwright install --with-deps chromium
-      - name: Browser e2e, accessibility, and visual baselines
-        run: pnpm --dir web test:e2e
-      - name: Shared component browser regressions
-        run: pnpm --dir web exec playwright test --config playwright.components.config.ts
-      - name: Remote deployment dialog at desktop and narrow widths
-        run: pnpm --dir web exec playwright test --config playwright.deployment.config.ts
       # S8 (gact-tui#409): the exact bundle desktop packages must render all
-      # 43 vendored A2UI examples. Needs web/dist (built above) and the
-      # Chromium installed for the e2e step; it fails, never skips, when
-      # either is missing.
+      # 43 vendored A2UI examples. Needs the production web/dist and Chromium;
+      # it fails, never skips, when either is missing.
       - name: Desktop packaged-bundle A2UI corpus smoke
         run: pnpm --filter @clio/desktop test:corpus
+
+  e2e-bundle:
+    name: review-fixture bundle
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Build the review-fixture bundle once for every e2e shard
+        run: |
+          pnpm --filter @clio/core build
+          pnpm --dir web run pretest:e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2e-review-bundle
+          path: web/dist/
+          if-no-files-found: error
+          retention-days: 3
+
+  e2e:
+    name: browser e2e ? ${{ matrix.shard }}/4
+    needs: e2e-bundle
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: e2e-review-bundle
+          path: web/dist/
+      - name: Install Playwright Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+      # Each shard runner owns its fixture server, so files never share state.
+      - name: Browser e2e, accessibility, and visual baselines
+        run: pnpm --dir web exec playwright test --shard=${{ matrix.shard }}/4
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: workspace-browser-evidence
+          name: workspace-browser-evidence-${{ matrix.shard }}
           path: |
             web/screenshots/
             web/test-results/
           if-no-files-found: warn
+
+  components:
+    name: component and deployment browser checks
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+      - name: Shared component browser regressions
+        run: pnpm --dir web exec playwright test --config playwright.components.config.ts
+      - name: Remote deployment dialog at desktop and narrow widths
+        run: pnpm --dir web exec playwright test --config playwright.deployment.config.ts
+      - name: Upload component evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-component-evidence
+          path: |
+            web/screenshots/
+            web/test-results/
+          if-no-files-found: warn
+
+  ci:
+    name: lint ? typecheck ? test ? build ? visual
+    if: always()
+    needs: [tier, checks, unit, build, e2e-bundle, e2e, components]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      # The light tier always gates; the full tier gates whenever it runs and
+      # may only be skipped on a light run.
+      - name: Every web gate passed
+        env:
+          FULL: ${{ needs.tier.outputs.full }}
+          LIGHT: ${{ needs.tier.result }} ${{ needs.checks.result }} ${{ needs.unit.result }} ${{ needs.build.result }}
+          HEAVY: ${{ needs.e2e-bundle.result }} ${{ needs.e2e.result }} ${{ needs.components.result }}
+        run: |
+          echo "full=$FULL light: $LIGHT heavy: $HEAVY"
+          for result in $LIGHT; do
+            [ "$result" = success ] || exit 1
+          done
+          for result in $HEAVY; do
+            [ "$result" = success ] && continue
+            [ "$FULL" != true ] && [ "$result" = skipped ] && continue
+            exit 1
+          done
 
   tauri-debug:
     name: tauri debug · ${{ matrix.os }}
     # Native jobs build their own web bundle; start independent platform checks
     # alongside web CI so a platform compile error is not delayed by that suite.
     # Release jobs below still require both ci and tauri-debug to succeed.
+    needs: tier
+    if: needs.tier.outputs.full == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -144,40 +336,23 @@ jobs:
             xvfb \
             patchelf
       - run: pnpm install --frozen-lockfile
-      - name: Build webview
-        run: pnpm build
+      # Tauri's beforeBuildCommand (build:bundle) builds the webview without
+      # repeating the type check, which the checks job runs and which needs a
+      # >2 GB heap that 7 GB macOS runners do not give Node by default.
       - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
-      - name: Test Windows runtime installation and progress
-        if: runner.os == 'Windows'
+      # Every library test, gated per platform by #[cfg]. Single-threaded because
+      # runtime install, keyring and environment tests share process state.
+      - name: Native library tests
         working-directory: desktop/src-tauri
-        run: cargo test --locked --lib runtime_pack::tests -- --test-threads=1
-      - name: Test bounded runtime extraction and malformed packs
+        run: cargo test --locked --lib -- --test-threads=1
+      - name: NSIS tools for the installer bundle
         if: runner.os == 'Windows'
-        working-directory: desktop/src-tauri
-        run: cargo test --locked --lib runtime_unpack::tests -- --test-threads=1
-      - name: Managed package startup progress
-        working-directory: desktop/src-tauri
-        run: cargo test --locked --lib execution_install::tests -- --test-threads=1
-      - name: Long credential storage regressions
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib credential_chunks::tests
-      - name: Installer option and migration regressions
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib installer_options::tests
-      - name: SSH command framing and real POSIX PTY large-input regressions
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib ssh_transport_command::tests
-      - name: Real Windows keyring long-credential round trip
-        if: runner.os == 'Windows'
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib credentials::tests::windows_long_credential -- --test-threads=1
+        uses: ./.github/actions/tauri-nsis-tools
       - name: Compile Windows installer provider and native-search hooks
         if: runner.os == 'Windows'
         working-directory: desktop
         run: node scripts/run-tauri-branded.mjs build --debug --bundles nsis --merge-config tests/tauri.installer-compile.conf.json
-      - name: Download lifecycle regressions
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib downloads::tests
-      - name: Native file associations and confinement
-        run: |
-          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib document_apps
-          cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --lib document_path_tests
       - name: Real native downloads (Windows/macOS)
         if: matrix.os != 'ubuntu-22.04'
         run: cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
@@ -197,10 +372,136 @@ jobs:
           GDK_BACKEND: x11
         run: xvfb-run -a dbus-run-session -- cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
 
+  # A downloadable, hardened-runtime CLIO Desktop DMG for every pull request,
+  # so macOS changes can be tested on a clean Mac without Xcode. It packages
+  # the reference CLIO release's bundled runtime (real Python, uv and native
+  # wheels) with this branch's shell, which exercises the same runtime
+  # pre-sign and verification that the release builds run. Without Apple
+  # secrets it is ad-hoc signed; Gatekeeper rejects it after a browser
+  # download until it is opened from System Settings > Privacy & Security.
+  macos-bundle:
+    name: tauri bundle · macos-latest · aarch64
+    needs: tier
+    if: >-
+      needs.tier.outputs.full == 'true'
+      && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      CLIO_REFERENCE_RELEASE: v0.9.5.1
+      CLIO_RUNTIME_RUN: ${{ inputs.clio_runtime_run || '' }}
+      TARGET: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the CLIO brand
+        uses: actions/checkout@v4
+        with:
+          repository: iowarp/clio-agent
+          ref: ${{ inputs.clio_ref || env.CLIO_REFERENCE_RELEASE }}
+          path: .clio-agent
+          sparse-checkout: branding
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: |
+            desktop/src-tauri/target/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+          key: macos-bundle-cargo-${{ hashFiles('desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock') }}
+          restore-keys: macos-bundle-cargo-
+      - run: pnpm install --frozen-lockfile
+      - name: Select the CLIO brand
+        run: |
+          set -euo pipefail
+          printf '{ "profile": "clio", "brandingRoot": "%s" }\n' "$GITHUB_WORKSPACE/.clio-agent/branding" \
+            > brand.config.local.json
+          cp -f .clio-agent/branding/clio/icons/* desktop/src-tauri/icons/
+      - name: Stage the reference CLIO runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CLIO_RUNTIME_RUN" ]; then
+            gh run download "$CLIO_RUNTIME_RUN" -R iowarp/clio-agent \
+              -n macos-source-dmg --dir "$RUNNER_TEMP/reference"
+          else
+            gh release download "$CLIO_REFERENCE_RELEASE" -R iowarp/clio-agent \
+              --pattern '*_aarch64-bundled.dmg' --dir "$RUNNER_TEMP/reference"
+          fi
+          [ "$(ls "$RUNNER_TEMP"/reference/*.dmg | wc -l)" -eq 1 ]
+          mount="$RUNNER_TEMP/reference-mount"
+          mkdir -p "$mount"
+          hdiutil attach -nobrowse -readonly -noautoopen -quiet -mountpoint "$mount" "$RUNNER_TEMP"/reference/*.dmg
+          app="$(ls -d "$mount"/*.app | head -n 1)"
+          ditto "$app/Contents/Resources/gact-runtime" desktop/src-tauri/gact-runtime
+          hdiutil detach -quiet "$mount"
+          test -f desktop/src-tauri/gact-runtime/runtime.json
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
+      - name: Build sidecar launcher
+        run: bash desktop/scripts/fetch-sidecar.sh "$TARGET"
+      # Certificate only: pull-request bundles are signed with the Developer
+      # ID when it is available, but never submitted for notarization.
+      - name: Set up Apple signing
+        id: apple
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: bash desktop/scripts/macos-signing-setup.sh setup
+      # The wrapper pre-signs gact-runtime (precompile, thin to arm64, hardened
+      # runtime with runtime.entitlements) before Tauri bundles and signs it.
+      - name: Build the signed DMG
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        run: >-
+          pnpm --filter @clio/desktop tauri build
+          --config src-tauri/tauri.bundled.conf.json
+          --config src-tauri/tauri.no-updater.conf.json
+          --bundles dmg --target "$TARGET"
+      - name: Verify signatures and the hardened runtime
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/$TARGET/release/bundle"
+          bash desktop/scripts/macos-verify-app.sh "$bundle"/dmg/*.dmg \
+            | tee "$RUNNER_TEMP/macos-verify.txt"
+          mkdir -p "$RUNNER_TEMP/macos-artifact"
+          cp "$bundle"/dmg/*.dmg "$RUNNER_TEMP/macos-verify.txt" "$RUNNER_TEMP/macos-artifact/"
+          du -sh "$bundle"/dmg/*.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clio-desktop-macos-aarch64-dmg
+          path: ${{ runner.temp }}/macos-artifact/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Remove the signing keychain
+        if: always()
+        run: bash desktop/scripts/macos-signing-setup.sh cleanup
+
   native-webview-proof:
     name: native WebView proof · fixture-backed
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    needs: ci
+    if: >-
+      needs.tier.outputs.full == 'true'
+      && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    needs: [tier, checks]
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -314,10 +615,11 @@ jobs:
             os: windows-latest
             bundle-args: '--bundles msi,nsis'
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
             bundle-args: '--bundles dmg --target aarch64-apple-darwin'
+          # macos-13 (the last Intel image) is retired; cross-compile on arm64.
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15
             bundle-args: '--bundles dmg --target x86_64-apple-darwin'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
@@ -372,13 +674,45 @@ jobs:
       # this the installer embeds whatever descriptor happens to be committed.
       - name: Generate brand backend descriptor
         run: pnpm --filter @clio/desktop gen-brand-backend
-      - name: Build web
-        run: pnpm build
-      - name: Build unsigned installer
-        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
+      - name: Set up Apple signing
+        id: apple
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash desktop/scripts/macos-signing-setup.sh setup
+      - name: NSIS tools for the installer bundle
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/tauri-nsis-tools
+      # These installers carry a stub runtime and no updater key, so they must
+      # not produce updater artifacts that a client could install over a real
+      # bundle; the signed CLIO feed is published by clio-agent (#739 A6).
+      - name: Build installer
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} --config src-tauri/tauri.no-updater.conf.json ${{ matrix.bundle-args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+      - name: Notarize, staple and verify the macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          mode=""
+          if [ "${{ steps.apple.outputs.notarize }}" = true ]; then
+            bash desktop/scripts/macos-notarize.sh "$bundle"/dmg/*.dmg
+            mode=--require-notarized
+          fi
+          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/dmg/*.dmg
       - name: Stage installers
         shell: bash
         run: |
@@ -430,6 +764,9 @@ jobs:
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Remove the signing keychain
+        if: always() && runner.os == 'macOS'
+        run: bash desktop/scripts/macos-signing-setup.sh cleanup
 
   release-web:
     name: release · pure-web zip

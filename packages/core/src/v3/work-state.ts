@@ -49,6 +49,11 @@ export const sessionWorkSchema = z.object({
   todo_history_next_cursor: z.number().int().nullable().default(null),
   schedule_history: z.array(workScheduleHistorySchema).default([]),
   schedule_history_next_cursor: z.number().int().nullable().default(null),
+  /** The session plan (path, status, Markdown text), or null when there is none. */
+  plan: z
+    .object({ path: z.string(), status: z.string(), text: z.string() })
+    .nullable()
+    .default(null),
 });
 
 export type SessionWork = z.infer<typeof sessionWorkSchema>;

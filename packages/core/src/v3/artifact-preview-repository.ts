@@ -147,20 +147,27 @@ const artifactTableQuerySchema = z
 /** A columnar slice of a registered table: one array per column, all `returnedRows` long. */
 export type ArtifactTableQueryResult = z.infer<typeof artifactTableQuerySchema>;
 
-const artifactRasterQuerySchema = z.object({
-  width: z.number().int().min(1).max(1024),
-  height: z.number().int().min(1).max(1024),
-  extent: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  sourceBounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
-  xLabel: z.string(), yLabel: z.string(),
-  min: z.number().nullable(), max: z.number().nullable(),
-  values: z.array(z.number().nullable()),
-}).superRefine((value, context) => {
-  if (value.values.length !== value.width * value.height) {
-    context.addIssue({ code: 'custom', message: 'Raster sample count does not match its dimensions.' });
-  }
-});
+const artifactRasterQuerySchema = z
+  .object({
+    width: z.number().int().min(1).max(1024),
+    height: z.number().int().min(1).max(1024),
+    extent: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    sourceBounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
+    xLabel: z.string(),
+    yLabel: z.string(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    values: z.array(z.number().nullable()),
+  })
+  .superRefine((value, context) => {
+    if (value.values.length !== value.width * value.height) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Raster sample count does not match its dimensions.',
+      });
+    }
+  });
 
 export type ArtifactRasterQueryResult = z.infer<typeof artifactRasterQuerySchema>;
 export interface ArtifactRasterQueryRequest {
@@ -190,9 +197,53 @@ export interface ArtifactTableExportRequest {
 }
 
 /** Bounded structured previews for immutable registered artifacts. */
+/** One stream entry as read: JSON as `value`, text as `text`, other types by size. */
+const streamEntrySchema = z
+  .object({
+    seq: z.number(),
+    at: z.string(),
+    media_type: z.string(),
+    size_bytes: z.number(),
+    value: z.unknown().optional(),
+    text: z.string().optional(),
+    entry_path: z.string().optional(),
+  })
+  .passthrough();
+
+/** A stream's description: `open`, or `closed` with when and why. */
+const streamDescriptionSchema = z
+  .object({
+    stream_id: z.string(),
+    name: z.string(),
+    state: z.string(),
+    media_type: z.string().optional(),
+    window: z.number(),
+    held: z.number(),
+    writes: z.number(),
+    opened_at: z.string().optional(),
+    updated_at: z.string().optional(),
+    closed_at: z.string().optional(),
+    closed_reason: z.string().optional(),
+    captured_at: z.string().optional(),
+  })
+  .passthrough();
+
+const streamContentSchema = z.object({
+  stream: streamDescriptionSchema,
+  entries: z.array(streamEntrySchema),
+});
+
+export type StreamEntry = z.infer<typeof streamEntrySchema>;
+export type StreamDescription = z.infer<typeof streamDescriptionSchema>;
+export type StreamContent = z.infer<typeof streamContentSchema>;
+
 export class ArtifactPreviewRepository extends ProviderRepository {
   /** Read a bounded sample of the visible extent of a registered grid. */
-  public artifactRasterQuery(artifactId: string, query: ArtifactRasterQueryRequest, signal?: AbortSignal): Promise<ArtifactRasterQueryResult> {
+  public artifactRasterQuery(
+    artifactId: string,
+    query: ArtifactRasterQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactRasterQueryResult> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}/raster-query`,
@@ -275,6 +326,38 @@ export class ArtifactPreviewRepository extends ProviderRepository {
         }
         return result;
       },
+      signal,
+    });
+  }
+
+  /**
+   * A stream as it is now, read from clio-core: its state (`open`, or `closed` and when)
+   * and its newest entries, oldest first (JSON as `value`, text as `text`, other types by
+   * size and `entry_path`). Any reshaping a view wants it does itself.
+   */
+  public streamContent(contentPath: string, signal?: AbortSignal): Promise<StreamContent> {
+    return this.transport.request({
+      method: 'GET',
+      path: contentPath,
+      decode: (value) => streamContentSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Hold (or release) this session's lease on a stream, so its changes are announced. */
+  public watchStream(
+    streamId: string,
+    sessionId: string,
+    release = false,
+    signal?: AbortSignal,
+    /** This view's own lease, so releasing it leaves other views of the stream watching. */
+    leaseId?: string,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/streams/${encodeURIComponent(streamId)}/watch`,
+      body: { session_id: sessionId, release, ...(leaseId ? { lease_id: leaseId } : {}) },
+      decode: (value) => value,
       signal,
     });
   }

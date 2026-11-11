@@ -114,3 +114,35 @@ export function savedCheckSentence(
     ? `It is running, with ${count} ${count === 1 ? 'model' : 'models'}.`
     : 'It is running, but no model is loaded yet.';
 }
+
+/** "http://localhost:11434/v1" as "localhost:11434"; a non-standard path stays. */
+export function shortServerAddress(address: string): string {
+  try {
+    const url = new URL(address);
+    const path = url.pathname.replace(/\/$/u, '');
+    return `${url.host}${path === '' || path === '/v1' ? '' : path}`;
+  } catch {
+    return address;
+  }
+}
+
+/**
+ * A server's status in words for its row and details. A stopped server on
+ * this computer is a grey "Not running", never an error; one elsewhere that
+ * does not answer is "Can't reach".
+ */
+export function serverStatusWords(
+  status: ServerStatus,
+  address: string,
+  label: string,
+): { tone: 'success' | 'idle' | 'inactive' | 'error'; label: string; hint?: string } {
+  if (status.kind === 'running') return { tone: 'success', label: 'Running' };
+  if (status.kind === 'unknown') return { tone: 'idle', label: 'Not checked yet' };
+  if (isLoopbackAddress(address))
+    return {
+      tone: 'inactive',
+      label: 'Not running',
+      hint: `Start ${label} and load a model, then check again.`,
+    };
+  return { tone: 'error', label: 'Can’t reach', hint: 'No answer at this address.' };
+}

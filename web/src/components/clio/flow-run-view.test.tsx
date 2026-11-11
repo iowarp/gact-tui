@@ -1,8 +1,9 @@
-import { flowRunSchema } from '@clio/core/v3';
+import { agentTaskRecordSchema, flowRunSchema } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 
 const repository = vi.hoisted(() => ({
   taskFlow: vi.fn(),
@@ -12,7 +13,7 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('@/hooks/use-session-agent', () => ({
   useSessionAgent: () => ({ agent: { data: undefined } }),
@@ -242,6 +243,7 @@ describe('FlowRunView', () => {
     expect(repository.transcript).toHaveBeenCalledWith(
       'session-task_draft',
       expect.any(AbortSignal),
+      { limit: TRANSCRIPT_PAGE_SIZE },
     );
   });
 
@@ -377,10 +379,34 @@ describe('FlowRunView', () => {
     ).toBeVisible();
   });
 
-  it('says when no flow run is recorded under the task', async () => {
+  it('says when no flow run is recorded under a task that is still running', async () => {
     repository.taskFlow.mockResolvedValue(null);
+    repository.agentTask.mockResolvedValue(
+      agentTaskRecordSchema.parse({ task_id: 'task_flow', status: 'running' }),
+    );
     renderRun();
     expect(await screen.findByText(/No flow run is recorded for this task yet/u)).toBeVisible();
+    await waitFor(() =>
+      expect(repository.agentTask).toHaveBeenCalledWith('task_flow', expect.anything()),
+    );
+    expect(screen.queryByText('Failed')).toBeNull();
+  });
+
+  it('reports a task that failed before its flow run was recorded, with its reason', async () => {
+    // gact-tui#677: a flow refused by max_model_calls never checkpoints; its task has the failure.
+    repository.taskFlow.mockResolvedValue(null);
+    repository.agentTask.mockResolvedValue(
+      agentTaskRecordSchema.parse({
+        task_id: 'task_flow',
+        status: 'failed',
+        error_reason: 'flow_limit_exceeded: max_model_calls 1 reached',
+      }),
+    );
+    renderRun();
+    expect(await screen.findByText('flow_limit_exceeded: max_model_calls 1 reached')).toBeVisible();
+    expect(screen.getByText('Failed')).toBeVisible();
+    expect(screen.getByText(/The task ended before its flow run was recorded/u)).toBeVisible();
+    expect(screen.queryByText(/It appears once the flow starts/u)).toBeNull();
   });
 });
 

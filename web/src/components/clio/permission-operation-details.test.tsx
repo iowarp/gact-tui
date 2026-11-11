@@ -109,17 +109,48 @@ it('shows command, computer, folders, reason and real duration before technical 
     />,
   );
   expect(screen.getByText('Move-Item source destination')).toBeVisible();
-  expect(screen.getByText('Research PC')).toBeVisible();
+  // Wide and narrow values are both mounted; the container query picks one.
+  const [wideComputer, narrowComputer] = screen.getAllByText('Research PC');
+  expect(wideComputer).toBeVisible();
+  expect(wideComputer?.closest('[data-slot=key-value-narrow]')).toBeNull();
+  expect(narrowComputer?.closest('[data-slot=key-value-narrow]')).not.toBeNull();
   expect(screen.getByText('C:\\Users\\Alice\\Downloads')).toBeVisible();
   expect(screen.getByText('D:\\Research\\Results')).toBeVisible();
   expect(
     screen.getByText('Move the measurements you selected into the results folder.'),
   ).toBeVisible();
-  expect(screen.getByText(/including after restart/)).toBeVisible();
+  // The lasting-access note is consent text: both widths carry it in full.
+  const [wideNote, narrowNote] = screen.getAllByText(/including after restart/);
+  expect(wideNote).toBeVisible();
+  expect(narrowNote?.closest('[data-slot=key-value-narrow]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Allow for session' })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Allow for workspace' }));
+  expect(screen.queryByRole('button', { name: 'Allow for this session' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Allow for this workspace' }));
   expect(respond).toHaveBeenCalledWith(request, { action: 'allow_workspace' });
+});
+
+it('at a fifth of the window keeps why, where and folders short and moves who asked into details', async () => {
+  const delegated = { ...request, owner_session_id: 'child', attended_session_id: 'session1' };
+  render(
+    <ClioPendingInteractions
+      interactions={[delegated]}
+      ownerLabels={{ child: 'Station evidence specialist' }}
+      viewedSessionId="session1"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  const narrow = Array.from(document.querySelectorAll('[data-slot=key-value-narrow]'));
+  // Runs on: the label is the server icon, so the value starts with the computer itself.
+  expect(narrow.some((node) => node.textContent === 'Research PCD:\\Research')).toBe(true);
+  // The folders shorten to a count; the consent note under them is never cut.
+  const folders = narrow.find((node) => node.textContent?.startsWith('writes to 2 folders'));
+  expect(folders).toHaveTextContent(/including after restart, until you remove these folders/);
+  const askedBy = screen.getByText('Asked by');
+  expect(askedBy.closest('[data-narrow=drop]')).not.toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: /Technical details/ }));
+  expect(document.querySelector('[data-slot=ask-details-facts]')).toHaveTextContent(
+    'Asked byStation evidence specialist',
+  );
 });
 
 it('declines the original operation and retains an actionable response error', async () => {
@@ -179,6 +210,10 @@ it.each([
   expect(screen.queryByText('Read only')).not.toBeInTheDocument();
 });
 
+/** Every page keeps its own header pager mounted; only the shown page's is visible. */
+const visiblePager = (text: string) =>
+  screen.getAllByText(text).find((element) => !element.closest('[hidden]'));
+
 it('pages multiple source approvals and removes the pager for the last request', async () => {
   const user = userEvent.setup();
   const first = permission('read_only');
@@ -187,18 +222,59 @@ it('pages multiple source approvals and removes the pager for the last request',
   const { rerender } = render(
     <ClioPendingInteractions {...props} interactions={[first, second]} />,
   );
-  expect(screen.getByText('1 / 2')).toBeVisible();
+  expect(visiblePager('1/2')).toBeVisible();
   expect(screen.getByText('Connect Alta observations')).toBeVisible();
   // Other pages stay mounted to preserve each request's draft and selected duration.
   expect(screen.getByText('Connect second dataset')).not.toBeVisible();
   expect(screen.getAllByRole('button', { name: 'Allow once' })).toHaveLength(1);
   await user.click(screen.getByRole('button', { name: 'Next request' }));
-  expect(screen.getByText('2 / 2')).toBeVisible();
+  expect(visiblePager('2/2')).toBeVisible();
   expect(screen.getByText('Connect second dataset')).toBeVisible();
   expect(screen.getByText('Connect Alta observations')).not.toBeVisible();
   rerender(<ClioPendingInteractions {...props} interactions={[second]} />);
   expect(screen.queryByRole('navigation', { name: 'Pending requests' })).not.toBeInTheDocument();
   expect(screen.getByText('Connect second dataset')).toBeVisible();
+});
+
+it('shows a script instead of its command and expands technical details in place', async () => {
+  const user = userEvent.setup();
+  const script: PendingInteraction = {
+    ...request,
+    id: 'permission:qc-script',
+    title: 'Run the QC script',
+    actions: ['deny', 'allow'],
+    payload: {
+      tool_call: {
+        tool_name: 'shell_bash',
+        input: {
+          command: 'python qc_stations.py --strict --out results/qc',
+          _clio_task_description: 'Flag stations that fail QC',
+        },
+      },
+      script: { call_id: 'call_qc', code: 'import pandas as pd\nprint(pd.__version__)\n' },
+    },
+  };
+  render(
+    <ClioPendingInteractions
+      interactions={[script]}
+      viewedSessionId="session1"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  expect(screen.getByText('Flag stations that fail QC')).toBeVisible();
+  expect(screen.getByText('Python, 2 lines')).toBeVisible();
+  expect(screen.queryByText('Command to run')).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Technical details' })).not.toBeInTheDocument();
+
+  const card = document.querySelector<HTMLElement>('[data-slot="ask-card"]')!;
+  card.focus();
+  await user.keyboard('d');
+  // Details expand in place under the options and scroll inside the card; no dialog.
+  const details = await screen.findByRole('region', { name: 'Technical details' });
+  expect(details).toHaveTextContent('python qc_stations.py --strict --out results/qc');
+  expect(details).not.toHaveTextContent('_clio_');
+  expect(card).toContainElement(details);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
 it('shows a readable title for retained requests with the old generic summary', () => {

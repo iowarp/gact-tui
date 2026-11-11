@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { BotIcon, CalendarClockIcon, ChevronRightIcon, ServerIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
-import { bundledLanguages, type BundledLanguage } from 'shiki';
+import type { BundledLanguage } from 'shiki';
+import { bundledLanguages } from 'shiki/langs';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
@@ -124,6 +125,7 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
             </Button>
           </DialogTrigger>
           <ResultDialogContent
+            icon={<InfoIcon />}
             title={block.label || 'Result details'}
             description="Recorded details for this result."
           >
@@ -356,6 +358,8 @@ export function BlockBody({
       return (
         <CodeBlock
           code={text}
+          showLineNumbers={block.type === 'code' && block.start_line !== undefined}
+          startLine={block.start_line}
           language={
             block.type === 'diff'
               ? 'diff'

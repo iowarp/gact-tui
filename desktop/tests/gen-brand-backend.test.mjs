@@ -9,9 +9,17 @@
 // override of every field. A drift between the two would show up here
 // before it reaches a shipped build.
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-import { resolveBrandVocabulary } from '../scripts/gen-brand-backend.mjs';
+import {
+  resolveBrandVocabulary,
+  resolvePortConfig,
+  resolveTrayTemplate,
+} from '../scripts/gen-brand-backend.mjs';
 
 /**
  * Mirrors ONLY the vocabulary defaulting rules from
@@ -66,4 +74,72 @@ test('a brand with no "name" falls back to the profile id, matching the generato
 
   assert.equal(generated.productName, 'Headless Desktop');
   assert.equal(generated.agentName, 'acme');
+});
+
+test('a brand port config names the agent config key, its env override and the default', () => {
+  assert.deepEqual(
+    resolvePortConfig({
+      sidecarName: 'clio-agent',
+      portConfig: {
+        key: 'gact.port',
+        env: 'CLIO_PORT',
+        default: 17800,
+        file: 'config.yaml',
+        resolver: 'python -m clio_agent.server_port',
+      },
+      attachPort: 17800,
+      attachPortEnv: 'CLIO_PORT',
+    }),
+    {
+      key: 'gact.port',
+      env: 'CLIO_PORT',
+      default: 17800,
+      product: 'clio-agent',
+      resolver: 'clio_agent.server_port',
+    },
+  );
+});
+
+test('a brand from before portConfig keeps its attach port and env override', () => {
+  assert.deepEqual(resolvePortConfig({ attachPort: 18000, attachPortEnv: 'CLIO_PORT' }), {
+    key: null,
+    env: 'CLIO_PORT',
+    default: 18000,
+    product: null,
+    resolver: null,
+  });
+});
+
+test('a brand with no backend has no port override and the shared default', () => {
+  assert.deepEqual(resolvePortConfig(undefined), {
+    key: null,
+    env: null,
+    default: 17800,
+    product: null,
+    resolver: null,
+  });
+  assert.throws(() => resolvePortConfig({ portConfig: { default: 70000 } }), /TCP port/);
+});
+
+test('the tray template comes only from the selected brand', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'brand-tray-'));
+  try {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    writeFileSync(join(dir, 'tray.png'), png);
+    writeFileSync(join(dir, 'logo.svg'), '<svg/>');
+    assert.deepEqual(resolveTrayTemplate({ trayTemplate: 'tray.png' }, dir), png);
+    assert.equal(resolveTrayTemplate({}, dir).length, 0, 'no template: the tray uses the app icon');
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: 'logo.svg' }, dir), /not a PNG/);
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: '' }, dir), /PNG path/);
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: 'missing.png' }, dir), /ENOENT/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the neutral brand ships a template and the generated copy matches it', () => {
+  const brandDir = fileURLToPath(new URL('../../branding/gact/', import.meta.url));
+  const raw = JSON.parse(readFileSync(join(brandDir, 'brand.json'), 'utf8'));
+  const generated = fileURLToPath(new URL('../src-tauri/gen/tray-template.png', import.meta.url));
+  assert.deepEqual(readFileSync(generated), resolveTrayTemplate(raw, brandDir));
 });

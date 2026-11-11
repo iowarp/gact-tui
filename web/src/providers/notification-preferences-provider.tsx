@@ -8,23 +8,43 @@ import {
   useState,
 } from 'react';
 
-const STORAGE_KEY = 'clio.notifications.v1';
+const STORAGE_KEY = 'clio.notifications.v2';
+/** Version 1 stored its all-off defaults on every first run, so they say nothing about a choice. */
+const LEGACY_STORAGE_KEY = 'clio.notifications.v1';
 
 export type AttentionSoundMode = 'off' | 'background' | 'always';
+
+/** Where a finished or stopped run tells you: the bell's While you were away list, that plus a desktop alert, or nowhere. */
+export type FinishedWorkMode = 'bell' | 'desktop' | 'off';
 
 interface NotificationPreferences {
   attentionSound: AttentionSoundMode;
   desktopNotifications: boolean;
+  finishedWork: FinishedWorkMode;
 }
 
 interface NotificationPreferencesContextValue extends NotificationPreferences {
   setAttentionSound: (mode: AttentionSoundMode) => void;
   setDesktopNotifications: (enabled: boolean) => void;
+  setFinishedWork: (mode: FinishedWorkMode) => void;
 }
 
+/**
+ * On by default: a person who started a long run and switched away should hear
+ * when it needs them or ends. The system still asks before the first notice
+ * (the first-run prompt in the attention notifier), and the sound plays only
+ * while the app is in the background.
+ */
 const defaults: NotificationPreferences = {
+  attentionSound: 'background',
+  desktopNotifications: true,
+  finishedWork: 'desktop',
+};
+
+const LEGACY_DEFAULTS: NotificationPreferences = {
   attentionSound: 'off',
   desktopNotifications: false,
+  finishedWork: 'bell',
 };
 
 const NotificationPreferencesContext = createContext<NotificationPreferencesContextValue | null>(
@@ -64,6 +84,7 @@ export function NotificationPreferencesProvider({ children }: PropsWithChildren)
       ...preferences,
       setAttentionSound: (attentionSound) => update({ attentionSound }),
       setDesktopNotifications: (desktopNotifications) => update({ desktopNotifications }),
+      setFinishedWork: (finishedWork) => update({ finishedWork }),
     }),
     [preferences, update],
   );
@@ -89,19 +110,44 @@ export function useNotificationPreferences(): NotificationPreferencesContextValu
 function readPreferences(): NotificationPreferences {
   if (typeof window === 'undefined') return defaults;
   try {
-    return parsePreferences(window.localStorage.getItem(STORAGE_KEY));
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) return parsePreferences(stored);
+    return migrateLegacy(window.localStorage.getItem(LEGACY_STORAGE_KEY));
   } catch {
     return defaults;
   }
 }
 
-function parsePreferences(raw: string | null): NotificationPreferences {
+/** Keeps a version 1 choice; its untouched all-off defaults become the current defaults. */
+function migrateLegacy(raw: string | null): NotificationPreferences {
+  if (raw === null) return defaults;
+  const legacy = parsePreferences(raw, LEGACY_DEFAULTS);
+  const untouched =
+    legacy.attentionSound === LEGACY_DEFAULTS.attentionSound &&
+    legacy.desktopNotifications === LEGACY_DEFAULTS.desktopNotifications &&
+    legacy.finishedWork === LEGACY_DEFAULTS.finishedWork;
+  return untouched ? defaults : legacy;
+}
+
+function parsePreferences(
+  raw: string | null,
+  fallback: NotificationPreferences = defaults,
+): NotificationPreferences {
   const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
   return {
     attentionSound:
-      value.attentionSound === 'background' || value.attentionSound === 'always'
+      value.attentionSound === 'background' ||
+      value.attentionSound === 'always' ||
+      value.attentionSound === 'off'
         ? value.attentionSound
-        : 'off',
-    desktopNotifications: value.desktopNotifications === true,
+        : fallback.attentionSound,
+    desktopNotifications:
+      typeof value.desktopNotifications === 'boolean'
+        ? value.desktopNotifications
+        : fallback.desktopNotifications,
+    finishedWork:
+      value.finishedWork === 'desktop' || value.finishedWork === 'off' || value.finishedWork === 'bell'
+        ? value.finishedWork
+        : fallback.finishedWork,
   };
 }

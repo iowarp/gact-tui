@@ -15,18 +15,32 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
+import { WorkbenchActivityDetail } from './workbench-activity-detail';
+import { activityTab } from './workbench-activity-tab';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
-import { FlowRunView } from './flow-run-view';
-import { ScienceLogTab } from './science-log-tab';
+import { WorkbenchFlowTab } from './workbench-flow-tab';
+import { WorkbenchVariantTryTab } from './workbench-variant-try-tab';
+import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
+const BrowserSurface = lazy(() =>
+  import('./browser-surface').then((module) => ({ default: module.BrowserSurface })),
+);
+const SearchResultsTab = lazy(() =>
+  import('./search-results-tab').then((module) => ({ default: module.SearchResultsTab })),
+);
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
+const NdpBrowserTab = lazy(() =>
+  import('./ndp-browser-tab').then((module) => ({ default: module.NdpBrowserTab })),
+);
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import type { WorkbenchTabListView } from './workbench-strip';
+import { StateView } from './primitives/state-view';
 
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
@@ -37,10 +51,13 @@ const WorkspaceResourceCarousel = lazy(() =>
   })),
 );
 
+// The study graph brings its graph layout libraries; most visits never open it.
+const ScienceLogTab = deferredComponent(() =>
+  import('./science-log-tab').then((module) => module.ScienceLogTab),
+);
+
 function CanvasLoading({ label }: { label: string }) {
-  return (
-    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
-  );
+  return <StateView kind="loading" size="panel" title={label} />;
 }
 
 export interface WorkbenchTabContentProps {
@@ -71,9 +88,13 @@ export interface WorkbenchTabContentProps {
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   onOpenTab: (tab: WorkbenchTab) => void;
+  /** Show a folder of this workspace in the Files list. */
+  onShowFolder: (directory: string) => void;
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
+  /** A strip list opened as a tab (Files, Sources, Artifacts, Activity, Terminal, Browser pages). */
+  renderList: (view: WorkbenchTabListView) => ReactNode;
 }
 
 // Extracted from ClioWorkbench (which still owns tab state and callbacks) so
@@ -107,9 +128,11 @@ export function WorkbenchTabContent({
   onOpenSubagent,
   onUndoDiff,
   onOpenTab,
+  onShowFolder,
   onReplaceTab,
   onSelectFilesPath,
   onSelectWorkspaceFilePath,
+  renderList,
 }: WorkbenchTabContentProps): ReactNode {
   switch (tab.kind) {
     case 'work':
@@ -120,28 +143,33 @@ export function WorkbenchTabContent({
           <KnowledgeSourceView workspaceId={workspaceId} sourceId={tab.sourceId} />
         </Suspense>
       );
-    case 'session':
-      return sessionView;
+    case 'activity':
+      return (
+        <WorkbenchActivityDetail
+          key={tab.id}
+          onOpenSubagent={onOpenSubagent}
+          onOpenTab={onOpenTab}
+          tab={tab}
+        />
+      );
     case 'science-log':
       return (
-        <ScienceLogTab
-          key={sessionId}
-          onOpenFolder={(path) =>
-            onOpenTab({
-              id: 'files',
-              kind: 'files',
-              label: 'Files',
-              workspaceId,
-              directory: workspaceFilePath(
-                path,
-                useLiveStore.getState().entities.workspaces[workspaceId]?.path,
-              ),
-            })
-          }
-          onOpenSubagent={onOpenSubagent}
-          sessionId={sessionId}
-          workspaceId={workspaceId}
-        />
+        <Suspense fallback={<CanvasLoading label="Loading science log" />}>
+          <ScienceLogTab
+            key={sessionId}
+            onOpenFolder={(path) =>
+              onShowFolder(
+                workspaceFilePath(
+                  path,
+                  useLiveStore.getState().entities.workspaces[workspaceId]?.path,
+                ),
+              )
+            }
+            onOpenSubagent={onOpenSubagent}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+          />
+        </Suspense>
       );
     case 'files':
       return (
@@ -171,6 +199,7 @@ export function WorkbenchTabContent({
           artifactsTruncated={artifactsTruncated}
           defaultSplit={maximized}
           files={files}
+          sessionId={sessionId}
           onReplaceArtifact={(artifact) =>
             onReplaceTab(tab.id, {
               id: `artifact:${artifact.id}`,
@@ -216,6 +245,7 @@ export function WorkbenchTabContent({
     case 'workspace-file':
       return (
         <ScopedWorkspaceFileBrowser
+          mode="preview"
           sourceWorkspaceId={workspaceId}
           sessionId={sessionId}
           files={files}
@@ -228,6 +258,8 @@ export function WorkbenchTabContent({
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}
           searchLocation={tab.line || tab.find ? { line: tab.line, find: tab.find } : undefined}
+          locator={tab.locator}
+          page={tab.page}
           workspaceId={tab.workspaceId}
         />
       );
@@ -251,6 +283,7 @@ export function WorkbenchTabContent({
           }
           onUndo={(changeId) => onUndoDiff(tab.sessionId, tab.workspaceId, changeId)}
           pending={diffActionPending}
+          workspaceId={tab.workspaceId}
         />
       );
     case 'artifact':
@@ -258,6 +291,7 @@ export function WorkbenchTabContent({
         <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
           <ArtifactView
             artifact={tab.artifact}
+            sessionId={sessionId}
             onOpenWorkspaceFile={(path) =>
               onOpenTab({
                 id: `workspace-file:${tab.workspaceId}:${path}`,
@@ -278,6 +312,15 @@ export function WorkbenchTabContent({
               })
             }
             workspaceId={tab.workspaceId}
+            onOpenActivity={(activity) =>
+              onOpenTab(
+                activityTab(
+                  { id: `tool:${activity.callId}`, kind: 'tool', name: activity.tool },
+                  activity.sessionId ?? sessionId,
+                  tab.workspaceId,
+                ),
+              )
+            }
           />
         </Suspense>
       );
@@ -330,16 +373,42 @@ export function WorkbenchTabContent({
         />
       );
     case 'flow':
-      return (
-        <FlowRunView
-          handle={tab.handle}
-          label={tab.label}
-          onOpenSubagent={onOpenSubagent}
-          sessionId={tab.sessionId}
-        />
-      );
+      return <WorkbenchFlowTab onOpenSubagent={onOpenSubagent} tab={tab} />;
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
+    case 'browser':
+      return (
+        <Suspense fallback={<CanvasLoading label="Opening the page" />}>
+          <BrowserSurface
+            key={tab.pageId}
+            label={tab.label}
+            pageId={tab.pageId}
+            sessionId={tab.sessionId}
+          />
+        </Suspense>
+      );
+    case 'ndp':
+      return (
+        <Suspense fallback={<CanvasLoading label="Loading the catalog" />}>
+          <NdpBrowserTab label={tab.label} workspaceId={tab.workspaceId} />
+        </Suspense>
+      );
+    case 'list':
+      return renderList(tab.view);
+    case 'search':
+      return (
+        <Suspense fallback={<CanvasLoading label="Searching" />}>
+          <SearchResultsTab
+            onOpenTab={onOpenTab}
+            onReplaceTab={onReplaceTab}
+            sessionId={sessionId}
+            tab={tab}
+            workspaceId={workspaceId}
+          />
+        </Suspense>
+      );
+    case 'variant-try':
+      return <WorkbenchVariantTryTab tab={tab} />;
     default:
       return assertNever(tab);
   }

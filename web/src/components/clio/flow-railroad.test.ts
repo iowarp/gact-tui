@@ -7,7 +7,7 @@ import {
 } from '@/hooks/use-flow-presentation';
 import { boxName, markRailroad } from './flow-railroad-marks';
 import { seriesParallel } from './flow-diagram-source';
-import { railroadDiagram } from './flow-railroad';
+import { parallelLabel, railroadDiagram } from './flow-railroad';
 import { flowMembers, flowVerdict, workflowSteps } from './flow-run-presentation';
 
 function workflow(
@@ -593,5 +593,89 @@ describe('workflow forks', () => {
     const fork = svg.querySelector('[data-key="draft~1"]')!;
     expect(fork.classList.contains('is-fork')).toBe(true);
     expect(fork.querySelector('title')?.textContent).toContain('pursue H4 instead');
+  });
+});
+
+describe('parallel group bounds', () => {
+  const together = (invocation: string, extra: Record<string, unknown> = {}) => ({
+    invocation,
+    kind: 'agent',
+    target: 'self',
+    status: 'completed',
+    together: 'a',
+    ...extra,
+  });
+
+  it('says how many ran at once when a bound holds the group below its size', () => {
+    expect(parallelLabel({ count: 2 })).toBe('2 in parallel');
+    expect(parallelLabel({ count: 2, atOnce: 1 })).toBe('2, one at a time');
+    expect(parallelLabel({ count: 4, atOnce: 2 })).toBe('4, up to 2 at a time');
+    expect(parallelLabel({ count: 2, atOnce: 3 })).toBe('2 in parallel');
+  });
+
+  it("labels a gather under the flow's max_concurrency of one as one at a time (#679)", () => {
+    const run = flowRunSchema.parse({
+      flow: 'qualification_limits',
+      status: 'completed',
+      view: null,
+      max_concurrency: 1,
+      calls: [together('a'), together('b')],
+      execution: [
+        { id: 'start', label: 'Started', status: 'completed', after: [] },
+        { id: 'a', label: 'Self', status: 'returned', after: ['start'], invocation: 'a' },
+        { id: 'b', label: 'Self', status: 'returned', after: ['start'], invocation: 'b' },
+      ],
+    });
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.parallels).toEqual([{ from: 1, to: 3, count: 2, atOnce: 1 }]);
+    const svg = new DOMParser().parseFromString(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">
+        <g class="pele-node pele-terminal"><rect x="10" y="40" width="40" height="26"/></g>
+        <g class="pele-node pele-terminal"><rect x="60" y="40" width="40" height="26"/></g>
+        <g class="pele-node pele-terminal"><rect x="60" y="76" width="40" height="26"/></g>
+      </svg>`,
+      'image/svg+xml',
+    ).documentElement as unknown as SVGElement;
+    markRailroad(svg, diagram.railroad);
+    expect(svg.querySelector('.clio-flow-parallel')?.textContent).toBe('2, one at a time');
+  });
+
+  it("takes a gather's own limit when it is tighter than the flow's", () => {
+    const run = flowRunSchema.parse({
+      flow: 'survey',
+      status: 'completed',
+      view: null,
+      max_concurrency: 3,
+      calls: ['a', 'b', 'c', 'd'].map((id) => together(id, { gather_limit: 2 })),
+    });
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.parallels).toEqual([{ from: 0, to: 4, count: 4, atOnce: 2 }]);
+  });
+
+  it('keeps an unbounded gather in parallel', () => {
+    const run = flowRunSchema.parse({
+      flow: 'survey',
+      status: 'completed',
+      view: null,
+      calls: [together('a'), together('b')],
+    });
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.parallels).toEqual([{ from: 0, to: 2, count: 2 }]);
+  });
+
+  it("bounds a workflow's side-by-side steps by the flow's max_concurrency", () => {
+    const run = workflow(
+      [
+        { id: 'north', target: 'self', status: 'completed' },
+        { id: 'south', target: 'self', status: 'completed' },
+      ],
+      { max_concurrency: 1 },
+    );
+    const diagram = diagramOf(run);
+    if (diagram?.kind !== 'railroad') throw new Error('expected a railroad');
+    expect(diagram.railroad.parallels).toEqual([{ from: 0, to: 2, count: 2, atOnce: 1 }]);
   });
 });

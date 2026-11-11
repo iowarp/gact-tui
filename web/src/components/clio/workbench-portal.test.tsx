@@ -1,6 +1,7 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { createRef } from 'react';
+import { createRef, type PropsWithChildren, type ReactElement } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   DropdownMenu,
@@ -19,19 +20,40 @@ vi.mock('./resource-viewers', () => ({
     <article aria-label={`Artifact view: ${artifact.name}`}>{artifact.name}</article>
   ),
 }));
+// A canvas emptied while shown opens its Files tab.
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
+vi.mock('@/providers/appearance-provider', () => ({
+  useAppearancePreferences: () => ({ hideDotFiles: false }),
+}));
+
+/** The Files tab reads through the real workspace's query context. */
+function render(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return renderComponent(ui, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
 });
 
-it.each(['desktop', 'sheet'] as const)(
+it.each(['desktop', 'sheet', 'workspace'] as const)(
   'maximizes over the shell and restores with Escape in %s',
   async (host) => {
     const user = userEvent.setup();
     const handle = createRef<ClioWorkbenchHandle>();
     render(
-      <div data-slot={host === 'sheet' ? 'sheet-content' : undefined} data-testid="canvas-host">
+      <div
+        data-slot={host === 'sheet' ? 'sheet-content' : undefined}
+        data-testid="canvas-host"
+        data-workbench-maximize-host={host === 'workspace' ? '' : undefined}
+      >
         <ClioWorkbench
           artifacts={[]}
           diffs={[]}
@@ -68,9 +90,8 @@ it.each(['desktop', 'sheet'] as const)(
     expect(
       screen.getByRole('button', { name: 'Restore canvas beside conversation' }),
     ).toBeVisible();
-    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveClass('fixed');
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' }).parentElement).toBe(
-      host === 'sheet' ? screen.getByTestId('canvas-host') : document.body,
+      host === 'desktop' ? document.body : screen.getByTestId('canvas-host'),
     );
 
     const restoreEvent = new KeyboardEvent('keydown', {
@@ -125,7 +146,7 @@ it.each(['desktop', 'sheet'] as const)(
         files={[]}
         onOpenSubagent={vi.fn()}
         onUndoDiff={vi.fn()}
-        requestedOpen={{ key: 'session', request: { kind: 'session' } }}
+        requestedOpen={{ key: 'session', request: { kind: 'session', view: 'activity' } }}
         sessionId="escape_session"
         sessionView={<DiagramPreview />}
         workspaceId="escape_workspace"
@@ -139,7 +160,9 @@ it.each(['desktop', 'sheet'] as const)(
             {canvas}
           </SheetContent>
         </Sheet>
-      ) : canvas,
+      ) : (
+        canvas
+      ),
     );
     await user.click(screen.getByRole('button', { name: 'Maximize canvas' }));
     await user.click(screen.getByRole('button', { name: 'Expand diagram' }));
@@ -148,6 +171,8 @@ it.each(['desktop', 'sheet'] as const)(
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Architecture diagram' })).toBeVisible();
     expect(document.querySelector('[data-maximized=true]')).not.toBeNull();
+    // Floating conversation surfaces hide under a maximized canvas through this flag.
+    expect(document.body).toHaveAttribute('data-canvas-maximized');
 
     await user.click(screen.getByRole('textbox', { name: 'Diagram notes' }));
     expect(screen.getByRole('dialog', { name: 'Architecture diagram' })).toBeVisible();
@@ -158,11 +183,18 @@ it.each(['desktop', 'sheet'] as const)(
 
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
+    expect(document.body).not.toHaveAttribute('data-canvas-maximized');
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Maximize canvas' })).toHaveFocus(),
     );
     if (host === 'sheet') {
       expect(screen.getByRole('dialog', { name: 'Workspace files' })).toBeVisible();
+      // Focus restored to Maximize shows its hover name; Escape takes that layer first.
+      if (screen.queryByRole('tooltip')) {
+        await user.keyboard('{Escape}');
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: 'Workspace files' })).toBeVisible();
+      }
       await user.keyboard('{Escape}');
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     }

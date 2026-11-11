@@ -29,12 +29,11 @@ for (const width of [1280, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect(
-      await saved
-        .locator('.katex')
-        .first()
-        .evaluate((element) => getComputedStyle(element).fontFamily),
-    ).toContain('KaTeX');
-    await page.screenshot({ path: test.info().outputPath(`standard-math-${width}.png`) });
+    // Typeface and glyph layout are visual properties: the baseline guards them.
+    await page.evaluate(() => document.fonts.ready);
+    await expect(saved).toHaveScreenshot(`standard-math-saved-${width}.png`, {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.01,
+    });
   });
 }

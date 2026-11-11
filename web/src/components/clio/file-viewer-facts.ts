@@ -1,0 +1,47 @@
+import { createContext, useContext, useEffect, useId } from 'react';
+
+/**
+ * The frame bar's What group: one or two short facts a renderer knows about
+ * what it shows ("412 rows", "12 pages", "365×720×1440 f32", "+24 −3").
+ * The shell adds the size; renderers contribute what only they can count.
+ */
+export const FileViewerFactsRegistry = createContext<
+  ((id: string, facts?: readonly string[]) => void) | undefined
+>(undefined);
+
+/** A renderer fact the shell replaces with the file's size, for bars drawn as "412 rows 38 KB". */
+export const FILE_SIZE_FACT = '\u0001size';
+
+/** Registers a renderer's facts with the enclosing frame bar; changes by content, not identity. */
+export function useFileViewerFacts(facts: readonly string[] | undefined) {
+  const register = useContext(FileViewerFactsRegistry);
+  const id = useId();
+  const key = facts?.join('\u0000');
+  useEffect(() => {
+    register?.(id, key === undefined ? undefined : key.split('\u0000').filter(Boolean));
+    return () => register?.(id);
+  }, [register, id, key]);
+}
+
+/** What a renderer calls the file it shows, and the kind of collection it belongs to. */
+export interface FileViewerTitle {
+  title: string;
+  collection: string;
+}
+
+export const FileViewerTitleRegistry = createContext<
+  ((title: FileViewerTitle | undefined) => void) | undefined
+>(undefined);
+
+/**
+ * Names the shown file in the frame bar's crumbs by its title ("dashboards ?
+ * Opal sites") in place of its file name, which stays the hover name.
+ */
+export function useFileViewerTitle(title: string | undefined, collection: string) {
+  const register = useContext(FileViewerTitleRegistry);
+  useEffect(() => {
+    if (!register || !title) return;
+    register({ title, collection });
+    return () => register(undefined);
+  }, [register, title, collection]);
+}

@@ -1,6 +1,10 @@
 use super::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
 struct Case(PathBuf);
 
 impl Case {
@@ -37,7 +41,12 @@ impl Case {
     }
 
     fn unpack(&self, archive: &Path, expected: Option<u64>) -> Result<UnpackReport, String> {
-        unpack_runtime(archive, &self.0.join("staging"), expected, &|_| {})
+        unpack_runtime(
+            super::PackSource::File(archive.to_path_buf()),
+            &self.0.join("staging"),
+            expected,
+            &|_| {},
+        )
     }
 }
 
@@ -152,12 +161,25 @@ fn refuses_duplicate_files_and_joins_writers_after_failure() {
         ("gact-runtime/file.py", tar::EntryType::Regular, b"first"),
         ("gact-runtime/file.py", tar::EntryType::Regular, b"second"),
     ]);
-    assert!(case
-        .unpack(&archive, Some(2))
-        .unwrap_err()
-        .contains("create runtime file"));
+    // The built-in writers; on Windows `unpack` hands the files to tar.exe.
+    let error =
+        unpack_runtime_with_workers(&archive, &case.0.join("staging"), Some(2), &|_| {}, WRITERS)
+            .unwrap_err();
+    assert!(error.contains("create runtime file"), "{error}");
     // A failure may not return while another writer still owns staging files.
     fs::remove_dir_all(case.0.join("staging")).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn system_tar_refuses_duplicate_files_before_writing() {
+    let case = Case::new();
+    let archive = case.pack(&[
+        ("gact-runtime/file.py", tar::EntryType::Regular, b"first"),
+        ("gact-runtime/file.py", tar::EntryType::Regular, b"second"),
+    ]);
+    let error = case.unpack(&archive, Some(2)).unwrap_err();
+    assert!(error.contains("repeats the file"), "{error}");
 }
 
 #[test]
@@ -203,7 +225,8 @@ fn shared_queue_extracts_exactly_with_different_worker_counts() {
             workers,
         )
         .unwrap();
-        assert_eq!(report, UnpackReport { files: 1, bytes: 2 });
+        assert_eq!((report.files, report.bytes), (1, 2));
+        assert_eq!(report.sha256, sha256_hex(&fs::read(&archive).unwrap()));
         assert_eq!(
             fs::read(case.0.join("staging/gact-runtime/runtime.json")).unwrap(),
             b"{}"

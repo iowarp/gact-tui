@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
 import {
@@ -12,6 +12,7 @@ import {
   codexCatalog,
 } from '@/test-fixtures/provider-catalog';
 import { ModelsSettings } from './settings-models';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 const { configuration, repository } = vi.hoisted(() => {
   const configuration = {
@@ -80,6 +81,8 @@ const { configuration, repository } = vi.hoisted(() => {
         installed: true,
         instructions: 'installed',
       }),
+      startProviderInstall: vi.fn(),
+      providerInstallJobs: vi.fn().mockResolvedValue([]),
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
       providerAuthStatus: vi.fn().mockResolvedValue({ state: 'pending', reason: '' }),
@@ -96,7 +99,7 @@ const { configuration, repository } = vi.hoisted(() => {
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 beforeEach(() => {
@@ -133,18 +136,21 @@ function renderModels(
 /** Every label a stacked form row would carry: none may appear on the main view. */
 const TECHNICAL_WORDS = /Endpoint|Configuration|Credentials|Catalog|Handshake|Probe|Parallel/iu;
 
+// The picker's catalog loads on first open; warm it once so each open renders it at once.
+beforeAll(() => modelPickerCatalog.load());
+
 describe('ModelsSettings', () => {
-  it('shows the default model as one card: name, provider, working state, capability tags', async () => {
+  it('shows the default model as one row: name and provider, with no note while it works', async () => {
     renderModels();
 
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('luna 5.6', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
     const panel = document.querySelector('[data-slot="default-model-card"]') as HTMLElement;
     expect(within(panel).getByText('Codex')).toBeVisible();
-    expect(await within(panel).findByText('Working')).toBeVisible();
-    expect(await within(panel).findByText('Reasoning')).toBeVisible();
-    expect(within(panel).getByRole('button', { name: 'Change' })).toBeVisible();
+    await screen.findByRole('radio', { name: 'High' });
+    expect(panel.querySelector('[data-slot="settings-note"]')).toBeNull();
+    expect(within(panel).getByRole('button', { name: 'Default model' })).toBeVisible();
     // No stacked form rows on the main view: no selects, no endpoint, no temperature.
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByText(TECHNICAL_WORDS)).toBeNull();
@@ -156,7 +162,7 @@ describe('ModelsSettings', () => {
 
     await screen.findByRole('radio', { name: 'High' });
     const group = document.querySelector('[data-slot="reasoning-level"]') as HTMLElement;
-    expect(group).toHaveAccessibleName('Thinking');
+    expect(group).toHaveAccessibleName('Reasoning effort');
     expect(
       within(group)
         .getAllByRole('radio')
@@ -213,7 +219,7 @@ describe('ModelsSettings', () => {
     );
     await waitFor(() =>
       expect(
-        queryClient.isFetching({ queryKey: queryKeys.providerCatalog('http://127.0.0.1:8787') }),
+        queryClient.isFetching({ queryKey: queryKeys.providerCatalog('http://127.0.0.1') }),
       ).toBe(1),
     );
     await waitFor(() => expect(screen.queryByText('Saving…')).not.toBeInTheDocument());
@@ -233,21 +239,24 @@ describe('ModelsSettings', () => {
     });
     renderModels();
 
-    expect(await screen.findByRole('button', { name: 'Change' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Default model' })).toBeVisible();
     await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
     expect(document.querySelector('[data-slot="reasoning-level"]')).toBeNull();
   });
 
-  it('shows no response settings at all for a model that accepts none (Codex)', async () => {
+  it('shows only the provider-set context size for a model that accepts no settings (Codex)', async () => {
     repository.providerCatalog.mockResolvedValue(
       catalog(catalogEntry('codex', [{ model_id: 'gpt-5.6-luna', accepted_parameters: [] }])),
     );
     renderModels();
 
-    expect(await screen.findByRole('button', { name: 'Change' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Default model' })).toBeVisible();
     await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
-    expect(screen.queryByText('Response settings')).toBeNull();
-    expect(document.querySelector('[data-slot="response-settings"]')).toBeNull();
+    // Context size still shows, at the provider's maximum, but nothing here can be set.
+    const section = screen.getByRole('region', { name: 'Response settings' });
+    expect(within(section).queryByRole('textbox')).toBeNull();
+    expect(within(section).getByRole('radio', { name: 'Max' })).toBeDisabled();
+    expect(within(section).getByRole('spinbutton', { name: 'Context size' })).toBeDisabled();
   });
 
   it('shows a few accepted settings inline, blank meaning the provider default', async () => {
@@ -267,14 +276,15 @@ describe('ModelsSettings', () => {
     );
     renderModels();
 
-    const section = await screen.findByRole('region', { name: 'Response settings' });
+    const temperature = await screen.findByRole('textbox', { name: 'Temperature' });
+    const section = screen.getByRole('region', { name: 'Response settings' });
+    expect(section).toContainElement(temperature);
     // Inline: no disclosure to open.
     expect(screen.queryByRole('button', { name: /Response settings/u })).toBeNull();
-    const temperature = within(section).getByRole('textbox', { name: 'Temperature' });
     expect(temperature).toHaveValue('');
-    expect(temperature).toHaveAttribute('placeholder', 'Default');
-    expect(within(section).getByText('Provider default')).toBeVisible();
-    expect(within(section).getByRole('slider', { name: 'Temperature' })).toBeVisible();
+    // No stated default: one field reading the provider default, no slider claiming a position.
+    expect(temperature).toHaveAttribute('placeholder', 'Provider default');
+    expect(within(section).queryByRole('slider', { name: 'Temperature' })).toBeNull();
     expect(within(section).getByRole('textbox', { name: 'Longest reply' })).toBeVisible();
     // Only what the model accepts: nothing else, and no connection fields.
     expect(within(section).queryByRole('textbox', { name: 'Top K' })).toBeNull();
@@ -368,7 +378,7 @@ describe('ModelsSettings', () => {
     expect(payload).not.toHaveProperty('thinking_level');
   });
 
-  it('a provider that needs setup reads so on the card, and Change is where it is fixed', async () => {
+  it('a provider that needs setup reads so on the row, and its field is where it is fixed', async () => {
     repository.providerCatalog.mockResolvedValue({
       authoritative: 'live_handshake',
       providers: [],
@@ -383,17 +393,19 @@ describe('ModelsSettings', () => {
     });
     renderModels();
 
-    const card = (await screen.findByRole('button', { name: 'Change' })).closest(
+    const card = (await screen.findByRole('button', { name: 'Default model' })).closest(
       '[data-slot="default-model-card"]',
     ) as HTMLElement;
-    const status = card.querySelector('[data-slot="default-model-status"]');
-    await waitFor(() => expect(status).not.toHaveTextContent('Working'));
-    expect(status?.textContent).toMatch(/Unavailable|Needs sign-in/u);
+    await waitFor(() =>
+      expect(card.querySelector('[data-slot="default-model-status"]')?.textContent).toMatch(
+        /Unavailable|Needs sign-in/u,
+      ),
+    );
     expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('choosing a model in the picker applies it and retires stale session state', async () => {
-    const endpoint = 'http://127.0.0.1:8787';
+    const endpoint = 'http://127.0.0.1';
     const staleSession = {
       id: 'session-1',
       workspace_id: 'workspace-1',
@@ -423,7 +435,7 @@ describe('ModelsSettings', () => {
     const user = userEvent.setup();
     renderModels(queryClient);
 
-    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.click(await screen.findByRole('button', { name: 'Default model' }));
     await user.click(await screen.findByRole('option', { name: /gpt-5\.6-sol/ }));
 
     await waitFor(() =>
@@ -443,18 +455,18 @@ describe('ModelsSettings', () => {
   it('adopts a configuration the service changed', async () => {
     const queryClient = renderModels();
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('luna 5.6', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
 
     act(() => {
-      queryClient.setQueryData(
-        queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787'),
-        { ...configuration, model: 'gpt-5.5' },
-      );
+      queryClient.setQueryData(queryKeys.key('language-model-configuration', 'http://127.0.0.1'), {
+        ...configuration,
+        model: 'gpt-5.5',
+      });
     });
 
     expect(
-      await screen.findByText('gpt-5.5', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('gpt-5.5', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
   });
 });

@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -305,7 +306,7 @@ describe('DeployClioDialog', () => {
           // never had) that record can rebuild it instead of failing (#1528).
           route: {
             label: 'homelab',
-            remotePort: 17800,
+            remotePort: brand.agentPort,
             keepRunning: false,
             installRoot: '',
             profile: 'homelab',
@@ -323,7 +324,11 @@ describe('DeployClioDialog', () => {
       target_id: 'target-homelab',
       action: 'install',
       variant_id: 'released',
-      configuration: { port: '17800', keep_running: 'false', desktop_id: 'desktop-test' },
+      configuration: {
+        port: String(brand.agentPort),
+        keep_running: 'false',
+        desktop_id: 'desktop-test',
+      },
     });
   });
 

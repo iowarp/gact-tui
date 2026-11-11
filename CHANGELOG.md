@@ -6,27 +6,115 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.12.0-beta.1] - 2026-11-11
+
+### Added
+
+- Notebook is the default look in light and dark; the earlier themes remain as Classic
+  light and Classic dark in Settings > Appearance
+- A conversation rail shows context and account usage, goals, questions, todos, running
+  work and what the conversation produced; Customize arranges its sections
+- Notifications list each pending request with Allow and Deny in place, runs that ended
+  while you were away with Retry, and Mark all read
+- Desktop notifications open their conversation when clicked and are on by default; on
+  macOS they use the system notification settings and show a Dock badge
+- Runs and Infrastructure open from the CLIO menu, covering hosts, services, models,
+  storage, tools and activity
+- Move a conversation to another workspace when the agent supports it, and export a
+  conversation as HTML or as a ZIP of its artifacts
+- Ctrl+S puts the composer draft aside; Up in an empty composer brings it back
+- Reference an object inside an HDF5 file with `@file.h5::/path`, and open Jupyter
+  notebooks as cells with their outputs
+- When an agent drafts alternatives, each try opens as a tab and a card picks or refines
+  one
+- GitHub Copilot and Inception Mercury model providers; diffusion answers are drawn as
+  they form
+- Attention heat paints by line, word or token, and you can choose the model SPOTTER
+  runs on
+- When the OS sandbox is off, a banner asks you to acknowledge starting without
+  protection; a blocked write names its folder and offers to allow it
+
+### Changed
+
+- The left bar, top bar, transcript, composer, permission and question cards, menus,
+  dialogs and toasts are rebuilt on one shared design across Web and Desktop
+- The workbench opens Files, Sources, Artifacts, Activity, Agent, Terminal and Browser
+  as tabs; viewers switch between Render, Source and Lineage, and Activity leads with
+  the timeline of work across subagents again
+- Settings opens as a window grouped into App, Workspace and Agent, and its sections
+  share one row and detail layout
+- The app loads about a quarter of its previous JavaScript at startup; long conversations
+  open at the newest messages, and streaming replies and idle pages cost less
+- Cut-off text can be read in full on hover or keyboard focus, holding Ctrl or Cmd shows
+  each control's keys, and dialogs, pickers and tabs keep keyboard focus
+- Provider installs keep running when you switch views, and a completed sign-in waits
+  until the agent reports the provider ready
+- Skills, plugins, marketplaces and agents list as single-line rows; saved agents and
+  plugins lead the private marketplace
+- Failed sends and uploads explain what happened and offer Retry; a message sent while
+  offline waits and goes out once the connection returns
+- The macOS app is signed with a Developer ID and notarized, requires macOS 15 or later,
+  and has a native menu bar and Mac shortcuts
+- On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
+  only while a conversation is still running
+- The Windows setup no longer embeds the runtime: it unpacks the runtime archive while
+  `install.ps1` downloads it, with four parallel tar writers, and checks its hash before
+  activating it. The setup shrinks from about 780 MB to 43 MB, and a cold desktop
+  install with CLIO measured under a minute, download included
+- Tool, thought and update rows (Memory, Session facts) share one activity-row layout:
+  name, then input, then outcome. On a narrow window the name keeps its place and
+  outcome words stay whole; count recaps read "1 file matches"
+- Viewer rows say what they view (View PDF, View image); an inline PDF or image opens
+  in one frame with a one-row header, and a PDF fits the width
+- Memory and Session facts updates render as formatted text, and every stopped call
+  shows the same "Stopped" outcome
+
+### Fixed
+
+- Enter selects the highlighted model in the model picker
+- The macOS keychain prompt no longer returns after each Allow
+- macOS startup no longer flashes white or flickers before the startup screen
+- Signing in through the browser no longer fails when the browser is slow to send its
+  request
+- Long conversations no longer open blank or lose their newest turns after older
+  messages load
+- "Update ready" no longer appears for a failed update check, and update checks wait
+  for GitHub's rate limit to reset
+- Settings sections and the new conversation screen recover after the agent restarts
+- A flow that ended before its first checkpoint shows as ended, and a parallel group says
+  how many of its calls run at once
+- Tokens left in browser storage by releases from May to August 2026 are removed on start
+- Jump to latest lands in one tap and keeps following a streaming reply
+- Reads that failed while the agent was unreachable are fetched again once it is back,
+  and the app shows Connecting, not Offline, before a stream's first attempt fails
+- An inline `view_pdf` preview lands on the cited page
+- Rail task rows show the task title and open the subagent instead of an empty flow
+  panel
+- Activity run counts match the rows they open
+- An interrupted tool call no longer shows a raw null result
+- Two- and three-digit list markers show whole
+
+### Removed
+
+- The conversation Gantt view, the bottom status strip and the starter prompts on a new
+  conversation
+- Legacy terminal UI binaries and container image from releases
+
 ## [0.11.3] - 2026-10-28
 
 ### Changed
 
-- A study's Views are the dashboards its conversations attached to it. Each shows
-  its title, purpose and the branch that made it, and its charts and tables can
-  read the study's measurements, entries or plugin records live, updating as
-  entries arrive. Exports keep each view with the data it showed.
-- Load conversations and older messages in bounded pages, including the workspace
-  rail, so opening a view does not fetch every session.
-- Supervise Windows protection and managed-package preparation through the desktop
-  launcher, retaining progress and ownership until each operation settles.
+- A study's Views update live as entries arrive
+- Large workspaces open faster
+- Windows setup shows its progress until it finishes
 
 ### Fixed
 
-- Wait for the evidence rail's parent layout before reopening a child conversation
-  after closing its canvas.
+- Reopening a child conversation works again
 
 ### Removed
 
-- Plugin-declared views, and the Views canvas tab outside a study.
+- Plugin views, and Views outside a study
 
 ## [0.11.3-beta.11] - 2026-10-21
 

@@ -85,10 +85,24 @@ export function specFieldNames(spec: unknown): string[] {
   return [...fields].filter((name) => !derived.has(name));
 }
 
+/** Whether a spec computes its own columns (a non-empty `transform`, top level or in a layer). */
+function specTransformsData(spec: unknown): boolean {
+  if (!isJsonObject(spec)) return false;
+  if (Array.isArray(spec.transform) && spec.transform.length > 0) return true;
+  for (const key of ['layer', 'concat', 'hconcat', 'vconcat'] as const) {
+    const parts = spec[key];
+    if (Array.isArray(parts) && parts.some(specTransformsData)) return true;
+  }
+  return isJsonObject(spec.spec) && specTransformsData(spec.spec);
+}
+
 /**
  * The projection to request: the producer's `columns`, else the named fields
  * (preset fill fields and the selection field, in that order) and then any
- * other field the spec reads.
+ * other field the spec reads. A spec whose transforms compute columns (a fold, a
+ * calculate, an aggregate) reads columns this cannot see and names columns that
+ * do not exist yet, so it gets every column (an empty projection); the rows are
+ * bounded by the row limit either way.
  */
 export function chartQueryColumns(
   queryColumns: readonly string[] | undefined,
@@ -96,6 +110,7 @@ export function chartQueryColumns(
   namedFields: readonly (string | undefined)[],
 ): string[] {
   if (queryColumns?.length) return [...queryColumns];
+  if (specTransformsData(spec)) return [];
   const names = new Set<string>();
   for (const name of namedFields) if (name) names.add(name);
   for (const name of specFieldNames(spec)) names.add(name);

@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
@@ -149,7 +150,7 @@ describe('connected provider accounts', () => {
       ],
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -157,7 +158,8 @@ describe('connected provider accounts', () => {
     const user = userEvent.setup();
     const signIn = await screen.findByRole('button', { name: `Sign in to ${name}` });
     await user.hover(signIn);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Sign in to access private data.');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`Sign in to ${name}`);
+    expect(screen.getByText('Sign in for private data')).toBeVisible();
     expect(fixtures.repository.startStorageAccountSignIn).not.toHaveBeenCalled();
     await user.click(signIn);
     expect(screen.getByRole('heading', { name: `Sign in to ${name}` })).toBeVisible();
@@ -191,7 +193,7 @@ describe('connected provider accounts', () => {
       return { authenticated: true };
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -237,7 +239,7 @@ describe('connected provider accounts', () => {
         },
       ]);
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
         </QueryClientProvider>,
@@ -276,13 +278,13 @@ describe('connected provider accounts', () => {
       return { signed_out: true };
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="brand-new-workspace" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
     );
     expect(await screen.findByText('Signed in')).toBeVisible();
-    expect(screen.queryByText('Browser sign in')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign in for private data')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Sign out of Globus' }));
@@ -294,7 +296,7 @@ describe('connected provider accounts', () => {
     await waitFor(() =>
       expect(fixtures.repository.signOutStorageAccount).toHaveBeenCalledWith('globus'),
     );
-    expect(await screen.findByText('Browser sign in')).toBeVisible();
+    expect(await screen.findByText('Sign in for private data')).toBeVisible();
     expect(screen.queryByText('Signed in')).not.toBeInTheDocument();
   });
 
@@ -311,7 +313,7 @@ describe('connected provider accounts', () => {
       },
     ]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,

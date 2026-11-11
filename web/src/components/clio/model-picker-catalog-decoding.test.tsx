@@ -6,10 +6,14 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import { buildModelOptions } from '@/lib/model-options';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 /**
  * Every other picker test builds `ClioModelOption[]` by hand, which bypasses
@@ -35,6 +39,8 @@ const { repository } = vi.hoisted(() => ({
     providerHandshake: vi.fn(),
     refreshProviderModels: vi.fn(),
     installProviderSupport: vi.fn(),
+    startProviderInstall: vi.fn(),
+    providerInstallJobs: vi.fn().mockResolvedValue([]),
     authenticateProvider: vi.fn(),
     completeProviderAuthentication: vi.fn(),
     providerAuthStatus: vi.fn(),
@@ -50,7 +56,7 @@ const { repository } = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 const defaultConfiguration = {

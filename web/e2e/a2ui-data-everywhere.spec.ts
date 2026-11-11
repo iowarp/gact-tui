@@ -107,7 +107,7 @@ async function openEarthquakeDemo(page: Page) {
   expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.
@@ -292,7 +292,7 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-test('a detached surface never overlaps the subagent card in the message before it', async ({
+test('a detached surface never overlaps the delegate row in the message before it', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -306,11 +306,12 @@ test('a detached surface never overlaps the subagent card in the message before 
   // persistently undercount a row (here, a message expanded to show a
   // completed subagent card) with no further resize event ever correcting
   // it. `conversation.tsx` now independently measures the real DOM and pads
-  // the gap; this proves it holds for the actual card+artifact+surface
+  // the gap; this proves it holds for the actual delegate+artifact+surface
   // sequence the bug was found in, not just in principle.
-  const card = page.getByRole('article', {
-    name: 'Child conversation unavailable for Station evidence specialist',
-  });
+  const card = page
+    .locator('[data-slot="delegate"]')
+    .filter({ hasText: 'Station evidence specialist' })
+    .last();
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   // Both rectangles must come from the same layout. Separate Playwright
@@ -421,7 +422,7 @@ test('data-table pages through the whole referenced dataset, page size and last 
   await expect(table.locator('tbody tr')).toHaveCount(10);
 
   // Change the page size to 100 rows.
-  await page.getByRole('combobox').first().click();
+  await page.getByRole('combobox', { name: 'Rows per page' }).click();
   await page.getByRole('option', { name: '100', exact: true }).click();
   await expect(page.getByText(/1 - 100 of 270/u)).toBeVisible();
   await expect(table.locator('tbody tr')).toHaveCount(100);
@@ -726,7 +727,7 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
   // The chip: a plain-language one-line summary, never the full markdown
   // block flattened onto one line (#1533 coordinator review). No zone is
   // selected on this chart, so it names the whole view.
-  const attached = page.getByRole('list', { name: 'Attached selections' });
+  const attached = page.getByRole('list', { name: 'Attached comments' });
   await expect(attached).toBeVisible();
   await expect(attached).toContainText('the filtered current view (500 rows)');
   expect(await attached.innerText()).not.toContain('```json');
@@ -738,15 +739,8 @@ test('"Reference this" puts a clean chip in the composer and a properly rendered
     clip: (await attached.boundingBox()) ?? undefined,
   });
 
-  // Expand: the full machine-readable reference, properly rendered (a real
-  // <table>, not a pipe-delimited line), not just present as text.
-  await attached.getByRole('button', { name: /Show the full .* reference/u }).click();
-  const popover = page.getByText('Sent with your next message, exactly as shown below.');
-  await expect(popover).toBeVisible();
-  const popoverBody = page.locator('[data-slot="popover-content"]');
-  await expect(popoverBody.getByRole('table')).toBeVisible();
-  await expect(popoverBody).toContainText('artifact_earthquake');
-  await page.keyboard.press('Escape');
+  // The full machine-readable reference is not shown on the chip: it travels to the agent as
+  // the readable lines under the mark (comments plan, addendum A section 2).
 
   // NOTE on the "sent" round trip (#1533 coordinator review item 2): this
   // suite's fixture server has no route for the composer's real

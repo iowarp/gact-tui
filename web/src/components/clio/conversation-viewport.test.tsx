@@ -116,6 +116,12 @@ describe('ClioConversation transcript viewport', () => {
       <ClioConversation {...props} messages={[...history, assistant]} />,
     );
     const disclosure = screen.getByRole('button', { name: 'Thinking: Selected evidence.' });
+    // Streaming thinking is open; closing and reopening it is the reader's explicit choice,
+    // which outlives completion.
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.pointerDown(disclosure);
+    fireEvent.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     fireEvent.pointerDown(disclosure);
     fireEvent.click(disclosure);
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
@@ -194,7 +200,7 @@ describe('ClioConversation transcript viewport', () => {
     });
     act(() => frames.splice(0).forEach((callback) => callback(0)));
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
   it('does not follow a queued resize after the reader starts scrolling', () => {
     const viewport = stubViewport();
@@ -265,7 +271,7 @@ describe('ClioConversation transcript viewport', () => {
     scrollTo.mockClear();
     viewport.resizeTo(640);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
 
   it('remeasures transcript rows and restores the pinned view on a width change', () => {
@@ -300,8 +306,8 @@ describe('ClioConversation transcript viewport', () => {
     expect(scrollTo).toHaveBeenCalled();
   });
 
-  it('keeps the native scrollbar available while the minimap is visible', () => {
-    stubViewport(900);
+  it('keeps the native scrollbar and gives a wide column no outline gutter', () => {
+    stubViewport(1280);
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -314,7 +320,7 @@ describe('ClioConversation transcript viewport', () => {
     );
 
     const log = screen.getByRole('log', { name: 'Conversation' });
-    expect(log).toHaveAttribute('data-minimap-visible', 'true');
+    expect(log).not.toHaveClass('pl-3');
     expect(log).toHaveClass('clio-scrollbar');
     expect(log.className).not.toContain('scrollbar-width:none');
   });
@@ -589,7 +595,7 @@ describe('ClioConversation transcript viewport', () => {
     expect(frames).toHaveLength(0);
   });
 
-  it('derives the active landmark from the virtualizer without reading rail anchors', () => {
+  it('derives the active outline line from the virtualizer without reading DOM anchors', () => {
     stubViewport(900);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1_000);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
@@ -613,6 +619,7 @@ describe('ClioConversation transcript viewport', () => {
     Object.defineProperty(log, 'scrollTop', { configurable: true, value: 400 });
     fireEvent.scroll(log);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Open transcript outline' }));
     expect(screen.getByRole('button', { name: 'Jump to user message 3' })).toHaveAttribute(
       'aria-current',
       'location',
@@ -667,6 +674,9 @@ describe('ClioConversation transcript viewport', () => {
       />,
     );
     const column = view.container.querySelector('[data-slot="transcript-column"]');
+    // The first reading comes from the observer's initial report, after layout.
+    viewport.observe(800);
+    // The final row is 53px taller than its 180px estimate.
     expect(column).toHaveStyle({ height: '14453px' });
     finalHeight = 260;
     viewport.resizeTo(800);
@@ -721,7 +731,7 @@ describe('ClioConversation transcript viewport', () => {
     await waitFor(() => expect(document.activeElement).toHaveAttribute('id', 'message-message_1'));
   });
 
-  it('does not rebuild the turn projection when only the activity disclosure changes', () => {
+  it('does not rebuild the turn projection when only a row disclosure changes', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -755,8 +765,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });

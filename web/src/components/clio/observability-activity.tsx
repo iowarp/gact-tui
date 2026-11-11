@@ -5,44 +5,84 @@ import type {
   Message,
   PendingInteraction,
   RunState,
+  ToolInvocation,
 } from '@clio/core/v3';
 import {
   BotIcon,
   BoxesIcon,
+  FileIcon,
   FileOutputIcon,
+  FilePlusIcon,
   GitBranchPlusIcon,
   GitMergeIcon,
   MessageCircleQuestionIcon,
   MinusIcon,
   PanelRightOpenIcon,
   ScanIcon,
+  SearchIcon,
+  ShieldIcon,
+  SquareTerminalIcon,
   WaypointsIcon,
-  WrenchIcon,
 } from 'lucide-react';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { toolKindIcon } from '@/lib/tool-kind-icons';
+import {
+  createElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { flowLabel } from './flow-tool-presentation';
+import { taskFlow } from './task-flow-state';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
-import { humanizeToolName } from './tool-presentation';
+import { compactDuration, isGenericActivitySubject } from './workbench-activity-model';
 import {
   isAgentMcpInteraction,
   isCausalQuestionInteraction,
   questionInteractionRequestLabel,
 } from './agent-answer-domain';
-import { provenanceFileFact } from './session-evidence-projection';
+import {
+  permissionActivityLabel,
+  projectedActivityDetail,
+  projectedActivityLabel,
+  projectedFilePath,
+  projectedKind,
+  projectedToolName,
+  permittedActionFact,
+  spanToolMatcher,
+} from './activity-projection-labels';
+import {
+  CAUSAL_ATTENTION_STATES,
+  causalAttentionTone,
+  causalLaneId,
+  causalLanes,
+  causalRows,
+  formatGraphTime,
+  type CausalLane,
+} from './activity-causal';
 
 export interface ObservabilityActivityItem {
   id: string;
   kind: 'run' | 'tool' | 'process' | 'artifact' | 'interaction' | 'resource';
+  /** The call behind a tool or permission row; it picks the row's glyph. */
+  toolName?: string;
+  /** A permission decision ("Approved sbatch on ares"), drawn with a shield. */
+  permission?: boolean;
   label: string;
   /** Absent when the record has no summary beyond its labeled state. */
   detail?: string;
+  /** The short trailing fact: a duration or a delta ("40ms", "2.4s"). Clock time is hover-only. */
+  fact?: string;
   state: RunState | ClioStatusValue;
   at?: string;
   groupId?: string;
@@ -64,16 +104,6 @@ export interface ObservabilityActivityItem {
   onOpen?: (target: SubagentOpenTarget) => void;
 }
 
-/** Lane colors read the theme's chart and category tokens, so they follow theme changes. */
-const CAUSAL_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-4)',
-  'var(--category-2)',
-  'var(--chart-3)',
-  'var(--chart-5)',
-  'var(--chart-2)',
-];
-
 const PROJECTED_COORDINATION_TOOLS = new Set([
   'spawn_agent_task',
   'spawn_agents_parallel',
@@ -85,13 +115,6 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
   'run_flow',
   'run_workflow',
 ]);
-
-interface CausalLane {
-  id: string;
-  label: string;
-  color: string;
-  index: number;
-}
 
 /**
  * What a background process actually reported, for the one row that stands for it.
@@ -105,7 +128,8 @@ interface CausalLane {
 export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
-  if (process.flow) return `${flowLabel(process.flow.id)} run`;
+  const flow = taskFlow(process);
+  if (flow) return `${flowLabel(flow.id)} run`;
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
@@ -203,12 +227,14 @@ export function childProjectionActivityItems(
   processes: readonly AsyncProcess[],
   knownToolIds: ReadonlySet<string> = new Set(),
   onOpenFile?: (path: string) => void,
+  knownTools: readonly ToolInvocation[] = [],
 ): ObservabilityActivityItem[] {
   const lineage = provenance.session_lineage;
   if (!lineage) return [];
   const rootSessionId = provenance.root_session_id ?? provenance.session_id;
   const lineageBySession = new Map(lineage.map((row) => [row.session_id, row]));
   const processByTask = new Map(processes.map((process) => [process.id, process]));
+  const matchTool = spanToolMatcher(knownTools);
   const items: ObservabilityActivityItem[] = [];
 
   for (const owner of lineage) {
@@ -223,9 +249,12 @@ export function childProjectionActivityItems(
     // emitted, the open row must carry the true terminal state itself —
     // otherwise a failed or cancelled child reads as quietly "completed".
     const closeRowWillFollow = isTerminalState(state) && Boolean(closedAt);
+    // A child named only for the agent ("CLIO") or its category says nothing as a row.
+    const named = process?.title || owner.label;
+    const title = named && !isGenericActivitySubject(named) ? named : undefined;
     const common = {
       kind: 'process' as const,
-      label: process?.title || owner.label || 'Untitled task',
+      label: title ?? 'Subagent started',
       rootSessionId,
       ownerSessionId: owner.session_id,
       ownerLabel: owner.label,
@@ -245,10 +274,14 @@ export function childProjectionActivityItems(
       lifecycle: 'open',
     });
     if (closeRowWillFollow) {
+      const opened = Date.parse(process?.created_at ?? owner.created_at ?? '');
+      const closed = Date.parse(closedAt ?? '');
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
+        label: title ? `${title} returned` : 'Subagent returned',
         detail: 'Child work returned to its parent',
+        fact: closed >= opened ? compactDuration(closed - opened) : undefined,
         state,
         at: closedAt,
         timing: 'event',
@@ -299,17 +332,35 @@ export function childProjectionActivityItems(
     if (
       span.kind === 'tool' &&
       (knownToolIds.has(span.id) ||
-        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)))
+        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)) ||
+        // Root spans carry no invocation id; the same call is already a transcript row.
+        Boolean(toolName && matchTool(ownerSessionId, toolName, span.start_time, true)))
     ) {
       continue;
     }
     const owner = lineageBySession.get(ownerSessionId);
-    const filePath = projectedFilePath(span.attributes);
+    const filePath = projectedFilePath(toolName, span.attributes);
+    const permission = span.event_type === 'permission.resolved';
+    const permittedTool =
+      typeof span.attributes.tool_name === 'string' ? span.attributes.tool_name : undefined;
+    const approvedCall =
+      permission && permittedTool
+        ? matchTool(ownerSessionId, permittedTool, span.start_time, false)
+        : undefined;
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
-      label: projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
-      detail: projectedActivityDetail(span.kind),
+      toolName: permission ? permittedTool : toolName,
+      permission: permission || undefined,
+      label: permission
+        ? permissionActivityLabel(span.label, permittedTool, approvedCall)
+        : projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
+      detail: permission ? 'Permission' : projectedActivityDetail(span.kind),
+      fact: permission
+        ? permittedActionFact(provenance.spans, span, permittedTool, approvedCall)
+        : span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
+          ? compactDuration(span.duration_ms)
+          : undefined,
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -328,6 +379,47 @@ export function childProjectionActivityItems(
 }
 
 /** Git-style causal graph with stable agent strands and transcript navigation. */
+const SCROLL_FADE_PX = 24;
+
+/** Fades only the edges a horizontal scroller continues past, read once per frame. */
+function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): CSSProperties | undefined {
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    let frame = 0;
+    const read = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const start = element.scrollLeft > 1;
+        const end = element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+        setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+      });
+    };
+    element.addEventListener('scroll', read, { passive: true });
+    const observer = new ResizeObserver(read);
+    const observeChildren = () => {
+      observer.disconnect();
+      observer.observe(element);
+      for (const child of Array.from(element.children)) observer.observe(child);
+      read();
+    };
+    observeChildren();
+    const mutations = new MutationObserver(observeChildren);
+    mutations.observe(element, { childList: true });
+    return () => {
+      element.removeEventListener('scroll', read);
+      observer.disconnect();
+      mutations.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [ref]);
+  if (!edges.start && !edges.end) return undefined;
+  // A mask reads only alpha, so its stops are opaque/transparent, not theme colours.
+  const mask = `linear-gradient(90deg, ${edges.start ? 'transparent' : 'black'}, black ${SCROLL_FADE_PX}px, black calc(100% - ${SCROLL_FADE_PX}px), ${edges.end ? 'transparent' : 'black'})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
 export function ClioActivityTimeline({
   items,
   messages,
@@ -337,26 +429,9 @@ export function ClioActivityTimeline({
 }) {
   const [zoom, setZoom] = useState(1);
   const [agentFilter, setAgentFilter] = useState<string | null>(null);
-  const rows = useMemo(
-    () =>
-      items
-        .map((item, index) => ({ item, index }))
-        .sort((left, right) => {
-          if (
-            left.item.causalMessageId &&
-            left.item.causalMessageId === right.item.causalMessageId &&
-            left.item.causalOrder !== undefined &&
-            right.item.causalOrder !== undefined
-          ) {
-            const byCausality = left.item.causalOrder - right.item.causalOrder;
-            if (byCausality) return byCausality;
-          }
-          const byTime = (left.item.at ?? '').localeCompare(right.item.at ?? '');
-          return byTime || left.index - right.index;
-        })
-        .map(({ item }) => item),
-    [items],
-  );
+  const chipRow = useRef<HTMLDivElement>(null);
+  const chipFade = useHorizontalScrollFade(chipRow);
+  const rows = useMemo(() => causalRows(items), [items]);
   const lanes = useMemo(() => causalLanes(rows), [rows]);
   const filteredRows =
     agentFilter && lanes.some((lane) => lane.id === agentFilter)
@@ -415,8 +490,10 @@ export function ClioActivityTimeline({
       </header>
       <div
         aria-label="Filter activity by agent"
-        className="flex flex-wrap items-center gap-1 border-b py-2"
+        className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 [&>*]:shrink-0"
+        ref={chipRow}
         role="group"
+        style={chipFade}
       >
         <Button
           aria-pressed={agentFilter === null}
@@ -444,7 +521,7 @@ export function ClioActivityTimeline({
         ))}
       </div>
       <div className="min-w-0 overflow-x-auto py-1">
-        <div className="w-full" style={{ minWidth: `${graphWidth + 280}px` }}>
+        <div className="w-full" style={{ minWidth: `${graphWidth + 168}px` }}>
           {filteredRows.map((item) => (
             <CausalActivityRow
               graphWidth={graphWidth}
@@ -482,7 +559,7 @@ function CausalActivityRow({
   const parentX = 12 + parent.index * laneSpacing;
   const target = Boolean(item.transcriptMessageId || item.onActivate || item.onOpen);
   const content = (
-    <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
+    <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
       <div className="relative min-h-11 shrink-0 self-stretch" style={{ width: graphWidth }}>
         <svg
           aria-hidden="true"
@@ -541,11 +618,29 @@ function CausalActivityRow({
         </span>
       </div>
       <div className="min-w-0 py-2">
-        <p className="truncate text-[0.625rem] leading-3 text-muted-foreground" title={lane.label}>
-          {lane.label}
+        <p className="flex min-w-0 items-center justify-between gap-2 text-[0.625rem] leading-3 text-muted-foreground">
+          <span className="truncate" title={lane.label}>
+            {lane.label}
+          </span>
+          <time
+            className="shrink-0 tabular-nums"
+            dateTime={item.at}
+            title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
+          >
+            {item.timing === 'turn'
+              ? 'In this turn'
+              : item.at
+                ? formatGraphTime(item.at)
+                : 'Time unavailable'}
+          </time>
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
           <span className="truncate">{item.label}</span>
+          {CAUSAL_ATTENTION_STATES.has(item.state) ? (
+            <span className={cn('shrink-0 font-medium', causalAttentionTone(item.state))}>
+              {clioStatusLabel(item.state)}
+            </span>
+          ) : null}
         </p>
         {item.detail ? (
           <p className="line-clamp-2 text-[0.6875rem] leading-4 text-muted-foreground">
@@ -553,17 +648,6 @@ function CausalActivityRow({
           </p>
         ) : null}
       </div>
-      <time
-        className="shrink-0 text-[0.625rem] tabular-nums text-muted-foreground"
-        dateTime={item.at}
-        title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
-      >
-        {item.timing === 'turn'
-          ? 'In this turn'
-          : item.at
-            ? formatGraphTime(item.at)
-            : 'Time unavailable'}
-      </time>
       <ClioStatus compact className="shrink-0" value={item.state} />
     </div>
   );
@@ -595,47 +679,7 @@ function CausalActivityRow({
   );
 }
 
-function causalLaneId(item: ObservabilityActivityItem): string {
-  if (item.ownerSessionId && item.ownerSessionId !== item.rootSessionId) return item.ownerSessionId;
-  if ((item.depth ?? 0) > 0) return item.ownerSessionId || item.taskId || `depth-${item.depth}`;
-  return 'main';
-}
-
-function causalLanes(items: readonly ObservabilityActivityItem[]): CausalLane[] {
-  const lanes = new Map<string, Omit<CausalLane, 'index'>>([
-    ['main', { id: 'main', label: 'Main agent', color: CAUSAL_COLORS[0]! }],
-  ]);
-  for (const item of items) {
-    const id = causalLaneId(item);
-    const existing = lanes.get(id);
-    if (existing) {
-      if (id !== 'main' && item.ownerLabel) existing.label = item.ownerLabel;
-      else if (existing.label === 'Child agent' && item.lifecycle === 'open')
-        existing.label = item.label;
-      continue;
-    }
-    lanes.set(id, {
-      id,
-      label: item.ownerLabel || (item.lifecycle === 'open' ? item.label : 'Child agent'),
-      color: CAUSAL_COLORS[lanes.size % CAUSAL_COLORS.length]!,
-    });
-  }
-  const values = [...lanes.values()];
-  const totals = new Map<string, number>();
-  for (const lane of values) totals.set(lane.label, (totals.get(lane.label) ?? 0) + 1);
-  const seen = new Map<string, number>();
-  return values.map((lane, index) => {
-    const occurrence = (seen.get(lane.label) ?? 0) + 1;
-    seen.set(lane.label, occurrence);
-    return {
-      ...lane,
-      label: (totals.get(lane.label) ?? 0) > 1 ? `${lane.label}, turn ${occurrence}` : lane.label,
-      index,
-    };
-  });
-}
-
-function ActivityGlyph({
+export function ActivityGlyph({
   item,
   className,
 }: {
@@ -645,65 +689,24 @@ function ActivityGlyph({
   const props = { 'aria-hidden': true as const, className };
   if (item.lifecycle === 'open') return <GitBranchPlusIcon {...props} />;
   if (item.lifecycle === 'close') return <GitMergeIcon {...props} />;
-  if (item.kind === 'tool') return <WrenchIcon {...props} />;
+  if (item.permission) return <ShieldIcon {...props} />;
+  if (item.kind === 'tool') {
+    // The spec draws the action, not the category: a file read, an edit, a search, a command.
+    const name = item.toolName?.split(/[.:/]/u).pop() ?? '';
+    if (/read_file$|^read$|^view$/u.test(name)) return <FileIcon {...props} />;
+    if (/(?:write|edit|create)_file$|^(?:write|edit|apply_patch)$/u.test(name))
+      return <FilePlusIcon {...props} />;
+    if (item.toolName && TOOL_OPERATIONS[item.toolName]?.family === 'search')
+      return <SearchIcon {...props} />;
+    if (/(?:^|_)(?:bash|shell|command|exec|run_code)(?:$|_)/u.test(name))
+      return <SquareTerminalIcon {...props} />;
+    return createElement(toolKindIcon(name), props);
+  }
   if (item.kind === 'process') return <BoxesIcon {...props} />;
   if (item.kind === 'artifact') return <FileOutputIcon {...props} />;
   if (item.kind === 'interaction') return <MessageCircleQuestionIcon {...props} />;
   if (item.kind === 'resource') return <WaypointsIcon {...props} />;
   return <BotIcon {...props} />;
-}
-
-function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
-  if (kind === 'artifact') return 'artifact';
-  if (kind === 'resource') return 'resource';
-  if (kind === 'interaction' || kind === 'interactive_work') return 'interaction';
-  return 'tool';
-}
-
-function projectedActivityDetail(kind: string): string | undefined {
-  const detail =
-    kind === 'tool'
-      ? undefined
-      : kind === 'artifact'
-        ? 'Produced artifact'
-        : kind === 'resource'
-          ? 'Evidence source'
-          : kind === 'interaction'
-            ? 'Human interaction'
-            : 'Interactive surface or MCP task';
-  return detail;
-}
-
-function projectedToolName(toolName: string | undefined, label: string): string | undefined {
-  if (toolName) return toolName;
-  return /^Tool\s+([^\s]+)\s+(?:started|completed|failed)\.?$/iu.exec(label)?.[1];
-}
-
-function projectedActivityLabel(
-  kind: string,
-  toolName: string | undefined,
-  fallback: string,
-  attributes: Record<string, unknown>,
-): string {
-  if (kind !== 'tool' || !toolName) return fallback;
-  const input = attributes.tool_input;
-  const qualifier =
-    input && typeof input === 'object'
-      ? ['filepath', 'path', 'uri', 'resource_id', 'task_id']
-          .map((key) => (input as Record<string, unknown>)[key])
-          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      : undefined;
-  const operation = provenanceFileFact(toolName) ?? humanizeToolName(toolName);
-  if (!qualifier) return operation;
-  const compact = qualifier.split(/[\\/]/u).filter(Boolean).at(-1) ?? qualifier;
-  return `${operation} ${compact}`;
-}
-
-function projectedFilePath(attributes: Record<string, unknown>): string | undefined {
-  const input = attributes.tool_input;
-  if (!input || typeof input !== 'object') return undefined;
-  const value = (input as Record<string, unknown>).filepath;
-  return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
 function timestampString(value: number | null): string | undefined {
@@ -739,15 +742,4 @@ function activityState(value: string): ClioStatusValue {
     return value as ClioStatusValue;
   }
   return 'unknown';
-}
-
-function formatGraphTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? 'Time unavailable'
-    : new Intl.DateTimeFormat(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }).format(date);
 }

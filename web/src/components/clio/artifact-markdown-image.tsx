@@ -36,13 +36,15 @@ function RegisteredImage({ artifact, alt }: { artifact: Artifact; alt: string })
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
+  const href = navigation?.artifactHref?.(artifact);
   const bytes = useQuery({
     queryKey: queryKeys.key('artifact-card-image', settings.endpoint, artifact.id, artifact.fetch_path),
     queryFn: ({ signal }) => repository.readArtifactBytesFor(artifact, signal),
-    enabled: withinBudget,
+    enabled: withinBudget && !href,
     ...IMMUTABLE_QUERY,
   });
-  const url = useObjectUrl(bytes.data, artifact.media_type);
+  const objectUrl = useObjectUrl(bytes.data, artifact.media_type);
+  const url = href ?? objectUrl;
   return (
     <span className="block" data-slot="artifact-markdown-image">
       <button

@@ -27,7 +27,7 @@ import {
 import { ClioComposerAnnotations } from './composer-annotations';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -36,15 +36,16 @@ function wrap(children: ReactNode) {
 
 /** A composer stand-in, inside the provider, so "Reference this" has somewhere real to attach to. */
 function ComposerAndChildren({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
     </>
   );
 }
@@ -311,14 +312,12 @@ describe('clio.data-table.v1 dataUri rendering', () => {
     // the dataset id or the full markdown block (#1533 coordinator review —
     // those belong to the full reference, shown on request via the expand
     // control below, and sent with the message; not flattened onto the card).
-    const attached = screen.getByRole('list', { name: 'Attached selections' });
+    const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Earthquake table');
     expect(attached).toHaveTextContent('rows 1–1 of 270');
     expect(attached.textContent).not.toContain('artifact_events01');
-
-    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
-    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
-    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    // The full reference travels to the agent as the lines under the mark.
+    const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('artifact_events01');
     expect(popoverBody).toHaveTextContent('magnitude');
   });

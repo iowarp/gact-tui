@@ -5,6 +5,7 @@
  * `deploy-clio-dialog.test.tsx` (own suite, own fixtures) to keep that file
  * under the CLIO-owned file-size ratchet.
  */
+import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -364,7 +365,7 @@ describe('DeployClioDialog found-CLIO conflict', () => {
       action: 'install',
       variant_id: 'released',
       configuration: {
-        port: '17800',
+        port: String(brand.agentPort),
         keep_running: 'false',
         desktop_id: 'desktop-test',
         on_conflict: 'connect',
@@ -400,7 +401,7 @@ describe('DeployClioDialog found-CLIO conflict', () => {
       action: 'install',
       variant_id: 'released',
       configuration: {
-        port: '17800',
+        port: String(brand.agentPort),
         keep_running: 'false',
         desktop_id: 'desktop-test',
         on_conflict: 'replace',
@@ -447,7 +448,7 @@ describe('DeployClioDialog found-CLIO conflict', () => {
         action: 'install',
         variant_id: 'released',
         configuration: {
-          port: '17800',
+          port: String(brand.agentPort),
           keep_running: 'false',
           desktop_id: 'desktop-test',
           on_conflict: 'replace',

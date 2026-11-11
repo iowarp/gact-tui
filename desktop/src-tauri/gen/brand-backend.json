@@ -3,8 +3,13 @@
   "agentName": "Agent",
   "mode": "connect",
   "sidecarName": "",
-  "attachPort": 17800,
-  "attachPortEnv": "GACT_PORT",
+  "portConfig": {
+    "key": null,
+    "env": null,
+    "default": 17800,
+    "product": null,
+    "resolver": null
+  },
   "attachUrlEnv": "GACT_URL",
   "repoLabel": null,
   "install": null

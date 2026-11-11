@@ -1,49 +1,107 @@
-import type { PluginEntry, PluginInspection } from '@clio/core/v3';
+import type { McpServerDefinition, PluginEntry, PluginInspection } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowLeftIcon,
+  BotIcon,
+  BoxesIcon,
+  FileIcon,
+  LayersIcon,
+  ServerIcon,
+  SparklesIcon,
+  TerminalIcon,
+  WorkflowIcon,
+} from 'lucide-react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { lazy, Suspense, useState } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { queryKeys } from '@/lib/query-keys';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import { usePluginCatalog, useExtensionsSupported } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
+import {
+  copyReference,
+  formatName,
+  markdownSummary,
+  pluginStatus,
+  sourceName,
+} from '@/lib/extension-library-entries';
+import { EditIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { serviceStatus, specTarget } from '@/lib/mcp-service-presentation';
 import { catalogMember } from '@/lib/plugin-catalog-tree';
+import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ScopedDocumentNavigation } from './scoped-document-navigation';
+import { ExtensionRow, MetaLine, SlotButton, TrustBanner } from './extension-parts';
 import { FileViewerShell } from './file-viewer-shell';
-import { FileIcon } from 'lucide-react';
+import { PluginSourceEditor } from './plugin-source-editor';
+import { PluginToolSettings } from './plugin-tool-settings';
+import { DetailPane } from './primitives/detail-pane';
+import { IconButton } from './primitives/icon-button';
+import { ItemList } from './primitives/item-row';
+import { SegmentedControl } from './primitives/segmented-control';
+import { StateView } from './primitives/state-view';
+import { ScopedDocumentNavigation } from './scoped-document-navigation';
+import { SettingsGroupLabel } from './settings-row';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
 type SourceFile = PluginInspection['files'][number];
+type Tab = 'capabilities' | 'tools' | 'files';
 
-/** One inspector for installed entries and plugins reached through an agent. */
-export function PluginExplorer({
-  reference,
-  pending = false,
-  initialSkill,
-  onClose,
-}: {
+function partFile(
+  files: readonly SourceFile[],
+  folder: string,
+  name: string,
+): SourceFile | undefined {
+  const bare = name.replace(/^\//u, '');
+  return files.find(
+    (file) =>
+      file.path === `${folder}/${bare}/SKILL.md` ||
+      file.path === `${folder}/${bare}.md` ||
+      file.path.endsWith(`/${folder}/${bare}/SKILL.md`) ||
+      file.path.endsWith(`/${folder}/${bare}.md`),
+  );
+}
+
+export interface PluginDetailPaneProps {
   reference: string;
   pending?: boolean;
   initialSkill?: string;
   onClose: () => void;
-}) {
+  /** Update the plugin's marketplace. */
+  onUpdate?: () => void;
+  updating?: boolean;
+  /** Ask before trusting the plugin's source; without it, trust happens here. */
+  onTrust?: (plugin: PluginEntry) => void;
+  /** Run the plugin check for the plugin's marketplace. */
+  onCheck?: () => void;
+  className?: string;
+}
+
+/**
+ * One plugin beside the list (or in a dialog): what it brings, its tools and its
+ * files. Pack members and skills open in place.
+ */
+export function PluginDetailPane({
+  reference,
+  pending = false,
+  initialSkill,
+  onClose,
+  onUpdate,
+  updating = false,
+  onTrust,
+  onCheck,
+  className,
+}: PluginDetailPaneProps) {
   const [selected, setSelected] = useState<{ reference: string; pending: boolean; skill?: string }>(
     { reference, pending, skill: initialSkill },
   );
-  const [tab, setTab] = useState(initialSkill ? 'files' : 'capabilities');
+  const [tab, setTab] = useState<Tab>(initialSkill ? 'files' : 'capabilities');
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -62,6 +120,11 @@ export function PluginExplorer({
         ? repository.inspectPlugin(selected.reference, selected.pending, signal, selected.skill)
         : repository.inspectPlugin(selected.reference, selected.pending, signal),
   });
+  const servers = useQuery({
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'global'),
+    queryFn: ({ signal }) => repository.mcpServers(undefined, signal),
+    staleTime: 30_000,
+  });
   const plugin = inspection.data?.plugin;
   const [path, setPath] = useState('');
   const [editing, setEditing] = useState(false);
@@ -69,6 +132,7 @@ export function PluginExplorer({
   const [changes, setChanges] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [savedCopy, setSavedCopy] = useState('');
   const [trusting, setTrusting] = useState(false);
   const [trustError, setTrustError] = useState('');
   const files = inspection.data?.files ?? [];
@@ -76,16 +140,28 @@ export function PluginExplorer({
     files.find((f) => f.path === path) ??
     files.find((f) => /(?:README|SKILL)\.md$/iu.test(f.path)) ??
     files[0];
-  const open = (entry: PluginEntry) => {
+  const reset = () => {
     setEditing(false);
     setChanges({});
     setSaveError('');
-    setSelected({ reference: entry.ref, pending: entry.pending_trust });
     setPath('');
+  };
+  const open = (entry: PluginEntry) => {
+    reset();
+    setSelected({ reference: entry.ref, pending: entry.pending_trust });
     setTab('capabilities');
+  };
+  const openSkill = (skill: string) => {
+    reset();
+    setSelected({ ...selected, skill });
+    setTab('files');
   };
   async function trustSource() {
     if (!plugin) return;
+    if (onTrust) {
+      onTrust(plugin);
+      return;
+    }
     setTrusting(true);
     setTrustError('');
     try {
@@ -117,270 +193,234 @@ export function PluginExplorer({
       );
       setEditing(false);
       setChanges({});
-      toast.success('Saved a local variation', {
-        description:
-          'Your original source is unchanged. Trust the new source in Extensions to use it.',
-      });
+      const ref = `private-local/${variation.trim()}`;
+      setSavedCopy(ref);
+      setSelected({ reference: ref, pending: false, skill: selected.skill });
+      setPath('');
+      toast.success('Saved to Private local marketplace');
     } catch (reason) {
       setSaveError(reason instanceof Error ? reason.message : 'Could not save variation');
     } finally {
       setSaving(false);
     }
   }
-  const parts: [keyof PluginEntry, string][] = [
-    ['tools', 'Tools'],
-    ['skills', 'Skills'],
-    ['flows', 'Flows'],
-    ['subagents', 'Subagents'],
-    ['fragments', 'Prompt fragments'],
-    ['mcp_servers', 'MCP servers'],
-    ['commands', 'Commands'],
-    ['hooks', 'Hooks'],
-    ['catalogs', 'UI catalogs'],
+  const hasTools = Boolean(
+    plugin && !selected.skill && (plugin.tools.length || plugin.mcp_servers.length),
+  );
+  const editable =
+    supported === true &&
+    !inspection.data?.incomplete &&
+    !files.some((row) => row.truncated || row.error);
+  const startEditing = () => {
+    if (!plugin) return;
+    setEditing(true);
+    setSavedCopy('');
+    setChanges({});
+    setVariation(`${selected.skill || plugin.id}-local`);
+    setTab('files');
+  };
+  const needsTrust = Boolean(plugin && (!plugin.trusted || plugin.pending_trust));
+  // Until the plugin loads, its reference (marketplace/name) gives the name the row showed.
+  const title =
+    selected.skill ||
+    plugin?.id ||
+    selected.reference.slice(selected.reference.lastIndexOf('/') + 1) ||
+    selected.reference;
+  const tabs: { value: Tab; label: string }[] = [
+    { value: 'capabilities', label: 'Capabilities' },
+    ...(hasTools ? [{ value: 'tools' as const, label: 'Tools' }] : []),
+    { value: 'files', label: files.length ? `Files (${files.length})` : 'Files' },
   ];
+  const current = tabs.some((row) => row.value === tab) ? tab : 'capabilities';
   return (
-    <Dialog
-      open
-      onOpenChange={(value) => {
-        if (!value) onClose();
-      }}
-    >
-      <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] min-w-0 flex-col overflow-hidden sm:max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>{selected.skill || plugin?.id || selected.reference}</DialogTitle>
-          <DialogDescription>
-            {plugin
-              ? `${plugin.marketplace}${plugin.version ? `, version ${plugin.version}` : ''}`
-              : 'Plugin details'}
-          </DialogDescription>
-        </DialogHeader>
-        {plugin ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {selected.skill ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setSelected({ ...selected, skill: undefined });
-                  setEditing(false);
-                  setChanges({});
-                  setPath('');
-                  setTab('capabilities');
-                }}
-              >
-                Back to plugin
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={
-                supported !== true ||
-                inspection.data?.incomplete ||
-                files.some((row) => row.truncated || row.error)
-              }
+    <DetailPane
+      className={className}
+      icon={
+        selected.skill ? <SparklesIcon /> : plugin?.kind === 'pack' ? <BoxesIcon /> : <LayersIcon />
+      }
+      onClose={onClose}
+      title={title}
+      actions={
+        <>
+          {selected.skill ? (
+            <IconButton
+              icon={<ArrowLeftIcon />}
+              label="Back to plugin"
               onClick={() => {
-                setEditing(!editing);
-                setVariation(`${selected.skill || plugin.id}-local`);
-                setTab('files');
+                reset();
+                setSelected({ ...selected, skill: undefined });
+                setTab('capabilities');
               }}
-            >
-              {' '}
-              {editing ? 'Cancel editing' : 'Edit a local variation'}
-            </Button>
-            {inspection.data?.incomplete ? (
-              <span className="text-xs text-muted-foreground">
-                A complete source is required to save a variation.
-              </span>
-            ) : null}
+            />
+          ) : null}
+          {onUpdate && plugin && plugin.marketplace !== 'private-local' ? (
+            <IconButton
+              disabled={updating}
+              icon={<RefreshIcon />}
+              label={updating ? 'Updating…' : 'Update'}
+              onClick={onUpdate}
+            />
+          ) : null}
+          {plugin ? (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <IconButton icon={<MoreIcon />} label={`More actions for ${title}`} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-52">
+                <DropdownMenuItem disabled={!editable || editing} onSelect={startEditing}>
+                  <EditIcon />
+                  Edit a local copy
+                </DropdownMenuItem>
+                {onCheck ? (
+                  <DropdownMenuItem onSelect={onCheck}>Check plugins</DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onSelect={() => copyReference(plugin.ref)}>
+                  Copy reference
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </>
+      }
+    >
+      {plugin ? (
+        <MetaLine
+          className="block truncate text-xs text-faint"
+          parts={[
+            selected.skill ? `Skill of ${plugin.id}` : plugin.kind === 'pack' ? 'Pack' : 'Plugin',
+            sourceName(plugin.marketplace),
+            formatName(plugin.format),
+            plugin.version ? `Version ${plugin.version}` : '',
+          ]}
+        />
+      ) : null}
+      <div className="mt-3">
+        {plugin && needsTrust ? (
+          <TrustBanner
+            action={
+              <SlotButton
+                disabled={trusting}
+                label={
+                  plugin.pending_trust
+                    ? `Trust the update from ${plugin.marketplace}`
+                    : `Trust ${plugin.marketplace}`
+                }
+                onClick={() => void trustSource()}
+              >
+                {trusting ? 'Trusting…' : 'Trust'}
+              </SlotButton>
+            }
+            detail={`Trusting ${plugin.marketplace} lets its plugins run commands, start servers and run hooks on this service.`}
+            error={trustError}
+            message={
+              plugin.pending_trust
+                ? 'Its update can run commands and hooks. Trust only sources you know.'
+                : 'Its plugins can run commands and hooks. Trust only sources you know.'
+            }
+          />
+        ) : null}
+        {savedCopy ? (
+          <div className="mb-3 border-b border-border pb-2.5 text-[0.8125rem]" role="status">
+            <p>
+              Saved <span className="font-medium break-all">{savedCopy}</span> in your Private local
+              marketplace. Your repository and current conversation are unchanged.
+            </p>
+            <details className="mt-1.5">
+              <summary className="cursor-pointer text-muted-foreground">
+                Use this copy in an agent
+              </summary>
+              <p className="mt-1.5">
+                In the conversation, open Customize → Add plugin and choose {savedCopy}. If it needs
+                trust, use Trust first. Save the agent as a local variation to reuse that setup in
+                new conversations.
+              </p>
+              <p className="mt-1.5 text-muted-foreground">
+                The copy keeps the skill names declared in its files. Duplicate skill names are
+                rejected. Replacing an individual built-in skill, such as update-models, is not
+                currently supported; adding this copy does not override it.
+              </p>
+            </details>
           </div>
         ) : null}
-        {inspection.isPending ? <p role="status">Reading plugin…</p> : null}
+        {inspection.isPending ? (
+          <StateView kind="loading" size="row" title="Reading plugin…" />
+        ) : null}
         {inspection.error ? (
-          <div role="alert" className="grid gap-2 text-sm">
-            <p>Plugin details could not be loaded: {inspection.error.message}</p>
-            <Button className="w-fit" variant="outline" onClick={() => void inspection.refetch()}>
-              Retry
-            </Button>
-          </div>
+          <StateView
+            action={{ label: 'Retry', onClick: () => void inspection.refetch() }}
+            kind="error"
+            size="row"
+            title={`Plugin details could not be loaded: ${inspection.error.message}`}
+          />
         ) : null}
         {plugin ? (
-          <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-3">
-            <TabsList>
-              <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-              <TabsTrigger value="files">Files ({files.length})</TabsTrigger>
-            </TabsList>
-            <TabsContent
-              value="capabilities"
-              className="clio-scrollbar min-h-0 flex-1 overflow-y-auto"
-            >
-              <div className="grid gap-4 text-sm leading-6">
-                {plugin.description ? <p>{plugin.description}</p> : null}
-                {!plugin.trusted ? (
-                  <div className="grid gap-2 rounded-md border p-3">
-                    <p className="text-muted-foreground">
-                      Not trusted. Trusting this source allows its plugins to load code on this
-                      agent host.
-                    </p>
-                    <Button
-                      className="w-fit"
-                      size="sm"
-                      disabled={trusting}
-                      onClick={() => void trustSource()}
-                    >
-                      {trusting ? 'Trusting…' : `Trust source: ${plugin.marketplace}`}
-                    </Button>
-                    {trustError ? (
-                      <p role="alert" className="text-destructive">
-                        {trustError}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {plugin.members.length ? (
-                  <section aria-label="Pack members" className="grid gap-1">
-                    <h3 className="font-medium">Plugins in this pack</h3>
-                    {plugin.members.map((ref) => {
-                      const member = catalogMember(catalog.data?.plugins ?? [], plugin, ref);
-                      return (
-                        <Button
-                          key={ref}
-                          className="h-auto justify-start py-2 text-left"
-                          variant="ghost"
-                          disabled={!member}
-                          onClick={() => member && open(member)}
-                        >
-                          {ref}
-                          {member ? '' : ' (not installed)'}
-                        </Button>
-                      );
-                    })}
-                  </section>
-                ) : null}
-                {parts.map(([key, label]) => {
-                  const names = plugin[key] as string[];
-                  return names.length ? (
-                    <details key={key} className="border-b pb-2">
-                      <summary className="cursor-pointer font-medium">
-                        {label} ({names.length})
-                      </summary>
-                      <ul className="mt-2 grid gap-1 pl-4">
-                        {names.map((name) => (
-                          <li className="break-words" key={name}>
-                            {key === 'skills' ? (
-                              <Button
-                                className="h-auto justify-start px-0 text-left"
-                                variant="link"
-                                onClick={() => {
-                                  setSelected({ ...selected, skill: name });
-                                  setPath('');
-                                  setEditing(false);
-                                  setChanges({});
-                                  setTab('files');
-                                }}
-                              >
-                                {name}
-                              </Button>
-                            ) : (
-                              name
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null;
-                })}
-                {plugin.requires.length ? (
-                  <p className="text-muted-foreground">Requires {plugin.requires.join(', ')}</p>
-                ) : null}
-                {plugin.diagnostics.map((note, i) => (
-                  <p
-                    key={i}
-                    className={
-                      note.severity === 'error' ? 'text-destructive' : 'text-muted-foreground'
-                    }
-                  >
-                    {note.message}
+          <>
+            <SegmentedControl
+              label="Plugin details"
+              onValueChange={setTab}
+              options={tabs}
+              value={current}
+            />
+            {current === 'capabilities' ? (
+              <Capabilities
+                catalog={catalog.data?.plugins ?? []}
+                files={files}
+                onMember={open}
+                onSkill={openSkill}
+                plugin={plugin}
+                servers={servers.data ?? []}
+                skillView={Boolean(selected.skill)}
+              />
+            ) : null}
+            {current === 'tools' ? (
+              <div className="mt-3">
+                {selected.pending ? (
+                  <p className="text-muted-foreground">
+                    Tool settings are available once this plugin is installed and trusted.
                   </p>
-                ))}
+                ) : (
+                  <PluginToolSettings reference={selected.reference} />
+                )}
               </div>
-            </TabsContent>
-            <TabsContent
-              value="files"
-              className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]"
-            >
-              <div className="clio-scrollbar max-h-44 min-w-0 overflow-auto md:max-h-none">
-                <FileTree
-                  key={`${selected.reference}:${selected.skill}`}
-                  aria-label="Plugin files"
-                  className="border-0 bg-transparent font-sans"
-                  selectedPath={file?.path}
-                  onSelect={setPath}
-                  defaultExpanded={
-                    new Set(
-                      files.flatMap((f) =>
-                        f.path
-                          .split('/')
-                          .slice(0, -1)
-                          .map((_, i, a) => a.slice(0, i + 1).join('/')),
-                      ),
-                    )
-                  }
-                >
-                  <SourceNodes files={files} />
-                </FileTree>
-              </div>
-              <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border">
+            ) : null}
+            {current === 'files' ? (
+              <div className="mt-3 grid gap-2.5">
                 {inspection.data?.incomplete ? (
-                  <p className="shrink-0 border-b px-3 py-2 text-sm text-muted-foreground">
-                    {inspection.data.reason || 'Some source files could not be fully included.'}
+                  <p className="text-xs text-muted-foreground">
+                    {inspection.data.reason || 'Some source files could not be fully included.'} A
+                    complete source is required to save a variation.
                   </p>
                 ) : null}
-                {file?.error ? (
-                  <p role="alert" className="p-3 text-sm">
-                    {file.error}
-                  </p>
-                ) : file ? (
-                  <Suspense
-                    fallback={
-                      <p role="status" className="p-3">
-                        Loading file…
-                      </p>
+                <div className="clio-scrollbar max-h-40 min-w-0 overflow-auto rounded-md border border-border">
+                  <FileTree
+                    aria-label="Plugin files"
+                    className="border-0 bg-transparent font-sans"
+                    defaultExpanded={
+                      new Set(
+                        files.flatMap((f) =>
+                          f.path
+                            .split('/')
+                            .slice(0, -1)
+                            .map((_, i, a) => a.slice(0, i + 1).join('/')),
+                        ),
+                      )
                     }
+                    key={`${selected.reference}:${selected.skill}`}
+                    onSelect={setPath}
+                    selectedPath={file?.path}
                   >
-                    {editing ? (
-                      <div className="grid gap-3">
-                        <Label className="grid gap-2">
-                          New variation name
-                          <Input
-                            value={variation}
-                            onChange={(event) => setVariation(event.target.value)}
-                          />
-                        </Label>
-                        <Label className="grid gap-2">
-                          {file.path}
-                          <Textarea
-                            className="min-h-72 font-mono text-sm"
-                            value={changes[file.path] ?? file.text}
-                            onChange={(event) =>
-                              setChanges({ ...changes, [file.path]: event.target.value })
-                            }
-                          />
-                        </Label>
-                        {saveError ? (
-                          <p role="alert" className="text-destructive">
-                            {saveError}
-                          </p>
-                        ) : null}
-                        <Button
-                          disabled={saving || !variation.trim()}
-                          className="w-fit"
-                          onClick={() => void saveVariation()}
-                        >
-                          {saving ? 'Saving…' : 'Save as new variation'}
-                        </Button>
-                      </div>
-                    ) : (
+                    <SourceNodes files={files} />
+                  </FileTree>
+                </div>
+                <div className="flex h-[min(32rem,60dvh)] min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border">
+                  {file?.error ? (
+                    <p className="p-3" role="alert">
+                      {file.error}
+                    </p>
+                  ) : file ? (
+                    <Suspense
+                      fallback={<StateView kind="loading" size="row" title="Loading file…" />}
+                    >
                       <ScopedDocumentNavigation.Provider
                         value={{
                           current: file.path,
@@ -393,20 +433,39 @@ export function PluginExplorer({
                             kind: 'provided',
                             name: file.path,
                             mediaType: 'text/plain',
-                            size: file.bytes,
-                            origin: 'Plugin source',
-                            readBytes: async () => new TextEncoder().encode(file.text),
+                            ...(!editing ? { size: file.bytes } : {}),
+                            origin: editing ? 'Unsaved local copy' : 'Plugin source',
+                            readBytes: async () =>
+                              new TextEncoder().encode(
+                                editing ? (changes[file.path] ?? file.text) : file.text,
+                              ),
                           }}
                           tabs={[
                             {
                               value: 'preview',
                               label: file.path,
                               icon: FileIcon,
-                              content: (
+                              content: editing ? (
+                                <PluginSourceEditor
+                                  error={saveError}
+                                  name={variation}
+                                  onCancel={() => {
+                                    setEditing(false);
+                                    setChanges({});
+                                    setSaveError('');
+                                  }}
+                                  onName={setVariation}
+                                  onSave={() => void saveVariation()}
+                                  onText={(text) => setChanges({ ...changes, [file.path]: text })}
+                                  path={file.path}
+                                  saving={saving}
+                                  text={changes[file.path] ?? file.text}
+                                />
+                              ) : (
                                 <FileReader
+                                  content={file.text}
                                   key={`${selected.reference}/${file.path}`}
                                   name={file.path}
-                                  content={file.text}
                                   view={file.path.endsWith('.html') ? 'source' : undefined}
                                 />
                               ),
@@ -414,23 +473,209 @@ export function PluginExplorer({
                           ]}
                         />
                       </ScopedDocumentNavigation.Provider>
-                    )}
-                  </Suspense>
-                ) : (
-                  <p className="p-3 text-sm text-muted-foreground">
-                    No readable source files were found.
-                  </p>
-                )}
-                {file?.truncated ? (
-                  <p className="shrink-0 border-t px-3 py-2 text-sm text-muted-foreground">
-                    Showing the beginning of this file ({file.bytes.toLocaleString()} bytes in
-                    full).
-                  </p>
+                    </Suspense>
+                  ) : (
+                    <StateView
+                      kind="empty"
+                      size="row"
+                      title="No readable source files were found."
+                    />
+                  )}
+                  {file?.truncated ? (
+                    <p className="shrink-0 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                      Showing the beginning of this file ({file.bytes.toLocaleString()} bytes in
+                      full).
+                    </p>
+                  ) : null}
+                </div>
+                {!editing ? (
+                  <Button
+                    className="w-fit"
+                    disabled={!editable}
+                    onClick={startEditing}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Edit a local copy
+                  </Button>
                 ) : null}
               </div>
-            </TabsContent>
-          </Tabs>
+            ) : null}
+          </>
         ) : null}
+      </div>
+    </DetailPane>
+  );
+}
+
+const OTHER_PARTS: [keyof PluginEntry, string, ReactNode][] = [
+  ['tools', 'Tools', <WorkflowIcon key="tools" />],
+  ['subagents', 'Subagents', <BotIcon key="subagents" />],
+  ['flows', 'Flows', <WorkflowIcon key="flows" />],
+  ['fragments', 'Prompt fragments', <FileIcon key="fragments" />],
+  ['hooks', 'Hooks', <TerminalIcon key="hooks" />],
+  ['catalogs', 'UI catalogs', <LayersIcon key="catalogs" />],
+];
+
+function Capabilities({
+  plugin,
+  catalog,
+  files,
+  servers,
+  skillView,
+  onMember,
+  onSkill,
+}: {
+  plugin: PluginEntry;
+  catalog: readonly PluginEntry[];
+  files: readonly SourceFile[];
+  servers: readonly McpServerDefinition[];
+  skillView: boolean;
+  onMember: (plugin: PluginEntry) => void;
+  onSkill: (skill: string) => void;
+}) {
+  const empty =
+    !plugin.members.length &&
+    !plugin.skills.length &&
+    !plugin.mcp_servers.length &&
+    !plugin.commands.length &&
+    OTHER_PARTS.every(([key]) => !(plugin[key] as string[]).length);
+  return (
+    <div className="mt-1">
+      {plugin.description ? (
+        <p className="mt-3 leading-5 text-muted-foreground">{plugin.description}</p>
+      ) : null}
+      {plugin.members.length ? (
+        <>
+          <SettingsGroupLabel>Plugins in this pack</SettingsGroupLabel>
+          <ItemList label="Pack members">
+            {plugin.members.map((ref) => {
+              const member = catalogMember(catalog, plugin, ref);
+              return (
+                <ExtensionRow
+                  icon={<LayersIcon />}
+                  key={ref}
+                  meta={member ? [member.description || member.ref] : ['Not installed']}
+                  name={member?.id ?? ref}
+                  onExplore={member ? () => onMember(member) : undefined}
+                  size="sm"
+                  status={member ? pluginStatus(member) : undefined}
+                />
+              );
+            })}
+          </ItemList>
+        </>
+      ) : null}
+      {plugin.skills.length && !skillView ? (
+        <>
+          <SettingsGroupLabel>Skills</SettingsGroupLabel>
+          <ItemList label="Skills">
+            {plugin.skills.map((skill) => (
+              <ExtensionRow
+                exploreLabel={`Open ${skill}`}
+                icon={<SparklesIcon />}
+                key={skill}
+                meta={[markdownSummary(partFile(files, 'skills', skill)?.text)]}
+                name={skill}
+                onExplore={() => onSkill(skill)}
+                size="sm"
+              />
+            ))}
+          </ItemList>
+        </>
+      ) : null}
+      {plugin.mcp_servers.length ? (
+        <>
+          <SettingsGroupLabel>MCP servers</SettingsGroupLabel>
+          <ItemList label="MCP servers">
+            {plugin.mcp_servers.map((name) => {
+              const server = servers.find(
+                (row) => row.name === name && (!row.plugin || row.plugin === plugin.ref),
+              );
+              const target = specTarget(server?.spec)?.short;
+              return (
+                <ExtensionRow
+                  icon={<ServerIcon />}
+                  key={name}
+                  meta={target ? [{ text: target, mono: true }] : []}
+                  name={name}
+                  size="sm"
+                  status={serviceStatus(server)}
+                />
+              );
+            })}
+          </ItemList>
+        </>
+      ) : null}
+      {plugin.commands.length ? (
+        <>
+          <SettingsGroupLabel>Commands</SettingsGroupLabel>
+          <ItemList label="Commands">
+            {plugin.commands.map((name) => (
+              <ExtensionRow
+                icon={<TerminalIcon />}
+                key={name}
+                meta={[markdownSummary(partFile(files, 'commands', name)?.text)]}
+                name={name.startsWith('/') ? name : `/${name}`}
+                size="sm"
+              />
+            ))}
+          </ItemList>
+        </>
+      ) : null}
+      {OTHER_PARTS.map(([key, label, icon]) => {
+        const names = plugin[key] as string[];
+        return names.length ? (
+          <div key={key}>
+            <SettingsGroupLabel>{label}</SettingsGroupLabel>
+            <ItemList label={label}>
+              {names.map((name) => (
+                <ExtensionRow icon={icon} key={name} name={name} size="sm" />
+              ))}
+            </ItemList>
+          </div>
+        ) : null;
+      })}
+      {plugin.requires.length ? (
+        <p className="mt-3 text-muted-foreground">Requires {plugin.requires.join(', ')}</p>
+      ) : null}
+      {plugin.diagnostics.length ? (
+        <>
+          <SettingsGroupLabel>Notes</SettingsGroupLabel>
+          <ul className="grid gap-1 text-xs">
+            {plugin.diagnostics.map((note, index) => (
+              <li
+                className={note.severity === 'error' ? 'text-destructive' : 'text-muted-foreground'}
+                key={index}
+              >
+                {note.message}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {empty && !plugin.description ? (
+        <StateView kind="empty" size="row" title="This plugin declares no capabilities." />
+      ) : null}
+    </div>
+  );
+}
+
+/** The plugin explorer as a dialog, for places with no room beside a list. */
+export function PluginExplorer(props: Omit<PluginDetailPaneProps, 'className'>) {
+  return (
+    <Dialog
+      onOpenChange={(value) => {
+        if (!value) props.onClose();
+      }}
+      open
+    >
+      <DialogContent
+        className="flex h-[min(48rem,calc(100dvh-2rem))] min-w-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        showCloseButton={false}
+      >
+        <DialogTitle className="sr-only">Plugin details</DialogTitle>
+        <PluginDetailPane {...props} />
       </DialogContent>
     </Dialog>
   );
@@ -453,7 +698,7 @@ function SourceNodes({ files, prefix = '' }: { files: SourceFile[]; prefix?: str
             />
           </FileTreeFolder>
         ) : (
-          <FileTreeFile key={path} path={path} name={name} title={path} />
+          <FileTreeFile key={path} name={name} path={path} title={path} />
         );
       })}
     </>

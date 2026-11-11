@@ -1,36 +1,37 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ActivityIcon } from 'lucide-react';
-import { SettingsIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from '@/components/ui/sidebar';
-import { useSwitchConnection } from '@/hooks/use-switch-connection';
-import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
-import { useKnownConnections } from '@/hooks/use-known-connections';
-import type { ConnectionSettings } from '@/lib/connection';
-import { useConnectionSettings } from '@/providers/connection-provider';
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
+import { useClioMenuConnections } from '@/hooks/use-clio-menu-connections';
+import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
+import { useRailKeyboard } from '@/hooks/use-rail-keyboard';
+import { useArchivedSessions } from '@/hooks/use-rail-sessions';
+import type { ListState } from '@/lib/list-state';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
+import { NavigationFooter } from './navigation-footer';
 import { NavigationHeader } from './navigation-header';
-import { NavigationInfrastructure } from './navigation-infrastructure';
+import { StableInput } from './primitives/stable-input';
+import { holdPreviews } from './row-preview-hold';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
+import { newConversationRoute } from '@/lib/workspace-route-memory';
 import type { SessionAttention } from '@/lib/session-attention';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 export interface ClioNavigationProps {
   endpoint: string;
@@ -43,9 +44,45 @@ export interface ClioNavigationProps {
   agents: readonly AgentEntry[];
   onOpenWorkspaceFiles?: () => void;
   attentions: Readonly<Record<string, SessionAttention>>;
+  /** The workspace list's loading or failure, while it lists none. */
+  workspacesState?: ListState;
 }
 
-export function ClioNavigation({
+const NO_ITEMS: readonly never[] = [];
+
+/**
+ * The left bar. Its pages re-render on every keystroke in the draft and every
+ * streamed update; the bar renders only when what it lists changes. Callbacks
+ * and the list state's retry are read at call time, so inline ones from the
+ * page don't count as a change.
+ */
+export function ClioNavigation(props: ClioNavigationProps) {
+  const latest = useRef(props);
+  useLayoutEffect(() => {
+    latest.current = props;
+  });
+  const openWorkspaceFiles = useCallback(() => latest.current.onOpenWorkspaceFiles?.(), []);
+  const retryWorkspaces = useCallback(() => latest.current.workspacesState?.retry(), []);
+  const listed = props.workspacesState !== undefined;
+  const loading = props.workspacesState?.loading ?? false;
+  const error = props.workspacesState?.error;
+  const workspacesState = useMemo(
+    () => (listed ? { loading, error, retry: retryWorkspaces } : undefined),
+    [listed, loading, error, retryWorkspaces],
+  );
+  return (
+    <ClioNavigationView
+      {...props}
+      agents={props.agents.length ? props.agents : NO_ITEMS}
+      onOpenWorkspaceFiles={props.onOpenWorkspaceFiles ? openWorkspaceFiles : undefined}
+      sessions={props.sessions.length ? props.sessions : NO_ITEMS}
+      workspaces={props.workspaces.length ? props.workspaces : NO_ITEMS}
+      workspacesState={workspacesState}
+    />
+  );
+}
+
+const ClioNavigationView = memo(function ClioNavigationView({
   endpoint,
   workspaces,
   sessions,
@@ -55,33 +92,52 @@ export function ClioNavigation({
   agents,
   onOpenWorkspaceFiles,
   attentions,
+  workspacesState,
 }: ClioNavigationProps) {
   const location = useLocation();
-  const { settings } = useConnectionSettings();
-  const knownConnections = useKnownConnections();
-  const activeConnection = useMemo(() => [{ ...settings, endpoint }], [endpoint, settings]);
-  const activeAvailability = useConnectionAvailabilities(activeConnection);
-  const connectionAvailabilities = useMemo(
-    () => ({
-      ...Object.fromEntries(
-        knownConnections.map((connection) => [connection.endpoint, connection.availability]),
-      ),
-      ...activeAvailability,
-    }),
-    [activeAvailability, knownConnections],
-  );
-  const switchConnection = useSwitchConnection();
-  const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
-  const [createWorkspaceId, setCreateWorkspaceId] = useState(activeWorkspaceId);
+  const {
+    settings,
+    connections: knownConnections,
+    connectionAvailabilities,
+    onConnect: switchService,
+  } = useClioMenuConnections(endpoint);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const archived = useArchivedSessions(sessions, archivedOpen);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
+  // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeSheet = useCallback(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [isMobile, setOpenMobile]);
+  const withSheetClosed =
+    <T,>(open: (value: T) => void) =>
+    (value: T) => {
+      closeSheet();
+      open(value);
+    };
+  const [rowDialog, setRowDialog] = useState<ReactNode>(null);
+  const presentRowDialog = useCallback(
+    (dialog: ReactNode) => {
+      if (dialog) closeSheet();
+      setRowDialog(dialog);
+    },
+    [closeSheet],
+  );
   const importInputRef = useRef<HTMLInputElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  useRailKeyboard(navRef);
+  // The workspace chosen by "Import conversation here"; the service files the
+  // import there when the blob names an existing workspace.
+  const importWorkspaceRef = useRef<string | undefined>(undefined);
 
+  const navigate = useNavigate();
+  const draftMatch = useMatch('/workspaces/:workspaceId/new');
+  // A new conversation is a draft in place; it becomes a row once it is sent.
   const openNewSession = (workspaceId = activeWorkspaceId) => {
-    setCreateWorkspaceId(workspaceId);
-    setCreateKind('session');
+    void navigate(newConversationRoute(workspaceId || 'ws_default'));
   };
   const downloadSession = async (
     sessionId: string,
@@ -99,22 +155,22 @@ export function ClioNavigation({
         });
       });
   };
-  const switchService = async (connection: ConnectionSettings) => {
-    try {
-      await switchConnection(connection);
-    } catch (error) {
-      toast.error('Could not switch agent service', {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
   // 'import-session' and 'export-session' used to also be reachable via the
   // native File menu (removed — see menu_spec.rs's application-menu trim);
   // the direct paths below (the header's import button, per-session export)
   // already cover them, so no useMenuAction registration is needed for
   // either.
+  const importSession = (workspaceId?: string) => {
+    importWorkspaceRef.current = workspaceId;
+    importInputRef.current?.click();
+  };
   useMenuAction('new-session', () => openNewSession());
+  useShortcut('new-conversation-browser', () => openNewSession(), { allowInTextField: true });
+  useShortcut('import-conversation', () => importSession(), {
+    allowInTextField: true,
+  });
+  useShortcut('previous-conversation', () => stepConversation(-1), { allowInTextField: true });
+  useShortcut('next-conversation', () => stepConversation(1), { allowInTextField: true });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);
@@ -128,87 +184,86 @@ export function ClioNavigation({
         attentions={attentions}
         sessions={sessions}
       />
-      <Sidebar collapsible="icon" contained>
-        <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
-          <NavigationHeader
-            activeLabel={settings.label}
-            activeLocation={settings.location}
-            attentionControl={
-              <ClioAttentionCenter
-                activeSessionId={activeSessionId}
-                attentions={attentions}
-                sessions={sessions}
-              />
-            }
-            currentPath={location.pathname}
-            connectionAvailabilities={connectionAvailabilities}
-            endpoint={endpoint}
-            onConnect={switchService}
-            onImportSession={() => importInputRef.current?.click()}
-            onNewSession={() => openNewSession()}
-            onNewWorkspace={() => setCreateKind('workspace')}
-            onOpenArchived={() => setArchivedOpen(true)}
-            connections={knownConnections}
-          />
-          <SidebarContent>
-            <WorkspaceNavigation
-              actions={actions}
-              attentions={attentions}
-              activeSessionId={activeSessionId}
-              activeWorkspaceId={activeWorkspaceId}
-              agents={agents}
-              onAction={runNavigationAction}
-              onCreateSession={openNewSession}
-              onDelete={setDeleteTarget}
-              onDownloadSession={downloadSession}
-              onEditWorkspace={setWorkspaceEditorId}
-              onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-              onRename={setRenameTarget}
-              sessions={sessions}
-              workspaces={workspaces}
+      <LeftBarDialogContext.Provider value={presentRowDialog}>
+        <Sidebar collapsible="icon" contained>
+          <nav
+            aria-label="Workspace navigation"
+            data-keyboard-region=""
+            // Wheeling moves rows under a still pointer; their previews wait for it to move.
+            onWheel={(event) => holdPreviews(event.clientX, event.clientY)}
+            ref={navRef}
+            {...tourAnchor('workspace-navigation')}
+            className="flex h-full min-w-0 flex-1 flex-col"
+          >
+            <NavigationHeader
+              activeLabel={settings.label}
+              activeLocation={settings.location}
+              attentionControl={
+                <li className="shrink-0">
+                  <ClioAttentionCenter
+                    activeSessionId={activeSessionId}
+                    attentions={attentions}
+                    sessions={sessions}
+                    workspaces={workspaces}
+                  />
+                </li>
+              }
+              currentPath={location.pathname}
+              connectionAvailabilities={connectionAvailabilities}
+              endpoint={endpoint}
+              onConnect={switchService}
+              onImportSession={() => importSession()}
+              onNewSession={() => openNewSession()}
+              connections={knownConnections}
             />
-          </SidebarContent>
-          <SidebarFooter className="gap-0 px-2 pb-2">
-            <SidebarGroup className="p-0">
-              <SidebarGroupLabel>Explore</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Runs">
-                      <Link state={{ endpoint, from: location.pathname }} to="/runs">
-                        <ActivityIcon aria-hidden="true" />
-                        <span>Runs</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Settings">
-                      <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
-                        <SettingsIcon aria-hidden="true" />
-                        <span>Settings</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarFooter>
-        </nav>
-        <SidebarRail />
-      </Sidebar>
-      <input
+            <SidebarContent className="gap-0">
+              <WorkspaceNavigation
+                actions={actions}
+                attentions={attentions}
+                activeSessionId={activeSessionId}
+                activeWorkspaceId={activeWorkspaceId}
+                agents={agents}
+                draftWorkspaceId={draftMatch?.params.workspaceId}
+                onAction={runNavigationAction}
+                onCreateSession={openNewSession}
+                onDelete={withSheetClosed(setDeleteTarget)}
+                onDownloadSession={downloadSession}
+                onEditWorkspace={withSheetClosed(setWorkspaceEditorId)}
+                onImportSession={importSession}
+                onNewWorkspace={() => withSheetClosed(setCreateWorkspaceOpen)(true)}
+                onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+                onRename={withSheetClosed(setRenameTarget)}
+                sessions={sessions}
+                workspaces={workspaces}
+                workspacesState={workspacesState}
+              />
+            </SidebarContent>
+            <NavigationFooter
+              availability={connectionAvailabilities[endpoint]}
+              endpoint={endpoint}
+              from={location.pathname}
+              onOpenArchived={() => withSheetClosed(setArchivedOpen)(true)}
+            />
+          </nav>
+          <SidebarRail />
+        </Sidebar>
+      </LeftBarDialogContext.Provider>
+      {rowDialog}
+      <StableInput
         accept="application/json,.json"
         aria-label="Import session file"
+        tabIndex={-1}
         className="sr-only"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
+          const workspaceId = importWorkspaceRef.current;
           event.currentTarget.value = '';
+          importWorkspaceRef.current = undefined;
           if (!file) return;
           void file
             .text()
             .then((text) => JSON.parse(text) as unknown)
-            .then((value) => actions.importSession(value))
+            .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
             .then(() => toast.success('Session imported'))
             .catch((error: unknown) =>
               toast.error(error instanceof Error ? error.message : 'Session import failed'),
@@ -219,11 +274,9 @@ export function ClioNavigation({
       />
       <ClioResourceDialogs
         actions={actions}
-        activeWorkspaceId={createWorkspaceId || activeWorkspaceId}
-        agents={agents}
-        createKind={createKind}
+        createWorkspaceOpen={createWorkspaceOpen}
         deleteTarget={deleteTarget}
-        onCreateKindChange={setCreateKind}
+        onCreateWorkspaceOpenChange={setCreateWorkspaceOpen}
         onDeleteTargetChange={setDeleteTarget}
         onRenameTargetChange={setRenameTarget}
         renameTarget={renameTarget}
@@ -234,7 +287,8 @@ export function ClioNavigation({
         onOpenChange={setArchivedOpen}
         onRestore={actions.restoreSession}
         open={archivedOpen}
-        sessions={sessions}
+        sessions={archived.sessions}
+        state={archived.state}
         workspaces={workspaces}
       />
       {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (
@@ -246,4 +300,25 @@ export function ClioNavigation({
       ) : null}
     </>
   );
+});
+
+/** Opens the conversation above or below the current one, in the left bar's visible order. */
+function stepConversation(step: -1 | 1) {
+  const links = [
+    ...document.querySelectorAll<HTMLAnchorElement>('[data-session-row] a[data-active]'),
+  ];
+  const current = links.findIndex((link) => link.dataset.active === 'true');
+  const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
+  target?.click();
+}
+
+/** Points an export blob at the chosen workspace, keeping its other fields. */
+function importBlobInto(value: unknown, workspaceId: string | undefined): unknown {
+  if (!workspaceId || typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const blob = value as Record<string, unknown>;
+  const workspace =
+    typeof blob.workspace === 'object' && blob.workspace !== null ? blob.workspace : {};
+  return { ...blob, workspace: { ...workspace, id: workspaceId } };
 }

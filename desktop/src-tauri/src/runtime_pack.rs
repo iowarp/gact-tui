@@ -3,22 +3,20 @@
 //! NSIS is deliberately not asked to expand the Python distribution one file
 //! at a time. It copies one archive and one manifest; the desktop then expands
 //! the archive into its writable app-data directory on a worker thread before
-//! starting the managed backend.
+//! starting the managed backend. The archive is read once: it is hashed while
+//! it is unpacked, and the staged runtime is activated only if the hash matches.
 
 use std::path::{Path, PathBuf};
 
 #[cfg(windows)]
 use std::{
-    fs::{self, File},
-    io::{BufReader, Read},
+    fs,
     sync::{Arc, Mutex},
     time::Instant,
 };
 
 #[cfg(windows)]
 use serde::Deserialize;
-#[cfg(windows)]
-use sha2::{Digest, Sha256};
 
 use crate::sidecar_setup::bundled_runtime_dir;
 
@@ -51,6 +49,163 @@ struct RuntimePackManifest {
     sha256: String,
     #[serde(default)]
     runtime_files: Option<u64>,
+    /// Size of the archive; required to read a download still in progress.
+    #[serde(default)]
+    archive_bytes: Option<u64>,
+    /// Release asset name of an archive the setup does not carry. `install.ps1`
+    /// downloads it into `CLIO_INSTALL_DOWNLOADS` as `NAME.part`, then `NAME`.
+    #[serde(default)]
+    asset: Option<String>,
+    /// Where to fetch that asset when no installer download supplies it.
+    #[serde(default)]
+    url: Option<String>,
+}
+
+/// Where the pack's bytes come from, in the order they are tried.
+#[cfg(windows)]
+enum PackOrigin {
+    Resource(PathBuf),
+    Download {
+        directory: PathBuf,
+        name: String,
+        bytes: u64,
+    },
+    Url {
+        url: String,
+        bytes: u64,
+    },
+}
+
+#[cfg(windows)]
+fn pack_origins(resource: PathBuf, manifest: &RuntimePackManifest) -> Vec<PackOrigin> {
+    if resource.is_file() {
+        return vec![PackOrigin::Resource(resource)];
+    }
+    let mut origins = Vec::new();
+    let bytes = manifest.archive_bytes.unwrap_or(0);
+    let name = manifest.asset.as_deref().filter(|name| {
+        !name.is_empty()
+            && !name.starts_with('.')
+            && name
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || "._+-".contains(ch))
+    });
+    if let (Some(name), Some(directory), true) =
+        (name, std::env::var_os("CLIO_INSTALL_DOWNLOADS"), bytes > 0)
+    {
+        origins.push(PackOrigin::Download {
+            directory: PathBuf::from(directory),
+            name: name.to_owned(),
+            bytes,
+        });
+    }
+    if let Some(url) = manifest.url.as_deref().filter(|url| !url.is_empty()) {
+        origins.push(PackOrigin::Url {
+            url: url.to_owned(),
+            bytes,
+        });
+    }
+    origins
+}
+
+/// A download `install.ps1` is still writing. Reads wait for more bytes until
+/// the manifest's size has been read; the caller's hash decides validity.
+#[cfg(windows)]
+struct GrowingDownload {
+    file: fs::File,
+    read: u64,
+    bytes: u64,
+    finished: PathBuf,
+    partial: PathBuf,
+    last_growth: Instant,
+}
+
+#[cfg(windows)]
+impl std::io::Read for GrowingDownload {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        const STALL: std::time::Duration = std::time::Duration::from_secs(90);
+        if self.read >= self.bytes || buf.is_empty() {
+            return Ok(0);
+        }
+        let limit = buf.len().min((self.bytes - self.read) as usize);
+        loop {
+            let count = self.file.read(&mut buf[..limit])?;
+            if count > 0 {
+                self.read += count as u64;
+                self.last_growth = Instant::now();
+                return Ok(count);
+            }
+            // install.ps1 removes a download whose hash it refused.
+            if !self.finished.exists() && !self.partial.exists() {
+                return Err(std::io::Error::other("the runtime download was abandoned"));
+            }
+            if self.last_growth.elapsed() > STALL {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "the runtime download stopped arriving",
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+}
+
+#[cfg(windows)]
+fn open_pack(origin: &PackOrigin) -> Result<crate::runtime_unpack::PackSource, String> {
+    use crate::runtime_unpack::PackSource;
+    use std::os::windows::fs::OpenOptionsExt;
+    const SHARE_ALL: u32 = 0x1 | 0x2 | 0x4; // read, write (curl), delete (rename)
+    match origin {
+        PackOrigin::Resource(path) => Ok(PackSource::File(path.clone())),
+        PackOrigin::Download {
+            directory,
+            name,
+            bytes,
+        } => {
+            let finished = directory.join(name);
+            let partial = directory.join(format!("{name}.part"));
+            let deadline = Instant::now() + std::time::Duration::from_secs(30);
+            loop {
+                for path in [&finished, &partial] {
+                    if let Ok(file) = fs::OpenOptions::new()
+                        .read(true)
+                        .share_mode(SHARE_ALL)
+                        .open(path)
+                    {
+                        return Ok(PackSource::Stream {
+                            reader: Box::new(GrowingDownload {
+                                file,
+                                read: 0,
+                                bytes: *bytes,
+                                finished: finished.clone(),
+                                partial: partial.clone(),
+                                last_growth: Instant::now(),
+                            }),
+                            bytes: *bytes,
+                        });
+                    }
+                }
+                if Instant::now() > deadline {
+                    return Err(format!("the installer is not downloading {name}"));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+        PackOrigin::Url { url, bytes } => {
+            let agent = ureq::AgentBuilder::new()
+                .timeout_connect(std::time::Duration::from_secs(30))
+                .timeout_read(std::time::Duration::from_secs(90))
+                .build();
+            let response = agent
+                .get(url)
+                .call()
+                .map_err(|error| format!("download the CLIO runtime from {url}: {error}"))?;
+            Ok(PackSource::Stream {
+                reader: response.into_reader(),
+                bytes: *bytes,
+            })
+        }
+    }
 }
 
 /// Resolve the runtime used by a managed backend, installing a compressed
@@ -122,51 +277,92 @@ fn prepare_windows_runtime(
     }
 
     let archive_path = resource_dir.join(&manifest.archive);
-    if !archive_path.is_file() {
+    let origins = pack_origins(archive_path.clone(), &manifest);
+    if origins.is_empty() {
         return Err(format!(
             "the bundled runtime is incomplete: {:?} is missing",
             archive_path
         ));
     }
-    progress("Checking the bundled CLIO runtime download...");
-    let actual_hash = sha256_file(&archive_path)?;
-    if actual_hash != expected_hash {
-        return Err(format!(
-            "the bundled runtime archive failed its integrity check (expected {expected_hash}, got {actual_hash})"
-        ));
-    }
-
-    // Stop every CLIO-managed process under the install root BEFORE touching
-    // any directory below it. The shared clio-core daemon (`clio_run.exe`)
-    // deliberately survives an ordinary app quit (it breaks away from our Job
-    // Object so independent CLIO clients can keep using it — see
-    // `supervisor_shutdown`), so a user who closed CLIO Desktop right before
-    // this runs can still have it sitting on the very directory this function
-    // is about to rename out from under it. This sweep — clean `stop` first,
-    // then TerminateProcess + an actual wait on the handle, never a fixed
-    // sleep — replaces the installer's old encoded-PowerShell-plus-`Sleep
-    // 1500` macro, which guessed at a shutdown time instead of confirming it.
-    progress("Preparing the runtime installation directory...");
-    installer_runtime_stop::stop_and_log(resource_dir, "prepare-runtime");
-
     // The app is single-instance, so stable names are sufficient and let a
     // later launch or the uninstaller clean a directory left by a power loss.
+    // No managed process ever runs from the staging directory.
     let staging_root = app_local_data_dir.join("bundled-runtime.installing");
     let previous_root = app_local_data_dir.join("bundled-runtime.previous");
+    progress("Preparing the runtime installation directory...");
     remove_dir_if_present(&staging_root)?;
-    remove_dir_if_present(&previous_root)?;
     fs::create_dir_all(&staging_root)
         .map_err(|error| format!("create runtime staging directory {staging_root:?}: {error}"))?;
 
     let install_result = (|| -> Result<(), String> {
-        progress("Unpacking the bundled CLIO runtime...");
+        progress("Unpacking and checking the bundled CLIO runtime...");
         let started = Instant::now();
-        let report = crate::runtime_unpack::unpack_runtime(
-            &archive_path,
-            &staging_root,
-            manifest.runtime_files,
-            progress,
-        )?;
+        // Stop every CLIO-managed process under the install root BEFORE touching
+        // the installed runtime or its backup. The shared clio-core daemon
+        // (`clio_run.exe`) deliberately survives an ordinary app quit (it breaks
+        // away from our Job Object so independent CLIO clients can keep using it
+        // — see `supervisor_shutdown`), so a user who closed CLIO Desktop right
+        // before this runs can still have it sitting on the directory this
+        // function renames. The sweep (clean `stop`, then TerminateProcess and a
+        // wait on the handle) runs while the pack unpacks into staging.
+        let (unpacked, stopped) = std::thread::scope(|scope| {
+            let stopping = scope.spawn(|| {
+                let started = Instant::now();
+                installer_runtime_stop::stop_and_log(resource_dir, "prepare-runtime");
+                started.elapsed().as_secs_f64()
+            });
+            let unpacked = (|| {
+                let mut failures = Vec::new();
+                for (index, origin) in origins.iter().enumerate() {
+                    if index > 0 {
+                        remove_dir_if_present(&staging_root)?;
+                        fs::create_dir_all(&staging_root).map_err(|error| {
+                            format!("create runtime staging directory {staging_root:?}: {error}")
+                        })?;
+                    }
+                    progress(match origin {
+                        PackOrigin::Resource(_) => "Reading the bundled CLIO runtime...",
+                        PackOrigin::Download { .. } => {
+                            "Unpacking the CLIO runtime while it downloads..."
+                        }
+                        PackOrigin::Url { .. } => "Downloading and unpacking the CLIO runtime...",
+                    });
+                    let attempt = open_pack(origin).and_then(|source| {
+                        crate::runtime_unpack::unpack_runtime(
+                            source,
+                            &staging_root,
+                            manifest.runtime_files,
+                            progress,
+                        )
+                    });
+                    match attempt {
+                        Ok(report) if report.sha256 == expected_hash => return Ok(report),
+                        Ok(report) => failures.push(format!(
+                            "the CLIO runtime archive failed its integrity check \
+                             (expected {expected_hash}, got {})",
+                            report.sha256
+                        )),
+                        Err(error) => failures.push(error),
+                    }
+                    if let Some(failure) = failures.last() {
+                        if index + 1 < origins.len() {
+                            progress(&format!("{failure}; trying the release download instead."));
+                        }
+                    }
+                }
+                Err(failures.join("; "))
+            })();
+            (unpacked, stopping.join())
+        });
+        let report = unpacked?;
+        let stop_seconds =
+            stopped.map_err(|_| "stopping the managed CLIO processes panicked".to_string())?;
+        progress(&format!(
+            "Unpacked and hashed {} files, {} MB ({:.1}s; managed processes stopped in {stop_seconds:.1}s).",
+            report.files,
+            report.bytes / (1024 * 1024),
+            started.elapsed().as_secs_f64()
+        ));
         let files = report.files;
 
         progress("Checking and activating the unpacked CLIO runtime...");
@@ -180,6 +376,7 @@ fn prepare_windows_runtime(
         )
         .map_err(|error| format!("write runtime installation receipt: {error}"))?;
 
+        remove_dir_if_present(&previous_root)?;
         if install_root.exists() {
             installer_dir_swap::rename_with_retry(
                 &install_root,
@@ -211,6 +408,7 @@ fn prepare_windows_runtime(
         let _ = fs::remove_dir_all(&staging_root);
     }
     install_result?;
+    prescan_office(&runtime_dir);
 
     // The signed installer can restore this payload during repair and a newer
     // updater supplies a fresh one. Keeping it after a successful extraction
@@ -219,37 +417,80 @@ fn prepare_windows_runtime(
     Ok(Some(runtime_dir))
 }
 
-/// Report actual installer phases and extracted file counts to the NSIS log.
+/// Read the files the Office renderer loads, several at once, in the background.
+///
+/// Defender scans each new file again when it is first opened, so the first
+/// `soffice` start after an install takes about 12 s instead of 3 s while it loads
+/// 344 MB of libraries one by one. Reading them in parallel while the agent starts
+/// moves that scan off the Office check. Reading runs nothing, and the process may
+/// exit before it finishes.
+#[cfg(windows)]
+fn prescan_office(runtime_dir: &Path) {
+    use std::io::Read;
+    let office = runtime_dir.join("documents").join("office");
+    let program = office.join("program");
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut walk = vec![
+        office.join("share").join("registry"),
+        program.join("services"),
+        program.join("types"),
+    ];
+    if let Ok(entries) = fs::read_dir(&program) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let native = path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+                ["dll", "exe", "bin", "com"]
+                    .iter()
+                    .any(|n| e.eq_ignore_ascii_case(n))
+            });
+            if native && entry.file_type().is_ok_and(|t| t.is_file()) {
+                files.push(path);
+            }
+        }
+    }
+    while let Some(dir) = walk.pop() {
+        for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+            match entry.file_type() {
+                Ok(t) if t.is_dir() => walk.push(entry.path()),
+                Ok(t) if t.is_file() => files.push(entry.path()),
+                _ => {}
+            }
+        }
+    }
+    if files.is_empty() {
+        return;
+    }
+    // Largest first, so the long scans start at once rather than last.
+    files.sort_by_cached_key(|path| {
+        std::cmp::Reverse(fs::metadata(path).map(|m| m.len()).unwrap_or(0))
+    });
+    let files = std::sync::Arc::new(files);
+    let next = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    for _ in 0..8 {
+        let (files, next) = (files.clone(), next.clone());
+        let _ = std::thread::Builder::new()
+            .name("office-prescan".into())
+            .spawn(move || {
+                let mut buffer = vec![0u8; 1 << 20];
+                loop {
+                    let index = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(path) = files.get(index) else { break };
+                    if let Ok(mut file) = fs::File::open(path) {
+                        while matches!(file.read(&mut buffer), Ok(n) if n > 0) {}
+                    }
+                }
+            });
+    }
+}
+
+/// Report actual installer phases and extracted file counts to the NSIS log
+/// and the timed installer record (`install_log`).
 #[cfg(windows)]
 pub(crate) fn prepare_runtime_for_installer(
     resource_dir: &Path,
     app_local_data_dir: &Path,
 ) -> Result<Option<PathBuf>, String> {
-    prepare_windows_runtime(resource_dir, app_local_data_dir, &|message| {
-        println!("{message}");
-    })
-}
-
-#[cfg(windows)]
-fn sha256_file(path: &Path) -> Result<String, String> {
-    let file = File::open(path).map_err(|error| format!("open {path:?} for hashing: {error}"))?;
-    let mut reader = BufReader::new(file);
-    let mut hasher = Sha256::new();
-    // Keep the bulk I/O buffer off the Windows process main-thread stack.
-    // The native installer invokes this code through a small helper mode and
-    // Windows gives that thread a 1 MiB stack by default; a 1 MiB local array
-    // overflowed before extraction could even create its staging directory.
-    let mut buffer = vec![0_u8; 1024 * 1024];
-    loop {
-        let read = reader
-            .read(&mut buffer)
-            .map_err(|error| format!("hash runtime archive {path:?}: {error}"))?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
+    prepare_windows_runtime(resource_dir, app_local_data_dir, &crate::install_log::line)
 }
 
 #[cfg(windows)]
@@ -347,7 +588,9 @@ fn remove_runtime_tree_parallel(runtime_root: &Path) -> Result<(), String> {
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
     use std::cell::RefCell;
+    use std::fs::File;
     use std::io::Write;
     use std::os::windows::fs::OpenOptionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -379,7 +622,10 @@ mod tests {
         let encoder = builder.into_inner().expect("finish tar");
         encoder.finish().expect("finish zstd");
 
-        let hash = sha256_file(&archive_path).expect("hash pack");
+        let hash = format!(
+            "{:x}",
+            Sha256::digest(fs::read(&archive_path).expect("read pack"))
+        );
         let manifest = serde_json::json!({
             "schema": 1,
             "archive": "gact-runtime.tar.zst",
@@ -418,10 +664,13 @@ mod tests {
             "archive should be reclaimed after successful installation"
         );
         let recorded = stages.borrow();
-        assert_eq!(recorded[0], "Checking the bundled CLIO runtime download...");
+        assert_eq!(
+            recorded[0],
+            "Preparing the runtime installation directory..."
+        );
         assert!(recorded
             .iter()
-            .any(|line| line == "Unpacking the bundled CLIO runtime..."));
+            .any(|line| line == "Unpacking and checking the bundled CLIO runtime..."));
         assert!(recorded
             .last()
             .expect("completion")
@@ -535,31 +784,45 @@ mod tests {
         .expect_err("hash must fail");
         assert!(error.contains("failed its integrity check"), "{error}");
         assert_eq!(
-            *stages.borrow(),
-            ["Checking the bundled CLIO runtime download..."]
+            stages.borrow()[..2],
+            [
+                "Preparing the runtime installation directory...",
+                "Unpacking and checking the bundled CLIO runtime..."
+            ]
         );
         assert!(!app_data.join("bundled-runtime").exists());
+        assert!(!app_data.join("bundled-runtime.installing").exists());
         fs::remove_dir_all(root).expect("cleanup");
     }
 
     #[test]
-    fn hashes_runtime_pack_on_a_small_windows_helper_stack() {
+    fn unpacks_and_hashes_runtime_pack_on_a_small_windows_helper_stack() {
+        // The installer helper's main thread has a 1 MiB stack: no bulk buffer
+        // in the single read-and-hash pass may live on it.
         let root = temp_case("small-stack-hash");
-        fs::create_dir_all(&root).expect("test directory");
-        let archive_path = root.join("runtime.pack");
-        fs::write(&archive_path, vec![0x5a_u8; 2 * 1024 * 1024]).expect("test archive");
+        let resources = root.join("resources");
+        let hash = write_test_pack(&resources);
+        let staging = root.join("staging");
+        fs::create_dir_all(&staging).expect("staging directory");
 
-        let hash_path = archive_path.clone();
-        let hash = std::thread::Builder::new()
+        let archive_path = resources.join("gact-runtime.tar.zst");
+        let report = std::thread::Builder::new()
             .name("installer-helper-stack".into())
             .stack_size(256 * 1024)
-            .spawn(move || sha256_file(&hash_path))
+            .spawn(move || {
+                crate::runtime_unpack::unpack_runtime(
+                    crate::runtime_unpack::PackSource::File(archive_path),
+                    &staging,
+                    Some(1),
+                    &|_| {},
+                )
+            })
             .expect("small-stack thread")
             .join()
-            .expect("hash thread must not overflow")
-            .expect("hash archive");
+            .expect("unpack thread must not overflow")
+            .expect("unpack archive");
 
-        assert_eq!(hash.len(), 64);
+        assert_eq!(report.sha256, hash);
         fs::remove_dir_all(root).expect("cleanup");
     }
 

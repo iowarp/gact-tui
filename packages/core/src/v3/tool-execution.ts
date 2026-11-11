@@ -46,6 +46,7 @@ export function mergeToolInvocation(
     ...previous,
     ...candidate,
     presentation: candidate.presentation ?? previous.presentation,
+    parent_call_id: candidate.parent_call_id ?? previous.parent_call_id,
   };
   if (candidate.execution_problem) return { ...merged, execution_task: candidate.execution_task };
   const older = previous.execution_task;

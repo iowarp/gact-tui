@@ -105,6 +105,9 @@ if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
 $sharedModelCacheRoot = [System.IO.Path]::GetFullPath(
     (Join-Path $env:LOCALAPPDATA "clio-dev\cache\huggingface")
 )
+$sharedDoclingArtifactsRoot = [System.IO.Path]::GetFullPath(
+    (Join-Path $env:LOCALAPPDATA "clio-dev\cache\docling-artifacts")
+)
 $toolRoot = Join-Path $generationRoot "tools"
 $timingPath = Join-Path $configRoot "deploy-timing.json"
 
@@ -525,6 +528,9 @@ $containedEnvironment = @{
     HF_HOME = $sharedModelCacheRoot
     HF_HUB_CACHE = Join-Path $sharedModelCacheRoot "hub"
     HF_XET_CACHE = Join-Path $sharedModelCacheRoot "xet"
+    # Microsoft Store Python virtualizes AppData into its package LocalCache, so
+    # services started from it cannot find files written to the real AppData.
+    UV_PYTHON_PREFERENCE = "only-managed"
 }
 New-Item -ItemType Directory -Force -Path @(
     $runtimeRoot,
@@ -559,7 +565,7 @@ if ($Provider -eq "claude_code") {
 if ($LASTEXITCODE -ne 0) {
     throw "The backend environment could not be synchronized from its pinned uv.lock."
 }
-& $uv run --frozen --no-sync --project $backendRoot python -c "import iowarp_core, psutil; from clio_schemas import A2UIClientActionMessage"
+& $uv run --frozen --no-sync --project $backendRoot python -c "import iowarp_core, psutil; from clio_schemas import A2UIClientMessage"
 if ($LASTEXITCODE -ne 0) {
     throw "The synchronized backend environment is missing CTE, process-lifecycle, or current schema imports."
 }
@@ -580,6 +586,56 @@ if ($LASTEXITCODE -ne 0) {
     python -c "from clio_web_search.main import app; from docling.document_converter import DocumentConverter"
 if ($LASTEXITCODE -ne 0) {
     throw "The synchronized document processor environment is missing its service or Docling imports."
+}
+
+# huggingface_hub fills its cache through symlinks. Windows refuses them without
+# Developer Mode or elevation (WinError 1314), so Docling's warmup never gets its
+# models and the readiness wait runs out. When symlinks are unavailable, download
+# the models once into a plain machine-local directory and point Docling at it.
+# A DOCLING_ARTIFACTS_PATH set by the caller always wins.
+$doclingArtifactsPath = [Environment]::GetEnvironmentVariable("DOCLING_ARTIFACTS_PATH", "Process")
+if ([string]::IsNullOrWhiteSpace($doclingArtifactsPath)) {
+    $symlinkProbeTarget = Join-Path $tempRoot "symlink-probe-target"
+    $symlinkProbeLink = Join-Path $tempRoot "symlink-probe-link"
+    $symlinksAllowed = $false
+    try {
+        New-Item -ItemType File -Force -Path $symlinkProbeTarget | Out-Null
+        New-Item -ItemType SymbolicLink -Path $symlinkProbeLink -Target $symlinkProbeTarget -ErrorAction Stop | Out-Null
+        $symlinksAllowed = $true
+    }
+    catch {
+        $symlinksAllowed = $false
+    }
+    finally {
+        Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $symlinkProbeLink, $symlinkProbeTarget
+    }
+    if (-not $symlinksAllowed) {
+        $doclingArtifactsPath = $sharedDoclingArtifactsRoot
+    }
+}
+if (-not [string]::IsNullOrWhiteSpace($doclingArtifactsPath)) {
+    $doclingArtifactsMarker = Join-Path $doclingArtifactsPath ".clio-dev-complete"
+    if (-not (Test-Path -LiteralPath $doclingArtifactsMarker -PathType Leaf)) {
+        Set-DeploymentStage -Name "document_processor_models"
+        New-Item -ItemType Directory -Force -Path $doclingArtifactsPath | Out-Null
+        $originalXet = [Environment]::GetEnvironmentVariable("HF_HUB_DISABLE_XET", "Process")
+        [Environment]::SetEnvironmentVariable("HF_HUB_DISABLE_XET", "1", "Process")
+        try {
+            & $uv run `
+                --frozen `
+                --no-sync `
+                --project $documentProcessorRoot `
+                python -c "import sys; from pathlib import Path; from docling.utils.model_downloader import download_models; download_models(output_dir=Path(sys.argv[1]), with_tableformer_v2=True, with_code_formula=False, with_picture_classifier=False)" `
+                $doclingArtifactsPath
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable("HF_HUB_DISABLE_XET", $originalXet, "Process")
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "The Docling models could not be downloaded into $doclingArtifactsPath."
+        }
+        Set-Content -LiteralPath $doclingArtifactsMarker -Value (Get-Date).ToUniversalTime().ToString("o") -Encoding utf8
+    }
 }
 
 Set-DeploymentStage -Name "runtime_tools"
@@ -617,6 +673,9 @@ $documentProcessorEnvironment = @{
     # Docling enables torch.compile by default. Portable Windows development
     # runs must not require an MSVC C++ toolchain merely to perform inference.
     DOCLING_INFERENCE_COMPILE_TORCH_MODELS = "false"
+}
+if (-not [string]::IsNullOrWhiteSpace($doclingArtifactsPath)) {
+    $documentProcessorEnvironment.DOCLING_ARTIFACTS_PATH = $doclingArtifactsPath
 }
 $originalDocumentProcessorEnvironment = @{}
 foreach ($name in $documentProcessorEnvironment.Keys) {
@@ -703,9 +762,12 @@ $runtimeEnvironment = @{
     PATH = "$uvToolBin;$([Environment]::GetEnvironmentVariable('PATH', 'Process'))"
     SPOTTER_IMPL_DIR = $spotterImplRoot
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
+    # The backend writes cte.yaml from this; without it clio-core binds the
+    # default port, which another generation or session may already own.
+    CLIO_CORE_PORT = "$CtePort"
 }
 if ($Provider -eq "codex") {
-    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "sdk"
+    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "websocket"
 }
 elseif ($Provider -eq "claude_code") {
     $runtimeEnvironment.CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
@@ -747,13 +809,13 @@ do {
     catch {
         $health = $null
     }
-    if ($null -ne $health -and $health.overall_status -eq "ready") {
+    if (Test-ClioDevHealthReady -Health $health) {
         break
     }
     Start-Sleep -Milliseconds 500
 } while ([DateTime]::UtcNow -lt $deadline)
 
-if ($null -eq $health -or $health.overall_status -ne "ready") {
+if (-not (Test-ClioDevHealthReady -Health $health)) {
     Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
     throw "CLIO backend did not become ready within $BackendReadinessTimeoutSec seconds."
 }
@@ -765,11 +827,11 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
 # profile store, the catalog, and the UI all observe one effective selection.
 Set-DeploymentStage -Name "provider_reconciliation"
 $providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
-$providerInfo = Invoke-RestMethod `
+$providerInfo = Invoke-ClioDevProviderRequest `
     -Uri $providerUri `
     -TimeoutSec $BackendReadinessTimeoutSec
 $expectedTransport = if ($Provider -eq "codex") {
-    "sdk"
+    "websocket"
 }
 elseif ($Provider -eq "claude_code") {
     "sdk"
@@ -800,10 +862,9 @@ if ($providerNeedsApply) {
     if ($expectedTransport) {
         $providerRequest.transport = $expectedTransport
     }
-    $providerInfo = Invoke-RestMethod `
+    $providerInfo = Invoke-ClioDevProviderRequest `
         -Uri $providerUri `
         -Method Put `
-        -ContentType "application/json" `
         -Body ($providerRequest | ConvertTo-Json) `
         -TimeoutSec 300
     if ($providerInfo.state -eq "configuring") {

@@ -29,10 +29,21 @@ const policySchema = z
     scope_id: z.string().optional(),
     action: z.string(),
     priority: z.number().int().optional(),
-    kind: z.enum(['tool', 'domain', 'fs_root', 'plan_acl', 'hook']).optional(),
+    kind: z
+      .enum([
+        'tool',
+        'domain',
+        'fs_root',
+        'plan_acl',
+        'hook',
+        'browser_host',
+        'browser_certificate',
+      ])
+      .optional(),
     tool_name_pattern: z.string().optional(),
     path_pattern: z.string().optional(),
     host_pattern: z.string().optional(),
+    fingerprint: z.string().optional(),
     modes: z.array(z.string()).optional(),
     on: z.array(z.string()).optional(),
   })
@@ -95,6 +106,21 @@ const memoryEventSchema = z.object({
   arc_status: z.string().default('unknown'),
   metadata: recordSchema.default({}),
 });
+const optionalText = z
+  .string()
+  .nullish()
+  .transform((value) => (value ? value : undefined));
+const optionalFlag = z
+  .boolean()
+  .nullish()
+  .transform((value) => value ?? undefined);
+/** The `sandbox` row's acknowledgement verdict; null on every other `/v1/health` row. */
+const sandboxVerdictFields = {
+  reason: optionalText,
+  active: optionalFlag,
+  acknowledgement_required: optionalFlag,
+  warning: optionalText,
+};
 const serviceHealthSchema = z.object({
   healthy: z.boolean(),
   uptime_s: z.number().int().nonnegative(),
@@ -124,6 +150,7 @@ const serviceHealthSchema = z.object({
         .nullish()
         .transform((value) => value ?? undefined),
       required: z.boolean().default(true),
+      ...sandboxVerdictFields,
     }),
   ),
   tool_hooks_installed: z
@@ -167,10 +194,9 @@ const sandboxStatusSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   required: z.boolean().default(true),
-  reason: z
-    .string()
-    .nullish()
-    .transform((value) => (value ? value : undefined)),
+  ...sandboxVerdictFields,
+  resolved: optionalFlag,
+  mechanism: optionalText,
   setup_in_progress: z.boolean().default(false),
   setup_progress: z
     .object({

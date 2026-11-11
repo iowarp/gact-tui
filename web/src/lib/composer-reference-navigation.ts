@@ -16,7 +16,7 @@ interface ComposerReferenceNavigation {
   openDiff: (diff: SessionDiff) => void;
   openExternal: (uri: string) => void;
   openSession: (workspaceId: string, sessionId: string) => void;
-  openWorkspaceFile: (path: string) => void;
+  openWorkspaceFile: (path: string, location?: { locator?: string }) => void;
   openWorkspaceResource: (resource: WorkspaceResource) => void;
   reference: WorkspaceReference;
   repository: Pick<ClioRepository, 'artifactDetail' | 'resource'>;
@@ -100,7 +100,9 @@ export async function navigateComposerReference({
     case 'workspace_file': {
       const path = stringNavigation(reference, 'path') || reference.id;
       if (!path) return unresolved('This reference names no workspace path.');
-      openWorkspaceFile(path);
+      const locator = stringNavigation(reference, 'locator');
+      if (locator) openWorkspaceFile(path, { locator });
+      else openWorkspaceFile(path);
       return OPENED;
     }
     case 'resource': {
@@ -156,6 +158,12 @@ export async function navigateComposerReference({
     case 'session':
     case 'agent_run':
       return openOwningSession() ?? unresolved('This reference names no conversation to open.');
+    case 'subagent':
+    case 'workflow':
+    case 'flow':
+    case 'server':
+      // A summons names what handles the message; there is nothing to open.
+      return unresolved('What you summoned has no page of its own.');
     case 'unknown':
       return unresolved('This version of the app has no way to open this kind of reference.');
   }

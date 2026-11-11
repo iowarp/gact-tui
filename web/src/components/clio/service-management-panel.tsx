@@ -1,50 +1,45 @@
-import type {
-  InfrastructureOperation,
-  ManagedServiceDefinition,
-  ServiceActionInput,
-} from '@clio/core/v3';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { GpuFact, InfrastructureOperation, ManagedServiceDefinition } from '@clio/core/v3';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { ServiceConfirmSlot, ServiceFooterSlot } from './service-footer-slot';
 import { Link } from 'react-router-dom';
+import {
+  ActivityIcon,
+  HardDriveIcon,
+  PlayIcon,
+  ScrollTextIcon,
+  ShieldCheckIcon,
+  SquareIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+import { ConfigureIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from './primitives/icon-button';
+import { StatusIndicator } from './primitives/status-indicator';
+import { TextTabs } from './primitives/text-tabs';
 import { InfoTip } from './info-tip';
 import { InstallExpectation } from './install-expectation';
-import { ServiceAccessLine } from './managed-service-access';
 import { EffectiveParameters, OwnedResources } from './managed-service-parameters';
 import { ManagedServiceForm } from './managed-service-form';
 import { ServiceInstallationMethod } from './service-installation-method';
-import { ManagedServiceReceipt } from './managed-service-receipt';
 import { OperationProgress } from './operation-progress';
-import {
-  ManagedServiceLogo,
-  ManagedServiceState,
-  VerificationState,
-} from './managed-service-identity';
 import { managedServiceStatus } from '@/lib/managed-service-status';
+import { engineId } from './managed-service-gpus';
+import { ServiceConfirmDialog } from './service-management-confirm-dialog';
+import { ServiceFacts, ServiceStorageFacts } from './service-management-facts';
+import { portOf, serviceAbout, STATUS_TONE } from './service-management-model';
+import type {
+  ServiceAction,
+  ServiceActionFeedback,
+  ServiceActionOptions,
+} from './service-management-types';
 
-export type ServiceAction = ServiceActionInput['action'];
-export type ServiceActionFeedback = {
-  action: ServiceAction;
-  error?: boolean;
-  text: string;
-  /** The finished operation, whose steps, reuse notes and log stay viewable. */
-  operationId?: string;
-};
-export type ServiceActionOptions = {
-  /** Bypass every reuse check for this install (`install.from_scratch`). */
-  fromScratch?: boolean;
-};
+export type {
+  ServiceAction,
+  ServiceActionFeedback,
+  ServiceActionOptions,
+} from './service-management-types';
 
 /** Definition-driven setup and resource management with separate lifecycle verbs. */
 export function ManagedServiceCard({
@@ -67,6 +62,7 @@ export function ManagedServiceCard({
   targetId,
   hostLabel = 'this execution host',
   setup = false,
+  gpus,
 }: {
   activeAction?: ServiceAction;
   connectionAction?: {
@@ -95,6 +91,8 @@ export function ManagedServiceCard({
   targetId?: string;
   hostLabel?: string;
   setup?: boolean;
+  /** The host's GPUs (facts.gpus); absent or empty keeps the plain device fields. */
+  gpus?: GpuFact[];
 }) {
   const [localTab, setLocalTab] = useState('status');
   const [confirmation, setConfirmation] = useState<ServiceAction>();
@@ -111,7 +109,8 @@ export function ManagedServiceCard({
     (row) => row.id === variant && row.install_type === 'native_uv',
   );
   const monitoring = service.category === 'monitoring';
-  const llama = service.id === 'llama_cpp' || service.id.startsWith('llama_cpp@');
+  const engine = engineId(service);
+  const llama = engine === 'llama_cpp';
   const retainsData = native || monitoring;
   const installed =
     Boolean(service.observation?.installed) ||
@@ -139,7 +138,7 @@ export function ManagedServiceCard({
       configuration.database_mode === 'site' &&
       !configuration.database_settings_path?.trim()) ||
     Boolean(modelProblem);
-  const modelPackageOnly = llama || (native && service.id === 'ollama');
+  const modelPackageOnly = llama || (native && engine === 'ollama');
   const missingInstallation = modelPackageOnly
     ? fields.some(
         (field) =>
@@ -150,6 +149,8 @@ export function ManagedServiceCard({
     : missing;
   const activeTab = tab ?? localTab;
   const editing = setup || (!installed && !recorded);
+  const footerSlot = useContext(ServiceFooterSlot);
+  const panelId = useId();
   const loadedLogs = useRef(false);
   useEffect(() => {
     if (!editing && activeTab === 'logs' && !activeAction && !loadedLogs.current) {
@@ -170,7 +171,7 @@ export function ManagedServiceCard({
     status: 'Check status',
     logs: 'View logs',
     stop: 'Stop',
-    reinstall: llama ? 'Reinstall runtime' : 'Apply configuration',
+    reinstall: changed ? 'Apply configuration' : llama ? 'Reinstall runtime' : 'Reinstall',
     uninstall: retainsData ? 'Remove runtime' : 'Uninstall',
     delete_data: 'Delete retained data',
     verify: 'Verify setup',
@@ -191,17 +192,8 @@ export function ManagedServiceCard({
       key={action}
       size="sm"
       variant={['install', 'start', 'verify'].includes(action) ? 'default' : 'outline'}
-      disabled={
-        Boolean(activeAction) ||
-        (!compatible && ['install', 'reinstall', 'start'].includes(action)) ||
-        (missingInstallation && ['install', 'reinstall'].includes(action)) ||
-        (missing && action === 'start' && (llama || !installed))
-      }
-      onClick={() =>
-        ['uninstall', 'delete_data', 'reinstall'].includes(action)
-          ? confirm(action)
-          : onAction(action)
-      }
+      disabled={disabledFor(action)}
+      onClick={() => run(action)}
     >
       {activeAction === action ? <Spinner aria-hidden="true" /> : null}
       {activeAction === action ? progressLabels[action] : labels[action]}
@@ -219,30 +211,63 @@ export function ManagedServiceCard({
       installationOnly={modelPackageOnly && editing}
       showIntroduction={!llama || editing}
       showMethod={!editing}
+      gpus={gpus}
     />
   );
+  const disabledFor = (action: ServiceAction) =>
+    Boolean(activeAction) ||
+    (!compatible && ['install', 'reinstall', 'start'].includes(action)) ||
+    (missingInstallation && ['install', 'reinstall'].includes(action)) ||
+    (missing && action === 'start' && (llama || !installed));
+  const run = (action: ServiceAction) =>
+    ['uninstall', 'delete_data', 'reinstall'].includes(action) ? confirm(action) : onAction(action);
+  // Setup's Install sits in the hosting dialog's footer, right of Cancel, as in the spec.
+  const setFooterConfirm = useContext(ServiceConfirmSlot);
+  const runInstall = useRef(run);
+  useEffect(() => {
+    runInstall.current = run;
+  });
+  const installLabel = activeAction === 'install' ? progressLabels.install : labels.install;
+  const installDisabled = disabledFor('install');
+  useEffect(() => {
+    if (!setFooterConfirm || !editing) return;
+    setFooterConfirm({
+      label: installLabel,
+      disabled: installDisabled,
+      onConfirm: () => runInstall.current('install'),
+    });
+    return () => setFooterConfirm(undefined);
+  }, [setFooterConfirm, editing, installLabel, installDisabled]);
+  /** A lifecycle verb as an icon with its name on hover, a spinner while it runs. */
+  const actIcon = (action: ServiceAction, icon: ReactNode, label = labels[action]) => (
+    <IconButton
+      disabled={disabledFor(action)}
+      icon={activeAction === action ? <Spinner aria-hidden="true" /> : icon}
+      key={action}
+      label={activeAction === action ? progressLabels[action] : label}
+      onClick={() => run(action)}
+    />
+  );
+  const running = service.state === 'running';
+  const port = portOf(service.connection_url);
+  const statusLabel =
+    running && port ? `${serviceStatus.label} on port ${port}` : serviceStatus.label;
+  const lifecycle = editing ? null : (
+    <>
+      {running && service.supports_stop ? actIcon('stop', <SquareIcon aria-hidden="true" />) : null}
+      {!running && installed ? actIcon('start', <PlayIcon aria-hidden="true" />) : null}
+      {installed ? actIcon('reinstall', <RetryIcon aria-hidden="true" />) : null}
+      {installed || (recorded && service.observation?.phase !== 'not_installed')
+        ? actIcon('uninstall', <DeleteIcon aria-hidden="true" />)
+        : null}
+    </>
+  );
+  const about = serviceAbout(service, variant);
   return (
-    <article aria-label={`${service.label} management`} className="min-w-0 space-y-5">
-      <header className="flex items-start gap-3">
-        <ManagedServiceLogo service={service} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold">{service.label}</h3>
-            <ManagedServiceState service={service} />
-            <VerificationState service={service} />
-            <InfoTip label={`About ${service.label}`}>
-              {service.description}
-              {llama
-                ? ' Install prepares the runtime without loading a model. Start loads the selected model.'
-                : ''}
-              {native
-                ? ' Install prepares the pinned environment. Start loads the model. Removal retains models and evidence.'
-                : ''}
-            </InfoTip>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Runs on {hostLabel}</p>
-        </div>
-      </header>
+    <article
+      aria-label={`${service.label} management`}
+      className={editing ? 'min-w-0 space-y-5' : 'min-w-0 space-y-3'}
+    >
       {editing ? (
         <>
           <ServiceInstallationMethod service={service} variant={variant} onVariant={onVariant} />
@@ -250,190 +275,209 @@ export function ManagedServiceCard({
           {compatible && modelProblem && !llama ? (
             <p className="text-sm text-muted-foreground">{modelProblem}</p>
           ) : null}
-          <div className="flex gap-2">{act('install')}</div>
+          {setFooterConfirm ? null : <div className="flex gap-2">{act('install')}</div>}
         </>
       ) : (
-        <Tabs value={activeTab} onValueChange={selectTab}>
-          <TabsList
-            className="w-full justify-start overflow-x-auto overflow-y-hidden"
-            aria-label={`${service.label} management tabs`}
-          >
-            <TabsTrigger value="status">Status</TabsTrigger>
-            <TabsTrigger value="configuration">Configuration</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-          </TabsList>
-          <TabsContent value="status" className="space-y-4 pt-3">
-            {serviceStatus.reason ? (
-              <p className="text-sm text-warning-foreground">{serviceStatus.reason}</p>
-            ) : null}
-            {llama && installed && service.state !== 'running' ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Runtime installed. Choose a model to serve.
-                </p>
-                {form}
-                {modelProblem ? (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {modelProblem}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-            {connectionStatus}
-            {service.connection_url && service.state === 'running' ? (
-              <p className="break-all font-mono text-xs text-muted-foreground">
-                {service.connection_url}
-              </p>
-            ) : null}
-            {service.access ? <ServiceAccessLine access={service.access} /> : null}
-            <div className="flex flex-wrap gap-2">
-              {service.state === 'running' ? (
-                <>
-                  {monitoring ? act('verify') : null}
-                  {service.supports_stop ? act('stop') : null}
-                </>
-              ) : installed ? (
-                act('start')
-              ) : serviceStatus.action === 'install' ? (
-                act('install')
-              ) : null}
-              {act('status')}
-              {connectionAction?.to ? (
-                <Button asChild size="sm">
-                  <Link to={connectionAction.to}>{connectionAction.label}</Link>
-                </Button>
-              ) : connectionAction ? (
+        <>
+          <div className="flex h-8 min-w-0 items-stretch border-b border-border">
+            <TextTabs
+              className="flex-1"
+              compact
+              controls={panelId}
+              label={`${service.label} management tabs`}
+              onValueChange={selectTab}
+              tabs={[
+                { value: 'status', label: 'Status', icon: <ActivityIcon aria-hidden="true" /> },
+                {
+                  value: 'configuration',
+                  label: 'Configuration',
+                  icon: <ConfigureIcon aria-hidden="true" />,
+                },
+                { value: 'logs', label: 'Logs', icon: <ScrollTextIcon aria-hidden="true" /> },
+                { value: 'storage', label: 'Storage', icon: <HardDriveIcon aria-hidden="true" /> },
+              ]}
+              value={activeTab as 'status'}
+            />
+            <InfoTip className="size-7 self-center" label={`About ${service.label}`}>
+              {about}
+            </InfoTip>
+          </div>
+          {installed && changed ? (
+            <div className="flex min-h-[26px] min-w-0 flex-wrap items-center gap-2 text-[12px] text-warning">
+              <TriangleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Unapplied changes</span>
+              {onResetConfiguration ? (
                 <Button
                   size="sm"
-                  disabled={connectionAction.pending || Boolean(connectionAction.blockedReason)}
-                  onClick={connectionAction.onSelect}
+                  variant="ghost"
+                  disabled={Boolean(activeAction)}
+                  onClick={onResetConfiguration}
                 >
-                  {connectionAction.pending ? <Spinner aria-hidden="true" /> : null}
-                  {connectionAction.label}
+                  Discard changes
                 </Button>
               ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={disabledFor('reinstall')}
+                onClick={() => confirm('reinstall')}
+              >
+                Apply configuration
+              </Button>
             </div>
-            {connectionAction?.blockedReason ? (
-              <p role="alert" className="text-sm text-destructive">
-                {connectionAction.blockedReason}
-              </p>
-            ) : null}
-            <ManagedServiceReceipt service={service} />
-          </TabsContent>
-          <TabsContent value="configuration" className="space-y-5 pt-3">
-            {form}
-            {installed ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {act('reinstall')}
-                <Button
-                  disabled={Boolean(activeAction) || !compatible || missingInstallation}
-                  onClick={() => confirm('reinstall', true)}
-                  size="sm"
-                  variant="outline"
-                >
-                  Reinstall from scratch
-                </Button>
-                <InfoTip label="About applying service configuration">
-                  Applying configuration stops and replaces this runtime. Verify setup again
-                  afterward. Keep using the existing configuration until you apply your edits.
-                </InfoTip>
-                {changed ? (
+          ) : null}
+          <div className="space-y-3" id={panelId} role="tabpanel">
+            {activeTab === 'status' ? (
+              <>
+                <div className="flex min-h-[26px] min-w-0 items-center gap-2">
+                  <StatusIndicator
+                    className="min-w-0 truncate text-foreground"
+                    label={statusLabel}
+                    tone={STATUS_TONE[serviceStatus.kind]}
+                  />
+                  <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                    {serviceStatus.action === 'install' && !installed ? act('install') : null}
+                    {running && monitoring
+                      ? actIcon('verify', <ShieldCheckIcon aria-hidden="true" />)
+                      : null}
+                    {actIcon('status', <RefreshIcon aria-hidden="true" />)}
+                    <IconButton
+                      icon={<ScrollTextIcon aria-hidden="true" />}
+                      label="View logs"
+                      onClick={() => selectTab('logs')}
+                    />
+                  </span>
+                </div>
+                {serviceStatus.reason ? (
+                  <p className="text-[12px] text-warning">{serviceStatus.reason}</p>
+                ) : null}
+                {llama && installed && !running ? (
                   <>
-                    <span className="text-xs text-muted-foreground">Unapplied changes</span>
-                    {onResetConfiguration ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={Boolean(activeAction)}
-                        onClick={onResetConfiguration}
-                      >
-                        Discard changes
-                      </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Runtime installed. Choose a model to serve.
+                    </p>
+                    {form}
+                    {modelProblem ? (
+                      <p role="status" className="text-sm text-muted-foreground">
+                        {modelProblem}
+                      </p>
                     ) : null}
                   </>
                 ) : null}
-              </div>
+                <ServiceFacts
+                  monitoring={monitoring}
+                  running={running}
+                  service={service}
+                  variant={variant}
+                />
+                {connectionStatus}
+                {connectionAction ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {connectionAction.to ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={connectionAction.to}>{connectionAction.label}</Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          connectionAction.pending || Boolean(connectionAction.blockedReason)
+                        }
+                        onClick={connectionAction.onSelect}
+                      >
+                        {connectionAction.pending ? <Spinner aria-hidden="true" /> : null}
+                        {connectionAction.label}
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+                {connectionAction?.blockedReason ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {connectionAction.blockedReason}
+                  </p>
+                ) : null}
+              </>
+            ) : activeTab === 'configuration' ? (
+              <>
+                {form}
+                {installed ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      disabled={Boolean(activeAction) || !compatible || missingInstallation}
+                      onClick={() => confirm('reinstall', true)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Reinstall from scratch
+                    </Button>
+                    <InfoTip label="About applying service configuration">
+                      Applying configuration stops and replaces this runtime. Verify setup again
+                      afterward. Keep using the existing configuration until you apply your edits.
+                    </InfoTip>
+                  </div>
+                ) : (
+                  act('install')
+                )}
+                <EffectiveParameters
+                  rows={service.effective_parameters ?? []}
+                  serviceLabel={service.label}
+                />
+              </>
+            ) : activeTab === 'logs' ? (
+              <>
+                <div className="flex min-h-[26px] items-center gap-2 text-[12px] text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">Recent logs on {hostLabel}</span>
+                  <IconButton
+                    disabled={Boolean(activeAction)}
+                    icon={
+                      activeAction === 'logs' ? (
+                        <Spinner aria-hidden="true" />
+                      ) : (
+                        <RefreshIcon aria-hidden="true" />
+                      )
+                    }
+                    label={activeAction === 'logs' ? 'Refreshing…' : 'Refresh logs'}
+                    onClick={() => onAction('logs')}
+                  />
+                </div>
+                {result?.action === 'logs' ? (
+                  <pre
+                    aria-label={`${service.label} recent logs`}
+                    aria-live="polite"
+                    className="clio-scrollbar max-h-80 overflow-auto rounded-md border border-border p-3 font-mono text-xs leading-5 whitespace-pre-wrap"
+                  >
+                    {result.text}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    Reading recent logs from {hostLabel}…
+                  </p>
+                )}
+              </>
             ) : (
-              act('install')
+              <>
+                <ServiceStorageFacts hostLabel={hostLabel} service={service} />
+                <OwnedResources
+                  rows={service.owned_resources ?? []}
+                  serviceLabel={service.label}
+                  retained={retainsData}
+                />
+                {retainsData &&
+                recorded &&
+                !installed &&
+                service.observation?.phase === 'not_installed' ? (
+                  <div className="flex flex-wrap gap-2">{act('delete_data')}</div>
+                ) : null}
+              </>
             )}
-            <EffectiveParameters
-              rows={service.effective_parameters ?? []}
-              serviceLabel={service.label}
-            />
-          </TabsContent>
-          <TabsContent value="logs" className="space-y-3 pt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={Boolean(activeAction)}
-              onClick={() => onAction('logs')}
-            >
-              {activeAction === 'logs' ? 'Refreshing…' : 'Refresh logs'}
-            </Button>
-            {result?.action === 'logs' ? (
-              <section aria-label={`${service.label} recent logs`} className="rounded-lg border">
-                <p className="border-b p-3 text-xs font-medium">Recent logs</p>
-                <pre
-                  aria-live="polite"
-                  className="clio-scrollbar max-h-80 overflow-auto whitespace-pre-wrap p-3 font-mono text-xs leading-5"
-                >
-                  {result.text}
-                </pre>
-              </section>
-            ) : (
-              <p className="text-sm text-muted-foreground" role="status">
-                Reading recent logs from {hostLabel}…
-              </p>
-            )}
-          </TabsContent>
-          <TabsContent value="storage" className="space-y-4 pt-3">
-            {service.configuration['storage.service_directory'] ? (
-              <div>
-                <p className="text-xs text-muted-foreground">Service data on {hostLabel}</p>
-                <p className="break-all font-mono text-sm">
-                  {service.configuration['storage.service_directory']}
-                </p>
-              </div>
-            ) : null}
-            {service.observation?.evidence_directory ? (
-              <div>
-                <p className="text-xs text-muted-foreground">Retained evidence</p>
-                <p className="break-all font-mono text-sm">
-                  {service.observation.evidence_directory}
-                </p>
-              </div>
-            ) : null}
-            {service.configuration['storage.container_images'] ? (
-              <div>
-                <p className="text-xs text-muted-foreground">Container images on {hostLabel}</p>
-                <p className="break-all font-mono text-sm">
-                  {service.configuration['storage.container_images']}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">Download scratch space</p>
-                <p className="break-all font-mono text-sm">
-                  {service.configuration['storage.container_downloads']}
-                </p>
-              </div>
-            ) : null}
-            <OwnedResources
-              rows={service.owned_resources ?? []}
-              serviceLabel={service.label}
-              retained={retainsData}
-            />
-            <div className="flex flex-wrap gap-2">
-              {installed || (recorded && service.observation?.phase !== 'not_installed')
-                ? act('uninstall')
-                : null}
-              {retainsData &&
-              recorded &&
-              !installed &&
-              service.observation?.phase === 'not_installed'
-                ? act('delete_data')
-                : null}
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+          {footerSlot ? (
+            createPortal(lifecycle, footerSlot)
+          ) : (
+            <div className="flex items-center gap-0.5">{lifecycle}</div>
+          )}
+        </>
       )}
       {activeAction && operation ? (
         <OperationProgress
@@ -491,63 +535,25 @@ export function ManagedServiceCard({
           {result.text}
         </p>
       ) : null}
-      <AlertDialog
-        open={Boolean(confirmation)}
-        onOpenChange={(open) => {
-          if (!open) setConfirmation(undefined);
+      <ServiceConfirmDialog
+        changed={changed}
+        confirmation={confirmation}
+        expectation={expectation}
+        fromScratch={fromScratch}
+        hostLabel={hostLabel}
+        labels={labels}
+        llama={llama}
+        onConfirm={() => {
+          if (confirmation) {
+            onAction(confirmation, fromScratch ? { fromScratch: true } : undefined);
+          }
+          setConfirmation(undefined);
+          setFromScratch(false);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {fromScratch
-                ? `Reinstall ${service.label} from scratch?`
-                : confirmation === 'delete_data'
-                  ? `Delete retained ${service.label} data?`
-                  : confirmation === 'reinstall'
-                    ? `Apply ${service.label} configuration?`
-                    : `Remove ${service.label} runtime?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {fromScratch
-                ? 'This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer.'
-                : confirmation === 'delete_data'
-                  ? 'This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained.'
-                  : confirmation === 'reinstall'
-                    ? 'This stops and reinstalls the runtime on the selected host. Existing verification expires; run Verify setup again afterward.'
-                    : retainsData
-                      ? 'Stop and remove the runtime, retaining its databases, models, logs and evidence.'
-                      : 'Stop and remove this deployment and the resources listed under Storage.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {fromScratch || confirmation === 'reinstall' ? (
-            <InstallExpectation {...expectation} />
-          ) : null}
-          <p className="break-all font-mono text-xs">
-            {hostLabel} {service.configuration['storage.service_directory']}
-          </p>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {confirmation === 'delete_data' ? 'Keep data' : 'Cancel'}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (confirmation) {
-                  onAction(confirmation, fromScratch ? { fromScratch: true } : undefined);
-                }
-                setConfirmation(undefined);
-                setFromScratch(false);
-              }}
-            >
-              {fromScratch
-                ? 'Reinstall from scratch'
-                : confirmation
-                  ? labels[confirmation]
-                  : 'Continue'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onDismiss={() => setConfirmation(undefined)}
+        retainsData={retainsData}
+        service={service}
+      />
     </article>
   );
 }

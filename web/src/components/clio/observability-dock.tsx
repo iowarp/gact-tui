@@ -1,34 +1,8 @@
-import { vocab } from '@/lib/brand-vocabulary';
-import type {
-  ExecutionProvenanceDegradation,
-  ExecutionProvenanceResult,
-  Message,
-  SubagentRun,
-  ToolInvocation,
-  ProvenanceProviderSummary,
-  ArtifactProvenanceProviderSummary,
-} from '@clio/core/v3';
-import {
-  ActivityIcon,
-  BracesIcon,
-  ChartNoAxesGanttIcon,
-  CircleAlertIcon,
-  Layers3Icon,
-  WaypointsIcon,
-} from 'lucide-react';
-import { useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
+import type { Message, SubagentRun, ToolInvocation } from '@clio/core/v3';
+import { ActivityIcon, BracesIcon, GitForkIcon } from 'lucide-react';
+import { lazy, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { InfoIcon } from '@/lib/icon-vocabulary';
 import { formatDuration } from '@/lib/format';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import {
@@ -38,11 +12,12 @@ import {
   ClioActivityTimeline,
   type ObservabilityActivityItem,
 } from './observability-activity';
-import { ClioEvidenceView } from './observability-evidence';
-import { ObservabilityWork } from './observability-work';
+import { ClioActivityTimelineList } from './activity-timeline-list';
+import { ActivityRecordFooter, ProvenanceSourceBar } from './observability-provenance';
+import { WorkspaceFoldersBar } from './workspace-folders';
 import { ClioStatus } from './status';
-import { TechnicalDetails } from './technical-details';
-import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
+import { getToolStatus, getToolSummary } from './tool-presentation';
+import { compactDuration, toolActivityName, toolDurationMs } from './workbench-activity-model';
 import type { SubagentOpenTarget } from './subagent-card';
 
 import type { ObservabilityView } from './observability-view-storage';
@@ -52,19 +27,25 @@ import {
   observabilityViewStorageKey,
   restoredObservabilityView,
 } from './observability-view-storage';
+import { ObservabilityViewControl } from './observability-view-control';
 
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
+import { ResourceLoading } from './resource-states';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
 
+// React Flow and its layout code load when the relationships view first opens.
+const ConversationRelationships = lazy(() =>
+  import('./conversation-relationships').then((module) => ({
+    default: module.ConversationRelationships,
+  })),
+);
+
 export function ClioObservabilityView({
-  artifacts,
+  workspaceFolders,
   contextFiles,
   contextFrames,
-  diffs,
   messages,
   processes,
-  workPages,
-  tasks,
   tools,
   runs,
   subagents,
@@ -75,8 +56,6 @@ export function ClioObservabilityView({
   contextFramesError,
   contextFramesPending,
   contextTargets,
-  diffsError,
-  diffsPending,
   processesError,
   processesPending,
   selectedContextTargetId,
@@ -85,37 +64,37 @@ export function ClioObservabilityView({
   onCompactContext,
   onContextTargetChange,
   onUpdateContextPreferences,
-  onOpenArtifact,
-  onOpenDiff,
   onOpenFile,
   onOpenResource,
   onOpenSubagent,
-  onOpenFlow,
-  onCancelTask,
-  onControlTask,
   executionProvenance,
   provenanceProviders,
   artifactProvenanceProvider,
   provenanceProvider,
   provenancePending,
+  provenanceEarlier,
   provenanceDegradation,
   onProvenanceProviderChange,
   resources,
   sessionId,
   sessions,
-  familyProvenance,
-  familyProvenancePending,
-  onLoadFamilyProvenance,
+  onOpenArtifact,
   requestedView,
+  views,
   interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [activeView, setActiveView] = useState<ObservabilityView>(
+  // A host that owns the view switch (the workbench's Activity tab) names the view.
+  const control = useContext(ObservabilityViewControl);
+  const [chosenView, setActiveView] = useState<ObservabilityView>(
     () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
-  useEffect(() => {
-    if (activeView === 'work') onLoadFamilyProvenance?.();
-  }, [activeView, onLoadFamilyProvenance]);
+  // The selected conversation survives switching views, not switching sessions.
+  const [selected, setSelected] = useState<{ sessionId?: string; id: string }>();
+  const selectedId = selected?.sessionId === sessionId ? selected?.id : undefined;
+  const offered = (view: ObservabilityView) => !views || views.includes(view);
+  const activeView =
+    control?.view ?? (views && !views.includes(chosenView) ? views[0] : chosenView);
   // Reset the restored view when the session identity itself changes, without
   // an effect: adjusting state from a prop change during render (rather than
   // in a post-commit effect) avoids the extra render-then-reset flash.
@@ -162,6 +141,7 @@ export function ClioObservabilityView({
             run.elapsed_ms === undefined
               ? 'Agent run'
               : `${formatDuration(run.elapsed_ms)} elapsed`,
+          fact: run.elapsed_ms === undefined ? undefined : compactDuration(run.elapsed_ms),
           state: run.state,
           at: run.completed_at ?? run.started_at,
           timing: run.completed_at || run.started_at ? 'event' : undefined,
@@ -185,12 +165,15 @@ export function ClioObservabilityView({
         ) {
           return [];
         }
+        const duration = toolDurationMs(tool);
         return [
           {
             id: tool.id,
             kind: 'tool',
-            label: getToolActivityTitle(tool),
+            toolName: tool.name,
+            label: toolActivityName(tool),
             detail: getToolSummary(tool),
+            fact: duration === undefined ? undefined : compactDuration(duration),
             state: getToolStatus(tool),
             at: eventAt ?? turnContext?.at,
             groupId: turnContext?.turnId,
@@ -210,9 +193,15 @@ export function ClioObservabilityView({
       }),
       // An empty session_lineage ([]) is a legal "no children" answer, not a
       // missing read — it must still fall back to the plain processes list, or
-      // every process the Gantt shows below renders zero rows here.
+      // every background process renders zero rows here.
       ...(projected && projected.length > 0
-        ? childProjectionActivityItems(executionProvenance, processes, knownToolIds, onOpenFile)
+        ? childProjectionActivityItems(
+            executionProvenance,
+            processes,
+            knownToolIds,
+            onOpenFile,
+            tools,
+          )
         : processes.map(
             (process): ObservabilityActivityItem => ({
               id: process.id,
@@ -289,6 +278,15 @@ export function ClioObservabilityView({
     waitTurnContext,
   ]);
 
+  const turnStartedAt = useMemo(
+    () =>
+      runs.reduce<string | undefined>(
+        (latest, run) =>
+          run.started_at && (!latest || run.started_at > latest) ? run.started_at : latest,
+        undefined,
+      ),
+    [runs],
+  );
   const selectView = (value: string) => {
     if (!OBSERVABILITY_VIEWS.has(value as ObservabilityView)) return;
     const next = value as ObservabilityView;
@@ -297,345 +295,167 @@ export function ClioObservabilityView({
       window.localStorage.setItem(observabilityViewStorageKey(sessionId), next);
     }
   };
+  const provenanceBar = (
+    <>
+      <ProvenanceSourceBar
+        execution={executionProvenance}
+        artifactProvider={artifactProvenanceProvider}
+        degradation={provenanceDegradation}
+        earlier={provenanceEarlier}
+        onProviderChange={onProvenanceProviderChange}
+        pending={provenancePending}
+        provider={provenanceProvider}
+        providers={provenanceProviders}
+      />
+      <WorkspaceFoldersBar folders={workspaceFolders} />
+    </>
+  );
+  const relationshipsView = (
+    <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
+      <ConversationRelationships
+        sessions={sessions ?? []}
+        sessionId={sessionId ?? ''}
+        onOpenArtifact={onOpenArtifact}
+        selectedId={selectedId}
+        onSelect={(id) => setSelected({ sessionId, id })}
+      />
+    </Suspense>
+  );
+  const contextView = (
+    <>
+      <SectionState
+        error={contextFilesError}
+        label="Attached context"
+        pending={contextFilesPending}
+      />
+      <SectionState
+        error={contextFramesError}
+        label="Context frames"
+        pending={contextFramesPending}
+      />
+      <ClioContextCanvasPanel
+        compactPending={compactContextPending}
+        context={context}
+        error={contextError}
+        files={contextFiles}
+        frames={contextFrames}
+        resources={resources}
+        onOpenResource={onOpenResource}
+        tools={tools}
+        messages={messages}
+        onCompact={onCompactContext}
+        onOpenFile={onOpenFile}
+        onTargetChange={onContextTargetChange}
+        onUpdatePreferences={onUpdateContextPreferences}
+        preferencesPending={contextPreferencesPending}
+        selectedTargetId={selectedContextTargetId}
+        targets={contextTargets}
+      />
+    </>
+  );
+  // The workbench's Activity tab: its own header, then the view, with no second row of tabs.
+  if (control?.renderHeader) {
+    const renderHeader = control.renderHeader;
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-col" ref={surfaceRef}>
+        {activeView === 'activity' ? (
+          <ClioActivityTimelineList
+            footer={
+              <ActivityRecordFooter
+                artifactProvider={artifactProvenanceProvider}
+                degradation={provenanceDegradation}
+                earlier={provenanceEarlier}
+                execution={executionProvenance}
+                folders={workspaceFolders}
+                onProviderChange={onProvenanceProviderChange}
+                pending={provenancePending}
+                provider={provenanceProvider}
+                providers={provenanceProviders}
+              />
+            }
+            items={activity}
+            messages={messages}
+            notice={
+              processesError || processesPending ? (
+                <div className="border-b px-3 py-1.5">
+                  <SectionState
+                    error={processesError}
+                    label="Background work"
+                    pending={processesPending}
+                  />
+                </div>
+              ) : null
+            }
+            renderHeader={renderHeader}
+            turnStartedAt={turnStartedAt}
+          />
+        ) : (
+          <>
+            {renderHeader(null)}
+            <ScrollArea className="min-h-0 min-w-0 flex-1">
+              {activeView === 'relationships' ? (
+                <div className="min-w-0">{relationshipsView}</div>
+              ) : (
+                <div className="grid gap-4 p-4">{contextView}</div>
+              )}
+            </ScrollArea>
+          </>
+        )}
+      </div>
+    );
+  }
   return (
-    <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
+    <div className="@container/obs h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
-        <TabsList
-          aria-label="Observability view"
-          variant="line"
-          className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
-        >
-          <ObservabilityTab
-            icon={<Layers3Icon className="size-3.5" />}
-            label="Evidence"
-            value="evidence"
-          />
-          <ObservabilityTab
-            icon={<ActivityIcon className="size-3.5" />}
-            label="Timeline"
-            value="activity"
-          />
-          <ObservabilityTab
-            icon={<ChartNoAxesGanttIcon className="size-3.5" />}
-            label="Gantt"
-            value="work"
-          />
-          <ObservabilityTab
-            icon={<BracesIcon className="size-3.5" />}
-            label="Context"
-            value="context"
-          />
-        </TabsList>
+        {control ? null : (
+          <TabsList
+            aria-label="Observability view"
+            variant="line"
+            className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
+          >
+            {offered('activity') ? (
+              <ObservabilityTab
+                icon={<ActivityIcon className="size-3.5" />}
+                label="Timeline"
+                value="activity"
+              />
+            ) : null}
+            {offered('relationships') ? (
+              <ObservabilityTab
+                icon={<GitForkIcon className="size-3.5" />}
+                label="Relationships"
+                value="relationships"
+              />
+            ) : null}
+            {offered('context') ? (
+              <ObservabilityTab
+                icon={<BracesIcon className="size-3.5" />}
+                label="Context"
+                value="context"
+              />
+            ) : null}
+          </TabsList>
+        )}
         <ScrollArea className="min-h-0 min-w-0 flex-1">
-          <TabsContent className="m-0 grid gap-2 p-3" value="work">
+          <TabsContent className="m-0 grid gap-2 p-4" value="activity">
+            {provenanceBar}
             <SectionState
               error={processesError}
               label="Background work"
               pending={processesPending}
             />
-            <ObservabilityWork
-              familyProvenance={familyProvenance}
-              familyProvenancePending={familyProvenancePending}
-              sessionId={sessionId}
-              sessions={sessions}
-              artifacts={artifacts}
-              onOpenArtifact={onOpenArtifact}
-              executionProvenance={executionProvenance}
-              messages={messages}
-              onOpenSubagent={onOpenSubagent}
-              processes={processes}
-              workPages={workPages}
-              runs={runs}
-              subagents={subagents}
-              tools={tools}
-            />
-          </TabsContent>
-          <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent
-            className="mx-auto my-0 grid w-full max-w-5xl gap-2 px-3 py-2"
-            value="evidence"
-          >
-            <SectionState error={diffsError} label="File changes" pending={diffsPending} />
-            <SectionState
-              error={contextFilesError}
-              label="Attached context"
-              pending={contextFilesPending}
-            />
-            <ProvenanceSourceBar
-              execution={executionProvenance}
-              onReview={() => selectView('activity')}
-              artifactProvider={artifactProvenanceProvider}
-              degradation={provenanceDegradation}
-              onProviderChange={onProvenanceProviderChange}
-              pending={provenancePending}
-              provider={provenanceProvider}
-              providers={provenanceProviders}
-            />
-            <ClioEvidenceView
-              onCancelTask={onCancelTask}
-              onControlTask={onControlTask}
-              artifacts={artifacts}
-              contextFiles={contextFiles}
-              diffs={diffs}
-              interactions={interactions}
-              messages={messages}
-              onOpenArtifact={onOpenArtifact}
-              onOpenDiff={onOpenDiff}
-              onOpenFile={onOpenFile}
-              onOpenResource={onOpenResource}
-              onOpenFlow={onOpenFlow}
-              onOpenSubagent={onOpenSubagent}
-              processes={processes}
-              workPages={workPages}
-              runs={runs}
-              subagents={subagents}
-              tasks={tasks}
-              executionProvenance={executionProvenance}
-              artifactProvenanceProvider={artifactProvenanceProvider}
-              provenanceDegradation={provenanceDegradation}
-              provenanceProvider={provenanceProviders?.find(
-                (provider) => provider.name === provenanceProvider,
-              )}
-              resources={resources}
-              tools={tools}
-            />
+          <TabsContent className="m-0 min-w-0" value="relationships">
+            {relationshipsView}
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
-            <SectionState
-              error={contextFilesError}
-              label="Attached context"
-              pending={contextFilesPending}
-            />
-            <SectionState
-              error={contextFramesError}
-              label="Context frames"
-              pending={contextFramesPending}
-            />
-            <ClioContextCanvasPanel
-              compactPending={compactContextPending}
-              context={context}
-              error={contextError}
-              files={contextFiles}
-              frames={contextFrames}
-              resources={resources}
-              onOpenResource={onOpenResource}
-              tools={tools}
-              messages={messages}
-              onCompact={onCompactContext}
-              onOpenFile={onOpenFile}
-              onTargetChange={onContextTargetChange}
-              onUpdatePreferences={onUpdateContextPreferences}
-              preferencesPending={contextPreferencesPending}
-              selectedTargetId={selectedContextTargetId}
-              targets={contextTargets}
-            />
+            {contextView}
           </TabsContent>
         </ScrollArea>
       </Tabs>
     </div>
   );
-}
-
-function ProvenanceSourceBar({
-  execution,
-  onReview,
-  artifactProvider,
-  degradation,
-  onProviderChange,
-  pending,
-  provider,
-  providers,
-}: {
-  execution?: ExecutionProvenanceResult;
-  onReview: () => void;
-  artifactProvider?: ArtifactProvenanceProviderSummary;
-  degradation?: ExecutionProvenanceDegradation;
-  onProviderChange?: (provider: string) => void;
-  pending?: boolean;
-  provider?: string;
-  providers?: readonly ProvenanceProviderSummary[];
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = providers?.find((item) => item.name === provider);
-  const selectedDegradation =
-    degradation && degradation.provider === selected?.name ? degradation : undefined;
-  const issue = evidenceRecordIssue(
-    selectedDegradation ?? (!selected ? degradation : undefined),
-    execution,
-    selected,
-  );
-  return (
-    <div className="grid gap-1 border-b pb-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <WaypointsIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="shrink-0 text-xs font-medium">Evidence sources</span>
-          {pending ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {providers && providers.length > 1 && provider && onProviderChange ? (
-            <Select onValueChange={onProviderChange} value={provider}>
-              <SelectTrigger aria-label="Activity record source" className="w-auto" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map((item) => (
-                  <SelectItem key={item.name} value={item.name}>
-                    <span className="flex items-center gap-2">
-                      <span>{recordSourceLabel(item.name)}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                aria-label={issue?.label ?? 'About evidence records'}
-                title={issue?.label ?? 'About evidence records'}
-                size={issue ? 'sm' : 'icon-xs'}
-                variant="ghost"
-                className={
-                  issue ? 'h-7 px-1.5 text-xs text-warning-foreground dark:text-warning' : undefined
-                }
-              >
-                {issue ? (
-                  <>
-                    <CircleAlertIcon aria-hidden="true" className="size-3.5" />
-                    <span>{issue.label}</span>
-                  </>
-                ) : (
-                  <InfoIcon aria-hidden="true" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 space-y-3 text-sm leading-6">
-              <p className="font-medium">{issue?.title ?? 'About these records'}</p>
-              <p>
-                {issue?.explanation ??
-                  'This view brings together saved activity, file use and artifact relationships for this conversation.'}
-              </p>
-              {issue ? <p className="text-muted-foreground">{issue.consequence}</p> : null}
-              <dl className="grid gap-2 border-t pt-3">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Activity history</dt>
-                  <dd>{selected ? recordSourceLabel(selected.name) : 'Source unavailable'}</dd>
-                </div>
-                {artifactProvider ? (
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Artifact relationships</dt>
-                    <dd>
-                      {artifactProvider.provider === 'native'
-                        ? `${vocab.agent} artifact registry`
-                        : recordSourceLabel(artifactProvider.provider)}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => {
-                  setOpen(false);
-                  onReview();
-                }}
-              >
-                View activity timeline
-              </Button>
-              <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
-                <dl className="grid gap-1">
-                  <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>
-                  <div>Source: {selected?.source ?? 'unknown'}</div>
-                  <div>Source availability: {selected?.status ?? 'unknown'}</div>
-                  {artifactProvider ? (
-                    <div>Artifact provider: {artifactProvider.provider}</div>
-                  ) : null}
-                </dl>
-                {selectedDegradation ? (
-                  <p className="mt-2 break-words">{selectedDegradation.reason}</p>
-                ) : null}
-                {selected?.health.last_error ? (
-                  <p className="mt-2 break-words">Recording error: {selected.health.last_error}</p>
-                ) : null}
-              </TechnicalDetails>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function recordSourceLabel(provider: string): string {
-  return (
-    (
-      { native: `Built-in ${vocab.agent} records`, flowcept: 'Flowcept', cmf: 'CMF' } as Record<
-        string,
-        string
-      >
-    )[provider] ?? provider
-  );
-}
-
-/** Explain record coverage separately from whether its storage service can be queried. */
-function evidenceRecordIssue(
-  degradation: ExecutionProvenanceDegradation | undefined,
-  execution: ExecutionProvenanceResult | undefined,
-  source: ProvenanceProviderSummary | undefined,
-): { label: string; title: string; explanation: string; consequence: string } | undefined {
-  if (execution?.truncated)
-    return {
-      label: 'Limited history',
-      title: 'Some activity is not shown',
-      explanation: 'The recording source returned a limited number of records.',
-      consequence:
-        'This view cannot show the full sequence of work or all relationships between records.',
-    };
-  if (degradation?.partial && source?.name === 'native' && execution?.complete === false)
-    return {
-      label: 'Unfinished records',
-      title: 'Some activity has no recorded finish',
-      explanation: 'It may still be running, or its final update may be missing.',
-      consequence: 'The history cannot confirm completion or duration for those records.',
-    };
-  if (degradation?.partial || source?.status === 'partial')
-    return {
-      label: 'Partial history',
-      title: 'Activity history is incomplete',
-      explanation:
-        'The recording source cannot confirm that this view contains the full activity history.',
-      consequence:
-        'Some events or relationships may be missing. Review the available records before relying on the full sequence or timings.',
-    };
-  if (source && providerStatus(source.status, source.queryable) === 'degraded')
-    return {
-      label: 'Recording needs attention',
-      title: 'Some records may be missing',
-      explanation: 'The source can be read, but it reports a recording problem.',
-      consequence:
-        'Review the available activity with that limitation in mind. Technical details contain the source diagnostic.',
-    };
-  if (degradation || (source && providerStatus(source.status, source.queryable) !== 'healthy'))
-    return {
-      label: 'Recording unavailable',
-      title: 'Activity records could not be read',
-      explanation: 'The selected recording source is unavailable or reports a problem.',
-      consequence:
-        'The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic.',
-    };
-  return undefined;
-}
-
-function providerStatus(
-  status: string,
-  queryable: boolean,
-): 'healthy' | 'degraded' | 'unavailable' {
-  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
-  if (status === 'degraded' || status === 'partial') return 'degraded';
-  return 'healthy';
 }
 
 /** States an observability section the service could not deliver, or has not delivered yet. */
@@ -666,11 +486,13 @@ function ObservabilityTab({
   return (
     <TabsTrigger
       aria-label={label}
-      className="h-full min-w-max shrink-0 gap-1 px-1.5 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
+      className="h-full min-w-max flex-none shrink-0 gap-1 px-2 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
+      title={label}
       value={value}
     >
       {icon}
-      <span>{label}</span>
+      {/* A narrow pocket keeps only the selected view's name; the rest show their icon. */}
+      <span className="hidden @[20rem]/obs:inline [[data-state=active]>&]:inline">{label}</span>
     </TabsTrigger>
   );
 }

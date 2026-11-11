@@ -1,0 +1,335 @@
+import type { GpuFact, ManagedServiceDefinition } from '@clio/core/v3';
+import {
+  CpuIcon,
+  DownloadIcon,
+  FileTextIcon,
+  HardDriveIcon,
+  LinkIcon,
+  MonitorIcon,
+  PackageIcon,
+  PlayIcon,
+  PlugIcon,
+  SquareIcon,
+  UnlinkIcon,
+} from 'lucide-react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { vocab } from '@/lib/brand-vocabulary';
+import { AddIcon, ConfigureIcon, EditIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { managedServiceStatus } from '@/lib/managed-service-status';
+import { InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowMenu } from './infrastructure-row-menu';
+import { deploymentDevices } from './managed-service-gpus';
+import { SERVICE_GROUPS } from './managed-service-groups';
+import { VerificationState } from './managed-service-identity';
+import { IconButton } from './primitives/icon-button';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import { MenuRow } from './primitives/menu-row';
+import { StateView } from './primitives/state-view';
+import type { ManagedServiceCard, ServiceActionFeedback } from './service-management-panel';
+
+export type ServiceConnection = ComponentProps<typeof ManagedServiceCard>['connectionAction'];
+export type ServiceRowAction = 'start' | 'stop' | 'status';
+/** The management panel's tabs a row menu can open directly. */
+export type ServicePanelTab = 'status' | 'configuration' | 'logs' | 'storage';
+
+const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
+
+function rowStatus(service: ManagedServiceDefinition, working: boolean): InfraStatus {
+  const status = managedServiceStatus(service);
+  if (status.kind === 'starting' || status.kind === 'installing')
+    return { tone: 'running', label: status.label };
+  if (working) return { tone: 'running', label: 'Working' };
+  if (status.kind === 'running') return { tone: 'success', label: status.label };
+  if (status.kind === 'stopped') return { tone: 'idle', label: status.label };
+  if (status.kind === 'not_installed' && status.reason)
+    return { tone: 'warning', label: status.label };
+  return { tone: 'idle', label: status.label };
+}
+
+function servicePort(service: ManagedServiceDefinition): string | undefined {
+  if (service.connection_url) {
+    try {
+      const port = new URL(service.connection_url).port;
+      if (port) return port;
+    } catch {
+      // A bare host or socket path has no port to show.
+    }
+  }
+  return service.configuration.port || undefined;
+}
+
+function installedAs(service: ManagedServiceDefinition): string {
+  const variant = service.variants.find((row) => row.id === service.recommended_variant);
+  if (!variant || !service.owned_resources.length) return '';
+  return [variant.label, variant.version].filter(Boolean).join(' ');
+}
+
+function serviceSummary(service: ManagedServiceDefinition): string {
+  if (service.configuration.model) return service.configuration.model;
+  return installedAs(service) || service.description;
+}
+
+/** One managed service: state, port, a pinned lifecycle verb and the rest behind hover. */
+export function ManagedServiceInventoryRow({
+  service,
+  targetId,
+  hostLabel,
+  gpus,
+  connection,
+  operation,
+  busy,
+  feedback,
+  canAddInstance,
+  addInstanceForm,
+  onAddInstance,
+  onEditWebSearch,
+  onManage,
+  onOpenTab,
+  onRun,
+}: {
+  service: ManagedServiceDefinition;
+  targetId: string;
+  hostLabel: string;
+  gpus: GpuFact[];
+  connection?: ServiceConnection;
+  /** The id of an operation running on this service. */
+  operation?: string;
+  busy: boolean;
+  feedback?: ServiceActionFeedback;
+  canAddInstance: boolean;
+  /** The open "Add instance" name field, shown under the row. */
+  addInstanceForm?: ReactNode;
+  onAddInstance: () => void;
+  /** Web Search only: edit how the agent reaches it. */
+  onEditWebSearch?: () => void;
+  onManage: () => void;
+  onOpenTab: (tab: ServicePanelTab) => void;
+  onRun?: (action: ServiceRowAction) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const status = managedServiceStatus(service);
+  const working = busy || Boolean(operation);
+  const devices = deploymentDevices(service, { gpus });
+  const port = servicePort(service);
+  const searxngNote =
+    service.id === 'searxng'
+      ? targetId === 'local'
+        ? 'Built-in search engine'
+        : `Not connected to ${vocab.agent}`
+      : undefined;
+  const canStop = status.kind === 'running' && service.supports_stop;
+  const lifecycle: { label: string; icon: ReactNode; onClick: () => void } | undefined =
+    status.action === 'install' && !operation
+      ? { label: `Install ${service.label}`, icon: <DownloadIcon />, onClick: onManage }
+      : onRun && canStop
+        ? { label: `Stop ${service.label}`, icon: <SquareIcon />, onClick: () => onRun('stop') }
+        : onRun && status.action === 'start'
+          ? { label: `Start ${service.label}`, icon: <PlayIcon />, onClick: () => onRun('start') }
+          : onRun
+            ? {
+                label: `Check ${service.label} status`,
+                icon: <RefreshIcon />,
+                onClick: () => onRun('status'),
+              }
+            : undefined;
+  const facts: KeyValueItem[] = [
+    { label: 'Computer', icon: <MonitorIcon />, value: hostLabel },
+    ...(service.connection_url
+      ? [
+          {
+            label: 'Address',
+            icon: <LinkIcon />,
+            value: service.connection_url,
+            mono: true,
+            title: service.connection_url,
+          },
+        ]
+      : []),
+    ...(service.configuration.model
+      ? [{ label: 'Model', icon: <CpuIcon />, value: service.configuration.model, mono: true }]
+      : []),
+    ...(service.definition_version
+      ? [
+          {
+            label: 'Version',
+            icon: <HardDriveIcon />,
+            value: service.definition_version,
+            mono: true,
+          },
+        ]
+      : []),
+    ...(connection?.connected !== undefined
+      ? [
+          {
+            label: 'Agent connection',
+            icon: <PlugIcon />,
+            value: connection.connected
+              ? `Connected to ${vocab.agent}`
+              : `Not connected to ${vocab.agent}`,
+            title: `Connection makes this service available to ${vocab.agent}. Its runtime can be stopped separately.`,
+          },
+        ]
+      : []),
+    ...(searxngNote
+      ? [
+          {
+            label: 'Agent connection',
+            icon: <PlugIcon />,
+            value: searxngNote,
+            title: `The local ${vocab.agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent.`,
+          },
+        ]
+      : []),
+    ...(service.id === 'searxng' && installedAs(service)
+      ? [{ label: 'Installed as', icon: <PackageIcon />, value: installedAs(service), mono: true }]
+      : []),
+  ];
+  const error = feedback?.error ? feedback.text : undefined;
+  const showDetails = expanded || Boolean(error) || Boolean(addInstanceForm);
+  const connectionItem = connection?.to ? (
+    <DropdownMenuItem asChild>
+      <Link to={connection.to}>
+        <MenuRow icon={<LinkIcon />} label={connection.label} />
+      </Link>
+    </DropdownMenuItem>
+  ) : connection?.onSelect ? (
+    <DropdownMenuItem
+      disabled={connection.pending || Boolean(connection.blockedReason)}
+      onSelect={connection.onSelect}
+      title={connection.blockedReason}
+    >
+      <MenuRow
+        description={connection.blockedReason}
+        icon={connection.connected ? <UnlinkIcon /> : <LinkIcon />}
+        label={connection.label}
+      />
+    </DropdownMenuItem>
+  ) : null;
+  return (
+    <InfraRow
+      actions={
+        <InfraRowMenu
+          actions={[{ icon: <ManageIcon />, label: `Manage ${service.label}`, onSelect: onManage }]}
+          label={`More actions for ${service.label}`}
+          menu={
+            <>
+              {connectionItem}
+              {onEditWebSearch ? (
+                <DropdownMenuItem onSelect={onEditWebSearch}>
+                  <MenuRow icon={<EditIcon />} label="Edit connection" />
+                </DropdownMenuItem>
+              ) : null}
+              {canAddInstance ? (
+                <DropdownMenuItem onSelect={onAddInstance}>
+                  <MenuRow icon={<AddIcon />} label="Add named instance" />
+                </DropdownMenuItem>
+              ) : null}
+              {connectionItem || onEditWebSearch || canAddInstance ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              {onRun && !lifecycle?.label.startsWith('Check ') ? (
+                <DropdownMenuItem disabled={working} onSelect={() => onRun('status')}>
+                  <MenuRow icon={<RefreshIcon />} label="Check status" />
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onSelect={() => onOpenTab('configuration')}>
+                <MenuRow icon={<ConfigureIcon />} label="Configure" />
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onOpenTab('logs')}>
+                <MenuRow icon={<FileTextIcon />} label="View logs" />
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onOpenTab('storage')}>
+                <MenuRow icon={<HardDriveIcon />} label="Storage and removal" />
+              </DropdownMenuItem>
+            </>
+          }
+        />
+      }
+      className="cursor-pointer"
+      description={
+        <>
+          <span title={service.description}>
+            {status.reason ??
+              (service.id === 'searxng' ? 'Built-in search engine' : serviceSummary(service))}
+          </span>
+          {devices ? (
+            <span className="ml-2" title="The GPUs this deployment may use">
+              {devices}
+            </span>
+          ) : null}
+        </>
+      }
+      details={
+        showDetails ? (
+          <>
+            {error ? (
+              <StateView
+                action={{ label: 'View logs', onClick: () => onOpenTab('logs') }}
+                kind="error"
+                size="row"
+                title={error}
+              />
+            ) : null}
+            {addInstanceForm}
+            {expanded ? (
+              <>
+                <KeyValueGrid items={facts} />
+                <VerificationState service={service} />
+              </>
+            ) : null}
+          </>
+        ) : undefined
+      }
+      icon={<ServiceGroupIcon category={service.category} />}
+      meta={
+        port ? (
+          <span className="text-muted-foreground" title={`Port ${port}`}>
+            port {port}
+          </span>
+        ) : undefined
+      }
+      onClick={() => setExpanded((open) => !open)}
+      primaryAction={
+        lifecycle ? (
+          <span onClick={stop}>
+            <IconButton
+              disabled={working}
+              icon={lifecycle.icon}
+              label={working ? 'Working…' : lifecycle.label}
+              onClick={lifecycle.onClick}
+              size="sm"
+            />
+          </span>
+        ) : null
+      }
+      status={rowStatus(service, working)}
+      title={
+        <button
+          aria-expanded={expanded}
+          className="max-w-full truncate text-left outline-none focus-visible:underline"
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded((open) => !open);
+          }}
+          onKeyDown={(event) => {
+            // Space starts or stops the service in focus; Enter still opens its details.
+            if (event.key !== ' ' || !onRun || working || !(canStop || status.action === 'start'))
+              return;
+            event.preventDefault();
+            onRun(canStop ? 'stop' : 'start');
+          }}
+          type="button"
+        >
+          {service.label}
+        </button>
+      }
+    />
+  );
+}
+
+function ServiceGroupIcon({ category }: { category: ManagedServiceDefinition['category'] }) {
+  const Icon = SERVICE_GROUPS.find((group) => group.id === category)?.icon ?? CpuIcon;
+  return <Icon aria-hidden="true" />;
+}

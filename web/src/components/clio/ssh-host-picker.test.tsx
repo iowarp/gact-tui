@@ -567,7 +567,7 @@ describe('SshHostPicker', () => {
     await user.type(screen.getByLabelText('Address'), 'utah.example.edu');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    await screen.findByRole('button', { name: 'Testing…' });
+    await screen.findByRole('button', { name: 'Testing connection…' });
     expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
     expect(screen.queryByText('ssh>')).not.toBeInTheDocument();
   });

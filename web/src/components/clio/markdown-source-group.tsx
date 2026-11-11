@@ -191,7 +191,14 @@ export function MarkdownSourceParagraph({
     const tagName = child.props.node?.tagName;
     if (tagName === 'img' || (tagName === 'code' && 'data-block' in child.props)) return children;
   }
-  return <p {...props}>{groupSourceLinks(children)}</p>;
+  // The trailing line break keeps the paragraph boundary in the DOM text (it renders as
+  // nothing), so a selection maps back to its exact place in the Markdown source.
+  return (
+    <p {...props}>
+      {groupSourceLinks(children)}
+      {'\n'}
+    </p>
+  );
 }
 
 /** Tight Markdown list items omit their paragraph wrapper. */
@@ -204,6 +211,7 @@ export function MarkdownSourceListItem({
   return (
     <li {...props} className={cn('py-1 [&>p]:inline', className)} data-streamdown="list-item">
       {groupSourceLinks(children)}
+      {'\n'}
     </li>
   );
 }

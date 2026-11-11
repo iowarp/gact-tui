@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useSharedNow } from '@/lib/shared-clock';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 
@@ -120,18 +121,16 @@ export function ClioSteps({
       return EMPTY_PROGRESS;
     }
   });
-  const [now, setNow] = useState(() => Date.now());
+  // A click starts a timer between clock ticks; read it from that instant.
+  const [startedAt, setStartedAt] = useState(0);
+  const clockNow = useSharedNow(Object.keys(local.deadlines).length > 0);
+  const now = Math.max(clockNow, startedAt);
   const [fullscreen, setFullscreen] = useSurfaceFullScreen();
   useEffect(() => {
     // The producer's bound progress can arrive after the guide first mounts.
     // oxlint-disable-next-line react/set-state-in-effect
     if (progress) setLocal(readProgress(progress));
   }, [progress]);
-  useEffect(() => {
-    if (!Object.keys(local.deadlines).length) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [local.deadlines]);
   const write = (next: GuideProgress) => {
     setLocal(next);
     try {
@@ -296,7 +295,7 @@ export function ClioSteps({
                         <Button
                           onClick={() => {
                             const started = Date.now();
-                            setNow(started);
+                            setStartedAt(started);
                             write({
                               ...local,
                               deadlines: {

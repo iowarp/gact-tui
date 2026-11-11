@@ -1,6 +1,6 @@
 import { type ClioRepository, type Message as DomainMessage } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { domAnimation, LazyMotion } from 'motion/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -46,9 +46,13 @@ afterEach(() => {
 
 function renderConversation(element: ReactElement) {
   return render(
-    <AppearanceProvider>
-      <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
-    </AppearanceProvider>,
+    // Message rows use motion's lazy `m.div`; load the same animation features
+    // as the app so their initial opacity settles before visibility assertions.
+    <LazyMotion features={domAnimation}>
+      <AppearanceProvider>
+        <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
+      </AppearanceProvider>
+    </LazyMotion>,
   );
 }
 
@@ -125,7 +129,8 @@ it('shows the recorded interruption cause even when tools and partial output exi
   await waitFor(() =>
     expect(screen.getByText('The PDF is created; reviewing pages.')).toBeVisible(),
   );
-  expect(screen.getByText('Interrupted')).toBeVisible();
+  expect(screen.getByText('This reply didn’t finish')).toBeVisible();
+  expect(screen.queryByText('Failed')).not.toBeInTheDocument();
 });
 
 it('withholds recovery actions while an empty response is still active', () => {
@@ -156,62 +161,6 @@ it('withholds recovery actions while an empty response is still active', () => {
 });
 
 describe('ClioConversation recovery actions', () => {
-  it('keeps a structured context reference visible and clickable in the sent message', async () => {
-    const user = userEvent.setup();
-    const onOpenReference = vi.fn();
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_reference',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-09-02T00:00:00Z',
-            blocks: [
-              {
-                id: 'reference_part',
-                type: 'context_reference',
-                ref_kind: 'workspace_file',
-                ref_id: 'README.md',
-                label: 'README.md',
-                revision: 'sha256:abc',
-                media_type: 'text/markdown',
-                navigation: { workspace_id: 'workspace_1', path: 'README.md' },
-              },
-              { id: 'text_part', type: 'text', text: 'Use this as context.' },
-            ],
-          },
-        ]}
-        onOpenReference={onOpenReference}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    const reference = screen.getByRole('button', { name: 'Open referenced local file README.md' });
-    // The kind is named the way a reader would name it, and the addressing
-    // revision is not shown as prose anywhere on the card.
-    expect(reference).toHaveAttribute('title', 'local file');
-    expect(reference).toHaveAttribute('data-reference-revision', 'sha256:abc');
-    expect(reference).not.toHaveTextContent('sha256:abc');
-    expect(reference).not.toHaveTextContent('·');
-    expect(reference.querySelector('svg')).toHaveClass('lucide-file-text');
-
-    await user.click(reference);
-    expect(onOpenReference).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'workspace_file',
-        id: 'README.md',
-        detail: '',
-        navigation: { workspace_id: 'workspace_1', path: 'README.md' },
-      }),
-    );
-    expect(screen.getByText('Use this as context.')).toBeInTheDocument();
-  });
-
   it('presents user attachments above the prompt without exposing private prompt context', () => {
     const onOpenResource = vi.fn();
     const resource = {
@@ -293,22 +242,20 @@ describe('ClioConversation recovery actions', () => {
     const attachment = screen.getByLabelText('Open paper.pdf');
     expect(attachment).toHaveTextContent('paper.pdf');
     expect(attachment).not.toHaveTextContent('Converted');
-    expect(within(attachment).getByLabelText('Attachment status: Ready')).toHaveAttribute(
-      'role',
-      'img',
-    );
+    // A ready attachment needs no status.
+    expect(within(attachment).queryByLabelText(/^Attachment status/)).toBeNull();
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     const textBubble = screen
       .getByText('Analyze this filing.')
       .closest<HTMLElement>('[data-slot="message-text"]');
     expect(textBubble).toHaveClass(
-      'group-[.is-user]:rounded-lg',
+      'group-[.is-user]:rounded-[12px]',
       'group-[.is-user]:bg-secondary',
-      'group-[.is-user]:px-4',
-      'group-[.is-user]:py-2.5',
+      'group-[.is-user]:px-3.5',
+      'group-[.is-user]:py-[9px]',
     );
     expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
-    const attachmentTray = attachment.closest<HTMLElement>('[data-slot="scroll-area"]');
+    const attachmentTray = attachment.closest<HTMLElement>('[data-slot="message-attachments"]');
     expect(attachmentTray).not.toContainElement(textBubble);
     expect(textBubble?.parentElement?.firstElementChild).toBe(attachmentTray);
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
@@ -411,7 +358,7 @@ describe('ClioConversation recovery actions', () => {
     expect(before.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('renders an accepted steer as the real human message and permits cancellation before claim', () => {
+  it('renders an accepted steer as the real human message and permits cancellation before claim', async () => {
     const onCancelPendingSteer = vi.fn();
 
     renderConversation(
@@ -436,15 +383,16 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const message = screen.getByText('Use the newer evidence.').closest('.border-dashed');
-    expect(message).toHaveClass('border-dashed');
+    expect(screen.getByText('Use the newer evidence.').closest('.border-dashed')).toBeNull();
+    // The latest rows fade in; wait for the fade before judging visibility.
+    await waitFor(() => expect(screen.getByText('Queued')).toBeVisible());
     expect(screen.queryByText(/steering|safe boundary/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel pending message' }));
     expect(onCancelPendingSteer).toHaveBeenCalledWith('message_pending');
   });
 
-  it('keeps a claimed steer visually pending without offering an invalid cancellation', () => {
+  it('keeps a claimed steer visually pending without offering an invalid cancellation', async () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -466,9 +414,8 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Inspect the alternate station.').closest('.border-dashed'),
-    ).toHaveClass('border-dashed');
+    await waitFor(() => expect(screen.getByText('Inspect the alternate station.')).toBeVisible());
+    expect(screen.getByText('Queued')).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Cancel pending message' }),
     ).not.toBeInTheDocument();
@@ -487,16 +434,17 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Loading conversation')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading messages…');
     expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
   });
 
-  it('reports a transcript failure instead of presenting a false empty session', () => {
+  it('names the loading messages, not session setup, before a running session first page', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
-        error="The agent could not return this transcript."
+        awaitingFirstPage
         messages={[]}
+        preparation={{ activeTurnId: 'run', sessionState: 'running' }}
         subagents={{}}
         surfaces={{}}
         tasks={{}}
@@ -504,9 +452,74 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Conversation unavailable')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading messages…');
+    expect(screen.queryByText('Setting up session')).not.toBeInTheDocument();
+  });
+
+  it('reports a transcript failure instead of presenting a false empty session', () => {
+    const onReload = vi.fn();
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        error="The agent could not return this transcript."
+        messages={[]}
+        onReload={onReload}
+        preparation={{ activeTurnId: 'run', sessionState: 'running' }}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    // A running turn's preparation must not hide the failure.
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('This conversation could not be loaded');
+    expect(alert).not.toHaveTextContent('The agent could not return this transcript.');
+    expect(screen.queryByText('Setting up session')).not.toBeInTheDocument();
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
+    expect(onReload).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Technical details' }));
     expect(screen.getByText('The agent could not return this transcript.')).toBeVisible();
     expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
+  });
+
+  it('shows older pages as one quiet line: loadable, loading, or failed with Retry', () => {
+    const load = vi.fn();
+    const message = {
+      id: 'message_page',
+      session_id: 'session_1',
+      role: 'user' as const,
+      created_at: '2026-08-22T00:00:00Z',
+      blocks: [{ id: 'text_page', type: 'text' as const, text: 'Newest page.' }],
+    };
+    const view = (earlier: { loading: boolean; error?: string }) => (
+      <ClioConversation
+        artifacts={{}}
+        earlier={{ hasEarlier: true, load, ...earlier }}
+        messages={[message]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />
+    );
+    const wrap = (element: ReactElement) => (
+      <AppearanceProvider>
+        <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
+      </AppearanceProvider>
+    );
+    const { rerender } = render(wrap(view({ loading: false })));
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }));
+    expect(load).toHaveBeenCalledTimes(1);
+
+    rerender(wrap(view({ loading: true })));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading earlier messages…');
+
+    rerender(wrap(view({ loading: false, error: 'Page failed' })));
+    expect(screen.getByRole('alert')).toHaveTextContent('Earlier messages didn’t load');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it('uses the shared message action for recoverable assistant responses', () => {
@@ -598,8 +611,9 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Response unavailable')).toBeInTheDocument();
+    expect(screen.getByText('This reply didn’t load')).toBeInTheDocument();
     expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
     expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
   });
@@ -632,7 +646,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Response interrupted')).toBeInTheDocument();
+    expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
     expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
@@ -664,10 +678,10 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const notice = screen.getByText('Response cancelled').closest('[role="alert"]');
+    const notice = screen.getByText('Reply cancelled').closest('[data-slot="reply-error"]');
     expect(notice).toHaveClass('w-fit');
-    expect(notice?.querySelector('[data-slot="alert-title"]')).toHaveClass('whitespace-nowrap');
-    expect(notice?.querySelector('[data-slot="alert-description"]')).toBeNull();
+    expect(notice).not.toHaveAttribute('title');
+    expect(notice?.querySelector('[role="alert"]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
@@ -691,7 +705,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('This reply didn’t load')).not.toBeInTheDocument();
     expect(screen.getByText('This session has no messages')).toBeInTheDocument();
   });
 

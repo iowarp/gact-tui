@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 vi.mock('@/hooks/use-repository', () => ({
@@ -20,16 +21,18 @@ function show(state: RunState) {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <PromptInputProvider>
-        <ClioComposer
-          attachments={false}
-          contextReferences={false}
-          state={state}
-          model="test"
-          provider="test"
-          onSubmit={onSubmit}
-        />
-      </PromptInputProvider>
+      <LiveConnection>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            contextReferences={false}
+            state={state}
+            model="test"
+            provider="test"
+            onSubmit={onSubmit}
+          />
+        </PromptInputProvider>
+      </LiveConnection>
     </QueryClientProvider>,
   );
   return onSubmit;
@@ -48,19 +51,14 @@ describe('Composer delivery keys and visible action', () => {
   ] as const)('%s with modifier=%s delivers %s', async (state, modifier, delivery) => {
     const user = userEvent.setup();
     const submit = show(state);
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/u });
+    const editor = screen.getByRole('combobox', { name: /^Ask /u });
     await user.type(editor, 'Keep this request');
     if (modifier) await user.keyboard('{Control>}');
     expect(
       screen.getByRole('button', {
-        name:
-          delivery === 'queued'
-            ? 'Queue message'
-            : delivery === 'steer'
-              ? 'Steer current work'
-              : 'Submit',
+        name: delivery === 'queued' ? 'Queue' : delivery === 'steer' ? 'Steer' : 'Send',
       }),
-    ).toHaveTextContent(delivery === 'queued' ? 'Queue' : delivery === 'steer' ? 'Steer' : 'Send');
+    ).toBeEnabled();
     await user.keyboard('{Enter}');
     if (modifier) await user.keyboard('{/Control}');
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
@@ -70,18 +68,15 @@ describe('Composer delivery keys and visible action', () => {
   it('updates the button on modifier release and clears a held modifier when the window loses focus', async () => {
     const user = userEvent.setup();
     const submit = show('running');
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/u }),
-      'Queued request',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask /u }), 'Queued request');
     fireEvent.keyDown(window, { key: 'Control', ctrlKey: true });
-    expect(screen.getByRole('button', { name: 'Steer current work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Steer' })).toBeVisible();
     fireEvent.keyUp(window, { key: 'Control', ctrlKey: false });
-    expect(screen.getByRole('button', { name: 'Queue message' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeVisible();
     fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
-    expect(screen.getByRole('button', { name: 'Steer current work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Steer' })).toBeVisible();
     fireEvent.blur(window);
-    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+    await user.click(screen.getByRole('button', { name: 'Queue' }));
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
     expect(submit.mock.calls[0]?.[0]).toMatchObject({ delivery: 'queued' });
   });

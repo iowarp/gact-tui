@@ -205,49 +205,6 @@ export function useCascader<T = unknown>(): CascaderContextValue<T> {
 /*                              Headless selection                            */
 /* -------------------------------------------------------------------------- */
 
-export interface CascaderSelection<T = unknown> {
-  /** The selected nodes, resolved. Empty when nothing is selected. */
-  selected: CascaderNode<T>[];
-  /** Ancestor chain per selected node, root first, node last. */
-  paths: CascaderNode<T>[][];
-  /** The single selection, or the first one in `multiple` mode. */
-  first: CascaderNode<T> | null;
-  /** Ancestor chain of `first`. */
-  firstPath: CascaderNode<T>[];
-  count: number;
-  isEmpty: boolean;
-  multiple: boolean;
-  remove: (value: string) => void;
-  clear: () => void;
-}
-
-/** Headless access to the selection, for a trigger of the consumer's own.
- * Pass the payload explicitly to get `node.data` typed. */
-export function useCascaderSelection<T = unknown>(): CascaderSelection<T> {
-  const { multiple, setSelection } = useCascaderActions<T>();
-  const { index, selectedValues } = useCascaderState<T>();
-
-  return React.useMemo(() => {
-    const selected = selectedValues
-      .map((value) => index.byValue.get(value))
-      .filter(Boolean) as CascaderNode<T>[];
-    const paths = selectedValues.map((value) => getCascaderPath(index, value));
-
-    return {
-      selected,
-      paths,
-      first: selected[0] ?? null,
-      firstPath: paths[0] ?? [],
-      count: selectedValues.length,
-      isEmpty: selectedValues.length === 0,
-      multiple,
-      remove: (value: string) => setSelection(selectedValues.filter((entry) => entry !== value)),
-      // Explicit reason: emptying on purpose is not "deselect the last node".
-      clear: () => setSelection([], 'clear'),
-    };
-  }, [index, selectedValues, multiple, setSelection]);
-}
-
 /* -------------------------------------------------------------------------- */
 /*                                    Root                                    */
 /* -------------------------------------------------------------------------- */
@@ -1030,6 +987,11 @@ function Cascader<T>({
     hasVirtualRenderer &&
     (virtualLatch.key === levelKey ? virtualLatch.on || wantsVirtual : wantsVirtual);
 
+  // Before the first registration: a renderer's layout effect flips
+  // `virtualized` before paint, so rendering every row here only costs work
+  // (thousands of nodes, styled by any layout read) nobody ever sees.
+  const windowingPending = wantsVirtual && !hasVirtualRenderer;
+
   if (!hasVirtualRenderer) {
     // Nothing is windowing, so nothing may stay latched.
     if (virtualLatch.on || virtualLatch.key !== levelKey) {
@@ -1560,9 +1522,22 @@ function Cascader<T>({
       const unchanged =
         nextValues.length === current.length &&
         nextValues.every((entry, i) => entry === current[i]);
-      if (unchanged) return;
-
       const next = currentMultiple ? nextValues : (nextValues[0] ?? '');
+      if (unchanged) {
+        // Pressing the chosen row again is still a choice: report it, so a
+        // picker that closes on a pick closes on this one too.
+        if (!currentMultiple && node && reason === 'select' && emit) {
+          const chain = getCascaderPath(currentIndex, node.value);
+          emit(next, {
+            node,
+            path: chain.length ? chain : [node],
+            nodes: nextValues.map(resolve),
+            reason: 'reselect',
+          });
+        }
+        return;
+      }
+
       setValue(next);
 
       if (!emit) return;
@@ -1795,8 +1770,9 @@ function Cascader<T>({
       }
 
       // Opening onto the level holding the selection is the difference
-      // between "edit this" and "start over".
-      if (revealSelected) {
+      // between "edit this" and "start over". A keystroke that opens the
+      // list has already written the query; resetting here would drop it.
+      if (revealSelected && details.reason !== 'input-change') {
         setQuery('');
         const first = toArray(value)[0];
         setPathWithReason(
@@ -1843,6 +1819,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      windowingPending,
       registerVirtualRenderer,
       virtualize,
       virtualizeThreshold,
@@ -1887,6 +1864,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      windowingPending,
       registerVirtualRenderer,
       virtualize,
       virtualizeThreshold,
@@ -1922,7 +1900,14 @@ function Cascader<T>({
   // that identity is the ONLY thing that re-runs Base UI's `listRef` sizing
   // effect. See `virtualSyncs`.
   const comboboxItems = React.useMemo(
-    () => (virtualized ? renderedItems.slice() : renderedItems),
+    () =>
+      virtualized
+        ? renderedItems.slice()
+        : // Static rows register no option, and Base UI indexes options in DOM
+          // order, so they would shift every highlight after them.
+          renderedItems.some((node) => node.static)
+          ? renderedItems.filter((node) => !node.static)
+          : renderedItems,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [renderedItems, virtualized, virtualSyncs],
   );

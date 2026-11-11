@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { providerCatalogSchema } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
+import { vocab } from './brand-vocabulary';
 import {
   displayedTags,
   modelCapabilityTagLabel,
@@ -246,6 +247,57 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(tagsFor('image_generation', ['image'])).toEqual(['Image generator']);
     expect(tagsFor('chat', ['image', 'text'])).toEqual(['Makes image']);
     expect(tagsFor('other', ['tensor'])).toEqual(['Makes tensor', 'Other model']);
+  });
+
+  it('a snapshot-streaming model is tagged Diffusion and found by cap:diffusion', () => {
+    const provider = fixture.provider_catalog_live.providers.find(
+      (entry) => entry.id === 'argonne_sophia',
+    );
+    const [model] = provider!.models as Array<Record<string, unknown>>;
+    const row = (modelId: string, streamShape: unknown) => ({
+      ...model,
+      model_id: modelId,
+      stream_shape: streamShape,
+      capabilities_provenance: {
+        stream_shape: { source: 'overlay', decided_by: 'model' },
+      },
+    });
+    const catalog = providerCatalogSchema.parse({
+      ...fixture.provider_catalog_live,
+      providers: [
+        {
+          ...provider,
+          models: [
+            row('inception/mercury-3', 'snapshot'),
+            row('plain', 'append'),
+            row('odd', 'sideways'),
+            row('silent', null),
+          ],
+        },
+      ],
+    });
+    const byId = new Map(
+      buildModelOptions({
+        activeCatalogProvider: String(provider!.id),
+        providerCatalog: catalog,
+        presets: [],
+      })
+        .filter((option) => option.kind !== 'provider')
+        .map((option) => [option.id, option]),
+    );
+    const tags = modelCapabilityTagsFromOption(byId.get('inception/mercury-3')!);
+    const diffusion = tags.find((tag) => tag.value === 'diffusion')!;
+    expect(diffusion.axis).toBe('capability');
+    expect(displayedTags(tags).map(modelCapabilityTagLabel)).toContain('Diffusion');
+    expect(modelCapabilityTagSource(diffusion)).toBe(`From ${vocab.agent}'s model notes.`);
+    expect(modelCapabilityTagMeaning(diffusion)).toContain('diffusion model');
+    expect(tagFilterToken(diffusion)).toBe('cap:diffusion');
+    expect(modelFilterTokens(tags, { chatSelectable: true }).has('cap:diffusion')).toBe(true);
+    // Append, an unknown shape and no shape at all are never a diffusion model.
+    for (const id of ['plain', 'odd', 'silent']) {
+      const other = modelCapabilityTagsFromOption(byId.get(id)!);
+      expect(other.some((tag) => tag.value === 'diffusion')).toBe(false);
+    }
   });
 });
 

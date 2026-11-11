@@ -10,7 +10,12 @@ import {
   ArtifactHeader,
   ArtifactTitle,
 } from '@/components/ai-elements/artifact';
-import { useFlowQuestions, useFlowRun, useOpenTaskHandle } from '@/hooks/use-flow-run';
+import {
+  useFlowQuestions,
+  useFlowRun,
+  useFlowTaskRecord,
+  useOpenTaskHandle,
+} from '@/hooks/use-flow-run';
 import {
   rowDuration,
   useFlowPresentation,
@@ -18,7 +23,12 @@ import {
 } from '@/hooks/use-flow-presentation';
 import { FlowEdits } from './flow-run-edit-list';
 import { FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
-import { flowRunStatus, flowTaskHistoryUnavailable, stepTally } from './flow-run-presentation';
+import {
+  flowRunStatus,
+  flowTaskHistoryUnavailable,
+  settledTaskStatus,
+  stepTally,
+} from './flow-run-presentation';
 import { FlowUsageSummary } from './flow-run-usage';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
 import { FlowTrack } from './flow-track';
@@ -58,7 +68,10 @@ export function FlowRunCard({
   const title = `${flow.label} run`;
   const data = run.data;
   const questions = useFlowQuestions(sessionId, data, near || fullScreen);
-  const status = data ? flowRunStatus(data) : undefined;
+  // No checkpoint: a flow that ended before writing one reads from its task, not as unstarted.
+  const task = useFlowTaskRecord(flow.handle, near && data === null);
+  const ended = data === null && task.data ? settledTaskStatus(task.data) : undefined;
+  const status = data ? flowRunStatus(data) : ended;
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const rows = data?.view || data?.execution?.length ? steps : members;
   const historyUnavailable = data ? flowTaskHistoryUnavailable(data, rows.length) : false;
@@ -85,7 +98,9 @@ export function FlowRunCard({
       ? 'Loading the run…'
       : run.error
         ? 'The run could not be loaded'
-        : 'Not started yet';
+        : ended
+          ? task.data?.error_reason || 'Ended before its run was recorded'
+          : 'Not started yet';
   const openPanel = navigation?.onOpenFlow
     ? () => navigation.onOpenFlow?.(flow.handle, title)
     : undefined;

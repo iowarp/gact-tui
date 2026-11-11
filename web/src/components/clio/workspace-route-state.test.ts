@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canOpenSessionStream,
   canUploadWorkspaceResources,
+  conversationDamaged,
   conversationUnavailableMessage,
   countActiveWork,
   countWorkNeedingInspection,
@@ -98,6 +99,20 @@ describe('workspace route state', () => {
     });
 
     expect(conversationUnavailableMessage(error)).toBe('Unhandled server error.');
+  });
+
+  it('treats only a corrupt stored transcript as damaged, never an unreachable store', () => {
+    const unavailable = (cause: string) =>
+      new TransportError('unreadable', 503, 'messages_unavailable', { session_id: 's', cause });
+
+    expect(conversationDamaged(unavailable('transcript_corrupt'))).toBe(true);
+    expect(conversationDamaged(unavailable('storage_unreachable'))).toBe(false);
+    expect(
+      conversationDamaged(
+        new TransportError('x', 500, 'internal_error', { cause: 'transcript_corrupt' }),
+      ),
+    ).toBe(false);
+    expect(conversationDamaged(new Error('transcript_corrupt'))).toBe(false);
   });
 
   it('routes typed composer feedback to the pending Plan review as a revision', () => {

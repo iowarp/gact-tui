@@ -1,10 +1,11 @@
-import { taskFlowState } from './task-flow-state';
-import type { ReactNode } from 'react';
+import { hasRecordedFlowRun, taskFlow, taskFlowState } from './task-flow-state';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import type { TaskActivity } from './task-activity';
 import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
@@ -14,6 +15,14 @@ import { WorkKindStatus } from './work-kind-status';
 import { taskWorkKind } from './work-kind';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+
+/** The task kind as a reader names it (a background run_code task is a script). */
+function kindLabel(kind: string, active: boolean): string {
+  if (kind === 'MCP' || kind === 'Shell') return 'Tool';
+  if (kind === 'Session' && active) return 'Agent'; // a settled one keeps its kind's name
+  if (kind === 'Code') return 'Script';
+  return kind;
+}
 
 /** A quiet task summary with the original assignment and identity disclosed on demand. */
 export function TaskActivityRow({
@@ -27,22 +36,23 @@ export function TaskActivityRow({
   entry: TaskActivity;
   status: string;
   actions?: ReactNode;
-  onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
+  onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
   /** A task that runs a flow opens its run view. */
-  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
+  onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
   compact?: boolean;
 }) {
   const { process: task, subagent } = entry;
   const previewLines = useTranscriptPreviewLines();
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
-  const kind = task?.flow
+  const flow = taskFlow(task);
+  const kind = flow
     ? 'Flow'
     : (task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP'));
   const flowState = task ? taskFlowState(task, status) : undefined;
-  // A child conversation that runs a flow reads as that flow's run, not as a chat.
-  const flowRun = task?.flow
-    ? `${flowLabel(task.flow.id)} ${task.flow.status === 'not_run' ? 'follow-up' : 'run'}`
+  // The row is named by the task; its flow run is a secondary detail and an action.
+  const flowRun = flow
+    ? `${flowLabel(flow.id)} ${flow.status === 'not_run' ? 'follow-up' : 'run'}`
     : undefined;
   const assignment = task?.description || subagent?.task;
   const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
@@ -59,8 +69,24 @@ export function TaskActivityRow({
           ? 'Waiting for your answer'
           : status.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase());
   const result = task?.result?.answer || task?.result?.answer_excerpt || subagent?.result;
+  const [open, setOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const focused = useWorkTaskFocus((state) => state.handle === entry.key);
+  // A link asked Work to show this task: its row opens, comes into view, and the
+  // request clears, so the reader can close the row again.
+  if (focused && !open) setOpen(true);
+  useEffect(() => {
+    if (!focused) return;
+    rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+    useWorkTaskFocus.getState().clear(entry.key);
+  }, [focused, entry.key]);
   return (
-    <Collapsible className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35">
+    <Collapsible
+      ref={rowRef}
+      open={open}
+      onOpenChange={setOpen}
+      className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35"
+    >
       <div className="flex min-w-0 items-center gap-0.5">
         <CollapsibleTrigger asChild>
           <button
@@ -70,16 +96,16 @@ export function TaskActivityRow({
             className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
             <WorkKindStatus
-              kind={task?.flow ? 'workflow' : taskWorkKind(kind)}
+              kind={flow ? 'workflow' : taskWorkKind(kind)}
               status={flowState?.value ?? status}
               detail={flowState?.detail}
             />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
-                <span className="block flex-1 truncate text-sm">{flowRun ?? title}</span>
+                <span className="block flex-1 truncate text-sm">{title}</span>
               ) : (
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{flowRun ?? title}</span>
+                  <span className="truncate text-sm font-medium">{title}</span>
                   {conversation?.model_choice ? (
                     <SubagentModel choice={conversation.model_choice} />
                   ) : null}
@@ -88,16 +114,11 @@ export function TaskActivityRow({
               <span
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
+                {/* The state in words, never only the icon (also in the compact rail). */}
                 {flowState
                   ? `Flow: ${flowState.label}`
-                  : running || status === 'completed'
-                    ? kind === 'MCP' || kind === 'Shell'
-                      ? 'Tool'
-                      : kind === 'Session'
-                        ? 'Agent'
-                        : kind
-                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind}: ${label}`}
-                {!compact && progress && progress !== label ? ` — ${progress}` : ''}
+                  : `${kindLabel(kind, running || status === 'completed')}: ${label}`}
+                {(!compact || running) && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
             <ChevronRightIcon
@@ -125,14 +146,12 @@ export function TaskActivityRow({
           {flowState?.detail ? (
             <p className="text-sm text-muted-foreground">{flowState.detail}</p>
           ) : null}
-          {task?.flow?.previous_handle && onOpenFlow ? (
+          {flow?.previous_handle && onOpenFlow ? (
             <Button
               variant="link"
               size="sm"
               className="h-8 px-0"
-              onClick={() =>
-                onOpenFlow(task.flow!.previous_handle!, `${flowLabel(task.flow!.id)} run`)
-              }
+              onClick={() => onOpenFlow(flow.previous_handle!, `${flowLabel(flow.id)} run`)}
             >
               Open earlier flow attempt
             </Button>
@@ -173,7 +192,7 @@ export function TaskActivityRow({
               {result}
             </div>
           ) : null}
-          {flowRun && task?.flow?.status !== 'not_run' && onOpenFlow ? (
+          {flowRun && hasRecordedFlowRun(task) && onOpenFlow ? (
             <Button
               variant="link"
               size="sm"

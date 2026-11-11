@@ -493,9 +493,10 @@ describe('connection provider credentials', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rename ares' }));
     expect(screen.getByLabelText('active label')).toHaveTextContent('ares lab');
     fireEvent.click(screen.getByRole('button', { name: 'Rename discovered' }));
+    // A reload opens the first entry, so the active connection stays first.
     expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual([
-      { endpoint: 'http://node42:17800', label: 'node 42', location: 'node42' },
       { endpoint: 'http://ares.example:17800', label: 'ares lab' },
+      { endpoint: 'http://node42:17800', label: 'node 42', location: 'node42' },
     ]);
   });
 
@@ -611,6 +612,9 @@ describe('connection provider credentials', () => {
       expect(mocks.store).toHaveBeenCalledWith('http://agent.local', 'saved-secret');
       expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
     });
+    // The token goes to the credential store only, never into browser storage.
+    const stored = Object.keys(localStorage).map((key) => localStorage.getItem(key));
+    expect(stored.join('\n')).not.toContain('saved-secret');
 
     fireEvent.click(screen.getByRole('button', { name: 'Forget lab agent' }));
 

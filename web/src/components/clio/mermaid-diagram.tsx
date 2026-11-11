@@ -2,11 +2,13 @@ import {
   AlertTriangleIcon,
   Code2Icon,
   CopyIcon,
+  FileCodeIcon,
   GitBranchIcon,
+  ImageIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import { useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
 import { isDarkTheme, readThemeColor, readThemeFont, useThemeKey } from '@/theme/runtime';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -21,6 +23,11 @@ import type { MermaidConfig } from '@/components/mermaidcn/mermaid';
 import { MermaidPreview } from '@/components/mermaidcn/mermaid-preview';
 import { artifactIdFromDataUri } from './table-query-rows';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
+import {
+  useFileViewerActions,
+  useFileViewerContentsRegistry,
+  type FileViewerAction,
+} from './file-viewer-action-context';
 import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
 import { parseDiagramSource } from './mermaid-security';
 import { PresentationNavigation } from './presentation-navigation';
@@ -36,6 +43,7 @@ import {
   type SurfaceCapabilities,
   type SurfaceExportFormat,
 } from './surface-toolbar';
+import { ViewerZoomControls } from './viewer-zoom-controls';
 
 type MermaidView = 'render' | 'source';
 
@@ -64,7 +72,40 @@ function themedMermaidConfig(): MermaidConfig {
   };
 }
 
-/** A Pele-backed diagram with source, G0 download/copy/reference/full-screen, and an auto-fit canvas. */
+/** SVG, PNG and the source; the images wait for the diagram to render. */
+function mermaidExports(svg: string, source: string, stem: string): SurfaceExportFormat[] {
+  return [
+    {
+      id: 'svg',
+      label: 'SVG image',
+      disabled: !svg,
+      run: () => downloadText(svg, 'image/svg+xml', `${stem}.svg`),
+    },
+    {
+      id: 'png',
+      label: 'PNG image',
+      disabled: !svg,
+      run: async () => {
+        const size = svgIntrinsicSize(svg);
+        if (!size) return;
+        downloadBlob(await svgToPngBlob(svg, size.width, size.height), `${stem}.png`);
+      },
+    },
+    {
+      id: 'source',
+      label: 'Mermaid source',
+      run: () => downloadText(source, 'text/vnd.mermaid', `${stem}.mmd`),
+    },
+  ];
+}
+
+/**
+ * A Pele-backed diagram with source, G0 download/copy/reference/full-screen, and an auto-fit canvas.
+ *
+ * `framed` makes it the whole of a file viewer (a .mmd file): inside the
+ * workbench frame its zoom icons go to Format, its exports to Open's Export
+ * to…, and Copy copies the source, so it draws no header of its own.
+ */
 export function ClioMermaidDiagram({
   accessibilityDescription,
   accessibilityLabel,
@@ -75,7 +116,9 @@ export function ClioMermaidDiagram({
   selectedNodeIds,
   onNodeClick,
   referenceOverride,
+  framed = false,
 }: {
+  framed?: boolean;
   accessibilityDescription?: string;
   accessibilityLabel?: string;
   /** The artifact this diagram's `source` was read from, when it has one — used only to name the diagram in exports/references, never re-fetched here. */
@@ -122,29 +165,30 @@ export function ClioMermaidDiagram({
   const heading = title || 'Diagram';
   const filenameStem = filenameStemFromTitle(heading);
 
-  const exportFormats: SurfaceExportFormat[] = [
-    {
-      id: 'svg',
-      label: 'SVG image',
-      disabled: !svgOutput,
-      run: () => downloadText(svgOutput, 'image/svg+xml', `${filenameStem}.svg`),
-    },
-    {
-      id: 'png',
-      label: 'PNG image',
-      disabled: !svgOutput,
-      run: async () => {
-        const size = svgIntrinsicSize(svgOutput);
-        if (!size) return;
-        downloadBlob(await svgToPngBlob(svgOutput, size.width, size.height), `${filenameStem}.png`);
-      },
-    },
-    {
-      id: 'source',
-      label: 'Mermaid source',
-      run: () => downloadText(source, 'text/vnd.mermaid', `${filenameStem}.mmd`),
-    },
-  ];
+  const exportFormats = mermaidExports(svgOutput, source, filenameStem);
+  const registerContents = useFileViewerContentsRegistry();
+  const contentsId = useId();
+  const inFrame = framed && registerContents !== undefined;
+  const frameDownloads = useMemo<FileViewerAction[]>(
+    () =>
+      inFrame
+        ? mermaidExports(svgOutput, source, filenameStem).map((format) => ({
+            label: format.label,
+            kind: 'download',
+            icon: format.id === 'png' ? ImageIcon : FileCodeIcon,
+            disabled: format.disabled,
+            onSelect: format.run,
+          }))
+        : [],
+    [filenameStem, inFrame, source, svgOutput],
+  );
+  useFileViewerActions(frameDownloads);
+  const readSource = useCallback(() => source, [source]);
+  useEffect(() => {
+    if (!inFrame) return;
+    registerContents?.(contentsId, readSource);
+    return () => registerContents?.(contentsId);
+  }, [contentsId, inFrame, readSource, registerContents]);
 
   const buildReference = (): DataZoneReference =>
     buildZoneReference({
@@ -225,6 +269,63 @@ export function ClioMermaidDiagram({
     </header>
   );
 
+  const folderButtons = folderLinks.length ? (
+    <div className="sr-only focus-within:not-sr-only">
+      <p>Diagram folders</p>
+      {folderLinks.map((folder) => (
+        <Button key={folder.id} variant="link" onClick={() => openFolder(folder.id)}>
+          {folder.label}
+        </Button>
+      ))}
+    </div>
+  ) : null;
+
+  const diagramError = (
+    <div className="flex min-h-64 items-center justify-center gap-2 p-4 text-sm text-destructive">
+      <AlertTriangleIcon aria-hidden="true" className="size-4 shrink-0" />
+      {validationError}
+    </div>
+  );
+
+  if (inFrame) {
+    return (
+      <section
+        aria-description={accessibilityDescription}
+        aria-label={accessibilityLabel || heading}
+        className="flex h-full min-h-0 min-w-0 flex-col"
+        data-slot="mermaid-diagram"
+      >
+        {validationError ? (
+          diagramError
+        ) : (
+          <MermaidPreview
+            chart={diagram.source}
+            className="min-h-0 flex-1"
+            config={config}
+            controls={({ zoomIn, zoomOut, centerView, scalePercent }) => (
+              <FramedZoom
+                disabled={!svgOutput}
+                onIn={zoomIn}
+                onOut={zoomOut}
+                onReset={centerView}
+                percent={scalePercent}
+              />
+            )}
+            onSvgOutputChange={(svg) => {
+              setRenderedSvg(svg);
+              setRenderedSource(source);
+            }}
+            interactiveNodes={interactiveNodes ?? folderLinks}
+            selectedNodeIds={selectedNodeIds}
+            onNodeClick={onNodeClick ?? openFolder}
+            svgOutput={svgOutput}
+          />
+        )}
+        {folderButtons}
+      </section>
+    );
+  }
+
   return (
     <section
       aria-description={accessibilityDescription}
@@ -249,10 +350,7 @@ export function ClioMermaidDiagram({
       >
         <div className={fullscreen ? 'min-h-0 flex-1' : undefined}>
           {validationError ? (
-            <div className="flex min-h-64 items-center justify-center gap-2 p-4 text-sm text-destructive">
-              <AlertTriangleIcon aria-hidden="true" className="size-4 shrink-0" />
-              {validationError}
-            </div>
+            diagramError
           ) : view === 'source' ? (
             <CodeBlock
               className={fullscreen ? 'h-full' : 'min-h-72'}
@@ -341,16 +439,37 @@ export function ClioMermaidDiagram({
           )}
         </div>
       </SurfaceFullScreenHost>
-      {folderLinks.length ? (
-        <div className="sr-only focus-within:not-sr-only">
-          <p>Diagram folders</p>
-          {folderLinks.map((folder) => (
-            <Button key={folder.id} variant="link" onClick={() => openFolder(folder.id)}>
-              {folder.label}
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      {folderButtons}
     </section>
+  );
+}
+
+/**
+ * The framed diagram's Format: zoom out and zoom in, with the zoom between
+ * them. Wheel or pinch zooms, dragging pans and 0 fits the diagram.
+ */
+function FramedZoom({
+  percent,
+  onIn,
+  onOut,
+  onReset,
+  disabled,
+}: {
+  percent: number;
+  onIn: () => void;
+  onOut: () => void;
+  onReset: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <ViewerZoomControls
+      label="Diagram zoom"
+      onIn={onIn}
+      onOut={onOut}
+      onReset={disabled ? undefined : onReset}
+      disabledIn={disabled}
+      disabledOut={disabled}
+      readout={disabled ? undefined : `${Math.round(percent)}%`}
+    />
   );
 }

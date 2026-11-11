@@ -197,3 +197,20 @@ it('does not say files were edited when the write was refused', () => {
   expect(transcriptActivitySummary([iteration([refused])]).label).toBe('Tried to edit files');
   expect(transcriptActivitySummary([iteration([written])]).label).toBe('Edited files');
 });
+
+it('names a notice from a background task as one, not as an injection', () => {
+  // A background script's task.notify arrives as an attention notice.
+  expect(
+    transcriptActivitySummary([
+      iteration([], {
+        activity: [
+          {
+            kind: 'injection',
+            id: 'notice',
+            block: { id: 'notice', type: 'injection', source: 'attention', text: 'Notice' },
+          },
+        ],
+      }),
+    ]).label,
+  ).toBe('Received a task notice');
+});

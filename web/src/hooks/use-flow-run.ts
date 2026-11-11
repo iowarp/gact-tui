@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { agentTaskToSubagent } from '@/lib/session-agent-tasks';
 import { queryKeys } from '@/lib/query-keys';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import {
@@ -10,6 +11,7 @@ import {
   runQuestions,
   type FlowQuestion,
 } from '@/components/clio/flow-run-edits';
+import { settledTaskStatus } from '@/components/clio/flow-run-presentation';
 
 /** Cadence for re-reading a running flow. Unit: milliseconds. */
 export const FLOW_RUN_POLL_MS = 2_000;
@@ -27,6 +29,23 @@ export function useFlowRun(sessionId: string, handle: string, enabled = true) {
     queryFn: ({ signal }) => repository.taskFlow(sessionId, handle, signal),
     refetchInterval: (query) =>
       query.state.data && flowRunActive(query.state.data) ? FLOW_RUN_POLL_MS : false,
+  });
+}
+
+/**
+ * The task behind a flow handle, read only when that task has no flow checkpoint.
+ * A flow refused before it wrote one (a limit hit on its first call) is then shown
+ * from the task's own terminal state. Re-read until the task settles.
+ */
+export function useFlowTaskRecord(handle: string, enabled: boolean) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('flow-task-record', settings.endpoint, handle),
+    enabled: Boolean(handle) && enabled,
+    queryFn: ({ signal }) => repository.agentTask(handle, signal),
+    refetchInterval: (query) =>
+      query.state.data && !settledTaskStatus(query.state.data) ? FLOW_RUN_POLL_MS : false,
   });
 }
 
@@ -97,7 +116,10 @@ export function useFlowTaskAnswer(handle: string | undefined, enabled: boolean, 
     queryFn: async ({ signal }) => {
       const task = await repository.agentTask(handle!, signal);
       if (!task.child_session_id) return '';
-      const transcript = await repository.transcript(task.child_session_id, signal);
+      // The answer is the newest assistant text: the tail page holds it.
+      const transcript = await repository.transcript(task.child_session_id, signal, {
+        limit: TRANSCRIPT_PAGE_SIZE,
+      });
       const last = transcript.messages.filter((message) => message.role === 'assistant').at(-1);
       const texts =
         last?.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])) ?? [];

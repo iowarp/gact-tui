@@ -65,7 +65,10 @@ vi.mock('@tauri-apps/plugin-updater', () => ({
 }));
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: channelMocks.getVersion }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: channelMocks.invoke }));
-vi.mock('@/lib/github-releases', () => ({ latestPublishedRelease: channelMocks.latestRelease }));
+vi.mock('@/lib/github-releases', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/github-releases')>()),
+  latestPublishedRelease: channelMocks.latestRelease,
+}));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: mocks.relaunch }));
 vi.mock('sonner', () => ({ toast: sonnerMocks.toast }));
 
@@ -314,6 +317,27 @@ describe('Desktop-owned runtime updates (#1777)', () => {
     expect(mocks.update.install).toHaveBeenCalledOnce();
     expect(runtimeMocks.update).not.toHaveBeenCalled();
     expect(readPendingUpdateMarker()).toMatchObject({ action: 'both', version: '0.7.2' });
+  });
+
+  it('reports an unpublished own release as such, not as an update being published', async () => {
+    runtimeMocks.has.mockResolvedValue(true);
+    runtimeMocks.mode.mockResolvedValue('bundled');
+    runtimeMocks.version.mockResolvedValue('0.7.1');
+    mocks.check.mockResolvedValueOnce(null);
+    channelMocks.invoke.mockRejectedValueOnce(
+      new Error('Could not fetch a valid release JSON from the remote'),
+    );
+
+    await expect(checkForDesktopUpdate()).rejects.toThrow("This app's release v0.7.2");
+
+    const { getDesktopUpdateSnapshot } = await import('./desktop-updater');
+    expect(getDesktopUpdateSnapshot()).toEqual({
+      status: 'error',
+      reason: 'release_not_published',
+      message:
+        "This app's release v0.7.2 is not published, so the runtime (0.7.1) cannot be restored to match it.",
+    });
+    expect(mocks.update.install).not.toHaveBeenCalled();
   });
 
   it('does not change either component if restart intent cannot be saved', async () => {

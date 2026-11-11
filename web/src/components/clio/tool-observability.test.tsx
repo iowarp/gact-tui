@@ -6,6 +6,7 @@ import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
 import { getToolFailureDetail } from './tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 afterEach(cleanup);
 
@@ -53,7 +54,7 @@ describe('readable compact tool results', () => {
     },
     {
       name: 'prepare_execution_runtime',
-      action: 'Get execution environment',
+      action: 'Inspect execution environment',
       block: { id: 'python', type: 'text' as const, text: 'Python version: 3.13.16' },
       expected: 'Python version: 3.13.16',
     },
@@ -135,37 +136,31 @@ describe('readable compact tool results', () => {
         />
       </PresentationNavigation.Provider>,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Create Artifact' }));
-    const result = screen.getByRole('region');
-    expect(
-      screen.getByRole('button', { name: 'Show result for Create Artifact' }),
-    ).toHaveTextContent('Created version 1');
-    expect(result).toHaveTextContent('raccoon.svg');
-    expect(result).not.toHaveTextContent('RAW SVG DATA');
-    await user.click(within(result).getByRole('button', { name: 'raccoon.svg' }));
+    const link = screen.getByRole('button', { name: 'raccoon.svg' });
+    expect(screen.getAllByText('raccoon.svg')).toHaveLength(1);
+    expect(screen.queryByText('RAW SVG DATA')).not.toBeInTheDocument();
+    await user.click(link);
     expect(opened).toEqual(['D:/workspace/raccoon.svg']);
   });
 
-  it('shows recorded shell failure diagnostics on hover, focus and expansion', async () => {
+  it('shows recorded shell failure diagnostics on the status mark and expansion', async () => {
     const user = userEvent.setup();
-    render(<ClioToolInvocation compact tool={shell} />);
-    const row = screen.getByRole('button', { name: 'Show result for Run' });
-    await user.hover(row);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'CreateProcessWithLogonW failed: 2',
+    render(
+      <TooltipProvider>
+        <ClioToolInvocation compact tool={shell} />
+      </TooltipProvider>,
     );
-    await user.unhover(row);
-    await user.tab();
-    expect(row).toHaveFocus();
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'CreateProcessWithLogonW failed: 2',
+    const row = screen.getByRole('button', { name: 'Show result for Run command' });
+    expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
+      'title',
+      expect.stringContaining('CreateProcessWithLogonW failed: 2'),
     );
+    row.focus();
     await user.keyboard('{Enter}');
-    const result = screen.getByRole('region', { name: 'Run: Result' });
-    expect(within(result).getByRole('alert')).toHaveTextContent(
-      'CreateProcessWithLogonW failed: 2',
-    );
-    expect(result).toHaveTextContent('Process exited with code 1.');
+    const result = screen.getByRole('region', { name: 'Run command: Result' });
+    // The command body's output already carries the error, so it is not repeated below it.
+    expect(within(result).getAllByText(/CreateProcessWithLogonW failed: 2/u)).toHaveLength(1);
+    expect(within(result).queryByRole('alert')).not.toBeInTheDocument();
     expect(within(result).queryByRole('heading', { name: 'Arguments' })).not.toBeInTheDocument();
   });
 
@@ -191,15 +186,14 @@ describe('readable compact tool results', () => {
     render(<ClioToolInvocation compact tool={tool} />);
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Show result for Generate widget' }));
+      .click(screen.getByRole('button', { name: 'Show result for Create widget' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       'must contain exactly one id="root" component',
     );
     expect(screen.getByRole('region')).not.toHaveTextContent('ok=false');
   });
 
-  it('keeps the row focused when a running call becomes a semantic failure', async () => {
-    const user = userEvent.setup();
+  it('keeps the row focused when a running call becomes a semantic failure', () => {
     const view = render(
       <ClioToolInvocation
         compact
@@ -210,13 +204,13 @@ describe('readable compact tool results', () => {
         }}
       />,
     );
-    const row = screen.getByRole('button', { name: 'Show result for Run' });
+    const row = screen.getByRole('button', { name: 'Show result for Run command' });
     row.focus();
     view.rerender(<ClioToolInvocation compact tool={shell} />);
     expect(row).toHaveFocus();
-    await user.hover(row);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'CreateProcessWithLogonW failed: 2',
+    expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
+      'title',
+      expect.stringContaining('CreateProcessWithLogonW failed: 2'),
     );
     view.rerender(
       <ClioToolInvocation
@@ -228,8 +222,7 @@ describe('readable compact tool results', () => {
       />,
     );
     expect(row).toHaveFocus();
-    expect(row).not.toHaveAttribute('aria-describedby');
-    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /^Failed/ })).not.toBeInTheDocument();
   });
 
   it('keeps undeclared results accessible without inventing failure semantics', async () => {
@@ -244,10 +237,46 @@ describe('readable compact tool results', () => {
     render(<ClioToolInvocation compact tool={tool} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Show result for external_tool' }));
-    expect(screen.getByRole('region')).toHaveTextContent('No formatted result was recorded');
+    expect(screen.getByRole('region')).toHaveTextContent('payload data');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Technical details for external_tool' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('payload data');
+  });
+
+  it('names the refused action on a denied decision row', () => {
+    render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'write',
+            session_id: 's',
+            name: 'fs_write_file',
+            state: 'denied',
+            input: { path: '/workspace/notes/plan.md', content: 'x' },
+            error: 'Denied by you',
+            presentation: {
+              action: 'Write',
+              subject: 'file-link',
+              summary: '',
+              blocks: [
+                {
+                  id: 'file-link',
+                  type: 'link',
+                  label: 'plan.md',
+                  target: 'file',
+                  uri: '/workspace/notes/plan.md',
+                },
+              ],
+            },
+          }}
+        />
+      </TooltipProvider>,
+    );
+    // The visible decision word stays in the name, and the name keeps the action.
+    const name = screen.getByRole('button', { name: 'Show result for denied Write file' });
+    expect(name).toHaveTextContent('Denied');
+    expect(screen.getByText('you denied it')).toBeInTheDocument();
   });
 });
 

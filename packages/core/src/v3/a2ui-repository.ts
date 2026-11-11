@@ -15,7 +15,9 @@ import type {
   A2uiReferenceResolution,
 } from './a2ui/index.js';
 import { resolveSessionReference, readResolvedReferenceBytes } from './a2ui/reference-transport.js';
+import type { A2UISurface } from './domain.js';
 import { PresentationRepository } from './presentation-repository.js';
+import { a2uiSurfaceSchema } from './schemas.js';
 import { captureSessionReview } from './session-export-snapshot.js';
 import type { SessionReviewSnapshot } from './session-export-snapshot.js';
 import {
@@ -32,6 +34,17 @@ import {
  * these are `ClioRepository`'s own public methods either way.
  */
 export class A2uiRepository extends PresentationRepository {
+  /** Every surface of a conversation, folded from all its parts (reconnect catch-up). */
+  public async surfaces(sessionId: string, signal?: AbortSignal): Promise<A2UISurface[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/surfaces`,
+      decode: (value) =>
+        z.object({ surfaces: z.array(a2uiSurfaceSchema) }).passthrough().parse(value).surfaces,
+      signal,
+    });
+  }
+
   /** Renew one mounted renderer's lease and claim only requests assigned to it. */
   public reportA2uiViewer(sessionId: string, report: A2uiViewerReport, signal?: AbortSignal) {
     return this.transport.request({

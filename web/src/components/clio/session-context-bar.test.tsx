@@ -1,24 +1,15 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as renderElement, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSessionContextBar } from './session-context-bar';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const render = (ui: ReactElement) => renderElement(ui, { wrapper: TooltipProvider });
 const downloads = vi.hoisted(() => ({ open: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: downloads.open }));
-vi.mock('./session-agent-control', () => ({
-  SessionAgentControl: ({
-    fallbackLabel,
-    onOpenAgent,
-  }: {
-    fallbackLabel?: string;
-    onOpenAgent: () => void;
-  }) => (
-    <button onClick={onOpenAgent} type="button">
-      {fallbackLabel}
-    </button>
-  ),
-}));
-
 const session: Session = {
   id: 'sess_ndp',
   workspace_id: 'ws_demo',
@@ -45,7 +36,6 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={onFork}
-        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -53,61 +43,20 @@ describe('ClioSessionContextBar', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: `Actions for ${session.title}` }));
-    expect(screen.queryByRole('menuitem', { name: 'Branch into a new session' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Fork into a new conversation' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
     expect(onFork).not.toHaveBeenCalled();
   });
 
-  it('opens the conversation agent from its displayed name', async () => {
-    const user = userEvent.setup();
-    const onOpenAgent = vi.fn();
-    render(
-      <ClioSessionContextBar
-        actionsPending={false}
-        agentLabel="EarthScope (Flat / Haiku)"
-        onCompact={vi.fn()}
-        onFork={vi.fn()}
-        onOpenAgent={onOpenAgent}
-        onReturnToParent={vi.fn()}
-        onShare={vi.fn()}
-        onUndo={vi.fn()}
-        session={session}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
-
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-  });
-
-  it('shows no agent control while the session is unavailable', () => {
-    render(
-      <ClioSessionContextBar
-        actionsPending={false}
-        agentLabel="CLIO"
-        onCompact={vi.fn()}
-        onFork={vi.fn()}
-        onOpenAgent={vi.fn()}
-        onReturnToParent={vi.fn()}
-        onShare={vi.fn()}
-        onUndo={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole('heading', { name: 'Session unavailable' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'CLIO' })).toBeNull();
-  });
-
   it('opens native Downloads from the desktop toolbar', async () => {
     const user = userEvent.setup();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     try {
       render(
         <ClioSessionContextBar
           actionsPending={false}
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}
@@ -118,7 +67,7 @@ describe('ClioSessionContextBar', () => {
       await user.click(screen.getByRole('button', { name: 'Open downloads' }));
       expect(downloads.open).toHaveBeenCalledOnce();
     } finally {
-      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+      clearDesktopHost();
     }
   });
 
@@ -128,7 +77,6 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={vi.fn()}
-        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -139,16 +87,14 @@ describe('ClioSessionContextBar', () => {
     expect(screen.queryByRole('button', { name: 'Open downloads' })).toBeNull();
   });
 
-  it('hides its own session-title heading inside Tauri, where the desktop title bar already shows it', () => {
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+  it('keeps the title and conversation actions in Tauri, where the native title bar is empty', () => {
+    mockDesktopHost();
     try {
       render(
         <ClioSessionContextBar
           actionsPending={false}
-          agentLabel="EarthScope (Flat / Haiku)"
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}
@@ -156,16 +102,12 @@ describe('ClioSessionContextBar', () => {
         />,
       );
 
-      expect(screen.queryByRole('heading', { name: session.title })).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: 'EarthScope (Flat / Haiku)' }),
-      ).not.toBeInTheDocument();
-      // The actions beside it are not chrome, so they still render.
+      expect(screen.getByRole('heading', { name: session.title })).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: `Actions for ${session.title}` }),
       ).toBeInTheDocument();
     } finally {
-      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+      clearDesktopHost();
     }
   });
 });

@@ -83,7 +83,8 @@ it('shows shared preferences in the browser and preserves their existing saved v
   expect(
     screen.queryByRole('radiogroup', { name: 'Conversation activity' }),
   ).not.toBeInTheDocument();
-  expect(screen.queryByRole('switch', { name: 'Beta updates' })).not.toBeInTheDocument();
+  // The web app sets the release channel here; it has no other place for it.
+  expect(screen.getByRole('switch', { name: 'Beta updates' })).toBeChecked();
   expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument();
   expect(screen.queryByText(`${vocab.agent} updates`)).not.toBeInTheDocument();
   expect(screen.queryByText('Installed app only')).not.toBeInTheDocument();
@@ -101,13 +102,27 @@ it('lets the user configure large pastes and disable conversion across restarts'
   const threshold = screen.getByRole('spinbutton', { name: 'Paste as source after' });
   expect(threshold).toHaveValue(4000);
   fireEvent.change(threshold, { target: { value: '8000' } });
+  expect(localStorage.getItem('clio.appearance.v1')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(JSON.parse(localStorage.getItem('clio.appearance.v1')!)).toMatchObject({
     pasteSourceThreshold: 8000,
   });
   fireEvent.change(threshold, { target: { value: '0' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   view.unmount();
   renderSettings();
   expect(screen.getByRole('spinbutton', { name: 'Paste as source after' })).toHaveValue(0);
+});
+
+it('keeps an invalid preview limit staged until it is corrected or discarded', () => {
+  renderSettings();
+  const preview = screen.getByRole('spinbutton', { name: 'Transcript preview lines' });
+  fireEvent.change(preview, { target: { value: '80' } });
+  expect(screen.getByText('Enter 1 to 50.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+  expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  expect(preview).toHaveValue(5);
 });
 
 it('offers native updates in General and preserves opt-in and opt-out across remounts', async () => {
@@ -117,14 +132,14 @@ it('offers native updates in General and preserves opt-in and opt-out across rem
   expect(toggle).not.toBeChecked();
   expect(toggle).toHaveAccessibleDescription(/Beta versions may be unstable/);
   fireEvent.click(toggle);
-  await waitFor(() => expect(screen.getByText(`${vocab.agent} is up to date`)).toBeVisible());
+  await waitFor(() => expect(screen.getByText(`Up to date`)).toBeVisible());
   expect(getUpdateChannel()).toBe('beta');
   expect(native.check).toHaveBeenCalledTimes(1);
   view.unmount();
   renderSettings();
   expect(screen.getByRole('switch', { name: 'Beta updates' })).toBeChecked();
   fireEvent.click(screen.getByRole('switch', { name: 'Beta updates' }));
-  await waitFor(() => expect(screen.getByText(`${vocab.agent} is up to date`)).toBeVisible());
+  await waitFor(() => expect(screen.getByText(`Up to date`)).toBeVisible());
   expect(getUpdateChannel()).toBe('stable');
   expect(native.check).toHaveBeenCalledTimes(2);
   expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled();
@@ -158,7 +173,10 @@ it('shows refresh feedback until the native check completes and reports errors',
   expect(refresh).toBeDisabled();
   expect(screen.getByRole('switch', { name: 'Beta updates' })).toBeDisabled();
   reject(new Error('Release feed unavailable'));
-  await waitFor(() => expect(screen.getByText('Release feed unavailable')).toBeVisible());
+  await waitFor(() =>
+    expect(screen.getByText('The update server could not be reached.')).toBeVisible(),
+  );
+  expect(screen.queryByText('Release feed unavailable')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled();
   expect(screen.getByRole('switch', { name: 'Beta updates' })).toBeEnabled();
 });
