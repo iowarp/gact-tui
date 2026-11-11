@@ -27,7 +27,7 @@ pub(crate) fn reveal_in_os(path: &Path) -> Result<(), String> {
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        Command::new("xdg-open")
+        crate::host_env::for_host(&mut Command::new("xdg-open"))
             .arg(path.parent().unwrap_or(path))
             .spawn()
             .map(|_| ())

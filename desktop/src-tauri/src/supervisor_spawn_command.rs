@@ -38,7 +38,7 @@ pub(crate) fn launcher_spawn_command(
     bundled_runtime: Option<&Path>,
 ) -> Command {
     let mut command = Command::new(launcher);
-    command
+    crate::host_env::for_host(&mut command)
         .arg("--host")
         .arg(LAUNCHER_HOST)
         .arg("--port")

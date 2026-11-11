@@ -152,7 +152,7 @@ fn run_install_command<R, F>(
     F: FnOnce(),
 {
     let mut command = Command::new(&program);
-    command
+    crate::host_env::for_host(&mut command)
         .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
