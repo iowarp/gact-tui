@@ -13,6 +13,7 @@ import { textFileFormat } from '@/lib/file-presentation';
 import { formatBytes } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
 import {
+  INLINE_PREVIEW_MAX_BYTES,
   PREVIEW_ROW_LIMIT,
   TEXT_FULL_READ_MAX_BYTES,
   TEXT_WINDOW_CHUNK_BYTES,
@@ -75,8 +76,13 @@ export function WorkspaceTextView({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  // Unsized and large files are read in ranged windows, never whole.
-  const windowed = size === undefined || size > TEXT_FULL_READ_MAX_BYTES;
+  // Unsized and large files are read in ranged windows, never whole. A notebook is one
+  // JSON document a window can't parse, so it's read whole up to the inline cap.
+  const wholeReadMax =
+    textFileFormat(path, mediaType) === 'notebook'
+      ? INLINE_PREVIEW_MAX_BYTES
+      : TEXT_FULL_READ_MAX_BYTES;
+  const windowed = size === undefined || size > wholeReadMax;
   const content = useQuery({
     queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
