@@ -1,7 +1,7 @@
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
 import { serviceUnreachable } from '@/lib/connection-attempt';
@@ -34,7 +34,11 @@ import {
   canUploadWorkspaceResources,
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
-import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
+import {
+  useComposerDraft,
+  useComposerDraftValue,
+  type ComposerDraft,
+} from '@/hooks/use-composer-draft';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useRepository } from '@/hooks/use-repository';
@@ -50,7 +54,8 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
-import { workspaceName } from '@/lib/workspace-labels';
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
@@ -75,6 +80,25 @@ function DraftWorkbench({
   return <ClioWorkbench {...props} filesFetching={filesFetching} />;
 }
 
+type DraftComposerProps = Omit<
+  ComponentProps<typeof ClioComposer>,
+  'value' | 'onValueChange' | 'references' | 'onReferencesChange'
+> & { draft: ComposerDraft };
+
+/** Reads the draft text here, so a keystroke re-renders the composer and not the page. */
+function DraftComposer({ draft, ...props }: DraftComposerProps) {
+  const value = useComposerDraftValue(draft);
+  return (
+    <ClioComposer
+      {...props}
+      value={value}
+      onValueChange={draft.onValueChange}
+      references={draft.references}
+      onReferencesChange={draft.onReferencesChange}
+    />
+  );
+}
+
 function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
@@ -88,7 +112,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
-  const draftValue = useComposerDraftValue(draft);
   const [filesViewActive, setFilesViewActive] = useState(false);
   const data = useWorkspaceData({
     contextTargetId: '',
@@ -123,7 +146,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const commands = useSessionCommands('', workspaceId);
-  const sessions = data.allSessions.data ?? data.sessions.data ?? [];
+  const sessions = useMemo(
+    () => data.allSessions.data ?? data.sessions.data ?? [],
+    [data.allSessions.data, data.sessions.data],
+  );
+  const attentions = useMemo(
+    () => buildSessionAttentionMap(sessions, data.attentionInteractions),
+    [sessions, data.attentionInteractions],
+  );
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
   const {
     requests,
@@ -200,34 +230,53 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const loadError = (query: { data: unknown; error: Error | null }) =>
     query.data === undefined ? query.error : null;
   const error = loadError(data.workspaces) ?? loadError(data.capabilities) ?? loadError(defaults);
+  const navigation = (
+    <ClioNavigation
+      activeSessionId=""
+      activeWorkspaceId={workspaceId}
+      actions={navigationActions}
+      attentions={attentions}
+      agents={data.installedAgents.data ?? []}
+      endpoint={settings.endpoint}
+      onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
+      sessions={sessions}
+      workspaces={data.workspaces.data ?? []}
+      workspacesState={listState(data.workspaces)}
+    />
+  );
   if (error || (!data.workspaces.isPending && !workspace)) {
+    // The bars stay: the left bar still lists every other workspace and conversation.
     return (
-      <WorkspaceUnavailable
-        error={error?.message ?? 'This workspace is unavailable.'}
-        onRetry={() => {
-          void data.workspaces.refetch();
-          void data.capabilities.refetch();
-          void defaults.refetch();
-        }}
-      />
+      <ClioAppShell
+        navigation={navigation}
+        contextBar={
+          <div className="min-w-0 truncate text-sm font-medium">
+            {`${capitalize(vocab.workspace)} unavailable`}
+          </div>
+        }
+        statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
+        workbench={<div aria-label="Workspace canvas" className="h-full bg-background" />}
+      >
+        <WorkspaceUnavailable
+          back={
+            workspaceId === DEFAULT_WORKSPACE_ID
+              ? undefined
+              : { label: 'Back to Conversations', to: newConversationRoute(DEFAULT_WORKSPACE_ID) }
+          }
+          error={error ?? undefined}
+          onRetry={() => {
+            void data.workspaces.refetch();
+            void data.capabilities.refetch();
+            void defaults.refetch();
+          }}
+          subject="workspace"
+        />
+      </ClioAppShell>
     );
   }
   return (
     <ClioAppShell
-      navigation={
-        <ClioNavigation
-          activeSessionId=""
-          activeWorkspaceId={workspaceId}
-          actions={navigationActions}
-          attentions={buildSessionAttentionMap(sessions, data.attentionInteractions)}
-          agents={data.installedAgents.data ?? []}
-          endpoint={settings.endpoint}
-          onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-          sessions={sessions}
-          workspaces={data.workspaces.data ?? []}
-          workspacesState={listState(data.workspaces)}
-        />
-      }
+      navigation={navigation}
       contextBar={
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -349,7 +398,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             </>
           }
         >
-          <ClioComposer
+          <DraftComposer
+            draft={draft}
             autoFocus
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
@@ -388,10 +438,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               await send.mutateAsync(value);
             }}
             resources={data.workspaceResources.data ?? []}
-            value={draftValue}
-            onValueChange={draft.onValueChange}
-            references={draft.references}
-            onReferencesChange={draft.onReferencesChange}
             variant="welcome"
             workspaceId={workspaceId}
           />

@@ -26,7 +26,6 @@ export function ConnectionWaitingNotice({
           </PopoverContent>
         </Popover>
       }
-      role="status"
       tone="working"
     >
       <span>Waiting for the service to start</span>

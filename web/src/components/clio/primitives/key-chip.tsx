@@ -411,7 +411,7 @@ export function HeldKeysScrim() {
     <div
       aria-hidden="true"
       data-slot="held-keys-scrim"
-      className="pointer-events-none fixed inset-0 z-[60] bg-[rgb(0_0_0/38%)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
+      className="pointer-events-none fixed inset-0 z-[60] bg-scrim motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
     />,
     container ?? document.body,
   );

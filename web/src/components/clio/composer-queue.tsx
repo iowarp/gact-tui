@@ -186,17 +186,22 @@ export function ClioComposerQueue({
       className="mx-auto -mb-3 flex min-h-0 w-full max-w-4xl shrink flex-col rounded-t-[12px] border border-b-0 border-input bg-composer px-1 pt-0.5 pb-3.5"
     >
       <div className="flex h-7 min-w-0 items-center gap-2 pr-0.5 pl-2 text-[12px] whitespace-nowrap text-muted-foreground">
-        <span aria-live="polite" className="flex min-w-0 items-center gap-2">
+        {/* The composer's run announcer speaks count changes: this strip mounts
+            with its first row, too late for a live region of its own. Pausing
+            happens while it is shown, so that is announced here. */}
+        <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{countLabel}</span>
-          {paused ? (
-            <Tag
-              title="New messages wait here until the queue resumes. Send now still works."
-              tone="warning"
-              width="auto"
-            >
-              Paused
-            </Tag>
-          ) : null}
+          <span aria-live="polite" className="contents">
+            {paused ? (
+              <Tag
+                title="New messages wait here until the queue resumes. Send now still works."
+                tone="warning"
+                width="auto"
+              >
+                Paused
+              </Tag>
+            ) : null}
+          </span>
         </span>
         {collapsible ? (
           <Button

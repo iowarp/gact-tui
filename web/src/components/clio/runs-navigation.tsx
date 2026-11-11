@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ClioNavigation } from '@/components/clio/navigation';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
@@ -18,14 +19,21 @@ export function RunsNavigation({ workspaceId }: { workspaceId: string }) {
     filesViewActive: false,
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
-  const sessions = data.allSessions.data ?? data.sessions.data ?? [];
+  const sessions = useMemo(
+    () => data.allSessions.data ?? data.sessions.data ?? [],
+    [data.allSessions.data, data.sessions.data],
+  );
+  const attentions = useMemo(
+    () => buildSessionAttentionMap(sessions, data.attentionInteractions),
+    [sessions, data.attentionInteractions],
+  );
   return (
     <ClioNavigation
       activeSessionId=""
       activeWorkspaceId={workspaceId}
       actions={navigationActions}
       agents={data.installedAgents.data ?? []}
-      attentions={buildSessionAttentionMap(sessions, data.attentionInteractions)}
+      attentions={attentions}
       endpoint={settings.endpoint}
       sessions={sessions}
       workspaces={data.workspaces.data ?? []}

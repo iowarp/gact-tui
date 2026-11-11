@@ -15,6 +15,8 @@ import { AddIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
+import { AnnounceStates } from './settings-a11y';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { ScheduleDialog } from './settings-schedule-dialog';
 import { ScheduleSelect, type ScheduleSelectOption } from './settings-schedule-fields';
 import { ScheduleRow } from './settings-schedule-row';
@@ -167,7 +169,8 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   );
 
   return (
-    <div className="min-w-0" ref={rootRef}>
+    <div className="min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+      <AnnounceStates />
       <SettingsScopeContext.Provider value={scope}>
         <SettingsSectionHeading
           actions={

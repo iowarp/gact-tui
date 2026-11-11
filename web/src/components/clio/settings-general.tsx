@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { announce } from '@/lib/announce';
 import { useOnboardingTour } from '@/lib/onboarding/tour-context';
 import { ONBOARDING_TOUR_ENABLED } from '@/lib/onboarding/tour-flag';
 import { useCloseSettingsWindow } from '@/lib/settings-window-close';
@@ -102,6 +103,7 @@ export function GeneralSettings() {
           if (pasteDirty && pasteValue !== undefined) setPasteSourceThreshold(pasteValue);
           if (previewDirty && previewValue !== undefined) setCollapseThreshold(previewValue);
           setDraft({});
+          announce(count === 1 ? 'Change saved' : `${count} changes saved`);
         }}
       />
     </div>

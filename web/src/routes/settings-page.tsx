@@ -79,3 +79,6 @@ export function SettingsSection({
   if (section === 'appearance') return <AppearanceSettings />;
   return <GeneralSettings />;
 }
+
+// The Settings window ships in this chunk, so opening Settings is one fetch.
+export { SettingsWindow } from './settings-window';

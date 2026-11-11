@@ -46,7 +46,7 @@ import { FileTypeIcon } from './file-type-icon';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
-import { focusEditorAtOffset } from './composer-editor-model';
+import { refocusActiveCanvasTab } from './workbench-focus';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
@@ -93,33 +93,6 @@ function workbenchTabReference(
   if (tab.kind === 'resource')
     return fileViewerReference({ kind: 'resource', resource: tab.resource, workspaceId });
   return undefined;
-}
-
-/**
- * After a tab shortcut, focus follows the active tab: when focus was lost (the
- * focused tab or its body unmounted) or sat on another canvas tab, it lands on the
- * new active tab, or on the composer when the last tab closed the canvas.
- */
-export function refocusActiveCanvasTab(region: Element | null) {
-  requestAnimationFrame(() => {
-    const active = document.activeElement;
-    const onCanvasTab =
-      active instanceof HTMLElement &&
-      active.matches('[data-slot=canvas-tab-row] [role=tab]') &&
-      Boolean(region?.contains(active));
-    if (active && active !== document.body && !onCanvasTab) return;
-    const tab = region?.isConnected
-      ? region.querySelector<HTMLElement>(
-          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
-        )
-      : null;
-    if (tab) {
-      if (tab !== active) tab.focus();
-    } else if (!onCanvasTab)
-      focusEditorAtOffset(
-        document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
-      );
-  });
 }
 
 export interface WorkbenchTabRowProps {
@@ -263,7 +236,10 @@ export function WorkbenchTabRow({
       }
       return current.shown > 0 ? { ...current, shown: current.shown - 1 } : current;
     });
-  }, [activeTabId, compactOrder, fit, fitKey, measured.compacted, measured.shown, recency, tabs]);
+    // Keyed on the fit inputs, not the rebuilt `compactOrder` array: reading
+    // scrollWidth forces a style and layout pass, too costly on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit, fitKey, measured.compacted, measured.shown, recency]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
   useShortcut(

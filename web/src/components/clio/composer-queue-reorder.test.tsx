@@ -162,7 +162,7 @@ describe('ClioComposerQueue reorder commit', () => {
 
     await waitFor(() =>
       expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Unable to reorder queued messages', {
-        description: 'connection interrupted',
+        description: 'connection interrupted.',
       }),
     );
     expect(renderedOrder()[0]).toContain('First message');

@@ -50,6 +50,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * The viewport fits its content until the reader resizes it; jsdom lays nothing out, so the
+ * content height a drag starts from is set here.
+ */
+function fittedViewport(height = 480): HTMLElement {
+  const viewport = screen
+    .getByRole('button', { name: 'Submit selection' })
+    .closest<HTMLElement>('[data-slot="a2ui-response-viewport"]')!;
+  expect(viewport.style.height).toBe('');
+  Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: height });
+  return viewport;
+}
+
 function pendingA2UI(): PendingInteraction {
   return {
     id: 'a2ui:sess_child:surface_1',
@@ -213,10 +226,7 @@ describe('PendingA2UIResponse', () => {
     renderPendingA2UI();
 
     const resize = screen.getByRole('button', { name: 'Resize interactive surface' });
-    const viewport = screen
-      .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="a2ui-response-viewport"]');
-    expect(viewport).toHaveStyle({ height: '480px' });
+    const viewport = fittedViewport();
 
     Object.assign(resize, {
       setPointerCapture: vi.fn(),
@@ -258,12 +268,10 @@ describe('PendingA2UIResponse', () => {
       hasPointerCapture: vi.fn(() => true),
       releasePointerCapture: vi.fn(),
     });
+    const viewport = fittedViewport();
     fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
     fireEvent.pointerMove(resize, { buttons: 1, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(resize, { clientY: 100, pointerId: 1 });
-    const viewport = screen
-      .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="a2ui-response-viewport"]');
     expect(viewport).toHaveStyle({ height: '580px' });
     // Namespaced by the owning session — never a bare surface id, which two
     // sessions could otherwise collide on.
@@ -288,10 +296,7 @@ describe('PendingA2UIResponse', () => {
       hasPointerCapture: vi.fn(() => true),
       releasePointerCapture: vi.fn(),
     });
-    const viewport = screen
-      .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="a2ui-response-viewport"]');
-    expect(viewport).toHaveStyle({ height: '480px' });
+    const viewport = fittedViewport();
 
     fireEvent.pointerDown(corner, { buttons: 1, clientY: 100, pointerId: 2 });
     fireEvent.pointerMove(corner, { buttons: 1, clientY: 40, pointerId: 2 });
@@ -309,12 +314,10 @@ describe('PendingA2UIResponse', () => {
       hasPointerCapture: vi.fn(() => true),
       releasePointerCapture: vi.fn(),
     });
+    const viewport = fittedViewport();
     fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
     fireEvent.pointerMove(resize, { buttons: 1, clientY: 140, pointerId: 1 });
     fireEvent.pointerUp(resize, { clientY: 140, pointerId: 1 });
-    const viewport = screen
-      .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="a2ui-response-viewport"]');
     expect(viewport).toHaveStyle({ height: '540px' });
 
     await user.click(screen.getByRole('button', { name: 'Open interactive surface full screen' }));

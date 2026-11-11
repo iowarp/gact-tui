@@ -1,6 +1,9 @@
-import { domAnimation, LazyMotion, MotionConfig } from 'motion/react';
+import { LazyMotion, MotionConfig } from 'motion/react';
 import type { PropsWithChildren } from 'react';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
+
+// Animation features load after first paint; `m` elements render statically until then.
+const loadMotionFeatures = () => import('./motion-features').then((module) => module.default);
 
 const clioTransition = {
   press: { duration: 0.08 },
@@ -11,7 +14,7 @@ const clioTransition = {
 export function ClioMotionProvider({ children }: PropsWithChildren) {
   const { motion } = useAppearancePreferences();
   return (
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={loadMotionFeatures} strict>
       <MotionConfig
         reducedMotion={motion === 'reduced' ? 'always' : 'user'}
         transition={clioTransition.standard}

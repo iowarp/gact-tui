@@ -4,8 +4,11 @@
 //! decompressor reads, so checking the pack costs no second pass over it. The
 //! caller compares that hash before activating anything it extracted.
 //!
-//! Packs contain only ordinary files and directories. One reader decompresses
-//! the stream while a bounded worker pool creates files. Small entries use
+//! Packs contain only ordinary files and directories. On Windows this process
+//! decompresses and checks every entry while the inbox `tar.exe` creates the
+//! files (see `system_tar`). Otherwise, or when `CLIO_RUNTIME_UNPACK=builtin`,
+//! one reader decompresses the stream while a bounded worker pool creates
+//! files. Small entries use
 //! bounded queues; large entries stream directly, never becoming a large Vec.
 //! Build timestamps and Unix modes have no runtime meaning on Windows: Python
 //! startup bytecode uses checked hashes, and executable extensions select apps.
@@ -17,11 +20,11 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
     path::{Component, Path, PathBuf},
+    rc::Rc,
     sync::{
         atomic::{AtomicU64, Ordering},
         mpsc, Arc, Mutex,
     },
-    rc::Rc,
     thread,
     time::{Duration, Instant},
 };
@@ -64,8 +67,7 @@ impl Read for HashingReader {
 
 /// Hash what the decompressor left unread (the tar and zstd trailers).
 fn finish_hash(path: &Path, hasher: &RefCell<Sha256>, consumed: u64) -> Result<String, String> {
-    let mut file =
-        File::open(path).map_err(|e| format!("reopen runtime archive {path:?}: {e}"))?;
+    let mut file = File::open(path).map_err(|e| format!("reopen runtime archive {path:?}: {e}"))?;
     file.seek(SeekFrom::Start(consumed))
         .map_err(|e| format!("seek runtime archive {path:?}: {e}"))?;
     let mut hasher = hasher.borrow().clone();
@@ -90,7 +92,195 @@ pub(crate) fn unpack_runtime(
     expected_files: Option<u64>,
     progress: &dyn Fn(&str),
 ) -> Result<UnpackReport, String> {
+    #[cfg(windows)]
+    if let Some(tar) = system_tar() {
+        return unpack_runtime_with_system_tar(
+            &tar,
+            archive_path,
+            staging,
+            expected_files,
+            progress,
+        );
+    }
     unpack_runtime_with_workers(archive_path, staging, expected_files, progress, WRITERS)
+}
+
+/// The inbox Windows bsdtar. Real-time antivirus scans every new file; files
+/// created by this Microsoft-signed process are scanned about 3.5x faster than
+/// the same files created by the (unsigned) desktop binary itself, so it does
+/// the writing while this process still hashes and checks every entry.
+#[cfg(windows)]
+fn system_tar() -> Option<PathBuf> {
+    if std::env::var_os("CLIO_RUNTIME_UNPACK").is_some_and(|value| value == "builtin") {
+        return None;
+    }
+    let tar = PathBuf::from(std::env::var_os("SystemRoot")?)
+        .join("System32")
+        .join("tar.exe");
+    tar.is_file().then_some(tar)
+}
+
+/// Passes every byte the tar reader consumes on to the extracting process.
+#[cfg(windows)]
+struct TeeReader<R: Read, W: Write> {
+    inner: R,
+    sink: W,
+}
+
+#[cfg(windows)]
+impl<R: Read, W: Write> Read for TeeReader<R, W> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read = self.inner.read(buf)?;
+        self.sink.write_all(&buf[..read])?;
+        Ok(read)
+    }
+}
+
+/// Decompress and check the pack here, and stream the checked tar bytes to
+/// `tar.exe` which creates the files. Entry checks match the built-in writer:
+/// only plain files and directories under `gact-runtime/` with valid Windows
+/// names, no duplicates, and the manifest's file count. bsdtar additionally
+/// refuses absolute and `..` paths on its own. As with the built-in writer,
+/// the caller compares the hash before activating, and removes the staging
+/// directory on any error.
+#[cfg(windows)]
+fn unpack_runtime_with_system_tar(
+    tar_exe: &Path,
+    archive_path: &Path,
+    staging: &Path,
+    expected_files: Option<u64>,
+    progress: &dyn Fn(&str),
+) -> Result<UnpackReport, String> {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    if fs::read_dir(staging)
+        .map_err(|error| format!("read runtime staging directory: {error}"))?
+        .next()
+        .is_some()
+    {
+        return Err("runtime extraction requires an empty staging directory".into());
+    }
+    let file = File::open(archive_path)
+        .map_err(|error| format!("open runtime archive {archive_path:?}: {error}"))?;
+    let archive_bytes = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+    let hasher = Rc::new(RefCell::new(Sha256::new()));
+    let consumed = Rc::new(Cell::new(0_u64));
+    let reader = HashingReader {
+        inner: file,
+        hasher: Rc::clone(&hasher),
+        consumed: Rc::clone(&consumed),
+    };
+    let decoder = zstd::stream::read::Decoder::new(reader)
+        .map_err(|error| format!("open compressed runtime archive: {error}"))?;
+
+    // -m: modification times have no runtime meaning (see the module notes).
+    let mut child = Command::new(tar_exe)
+        .args(["-x", "-m", "-f", "-", "-C"])
+        .arg(staging)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map_err(|error| format!("start {tar_exe:?}: {error}"))?;
+    let stdin = child.stdin.take().ok_or("tar.exe has no input pipe")?;
+    let mut stderr = child.stderr.take().ok_or("tar.exe has no error pipe")?;
+    let stderr_reader = thread::spawn(move || {
+        let mut text = String::new();
+        let _ = stderr.read_to_string(&mut text);
+        text
+    });
+
+    let mut archive = tar::Archive::new(TeeReader {
+        inner: decoder,
+        sink: io::BufWriter::with_capacity(1024 * 1024, stdin),
+    });
+    let scanned = (|| -> Result<(u64, u64), String> {
+        let mut seen = HashSet::new();
+        let mut files = 0_u64;
+        let mut bytes = 0_u64;
+        let mut last_progress = Instant::now();
+        for entry in archive
+            .entries()
+            .map_err(|e| format!("read runtime archive: {e}"))?
+        {
+            let entry = entry.map_err(|e| format!("read runtime entry: {e}"))?;
+            let relative = entry
+                .path()
+                .map_err(|e| format!("read runtime path: {e}"))?
+                .into_owned();
+            checked_destination(staging, &relative)?;
+            let kind = entry.header().entry_type();
+            if kind.is_dir() {
+                continue;
+            }
+            if !kind.is_file() {
+                return Err(format!(
+                    "runtime pack contains a link or special entry: {relative:?}"
+                ));
+            }
+            if !seen.insert(relative.to_string_lossy().to_lowercase()) {
+                return Err(format!("runtime pack repeats the file {relative:?}"));
+            }
+            files += 1;
+            bytes += entry.size();
+            if last_progress.elapsed() >= Duration::from_secs(3) {
+                let read_mb = consumed.get() / (1024 * 1024);
+                let total_mb = archive_bytes / (1024 * 1024);
+                progress(&match expected_files {
+                    Some(total) => format!(
+                        "Unpacking and checking CLIO runtime: {files} of {total} files, \
+                         {read_mb} of {total_mb} MB read..."
+                    ),
+                    None => format!(
+                        "Unpacking and checking CLIO runtime: {files} files, \
+                         {read_mb} of {total_mb} MB read..."
+                    ),
+                });
+                last_progress = Instant::now();
+            }
+        }
+        if expected_files.is_some_and(|expected| expected != files) {
+            return Err(format!(
+                "runtime pack file count mismatch: expected {expected_files:?}, read {files}"
+            ));
+        }
+        Ok((files, bytes))
+    })();
+    let mut tee = archive.into_inner();
+    // Forward the end-of-archive blocks, then close tar.exe's input.
+    let forwarded = scanned.and_then(|counts| {
+        io::copy(&mut tee, &mut io::sink())
+            .and_then(|_| tee.sink.flush())
+            .map(|_| counts)
+            .map_err(|e| format!("send runtime archive to tar.exe: {e}"))
+    });
+    drop(tee);
+    if forwarded.is_err() {
+        let _ = child.kill();
+    }
+    let status = child
+        .wait()
+        .map_err(|error| format!("wait for tar.exe: {error}"))?;
+    let tar_errors = stderr_reader.join().unwrap_or_default();
+    let (files, bytes) = forwarded.map_err(|error| match tar_errors.trim() {
+        "" => error,
+        detail => format!("{error} ({detail})"),
+    })?;
+    if !status.success() {
+        return Err(format!(
+            "tar.exe failed to unpack the runtime ({status}): {}",
+            tar_errors.trim()
+        ));
+    }
+    let sha256 = finish_hash(archive_path, &hasher, consumed.get())?;
+    Ok(UnpackReport {
+        files,
+        bytes,
+        sha256,
+    })
 }
 
 pub(crate) fn unpack_runtime_with_workers(

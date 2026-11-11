@@ -63,8 +63,8 @@ import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
 import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
-import { focusListRow, focusOpenedFrame } from './workbench-focus';
-import { refocusActiveCanvasTab, WorkbenchTabRow } from './workbench-tab-row';
+import { focusListRow, focusOpenedFrame, refocusActiveCanvasTab } from './workbench-focus';
+import { WorkbenchTabRow } from './workbench-tab-row';
 import {
   WorkbenchStrip,
   type WorkbenchListView,

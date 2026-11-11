@@ -1,4 +1,5 @@
-import { ChevronDownIcon, LayersIcon, ListFilterIcon, UsersIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, LayersIcon, ListFilterIcon, UsersIcon } from 'lucide-react';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { useRef, useState, type ComponentType } from 'react';
 import {
   Command,
@@ -223,7 +224,7 @@ export function ModelPickerFieldTokens({
               onClick={() => onRemoveToken(token)}
               type="button"
             >
-              <XIcon aria-hidden="true" className="size-2.5" />
+              <RemoveIcon aria-hidden="true" className="size-2.5" />
             </button>
           </span>
         );

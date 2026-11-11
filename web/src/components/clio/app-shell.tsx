@@ -54,8 +54,10 @@ function TopBarSidebarTrigger() {
   return (
     <span className="inline-flex">
       <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+        {/* Closed or a phone sheet, the left bar is this toggle: the tour points here instead. */}
         <SidebarTrigger
           aria-keyshortcuts={leftPocketKey?.aria}
+          data-tour="workspace-navigation settings"
           className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
         />
       </NamedTooltip>
@@ -538,7 +540,7 @@ export function ClioAppShell({
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // or less for a sparse list that needs less; the spec's shadow sets the
             // conversation strip beside it underneath, not cut off.
-            className="w-[var(--workbench-sheet-width,86vw)] p-0 shadow-[-14px_0_30px_rgb(0_0_0/0.18)] data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_rgb(0_0_0/0.45)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            className="w-[var(--workbench-sheet-width,86vw)] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
             style={
               sheetFit === undefined
                 ? undefined

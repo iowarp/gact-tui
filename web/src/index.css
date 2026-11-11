@@ -98,6 +98,13 @@
   [data-slot='tooltip-content'][data-state] {
     z-index: 120;
   }
+  /* A hover card opened from a popover, menu or dialog joins the tooltip layer
+     (hover-card.tsx marks it nested). Radix copies the card's z-index onto its
+     popper wrapper inline, once, so the wrapper is raised here. Page-level
+     cards stay below dialogs. */
+  [data-radix-popper-content-wrapper]:has(> [data-overlay-layer='nested'][data-state]) {
+    z-index: 120 !important;
+  }
   /* The truncation hint reads cut text on any surface, toasts included. It
      takes no pointer and closes on any input, so it may cover everything. */
   [data-slot='truncation-hint'] {
@@ -714,8 +721,10 @@ html[data-clio-motion='reduced'] .clio-search-arrival {
 }
 
 /* The filtered Settings window renders each matching section whole and shows only
-   its matching rows, plus the save bar and the loading line. */
-[data-settings-filter]
+   its matching rows, plus the save bar and the loading line. The ancestor is a
+   class so the style engine's ancestor filter rejects every element outside the
+   filtered view before evaluating the :has() below. */
+.clio-settings-filter
   :not(
     :has(
         [data-setting-match],

@@ -125,7 +125,13 @@ export function isCascaderRtl(element: Element, provided: string): boolean {
   const explicit = element.closest('[dir]')?.getAttribute('dir')?.toLowerCase();
   if (explicit === 'rtl') return true;
   if (explicit === 'ltr') return false;
-  return element.ownerDocument?.defaultView?.getComputedStyle(element).direction === 'rtl';
+  // Selector matching reads no computed style, so a keydown mid-commit does not
+  // force a whole-document style recalc; `getComputedStyle` is the old-engine fallback.
+  try {
+    return element.matches(':dir(rtl)');
+  } catch {
+    return element.ownerDocument?.defaultView?.getComputedStyle(element).direction === 'rtl';
+  }
 }
 
 /**

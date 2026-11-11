@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { ClioRepository } from '@clio/core/v3';
 import { RepositoryOverride } from './repository-override-context';
 

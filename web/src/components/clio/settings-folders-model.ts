@@ -12,14 +12,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useSyncExternalStore } from 'react';
 
-/** The colours a workspace can carry: the spec's fixed identity palette, the same in every theme. */
-export const WORKSPACE_COLOURS = [
-  { id: 'clay', label: 'Clay', swatch: 'bg-[#c9785b]' },
-  { id: 'amber', label: 'Amber', swatch: 'bg-[#d9a55b]' },
-  { id: 'green', label: 'Green', swatch: 'bg-[#7fb069]' },
-  { id: 'blue', label: 'Blue', swatch: 'bg-[#5b9fd9]' },
-  { id: 'violet', label: 'Violet', swatch: 'bg-[#a07fd1]' },
-] as const;
+export { WORKSPACE_COLOURS } from '@/theme/workspace-colours';
 
 export const WORKSPACE_ICONS: ReadonlyArray<{ id: string; label: string; Icon: LucideIcon }> = [
   { id: 'folder', label: 'Folder', Icon: FolderIcon },

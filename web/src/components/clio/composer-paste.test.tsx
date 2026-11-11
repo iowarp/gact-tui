@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { AppearanceProvider } from '@/providers/appearance-provider';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 vi.mock('@/hooks/use-repository', () => ({
@@ -36,6 +37,7 @@ function renderComposer(props: Partial<ClioComposerProps> = {}, threshold = 4000
         </PromptInputProvider>
       </AppearanceProvider>
     </QueryClientProvider>,
+    { wrapper: LiveConnection },
   );
   return {
     ...view,

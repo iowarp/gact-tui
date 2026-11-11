@@ -1,4 +1,5 @@
-import { CircleArrowUpIcon, LoaderCircleIcon, RefreshCwIcon, RotateCcwIcon } from 'lucide-react';
+import { CircleArrowUpIcon, LoaderCircleIcon } from 'lucide-react';
+import { RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { type ComponentProps, useState } from 'react';
 import { toast } from 'sonner';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -92,7 +93,7 @@ export function ProviderComponentStatus({
         {state.checking ? (
           <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
         ) : (
-          <RefreshCwIcon aria-hidden="true" />
+          <RefreshIcon aria-hidden="true" />
         )}
         {state.checking ? 'Checking updates…' : 'Check updates'}
       </StatusLink>
@@ -137,7 +138,7 @@ export function ProviderComponentStatus({
       {restart ? (
         inTauri() ? (
           <StatusLink disabled={restarting} onClick={() => void restartNow()}>
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             Restart {vocab.agent}
           </StatusLink>
         ) : (

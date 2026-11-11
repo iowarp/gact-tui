@@ -119,7 +119,10 @@ it('shows command, computer, folders, reason and real duration before technical 
   expect(
     screen.getByText('Move the measurements you selected into the results folder.'),
   ).toBeVisible();
-  expect(screen.getByText(/including after restart/)).toBeVisible();
+  // The lasting-access note is consent text: both widths carry it in full.
+  const [wideNote, narrowNote] = screen.getAllByText(/including after restart/);
+  expect(wideNote).toBeVisible();
+  expect(narrowNote?.closest('[data-slot=key-value-narrow]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Allow for this session' })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Allow for this workspace' }));
@@ -139,10 +142,11 @@ it('at a fifth of the window keeps why, where and folders short and moves who as
   const narrow = Array.from(document.querySelectorAll('[data-slot=key-value-narrow]'));
   // Runs on: the label is the server icon, so the value starts with the computer itself.
   expect(narrow.some((node) => node.textContent === 'Research PCD:\\Research')).toBe(true);
-  expect(narrow.some((node) => node.textContent === 'writes to 2 folders')).toBe(true);
+  // The folders shorten to a count; the consent note under them is never cut.
+  const folders = narrow.find((node) => node.textContent?.startsWith('writes to 2 folders'));
+  expect(folders).toHaveTextContent(/including after restart, until you remove these folders/);
   const askedBy = screen.getByText('Asked by');
   expect(askedBy.closest('[data-narrow=drop]')).not.toBeNull();
-  expect(screen.getByText(/including after restart/)).toHaveClass('@max-[420px]/ask:truncate');
   await userEvent.click(screen.getByRole('button', { name: /Technical details/ }));
   expect(document.querySelector('[data-slot=ask-details-facts]')).toHaveTextContent(
     'Asked byStation evidence specialist',
@@ -232,7 +236,7 @@ it('pages multiple source approvals and removes the pager for the last request',
   expect(screen.getByText('Connect second dataset')).toBeVisible();
 });
 
-it('shows a script instead of its command and opens technical details in a dialog', async () => {
+it('shows a script instead of its command and expands technical details in place', async () => {
   const user = userEvent.setup();
   const script: PendingInteraction = {
     ...request,
@@ -260,21 +264,17 @@ it('shows a script instead of its command and opens technical details in a dialo
   expect(screen.getByText('Flag stations that fail QC')).toBeVisible();
   expect(screen.getByText('Python, 2 lines')).toBeVisible();
   expect(screen.queryByText('Command to run')).not.toBeInTheDocument();
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Technical details' })).not.toBeInTheDocument();
 
-  document.querySelector<HTMLElement>('[data-slot="ask-card"]')!.focus();
+  const card = document.querySelector<HTMLElement>('[data-slot="ask-card"]')!;
+  card.focus();
   await user.keyboard('d');
-  const dialog = await screen.findByRole('dialog', {
-    name: 'Run the QC script: Technical details',
-  });
-  expect(dialog).toHaveTextContent('python qc_stations.py --strict --out results/qc');
-  expect(dialog).not.toHaveTextContent('_clio_');
-  // The facts stay in the card; details never expand inline under them.
-  expect(document.querySelector('[data-slot="ask-card"]')).not.toContainElement(dialog);
-  await user.keyboard('{Escape}');
+  // Details expand in place under the options and scroll inside the card; no dialog.
+  const details = await screen.findByRole('region', { name: 'Technical details' });
+  expect(details).toHaveTextContent('python qc_stations.py --strict --out results/qc');
+  expect(details).not.toHaveTextContent('_clio_');
+  expect(card).toContainElement(details);
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  // Focus goes back to the card D was pressed on, so its keys keep working.
-  expect(document.querySelector('[data-slot="ask-card"]')).toHaveFocus();
 });
 
 it('shows a readable title for retained requests with the old generic summary', () => {

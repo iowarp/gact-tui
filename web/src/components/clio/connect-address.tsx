@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { internalException, UNEXPECTED_CONNECT_ERROR } from '@/hooks/use-connection-availability';
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
 /** The spec's example address; the field itself starts empty. */
@@ -104,9 +105,9 @@ export function ConnectAddressFields({
  * person can act on: nothing answered, or the agent wants a (different) access token.
  * Anything else keeps the service's own message.
  */
-export function connectFailureReason(error: Error, tokenSent = false): string {
+function connectFailureReason(error: Error, tokenSent = false): string {
   if (!(error instanceof TransportError)) return error.message;
-  if (error.code === 'network_unavailable') return 'no CLIO answered at that address.';
+  if (error.code === 'network_unavailable') return `no ${vocab.product} answered at that address.`;
   if (error.status === 401) {
     return tokenSent
       ? 'the agent did not accept that access token.'
