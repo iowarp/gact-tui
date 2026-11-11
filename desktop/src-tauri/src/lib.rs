@@ -328,6 +328,7 @@ pub fn run() {
             let resource_dir = app
                 .path()
                 .resource_dir()
+                .map(sidecar_setup::plain_path)
                 .map_err(|error| format!("resolve desktop resource directory: {error}"))?;
             let managed_storage = if brand_backend::is_managed_install() {
                 sidecar_setup::prepare_managed_storage_root(&resource_dir, &app_data)
