@@ -13,7 +13,7 @@ import {
   SearchIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +49,6 @@ import { WorkbenchListResizeHandle } from './workbench-list-resize';
 import { GroupLabel, Rows } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
 import { SourcesList } from './workbench-sources-list';
-import { useListFitWidth } from './workbench-list-fit';
 import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
 import { LIST_HEADER_SECONDARY, type ChangeCounts, type WorkbenchTab } from './workbench-shared';
@@ -67,8 +66,6 @@ const ACTIVITY_VIEWS: readonly { value: WorkbenchActivityView; label: string; ti
 
 export interface WorkbenchListColumnProps {
   view: WorkbenchListView;
-  /** The width its rows need untruncated, and the width it has. */
-  onFitWidth?: (pixels: number, listWidth: number) => void;
   workspaceId: string;
   sessionId: string;
   tabs: readonly WorkbenchTab[];
@@ -111,6 +108,8 @@ export interface WorkbenchListColumnProps {
   // Terminal and Browser
   onOpenTerminal?: () => void;
   onOpenBrowserPage: (page: BrowserPage) => void;
+  /** A new conversation's address: starts the conversation with the page open in it. */
+  onOpenDraftBrowserPage?: (url: string) => Promise<void>;
   /** Browser as a new page: its address field opens focused, whatever the list holds. */
   newPage?: boolean;
 }
@@ -145,11 +144,7 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         </div>
       </>
     );
-  return (
-    <WorkbenchListTabSection onFitWidth={props.onFitWidth} title={title}>
-      {body}
-    </WorkbenchListTabSection>
-  );
+  return <WorkbenchListTabSection title={title}>{body}</WorkbenchListTabSection>;
 });
 
 /**
@@ -227,22 +222,11 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   );
 }
 
-function WorkbenchListTabSection({
-  title,
-  onFitWidth,
-  children,
-}: {
-  title: string;
-  onFitWidth?: (pixels: number, listWidth: number) => void;
-  children: ReactNode;
-}) {
-  const sectionRef = useRef<HTMLElement>(null);
-  useListFitWidth(sectionRef, onFitWidth);
+function WorkbenchListTabSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list-tab"
-      ref={sectionRef}
       className="flex h-full min-h-0 flex-col bg-background"
     >
       {children}
@@ -674,61 +658,79 @@ function BrowserList({
   activeTabId,
   newPage,
   onOpenBrowserPage,
+  onOpenDraftBrowserPage,
 }: WorkbenchListColumnProps) {
   // Mounted only while this list shows, so its poll runs only then.
   const pages = useBrowserPages(sessionId);
   const rows = (pages.data ?? []).filter((page) => !page.closed);
-  const state =
-    pages.isPending && sessionId ? (
-      <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />
-    ) : !sessionId || (pages.error && !rows.length) ? (
-      <StateView
-        action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
-        className="p-4"
-        detail={
-          pages.error
-            ? serviceErrorDetail(pages.error.message)
-            : 'Pages the agent opens appear here.'
+  // The browser is the person's too: an address can always be opened, before the
+  // conversation's first message (it starts the conversation) and when the list fails.
+  const draftOpen = !sessionId && onOpenDraftBrowserPage ? onOpenDraftBrowserPage : undefined;
+  const newPageRow =
+    sessionId || draftOpen ? (
+      <BrowserNewPage
+        onOpened={onOpenBrowserPage}
+        open={
+          draftOpen
+            ? async (url) => {
+                await draftOpen(url);
+                return undefined;
+              }
+            : undefined
         }
-        kind={pages.error ? 'error' : 'empty'}
-        size="panel"
-        title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
+        sessionId={sessionId}
+        startOpen={newPage || !rows.length}
       />
-    ) : undefined;
-  // A new page keeps its address field while the list loads or can't be read.
-  if (state && !(newPage && sessionId)) return state;
+    ) : null;
+  const loading = pages.isPending && Boolean(sessionId);
+  const state = loading ? (
+    <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />
+  ) : !sessionId || (pages.error && !rows.length) ? (
+    <StateView
+      action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
+      className="p-4"
+      detail={
+        pages.error
+          ? serviceErrorDetail(pages.error.message)
+          : 'Pages you or the agent open appear here.'
+      }
+      kind={pages.error ? 'error' : 'empty'}
+      size="panel"
+      title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
+    />
+  ) : null;
+  // A new page keeps its address field while the list loads.
+  if (loading && !newPage) return state;
   return (
     <>
-      <Rows label="Browser pages">
-        <BrowserNewPage
-          onOpened={onOpenBrowserPage}
-          sessionId={sessionId}
-          startOpen={newPage || !rows.length}
-        />
-        {state
-          ? null
-          : rows.map((page) => {
-              const id = `browser:${page.id}`;
-              const open = tabs.some((tab) => tab.id === id);
-              return (
-                <div key={page.id} role="listitem" title={page.url || browserPageLabel(page)}>
-                  <ListRow
-                    aria-current={activeTabId === id || undefined}
-                    badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
-                    className="cursor-pointer text-[12.5px]"
-                    description={page.host || 'Blank page'}
-                    icon={<GlobeIcon />}
-                    onClick={() => onOpenBrowserPage(page)}
-                    onKeyDown={activateOnKey(() => onOpenBrowserPage(page))}
-                    role="button"
-                    selected={activeTabId === id}
-                    tabIndex={0}
-                    title={browserPageLabel(page)}
-                  />
-                </div>
-              );
-            })}
-      </Rows>
+      {newPageRow ? (
+        <Rows label="Browser pages">
+          {newPageRow}
+          {state
+            ? null
+            : rows.map((page) => {
+                const id = `browser:${page.id}`;
+                const open = tabs.some((tab) => tab.id === id);
+                return (
+                  <div key={page.id} role="listitem" title={page.url || browserPageLabel(page)}>
+                    <ListRow
+                      aria-current={activeTabId === id || undefined}
+                      badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
+                      className="cursor-pointer text-[12.5px]"
+                      description={page.host || 'Blank page'}
+                      icon={<GlobeIcon />}
+                      onClick={() => onOpenBrowserPage(page)}
+                      onKeyDown={activateOnKey(() => onOpenBrowserPage(page))}
+                      role="button"
+                      selected={activeTabId === id}
+                      tabIndex={0}
+                      title={browserPageLabel(page)}
+                    />
+                  </div>
+                );
+              })}
+        </Rows>
+      ) : null}
       {state}
     </>
   );

@@ -16,6 +16,7 @@ import {
   OPEN_BROWSER_PAGE_EVENT,
   OPEN_FILE_IN_BROWSER_EVENT,
   browserFileFailure,
+  type DraftBrowserPageState,
   type OpenBrowserPageDetail,
   type OpenFileInBrowserDetail,
 } from '@/lib/html-in-browser';
@@ -59,6 +60,18 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [requestStore, settings.endpoint],
   );
   const searchRequest = useMemo<WorkbenchRequest | undefined>(() => {
+    const opened = location.state?.browserPage as DraftBrowserPageState | undefined;
+    if (opened && opened.scope === scope && opened.pageId && opened.sessionId)
+      return {
+        endpoint: settings.endpoint,
+        key: `browser-page:${location.key}`,
+        request: {
+          kind: 'browser',
+          pageId: opened.pageId,
+          sessionId: opened.sessionId,
+          label: opened.label,
+        },
+      };
     const pending = location.state?.globalSearchResource;
     if (!pending || pending.scope !== scope) return;
     const request = pending.request as ClioWorkbenchOpenRequest | undefined;
