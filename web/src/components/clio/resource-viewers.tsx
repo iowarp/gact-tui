@@ -65,6 +65,7 @@ export function WorkspaceFileView({
   initialPage,
   locator,
   embedded = false,
+  identity,
   sessionId,
 }: {
   workspaceId: string;
@@ -76,8 +77,11 @@ export function WorkspaceFileView({
   /** PDF only: the page to open on, when the caller already knows which page
    * matters (e.g. the page range an agent's view_pdf call actually viewed). */
   initialPage?: number;
-  /** The enclosing tool-result card already owns the file identity. */
+  /** Inline in a tool result: the bar carries `identity` instead of the crumbs, a PDF
+   * fills the width and there is no Lineage. */
   embedded?: boolean;
+  /** Embedded only: the type icon and name the bar leads with. */
+  identity?: ReactNode;
   /** The open conversation, whose recorded artifacts give the file its Lineage. */
   sessionId?: string;
 }) {
@@ -119,7 +123,12 @@ export function WorkspaceFileView({
       source={source}
     />
   ) : detected === 'application/pdf' ? (
-    <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+    <WorkspacePdfView
+      fit={embedded ? 'width' : 'page'}
+      initialPage={initialPage}
+      path={path}
+      workspaceId={workspaceId}
+    />
   ) : detected.startsWith('image/') ? (
     <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
   ) : html ? (
@@ -177,6 +186,7 @@ export function WorkspaceFileView({
     <FileViewerShell
       source={source}
       showIdentity={!embedded}
+      identity={embedded ? identity : undefined}
       tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
       lineage={
         embedded ? undefined : (
@@ -256,10 +266,12 @@ function WorkspacePdfView({
   workspaceId,
   path,
   initialPage,
+  fit,
 }: {
   workspaceId: string;
   path: string;
   initialPage?: number;
+  fit: 'page' | 'width';
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -279,6 +291,7 @@ function WorkspacePdfView({
         <ClioPdfPreview
           bytes={content.data}
           error={content.error?.message}
+          fit={fit}
           initialPage={initialPage}
           name={fileName(path)}
           onRetry={() => void content.refetch()}
