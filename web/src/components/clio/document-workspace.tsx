@@ -51,6 +51,8 @@ import { downloadBytes } from './surface-export';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { PendingZoomControls } from './viewer-zoom-controls';
+import { officeMediaType } from './comments/file-comments';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -110,6 +112,10 @@ export function ClioDocumentWorkspace({
     refetchOnReconnect: false,
   });
   const effectiveManifest = (needsPdfPreview ? pdfPreview.data : undefined) ?? manifest.data;
+  // An Office file opens as its PDF, so its loading bar already holds the PDF's zoom.
+  const opensAsPdf = manifest.data
+    ? needsPdfPreview || manifest.data.profile === 'pdf'
+    : officeMediaType(artifact.name) !== undefined;
   // Without the document runtime (LibreOffice) there is no PDF to show or export: the
   // file reads as any file with no viewer, and Export to PDF says why it is off.
   const runtimeMissing = renditionUnavailable(pdfPreview.error);
@@ -406,6 +412,7 @@ export function ClioDocumentWorkspace({
                         fit="page"
                         manifest={effectiveManifest}
                         manifestPending={manifest.isPending}
+                        opensAsPdf={opensAsPdf}
                         previewError={
                           runtimeMissing
                             ? undefined
@@ -520,6 +527,7 @@ function DocumentPreview({
   fit,
   manifest,
   manifestPending,
+  opensAsPdf = false,
   previewError,
   previewPending,
   previewLabel,
@@ -534,6 +542,8 @@ function DocumentPreview({
   fit: 'page' | 'width';
   manifest?: DocumentManifest;
   manifestPending: boolean;
+  /** The body will be a PDF: while it loads, the bar already shows the PDF's zoom, off. */
+  opensAsPdf?: boolean;
   previewError?: string;
   previewPending: boolean;
   previewLabel: string;
@@ -544,8 +554,13 @@ function DocumentPreview({
   /** The PDF's name as people know it, not the rendition's registry key. */
   pdfName?: string;
 }) {
-  if (!manifest)
-    return manifestPending ? <ResourceLoading label="Opening the document…" /> : fallback;
+  const loading = (label: string) => (
+    <>
+      {opensAsPdf ? <PendingZoomControls label="PDF zoom" /> : null}
+      <ResourceLoading label={label} />
+    </>
+  );
+  if (!manifest) return manifestPending ? loading('Opening the document…') : fallback;
   if (runtimeMissing && (unavailable ?? fallback)) return unavailable ?? fallback;
   if (previewError && !previewPending) {
     return (
@@ -558,7 +573,7 @@ function DocumentPreview({
       />
     );
   }
-  if (previewPending && !content) return <ResourceLoading label={previewLabel} />;
+  if (previewPending && !content) return loading(previewLabel);
   if (manifest.profile === 'pdf') {
     return (
       // The viewer owns its own scroll region so it can mount only the pages in

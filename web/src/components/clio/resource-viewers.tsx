@@ -41,6 +41,7 @@ import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { FileSourceView } from './file-source-view';
 import { ClioPdfPreview } from './pdf-preview';
+import { PendingZoomControls } from './viewer-zoom-controls';
 import {
   ResourceLoading,
   ViewerNoPreview,
@@ -180,8 +181,9 @@ export function WorkspaceFileView({
             <WorkspaceBinaryView
               mediaType={detected}
               path={path}
-              reason="Its preview needs the document runtime, which isn't available here."
+              reason="It can't run here right now."
               size={size}
+              title="Preview needs the document runtime"
               workspaceId={workspaceId}
             />
           }
@@ -196,7 +198,12 @@ export function WorkspaceFileView({
           workspaceId={workspaceId}
         />
       }
-      loading={<ResourceLoading label={`Opening ${fileName(path)}`} />}
+      loading={
+        <>
+          <PendingZoomControls label="PDF zoom" />
+          <ResourceLoading label={`Opening ${fileName(path)}`} />
+        </>
+      }
       mediaType={officeMediaType(path)!}
       path={path}
       workspaceId={workspaceId}
@@ -365,6 +372,7 @@ function WorkspaceBinaryView({
   mediaType,
   size,
   reason,
+  title,
 }: {
   workspaceId: string;
   path: string;
@@ -372,6 +380,8 @@ function WorkspaceBinaryView({
   size?: number;
   /** Why it has no viewer, before what still works. */
   reason?: string;
+  /** The cause, when its viewer can't run here. */
+  title?: string;
 }) {
   const [asText, setAsText] = useState(false);
   return asText ? (
@@ -381,6 +391,7 @@ function WorkspaceBinaryView({
       onShowText={() => setAsText(true)}
       reason={reason}
       source={{ kind: 'workspace', workspaceId, path, mediaType, size }}
+      title={title}
     />
   );
 }
