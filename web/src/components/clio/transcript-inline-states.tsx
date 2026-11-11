@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
-import { memo } from 'react';
+import { memo, type PointerEvent, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -116,18 +116,65 @@ export const TranscriptControlLane = memo(function TranscriptControlLane({
       style={{ height: TRANSCRIPT_CONTROL_LANE_PX }}
     >
       {syncing ? <TranscriptSyncing /> : null}
-      {onJump ? (
-        <TooltipProvider>
-          <IconButton
-            className="rounded-full border border-border bg-background shadow-sm"
-            icon={<ArrowDownIcon aria-hidden="true" />}
-            label="Jump to latest"
-            onClick={onJump}
-            tooltipSide="top"
-            type="button"
-          />
-        </TooltipProvider>
-      ) : null}
+      {onJump ? <JumpToLatestButton onJump={onJump} /> : null}
     </div>
   );
 });
+
+/** Finger travel that still counts as a tap rather than a drag. */
+const TAP_SLOP_PX = 10;
+/** How long a tap's own trailing click is ignored after the tap already jumped. */
+const TAP_CLICK_GRACE_MS = 600;
+
+/**
+ * "Jump to latest" acts on the finger lifting, not only on `click`. A tap that
+ * lands while the transcript is still gliding from a flick only stops the
+ * glide: the browser delivers the tap's pointerup but never its click, so the
+ * reader would need a second tap. The jump waits one task so the tap's own
+ * touchend, which the scroller reads as reader input, is already handled.
+ */
+function JumpToLatestButton({ onJump }: { onJump: () => void }) {
+  const tapRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const tappedAtRef = useRef(Number.NEGATIVE_INFINITY);
+
+  const onPointerDown = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    tapRef.current =
+      event.pointerType === 'mouse'
+        ? null
+        : { id: event.pointerId, x: event.clientX, y: event.clientY };
+  }, []);
+  const onPointerUp = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    const tap = tapRef.current;
+    tapRef.current = null;
+    if (!tap || tap.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > TAP_SLOP_PX) return;
+    tappedAtRef.current = performance.now();
+    window.setTimeout(onJump, 0);
+  }, [onJump]);
+  const onPointerCancel = useCallback(() => {
+    tapRef.current = null;
+  }, []);
+  const onClick = useCallback(() => {
+    if (performance.now() - tappedAtRef.current <= TAP_CLICK_GRACE_MS) {
+      tappedAtRef.current = Number.NEGATIVE_INFINITY;
+      return;
+    }
+    onJump();
+  }, [onJump]);
+
+  return (
+    <TooltipProvider>
+      <IconButton
+        className="rounded-full border border-border bg-background shadow-sm"
+        icon={<ArrowDownIcon aria-hidden="true" />}
+        label="Jump to latest"
+        onClick={onClick}
+        onPointerCancel={onPointerCancel}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        tooltipSide="top"
+        type="button"
+      />
+    </TooltipProvider>
+  );
+}
