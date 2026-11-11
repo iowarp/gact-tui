@@ -35,6 +35,8 @@ export interface LocatedMark {
   rect?: [number, number, number, number];
   /** The element's selector now, when the one it was picked with no longer names it. */
   selector?: string;
+  /** A region's element the first time the page saw it: the region follows it from then on. */
+  hold?: RegionHold;
   /** Why it was not found: gone, changed, or on the page but not shown. */
   reason?: string;
 }
@@ -54,6 +56,25 @@ function numbers(value: unknown, count: number): number[] | null {
     : null;
 }
 
+/** The element a region holds to, and the region's offset and size from it in CSS pixels. */
+export interface RegionHold {
+  selector: string;
+  tag: string;
+  dx: number;
+  dy: number;
+  width: number;
+  height: number;
+}
+
+function regionHold(value: unknown): RegionHold | undefined {
+  const hold = (value ?? {}) as Record<string, unknown>;
+  const size = numbers([hold.dx, hold.dy, hold.width, hold.height], 4);
+  if (typeof hold.selector !== 'string' || !hold.selector || !size) return undefined;
+  const [dx, dy, width, height] = size as [number, number, number, number];
+  const tag = typeof hold.tag === 'string' ? hold.tag : '';
+  return { selector: hold.selector, tag, dx, dy, width, height };
+}
+
 /** A `marks` message as a report, or `null` when it is malformed. */
 export function parseMarksReport(message: unknown): MarksReport | null {
   const { url, viewport, marks } = (message ?? {}) as Record<string, unknown>;
@@ -70,6 +91,7 @@ export function parseMarksReport(message: unknown): MarksReport | null {
       how: typeof item.how === 'string' ? item.how : undefined,
       rect: rect ? (rect as [number, number, number, number]) : undefined,
       selector: typeof item.selector === 'string' ? item.selector : undefined,
+      hold: regionHold(item.hold),
       reason: typeof item.reason === 'string' ? item.reason : undefined,
     });
   }
