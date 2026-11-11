@@ -78,6 +78,6 @@ describe('ConversationTurn activity lane', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Expand Called 8 tools' }));
 
     expect(rows()).toHaveLength(9);
-    expect(screen.queryByRole('button', { name: /^Show /u })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Show \d+ earlier$/u })).not.toBeInTheDocument();
   });
 });
