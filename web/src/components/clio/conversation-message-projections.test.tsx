@@ -1,5 +1,6 @@
 import type { Message } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -58,7 +59,7 @@ describe('conversation message projections', () => {
       created_at: '2026-10-12T00:00:00Z',
       blocks: [],
     });
-    const view = render(
+    const view = renderWithTooltips(
       <AppearanceProvider>
         <ConversationDisplayProvider>
           <ClioConversation
@@ -286,7 +287,7 @@ describe('conversation message projections', () => {
       toolName: 'v2ex_ui_echo',
     });
 
-    render(
+    renderWithTooltips(
       <AppearanceProvider>
         <ConversationDisplayProvider>
           <ClioConversation
@@ -320,7 +321,7 @@ describe('conversation message projections', () => {
   });
 
   it('renders an edit diff once beneath its tool instead of duplicating the block', () => {
-    render(
+    renderWithTooltips(
       <AppearanceProvider>
         <ConversationDisplayProvider>
           <ClioConversation
@@ -365,6 +366,12 @@ describe('conversation message projections', () => {
       </AppearanceProvider>,
     );
 
-    expect(screen.getAllByText('+new')).toHaveLength(1);
+    const [changes, ...repeated] = screen.getAllByRole('table', { name: 'Changes' });
+    expect(repeated).toHaveLength(0);
+    expect(
+      within(changes!)
+        .getAllByRole('row')
+        .map((row) => row.textContent),
+    ).toEqual(['1Removed: old', '1Added: new']);
   });
 });

@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import { MemoryToolResult } from './memory-tool-result';
 import { INLINE_MEMORY_TOOLS } from './memory-presentation';
 import { CircleAlertIcon, FileIcon } from 'lucide-react';
@@ -41,6 +42,7 @@ import {
 import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
 import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
+import { PresentationNavigation } from './presentation-navigation';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 
@@ -71,10 +73,11 @@ function ToolResultBody({
   subjectId?: string;
   summaryInHeader?: boolean;
 }) {
-  const questionContext = useQuestionAnswer();
-  const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
+  const navigation = useContext(PresentationNavigation);
+  const interactions = useQuestionAnswer()?.interactions ?? navigation?.interactions;
+  const tool = withQuestionPresentation(recordedTool, interactions);
   const lines = useTranscriptPreviewLines();
-  const reading = answeredQuestionReading(recordedTool, questionContext?.interactions);
+  const reading = answeredQuestionReading(recordedTool, interactions);
   if (reading)
     return (
       <div

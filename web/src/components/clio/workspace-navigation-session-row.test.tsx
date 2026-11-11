@@ -8,6 +8,12 @@ import { SessionNavigationRow } from './workspace-navigation-session-row';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { SessionAttention } from '@/lib/session-attention';
 
+// The Move to submenu reads service capabilities through the ConnectionProvider the app supplies.
+vi.mock('@/hooks/use-session-move', () => ({
+  useSessionMoveSupported: () => false,
+  useSessionMoveTargets: () => ({ data: undefined }),
+}));
+
 const actions: ResourceActions = {
   createWorkspace: vi.fn(),
   renameWorkspace: vi.fn(),
@@ -61,7 +67,11 @@ function renderRow(row: Session, seenRevision?: string, attention?: SessionAtten
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // A row click holds previews until the pointer really moves; release it so tests stay independent.
+  window.dispatchEvent(new MouseEvent('pointermove', { clientX: 1000, clientY: 1000 }));
+});
 
 describe('session navigation state', () => {
   it('labels completed activity that arrived after the session was last seen', () => {

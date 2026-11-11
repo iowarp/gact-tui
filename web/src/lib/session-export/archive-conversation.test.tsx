@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/components/ai-elements/markdown';
@@ -63,7 +64,7 @@ it('uses native activity controls with the loaded skill and failed command at th
     artifacts: [],
     surfaces: [],
   };
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <ArchiveConnectionProvider>
         <ArchiveConversation
@@ -167,7 +168,7 @@ it('merges captured interactions with authoritative answers at their owning tool
       },
     ],
   };
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <ArchiveConnectionProvider>
         <ArchiveConversation
@@ -214,7 +215,10 @@ it('merges captured interactions with authoritative answers at their owning tool
     await screen.findByRole('button', { name: 'Expand Asked 2 questions' }),
   ).toBeInTheDocument();
   openActivityRuns();
-  expect(await screen.findByText('Which label is control?')).toBeVisible();
-  expect(screen.getByText('The control mapping is unconfirmed.')).toBeVisible();
+  // Each answer folds into its owning call's row; the call opens to the question it asked.
+  expect(await screen.findByText('The control mapping is unconfirmed.')).toBeVisible();
   expect(screen.getByText('Review the recorded report.')).toBeVisible();
+  const [control] = screen.getAllByRole('button', { name: 'Show result for Answered' });
+  await userEvent.setup().click(control!);
+  expect(await screen.findByText('Which label is control?')).toBeVisible();
 });

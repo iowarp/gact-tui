@@ -103,13 +103,22 @@ export function ConnectedSourceForm({
         ? 'upload'
         : fallback,
   );
+  // A provider requested before the provider list arrives is taken once it is listed.
+  const [requested, setRequested] = useState(initialChoice !== choice ? initialChoice : undefined);
+  if (requested && options.some((option) => option.id === requested)) {
+    setRequested(undefined);
+    setChoice(requested);
+  }
   const provider = providers.find((row) => row.id === choice);
   return (
     <div className="flex flex-col gap-[13px]">
       <ProviderSwitch
         options={options}
         value={choice}
-        onChange={setChoice}
+        onChange={(id) => {
+          setRequested(undefined);
+          setChoice(id);
+        }}
         aside={provider ? <SourceProviderInfo provider={provider} /> : undefined}
       />
       {choice === 'upload' ? (

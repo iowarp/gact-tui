@@ -16,7 +16,10 @@ const theme = vi.hoisted(() => ({ resolvedTheme: 'dark' as 'dark' | 'light' }));
 const desktop = vi.hoisted(() => ({ base: undefined as string | undefined }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 // A named theme (Notebook) still maps to its light or dark variant.
-vi.mock('@/theme/runtime', () => ({ useThemeKey: () => `notebook:${theme.resolvedTheme}` }));
+vi.mock('@/theme/runtime', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/theme/runtime')>()),
+  useThemeKey: () => `notebook:${theme.resolvedTheme}`,
+}));
 vi.mock('./hdf5-viewer-location', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./hdf5-viewer-location')>();
   return {

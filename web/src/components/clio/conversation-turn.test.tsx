@@ -1,5 +1,6 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 // The plan review renders Markdown through a React.lazy boundary. Importing the
@@ -58,7 +59,7 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
 
 describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state of a cancelled turn in full mode', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[iteration({ interrupted: true })]}
         mode="full"
@@ -70,7 +71,7 @@ describe('ConversationTurn incomplete state', () => {
   });
 
   it('shows the interrupted state in the chain activity lane', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         answerStarted
         iterations={[iteration({ interrupted: true })]}
@@ -84,7 +85,7 @@ describe('ConversationTurn incomplete state', () => {
   });
 
   it('does not mark a normally completed iteration as interrupted', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn iterations={[iteration({ terminal: true })]} mode="full" subagents={{}} />,
     );
 
@@ -123,7 +124,7 @@ describe('ConversationTurn correlated work placement', () => {
         },
         actions: ['answer'],
       };
-      render(
+      renderWithTooltips(
         <ConversationTurn
           interactions={[interaction]}
           iterations={[
@@ -153,7 +154,7 @@ describe('ConversationTurn correlated work placement', () => {
   );
 
   it('renders tools and tasks in the wire order that links them', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -190,39 +191,40 @@ describe('ConversationTurn correlated work placement', () => {
       task: 'Research the HDF5 origin chronology.',
       result: 'The authoritative history confirms the project chronology.',
     };
-    render(
-      <ConversationTurn
-        iterations={[
-          iteration(
-            activityLane([
-              {
-                kind: 'subagent',
-                id: 'handoff_started',
-                block: {
+    renderWithTooltips(
+      <MemoryRouter>
+        <ConversationTurn
+          iterations={[
+            iteration(
+              activityLane([
+                {
+                  kind: 'subagent',
                   id: 'handoff_started',
-                  type: 'subagent',
-                  subagent_id: child.id,
-                  stage: 'delegate.started',
+                  block: {
+                    id: 'handoff_started',
+                    type: 'subagent',
+                    subagent_id: child.id,
+                    stage: 'delegate.started',
+                  },
                 },
-              },
-              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
-              {
-                kind: 'subagent',
-                id: 'handoff_returned',
-                block: {
+                { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
+                {
+                  kind: 'subagent',
                   id: 'handoff_returned',
-                  type: 'subagent',
-                  subagent_id: child.id,
-                  stage: 'delegate.completed',
+                  block: {
+                    id: 'handoff_returned',
+                    type: 'subagent',
+                    subagent_id: child.id,
+                    stage: 'delegate.completed',
+                  },
                 },
-              },
-            ]),
-          ),
-        ]}
-        mode="full"
-        subagents={{ [child.id]: child }}
-      />,
-      { wrapper: MemoryRouter },
+              ]),
+            ),
+          ]}
+          mode="full"
+          subagents={{ [child.id]: child }}
+        />
+      </MemoryRouter>,
     );
 
     const lane = screen.getByRole('region', { name: 'Full agent activity' });
@@ -266,7 +268,7 @@ describe('ConversationTurn correlated work placement', () => {
         mime_type: 'text/html;profile=mcp-app',
       },
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         activeMcpAppId="app_1"
         iterations={[
@@ -319,7 +321,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
     };
 
-    render(
+    renderWithTooltips(
       <ConversationTurn
         activeMcpAppId="app_2"
         iterations={[iteration(activityLane([replaced, active]))]}
@@ -366,7 +368,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -423,7 +425,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -471,7 +473,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -526,7 +528,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: ['answer', 'cancel'],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -575,7 +577,7 @@ describe('ConversationTurn correlated work placement', () => {
       },
       actions: [],
     };
-    render(
+    renderWithTooltips(
       <ConversationTurn
         interactions={[interaction]}
         iterations={[
@@ -601,7 +603,7 @@ describe('ConversationTurn correlated work placement', () => {
 
 describe('ConversationTurn announced state', () => {
   it('announces a task state in words rather than its protocol identifier', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -625,7 +627,7 @@ describe('ConversationTurn announced state', () => {
   });
 
   it('exposes a task detail as readable content instead of naming a bare span', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(
@@ -665,7 +667,7 @@ describe('ConversationTurn announced state', () => {
   });
 
   it('does not leave a task with no detail as an unexplained status row', () => {
-    render(
+    renderWithTooltips(
       <ConversationTurn
         iterations={[
           iteration(

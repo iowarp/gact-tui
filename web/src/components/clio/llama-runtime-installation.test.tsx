@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -59,7 +60,7 @@ function renderCard(installed = false, variant = 'native-windows-cpu') {
       />
     );
   }
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
         <Review />

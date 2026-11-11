@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSubagentCard, ClioSubagentLifecycleLine } from './subagent-card';
 import { PresentationNavigation } from './presentation-navigation';
@@ -23,7 +24,7 @@ afterEach(() => {
 
 describe('ClioSubagentCard', () => {
   it('reports an unrecognized child state as unknown instead of completed', () => {
-    render(
+    renderWithTooltips(
       <ClioSubagentCard
         subagent={{
           id: 'task_relay',
@@ -42,7 +43,7 @@ describe('ClioSubagentCard', () => {
   });
 
   it('names the model a child runs on beside its name', () => {
-    render(
+    renderWithTooltips(
       <ClioSubagentCard
         subagent={{
           id: 'task_small',
@@ -67,7 +68,7 @@ describe('ClioSubagentCard', () => {
   });
 
   it('keeps an interrupted child interrupted instead of relabeling it failed', () => {
-    render(
+    renderWithTooltips(
       <ClioSubagentCard
         subagent={{
           id: 'task_stopped',
@@ -87,7 +88,7 @@ describe('ClioSubagentCard', () => {
   });
 
   it('treats an event-order gap as connecting instead of a failed child', () => {
-    render(<ClioSubagentCard />);
+    renderWithTooltips(<ClioSubagentCard />);
 
     expect(screen.getByText('Connecting child agent')).toBeVisible();
     expect(screen.getByText('Waiting for the live child record.')).toBeVisible();
@@ -96,7 +97,7 @@ describe('ClioSubagentCard', () => {
 
   it('reads as one delegate row whose body nests its calls and returned result', async () => {
     const onOpen = vi.fn();
-    render(
+    renderWithTooltips(
       <ClioSubagentCard
         onOpen={onOpen}
         subagent={{
@@ -152,7 +153,7 @@ describe('ClioSubagentCard', () => {
   });
 
   it('does not reinterpret persisted routing syntax', () => {
-    render(
+    renderWithTooltips(
       <ClioSubagentCard
         subagent={{
           id: 'task_geo',
@@ -187,7 +188,7 @@ describe('ClioSubagentLifecycleLine', () => {
     run = child,
   ) {
     const onOpen = vi.fn();
-    render(
+    renderWithTooltips(
       <PresentationNavigation.Provider
         value={{ artifacts: {}, subagents: { [run.id]: run }, onOpenSubagent: onOpen }}
       >
