@@ -1,23 +1,5 @@
-import type {
-  CommandDefinition,
-  ComposerMessagePart,
-  MessageBehavior,
-  MessageDelivery,
-  RunState,
-  WorkspaceReference,
-  SummonTargets,
-  WorkspaceResource,
-} from '@clio/core/v3';
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import type { MessageDelivery, WorkspaceReference } from '@clio/core/v3';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -42,15 +24,11 @@ import { compactModelName, type ClioModelOption } from '@/lib/model-options';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { composerFailureReason, humanFailureText } from './composer-failure';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
-import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
+import { ClioComposerQueue } from './composer-queue';
 import { ComposerRunAnnouncer } from './composer-run-announcer';
-import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
-import type {
-  ResourceUploadProgress,
-  UploadableFilePart,
-  WorkspaceResourceUploadResult,
-} from '@/lib/upload-workspace-resources';
-import { ClioComposerCommandMenu, type CommandListState } from './composer-command-menu';
+import { defaultReasoningLabel } from '@/lib/reasoning-levels';
+import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import { ClioComposerCommandMenu } from './composer-command-menu';
 import { commandForName } from '@/lib/command-table';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
@@ -66,7 +44,6 @@ import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-mo
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { commentSessionParts } from '@/lib/composer-annotations';
-import type { CommentAttachment } from '@clio/core/v3';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
 import { useComposerSources } from './use-composer-sources';
@@ -76,122 +53,13 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 import { useSummonTargets } from '@/hooks/use-summon-targets';
-import {
-  deleteSavedDraft,
-  saveDraft,
-  takeSavedDraft,
-  useSavedDrafts,
-} from '@/lib/composer-saved-drafts';
+import { deleteSavedDraft } from '@/lib/composer-saved-drafts';
+import type { ClioComposerProps } from './composer-types';
+import { useComposerDraftInsertion } from './use-composer-draft-insertion';
+import { useComposerFocus } from './use-composer-focus';
+import { useComposerSavedDrafts } from './use-composer-saved-drafts';
 
-export interface ClioComposerProps extends ComposerQueueControls {
-  state: RunState;
-  attachments: boolean;
-  provider?: string;
-  model?: string;
-  modelCatalogStatus?: 'error' | 'loading' | 'ready';
-  effort?: string;
-  /** The configured (global) level: displayed when nothing is picked, never sent. */
-  configuredEffort?: string;
-  executionMode?: MessageBehavior['execution_mode'];
-  confirmationPolicy?: MessageBehavior['confirmation_policy'];
-  modelOptions?: Array<{
-    providerId: string;
-    providerName: string;
-    id: string;
-    label: string;
-    description?: string;
-    available: boolean;
-    availabilityDetail?: string;
-    configurationUrl?: string;
-    endpoint?: string;
-    freshness?: string;
-    health?: string;
-    modalities?: readonly string[];
-    reasoning?: ModelReasoningLevels;
-    aliases?: readonly string[];
-  }>;
-  disabled?: boolean;
-  /** A send is out and the service hasn't taken it yet; a slow one says so in the row. */
-  sending?: boolean;
-  /**
-   * The connection's defaults are still loading. The draft stays editable; the
-   * controls and the send wait, and an Enter pressed meanwhile sends once ready.
-   */
-  connecting?: boolean;
-  /** Keep the draft editable while the first session catalog is registering. */
-  catalogPreparing?: boolean;
-  contextReferences?: boolean;
-  /**
-   * The service's capabilities are still loading, so `attachments` and
-   * `contextReferences` aren't known yet. `+` and `@` hold their place, disabled.
-   */
-  capabilitiesPending?: boolean;
-  workspaceId?: string;
-  sessionId?: string;
-  commands?: CommandDefinition[];
-  /** Whether `commands` is the agent's list yet (default `ready`). */
-  commandsState?: CommandListState;
-  /** The subagents and MCP servers the person can `@`-summon (fetched for the session if absent). */
-  summonTargets?: SummonTargets;
-  onSubmit: (value: {
-    text: string;
-    files: UploadableFilePart[];
-    references: Exclude<ComposerMessagePart, { type: 'text' }>[];
-    provider?: string;
-    model?: string;
-    delivery: MessageDelivery | 'queued';
-    behavior: MessageBehavior;
-    onUploadProgress: (progress: ResourceUploadProgress) => void;
-    /** The fleet model (`<account>/<model>`) SPOTTER review runs on in a new conversation. */
-    spotterModel?: string;
-  }) => Promise<void>;
-  onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
-  spotterModel?: string;
-  /** Stores the session's SPOTTER model (empty: conversation model); else the draft keeps it. */
-  onSpotterModelChange?: (ref: string) => Promise<void>;
-  onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
-  onPrepareFiles?: (
-    files: readonly UploadableFilePart[],
-    onProgress?: (progress: ResourceUploadProgress) => void,
-    signal?: AbortSignal,
-  ) => Promise<WorkspaceResourceUploadResult>;
-  onStop?: () => void;
-  onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
-  onRetryModelCatalog?: (providerId?: string) => void;
-  onHeightChange?: (height: number) => void;
-  activityControl?: ReactNode;
-  workSummary?: ReactNode;
-  pendingInteractions?: ReactNode;
-  resources?: readonly WorkspaceResource[];
-  onOpenResource?: (resource: WorkspaceResource) => void;
-  onOpenReference?: (reference: WorkspaceReference) => void;
-  value?: string;
-  onValueChange?: (value: string) => void;
-  /**
-   * The references the draft carries. Controlled alongside `value` by whoever
-   * owns the draft: the composer is remounted whenever the session, model or
-   * layout branch changes, so state kept inside it would be destroyed while the
-   * text beside it survived.
-   */
-  references?: readonly InlineReferenceSelection[];
-  onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
-  /** Selections attached to the next message (sent as quotes ahead of the text). */
-  /** Comment sessions attached to the next message (answers, A2UI views, pages). */
-  annotations?: readonly CommentAttachment[];
-  onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
-  focusRequestKey?: number;
-  /**
-   * Place the caret in the editor on mount when nothing else holds focus. Skipped
-   * on touch screens so arriving on the page doesn't raise the on-screen keyboard.
-   */
-  autoFocus?: boolean;
-  variant?: 'docked' | 'welcome';
-  /**
-   * Hint shown in the empty editor. Defaults to steering copy in a conversation
-   * and to the open invitation on the welcome page.
-   */
-  placeholder?: string;
-}
+export type { ClioComposerProps } from './composer-types';
 
 const noQueueAction = async () => undefined;
 const NO_MODEL_OPTIONS: NonNullable<ClioComposerProps['modelOptions']> = [];
@@ -308,7 +176,7 @@ export function ClioComposer({
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
-  const lastInsertedDraftRef = useRef<{ sourceKey: string; text: string } | undefined>(undefined);
+  const inputRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     latestInputRef.current = input;
   }, [input]);
@@ -320,32 +188,8 @@ export function ClioComposer({
     },
     [onValueChange, value],
   );
-  useEffect(() => {
-    const useDraft = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string; sourceKey?: string }>).detail;
-      if (typeof detail?.text !== 'string') return;
-      const current = latestInputRef.current;
-      const previous = lastInsertedDraftRef.current;
-      const replacePrevious =
-        previous && detail.sourceKey === previous.sourceKey && current.includes(previous.text);
-      setInput(
-        replacePrevious
-          ? current.replace(previous.text, detail.text)
-          : current
-            ? `${current}\n\n${detail.text}`
-            : detail.text,
-      );
-      if (detail.sourceKey)
-        lastInsertedDraftRef.current = { sourceKey: detail.sourceKey, text: detail.text };
-      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
-    };
-    window.addEventListener('clio:use-message-draft', useDraft);
-    return () => {
-      window.removeEventListener('clio:use-message-draft', useDraft);
-    };
-  }, [input, setInput]);
+  useComposerDraftInsertion({ input, latestInputRef, setInput, inputRef });
   useCommentSessionAttachment(annotations, onAnnotationsChange);
-  const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // While the service can't be reached or the stream is opening, resuming or catching up,
   // the draft stays editable and Enter holds the send until it is live again, like a send
@@ -384,8 +228,6 @@ export function ClioComposer({
     }
     toast.error('Attachment was not added', { description: error.message });
   };
-  const handledFocusRequestKeyRef = useRef(focusRequestKey);
-  const restoreFocusAfterSubmitRef = useRef(false);
   const focusEditorSoon = useCallback((offset?: number) => {
     window.requestAnimationFrame(() => focusComposerEditor(inputRef.current, offset));
   }, []);
@@ -430,35 +272,18 @@ export function ClioComposer({
   });
   // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
   // the newest back. Restoring over a draft puts that one aside first.
-  const savedDraftKey = sessionId ?? `new:${workspaceId}`;
-  const savedDrafts = useSavedDrafts(savedDraftKey);
-  const draftEmpty = !input.trim() && selectedReferences.length === 0;
-  const putDraftAside = () => {
-    const saved = saveDraft(savedDraftKey, {
-      text: latestInputRef.current,
-      references: selectedReferences,
-    });
-    if (!saved) return;
-    setInput('');
-    setSelectedReferences([]);
-  };
-  const restoreSavedDraft = (id?: string) => {
-    const draft = takeSavedDraft(savedDraftKey, id);
-    if (!draft) return;
-    saveDraft(savedDraftKey, { text: latestInputRef.current, references: selectedReferences });
-    setInput(draft.text);
-    setSelectedReferences(draft.references);
-    focusEditorSoon();
-  };
-  useShortcut('save-draft', putDraftAside, {
-    enabled: !disabled,
-    region: rootRef,
-    allowInTextField: true,
-  });
-  useShortcut('restore-draft', () => restoreSavedDraft(), {
-    enabled: !disabled && draftEmpty && savedDrafts.length > 0,
-    region: inputRef,
-    allowInTextField: true,
+  const { savedDraftKey, savedDrafts, draftEmpty, restoreSavedDraft } = useComposerSavedDrafts({
+    sessionId,
+    workspaceId,
+    input,
+    latestInputRef,
+    setInput,
+    selectedReferences,
+    setSelectedReferences,
+    focusEditorSoon,
+    disabled,
+    rootRef,
+    inputRef,
   });
   useShortcut('composer-focus', () => focusComposerEditor(inputRef.current), {
     enabled: !disabled,
@@ -478,45 +303,12 @@ export function ClioComposer({
     });
   }, [contextReferences, workspaceId]);
 
-  useEffect(() => {
-    const previousKey = handledFocusRequestKeyRef.current;
-    handledFocusRequestKeyRef.current = focusRequestKey;
-    if (focusRequestKey === undefined || focusRequestKey === previousKey) return;
-    const frame = window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusRequestKey]);
-
-  const autoFocusRef = useRef(autoFocus);
-  useEffect(() => {
-    if (!autoFocusRef.current) return undefined;
-    if (window.matchMedia?.('(pointer: coarse)').matches) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      const active = document.activeElement;
-      if (active && active !== document.body) return;
-      focusComposerEditor(inputRef.current);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    if (disabled || !restoreFocusAfterSubmitRef.current) return;
-    const frame = window.requestAnimationFrame(() => {
-      const element = inputRef.current;
-      if (!element || element.getAttribute('aria-disabled') === 'true') return;
-      restoreFocusAfterSubmitRef.current = false;
-      focusComposerEditor(element);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [disabled]);
-
-  const restoreInputFocusWhenReady = () => {
-    window.requestAnimationFrame(() => {
-      const element = inputRef.current;
-      if (!element || element.getAttribute('aria-disabled') === 'true') return;
-      restoreFocusAfterSubmitRef.current = false;
-      focusComposerEditor(element);
-    });
-  };
+  const { restoreFocusAfterSubmitRef, restoreInputFocusWhenReady } = useComposerFocus({
+    inputRef,
+    focusRequestKey,
+    autoFocus,
+    disabled,
+  });
 
   // Stable handlers for the memoized toolbar, so a keystroke doesn't re-render its menus.
   const openSources = useStableCallback(() => connectedSources.open?.());
