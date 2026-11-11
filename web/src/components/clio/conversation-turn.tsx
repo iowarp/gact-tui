@@ -349,18 +349,47 @@ export function ConversationTurn({
     if (iteration.nextThoughts.length || groups.length === 0) groups.push([iteration]);
     else groups[groups.length - 1].push(iteration);
   }
+  // Everything between two public updates is one block of activity, in the order
+  // it happened. The thought that leads into an update ends the block before it,
+  // so a harness update ahead of the reply folds with that thought. Only an
+  // opening update with nothing before it keeps its thought above it.
+  const blocks = groups.map((group) => {
+    const [lead, ...rest] = group;
+    const said = lead.nextThoughts.length > 0;
+    return {
+      text: { ...lead, thinking: [] as ConversationIteration['thinking'] },
+      steps: [{ ...lead, thinking: said ? [] : lead.thinking }, ...rest],
+    };
+  });
+  groups.forEach(([lead], index) => {
+    if (!lead.thinking.length || !lead.nextThoughts.length) return;
+    if (index === 0) blocks[0].text = lead;
+    else
+      blocks[index - 1].steps.push({
+        ...lead,
+        id: `${lead.id}:thinking`,
+        nextThoughts: [],
+        nextThoughtSources: undefined,
+        activity: [],
+        tools: [],
+        tasks: [],
+        interrupted: false,
+        terminal: false,
+        streaming: lead.thinking.some((thought) => thought.streaming),
+      });
+  });
   return (
     <div
-      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1"
+      // A row run that opens the reply starts 6px down, where reply text starts
+      // (the lane's own first row adds 4px of its 6).
+      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1 [&>[data-slot=transcript-activity-timeline]:first-child]:mt-0.5 [&>[data-slot=transcript-thought-run]:first-child]:mt-1.5"
       data-slot="transcript-entry-sequence"
     >
-      {groups.map((group, index) => {
-        const iteration = group[0];
+      {blocks.map(({ text: iteration, steps: group }, index) => {
         const summary = transcriptActivitySummary(group, interactions);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
-            {/* The step's thought reads first, then its public update, then its calls. */}
             <TranscriptIterationText iteration={iteration} />
             {hasActivity ? (
               <ActivityLane
@@ -408,9 +437,7 @@ export function ConversationTurn({
                 )}
               </ActivityLane>
             ) : (
-              group
-                .slice(1)
-                .map((item) => <IterationReasoningText key={item.id} iteration={item} />)
+              group.map((item) => <IterationReasoningText key={item.id} iteration={item} />)
             )}
             {/* A call the sandbox blocked is said where the person reads, with its Allow
                 control, not only inside the folded activity. */}
