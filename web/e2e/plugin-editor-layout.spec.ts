@@ -106,7 +106,8 @@ for (const viewport of [
     expect(metrics.content).toBeGreaterThan(metrics.height * 3);
     expect(metrics.sizing).toBe('fixed');
     await editor.click();
-    await editor.press('Control+End');
+    // The platform's move-to-end-of-text key: macOS has no Ctrl+End in text fields.
+    await editor.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
     await editor.press('Enter');
     await editor.pressSequentially('Local edited instruction');
     expect(await editor.evaluate((node: HTMLTextAreaElement) => node.scrollTop)).toBeGreaterThan(0);
