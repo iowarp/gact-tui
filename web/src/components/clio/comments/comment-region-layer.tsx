@@ -5,6 +5,8 @@ export type Rect = [number, number, number, number];
 export interface LayerMark {
   label: string;
   rect: Rect;
+  /** A text selection is drawn as a highlight; anything else as a box. */
+  text?: boolean;
 }
 
 function clamp(value: number): number {
@@ -81,7 +83,7 @@ export function CommentRegionLayer({
         touchAction: capturing ? 'none' : undefined,
       }}
     >
-      {[...marks, ...(draft ? [{ label: '', rect: draft }] : [])].map((mark) => {
+      {[...marks, ...(draft ? [{ label: '', rect: draft, text: false }] : [])].map((mark) => {
         const style = {
           left: `${mark.rect[0] * 100}%`,
           top: `${mark.rect[1] * 100}%`,
@@ -93,10 +95,13 @@ export function CommentRegionLayer({
             {mark.label}
           </span>
         ) : null;
+        const shape = mark.text
+          ? 'border-b-2 border-primary bg-primary/20'
+          : 'border-2 border-primary bg-primary/10';
         return mark.label && onOpenMark ? (
           <button
             aria-label={`Edit ${mark.label}`}
-            className="absolute border-2 border-primary bg-primary/10"
+            className={`absolute ${shape}`}
             data-mark-label={mark.label}
             key={mark.label}
             onClick={() => onOpenMark(mark.label)}

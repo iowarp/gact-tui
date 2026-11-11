@@ -22,6 +22,7 @@ import { CommentToggle } from './comments/comment-capture';
 import {
   BrowserPageComments,
   BrowserRegionCapture,
+  type SubscribeMarks,
   type SubscribePicks,
 } from './comments/browser-page-comments';
 import type { Viewport } from './browser-live-input';
@@ -30,6 +31,7 @@ import {
   openBrowserLive,
   type BrowserInput,
   type BrowserLiveConnection,
+  type MarksReport,
 } from './browser-live-socket';
 import { browserPagesKey } from './use-browser-pages';
 
@@ -107,6 +109,14 @@ export function BrowserSurface({
       listeners.delete(listener);
     };
   }, []);
+  const markListeners = useRef(new Set<(report: MarksReport) => void>());
+  const subscribeMarks = useCallback<SubscribeMarks>((listener) => {
+    const listeners = markListeners.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false; // a socket this view closed itself reports nothing back
@@ -122,6 +132,9 @@ export function BrowserSurface({
       },
       onPick: (anchor) => {
         if (!disposed) for (const listener of pickListeners.current) listener(anchor);
+      },
+      onMarks: (report) => {
+        if (!disposed) for (const listener of markListeners.current) listener(report);
       },
       onNotice: (reason) => {
         if (!disposed)
@@ -174,6 +187,7 @@ export function BrowserSurface({
         interactive={interactive}
         page={page}
         subscribe={subscribePicks}
+        subscribeMarks={subscribeMarks}
         send={send}
       >
         <section
