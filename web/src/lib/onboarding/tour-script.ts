@@ -173,7 +173,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     id: 'navigation',
     anchor: 'workspace-navigation',
     title: 'Your conversations',
-    body: 'Conversations are grouped by workspace. Start a new one or return to an earlier one here.',
+    body: 'Your conversations live in the left bar, grouped by workspace. Start a new one or return to an earlier one.',
   },
   {
     id: 'workbench',
@@ -185,6 +185,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
     id: 'settings',
     anchor: 'settings',
     title: 'Settings',
-    body: 'Models, connections and appearance. Replay this tour from Settings, General.',
+    body: 'Models, connections and appearance, at the foot of the left bar. Replay this tour from Settings, General.',
   },
 ];

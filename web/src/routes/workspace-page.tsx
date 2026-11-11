@@ -1,6 +1,6 @@
 import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import type { ObservabilityView } from '@/components/clio/observability-view-storage';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -47,8 +47,11 @@ import { useContextTargetSelection } from '@/hooks/use-context-target-selection'
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { responseReadFailure } from '@/components/clio/pending-interaction-notices';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
-import { workspaceName } from '@/lib/workspace-labels';
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
+import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 
@@ -62,6 +65,7 @@ export function WorkspacePage() {
   const showcaseSurfaceRef = useRef<HTMLElement>(null);
   const [searchParams] = useSearchParams();
   const { settings } = useConnectionSettings();
+  const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const a2uiCatalog = useA2uiCatalogRegistry(sessionId);
   const composerDraft = useComposerDraft(sessionId, { persist: true, endpoint: settings.endpoint });
@@ -211,8 +215,11 @@ export function WorkspacePage() {
         artifacts: entities.artifacts,
         onOpenArtifact: openArtifact,
         onFocusComposer: focusComposerForAnswer,
-        capabilityError: data.interactionCapabilityError ?? undefined,
-        error: data.interactionsError ?? undefined,
+        capabilityError: responseReadFailure(
+          data.interactionCapabilityError ?? undefined,
+          connection,
+        ),
+        error: responseReadFailure(data.interactionsError ?? undefined, connection),
         onRefetchSurfaces: data.refetchInteractionSurfaces,
         onOpenScript: (interaction, callId) =>
           revealWorkbench({
@@ -243,8 +250,33 @@ export function WorkspacePage() {
     />
   );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
+  // Loading and unavailable keep the hydrated tree's providers and shell key, so
+  // the bars stay and finishing hydration updates the shell in place instead of
+  // remounting the sidebar (which would close any menu opened meanwhile).
+  const shellAround = (contextTitle: string, body: ReactNode, canvasLabel: string) => (
+    <WorkspaceSessionProviders
+      workspaceId={workspaceId}
+      sessionId={sessionId}
+      attention={attention.availability}
+    >
+      <QuestionAnswerContext.Provider value={questionAnswering.context}>
+        <ClioCommandMenu onOpenResource={revealWorkbench} />
+        <ClioAppShell
+          key="shell"
+          navigation={sideNavigation}
+          contextBar={<div className="min-w-0 truncate text-sm font-medium">{contextTitle}</div>}
+          statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
+          workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
+        >
+          {body}
+        </ClioAppShell>
+      </QuestionAnswerContext.Provider>
+    </WorkspaceSessionProviders>
+  );
+  const missingError = queryError ?? undefined;
   if (
     !session &&
+    !missingError &&
     (capabilities.isPending ||
       workspaces.isPending ||
       sessions.isPending ||
@@ -252,40 +284,21 @@ export function WorkspacePage() {
       sessionLookupPending)
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
-    // Mirror the hydrated tree's providers and shell key so finishing hydration
-    // updates the shell in place instead of remounting the sidebar (which would
-    // close any menu opened while the conversation was loading).
-    return (
-      <WorkspaceSessionProviders
-        workspaceId={workspaceId}
-        sessionId={sessionId}
-        attention={attention.availability}
-      >
-        <QuestionAnswerContext.Provider value={questionAnswering.context}>
-          <ClioCommandMenu onOpenResource={revealWorkbench} />
-          <ClioAppShell
-            key="shell"
-            navigation={sideNavigation}
-            contextBar={
-              <div className="min-w-0 truncate text-sm font-medium">
-                {rememberedSession?.title ?? 'Opening conversation'}
-              </div>
-            }
-            statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
-            workbench={
-              <div aria-label="Workspace canvas loading" className="h-full bg-background" />
-            }
-          >
-            <WorkspaceHydrating />
-          </ClioAppShell>
-        </QuestionAnswerContext.Provider>
-      </WorkspaceSessionProviders>
+    return shellAround(
+      rememberedSession?.title ?? 'Opening conversation',
+      <WorkspaceHydrating />,
+      'Workspace canvas loading',
     );
   }
-  if (queryError && !session) {
-    return (
+  if (!session) {
+    return shellAround(
+      'Conversation unavailable',
       <WorkspaceUnavailable
-        error={queryError.message}
+        back={{
+          label: activeWorkspace ? `Back to ${workspaceName(activeWorkspace)}` : 'Back to Conversations',
+          to: newConversationRoute(activeWorkspace ? workspaceId : DEFAULT_WORKSPACE_ID),
+        }}
+        error={missingError}
         onRetry={() => {
           void Promise.all([
             capabilities.refetch(),
@@ -295,17 +308,9 @@ export function WorkspacePage() {
             transcript.refetch(),
           ]);
         }}
-      />
-    );
-  }
-  if (!session) {
-    return (
-      <WorkspaceUnavailable
-        error="This agent service did not return the requested session."
-        onRetry={() => {
-          void Promise.all([workspaces.refetch(), sessions.refetch(), allSessions.refetch()]);
-        }}
-      />
+        subject="conversation"
+      />,
+      'Workspace canvas',
     );
   }
 

@@ -1,11 +1,12 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ChevronRightIcon, LoaderCircleIcon } from 'lucide-react';
+import { ChevronRightIcon, CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
 import { AddIcon, NewConversationIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
+import { useStableEvent } from '@/hooks/use-stable-event';
 import {
   isPrimarySession,
   sessionInteractionAt,
@@ -37,6 +38,7 @@ import { groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { holdPreviews } from './row-preview-hold';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
+import { useHeldValue, useRailHeld } from './rail-menu-hold';
 import {
   type RailSessions,
   useRailSessionCount,
@@ -147,8 +149,8 @@ function WorkspaceLabelFields({
 }
 
 export function WorkspaceNavigation({
-  workspaces,
-  sessions,
+  workspaces: liveWorkspaces,
+  sessions: liveSessions,
   agents,
   activeWorkspaceId,
   activeSessionId,
@@ -166,6 +168,10 @@ export function WorkspaceNavigation({
   draftWorkspaceId,
   workspacesState,
 }: WorkspaceNavigationProps) {
+  // An open row menu keeps the lists it opened over; the refresh lands on close.
+  const railHeld = useRailHeld();
+  const workspaces = useHeldValue(liveWorkspaces, railHeld);
+  const sessions = useHeldValue(liveSessions, railHeld);
   const labels = useMemo(() => workspaceLabels(workspaces), [workspaces]);
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
@@ -218,13 +224,22 @@ export function WorkspaceNavigation({
     return true;
   };
 
-  const visitSession = (session: Session) => {
+  const visitSession = useStableEvent((session: Session) => {
     setSeenSessionRevisions((current) => ({
       ...current,
       ...(activeSession ? { [activeSession.id]: sessionInteractionAt(activeSession) } : {}),
       [session.id]: sessionInteractionAt(session),
     }));
-  };
+  });
+  // Rows are memoized: hand them callbacks that keep one identity across renders.
+  const rowAction = useStableEvent(onAction);
+  const rowDelete = useStableEvent(onDelete);
+  const rowRename = useStableEvent(onRename);
+  const rowDownload = useStableEvent(onDownloadSession);
+  const workspacePaths = useMemo(
+    () => new Map(workspaces.map((workspace) => [workspace.id, workspace.path])),
+    [workspaces],
+  );
 
   // Pinned conversations leave their workspace for the Pinned group.
   const pinnedSessions = useMemo(
@@ -253,16 +268,16 @@ export function WorkspaceNavigation({
       agentLabel={sessionAgentLabel(session, agents)}
       key={session.id}
       nestedDepth={depth}
-      onAction={onAction}
-      onDelete={onDelete}
-      onDownloadSession={onDownloadSession}
-      onRename={onRename}
+      onAction={rowAction}
+      onDelete={rowDelete}
+      onDownloadSession={rowDownload}
+      onRename={rowRename}
       onVisit={visitSession}
       seenRevision={effectiveSeenSessionRevisions[session.id]}
       session={session}
       topLevel={topLevel}
       workspaceId={session.workspace_id}
-      workspacePath={workspaces.find((workspace) => workspace.id === session.workspace_id)?.path}
+      workspacePath={workspacePaths.get(session.workspace_id)}
     />
   );
 
@@ -335,13 +350,27 @@ export function WorkspaceNavigation({
         <SidebarGroupContent className="grid min-w-0 gap-px">
           {otherWorkspaces.map(renderWorkspace)}
           {workspacesState?.error ? (
-            <RailState
-              error={workspacesState.error}
-              failed={{ what: 'workspaces', verb: 'listed' }}
-              kind="error"
-              onRetry={workspacesState.retry}
-              title="Workspaces could not be listed"
-            />
+            <>
+              <RailState
+                error={workspacesState.error}
+                failed={{ what: 'workspaces', verb: 'listed' }}
+                kind="error"
+                onRetry={workspacesState.retry}
+                title="Workspaces could not be listed"
+              />
+              {/* The icon rail hides the line above, so a failure keeps one named cue there. */}
+              <IconButton
+                className="mx-auto hidden text-destructive group-data-[collapsible=icon]:inline-flex"
+                icon={<CircleAlertIcon />}
+                label={
+                  isOfflineError(workspacesState.error)
+                    ? 'Offline, no workspaces · Retry'
+                    : 'Workspaces not listed · Retry'
+                }
+                onClick={workspacesState.retry}
+                tooltipSide="right"
+              />
+            </>
           ) : workspacesState?.loading ? (
             <RailState kind="loading" title="Loading workspaces…" />
           ) : listedWorkspaceCount === 0 ? (
@@ -361,7 +390,7 @@ export function WorkspaceNavigation({
           ) : null}
         </SidebarGroupContent>
       </SidebarGroup>
-      {defaultWorkspace ? (
+      {defaultWorkspace || workspacesState?.error || workspacesState?.loading ? (
         <LooseConversations
           actions={actions}
           activeWorkspaceId={activeWorkspaceId}
@@ -369,8 +398,8 @@ export function WorkspaceNavigation({
           excludedSessionIds={pinnedSessionIds}
           expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}
           label={
-            labels.get(defaultWorkspace.id) ?? {
-              name: defaultWorkspace.display_name,
+            labels.get(DEFAULT_WORKSPACE_ID) ?? {
+              name: defaultWorkspace?.display_name ?? 'Conversations',
               qualifiers: [],
             }
           }
@@ -386,7 +415,7 @@ export function WorkspaceNavigation({
           onOpenWorkspaceFiles={onOpenWorkspaceFiles}
           onRename={onRename}
           renderSession={renderSession}
-          sessions={workspaceSessionsFor(defaultWorkspace.id)}
+          sessions={workspaceSessionsFor(DEFAULT_WORKSPACE_ID)}
           workspace={defaultWorkspace}
         />
       ) : null}
@@ -446,12 +475,14 @@ function useConversationList(
   const rail = useRailSessions(workspaceId, sessions, open);
   // A folded workspace never loaded its pages, so it asks only for the count.
   const foldedCount = useRailSessionCount(workspaceId, !open && rail.total === undefined);
-  const railSessions = rail.sessions.filter(
-    (session) => !session.archived && isPrimarySession(session),
-  );
+  const railHeld = useRailHeld();
+  const railRows = useHeldValue(rail.sessions, railHeld);
+  const railTotal = useHeldValue(rail.total, railHeld);
+  const heldFoldedCount = useHeldValue(foldedCount, railHeld);
+  const railSessions = railRows.filter((session) => !session.archived && isPrimarySession(session));
   const listed = railSessions.filter((session) => !excludedSessionIds.has(session.id));
   const pinnedHere =
-    rail.total === undefined && foldedCount !== undefined
+    railTotal === undefined && heldFoldedCount !== undefined
       ? sessions.filter(
           (session) =>
             session.workspace_id === workspaceId &&
@@ -460,7 +491,7 @@ function useConversationList(
             isPrimarySession(session),
         ).length
       : railSessions.length - listed.length;
-  const total = Math.max((rail.total ?? foldedCount ?? 0) - pinnedHere, listed.length);
+  const total = Math.max((railTotal ?? heldFoldedCount ?? 0) - pinnedHere, listed.length);
   const visible = visibleWorkspaceSessions(
     listed,
     workspaceId,
@@ -471,7 +502,8 @@ function useConversationList(
 }
 
 interface LooseConversationsProps {
-  workspace: Workspace;
+  /** Undefined while the workspace list is loading or failed: the conversations still list. */
+  workspace: Workspace | undefined;
   label: WorkspaceDisplayLabel;
   sessions: readonly Session[];
   excludedSessionIds: ReadonlySet<string>;
@@ -516,7 +548,7 @@ function LooseConversations({
   const filtering = filter !== 'all';
   // A filter looks through every loaded row, not only the first eight.
   const { rail, total, visible } = useConversationList(
-    workspace.id,
+    DEFAULT_WORKSPACE_ID,
     sessions,
     true,
     expanded || filtering,
@@ -533,21 +565,23 @@ function LooseConversations({
         action={
           <>
             <ConversationFilterMenu onChange={setFilter} value={filter} />
-            <WorkspaceActionsMenu
-              activeWorkspaceId={activeWorkspaceId}
-              actions={actions}
-              label={label}
-              onAction={onAction}
-              onCreateSession={onCreateSession}
-              onImportSession={onImportSession}
-              onDelete={onDelete}
-              onEditWorkspace={onEditWorkspace}
-              onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-              onRename={onRename}
-              triggerIcon={<SettingsIcon />}
-              triggerLabel="Conversation settings"
-              workspace={workspace}
-            />
+            {workspace ? (
+              <WorkspaceActionsMenu
+                activeWorkspaceId={activeWorkspaceId}
+                actions={actions}
+                label={label}
+                onAction={onAction}
+                onCreateSession={onCreateSession}
+                onImportSession={onImportSession}
+                onDelete={onDelete}
+                onEditWorkspace={onEditWorkspace}
+                onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+                onRename={onRename}
+                triggerIcon={<SettingsIcon />}
+                triggerLabel="Conversation settings"
+                workspace={workspace}
+              />
+            ) : null}
           </>
         }
         className="mt-2.5 h-[26px] items-center pb-0 pr-1"
@@ -572,7 +606,7 @@ function LooseConversations({
           <NoMatchingConversations onShowAll={() => setFilter('all')} />
         ) : null}
         {empty ? <RailState kind="empty" title="No conversations yet" /> : null}
-        <RailListState rail={rail} listed={visible.length > 0 || draft} />
+        <RailListState rail={rail} />
         {expanded && !filtering && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
           <RailLoadMore rail={rail} />
         ) : null}
@@ -715,7 +749,7 @@ function WorkspaceTreeItem({
           {visibleSessions.length === 0 && !draft && !rail.loading && !rail.error ? (
             <RailState kind="empty" title="No conversations yet" />
           ) : null}
-          <RailListState rail={rail} listed={visibleSessions.length > 0 || draft} />
+          <RailListState rail={rail} />
           {sessionLimitExpanded && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
             <RailLoadMore rail={rail} />
           ) : null}
@@ -738,8 +772,11 @@ function WorkspaceTreeItem({
   );
 }
 
-/** The first page's loading or failure line, under any rows already listed live. */
-function RailListState({ rail, listed }: { rail: RailSessions; listed: boolean }) {
+/**
+ * The first page's loading or failure line, under any rows already listed live:
+ * live rows alone (the open conversation, a draft) must not read as the whole list.
+ */
+function RailListState({ rail }: { rail: RailSessions }) {
   if (rail.error)
     return (
       <RailState
@@ -750,7 +787,7 @@ function RailListState({ rail, listed }: { rail: RailSessions; listed: boolean }
         title="Conversations could not be listed"
       />
     );
-  if (rail.loading && !listed) return <RailState kind="loading" title="Loading conversations…" />;
+  if (rail.loading) return <RailState kind="loading" title="Loading conversations…" />;
   return null;
 }
 

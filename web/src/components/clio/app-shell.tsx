@@ -54,8 +54,10 @@ function TopBarSidebarTrigger() {
   return (
     <span className="inline-flex">
       <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+        {/* Closed or a phone sheet, the left bar is this toggle: the tour points here instead. */}
         <SidebarTrigger
           aria-keyshortcuts={leftPocketKey?.aria}
+          data-tour="workspace-navigation settings"
           className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
         />
       </NamedTooltip>
