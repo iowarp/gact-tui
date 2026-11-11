@@ -14,6 +14,7 @@ import { ClioObservabilityDock } from '../../src/components/clio/observability-d
 import { ClioAppShell } from '../../src/components/clio/app-shell';
 import { Sidebar, SidebarContent } from '../../src/components/ui/sidebar';
 import { connectionScope } from '../../src/lib/connection-scope';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 
 const sessionId = 'showcase_fixture';
 const workspaceId = 'workspace_fixture';
@@ -213,4 +214,8 @@ export function SessionShowcaseReview() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<SessionShowcaseReview />);
+createRoot(document.getElementById('root')!).render(
+  <TooltipProvider>
+    <SessionShowcaseReview />
+  </TooltipProvider>,
+);

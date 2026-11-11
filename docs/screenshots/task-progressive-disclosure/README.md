@@ -19,6 +19,16 @@ Legacy child-only records retain navigation without invented task controls.
 
 ![Desktop overview](desktop-running.png)
 
+## Release refresh (2026-11-11): not refreshed
+
+These four captures were **not** retaken for the release. A live run against
+the develop build `96dbbd2e1` and clio-agent develop `89194da31` started a real
+subagent task with `spawn_agent_task`. The Conversation rail listed that task by its
+flow name ("React run") instead of its title, and opening it showed an empty flow
+panel. That is a reported product issue, so the captures above remain the earlier
+qualified Work popover review. They will be replaced once the rail names and opens
+tasks correctly.
+
 ## Actual service review
 
 These captures come from the production build of GACT

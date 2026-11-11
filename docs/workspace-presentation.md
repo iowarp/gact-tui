@@ -75,6 +75,13 @@ timeline in a narrow pane.
 
 ![Flat sidebar and workspace actions](screenshots/workspace-ergonomics/sidebar-actions.png)
 
+Release refresh, November 11, 2026: these four captures were retaken from the
+develop build at `96dbbd2e1`, served live by clio-agent develop `89194da31`
+(Claude Code, Sonnet 5). They show a release workspace, "Bike stations", and
+real outputs from its "Morning rebalancing" conversation instead of the OPAL
+workspace. Workspace and conversation lists are scoped to that one workspace.
+File names are unchanged.
+
 Focused regression checks cover directory paging and expansion, the root request
 and hidden-file options, image replacement, legacy artifact recovery, evidence
 details and source navigation, and canvas maximize/restore. They run individually
