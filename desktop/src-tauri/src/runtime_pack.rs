@@ -408,12 +408,79 @@ fn prepare_windows_runtime(
         let _ = fs::remove_dir_all(&staging_root);
     }
     install_result?;
+    prescan_office(&runtime_dir);
 
     // The signed installer can restore this payload during repair and a newer
     // updater supplies a fresh one. Keeping it after a successful extraction
     // would waste roughly another 300 MiB on every user's machine.
     let _ = fs::remove_file(&archive_path);
     Ok(Some(runtime_dir))
+}
+
+/// Read the files the Office renderer loads, several at once, in the background.
+///
+/// Defender scans each new file again when it is first opened, so the first
+/// `soffice` start after an install takes about 12 s instead of 3 s while it loads
+/// 344 MB of libraries one by one. Reading them in parallel while the agent starts
+/// moves that scan off the Office check. Reading runs nothing, and the process may
+/// exit before it finishes.
+#[cfg(windows)]
+fn prescan_office(runtime_dir: &Path) {
+    use std::io::Read;
+    let office = runtime_dir.join("documents").join("office");
+    let program = office.join("program");
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut walk = vec![
+        office.join("share").join("registry"),
+        program.join("services"),
+        program.join("types"),
+    ];
+    if let Ok(entries) = fs::read_dir(&program) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let native = path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+                ["dll", "exe", "bin", "com"]
+                    .iter()
+                    .any(|n| e.eq_ignore_ascii_case(n))
+            });
+            if native && entry.file_type().is_ok_and(|t| t.is_file()) {
+                files.push(path);
+            }
+        }
+    }
+    while let Some(dir) = walk.pop() {
+        for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+            match entry.file_type() {
+                Ok(t) if t.is_dir() => walk.push(entry.path()),
+                Ok(t) if t.is_file() => files.push(entry.path()),
+                _ => {}
+            }
+        }
+    }
+    if files.is_empty() {
+        return;
+    }
+    // Largest first, so the long scans start at once rather than last.
+    files.sort_by_cached_key(|path| {
+        std::cmp::Reverse(fs::metadata(path).map(|m| m.len()).unwrap_or(0))
+    });
+    let files = std::sync::Arc::new(files);
+    let next = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    for _ in 0..8 {
+        let (files, next) = (files.clone(), next.clone());
+        let _ = std::thread::Builder::new()
+            .name("office-prescan".into())
+            .spawn(move || {
+                let mut buffer = vec![0u8; 1 << 20];
+                loop {
+                    let index = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(path) = files.get(index) else { break };
+                    if let Ok(mut file) = fs::File::open(path) {
+                        while matches!(file.read(&mut buffer), Ok(n) if n > 0) {}
+                    }
+                }
+            });
+    }
 }
 
 /// Report actual installer phases and extracted file counts to the NSIS log
