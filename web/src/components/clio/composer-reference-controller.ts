@@ -117,6 +117,11 @@ export function useComposerReferenceController({
 
   const mention = referenceMentionAt(input, caret);
   const mentionIdentity = mention ? JSON.stringify([input, mention.start, mention.end]) : undefined;
+  // Escape dismisses one mention until it is edited away. Deleting it and
+  // typing the same `@` again is a new mention, so the menu offers itself again.
+  if (dismissedMention !== undefined && mentionIdentity !== dismissedMention) {
+    setDismissedMention(undefined);
+  }
   const open =
     contextReferences &&
     Boolean(workspaceId) &&
@@ -247,7 +252,11 @@ export function useComposerReferenceController({
         !event.nativeEvent.isComposing
       ) {
         const active = menu.active();
-        if (!active) return false;
+        if (!active) {
+          if (event.key !== 'Enter' || !menu.offering()) return false;
+          event.preventDefault();
+          return true;
+        }
         event.preventDefault();
         if (event.key === 'Tab' && drill(active)) return true;
         select(active);

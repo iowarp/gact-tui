@@ -269,7 +269,11 @@ export function ClioModelPicker({
           }
         }}
         onEscapeKeyDown={(event) => {
-          if (!facetsOpen) return;
+          if (!facetsOpen) {
+            // Escape is a dismissal from the composer: typing resumes in the editor.
+            toReturnFocus.current = true;
+            return;
+          }
           event.preventDefault();
           setFacetsOpen(false);
         }}

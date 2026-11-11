@@ -100,6 +100,11 @@ export interface ReferenceMenuHandle {
   move: (direction: 1 | -1) => boolean;
   /** The highlighted reference, which Enter adds and Tab looks inside. */
   active: () => WorkspaceReference | undefined;
+  /**
+   * The menu lists, or is still fetching, something to add, so Enter belongs
+   * to it even with no row highlighted yet rather than sending a bare `@`.
+   */
+  offering: () => boolean;
 }
 
 function useDebouncedValue(value: string, delay: number): string {
@@ -415,6 +420,12 @@ export function ClioComposerReferenceMenu({
     () => sections.flatMap((section) => (section.open ? section.rows : [])),
     [sections],
   );
+  // Every listed reference in order, including collapsed groups': the arrow
+  // keys walk all of them and open a group as the highlight enters it.
+  const allRows = useMemo(
+    () => sections.flatMap((section) => section.rows.map((row) => ({ label: section.label, row }))),
+    [sections],
+  );
   const identities = useMemo(() => visibleRows.map(workspaceReferenceIdentity), [visibleRows]);
 
   // The highlight lives here, not in the composer: arrowing re-renders this
@@ -437,10 +448,19 @@ export function ClioComposerReferenceMenu({
   }, [activeOptionId, popoverId]);
   useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
 
-  const latest = useRef({ activeIndex, visibleRows });
+  const settledError = (query: { isError: boolean; isFetching: boolean }) =>
+    query.isError && !query.isFetching;
+  const failed = hdf5.mention
+    ? settledError(hdf5.listing)
+    : settledError(references) || settledError(localFiles);
+  const loading =
+    !failed &&
+    (hdf5.mention ? hdf5.listing.isFetching : references.isFetching || localFiles.isFetching);
+
+  const latest = useRef({ activeIndex, allRows, loading, visibleRows });
   useLayoutEffect(() => {
-    latest.current = { activeIndex, visibleRows };
-  }, [activeIndex, visibleRows]);
+    latest.current = { activeIndex, allRows, loading, visibleRows };
+  }, [activeIndex, allRows, loading, visibleRows]);
   const handle = useMemo<ReferenceMenuHandle>(
     () => ({
       active: () => {
@@ -448,15 +468,28 @@ export function ClioComposerReferenceMenu({
         return index >= 0 ? rows[index] : undefined;
       },
       move: (direction) => {
-        const { activeIndex: index, visibleRows: rows } = latest.current;
-        if (!rows.length) return false;
-        const next = (Math.max(index, 0) + direction + rows.length) % rows.length;
+        const { activeIndex: index, allRows: all, visibleRows: rows } = latest.current;
+        if (!all.length) return false;
+        const current = index >= 0 ? rows[index] : undefined;
+        const at = current
+          ? all.findIndex(({ row }) => row === current)
+          : direction === 1
+            ? -1
+            : all.length;
+        const next = all[(at + direction + all.length) % all.length]!;
         scrollToActive.current = true;
+        setOpenGroups((open) => (open[next.label] ? open : { ...open, [next.label]: true }));
         // Two keys in one frame each move one row, before React commits the first.
-        latest.current = { activeIndex: next, visibleRows: rows };
-        setActiveIdentity(workspaceReferenceIdentity(rows[next]!));
+        const nextVisible = rows.includes(next.row) ? rows : [...rows, next.row];
+        latest.current = {
+          ...latest.current,
+          activeIndex: nextVisible.indexOf(next.row),
+          visibleRows: nextVisible,
+        };
+        setActiveIdentity(workspaceReferenceIdentity(next.row));
         return true;
       },
+      offering: () => latest.current.allRows.length > 0 || latest.current.loading,
     }),
     [],
   );
@@ -503,14 +536,6 @@ export function ClioComposerReferenceMenu({
     return counts;
   }, []);
 
-  const settledError = (query: { isError: boolean; isFetching: boolean }) =>
-    query.isError && !query.isFetching;
-  const failed = hdf5.mention
-    ? settledError(hdf5.listing)
-    : settledError(references) || settledError(localFiles);
-  const loading =
-    !failed &&
-    (hdf5.mention ? hdf5.listing.isFetching : references.isFetching || localFiles.isFetching);
   const emptyText = hdf5.mention
     ? failed
       ? `${hdf5.mention.file} cannot be read as HDF5 here.`

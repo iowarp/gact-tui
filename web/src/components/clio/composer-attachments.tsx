@@ -2,7 +2,7 @@ import { toast } from 'sonner';
 import { composerFailureReason } from './composer-failure';
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { ComposerAttachmentChip } from './composer-attachment-chip';
+import { focusEditorAtOffset } from './composer-editor-model';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -82,6 +83,24 @@ export function ClioComposerAttachments({
     Record<string, ResourceUploadFailure>
   >({});
   const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+  // A keyboard removal hands focus on once the removed chip has left the DOM.
+  const removalFocus = useRef<{
+    editor: HTMLDivElement | null;
+    group: HTMLElement;
+    id: string;
+    index: number;
+  }>(undefined);
+
+  useLayoutEffect(() => {
+    const pending = removalFocus.current;
+    if (!pending || attachments.files.some((file) => file.id === pending.id)) return;
+    removalFocus.current = undefined;
+    const next = attachments.files[pending.index];
+    const chip = next && pending.group.isConnected ? pending.group.children[pending.index] : null;
+    const button = chip?.querySelector<HTMLElement>('button');
+    if (button) button.focus();
+    else focusEditorAtOffset(pending.editor);
+  }, [attachments.files]);
 
   useEffect(() => {
     const attachedIds = new Set(attachments.files.map((file) => file.id));
@@ -166,10 +185,23 @@ export function ClioComposerAttachments({
   };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
+    // Removing the chip that holds focus keeps focus in the composer: on the
+    // chip that takes its place, or else the editor.
+    const focused = document.activeElement;
+    const group =
+      focused instanceof HTMLElement
+        ? focused.closest<HTMLElement>('[aria-label="Pending attachments"]')
+        : null;
+    const editor =
+      group
+        ?.closest('[data-slot="clio-composer"]')
+        ?.querySelector<HTMLDivElement>('[contenteditable="true"]') ?? null;
     preparationControllers.current.get(file.id)?.abort();
     preparationControllers.current.delete(file.id);
     try {
       await onDiscardFiles?.([file]);
+      const index = attachments.files.findIndex((candidate) => candidate.id === file.id);
+      if (group && index >= 0) removalFocus.current = { editor, group, id: file.id, index };
       attachments.remove(file.id);
     } catch (error) {
       toast.error('Could not remove attachment', {
