@@ -93,6 +93,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * column drops below 480px so the outcome never clips.
    */
   metaYields?: boolean;
+  /**
+   * `activity` rows with a description: the name keeps its width (up to half
+   * the row) and the description gives up its room first, so a long input or
+   * outcome ends in … instead of squeezing the name.
+   */
+  titleHolds?: boolean;
   selected?: boolean;
   /**
    * `highlight` marks the selected row with the menu-highlight tone. `accent`
@@ -132,6 +138,7 @@ export const ListRow = memo(
       leading,
       titleCollapses = true,
       metaYields = false,
+      titleHolds = false,
       selected = false,
       selectedTone = 'highlight',
       className,
@@ -225,15 +232,22 @@ export const ListRow = memo(
           <span
             data-slot="list-row-title"
             className={cn(
-              'min-w-0 shrink truncate text-foreground',
+              'min-w-0 truncate text-foreground',
+              titleHolds ? 'max-w-[50%] shrink-0' : 'shrink',
               titleCollapses && '@max-[280px]/activity:sr-only',
             )}
           >
             {title}
           </span>
-          {/* At least as wide as its outcome: an argument (no intrinsic width) gives up
-              its room first, then the name, so the outcome stays whole. */}
-          <span className="flex min-w-min flex-1 items-center gap-2 overflow-hidden">
+          {/* An argument (no intrinsic width) gives up its room first. A holding name
+              then keeps its width and the outcome ends in …; otherwise the description
+              stays at least as wide as its outcome and the name gives way. */}
+          <span
+            className={cn(
+              'flex flex-1 items-center gap-2 overflow-hidden',
+              titleHolds ? 'min-w-0' : 'min-w-min',
+            )}
+          >
             {description}
           </span>
           {columns}

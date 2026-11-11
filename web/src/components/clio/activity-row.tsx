@@ -109,6 +109,8 @@ export const ActivityRow = memo(
     // key press, so Ctrl+C and Alt+Enter still find them.
     const [armed, setArmed] = useState(() => !canDeferHoverControls());
     const hasOutcome = outcome !== undefined && outcome !== null && outcome !== '';
+    const hasTarget =
+      Boolean(link) || (argument !== undefined && argument !== null && argument !== '');
     const handlePointerEnter = useCallback(
       (event: PointerEvent<HTMLDivElement>) => {
         onPointerEnter?.(event);
@@ -197,9 +199,8 @@ export const ActivityRow = memo(
           leading={disclosure}
           icon={icon}
           title={name}
-          titleCollapses={
-            Boolean(link) || (argument !== undefined && argument !== null && argument !== '')
-          }
+          titleCollapses={hasTarget}
+          titleHolds={hasTarget || hasOutcome}
           description={
             <>
               {link ? (
@@ -224,8 +225,10 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-outcome"
                   title={outcomeTitle}
+                  // After the argument is gone, a long outcome ends in … rather than
+                  // squeezing the name; its words stay whole while they fit.
                   className={cn(
-                    'flex shrink-0 items-center gap-2 text-[11.5px]',
+                    'flex min-w-0 items-center gap-2 overflow-hidden text-[11.5px] [&>*]:min-w-0 [&>*]:truncate',
                     OUTCOME_TONE[outcomeTone],
                   )}
                 >
