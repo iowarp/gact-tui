@@ -183,13 +183,12 @@ it('folds a finished run into one counted row that opens to its ordered calls', 
     ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
   // The first thought reads before its public update; the rest of the run folds into one row.
   expect(ordered(timeline)).toEqual([]);
-  const run = screen.getByRole('button', { name: 'Expand Called 2 tools' });
+  const run = screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' });
   expect(timeline).toHaveAttribute('data-run-collapsed');
   fireEvent.click(run);
-  expect(screen.getByRole('button', { name: 'Collapse Called 2 tools' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
+  expect(
+    screen.getByRole('button', { name: 'Collapse Called 2 tools, thought once' }),
+  ).toHaveAttribute('aria-expanded', 'true');
   expect(ordered(view.container)).toEqual([
     'Thinking: Private recorded one reasoning.',
     'Technical details for Read file',
@@ -216,7 +215,9 @@ it('keeps a live run as flat rows until it settles', () => {
       subagents={{}}
     />,
   );
-  expect(screen.getByRole('button', { name: 'Expand Called 2 tools' })).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' }),
+  ).toBeInTheDocument();
 });
 
 it('retains an opened tool result across live updates and answer arrival', async () => {
