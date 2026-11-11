@@ -53,7 +53,7 @@ UI aren't tracked.
   plugins lead the private marketplace
 - Failed sends and uploads explain what happened and offer Retry; a message sent while
   offline waits and goes out once the connection returns
-- The macOS app is signed with a Developer ID and notarized, requires macOS 14 or later,
+- The macOS app is signed with a Developer ID and notarized, requires macOS 15 or later,
   and has a native menu bar and Mac shortcuts
 - On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
   only while a conversation is still running
