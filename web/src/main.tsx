@@ -32,7 +32,7 @@ const openingRouteLoaded = openingRoute
   ? loadRouteChunk(openingRoute).catch(() => undefined)
   : Promise.resolve();
 
-void openingRouteLoaded.then(() =>
+void openingRouteLoaded.then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <RevealDesktopWindow />
@@ -42,5 +42,8 @@ void openingRouteLoaded.then(() =>
         </AppProviders>
       </AppRouter>
     </StrictMode>,
-  ),
-);
+  );
+  // The connect screen moves on to a conversation once it reconnects: fetch
+  // that page while the connection resolves rather than after it.
+  if (openingRoute === 'connection') void loadRouteChunk('workspace').catch(() => undefined);
+});

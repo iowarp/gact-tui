@@ -1,6 +1,8 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { LoaderCircleIcon } from 'lucide-react';
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -17,7 +19,6 @@ import { Command, CommandEmpty, CommandInput, CommandList } from '@/components/u
 import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
-import { ClioSearchAssistant } from './search-assistant';
 import { connectionScope } from '@/lib/connection-scope';
 import {
   ALL_SCOPE_GROUP_LIMIT,
@@ -59,6 +60,12 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
+// The assistant renders a whole conversation: it loads when the palette opens, not at boot.
+const loadSearchAssistant = () => import('./search-assistant');
+const ClioSearchAssistant = lazy(() =>
+  loadSearchAssistant().then((module) => ({ default: module.ClioSearchAssistant })),
+);
+
 export function ClioCommandMenu({
   onOpenResource,
 }: {
@@ -95,9 +102,11 @@ export function ClioCommandMenu({
   useEffect(() => {
     if (open && !aiMode) searchInput.current?.focus();
   }, [open, aiMode]);
-  // Ctrl Enter may move the list into a tab: have its code ready before then.
+  // Ctrl Enter may move the list into a tab, and Ask opens the assistant: have their code ready.
   useEffect(() => {
-    if (open) void import('./search-results-tab');
+    if (!open) return;
+    void import('./search-results-tab');
+    void loadSearchAssistant().catch(() => undefined);
   }, [open]);
 
   return (
@@ -346,162 +355,164 @@ function CommandMenuBody({
   const canAsk = credentialsReady && Boolean(searchWorkspaceId);
 
   return aiMode && searchWorkspaceId ? (
-    <ClioSearchAssistant
-      key={connectionScope(settings)}
-      workspaceId={searchWorkspaceId}
-      parentSessionId={sessionId || undefined}
-      query={searchText}
-      onQueryChange={setQuery}
-      onBack={() => setAiMode(false)}
-      onClose={() => finish(() => {})}
-      onOpenResource={openResource}
-    />
+    <Suspense fallback={<StateView kind="loading" title="Opening the search assistant" />}>
+      <ClioSearchAssistant
+        key={connectionScope(settings)}
+        workspaceId={searchWorkspaceId}
+        parentSessionId={sessionId || undefined}
+        query={searchText}
+        onQueryChange={setQuery}
+        onBack={() => setAiMode(false)}
+        onClose={() => finish(() => {})}
+        onOpenResource={openResource}
+      />
+    </Suspense>
   ) : (
     <Command shouldFilter={false}>
-            <GlobalSearchMatchesScope
-              query={searchText}
-              scope={activeScope}
-              onFinish={() => finish(() => {})}
-            >
-              {(global) => {
-                const counts = scopeCounts(global);
-                const settingsRoute = settingsResultsRoute(global, counts);
-                const openAllResults = allResultsAction(counts, settingsRoute);
-                const hints: PickerHint[] = [
-                  { label: 'Close', shortcut: 'menu-close', optional: true },
-                  activeScope !== 'all' && !searchText
-                    ? { label: 'All types', shortcut: 'menu-all-types', optional: true }
-                    : { label: 'Change type', shortcut: 'menu-type', optional: true },
-                  { label: 'Open', shortcut: 'menu-pick' },
-                  ...(settingsRoute
-                    ? [
-                        {
-                          label: 'All in Settings',
-                          shortcut: 'menu-all-results',
-                          accent: true,
-                          onSelect: () => openRoute(settingsRoute),
-                        },
-                      ]
-                    : []),
-                  ...(openAllResults
-                    ? [
-                        {
-                          label: 'All results',
-                          shortcut: 'menu-all-results' as const,
-                          onSelect: openAllResults,
-                        },
-                      ]
-                    : []),
+      <GlobalSearchMatchesScope
+        query={searchText}
+        scope={activeScope}
+        onFinish={() => finish(() => {})}
+      >
+        {(global) => {
+          const counts = scopeCounts(global);
+          const settingsRoute = settingsResultsRoute(global, counts);
+          const openAllResults = allResultsAction(counts, settingsRoute);
+          const hints: PickerHint[] = [
+            { label: 'Close', shortcut: 'menu-close', optional: true },
+            activeScope !== 'all' && !searchText
+              ? { label: 'All types', shortcut: 'menu-all-types', optional: true }
+              : { label: 'Change type', shortcut: 'menu-type', optional: true },
+            { label: 'Open', shortcut: 'menu-pick' },
+            ...(settingsRoute
+              ? [
                   {
-                    label: `Ask ${vocab.agent}`,
-                    shortcut: 'menu-ask',
-                    onSelect: () => setAiMode(true),
-                    disabled: !canAsk,
-                    end: true,
+                    label: 'All in Settings',
+                    shortcut: 'menu-all-results',
+                    accent: true,
+                    onSelect: () => openRoute(settingsRoute),
                   },
-                ];
-                const noMatch = searching && !fetching && counts[activeScope] === 0;
-                return (
-                  <>
-                    <CommandInput
-                      ref={searchInput}
-                      autoFocus
-                      flush
-                      className="min-w-0"
-                      onValueChange={setQuery}
-                      placeholder="Search work, files, artifacts, or actions…"
-                      value={query}
-                      trailing={
-                        searching ? (
-                          <span
-                            aria-live="polite"
-                            className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
-                          >
-                            {fetching && !counts.all ? (
-                              <LoaderCircleIcon
-                                aria-label="Searching"
-                                className="size-3.5 motion-safe:animate-spin"
-                              />
-                            ) : (
-                              `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`
-                            )}
-                          </span>
-                        ) : null
-                      }
-                      onKeyDown={(event) => searchKeyDown(event, settingsRoute, openAllResults)}
-                    />
-                    <div className="border-b px-3">
-                      <TextTabs
-                        keepFocus
-                        compact={compactTabs}
-                        label="Result type"
-                        onValueChange={pickScope}
-                        tabs={COMMAND_MENU_SCOPES.map((tab) => ({
-                          ...tab,
-                          icon: compactTabs ? COMMAND_MENU_SCOPE_ICONS[tab.value] : undefined,
-                          gathers: tab.value === 'more',
-                          count: searching ? counts[tab.value] : undefined,
-                        }))}
-                        value={activeScope}
-                      />
-                    </div>
-                    {!credentialsReady && !credentialError ? (
-                      <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                        Waiting for the default backend…
-                      </p>
-                    ) : null}
-                    {credentialError ? (
-                      <p role="alert" className="px-3 py-2 text-xs text-destructive">
-                        {credentialError}
-                      </p>
-                    ) : null}
-                    <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
-                      {failure.length ? (
-                        <StateView
-                          action={{
-                            label: 'Retry',
-                            onClick: () => {
-                              for (const [query] of failure) void query.refetch();
-                            },
-                          }}
-                          className="px-3"
-                          detail={isOfflineError(failure[0]![0].error) ? 'Offline' : undefined}
-                          kind="error"
-                          size="row"
-                          title={failure[0]![1]}
-                        />
-                      ) : null}
-                      {noMatch ? (
-                        <CommandMenuNoMatch
-                          canAsk={canAsk}
-                          onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
-                          onAsk={() => setAiMode(true)}
-                          query={searchText.trim()}
-                          scope={activeScope === 'all' ? undefined : scopeLabel}
-                          total={counts.all}
+                ]
+              : []),
+            ...(openAllResults
+              ? [
+                  {
+                    label: 'All results',
+                    shortcut: 'menu-all-results' as const,
+                    onSelect: openAllResults,
+                  },
+                ]
+              : []),
+            {
+              label: `Ask ${vocab.agent}`,
+              shortcut: 'menu-ask',
+              onSelect: () => setAiMode(true),
+              disabled: !canAsk,
+              end: true,
+            },
+          ];
+          const noMatch = searching && !fetching && counts[activeScope] === 0;
+          return (
+            <>
+              <CommandInput
+                ref={searchInput}
+                autoFocus
+                flush
+                className="min-w-0"
+                onValueChange={setQuery}
+                placeholder="Search work, files, artifacts, or actions…"
+                value={query}
+                trailing={
+                  searching ? (
+                    <span
+                      aria-live="polite"
+                      className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+                    >
+                      {fetching && !counts.all ? (
+                        <LoaderCircleIcon
+                          aria-label="Searching"
+                          className="size-3.5 motion-safe:animate-spin"
                         />
                       ) : (
-                        <CommandEmpty>{emptyText}</CommandEmpty>
+                        `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`
                       )}
-                      <CommandMenuResultGroups
-                        global={global}
-                        limit={groupLimit}
-                        onFinish={() => finish(() => {})}
-                        onMore={pickScope}
-                        onOpenMemoryHit={(hit) => void openMemoryHit(hit)}
-                        onOpenResource={(request) => void openResource(request)}
-                        onOpenWorkspace={(id) => void openWorkspace(id)}
-                        onRoute={openRoute}
-                        results={results}
-                        scope={activeScope}
-                        searchText={searchText}
-                      />
-                    </CommandList>
-                    <PickerFooter hints={hints} />
-                  </>
-                );
-              }}
-            </GlobalSearchMatchesScope>
+                    </span>
+                  ) : null
+                }
+                onKeyDown={(event) => searchKeyDown(event, settingsRoute, openAllResults)}
+              />
+              <div className="border-b px-3">
+                <TextTabs
+                  keepFocus
+                  compact={compactTabs}
+                  label="Result type"
+                  onValueChange={pickScope}
+                  tabs={COMMAND_MENU_SCOPES.map((tab) => ({
+                    ...tab,
+                    icon: compactTabs ? COMMAND_MENU_SCOPE_ICONS[tab.value] : undefined,
+                    gathers: tab.value === 'more',
+                    count: searching ? counts[tab.value] : undefined,
+                  }))}
+                  value={activeScope}
+                />
+              </div>
+              {!credentialsReady && !credentialError ? (
+                <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
+                  Waiting for the default backend…
+                </p>
+              ) : null}
+              {credentialError ? (
+                <p role="alert" className="px-3 py-2 text-xs text-destructive">
+                  {credentialError}
+                </p>
+              ) : null}
+              <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
+                {failure.length ? (
+                  <StateView
+                    action={{
+                      label: 'Retry',
+                      onClick: () => {
+                        for (const [query] of failure) void query.refetch();
+                      },
+                    }}
+                    className="px-3"
+                    detail={isOfflineError(failure[0]![0].error) ? 'Offline' : undefined}
+                    kind="error"
+                    size="row"
+                    title={failure[0]![1]}
+                  />
+                ) : null}
+                {noMatch ? (
+                  <CommandMenuNoMatch
+                    canAsk={canAsk}
+                    onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
+                    onAsk={() => setAiMode(true)}
+                    query={searchText.trim()}
+                    scope={activeScope === 'all' ? undefined : scopeLabel}
+                    total={counts.all}
+                  />
+                ) : (
+                  <CommandEmpty>{emptyText}</CommandEmpty>
+                )}
+                <CommandMenuResultGroups
+                  global={global}
+                  limit={groupLimit}
+                  onFinish={() => finish(() => {})}
+                  onMore={pickScope}
+                  onOpenMemoryHit={(hit) => void openMemoryHit(hit)}
+                  onOpenResource={(request) => void openResource(request)}
+                  onOpenWorkspace={(id) => void openWorkspace(id)}
+                  onRoute={openRoute}
+                  results={results}
+                  scope={activeScope}
+                  searchText={searchText}
+                />
+              </CommandList>
+              <PickerFooter hints={hints} />
+            </>
+          );
+        }}
+      </GlobalSearchMatchesScope>
     </Command>
   );
 }

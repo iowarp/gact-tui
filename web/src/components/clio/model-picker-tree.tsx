@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { ProviderLogoMark } from './provider-logo-mark';
-import { type ModelCapabilityTag } from '@/lib/model-capability-tags';
-import { type ModelFactSummary } from '@/lib/model-facts';
-import { type ModelFilterToken } from '@/lib/model-filter-tokens';
+import type { ModelCapabilityTag } from '@/lib/model-capability-tags';
+import type { ModelFactSummary } from '@/lib/model-facts';
+import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cachedModelFacts } from './model-picker-fact-cache';
 import { matchesActiveTokens } from '@/lib/model-range-tokens';
 import type { ClioModelOption } from '@/lib/model-options';
