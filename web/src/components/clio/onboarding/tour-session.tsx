@@ -58,6 +58,14 @@ export function TourSession({
   onFinish: (status: 'completed' | 'skipped') => void;
 }) {
   const overlay = useOverlayContainer();
+  // Toasts wait while the tour runs, so nothing covers its card (rule in index.css).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.clioTour = '';
+    return () => {
+      delete root.dataset.clioTour;
+    };
+  }, []);
   const reduceMotion = Boolean(useReducedMotionConfig());
   const stageRef = useRef<HTMLDivElement>(null);
   const step = TOUR_STEPS[index]!;
@@ -162,8 +170,6 @@ export function TourSession({
 
   const content = (
     <>
-      {/* Toasts wait while the tour runs, so nothing covers its card. */}
-      <style>{'[data-sonner-toaster]{display:none!important}'}</style>
       {step.practice ? (
         <Suspense fallback={null}>
           <TourPracticeStage onEvent={onPracticeEvent} stageRef={stageRef} step={step} />

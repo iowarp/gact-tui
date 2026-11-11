@@ -59,7 +59,8 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       shortcutSide="under-icon"
       tooltipSide="left"
       // The lit cell carries the spec's 2px primary bar on the window edge, no fill.
-      className="h-9 w-11 rounded-none hover:bg-transparent aria-pressed:bg-transparent aria-pressed:after:absolute aria-pressed:after:inset-y-2 aria-pressed:after:right-0 aria-pressed:after:w-0.5 aria-pressed:after:rounded-full aria-pressed:after:bg-primary"
+      // w-full, not w-11: the strip's 1px border leaves 43px, and a 44px cell overflows the panel.
+      className="h-9 w-full rounded-none hover:bg-transparent aria-pressed:bg-transparent aria-pressed:after:absolute aria-pressed:after:inset-y-2 aria-pressed:after:right-0 aria-pressed:after:w-0.5 aria-pressed:after:rounded-full aria-pressed:after:bg-primary"
     />
   );
   return (
