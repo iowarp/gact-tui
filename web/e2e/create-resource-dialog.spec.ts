@@ -21,8 +21,8 @@ test('a create menu opened while the conversation is loading stays open once it 
   );
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  const restoring = page.getByText('Restoring saved messages now', { exact: false });
-  await expect(restoring).toBeVisible();
+  const opening = page.getByRole('region', { name: 'Conversation loading', exact: true });
+  await expect(opening.getByRole('status')).toHaveText('Opening conversation');
   // The left bar's header menu: it must survive the shell finishing its load.
   const trigger = page.locator('[data-sidebar="header"] [data-connection-state]');
   await trigger.click();
@@ -33,7 +33,7 @@ test('a create menu opened while the conversation is loading stays open once it 
   // The open menu hides the rest of the page from the accessibility tree, so
   // read the shell through attributes rather than roles.
   await expect(page.locator('[aria-label="Workspace canvas loading"]')).toHaveCount(0);
-  await expect(restoring).toHaveCount(0);
+  await expect(page.locator('[aria-label="Conversation loading"]')).toHaveCount(0);
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await expect(menu).toBeVisible();
 });
