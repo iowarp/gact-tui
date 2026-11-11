@@ -215,7 +215,6 @@ export function ClioDelegateRow({
         name={<span data-slot="tool-action-text">{action}</span>}
         link={<AgentLink subagent={subagent} label={name} onOpen={onOpen} />}
         argument={task ? task.replace(/\s+/gu, ' ').trim() : undefined}
-        argumentStyle="text"
         argumentTitle={task || undefined}
         outcome={outcomeTone ? statusLabel.toLowerCase() : undefined}
         outcomeTone={outcomeTone}
@@ -327,7 +326,6 @@ export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessa
           )
         }
         argument={block.message.replace(/\s+/gu, ' ').trim()}
-        argumentStyle="text"
         outcome={failed ? 'not sent' : undefined}
         actions={<CopyAction value={block.message} label="Copy message" />}
         elapsed={null}
@@ -412,7 +410,6 @@ function SpotterWatcherLine({
       name="Review"
       link={link}
       argument={busy ? 'reviewing this session' : 'watching this session'}
-      argumentStyle="text"
       elapsed={null}
       status={
         <StatusIndicator

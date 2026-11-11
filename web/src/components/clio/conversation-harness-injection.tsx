@@ -1,10 +1,9 @@
 import { PLUGIN_CHANGE_INJECTION_SOURCE, type MessageBlock } from '@clio/core/v3';
-import { ChevronRightIcon, MessageSquareIcon, SyringeIcon, TerminalIcon } from 'lucide-react';
+import { MessageSquareIcon, SyringeIcon, TerminalIcon } from 'lucide-react';
 import { useContext, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { InfoIcon } from '@/lib/icon-vocabulary';
-import { cn } from '@/lib/utils';
+import { Dialog } from '@/components/ui/dialog';
+import { ActivityBody, ActivityDisclosure, ActivityInfoButton, ActivityRow } from './activity-row';
+import { CopyAction } from './tool-compact-row';
 import { humanizeProtocolValue } from './presentation-labels';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { injectionPresentation, summonServerLabel } from './injection-presentation';
@@ -14,7 +13,6 @@ import { ToolTerminalResult } from './tool-terminal-result';
 import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
 import { SummarizationInjection } from './conversation-summarization';
-import { StateView } from './primitives/state-view';
 import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { PresentationLink } from './presentation-link';
@@ -111,6 +109,8 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
       : MessageSquareIcon
     : SyringeIcon;
 
+  // The same row as a tool call or a thought: chevron, icon, name, then the fixed
+  // right columns. An update has no duration or outcome; those columns stay empty.
   return (
     <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
       <section
@@ -118,44 +118,35 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
         data-slot="harness-injection"
         data-source={block.source}
       >
-        <StateView
-          kind="marker"
-          size="row"
-          icon={Icon}
-          title={
-            <button
-              aria-expanded={expanded}
-              aria-label={block.source === 'peer' ? label : `Injection ${label}`}
-              className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        <ActivityRow
+          open={expanded}
+          onOpenChange={setExpanded}
+          disclosure={
+            <ActivityDisclosure
+              open={expanded}
+              label={block.source === 'peer' ? label : `Injection ${label}`}
               onClick={() => setExpanded(!expanded)}
-              title={label}
-              type="button"
-            >
-              <span className="min-w-0 truncate">{label}</span>
-              <ChevronRightIcon
-                aria-hidden="true"
-                className={cn(
-                  'size-3 shrink-0 motion-safe:transition-transform',
-                  expanded && 'rotate-90',
-                )}
-              />
-            </button>
+            />
           }
-        >
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="ml-auto size-6 shrink-0 text-faint hover:text-foreground"
-              aria-label={`Technical details for ${label}`}
-              title="View original recorded content"
-            >
-              <InfoIcon aria-hidden="true" className="size-3.5" />
-            </Button>
-          </DialogTrigger>
-        </StateView>
+          icon={<Icon aria-hidden="true" />}
+          name={
+            <span className="block truncate" title={label}>
+              {label}
+            </span>
+          }
+          actions={<CopyAction value={presentation?.text ?? block.text} label={`Copy ${label}`} />}
+          elapsed={null}
+          status={null}
+          info={
+            <ActivityInfoButton
+              label={`Technical details for ${label}`}
+              hint="View the exact text added to the agent's context"
+              onClick={() => setDetailsOpen(true)}
+            />
+          }
+        />
         {expanded ? (
-          <div className="mt-1 mb-2 ml-[11px] min-w-0 space-y-2 border-l border-border pl-[19px]">
+          <ActivityBody label={label} framed={false} className="space-y-2">
             {presentation?.attribution ? (
               <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                 {presentation.attribution}
@@ -208,7 +199,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                 }}
               />
             ))}
-          </div>
+          </ActivityBody>
         ) : null}
         <ToolDetailsContent
           description="The exact text added to the agent's context."

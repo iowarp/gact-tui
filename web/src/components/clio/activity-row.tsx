@@ -27,9 +27,8 @@ export interface ActivityRowProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   icon: ReactNode;
   /** What happened, in words: "Run command", "Delegate", "Thought for 6 seconds". */
   name: ReactNode;
-  /** What it happened to: a path or command (mono) or a short phrase (`text`). */
+  /** What it happened to, in the spec's argument style (`.ag`: 11.5px mono, muted). */
   argument?: ReactNode;
-  argumentStyle?: 'code' | 'text';
   /** Full argument on hover when it is cut. */
   argumentTitle?: string;
   /** An agent or entity the row opens (accent, underlined). */
@@ -80,7 +79,6 @@ export const ActivityRow = memo(
       icon,
       name,
       argument,
-      argumentStyle = 'code',
       argumentTitle,
       link,
       outcome,
@@ -215,13 +213,9 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-argument"
                   title={argumentTitle}
-                  className={cn(
-                    // No intrinsic width: it fills what the outcome leaves, up to its own length.
-                    'w-0 min-w-0 max-w-fit grow truncate',
-                    argumentStyle === 'code'
-                      ? 'font-mono text-[11.5px] text-muted-foreground'
-                      : 'text-[12.5px] text-foreground/85',
-                  )}
+                  // Every row splits function and input the same way: the name in the
+                  // foreground, the input in the spec's argument style, with no separator.
+                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground"
                 >
                   {argument}
                 </span>
