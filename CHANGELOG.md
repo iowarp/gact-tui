@@ -6,6 +6,31 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.12.1] - 2026-11-11
+
+Fixes for the 0.12.0 interface.
+
+### Changed
+
+- Each press of Terminal or Browser in the workbench icon strip opens a new
+  terminal or browser page, replacing the old "+" button; right-click either icon
+  for the list of open ones. Browser tabs share one frame row, and typing an
+  address in a New page tab opens it in that tab (#1138, #1140, #1142)
+- Comments on a browser page show as pins on the page and come back after a
+  reload or navigating back, and follow the page when its layout shifts; a
+  comment whose mark is gone says so (#1139, #1141)
+
+### Fixed
+
+- The Browser is person-first again: a new conversation's Browser tab has a New
+  page row and an address field, so you can open a page, search or sign in, and
+  then ask the agent to use that page (#1137)
+- Opening or switching workbench tabs no longer resizes the right pocket; only
+  dragging its edge or resizing the window changes its width (#1136)
+- The desktop app no longer shows doubled native scrollbars (#1134)
+- Styles the desktop app's content security policy blocked apply again, and the
+  workbench no longer overflows by one pixel (#1135)
+
 ## [0.12.0] - 2026-11-11
 
 The stable release of the 0.12.0 interface. Everything in 0.12.0-beta.1 below is
