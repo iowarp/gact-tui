@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import {
   downloadFromFrame,
   frameSettled,
-  openFrameOpenMenu,
+  openFrameDownloadMenu,
   selectFileView,
 } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
@@ -433,13 +433,13 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await openFrameOpenMenu(page, toolbar);
+        await openFrameDownloadMenu(page, toolbar);
         const exportPdf = page.getByRole('menuitem', { name: /^Export to PDF/u });
         await expect(exportPdf).toBeVisible();
         const pdfDownload = page.waitForEvent('download');
         await exportPdf.click();
         const downloadedPdf = await pdfDownload;
-        expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
+        expect(downloadedPdf.suggestedFilename()).toBe(`synthetic.pdf`);
         const downloadedStream = await downloadedPdf.createReadStream();
         const downloadedChunks: Buffer[] = [];
         for await (const chunk of downloadedStream!) downloadedChunks.push(Buffer.from(chunk));

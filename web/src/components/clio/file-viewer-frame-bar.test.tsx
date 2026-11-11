@@ -140,7 +140,7 @@ describe('file viewer frame bar', () => {
     expect(copyText).toHaveBeenCalledWith('station,count\nMTA1,3\n');
   });
 
-  it('lists the Open variants and the renderer exports beside a visible Download', async () => {
+  it('lists the Open variants, and the renderer exports under Download ▾', async () => {
     const user = userEvent.setup();
     const onOpenFolder = vi.fn();
     const frame = renderFrame(onOpenFolder);
@@ -154,17 +154,25 @@ describe('file viewer frame bar', () => {
       expect.stringMatching(/^In a browser tab/u),
       expect.stringMatching(/^In the system app/u),
       expect.stringMatching(/^Show in Files/u),
-      expect.stringMatching(/^Export to PNG image/u),
     ]);
-    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F', null]);
+    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F']);
     expect(within(menu).getByRole('menuitem', { name: /^In the system app/u })).toHaveTextContent(
       'Needs the desktop app',
     );
     await user.click(within(menu).getByRole('menuitem', { name: /^Show in Files/u }));
     expect(onOpenFolder).toHaveBeenCalledWith('results');
 
-    await user.click(within(frame).getByRole('button', { name: 'Open options' }));
-    await user.click(await screen.findByRole('menuitem', { name: /^Export to PNG image/u }));
+    await user.click(within(frame).getByRole('button', { name: 'Download options' }));
+    const download = await screen.findByRole('menu');
+    expect(
+      within(download)
+        .getAllByRole('menuitem')
+        .map((row) => row.textContent),
+    ).toEqual([
+      expect.stringMatching(/^Original/u),
+      expect.stringMatching(/^Export to PNG image/u),
+    ]);
+    await user.click(within(download).getByRole('menuitem', { name: /^Export to PNG image/u }));
     expect(exportPng).toHaveBeenCalledOnce();
   });
 

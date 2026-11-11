@@ -89,6 +89,13 @@ export async function frameSettled(toolbar: Locator): Promise<void> {
 }
 
 /** Download the original bytes with the frame's Download, which never folds. */
+/** Download ▾, which holds the original plus the renderer's Export to… rows; it never folds. */
+export async function openFrameDownloadMenu(page: Page, toolbar: Locator): Promise<void> {
+  await frameSettled(toolbar);
+  await toolbar.getByRole('button', { name: 'Download options', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: /^Original/u })).toBeVisible();
+}
+
 export async function downloadFromFrame(page: Page, toolbar: Locator): Promise<Download> {
   const download = page.waitForEvent('download');
   // The frame bar comes before any state body that repeats the download.

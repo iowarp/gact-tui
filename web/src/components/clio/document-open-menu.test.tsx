@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { documentApplications } from '@/tauri/documents';
 import { useDocumentOpenActions } from './document-open-menu';
-import { FrameOpenButton } from './file-viewer-take';
+import { FrameDownloadButton, FrameOpenButton } from './file-viewer-take';
 import { useOpenTake } from './file-viewer-take-hooks';
 
 const host = vi.hoisted(() => ({ native: true }));
@@ -84,13 +84,18 @@ function Harness({
     closePending: false,
     ...calls,
   });
-  // As the frame splits them: download kinds join Export to…, open kinds the places.
+  // As the frame splits them: download kinds join Download ▾'s Export to…, open kinds the places.
   const take = useOpenTake(
     { kind: 'artifact', artifact: document, workspaceId: 'ws' },
     actions.filter((action) => action.kind === 'download'),
     { otherApps: false, rows: actions.filter((action) => action.kind === 'open') },
   );
-  return <FrameOpenButton take={take} />;
+  return (
+    <>
+      <FrameDownloadButton take={take} />
+      <FrameOpenButton take={take} />
+    </>
+  );
 }
 
 function menu(
@@ -170,19 +175,15 @@ it.each([
   expect(screen.queryByRole('menuitem', { name: /^PDF copy with another app/u }) !== null).toBe(
     profile !== 'pdf',
   );
-  expect(screen.queryByRole('menuitem', { name: /^Export to PDF/u }) !== null).toBe(
-    profile !== 'pdf',
-  );
+  expect(screen.queryByRole('menuitem', { name: /^Export to PDF/u })).toBeNull();
 });
 
-it('exports the PDF copy, leaving the original download to the frame', async () => {
+it('exports the PDF copy from Download ▾, whose face keeps the original', async () => {
   const calls = menu();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
-  expect(
-    screen.queryByRole('menuitem', { name: /^Download(?! with evidence)/u }),
-  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Download options' }));
+  expect(await screen.findByRole('menuitem', { name: /^Original/u })).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
   await user.click(screen.getByRole('menuitem', { name: /^Export to PDF/u }));
   await waitFor(() => expect(calls.onPdf).toHaveBeenCalledOnce());
 });
@@ -192,7 +193,7 @@ it('offers no installed apps in a browser', async () => {
   menu();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
+  expect(await screen.findByRole('menuitem', { name: /^In a browser tab/u })).toBeVisible();
   expect(screen.queryByRole('menuitem', { name: /with another app/iu })).toBeNull();
   expect(documentApplications).not.toHaveBeenCalled();
 });
