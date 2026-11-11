@@ -5,6 +5,7 @@ import {
   fixtureEndpoint,
   setupWorkspaceBrowser,
   openConversationRail,
+  showWorkbenchList,
   workspaceUrl,
 } from './workspace-setup';
 
@@ -194,6 +195,9 @@ test('opens the unresolved task from the status strip in the actual task view', 
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   const activity = canvas.getByRole('region', { name: 'Activity list', exact: true });
   await expect(activity).toBeVisible();
+  // Activity leads with its timeline; every event, each task openable, is the Events view.
+  await activity.getByRole('button', { name: 'Activity views', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Events', exact: true }).click();
   const task = activity.getByRole('button', { name: 'Prepare dataset, needs inspection' });
   await expect(task).toContainText('needs inspection');
   await task.click();
@@ -206,7 +210,7 @@ test('opens the unresolved task from the status strip in the actual task view', 
   );
 });
 
-test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
+test('keeps Activity views in their header and scrolls only their content vertically', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 600 });
@@ -235,46 +239,51 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
       .poll(async () => (await canvas.boundingBox())?.width ?? 0)
       .toBeLessThanOrEqual(321);
 
-    const strip = canvas.getByRole('tablist', { name: 'Observability view' });
+    // The views are rows of the header's Activity views menu, not a second tab strip.
+    const list = canvas.getByRole('region', { name: 'Activity list', exact: true });
+    const views = list.getByRole('button', { name: 'Activity views', exact: true });
+    const viewTitle = () => list.getByRole('heading', { level: 2 });
     for (const mode of ['docked', 'maximized'] as const) {
       if (mode === 'maximized') {
         await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
       }
-      for (const label of ['Timeline', 'Context']) {
-        const tab = strip.getByRole('tab', { name: label, exact: true });
-        await tab.click();
-        await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
-        const metrics = await strip.evaluate((element) => {
-          const bounds = element.getBoundingClientRect();
+      for (const [label, title] of [
+        ['Timeline', 'Activity'],
+        ['Context', 'Context'],
+      ] as const) {
+        const row = page.getByRole('menuitemradio', { name: label, exact: true });
+        // The trigger keeps focus as the last choice's menu closes; open it once that settles.
+        await expect(async () => {
+          if (!(await row.isVisible())) await views.click();
+          await row.click({ timeout: 1_000 });
+          await expect(viewTitle()).toHaveText(title, { timeout: 1_000 });
+        }).toPass({ timeout: 10_000 });
+        const metrics = await viewTitle().evaluate((heading) => {
+          const header = heading.parentElement!;
+          const bounds = header.getBoundingClientRect();
           return {
-            verticalOverflow: element.scrollHeight - element.clientHeight,
-            horizontalOverflow: element.scrollWidth - element.clientWidth,
-            tabs: Array.from(element.querySelectorAll<HTMLElement>('[role="tab"]')).map(
-              (child) => ({
-                top: child.getBoundingClientRect().top - bounds.top,
-                bottom: child.getBoundingClientRect().bottom - bounds.bottom,
-                clippedLabel: child.scrollWidth - child.clientWidth,
-                indicatorBottom: getComputedStyle(child, '::after').bottom,
-              }),
-            ),
+            verticalOverflow: header.scrollHeight - header.clientHeight,
+            horizontalOverflow: header.scrollWidth - header.clientWidth,
+            controls: Array.from(header.querySelectorAll<HTMLElement>('button')).map((child) => ({
+              top: child.getBoundingClientRect().top - bounds.top,
+              bottom: child.getBoundingClientRect().bottom - bounds.bottom,
+            })),
           };
         });
         expect(metrics.verticalOverflow).toBeLessThanOrEqual(1);
         expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
-        for (const child of metrics.tabs) {
+        for (const child of metrics.controls) {
           expect(child.top).toBeGreaterThanOrEqual(0);
           expect(child.bottom).toBeLessThanOrEqual(0);
-          expect(child.clippedLabel).toBeLessThanOrEqual(1);
-          expect(child.indicatorBottom).toBe('0px');
         }
       }
       // A short window makes this real context content overflow in both modes.
       await page.setViewportSize({ width: 1280, height: 400 });
-      const content = canvas.locator('[data-slot="scroll-area-viewport"]').first();
+      const content = list.locator('[data-slot="scroll-area-viewport"]').first();
       await content.hover();
       await page.mouse.wheel(0, 1500);
       await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-      await expect(strip.getByRole('tab', { name: 'Context', exact: true })).toBeInViewport();
+      await expect(views).toBeInViewport();
       await page.setViewportSize({ width: 1280, height: 600 });
       await page.mouse.move(20, 580);
       await page.screenshot({ path: testInfo.outputPath(`observability-${theme}-${mode}.png`) });
@@ -464,11 +473,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
     .locator('[data-interaction-kind="question"]')
     .filter({ hasText: 'Which fallback should the review use?' });
   await expect(fallback).toContainText('The specialist could not answer this, so it needs you.');
-  // A decision card opens its technical details in a dialog so its facts stay in view.
-  await fallback.getByRole('button', { name: 'Technical details' }).click();
-  const fallbackDetails = page.getByRole('dialog', { name: /Technical details/ });
+  // A decision card expands its technical details in place, under its options.
+  const fallbackToggle = fallback.getByRole('button', { name: 'Technical details' });
+  await fallbackToggle.click();
+  const fallbackDetails = fallback.getByRole('region', { name: 'Technical details' });
   await expect(fallbackDetails.getByText('agent_answer_timeout')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await fallbackToggle.click();
   await expect(fallbackDetails).toHaveCount(0);
 
   await settleConversationAtLatest(page);
@@ -653,14 +663,14 @@ test('indexes the dense flat-NDP transcript in its outline', async ({ page }) =>
     .poll(() => conversation.evaluate((element) => element.scrollTop))
     .toBeLessThan(2_000);
 });
-/** Open the canvas pocket on the dense session; it starts on the Activity list. */
+/** Open the canvas pocket on the dense session; an empty pocket starts on the Files list. */
 async function openDenseFlatNdpCanvas(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openDenseFlatNdp(page);
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
-  await expect(canvas.getByRole('region', { name: 'Activity list' })).toBeVisible();
+  await expect(canvas.getByRole('region', { name: 'Files list' })).toBeVisible();
   return canvas;
 }
 
@@ -670,7 +680,9 @@ test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ pa
     animations: 'allow',
     maxDiffPixels: desktopMaxDiffPixels,
   });
-  // A fresh pocket opens on the Activity tab, led by its timeline.
+  // A fresh pocket opens on Files; Activity opens from the strip as a closable tab.
+  await expect(canvas.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+  await showWorkbenchList(page, 'Activity');
   const observabilityTab = canvas.getByRole('tab', { name: 'Activity' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
@@ -679,7 +691,10 @@ test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ pa
   const observabilityClose = observabilityTab
     .locator('..')
     .locator('[data-slot="frame-tab-close"]');
-  await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+  await expect(observabilityTab).toHaveAttribute(
+    'aria-keyshortcuts',
+    process.platform === 'darwin' ? 'Meta+Backspace' : 'Delete',
+  );
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
@@ -693,7 +708,7 @@ test('audits the dense flat-NDP workspace with its canvas open and requests pend
   page,
 }) => {
   const canvas = await openDenseFlatNdpCanvas(page);
-  await expect(canvas.getByRole('tab', { name: 'Activity' })).toHaveAttribute(
+  await expect(canvas.getByRole('tab', { name: 'Files' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
@@ -741,13 +756,22 @@ test('keeps a pending EarthScope map flat, resizable, and centered when expanded
   }
 
   const viewport = pendingResponses.locator('[data-slot="a2ui-response-viewport"]');
-  const initialHeight = await viewport.evaluate(
-    (element) => element.getBoundingClientRect().height,
-  );
-  await pendingResponses.getByRole('button', { name: 'Resize interactive surface' }).click();
-  await expect
-    .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
-    .toBeGreaterThan(initialHeight);
+  const viewportHeight = () =>
+    viewport.evaluate((element) => element.getBoundingClientRect().height);
+  const initialHeight = await viewportHeight();
+  // The tray fits its content up to the window's cap; the button toggles
+  // between that cap and the compact height, so a map already at the cap
+  // first goes compact and then grows back to its limit.
+  const resizeButton = pendingResponses.getByRole('button', {
+    name: 'Resize interactive surface',
+  });
+  await resizeButton.click();
+  await expect.poll(viewportHeight).not.toBe(initialHeight);
+  const toggledHeight = await viewportHeight();
+  if (toggledHeight < initialHeight) {
+    await resizeButton.click();
+    await expect.poll(viewportHeight).toBeGreaterThan(toggledHeight);
+  }
 
   const enlargedHeight = await viewport.evaluate(
     (element) => element.getBoundingClientRect().height,
@@ -930,11 +954,24 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 });
 
 test('renders the discovered catalog and the steer the service is holding', async ({ page }) => {
+  const heldSteers = page.waitForResponse(
+    (response) => new URL(response.url()).pathname.endsWith('/pending-steers'),
+  );
   await page.goto(workspaceUrl);
+  expect((await heldSteers).ok()).toBe(true);
 
-  // The service holds one accepted-but-undelivered steer on a transcript
-  // message, so that message offers to cancel it before delivery.
-  await expect(page.getByRole('button', { name: 'Cancel pending message' })).toHaveCount(1);
+  // The service holds one accepted steer on the prompt a reply already
+  // follows. That is the running turn's own input, not a queued one, so it
+  // is neither marked Queued nor offered for cancellation.
+  await expect(
+    page
+      .getByRole('log', { name: 'Conversation' })
+      .getByText('Review the EarthScope station evidence and keep provenance visible.', {
+        exact: true,
+      }),
+  ).toBeVisible();
+  await expect(page.getByText('Queued', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancel pending message' })).toHaveCount(0);
 
   const componentStatusResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());

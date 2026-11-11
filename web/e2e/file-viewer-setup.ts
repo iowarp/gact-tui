@@ -64,11 +64,15 @@ export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<v
     return;
   }
   await toolbar.getByRole('button', { name: /^(File actions|More actions)$/u }).click();
-  await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+  // Folded with the rest of the bar, Open's rows are a group in the menu itself.
+  const submenu = page.getByRole('menuitem', { name: 'Open', exact: true });
+  const group = page.getByRole('menu').getByRole('group', { name: 'Open', exact: true });
+  await expect(submenu.or(group).first()).toBeVisible();
+  if (await submenu.isVisible()) await submenu.click();
 }
 
 /** Wait until the frame bar's fold step reads the same twice, 200ms apart. */
-async function frameSettled(toolbar: Locator): Promise<void> {
+export async function frameSettled(toolbar: Locator): Promise<void> {
   if (!(await toolbar.count())) return;
   let last: string | undefined;
   await expect

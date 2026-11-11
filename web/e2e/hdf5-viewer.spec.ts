@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { frameSettled } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
@@ -152,21 +153,26 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
     await file.click();
   }
   await expect(frameElement).toBeVisible({ timeout: 15_000 });
-  // Beside the conversation the frame is at its narrowest fold, where the
-  // modes are a checked list in the frame's … menu.
-  const actions = canvas.getByRole('toolbar', { name: 'File' }).getByRole('button', {
-    name: 'File actions',
-  });
-  await expect(async () => {
+  // Beside the conversation the canvas widens for the file, so the bar may
+  // keep the modes; at its narrowest fold they are a checked list in its … menu.
+  const toolbar = canvas.getByRole('toolbar', { name: 'File' });
+  const actions = toolbar.getByRole('button', { name: 'File actions' });
+  await frameSettled(toolbar);
+  const shownImage = toolbar
+    .getByRole('group', { name: 'Show as' })
+    .getByRole('button', { name: 'Image', pressed: true });
+  if (!(await shownImage.isVisible())) {
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await actions.click();
+      await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+        { timeout: 1_000 },
+      );
+    }).toPass({ timeout: 15_000 });
     await page.keyboard.press('Escape');
-    await actions.click();
-    await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-      { timeout: 1_000 },
-    );
-  }).toPass({ timeout: 15_000 });
-  await page.keyboard.press('Escape');
+  }
 
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);

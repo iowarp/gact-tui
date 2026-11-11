@@ -46,8 +46,11 @@ export async function closeNotifications(page: Page): Promise<void> {
  * Artifacts, Activity, Terminal, Browser pages) as their own tab.
  */
 export async function showWorkbenchList(page: Page, name: string): Promise<void> {
-  const open = page.getByRole('button', { name: 'Open workspace canvas', exact: true });
-  if (await open.isVisible()) await open.click();
+  // A closed canvas stays mounted (inert), so wait for the header toggle
+  // before deciding whether to open it.
+  const toggle = page.getByRole('button', { name: /^(?:Open|Close) workspace canvas$/u });
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   const item = page
     .getByRole('toolbar', { name: 'Workbench lists', exact: true })
     .getByRole('button', { name, exact: true });

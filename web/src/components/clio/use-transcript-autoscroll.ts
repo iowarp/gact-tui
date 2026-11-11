@@ -346,7 +346,22 @@ export function useTranscriptAutoscroll(
     observerRef.current = observer;
     observer.observe(element);
     for (const content of contentElementsRef.current) observer.observe(content);
+    // A row mounted beside the content (the syncing lane above the composer) adds
+    // height no observed box reports. Follow it, before paint, only for a reader
+    // who was at the end when it mounted, so the last line stays clear of it.
+    const children = new MutationObserver((records) => {
+      if (!followingRef.current) return;
+      let added = 0;
+      for (const record of records)
+        for (const node of record.addedNodes)
+          if (node instanceof HTMLElement && !contentElementsRef.current.has(node))
+            added += node.getBoundingClientRect().height;
+      if (added > 0 && distanceFromBottom(element) - added <= BOTTOM_EPSILON_PX)
+        scrollToBottom('instant');
+    });
+    children.observe(element, { childList: true });
     return () => {
+      children.disconnect();
       observer.disconnect();
       observerRef.current = null;
     };
