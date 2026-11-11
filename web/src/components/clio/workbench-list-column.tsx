@@ -112,7 +112,7 @@ export interface WorkbenchListColumnProps {
   onOpenDraftBrowserPage?: (url: string) => Promise<void>;
   /** Browser as a new page: the browser frame with its address field focused. */
   newPage?: boolean;
-  /** Opens a New page tab (the Browser list's header action and empty state). */
+  /** Opens a New page tab (the Browser list's empty state). */
   onNewBrowserPage?: () => void;
 }
 
@@ -140,28 +140,11 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
     ) : view === 'sources' ? (
       <SourcesList {...props} renderHeader={renderHeader} />
     ) : (
-      <>
-        {/* Terminal's tab already names it, and its header would carry no actions. */}
-        {view === 'terminal' ? null : (
-          <WorkbenchListHeader
-            actions={
-              view === 'browser' && props.onNewBrowserPage ? (
-                <IconButton
-                  icon={<AddIcon />}
-                  label="New page"
-                  onClick={props.onNewBrowserPage}
-                  size="sm"
-                  tooltipSide="bottom"
-                />
-              ) : undefined
-            }
-            title={title}
-          />
-        )}
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <ListBody {...props} />
-        </div>
-      </>
+      // Terminal and Browser pages: the tab already names the list and the strip
+      // icon opens a new one, so the list is plain rows with no header.
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ListBody {...props} />
+      </div>
     );
   return <WorkbenchListTabSection title={title}>{body}</WorkbenchListTabSection>;
 });
