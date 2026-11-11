@@ -16,7 +16,7 @@ export type ServiceReachability = 'checking' | 'reachable' | 'unreachable';
  * What the live-connection indicator shows. An open session event stream is the
  * authority on its own route. With none open (Settings, and any route that has
  * no focused session) `entities.stream` is whatever the last stream left behind,
- * or the initial "offline", so the indicator reads the service probe instead:
+ * or the initial "connecting", so the indicator reads the service probe instead:
  * the same `/v1/capabilities` call every surface already uses to reach the
  * service.
  */
