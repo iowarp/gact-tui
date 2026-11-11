@@ -88,13 +88,6 @@ export function ToolCompactRow({
           : status === 'unknown' || status === 'degraded'
             ? 'warning'
             : 'error';
-  const codeArgument = operation.subjects.some(
-    (subject) =>
-      subject.id === 'operation-command' ||
-      subject.id === 'question-answer' ||
-      subject.target === 'file' ||
-      /^(fs_|shell_|run_code|ssh_)/u.test(tool.name),
-  );
   const argument = operation.subjects.length ? (
     <>
       {operation.subjects.map((subject, index) => (
@@ -112,7 +105,7 @@ export function ToolCompactRow({
             <PresentationLink
               block={subject}
               compact
-              className={codeArgument ? ARGUMENT_CLASS : 'text-[12.5px] text-foreground/85'}
+              className={ARGUMENT_CLASS}
             />
           ) : subject.id === 'operation-command' ? (
             (subject.text || subject.label || '').split('\n', 1)[0]
@@ -227,7 +220,6 @@ export function ToolCompactRow({
       }
       link={delegateLink}
       argument={delegate ? delegate.assignment : argument}
-      argumentStyle={codeArgument && !delegate ? 'code' : 'text'}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
       outcome={outcome}
       outcomeTone="muted"

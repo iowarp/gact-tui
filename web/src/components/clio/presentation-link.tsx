@@ -154,7 +154,7 @@ export function PresentationLink({
   if (block.target === 'url' && /^https?:\/\//iu.test(uri))
     return withTooltip(
       <ExternalLink
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         href={uri}
         aria-label={iconOnly ? `Open ${label}` : undefined}
       >
@@ -166,7 +166,7 @@ export function PresentationLink({
   if (block.target === 'session' && uri && hasRouter)
     return withTooltip(
       <Link
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         relative="path"
         aria-label={iconOnly ? `Open ${label}` : undefined}
         to={`../${encodeURIComponent(uri)}`}
@@ -177,7 +177,7 @@ export function PresentationLink({
   if (block.target === 'memory' && uri && hasRouter)
     return withTooltip(
       <Link
-        className={cn(className, 'underline')}
+        className={cn('underline', className)}
         aria-label={iconOnly ? `Open ${label} in memory` : undefined}
         to={`/settings/memory?${memoryLinkParams(uri)}`}
       >
