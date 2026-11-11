@@ -403,6 +403,24 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
     selectedFailed &&
     selectedConnection !== undefined &&
     noAnswer(attemptErrorFor(selectedConnection, mutation));
+  // One persistent polite region carries connection progress; regions inserted
+  // together with their text are not reliably announced.
+  const connectingConnection = connectingInRow ? rows.find(isConnectingRow) : undefined;
+  const progressAnnouncement = connectingConnection
+    ? connectingConnection.availability.starting
+      ? connectingConnection.availability.detail
+      : `Connecting to ${
+          agentIdentity(
+            connectingConnection.endpoint,
+            connectingConnection.label,
+            connectingConnection.location,
+          ).name
+        }`
+    : showManualForm && mutation.isPending
+      ? `Connecting to ${mutation.variables?.endpoint ?? vocab.agent}`
+      : mutation.error && waiting.waiting
+        ? 'Waiting for the service to start'
+        : '';
   const retryKnown = (connection: KnownConnection) => {
     setSelectedEndpoint(connection.endpoint);
     void queryClient.invalidateQueries({
@@ -480,6 +498,9 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                 : 'Switch to'
           }
         >
+          <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+            {progressAnnouncement}
+          </p>
           {inTauri() ? (
             <DeployClioDialog
               knownServices={knownConnections}
@@ -558,7 +579,6 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                           connecting ? (
                             <span
                               className="inline-flex max-w-full min-w-0 items-center gap-1.5"
-                              role="status"
                               title={connectingDetail}
                             >
                               <span

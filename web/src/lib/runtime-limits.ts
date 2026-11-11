@@ -132,10 +132,29 @@ export const CONNECTION_LOST_PROBE_POLL_MS = 5_000;
 export const CONNECTION_LOST_PROBE_RETRY_MS = 750;
 
 /**
+ * How long a connection state must hold before it is read aloud, so a momentary gap
+ * in the event stream is not announced. Unit: milliseconds.
+ */
+export const CONNECTION_ANNOUNCE_SETTLE_MS = 1_000;
+
+/**
+ * Shortest gap between re-checks of the connected service triggered by requests that
+ * found nothing answering. Unit: milliseconds.
+ */
+export const CONNECTION_UNREACHABLE_RECHECK_MS = 5_000;
+
+/**
  * Re-probe cadence while a remembered service is starting, or has not answered yet
  * (it may have been started together with this page). Unit: milliseconds.
  */
 export const CONNECTION_PROBE_STARTING_MS = 1_000;
+
+/**
+ * Ceiling for the re-probe cadence of a service that keeps reporting "starting"; the
+ * cadence grows from `CONNECTION_PROBE_STARTING_MS` with the time spent starting.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_PROBE_STARTING_MAX_MS = 5_000;
 
 /**
  * Failed probes re-checked at the starting cadence before falling back to the slow

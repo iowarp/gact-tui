@@ -1,6 +1,15 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
@@ -39,7 +48,41 @@ export interface ClioNavigationProps {
   workspacesState?: ListState;
 }
 
-export function ClioNavigation({
+const NO_ITEMS: readonly never[] = [];
+
+/**
+ * The left bar. Its pages re-render on every keystroke in the draft and every
+ * streamed update; the bar renders only when what it lists changes. Callbacks
+ * and the list state's retry are read at call time, so inline ones from the
+ * page don't count as a change.
+ */
+export function ClioNavigation(props: ClioNavigationProps) {
+  const latest = useRef(props);
+  useLayoutEffect(() => {
+    latest.current = props;
+  });
+  const openWorkspaceFiles = useCallback(() => latest.current.onOpenWorkspaceFiles?.(), []);
+  const retryWorkspaces = useCallback(() => latest.current.workspacesState?.retry(), []);
+  const listed = props.workspacesState !== undefined;
+  const loading = props.workspacesState?.loading ?? false;
+  const error = props.workspacesState?.error;
+  const workspacesState = useMemo(
+    () => (listed ? { loading, error, retry: retryWorkspaces } : undefined),
+    [listed, loading, error, retryWorkspaces],
+  );
+  return (
+    <ClioNavigationView
+      {...props}
+      agents={props.agents.length ? props.agents : NO_ITEMS}
+      onOpenWorkspaceFiles={props.onOpenWorkspaceFiles ? openWorkspaceFiles : undefined}
+      sessions={props.sessions.length ? props.sessions : NO_ITEMS}
+      workspaces={props.workspaces.length ? props.workspaces : NO_ITEMS}
+      workspacesState={workspacesState}
+    />
+  );
+}
+
+const ClioNavigationView = memo(function ClioNavigationView({
   endpoint,
   workspaces,
   sessions,
@@ -257,7 +300,7 @@ export function ClioNavigation({
       ) : null}
     </>
   );
-}
+});
 
 /** Opens the conversation above or below the current one, in the left bar's visible order. */
 function stepConversation(step: -1 | 1) {
