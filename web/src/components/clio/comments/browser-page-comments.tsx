@@ -1,13 +1,49 @@
 import { documentAnchorSchema, type BrowserLiveState, type DocumentAnchor } from '@clio/core/v3';
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { frameRect, type Viewport } from '../browser-live-input';
-import type { BrowserInput } from '../browser-live-socket';
-import type { CommentSurface } from './comment-model';
-import { CommentRegionLayer } from './comment-region-layer';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { frameRect, viewRect, type Viewport } from '../browser-live-input';
+import type { BrowserInput, MarksReport } from '../browser-live-socket';
+import type { CommentSurface, DraftMark } from './comment-model';
+import { CommentRegionLayer, type LayerMark } from './comment-region-layer';
 import { CommentSessionProvider, useCommentSession } from './comment-session';
 
 /** Listen for the page's picks (the live socket's `pick` messages); returns the unsubscribe. */
 export type SubscribePicks = (listener: (anchor: unknown) => void) => () => void;
+
+/** Listen for where the page found the followed marks (`marks` messages). */
+export type SubscribeMarks = (listener: (report: MarksReport) => void) => () => void;
+
+/** The page's latest report on the marks this view follows. */
+const MarksContext = createContext<MarksReport | null>(null);
+
+export const ANCHOR_NOT_FOUND = "Couldn't find this anchor on the page";
+export const ANCHOR_HIDDEN = 'This anchor is on the page but not shown';
+
+/** An address without its fragment: the page a mark was made on, wherever it was scrolled. */
+function pageAddress(url: string | undefined): string {
+  const at = (url ?? '').indexOf('#');
+  return at < 0 ? (url ?? '') : (url ?? '').slice(0, at);
+}
+
+function markPage(mark: DraftMark): { id?: unknown; url?: unknown } {
+  const source = (mark.anchor.source ?? {}) as { page?: { id?: unknown; url?: unknown } };
+  return source.page ?? {};
+}
+
+/** A mark the page itself can find again: a picked element or a text selection. */
+function followed(mark: DraftMark, pageId: string): boolean {
+  return (
+    (mark.anchor.profile === 'dom' || mark.anchor.profile === 'text-quote') &&
+    markPage(mark).id === pageId
+  );
+}
 
 interface PageRef {
   id: string;
@@ -26,12 +62,15 @@ export function BrowserPageComments({
   page,
   send,
   subscribe,
+  subscribeMarks,
   interactive,
   children,
 }: {
   page: PageRef;
   send: (input: BrowserInput) => void;
   subscribe: SubscribePicks;
+  /** Where the page finds the marks again, to pin them on the view and note any it lost. */
+  subscribeMarks?: SubscribeMarks;
   /** This view sends input to the page; only such a view can ask it for a pick. */
   interactive: boolean;
   children: ReactNode;
@@ -48,7 +87,9 @@ export function BrowserPageComments({
   return (
     <CommentSessionProvider surface={surface}>
       <PickBridge interactive={interactive} page={page} send={send} subscribe={subscribe} />
-      {children}
+      <MarkWatch interactive={interactive} page={page} send={send} subscribe={subscribeMarks}>
+        {children}
+      </MarkWatch>
     </CommentSessionProvider>
   );
 }
@@ -90,6 +131,70 @@ function PickBridge({
 }
 
 /**
+ * Has the page follow the session's element and text marks, as the comments on a file follow
+ * its text: the page finds each again by its selector, image source, accessible role and name,
+ * or quoted text with its context, after a reload, a navigation back or a change to the page,
+ * and reports where. A mark it cannot find gets a note, like a comment on an older version of
+ * a file; a mark found under a new selector takes it, so the agent is pointed at it.
+ */
+function MarkWatch({
+  page,
+  send,
+  subscribe,
+  interactive,
+  children,
+}: {
+  page: PageRef;
+  send: (input: BrowserInput) => void;
+  subscribe?: SubscribeMarks;
+  interactive: boolean;
+  children: ReactNode;
+}) {
+  const session = useCommentSession();
+  const [report, setReport] = useState<MarksReport | null>(null);
+  const marks = session?.open ? session.marks : [];
+  const watched = marks.filter((mark) => followed(mark, page.id));
+  const key = JSON.stringify(watched.map((mark) => [mark.label, mark.anchor]));
+  useEffect(() => subscribe?.(setReport), [subscribe]);
+  useEffect(() => {
+    if (!interactive || !subscribe) return;
+    const list = JSON.parse(key) as [string, DocumentAnchor][];
+    send({ type: 'marks.watch', marks: list.map(([label, anchor]) => ({ label, anchor })) });
+  }, [interactive, key, send, subscribe]);
+  useEffect(() => {
+    if (!subscribe) return;
+    return () => send({ type: 'marks.watch', marks: [] });
+  }, [send, subscribe]);
+
+  const updateMark = session?.updateMark;
+  // Only a new report is acted on; the marks it changes must not act on it again.
+  const latest = useRef(watched);
+  useEffect(() => {
+    latest.current = watched;
+  });
+  useEffect(() => {
+    if (!report || !updateMark) return;
+    const here = pageAddress(report.url);
+    for (const mark of latest.current) {
+      if (pageAddress(String(markPage(mark).url ?? '')) !== here) continue;
+      const found = report.marks.find((item) => item.label === mark.label);
+      if (!found) continue;
+      const note = found.found
+        ? undefined
+        : found.reason === 'hidden'
+          ? ANCHOR_HIDDEN
+          : ANCHOR_NOT_FOUND;
+      const patch: Partial<DraftMark> = {};
+      if (note !== mark.note) patch.note = note;
+      if (found.found && found.selector && found.selector !== mark.anchor.selector)
+        patch.anchor = { ...mark.anchor, selector: found.selector };
+      if (Object.keys(patch).length) updateMark(mark.label, patch);
+    }
+  }, [report, updateMark]);
+  return <MarksContext.Provider value={report}>{children}</MarksContext.Provider>;
+}
+
+/**
  * The region tool over the live frame, in region mode only. It keeps the person's drag from
  * reaching the page, and maps the rectangle from the view onto the page's own view.
  */
@@ -101,12 +206,49 @@ export function BrowserRegionCapture({
   state: BrowserLiveState | null;
 }) {
   const session = useCommentSession();
+  const report = useContext(MarksContext);
   const host = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const capturing = Boolean(session?.active && session.mode === 'region' && state);
-  const shown = session?.open
-    ? session.marks.flatMap((mark) => (mark.view ? [{ label: mark.label, rect: mark.view }] : []))
+  const drawn = Boolean(session?.open && state);
+  useEffect(() => {
+    const node = host.current;
+    if (!drawn || !node) return;
+    const measure = () => {
+      const box = node.getBoundingClientRect();
+      setSize((was) =>
+        was?.width === box.width && was.height === box.height
+          ? was
+          : { width: box.width, height: box.height },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [drawn]);
+  // Element and text marks are drawn where the page last found them, on the page they were
+  // made on; a region stays where it was drawn on the view, and only on the page it was drawn on.
+  const here = pageAddress(state?.url);
+  const pins = new Map<string, LayerMark>();
+  if (session?.open && report && size && pageAddress(report.url) === here) {
+    for (const item of report.marks) {
+      const rect = item.found && item.rect ? viewRect(item.rect, size, report.viewport) : null;
+      if (rect) pins.set(item.label, { label: item.label, rect, text: item.how === 'quote' });
+    }
+  }
+  const shown: LayerMark[] = session?.open
+    ? session.marks.flatMap((mark) => {
+        if (mark.view) {
+          const from = markPage(mark);
+          const onPage = from.id === page.id && pageAddress(String(from.url ?? '')) === here;
+          return onPage ? [{ label: mark.label, rect: mark.view }] : [];
+        }
+        const pin = followed(mark, page.id) ? pins.get(mark.label) : undefined;
+        return pin ? [pin] : [];
+      })
     : [];
-  if (!session || !state || (!capturing && !shown.length)) return null;
+  if (!session || !state || !drawn) return null;
   const viewport: Viewport = state.viewport;
   const stop = (event: { stopPropagation: () => void }) => {
     if (capturing) event.stopPropagation();
@@ -126,6 +268,7 @@ export function BrowserRegionCapture({
         label="Drag over the page to mark a region"
         marks={shown}
         onOpenMark={session.setEditing}
+        openByBadge
         onRegion={(rect) => {
           const box = host.current?.getBoundingClientRect();
           const normal = box ? frameRect(rect, box, viewport) : null;

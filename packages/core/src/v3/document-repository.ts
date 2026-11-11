@@ -70,6 +70,7 @@ export const documentAnchorSchema = z.object({
   tag: optionalString,
   text_excerpt: optionalString,
   html_excerpt: optionalString,
+  src: optionalString,
   viewport_width: z.number().nullish().transform((value) => value ?? undefined),
   source: z.record(z.string(), z.unknown()).default({}),
 });
