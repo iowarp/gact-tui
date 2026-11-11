@@ -85,7 +85,7 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
   );
 });
 
-test('larger interface keeps the composer and the centred Create dialog reachable', async ({
+test('larger interface keeps the composer and the centred New workspace dialog reachable', async ({
   page,
 }, testInfo) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -103,14 +103,17 @@ test('larger interface keeps the composer and the centred Create dialog reachabl
     expect(
       await composer.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);
-    await expect(composer.locator('button[type="submit"]')).toBeInViewport();
-    // New conversation is a draft in place; Create's Session form opens from New workspace.
+    // The row ends in one square: Stop while the fixture run works with nothing typed.
+    await expect(
+      composer.getByRole('button', { name: /^(?:Send|Stop|Steer|Queue)$/u }),
+    ).toBeInViewport();
+    // New conversation is a draft in place; New workspace opens the one create dialog.
     const create = page.getByRole('button', { name: 'New workspace', exact: true });
     if (!(await create.isVisible())) {
       await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
     }
     await create.click();
-    const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
+    const dialog = page.getByRole('dialog', { name: 'New workspace', exact: true });
     await expect(dialog).toBeVisible();
     const settled = () =>
       dialog.evaluate((element) =>
@@ -125,26 +128,18 @@ test('larger interface keeps the composer and the centred Create dialog reachabl
     const opened = (await dialog.boundingBox())!;
     const viewport = page.viewportSize()!;
     if (width >= 600) {
-      // Opens centred like every DialogFrame, then grows downward from its top edge.
+      // Opens centred like every DialogFrame.
       expect(Math.abs(opened.x + opened.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
       expect(Math.abs(opened.y + opened.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
     }
-    await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
-    await settled();
-    const before = (await dialog.boundingBox())!;
-    if (width >= 600) expect(Math.abs(before.y - opened.y)).toBeLessThanOrEqual(1);
-    await dialog.getByRole('button', { name: 'Advanced session behavior', exact: true }).click();
-    await settled();
-    const after = (await dialog.boundingBox())!;
-    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
-    if (width >= 600) {
-      expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
-      expect(after.height).toBeGreaterThan(before.height);
-    }
-    expect(after.y).toBeGreaterThanOrEqual(0);
-    expect(after.y + after.height).toBeLessThanOrEqual(viewport.height + 1);
-    expect(after.x).toBeGreaterThanOrEqual(0);
-    expect(after.x + after.width).toBeLessThanOrEqual(width);
+    expect(opened.y).toBeGreaterThanOrEqual(0);
+    expect(opened.y + opened.height).toBeLessThanOrEqual(viewport.height + 1);
+    expect(opened.x).toBeGreaterThanOrEqual(0);
+    expect(opened.x + opened.width).toBeLessThanOrEqual(width);
+    await expect(
+      dialog.getByRole('textbox', { name: 'Workspace folder', exact: true }),
+    ).toBeInViewport();
+    await expect(dialog.getByRole('button', { name: 'Browse', exact: true })).toBeInViewport();
     expect(
       await dialog.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);

@@ -300,8 +300,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             showList('artifacts');
             return;
           case 'session':
-          case 'work':
             setActivityView('timeline');
+            showList('activity');
+            return;
+          // Todos, plans, goals and schedules are rows of the Events list, not the timeline.
+          case 'work':
+            setActivityView('events');
             showList('activity');
             return;
           case 'agent':
