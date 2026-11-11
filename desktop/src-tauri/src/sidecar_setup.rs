@@ -39,6 +39,24 @@ pub(crate) fn prepare_managed_storage_root(
     Ok(app_local_data_dir.to_path_buf())
 }
 
+/// Drop the `\\?\` verbatim prefix Tauri's Windows `resource_dir()` returns.
+///
+/// Every backend path (agent home, workspace, bundled runtime) is derived from
+/// it. The clio-core client crashes on a verbatim agent home, and the same
+/// folder spelled two ways reads as two homes to the agent.
+pub(crate) fn plain_path(path: PathBuf) -> PathBuf {
+    let Some(text) = path.to_str() else {
+        return path;
+    };
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => PathBuf::from(rest),
+        _ => path,
+    }
+}
+
 pub(crate) fn bundled_runtime_dir(resource_dir: &Path) -> Option<PathBuf> {
     let runtime = resource_dir.join("gact-runtime");
     runtime.is_dir().then_some(runtime)
@@ -121,6 +139,24 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("gact-desktop-{name}-{suffix}"))
+    }
+
+    #[test]
+    fn plain_path_drops_windows_verbatim_prefix() {
+        let plain = |raw: &str| plain_path(PathBuf::from(raw));
+        assert_eq!(
+            plain(r"\\?\C:\Users\u\AppData\Local\CLIO Desktop"),
+            PathBuf::from(r"C:\Users\u\AppData\Local\CLIO Desktop")
+        );
+        assert_eq!(
+            plain(r"\\?\UNC\srv\share\CLIO"),
+            PathBuf::from(r"\\srv\share\CLIO")
+        );
+        assert_eq!(
+            plain(r"\\?\Volume{abc}\x"),
+            PathBuf::from(r"\\?\Volume{abc}\x")
+        );
+        assert_eq!(plain("/opt/clio"), PathBuf::from("/opt/clio"));
     }
 
     #[test]
