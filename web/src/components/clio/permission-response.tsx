@@ -134,6 +134,28 @@ function askedBy(
   ];
 }
 
+/** What a screen reader hears after the title: the tool, then its script or arguments. */
+function spokenToolCall(
+  toolName: string | undefined,
+  args: unknown,
+  code: string | undefined,
+): string | undefined {
+  if (!toolName) return undefined;
+  const clip = (text: string) => (text.length > 160 ? `${text.slice(0, 159)}…` : text);
+  if (code) {
+    const lines = code.replace(/\n$/u, '').split('\n');
+    const first = lines.find((line) => line.trim())?.trim() ?? '';
+    return clip(`${toolName}, ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}: ${first}`);
+  }
+  if (args && typeof args === 'object' && !Array.isArray(args)) {
+    const values = Object.entries(args)
+      .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
+      .map(([key, value]) => `${key} ${String(value).replace(/\s+/gu, ' ')}`);
+    if (values.length) return clip(`${toolName}: ${values.join(', ')}`);
+  }
+  return toolName;
+}
+
 /** One permission decision: facts, the exact command, then numbered scopes the server offered. */
 export function PermissionResponse({
   disabled,
@@ -209,6 +231,7 @@ export function PermissionResponse({
       icon={ShieldQuestionIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="permission"
+      spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
       title={title}
       titleText={title}
     >

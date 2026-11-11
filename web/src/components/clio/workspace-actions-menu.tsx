@@ -1,6 +1,6 @@
 import type { Workspace } from '@clio/core/v3';
 import { CopyIcon, FolderOpenIcon, PinIcon, PinOffIcon, UploadIcon } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import {
   EditIcon,
   MoreIcon,
@@ -22,6 +22,7 @@ import {
 } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { KeyMenuItem } from './menu-key-items';
+import { useHoldRailWhile } from './rail-menu-hold';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 
 export { DEFAULT_WORKSPACE_ID };
@@ -62,8 +63,10 @@ export function WorkspaceActionsMenu({
   // The default workspace is the fixed Conversations section: never listed under
   // Pinned, never renamed and never removed, so those items are not offered.
   const fixed = workspace.id === DEFAULT_WORKSPACE_ID;
+  const [open, setOpen] = useState(false);
+  useHoldRailWhile(open);
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <IconButton
           icon={triggerIcon}

@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
     sessionRows: vi.fn(),
     queryClient: {
       invalidateQueries: vi.fn(async () => undefined),
+      isFetching: vi.fn(() => 0),
       setQueriesData: vi.fn(),
       setQueryData: vi.fn(),
     },

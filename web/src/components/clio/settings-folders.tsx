@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
+import { announce } from '@/lib/announce';
 import { InfoIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
@@ -27,6 +28,8 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
 import { StateView } from './primitives/state-view';
 import { useFolderGrants } from './sandbox-boundary-grants';
+import { AnnounceStates } from './settings-a11y';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { ColourSwatches, IconSelect } from './settings-folders-appearance';
 import { AllowFolderDialog, ChangePrimaryDialog } from './settings-folders-dialogs';
 import { useWorkspaceAppearance, workspaceFolders } from './settings-folders-model';
@@ -97,6 +100,7 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
   return (
     <SettingsScopeContext.Provider value={scope}>
       <div className="min-w-0" data-slot="folders-settings">
+        <AnnounceStates />
         <SettingsSectionHeading
           info="Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
           title="Folders"
@@ -206,7 +210,10 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         await refresh();
       }
     },
-    onSuccess: () => setDraft({}),
+    onSuccess: () => {
+      setDraft({});
+      announce('Workspace saved');
+    },
   });
 
   const allow = async (path: string) => {
@@ -296,7 +303,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
       </SettingsRow>
 
       {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
-      <div className={SETTINGS_COLUMN} data-slot="folders-lists">
+      <div className={SETTINGS_COLUMN} data-slot="folders-lists" onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>

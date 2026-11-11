@@ -1,6 +1,6 @@
 import type { Session } from '@clio/core/v3';
 import { CheckIcon, FolderIcon, MessageSquareIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useSessionMoveSupported, useSessionMoveTargets } from '@/hooks/use-session-move';
 import { canMoveSession } from '@/lib/session-move';
@@ -29,17 +29,21 @@ export function SessionMoveMenu({
   onAction: (action: () => Promise<void>, success: string) => void;
 }) {
   const { moveSession } = actions;
-  const supported = useSessionMoveSupported();
+  // The item mounts with its open menu; once offered, a refetch neither drops
+  // it nor reorders its targets under the keyboard until the menu closes.
+  const live = useSessionMoveSupported();
+  const [supported, setSupported] = useState(live);
+  if (live && !supported) setSupported(true);
   const movable = Boolean(moveSession) && supported && canMoveSession(session);
   const workspaces = useSessionMoveTargets(movable);
+  const [listed, setListed] = useState(workspaces.data);
+  if (workspaces.data && !listed) setListed(workspaces.data);
   const targets = useMemo(() => {
-    const listed = (workspaces.data ?? []).filter(
-      (workspace) => workspace.id !== DEFAULT_WORKSPACE_ID,
-    );
-    const labels = workspaceLabels(listed);
+    const rows = (listed ?? []).filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID);
+    const labels = workspaceLabels(rows);
     return [
       { id: DEFAULT_WORKSPACE_ID, label: 'Conversations' },
-      ...listed.map((workspace) => {
+      ...rows.map((workspace) => {
         const label = labels.get(workspace.id);
         return {
           id: workspace.id,
@@ -47,7 +51,7 @@ export function SessionMoveMenu({
         };
       }),
     ];
-  }, [workspaces.data]);
+  }, [listed]);
   if (!movable || !moveSession) return null;
   return (
     <ResponsiveMenuSub
