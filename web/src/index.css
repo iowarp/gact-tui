@@ -179,10 +179,7 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
-  --color-accent-border: var(
-    --accent-border,
-    color-mix(in oklab, var(--accent-foreground) 30%, var(--accent))
-  );
+  --color-accent-border: var(--accent-border);
   --color-muted-foreground: var(--muted-foreground);
   --color-faint: var(--faint);
   --color-changed: var(--changed);

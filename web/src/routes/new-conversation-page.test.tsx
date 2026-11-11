@@ -100,6 +100,7 @@ vi.mock('@/hooks/use-workbench-navigation', () => ({
 vi.mock('@/hooks/use-session-mutations', () => ({
   useSessionMutations: () => ({
     send: { isPending: false },
+    runDraftCommand: { isPending: false, mutateAsync: vi.fn() },
     prepareFiles: vi.fn(),
     discardFiles: vi.fn(),
   }),

@@ -30,6 +30,8 @@ export const COLOR_TOKENS = [
   'key-border',
   'accent',
   'accent-foreground',
+  // The edge of a selected accent chip
+  'accent-border',
   'border',
   'input',
   'ring',

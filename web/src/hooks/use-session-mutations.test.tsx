@@ -161,6 +161,9 @@ describe('presentation-only conversation', () => {
     expect(mocks.repository.createSession).toHaveBeenCalledWith({
       workspace_id: 'ws_1',
       title: 'New conversation',
+      // The created session carries the turn's model, so the conversation names it at once.
+      provider_id: 'codex',
+      model_id: 'gpt-5.6-luna',
       mode: 'edit',
       routing_mode: 'auto',
       approval_mode: 'ask',

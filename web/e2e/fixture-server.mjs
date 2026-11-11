@@ -1987,6 +1987,10 @@ async function handleModelSettings(request, response, url) {
     sendJson(response, checkServer(server));
     return true;
   }
+  if (method === 'GET' && path === '/v1/providers/support/installs') {
+    sendJson(response, { running: false, installs: [] });
+    return true;
+  }
   if (method === 'POST' && path === '/v1/providers/models/refresh') {
     const body = await readJson(request);
     const requested =

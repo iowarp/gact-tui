@@ -67,7 +67,8 @@ vi.mock('@/providers/appearance-provider', () => ({
   useAppearancePreferences: mocks.useAppearancePreferences,
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
-vi.mock('./use-session-live-stream', () => ({
+vi.mock('./use-session-live-stream', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./use-session-live-stream')>()),
   useSessionLiveStream: mocks.useSessionLiveStream,
 }));
 vi.mock('./use-variant-run-hydration', () => ({ useVariantRunHydration: () => undefined }));

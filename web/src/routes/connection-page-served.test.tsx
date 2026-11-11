@@ -44,7 +44,6 @@ vi.mock('@/providers/connection-provider', async () => {
 });
 
 import { ConnectionPage } from './connection-page';
-import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
 
 const pageOrigin = window.location.origin;
@@ -97,24 +96,26 @@ it('connects an agent-served page to its own origin when nothing is remembered',
   expect(mocks.connect).toHaveBeenCalledOnce();
 });
 
-it('offers the manual form at the page origin when nothing answers there', async () => {
+it('offers an empty manual form when nothing answers at the page origin', async () => {
   vi.stubEnv('DEV', false);
   mocks.repository.capabilities.mockRejectedValue(
     new TransportError('Nothing answered.', 0, 'network_unavailable'),
   );
   renderPage();
 
-  expect(await screen.findByRole('textbox', { name: 'Connection address' })).toHaveValue(
-    pageOrigin,
-  );
+  // The page origin is not an address the person chose, so the field stays empty.
+  const address = await screen.findByRole('textbox', { name: 'Connection address' });
+  expect(address).toHaveValue('');
+  expect(address).toHaveAttribute('placeholder', 'https://homelab.example.org:8100');
+  expect(mocks.repository.capabilities).toHaveBeenCalled();
   expect(mocks.resolveConnection).not.toHaveBeenCalled();
 });
 
-it('keeps the agent default and never probes under a Vite dev server', () => {
+it('never probes the page origin under a Vite dev server', () => {
   vi.stubEnv('DEV', true);
   renderPage();
 
-  expect(screen.getByRole('textbox', { name: 'Connection address' })).toHaveValue(DEFAULT_ENDPOINT);
+  expect(screen.getByRole('textbox', { name: 'Connection address' })).toHaveValue('');
   expect(mocks.repository.capabilities).not.toHaveBeenCalled();
 });
 
