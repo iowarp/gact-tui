@@ -429,11 +429,18 @@ export function useSessionMutations({
         : {}),
     });
     const page = await repository.openBrowserPage(target.id, url);
+    // A page still opening has no title or host yet: its tab names the typed address.
+    let typedHost = '';
+    try {
+      typedHost = new URL(url).host;
+    } catch {
+      // An address without a scheme keeps the page's own label.
+    }
     const browserPage: DraftBrowserPageState = {
       scope: connectionScope(settings),
       pageId: page.id,
       sessionId: target.id,
-      label: page.title || page.host || page.label,
+      label: page.title || page.host || typedHost || page.label,
     };
     openStartedSession(target, controller, { browserPage });
   });

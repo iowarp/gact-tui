@@ -70,6 +70,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
           pageId: opened.pageId,
           sessionId: opened.sessionId,
           label: opened.label,
+          fromNewPage: true,
         },
       };
     const pending = location.state?.globalSearchResource;
