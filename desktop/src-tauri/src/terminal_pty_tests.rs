@@ -307,3 +307,52 @@ fn rejects_cwd_outside_workspace() {
     let result = crate::workspace_terminal::resolve_workspace_dir(bogus.to_str().unwrap());
     assert!(result.is_err(), "a nonexistent cwd must be rejected");
 }
+
+#[test]
+fn a_chosen_program_runs_with_its_arguments_and_added_environment() {
+    let cwd = std::env::temp_dir();
+    let env = HashMap::from([("CLIO_TERMINAL_PROBE".to_string(), "from-env".to_string())]);
+    #[cfg(windows)]
+    let argv = vec![
+        "cmd.exe".to_string(),
+        "/c".to_string(),
+        "echo %CLIO_TERMINAL_PROBE% arg-ok".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let argv = vec![
+        "/bin/sh".to_string(),
+        "-c".to_string(),
+        "echo \"$CLIO_TERMINAL_PROBE\" \"$0\"".to_string(),
+        "arg-ok".to_string(),
+    ];
+    let cmd = program_command(&argv, &env).expect("valid command");
+    let mut spawned = spawn_command(&cwd, 80, 24, cmd).expect("spawn program");
+    let mut output = String::new();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let mut buf = [0u8; 4096];
+    while !(output.contains("from-env") && output.contains("arg-ok"))
+        && std::time::Instant::now() < deadline
+    {
+        match spawned.reader.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => output.push_str(&String::from_utf8_lossy(&buf[..n])),
+        }
+    }
+    let _ = spawned.child.wait();
+    assert!(
+        output.contains("from-env") && output.contains("arg-ok"),
+        "output: {output:?}"
+    );
+}
+
+#[test]
+fn a_chosen_program_must_be_named_and_its_environment_valid() {
+    let none = HashMap::new();
+    assert!(program_command(&[], &none).is_err());
+    assert!(program_command(&[" ".to_string()], &none).is_err());
+    assert!(program_command(&["a\0b".to_string()], &none).is_err());
+    let bad = HashMap::from([("A=B".to_string(), "x".to_string())]);
+    assert!(program_command(&["sh".to_string()], &bad).is_err());
+    let empty = HashMap::from([(String::new(), "x".to_string())]);
+    assert!(program_command(&["sh".to_string()], &empty).is_err());
+}

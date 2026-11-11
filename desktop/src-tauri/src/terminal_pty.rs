@@ -63,8 +63,9 @@ pub(crate) struct SpawnedPty {
 }
 
 /// Shell candidates in preference order, honoring an explicit override
-/// (used only by tests — the `terminal_open` command itself never accepts
-/// a client-chosen shell; server-side candidates only).
+/// (used only by tests — when `terminal_open` opens a shell it uses these
+/// server-side candidates; a client that wants a specific program passes
+/// `argv` instead).
 fn shell_candidates(explicit: Option<&str>) -> Vec<String> {
     if let Some(shell) = explicit {
         let trimmed = shell.trim();
@@ -148,15 +149,28 @@ pub(crate) fn spawn_command(
 
 /// Try each shell candidate in order (mirrors `workspace_terminal.rs`'s
 /// terminal-candidate fallback), returning the first one that spawns.
+#[cfg(test)]
 pub(crate) fn spawn_shell(
     cwd: &Path,
     cols: u16,
     rows: u16,
     shell: Option<&str>,
 ) -> Result<SpawnedPty, String> {
+    spawn_shell_with_env(cwd, cols, rows, shell, &HashMap::new())
+}
+
+/// [`spawn_shell`] with `env` added to the shell's inherited environment.
+pub(crate) fn spawn_shell_with_env(
+    cwd: &Path,
+    cols: u16,
+    rows: u16,
+    shell: Option<&str>,
+    env: &HashMap<String, String>,
+) -> Result<SpawnedPty, String> {
     let mut failures = Vec::new();
     for candidate in shell_candidates(shell) {
-        match spawn_command(cwd, cols, rows, CommandBuilder::new(&candidate)) {
+        let cmd = program_command(std::slice::from_ref(&candidate), env)?;
+        match spawn_command(cwd, cols, rows, cmd) {
             Ok(spawned) => return Ok(spawned),
             Err(error) => failures.push(format!("{candidate}: {error}")),
         }
@@ -165,6 +179,36 @@ pub(crate) fn spawn_shell(
         "No shell could be started ({})",
         failures.join("; ")
     ))
+}
+
+/// Build the command for a caller-chosen program: `argv[0]` with its
+/// arguments, plus `env` layered over the inherited environment. Rejects an
+/// empty program and variable names a platform cannot hold (empty, or with
+/// `=` or NUL), and NUL in any value or argument.
+pub(crate) fn program_command(
+    argv: &[String],
+    env: &HashMap<String, String>,
+) -> Result<CommandBuilder, String> {
+    let program = argv
+        .first()
+        .map(|arg| arg.trim())
+        .filter(|arg| !arg.is_empty())
+        .ok_or_else(|| "argv must name a program".to_string())?;
+    if argv.iter().any(|arg| arg.contains('\0')) {
+        return Err("argv must not contain NUL".to_string());
+    }
+    let mut cmd = CommandBuilder::new(program);
+    cmd.args(&argv[1..]);
+    let mut names: Vec<&String> = env.keys().collect();
+    names.sort();
+    for name in names {
+        let value = &env[name];
+        if name.is_empty() || name.contains('=') || name.contains('\0') || value.contains('\0') {
+            return Err(format!("invalid environment variable {name:?}"));
+        }
+        cmd.env(name, value);
+    }
+    Ok(cmd)
 }
 
 /// Whether `pid` still refers to a live process. Unix only: the Windows
@@ -513,7 +557,13 @@ fn run_waiter(id: String, handle: Arc<TerminalHandle>, app: tauri::AppHandle) {
 /// option) — spawning a pty and two threads is cheap, but a plain `fn`
 /// command would still tie up the same dispatcher the write/resize/close
 /// commands need to stay responsive on.
+///
+/// With `argv`, the terminal runs that program (for example an agent's TUI)
+/// instead of the user's shell; `env` adds variables to what it inherits.
+/// Without `argv`, `env` applies to the shell. The program is owned, reaped
+/// and closed exactly like a shell.
 #[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
 pub fn terminal_open(
     app: tauri::AppHandle,
     registry: tauri::State<'_, TerminalRegistry>,
@@ -521,16 +571,29 @@ pub fn terminal_open(
     cwd: String,
     cols: u16,
     rows: u16,
+    argv: Option<Vec<String>>,
+    env: Option<HashMap<String, String>>,
 ) -> Result<(), String> {
     let workspace = crate::workspace_terminal::resolve_workspace_dir(&cwd)?;
+    let env = env.unwrap_or_default();
+    let spawned = match argv.as_deref() {
+        Some(argv) => spawn_command(&workspace, cols, rows, program_command(argv, &env)?)?,
+        None => spawn_shell_with_env(&workspace, cols, rows, None, &env)?,
+    };
     let SpawnedPty {
         master,
         writer,
         reader,
         child,
-    } = spawn_shell(&workspace, cols, rows, None)?;
+    } = spawned;
     let handle = registry.register(id.clone(), writer, master, child)?;
-    eprintln!("[terminal_pty] open id={id} cwd={}", workspace.display());
+    eprintln!(
+        "[terminal_pty] open id={id} cwd={} program={}",
+        workspace.display(),
+        argv.as_ref()
+            .and_then(|argv| argv.first())
+            .map_or("shell", String::as_str)
+    );
 
     let reader_app = app.clone();
     let reader_id = id.clone();
