@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { playAttentionSound } from '@/lib/attention-sound';
+import { answerNotificationAsk, useNotificationAsk } from '@/lib/notification-ask';
 import {
   NOTIFICATION_READS_STORAGE_KEY,
   resetNotificationReadsForTest,
@@ -186,7 +187,7 @@ describe('ClioAttentionNotifier', () => {
     );
   });
 
-  it('asks once on first run, and the system prompt follows the click', async () => {
+  it('asks once on first run in the bell, not a toast, and the system prompt follows the click', async () => {
     window.localStorage.removeItem('clio.notifications.asked');
     const requestPermission = vi.fn(async () => 'granted' as const);
     vi.stubGlobal(
@@ -195,16 +196,13 @@ describe('ClioAttentionNotifier', () => {
     );
     try {
       render(<Notifier activeSessionId="other" attentions={{}} sessions={[]} />);
-      await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-      const [title, options] = vi.mocked(toast).mock.calls[0] as unknown as [
-        string,
-        { action: { onClick: () => void } },
-      ];
-      expect(title).toMatch(/Get notified/);
+      await waitFor(() => expect(useNotificationAsk.getState().pending).toBe(true));
+      expect(toast).not.toHaveBeenCalled();
       expect(requestPermission).not.toHaveBeenCalled();
 
-      options.action.onClick();
+      await answerNotificationAsk(true);
       expect(requestPermission).toHaveBeenCalledTimes(1);
+      expect(useNotificationAsk.getState().pending).toBe(false);
       expect(window.localStorage.getItem('clio.notifications.asked')).not.toBeNull();
     } finally {
       vi.unstubAllGlobals();
