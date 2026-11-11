@@ -1,5 +1,5 @@
 import type { LanguageModelPreset, ProviderClientFact } from '@clio/core/v3';
-import { isLocalServerPreset } from '@/lib/local-servers';
+import { isLocalServerPreset, isLoopbackAddress, serverStatusWords } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
   providerSetupNeed,
@@ -10,6 +10,14 @@ import {
 
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
+export const MANAGE_NODE_PREFIX = 'manage:';
+export const MORE_NODE_PREFIX = 'more:';
+/** Search typed, two columns: the providers column's first row, every match grouped. */
+export const SEARCH_ALL_VALUE = 'search:all';
+/** A provider's header over its matches in the "All providers" column. */
+export const SEARCH_HEADER_PREFIX = 'search-header:';
+/** A match listed under "All providers" (the same model also lists under its provider). */
+export const SEARCH_RESULT_PREFIX = 'search-result:';
 
 /**
  * The heartbeat follows the provider's LATEST check: `checking` while a probe
@@ -65,7 +73,41 @@ export interface ModelNodeData {
   choice: ClioModelOption;
 }
 
-export type PickerNodeData = ProviderNodeData | ProviderFamilyNodeData | ModelNodeData;
+/** One column: the row that ends a provider's group with its status and actions. */
+export interface ProviderManageNodeData {
+  kind: 'provider-manage';
+  group: ProviderGroup;
+}
+
+/** One column: "N more", the row that opens a provider's truncated group in full. */
+export interface ProviderMoreNodeData {
+  kind: 'provider-more';
+  group: ProviderGroup;
+  hidden: number;
+}
+
+export type PickerNodeData =
+  | ProviderNodeData
+  | ProviderFamilyNodeData
+  | ModelNodeData
+  | ProviderManageNodeData
+  | ProviderMoreNodeData
+  | SearchAllNodeData
+  | SearchHeaderNodeData;
+
+/** Search typed, two columns: "All providers", with the match count. */
+export interface SearchAllNodeData {
+  kind: 'search-all';
+  matches: number;
+}
+
+/** Search typed, two columns: a provider's header in the "All providers" column. */
+export interface SearchHeaderNodeData {
+  kind: 'search-header';
+  group: ProviderGroup;
+  matches: number;
+  total: number;
+}
 
 export function providerHealthPresentation(
   health: ProviderHealth,
@@ -76,16 +118,29 @@ export function providerHealthPresentation(
 } {
   return {
     healthy: { color: 'text-success', label: 'Ready' },
-    checking: { color: 'text-warning animate-pulse', label: 'Checking…' },
+    checking: { color: 'text-warning motion-safe:animate-pulse', label: 'Checking…' },
     degraded: { color: 'text-destructive', label: 'Needs attention' },
     unavailable: { color: 'text-destructive', label: 'Unavailable' },
     setup: { color: 'text-muted-foreground/55', label: providerSetupNeedLabel(setupNeed) },
   }[health];
 }
 
-/** One provider row's colour and state label ("Ready", "Needs API key", ...). */
+/**
+ * One provider row's colour and state label ("Ready", "Needs API key", ...). A
+ * remote model server with no answer reads "Can’t reach", the word Settings >
+ * Providers uses (a loopback one is already "Not running", see `localServerNotRunning`).
+ */
 export function providerGroupStatus(group: ProviderGroup): { color: string; label: string } {
+  if (group.health === 'unavailable' && group.endpoint && !isLoopbackAddress(group.endpoint)) {
+    const words = serverStatusWords({ kind: 'stopped' }, group.endpoint, group.name);
+    return { color: 'text-destructive', label: words.label };
+  }
   return providerHealthPresentation(group.health, group.setupNeed);
+}
+
+/** Whether a provider's models can be chosen right now; the rest stay listed, dimmed. */
+export function providerRunning(group: ProviderGroup): boolean {
+  return group.health === 'healthy' || group.health === 'checking';
 }
 
 /**

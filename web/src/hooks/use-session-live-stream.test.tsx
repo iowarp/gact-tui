@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
     sessionRows: vi.fn(),
     queryClient: {
       invalidateQueries: vi.fn(async () => undefined),
+      isFetching: vi.fn(() => 0),
       setQueriesData: vi.fn(),
       setQueryData: vi.fn(),
     },
@@ -126,7 +127,7 @@ describe('useSessionLiveStream resume recovery', () => {
     unmount();
   });
 
-  it('refreshes the Work rail when the agent writes its plan or todos', () => {
+  it('refreshes the Work rail and its next runs when the agent writes its plan or todos', () => {
     expect(
       queryInvalidationKeysForEvent({
         endpoint: 'http://127.0.0.1:8790',
@@ -134,7 +135,10 @@ describe('useSessionLiveStream resume recovery', () => {
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
       }),
-    ).toEqual([['session-work', 'http://127.0.0.1:8790', 'sess_1']]);
+    ).toEqual([
+      ['session-work', 'http://127.0.0.1:8790', 'sess_1'],
+      ['session-work-schedules', 'http://127.0.0.1:8790', 'sess_1'],
+    ]);
   });
 
   it('maps process events to process and session snapshots', () => {

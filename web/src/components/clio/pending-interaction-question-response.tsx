@@ -1,22 +1,24 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { FieldLabel } from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
-import { respondFromControl } from './interaction-control';
-import { QuestionResponseFrame } from './question-response-frame';
-import { ResponseErrorNotice } from './pending-interaction-notices';
-import { QuestionSurface } from './question-surface';
-import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
-import { useQuestionDraftValue } from './question-answer-context';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
-import { SurfaceQuestionNotice } from './surface-question-notice';
+import { AskButton, AskError, AskOptions, AskSubject } from './ask-card';
+import { respondFromControl } from './interaction-control';
+import { useComposerAnswer } from './question-card-model';
+import { useQuestionDraftValue } from './question-answer-context';
 import { QuestionBundleResponse } from './question-bundle-response';
 import { bundleQuestions } from './question-bundle';
-import { QuestionChoiceCard } from './question-choice-card';
+import { QuestionChoiceRows, QuestionWriteIn } from './question-choice-card';
+import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
+import { QuestionResponseFrame, type QuestionFrameCard } from './question-response-frame';
+import { QuestionSurface } from './question-surface';
+import { SurfaceQuestionNotice } from './surface-question-notice';
 
-/** Native questions keep their durable drafts and existing response owners. */
+const QUESTION_ACTIONS = new Set(['answer', 'cancel']);
+
+/**
+ * One question on the ask card. A single choice answers on click or its
+ * number; several choices are checked and submitted together; a written
+ * answer goes in the card's field, or in the composer when it can carry it.
+ */
 export function QuestionResponse(props: {
   interaction: PendingInteraction;
   disabled?: boolean;
@@ -24,6 +26,7 @@ export function QuestionResponse(props: {
   responseError?: Error;
   showOwner: boolean;
   showFullPrompt?: boolean;
+  card?: QuestionFrameCard;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -31,17 +34,12 @@ export function QuestionResponse(props: {
 }) {
   const { interaction, disabled, onResponse, responseError } = props;
   const [answer, setAnswer] = useQuestionDraftValue(interaction.id, 'answer', '');
-  const [selection, setSelection] = useQuestionDraftValue(interaction.id, 'selection', '');
   const [multiSelection, setMultiSelection] = useQuestionDraftValue(
     interaction.id,
     'multiSelection',
     [],
   );
-  const [optionComments, setOptionComments] = useQuestionDraftValue(
-    interaction.id,
-    'optionComments',
-    {},
-  );
+  const composer = useComposerAnswer(interaction);
   if (bundleQuestions(interaction).length) return <QuestionBundleResponse {...props} />;
   if (interaction.source.surface_id && !embedsQuestionSurface(interaction))
     return <SurfaceQuestionNotice {...props} />;
@@ -49,157 +47,79 @@ export function QuestionResponse(props: {
   if (interaction.payload?.mode === 'form' && interaction.payload.fields?.length)
     return <StructuredQuestionResponse {...props} />;
 
-  const options = interaction.payload?.options ?? [];
-  const usesOptions = options.length > 0;
-  const usesMulti = interaction.payload?.question_kind === 'multi_choice';
-  const allowsFreeform = interaction.payload?.allow_freeform === true;
-  const freeformValue = `${interaction.id}:freeform`;
-  const usesFreeform = !usesOptions || selection === freeformValue;
-  const canAnswer = (interaction.actions ?? []).includes('answer');
-  const canSubmit =
-    canAnswer &&
-    (usesMulti
-      ? multiSelection.length > 0
-      : usesOptions
-        ? Boolean(selection) && (!usesFreeform || Boolean(answer.trim()))
-        : Boolean(answer.trim()));
-  const selectedComment = optionComments[selection]?.trim() ?? '';
-  const chooseMulti = (value: string, selected: boolean) =>
-    setMultiSelection((current) =>
-      selected ? [...new Set([...current, value])] : current.filter((item) => item !== value),
-    );
-  const choiceCards = options.map((option, index) => {
-    const value = option.value || option.label;
-    const selected = usesMulti ? multiSelection.includes(value) : selection === value;
-    const id = `${interaction.id}-choice-${index}`;
-    return (
-      <QuestionChoiceCard
-        key={value}
-        id={id}
-        label={option.label}
-        description={option.description}
-        selected={selected}
-        disabled={disabled}
-        control={
-          usesMulti ? (
-            <Checkbox
-              aria-label={option.label}
-              checked={selected}
-              disabled={disabled}
-              id={id}
-              onCheckedChange={(next) => chooseMulti(value, next === true)}
-            />
-          ) : (
-            <RadioGroupItem aria-label={option.label} id={id} value={value} />
-          )
-        }
-        comment={optionComments[value] ?? ''}
-        onCommentOpen={() => (usesMulti ? chooseMulti(value, true) : setSelection(value))}
-        onCommentChange={(text) => setOptionComments((current) => ({ ...current, [value]: text }))}
-      />
-    );
-  });
+  const choices = (interaction.payload?.options ?? []).map((option) => ({
+    value: option.value || option.label,
+    label: option.label,
+    description: option.description,
+  }));
+  const multi = interaction.payload?.question_kind === 'multi_choice';
+  const actions = interaction.actions ?? [];
+  const canAnswer = actions.includes('answer');
+  const allowsWriting = choices.length === 0 || interaction.payload?.allow_freeform === true;
+  // A written answer goes in the composer; the card keeps its own field only
+  // where no composer can carry it.
+  const writesHere = allowsWriting && !composer.available;
+  const unknown = actions.filter((action) => !QUESTION_ACTIONS.has(action));
+  const respond = (response: PendingInteractionResponse) =>
+    respondFromControl(onResponse(interaction, response));
+  const label = interaction.prompt ?? interaction.title;
   return (
-    <QuestionResponseFrame {...props}>
-      <ResponseErrorNotice error={responseError} />
+    <QuestionResponseFrame
+      {...props}
+      allowsComposer={canAnswer && allowsWriting}
+      composerOnly={choices.length === 0}
+    >
       <QuestionSurface interaction={interaction} />
+      <AskError error={responseError} />
       {!canAnswer ? (
-        <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
-      ) : usesMulti ? (
-        <div
-          className="clio-scrollbar grid max-h-[min(24rem,35dvh)] gap-2 overflow-y-auto p-0.5"
-          data-slot="checkbox-group"
-        >
-          {choiceCards}
-        </div>
-      ) : usesOptions ? (
-        <RadioGroup
-          className="clio-scrollbar max-h-[min(24rem,35dvh)] gap-2 overflow-y-auto p-0.5"
+        <AskSubject>Input controls are not available yet.</AskSubject>
+      ) : choices.length ? (
+        <QuestionChoiceRows
+          choices={choices}
           disabled={disabled}
-          onValueChange={setSelection}
-          value={selection}
-        >
-          {choiceCards}
-          {allowsFreeform ? (
-            <QuestionChoiceCard
-              id={`${interaction.id}-freeform`}
-              label="Something else"
-              selected={selection === freeformValue}
-              disabled={disabled}
-              control={
-                <RadioGroupItem
-                  aria-label="Something else"
-                  id={`${interaction.id}-freeform`}
-                  value={freeformValue}
-                />
-              }
+          label={label}
+          mode={multi ? 'multi' : 'answer'}
+          onChoose={(value) =>
+            multi
+              ? setMultiSelection((current) =>
+                  current.includes(value)
+                    ? current.filter((item) => item !== value)
+                    : [...current, value],
+                )
+              : respond({ action: 'answer', selected_options: [value] })
+          }
+          selected={multiSelection}
+        />
+      ) : null}
+      {canAnswer && writesHere ? (
+        <QuestionWriteIn
+          disabled={disabled}
+          enterKey={choices.length === 0}
+          id={`${interaction.id}-answer`}
+          onChange={setAnswer}
+          onSubmit={() => respond({ action: 'answer', answer: answer.trim() })}
+          placeholder={choices.length ? 'Or type your own answer' : 'Type your answer'}
+          value={answer}
+        />
+      ) : null}
+      {(canAnswer && multi && choices.length) || unknown.length ? (
+        <AskOptions aria-label="Answer">
+          {canAnswer && multi && choices.length ? (
+            <AskButton
+              disabled={disabled || multiSelection.length === 0}
+              hint="Enter"
+              onClick={() => respond({ action: 'answer', selected_options: multiSelection })}
+              primary
             >
-              {selection === freeformValue ? (
-                <div className="grid min-w-0 gap-1.5 px-3.5 pb-3 sm:pl-10">
-                  <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
-                  <Textarea
-                    className="min-h-16 resize-y field-sizing-fixed"
-                    rows={2}
-                    disabled={disabled}
-                    id={`${interaction.id}-answer`}
-                    onChange={(event) => setAnswer(event.target.value)}
-                    placeholder="Type your response"
-                    value={answer}
-                  />
-                </div>
-              ) : null}
-            </QuestionChoiceCard>
+              Submit
+            </AskButton>
           ) : null}
-        </RadioGroup>
-      ) : (
-        <div className="grid min-w-0 gap-2">
-          <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
-          <Textarea
-            className="block min-h-20 w-full min-w-0 resize-y field-sizing-fixed"
-            rows={3}
-            disabled={disabled}
-            id={`${interaction.id}-answer`}
-            onChange={(event) => setAnswer(event.target.value)}
-            placeholder="Type your response"
-            value={answer}
-          />
-        </div>
-      )}
-      {canAnswer ? (
-        <div className="mt-4 flex justify-end border-t pt-3">
-          <Button
-            size="sm"
-            disabled={disabled || !canSubmit}
-            onClick={() =>
-              respondFromControl(
-                onResponse(
-                  interaction,
-                  usesMulti
-                    ? {
-                        action: 'answer',
-                        selected_options: multiSelection,
-                        metadata: {
-                          option_comments: Object.fromEntries(
-                            multiSelection
-                              .map((value) => [value, optionComments[value]?.trim()] as const)
-                              .filter((entry) => Boolean(entry[1])),
-                          ),
-                        },
-                      }
-                    : usesOptions && !usesFreeform
-                      ? {
-                          action: 'answer',
-                          selected_options: [selection],
-                          ...(selectedComment ? { answer: selectedComment } : {}),
-                        }
-                      : { action: 'answer', answer: answer.trim() },
-                ),
-              )
-            }
-          >
-            Send response
-          </Button>
-        </div>
+          {unknown.map((action) => (
+            <AskButton disabled key={action} title={`This client cannot offer "${action}" yet.`}>
+              {action}
+            </AskButton>
+          ))}
+        </AskOptions>
       ) : null}
     </QuestionResponseFrame>
   );

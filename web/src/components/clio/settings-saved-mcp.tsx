@@ -1,21 +1,13 @@
 import type { SavedMcpService } from '@clio/core/v3';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useRepository } from '@/hooks/use-repository';
-import { queryKeys } from '@/lib/query-keys';
-import { useConnectionSettings } from '@/providers/connection-provider';
+import { useState } from 'react';
+import { useRemoveSavedMcp } from '@/hooks/use-saved-mcp-services';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
+import { DialogFrame } from './primitives/dialog-frame';
 
-/** Asks before removing a saved MCP service; new conversations then no longer get it. */
+/**
+ * Asks before removing a saved MCP service from its detail pane, where the row
+ * and its inline confirm may be out of view.
+ */
 export function RemoveSavedMcpDialog({
   service,
   onClose,
@@ -23,45 +15,25 @@ export function RemoveSavedMcpDialog({
   service?: SavedMcpService;
   onClose: () => void;
 }) {
-  const repository = useRepository();
-  const queryClient = useQueryClient();
-  const { settings } = useConnectionSettings();
-  const remove = useMutation({
-    mutationFn: (target: SavedMcpService) => repository.removeMcpConfiguration(target.name),
-    onSuccess: async (_value, target) => {
-      onClose();
-      await Promise.all(
-        (['mcp-configurations', 'mcp-servers', 'tools'] as const).map((key) =>
-          queryClient.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) }),
-        ),
-      );
-      toast.success(`Removed ${target.name}`);
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  // Keep the name on screen while the frame animates closed.
+  const [shown, setShown] = useState(service);
+  if (service && service !== shown) setShown(service);
+  const remove = useRemoveSavedMcp(onClose);
   return (
-    <AlertDialog onOpenChange={(open) => (open ? undefined : onClose())} open={Boolean(service)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Remove {service?.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            New conversations no longer get its tools. A conversation using it now keeps it until
-            its turn ends.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={remove.isPending}
-            onClick={(event) => {
-              event.preventDefault();
-              if (service) remove.mutate(service);
-            }}
-          >
-            Remove
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DialogFrame
+      confirm={{
+        label: remove.isPending ? 'Removing…' : 'Remove',
+        onConfirm: () => {
+          if (service) remove.mutate(service);
+        },
+        tone: 'destructive',
+        disabled: remove.isPending || !service,
+      }}
+      description="New conversations no longer get its tools. A conversation using it now keeps it until its turn ends."
+      icon={<DeleteIcon />}
+      onOpenChange={(open) => (open ? undefined : onClose())}
+      open={Boolean(service)}
+      title={`Remove saved ${shown?.name ?? 'MCP server'}?`}
+    />
   );
 }

@@ -14,18 +14,19 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://agent.test' } }),
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function DocumentControls({ refresh }: { refresh: () => Promise<void> }) {
   const [view, setView] = useState('preview');
   return (
     <Tabs value={view} onValueChange={setView}>
-      <DocumentViewControls markdown reviewCount={2} value={view} onChange={setView} />
+      <DocumentViewControls markdown value={view} onChange={setView} />
       <RefreshAction secondary label="Refresh document revision" onRefresh={refresh} />
       <TabsContent value="preview">Rendered file</TabsContent>
       <TabsContent value="raw">Exact source</TabsContent>
-      <TabsContent value="reviews">Recorded reviews</TabsContent>
-      <TabsContent value="policy">Safety details</TabsContent>
     </Tabs>
   );
 }
@@ -77,13 +78,11 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Document actions',
   ])
     expect(screen.queryByRole('button', { name })).toBeNull();
-  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
-    expect(screen.queryByRole('tab', { name })).toBeNull();
+  expect(screen.queryByRole('tab', { name: 'Versions' })).toBeNull();
   expect(screen.getByRole('tab', { name: 'Lineage' })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
-  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
-    expect(screen.getAllByRole('menuitemcheckbox', { name })).toHaveLength(1);
+  expect(screen.getAllByRole('menuitemcheckbox', { name: 'Versions' })).toHaveLength(1);
   expect(screen.queryByRole('menuitemcheckbox', { name: 'Lineage' })).toBeNull();
   for (const name of [
     'File information',
@@ -92,10 +91,6 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Copy to another workspace',
   ])
     expect(screen.getAllByRole('menuitem', { name })).toHaveLength(1);
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' }));
-  expect(screen.getByText('Recorded reviews')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'File actions' }));
-  expect(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' })).toBeChecked();
 });
 
 it('opens secondary file views with accessible names and returns to the preview', async () => {
@@ -112,8 +107,58 @@ it('opens secondary file views with accessible names and returns to the preview'
   await user.keyboard('{Escape}');
   await user.click(screen.getByRole('tab', { name: 'Lineage' }));
   expect(screen.getByRole('tabpanel', { name: 'Lineage' })).toHaveTextContent('Recorded lineage');
-  await user.click(screen.getByRole('tab', { name: 'Preview' }));
+  await user.click(screen.getByRole('tab', { name: 'Read document' }));
   expect(screen.getByText('Rendered file')).toBeVisible();
+});
+
+it('keeps focus in the frame when ⇧V or ⇧L replaces the focused view', async () => {
+  const user = userEvent.setup();
+  // The mode keys answer only while the frame is laid out; jsdom lays out nothing.
+  const original = Element.prototype.getClientRects;
+  vi.spyOn(Element.prototype, 'getClientRects').mockImplementation(function (this: Element) {
+    return this instanceof HTMLElement && this.dataset.slot === 'file-viewer'
+      ? ([{ x: 0, y: 0, width: 800, height: 600 }] as unknown as DOMRectList)
+      : original.call(this);
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <FileViewerShell
+        source={{
+          kind: 'workspace',
+          workspaceId: 'ws',
+          path: 'notes.md',
+          mediaType: 'text/markdown',
+        }}
+        tabs={[
+          {
+            value: 'preview',
+            label: 'Preview',
+            icon: EyeIcon,
+            content: <DocumentControls refresh={vi.fn(async () => {})} />,
+          },
+        ]}
+        lineage={<p>Recorded lineage</p>}
+      />
+    </QueryClientProvider>,
+  );
+  const panelWith = (text: string) => screen.getByText(text).closest('[role="tabpanel"]');
+  // The renderer's own panel, around the document's Rendered/Source panels, is the file.
+  const host = panelWith('Rendered file')?.parentElement?.closest('[role="tabpanel"]');
+  expect(host).toHaveAccessibleName('notes.md');
+  act(() => (panelWith('Rendered file') as HTMLElement).focus());
+  await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
+  expect(screen.getByText('Exact source')).toBeVisible();
+  // Focus lands on the mode's own panel, so it is announced as Source, not "Preview".
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Exact source')));
+  expect(document.activeElement).toHaveAccessibleName('Source');
+  await user.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Recorded lineage')));
+  await user.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Exact source')));
+  await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
+  expect(screen.getByText('Rendered file')).toBeVisible();
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Rendered file')));
+  expect(document.activeElement).toHaveAccessibleName('Read document');
 });
 
 it('keeps refresh progress observable after moving it out of the toolbar', async () => {

@@ -35,3 +35,18 @@ export function operationDetail(detail: string | undefined, status: string): str
   }
   return text;
 }
+
+/**
+ * The log lines a person reads: the service CLI's observation records are
+ * machine-readable markers, kept in View operation and Copy log only.
+ */
+export function readableLogLines(logs: string | undefined): string[] {
+  return (logs?.trim() ?? '')
+    .split('\n')
+    .filter((line) => !line.startsWith('CLIO_SERVICE_OBSERVATION '));
+}
+
+/** A log line that reports a failure, tinted in the inline log (spec `.c3log .e`). */
+export function isErrorLogLine(line: string): boolean {
+  return /\b(error|fatal|panic|exception|traceback)\b/i.test(line);
+}

@@ -1,5 +1,5 @@
 import type { InfrastructureTarget } from '@clio/core/v3';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type SavedConnection } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -7,6 +7,9 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   connectionAvailability,
+  connectionAvailabilityKey,
+  connectionProbeInterval,
+  probeConnection,
   useConnectionAvailabilities,
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
@@ -23,6 +26,33 @@ export interface KnownConnection extends SavedConnection {
    * this synthesized row instead of being looked up.
    */
   token?: string;
+}
+
+const MANAGED_STARTING: ConnectionAvailability = {
+  state: 'checking',
+  label: 'Starting',
+  detail: 'Starting the local service.',
+  starting: true,
+};
+
+/**
+ * The managed row is Ready only once the service itself reports readiness, not when the
+ * supervisor first sees it answer: until then it is Starting with what it is loading.
+ */
+function managedRowAvailability(
+  supervisorReady: boolean,
+  probed: ConnectionAvailability | undefined,
+  probeFailed: boolean,
+): ConnectionAvailability {
+  if (!supervisorReady) return MANAGED_STARTING;
+  if (probed?.starting) return probed;
+  if (probed?.state === 'healthy') {
+    return { state: 'healthy', label: 'Ready', detail: 'Running on this computer.' };
+  }
+  if (probed) return probed;
+  return probeFailed
+    ? { state: 'checking', label: 'Checking', detail: 'Checking the local service.' }
+    : MANAGED_STARTING;
 }
 
 const CONNECTED_TRANSPORT_STATES: ReadonlySet<InfrastructureTarget['transport_state']> = new Set([
@@ -59,6 +89,26 @@ export function useKnownConnections(): readonly KnownConnection[] {
     useConnectionSettings();
   const recentAvailabilities = useConnectionAvailabilities(recents);
   const desktop = inTauri();
+
+  // The supervisor reports the service ready once it answers, before its task runtime
+  // is (#739 B1). Probe `/v1/health` until it reports ready; then stop polling. It shares
+  // the address's availability probe, so the CLIO menu does not probe it a second time.
+  const queryClient = useQueryClient();
+  const managedKey = connectionAvailabilityKey(managedConnection?.endpoint);
+  const managedProbe = useQuery({
+    enabled: desktop && managedConnectionReady && Boolean(managedConnection),
+    queryKey: managedKey,
+    queryFn: ({ signal }) =>
+      probeConnection(
+        managedConnection!,
+        signal,
+        queryClient.getQueryData<ConnectionAvailability>(managedKey),
+      ),
+    refetchInterval: (query) =>
+      query.state.data && !query.state.data.starting ? false : connectionProbeInterval(query),
+  });
+  const managedAvailability = managedProbe.data;
+  const managedProbeFailed = managedProbe.isError;
 
   const controllerRepository = useMemo(
     () => (desktop && managedConnection ? createRepository(managedConnection) : undefined),
@@ -110,9 +160,11 @@ export function useKnownConnections(): readonly KnownConnection[] {
         label: managedLabel ?? 'This computer',
         location: 'This device',
         source: 'managed',
-        availability: managedConnectionReady
-          ? { state: 'healthy', label: 'Ready', detail: 'Running on this computer.' }
-          : { state: 'checking', label: 'Starting', detail: 'Starting the local service.' },
+        availability: managedRowAvailability(
+          managedConnectionReady,
+          managedAvailability,
+          managedProbeFailed,
+        ),
       });
       knownEndpoints.add(managedConnection.endpoint);
     }
@@ -140,8 +192,10 @@ export function useKnownConnections(): readonly KnownConnection[] {
     connectedTargets,
     desktop,
     managedConnection,
+    managedAvailability,
     managedConnectionReady,
     managedLabel,
+    managedProbeFailed,
     recentAvailabilities,
     recents,
   ]);

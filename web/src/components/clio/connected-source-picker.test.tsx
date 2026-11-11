@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
 import { TransportError } from '@clio/core/v3';
-import { assertFolderResourceAttachment } from './connected-source-picker.test-helpers';
+import {
+  assertFolderResourceAttachment,
+  chooseTrackingConversation,
+} from './connected-source-picker.test-helpers';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
@@ -148,7 +152,7 @@ describe('connected source picker', () => {
       fixtures.repository.connectedSources.mockResolvedValue([{ ...source, linked }]);
       const onSelect = vi.fn();
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
         </QueryClientProvider>,
@@ -179,7 +183,7 @@ describe('connected source picker', () => {
       });
       const onSelect = vi.fn();
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
         </QueryClientProvider>,
@@ -187,7 +191,7 @@ describe('connected source picker', () => {
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: 'Your sources' }));
       await user.click(screen.getByRole('button', { name: /^OPAL inputs/ }));
-      if (!linked) await user.click(screen.getByRole('button', { name: 'Downloaded' }));
+      if (!linked) await user.click(screen.getByRole('radio', { name: 'Downloaded' }));
       await user.click(await screen.findByRole('button', { name: 'nested' }));
       await user.click(screen.getByRole('button', { name: 'Add this folder to message' }));
       await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
@@ -216,20 +220,24 @@ describe('connected source picker', () => {
       return removed;
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    expect(await screen.findByText('Downloaded to workspace Files: 14 B / 14 B')).toBeVisible();
-    await user.click(screen.getByText('Downloaded copy'));
-    await user.click(screen.getByRole('button', { name: 'Remove workspace copy' }));
+    expect(await screen.findByText('Downloaded to workspace Files, 14 B of 14 B')).toBeVisible();
+    const details = screen.getByLabelText('Source details');
+    expect(details).toHaveTextContent('Downloaded copyRead only copy');
+    // The Downloaded copy fact carries its own Remove, confirmed in place.
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.getByText('Remove the workspace copy? Originals are kept.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Remove copy' }));
     expect(await screen.findByText('No downloaded copy in this workspace.')).toBeVisible();
     expect(screen.queryByText(/Downloaded to workspace Files/)).toBeNull();
-    expect(screen.queryByText('Downloaded copy')).toBeNull();
+    expect(details).toHaveTextContent('Downloaded copyNone');
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
     expect(fixtures.repository.sourceLifecycle).toHaveBeenCalledWith('w', 's1', 'remove-copy');
   });
 
@@ -252,7 +260,7 @@ describe('connected source picker', () => {
       return completed;
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
       </QueryClientProvider>,
@@ -262,10 +270,7 @@ describe('connected source picker', () => {
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
     await screen.findByText(/Downloaded to workspace Files/);
     expect(onSelect).not.toHaveBeenCalled();
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Track work in' }),
-      await screen.findByRole('option', { name: 'Source work' }),
-    );
+    await chooseTrackingConversation(user, 'Source work');
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
     expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
@@ -293,7 +298,7 @@ describe('connected source picker', () => {
         },
       ]);
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={vi.fn()} />
         </QueryClientProvider>,
@@ -301,14 +306,17 @@ describe('connected source picker', () => {
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: 'Your sources' }));
       await user.click(await screen.findByText('Remote files'));
-      const downloadFile = await screen.findByRole('button', { name: 'Download file' });
-      if (downloads) expect(downloadFile).toBeEnabled();
-      else expect(downloadFile).toBeDisabled();
-      expect(screen.getByText(/Keep files at their source/)).toBeVisible();
-      await user.selectOptions(
-        screen.getByRole('combobox', { name: 'Track work in' }),
-        await screen.findByRole('option', { name: 'Source work' }),
-      );
+      await screen.findByText('input.csv');
+      // Without transfer a file row offers only Add to message, which waits for the link.
+      if (downloads) {
+        expect(screen.getByRole('button', { name: 'Download file' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Download a copy' })).toBeEnabled();
+      } else {
+        expect(screen.queryByRole('button', { name: 'Download file' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Download a copy' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Add to message' })).toBeDisabled();
+      }
+      await chooseTrackingConversation(user, 'Source work');
       await user.click(screen.getByRole('button', { name: 'Link folder' }));
       await waitFor(() =>
         expect(fixtures.repository.linkConnectedSource).toHaveBeenCalledWith(
@@ -322,7 +330,7 @@ describe('connected source picker', () => {
       );
       expect(fixtures.repository.transferConnectedSource).not.toHaveBeenCalled();
       if (downloads) {
-        expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Download a copy' })).toBeEnabled();
         await user.click(screen.getByRole('button', { name: 'Download file' }));
         await waitFor(() =>
           expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
@@ -330,13 +338,13 @@ describe('connected source picker', () => {
             's1',
             ['input.csv'],
             'draft_test',
-            'editable',
+            'read_only',
             'session_sources',
           ),
         );
       } else {
-        expect(screen.queryByRole('button', { name: 'Download all' })).toBeNull();
-        expect(screen.getByRole('button', { name: 'Download file' })).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Download a copy' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Download file' })).toBeNull();
       }
     },
   );
@@ -355,7 +363,7 @@ describe('connected source picker', () => {
       throw new TransportError('Authorize this Globus collection', 403);
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -398,7 +406,7 @@ describe('connected source picker', () => {
         ],
       });
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
         </QueryClientProvider>,
@@ -407,13 +415,21 @@ describe('connected source picker', () => {
         name: local ? 'From this computer' : 'Upload from your computer',
       });
       await waitFor(() => expect(fixtures.repository.storageProviders).toHaveBeenCalled());
-      if (local) expect(screen.queryByText('Use a folder on delta-node')).toBeNull();
-      else expect(await screen.findByText('Use a folder on delta-node')).toBeVisible();
+      if (local) expect(screen.queryByText("Use a folder on Agent's computer")).toBeNull();
+      else expect(await screen.findByText("Use a folder on Agent's computer")).toBeVisible();
       const user = userEvent.setup();
       await user.click(screen.getByRole('button', { name: 'Choose folder' }));
+      // Locally the connect form picks an existing folder; remotely it uploads one.
       expect(
-        await screen.findByText(local ? 'Use an existing folder' : 'Upload a folder'),
-      ).toBeVisible();
+        await screen.findByRole('radio', {
+          name: local ? 'This computer' : 'Upload from this computer',
+        }),
+      ).toBeChecked();
+      if (local)
+        expect(
+          screen.getByRole('button', { name: "Browse source folder on Agent's computer" }),
+        ).toBeEnabled();
+      else expect(screen.getByRole('button', { name: 'Upload folder' })).toBeDisabled();
     },
   );
   it('keeps Back, Edit, close, and discard as separate actions', async () => {
@@ -430,7 +446,7 @@ describe('connected source picker', () => {
     fixtures.repository.removeConnectedSource.mockResolvedValue({ removed: true });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const onOpenChange = vi.fn();
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={onOpenChange} />
       </QueryClientProvider>,
@@ -441,7 +457,10 @@ describe('connected source picker', () => {
     expect(screen.getByRole('heading', { name: 'Your sources' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Edit source' })).toBeNull();
     await user.click(screen.getByRole('button', { name: /^Pending Drive/ }));
-    await user.click(screen.getByRole('button', { name: 'Close and keep setup' }));
+    // Closing keeps the pending setup: the header close and the footer Close.
+    const [headerClose, footerClose] = screen.getAllByRole('button', { name: 'Close' });
+    expect(footerClose).toHaveTextContent('Close');
+    await user.click(headerClose);
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(fixtures.repository.removeConnectedSource).not.toHaveBeenCalled();
     onOpenChange.mockClear();
@@ -479,7 +498,7 @@ describe('connected source picker', () => {
       label: 'Research inputs',
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -487,14 +506,14 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
     await user.type(screen.getByLabelText('Google Drive folder link'), 'input_data');
-    await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+    await user.click(screen.getByRole('button', { name: /^Connect/ }));
     await screen.findByRole('button', { name: 'Log in' });
     fixtures.repository.connectedSources.mockResolvedValue([created]);
     await user.click(screen.getByRole('button', { name: 'Edit source' }));
     expect(screen.getByLabelText('Google Drive folder link')).toHaveValue('input_data');
     await user.clear(screen.getByLabelText(/Name/));
     await user.type(screen.getByLabelText(/Name/), 'Research inputs');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: /^Save/ }));
     await waitFor(() =>
       expect(fixtures.repository.updateConnectedSource).toHaveBeenCalledWith(
         'w',
@@ -520,7 +539,7 @@ describe('connected source picker', () => {
       return { removed: true };
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -549,19 +568,21 @@ describe('connected source picker', () => {
       ],
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    expect(screen.getByPlaceholderText('Optional name')).toBeEnabled();
+    expect(screen.getByLabelText('Name')).toBeEnabled();
     const folder = screen.getByLabelText('Google Drive folder link');
     expect(folder).toBeEnabled();
-    const button = screen.getByRole('button', { name: 'Connect folder' });
-    expect(button).toBeEnabled();
+    // Connect waits only for the folder, not for application discovery.
+    const button = screen.getByRole('button', { name: /^Connect/ });
+    expect(button).toBeDisabled();
     await user.type(folder, 'https://drive.google.com/drive/folders/input_data');
+    expect(button).toBeEnabled();
     await user.click(button);
     await waitFor(() =>
       expect(fixtures.repository.createConnectedSource).toHaveBeenCalledWith(
@@ -578,7 +599,7 @@ describe('connected source picker', () => {
   it('uses one attach surface for files and correctly labelled folder uploads', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const onUploadFiles = vi.fn();
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker
           workspaceId="w"
@@ -593,7 +614,8 @@ describe('connected source picker', () => {
     expect(onUploadFiles).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: 'Choose folder' }));
     expect(screen.getByText('No folder chosen')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Choose folder' })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: 'Upload from this computer' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Choose…' })).toBeEnabled();
     expect(screen.queryByText(/OPAL/)).toBeNull();
   });
 
@@ -612,24 +634,24 @@ describe('connected source picker', () => {
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
       </QueryClientProvider>
     );
-    const rendered = render(view());
+    const rendered = renderWithTooltips(view());
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    await user.click(screen.getByRole('button', { name: 'Downloaded' }));
+    await user.click(screen.getByRole('radio', { name: 'Downloaded' }));
     await user.click(await screen.findByRole('button', { name: 'Add to message' }));
     await waitFor(() => expect(finish).toBeDefined());
     fixtures.token = 'different';
     fixtures.repository.connectedSources.mockResolvedValue([]);
     rendered.rerender(view());
     finish?.({ id: 'res_old', name: 'input.csv', revision: 1, detected_mime: 'text/csv' });
-    await screen.findByText('Bring your data into this workspace');
+    await screen.findByText('Nothing connected yet.');
     expect(onSelect).not.toHaveBeenCalled();
   });
   it('keeps selection during refresh and attaches source-bound resource identity', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const onSelect = vi.fn();
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
       </QueryClientProvider>,
@@ -637,18 +659,16 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Track work in' }),
-      await screen.findByRole('option', { name: 'Source work' }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await chooseTrackingConversation(user, 'Source work');
+    // The download follows the Access choice, which reads the current copy (Read only).
+    await user.click(screen.getByRole('button', { name: /^Download all/ }));
     await waitFor(() =>
       expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
         'w',
         's1',
         undefined,
         'draft_test',
-        'editable',
+        'read_only',
         'session_sources',
       ),
     );
@@ -660,7 +680,7 @@ describe('connected source picker', () => {
       revision: 1,
       detected_mime: 'text/csv',
     });
-    await user.click(screen.getByRole('button', { name: 'Downloaded' }));
+    await user.click(screen.getByRole('radio', { name: 'Downloaded' }));
     await user.click(screen.getByRole('button', { name: 'Add to message' }));
     await waitFor(() =>
       expect(onSelect).toHaveBeenCalledWith(
@@ -681,7 +701,7 @@ describe('connected source picker', () => {
   });
 
   it.each(['google_drive', 'github'])(
-    'offers a writable %s link with a propagation warning',
+    'offers a writable %s link that says it updates the originals',
     async (provider) => {
       fixtures.repository.storageProviders.mockResolvedValue({
         providers: [
@@ -698,33 +718,40 @@ describe('connected source picker', () => {
         ],
       });
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(
+      renderWithTooltips(
         <QueryClientProvider client={client}>
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
         </QueryClientProvider>,
       );
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-      expect(screen.queryByRole('radio')).toBeNull();
-      expect(
-        screen.getByText('Choose Download or Link and how edits are handled after connecting.'),
-      ).toBeVisible();
+      // The connect form asks for Access up front; a writable provider offers the write link.
+      expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
+      const write = screen.getByRole('radio', { name: /^Read and write link/ });
+      expect(write).toBeEnabled();
+      expect(write).toHaveTextContent('Update originals on save');
+      await user.click(write);
+      expect(write).toBeChecked();
     },
   );
 
   it('disables modes the provider cannot deliver and explains them on tap', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    expect(screen.queryByRole('radio')).toBeNull();
-    expect(
-      screen.getByText('Choose Download or Link and how edits are handled after connecting.'),
-    ).toBeVisible();
+    // Access rows the provider cannot deliver stay visible, disabled, with the provider's reason.
+    expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
+    const editable = screen.getByRole('radio', { name: /^Editable download/ });
+    expect(editable).toBeDisabled();
+    expect(editable).toHaveTextContent('This collection cannot conditionally update files.');
+    const write = screen.getByRole('radio', { name: /^Read and write link/ });
+    expect(write).toBeDisabled();
+    expect(write).toHaveTextContent('A transfer is not a writable folder.');
     expect(screen.queryByText(/Destination collection/)).toBeNull();
     expect(fixtures.repository.createConnectedSource).not.toHaveBeenCalled();
   });
@@ -738,13 +765,13 @@ describe('connected source picker', () => {
           <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} />
         </QueryClientProvider>
       );
-      const rendered = render(view());
+      const rendered = renderWithTooltips(view());
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
       fixtures[field] = 'different';
       fixtures.repository.connectedSources.mockResolvedValue([]);
       rendered.rerender(view());
-      await screen.findByText('Bring your data into this workspace');
+      await screen.findByText('Nothing connected yet.');
       expect(screen.queryByRole('heading', { name: 'OPAL inputs' })).not.toBeInTheDocument();
       expect(
         client.getQueryData([

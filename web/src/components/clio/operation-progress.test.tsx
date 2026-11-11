@@ -52,7 +52,7 @@ const record = (overrides: Record<string, unknown> = {}): InfrastructureOperatio
         id: 'pull',
         label: 'Pull image',
         state: 'running',
-        progress: { determinate: true, unit: 'bytes', current: 2e9, total: 8e9, fraction: 0.25 },
+        progress: { determinate: true, unit: 'bytes', current: 2 * 1024 ** 3, total: 8 * 1024 ** 3, fraction: 0.25 },
       },
       { id: 'build', label: 'Build environment', state: 'pending' },
     ],

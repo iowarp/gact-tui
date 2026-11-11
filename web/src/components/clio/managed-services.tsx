@@ -7,8 +7,8 @@ import {
   type ManagedServiceDefinition,
   type ProvenanceConnectionInput,
 } from '@clio/core/v3';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { CpuIcon } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CpuIcon, LinkIcon, PlugIcon } from 'lucide-react';
 import { RefreshButton } from './refresh-button';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -16,8 +16,8 @@ import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { useInfrastructureTargetSelection } from '@/hooks/use-infrastructure-target-selection';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
 import { useManagedOperations } from '@/hooks/use-managed-operations';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { AddIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -33,7 +33,13 @@ import { webSearchConnectionMatchesTarget } from './web-search-configuration';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { ManagedServiceHostFacts } from './managed-service-host-facts';
 import type { SshTransportStatus } from '@/tauri/ssh-infrastructure-transport';
-import { InspectionProgress, SshAuthentication } from './managed-service-target';
+import { SshAuthentication } from './managed-service-target';
+import { InfraTabActions } from './infrastructure-tab-actions';
+import { DialogFrame } from './primitives/dialog-frame';
+import { MenuRow } from './primitives/menu-row';
+import { SplitButton } from './primitives/split-button';
+import { StateView } from './primitives/state-view';
+import { useShownByPage } from './infrastructure-reachability';
 import {
   configurationForVariant,
   modelRuntimeServer,
@@ -54,6 +60,7 @@ export function ManagedServices({
   connectedAgentLocation,
   onConnectExistingService,
   onConnectProvenance,
+  onManageWebSearch,
 }: {
   onConnectWebSearch?: (remoteUrl: string) => void;
   onDisconnectWebSearch?: () => void;
@@ -69,6 +76,7 @@ export function ManagedServices({
 }) {
   const desktop = inTauri();
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { isManagedConnection, settings } = useConnectionSettings();
   const targets = useQuery({
     queryKey: ['infrastructure-targets', settings.endpoint],
@@ -92,6 +100,7 @@ export function ManagedServices({
     false,
   );
   const [hostDetailsOpen, setHostDetailsOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
   const [tabs, setTabs] = useInfrastructureState<Record<string, string>>(
     settings.endpoint,
     `${targetId}:service-tabs`,
@@ -191,12 +200,17 @@ export function ManagedServices({
     retry: false,
     staleTime: 30_000,
   });
+  const catalogErrorShownByPage = useShownByPage(catalog.error);
   const action = useMutation({
     mutationFn: async ({ service_id, ...body }: ServiceActionInput & { service_id: string }) => {
       // The service id is the URL path; CLIO's action contract forbids extra body keys.
       const operation = await repository.runManagedServiceAction(service_id, body);
       lastOperations.current[service_id] = operation.id;
       setOperationIds((rows) => ({ ...rows, [service_id]: operation.id }));
+      // The inventory follows operations closely only once it sees this one.
+      void queryClient.invalidateQueries({
+        queryKey: ['infrastructure-inventory', settings.endpoint],
+      });
       try {
         return await waitForOperation(repository, operation, undefined, (current) =>
           setProgress((rows) => ({ ...rows, [service_id]: current.progress })),
@@ -459,20 +473,60 @@ export function ManagedServices({
     );
   };
 
+  const transportState =
+    transportStatus?.state ??
+    targets.data?.find((row) => row.id === targetId)?.transport_state ??
+    'state_unknown';
+  const mcpComputerLabel =
+    connectedAgentLocation || targets.data?.find((item) => item.kind === 'local')?.label;
+  const startInstall = () => {
+    setSelectedProvider('');
+    setDeploying(true);
+  };
+  const serviceVariants = (
+    <>
+      {onConnectExistingService ? (
+        <DropdownMenuItem onSelect={onConnectExistingService}>
+          <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
+        </DropdownMenuItem>
+      ) : null}
+      {onConnectExistingService ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
+        <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
+        <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
+      </DropdownMenuItem>
+    </>
+  );
+
   return (
-    <section aria-label="Services" className="mt-6 space-y-4">
-      <section
-        aria-label="MCP services on the connected computer"
-        className="rounded-lg border p-4"
+    <section aria-label="Services" className="flex min-w-0 flex-col gap-3 pt-2">
+      <InfraTabActions
+        fold={{
+          label: 'More service actions',
+          verb: (
+            <SplitButton
+              icon={<AddIcon />}
+              label="Install service"
+              menuLabel="More ways to add a service"
+              onClick={startInstall}
+              showLabel
+              variant="default"
+            >
+              {serviceVariants}
+            </SplitButton>
+          ),
+          menu: (
+            <>
+              <DropdownMenuItem onSelect={startInstall}>
+                <MenuRow icon={<AddIcon />} label="Install service" />
+              </DropdownMenuItem>
+              {serviceVariants}
+            </>
+          ),
+        }}
       >
-        <ToolsSettings
-          embedded
-          computerLabel={
-            connectedAgentLocation || targets.data?.find((item) => item.kind === 'local')?.label
-          }
-        />
-      </section>
-      <div className="flex flex-wrap items-center justify-between gap-2">
         <ManagedServiceHostSelector
           targets={targets.data ?? []}
           targetId={targetId}
@@ -494,98 +548,71 @@ export function ManagedServices({
           }}
           onSshHost={connectComputer}
         />
-        <div className="flex items-center gap-2">
-          {target === 'ssh' ? (
-            <span className="text-xs text-muted-foreground" role="status">
-              {transportStateLabel(
-                transportStatus?.state ??
-                  targets.data?.find((row) => row.id === targetId)?.transport_state ??
-                  'state_unknown',
-              )}
-            </span>
-          ) : null}
-          {target === 'ssh' &&
-          sshHost &&
-          canManageSshTargets &&
-          (transportStatus?.state ??
-            targets.data?.find((row) => row.id === targetId)?.transport_state) !== 'connected' ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={registerTarget.isPending}
-              onClick={() => void connectComputer(sshHost).catch(() => undefined)}
-            >
-              Reconnect
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={hostDetailsOpen}
-            onClick={() => setHostDetailsOpen((open) => !open)}
-          >
-            {hostDetailsOpen ? 'Hide details' : 'Computer details'}
-          </Button>
-        </div>
-      </div>
-      {hostDetailsOpen ? (
-        <section aria-label="Host details" className="border-b pb-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium">Computer capabilities</h3>
-            <RefreshButton
-              label="Inspect again"
-              refreshing={catalog.isFetching}
-              onRefresh={() => catalog.refetch()}
-              size="sm"
-              variant="outline"
-            />
-          </div>
-          {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
-        </section>
+      </InfraTabActions>
+      {target === 'ssh' && transportState !== 'connected' ? (
+        <StateView
+          action={
+            sshHost && canManageSshTargets && !registerTarget.isPending
+              ? {
+                  label: 'Reconnect',
+                  onClick: () => void connectComputer(sshHost).catch(() => undefined),
+                }
+              : undefined
+          }
+          kind="unavailable"
+          size="row"
+          title={`${executionHostLabel}: ${transportStateLabel(transportState)}`}
+        />
       ) : null}
       {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
         <SshAuthentication prompt={transportStatus.prompt} sessionId={transportStatus.session_id} />
       ) : null}
       {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
-        <InspectionProgress host={sshHost} target={target} />
+        <StateView
+          detail={
+            target === 'ssh'
+              ? `Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing ${vocab.agent} services.`
+              : `Checking the operating system, Docker, local runtimes, acceleration, and existing ${vocab.agent} services.`
+          }
+          kind="loading"
+          size="panel"
+          title={
+            target === 'ssh'
+              ? `Connecting to ${targetLabel(target, sshHost)}`
+              : 'Inspecting this computer'
+          }
+        />
       ) : null}
       {target === 'ssh' && !catalog.data && catalog.fetchStatus === 'idle' && !catalog.error ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Connect {executionHostLabel} through Desktop to inspect and manage its services.
-        </p>
+        <StateView
+          kind="unavailable"
+          size="panel"
+          title={`Connect ${executionHostLabel} through Desktop to inspect and manage its services.`}
+        />
       ) : null}
-      {catalog.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Could not inspect {executionHostLabel}</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{catalog.error.message}</p>
-            <RefreshButton
-              label="Try again"
-              refreshing={catalog.isFetching}
-              onRefresh={() => catalog.refetch()}
-              size="sm"
-              variant="outline"
-            />
-          </AlertDescription>
-        </Alert>
+      {catalog.error && !catalogErrorShownByPage ? (
+        <StateView
+          action={{ label: 'Try again', onClick: () => void catalog.refetch() }}
+          detail={catalog.error.message}
+          kind="error"
+          size="panel"
+          title={`Could not inspect ${executionHostLabel}`}
+        />
       ) : null}
       {installerLlamaCpp.data && !llamaCppInstalled ? (
-        <Alert>
-          <CpuIcon aria-hidden="true" />
-          <AlertTitle>Finish setting up your local model runtime</AlertTitle>
-          <AlertDescription>
-            <Button
-              onClick={() => {
-                setSelectedProvider('llama_cpp');
-                setDeploying(true);
-              }}
-              size="sm"
-              variant="outline"
-            >
-              Finish setup
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <StateView
+          action={{
+            label: 'Finish setup',
+            onClick: () => {
+              setSelectedProvider('llama_cpp');
+              setDeploying(true);
+            },
+          }}
+          icon={CpuIcon}
+          kind="unavailable"
+          size="row"
+          title="Finish setting up your local model runtime"
+        />
       ) : null}
       <ManagedServiceInventory
         endpoint={settings.endpoint}
@@ -597,7 +624,8 @@ export function ManagedServices({
         deploying={deploying}
         onDeploying={setDeploying}
         renderService={renderService}
-        onConnectExisting={onConnectExistingService}
+        onEditWebSearch={onManageWebSearch}
+        onOpenTab={(id, tab) => setTabs((current) => ({ ...current, [id]: tab }))}
         operations={{
           ...Object.fromEntries(Object.entries(runningOperations).map(([id, row]) => [id, row.id])),
           ...operationIds,
@@ -625,10 +653,43 @@ export function ManagedServices({
         loading={catalog.isFetching}
         unavailable={!catalog.data || Boolean(catalog.error)}
       />
+      <DialogFrame
+        className="w-[clamp(360px,52vw,720px)]"
+        description={`Model Context Protocol services the ${vocab.agent} on ${mcpComputerLabel ?? 'this computer'} uses.`}
+        icon={<PlugIcon />}
+        onOpenChange={setMcpOpen}
+        open={mcpOpen}
+        title="MCP services"
+      >
+        <div className="clio-scrollbar max-h-[60dvh] overflow-y-auto">
+          <ToolsSettings embedded computerLabel={mcpComputerLabel} />
+        </div>
+      </DialogFrame>
+      <DialogFrame
+        description={executionHostLabel}
+        icon={<InfoIcon />}
+        onOpenChange={setHostDetailsOpen}
+        open={hostDetailsOpen}
+        secondary={
+          <RefreshButton
+            label="Inspect again"
+            refreshing={catalog.isFetching}
+            onRefresh={() => catalog.refetch()}
+            size="sm"
+            variant="ghost"
+          />
+        }
+        title="Computer details"
+      >
+        {catalog.data ? (
+          <ManagedServiceHostFacts facts={catalog.data.facts} />
+        ) : (
+          <StateView kind="empty" size="row" title="Not inspected yet" />
+        )}
+      </DialogFrame>
     </section>
   );
 }
-
 function transportStateLabel(state: SshTransportStatus['state']): string {
   return {
     connected: 'Connected',

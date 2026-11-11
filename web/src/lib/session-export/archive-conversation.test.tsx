@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/components/ai-elements/markdown';
 import { ArchiveConnectionProvider } from '@/providers/connection-provider';
+import { openActivityRuns } from '@/test/open-activity-runs';
 import { ArchiveConversation, type ArchiveTranscriptView } from './archive-conversation';
 
 afterEach(cleanup);
@@ -62,7 +64,7 @@ it('uses native activity controls with the loaded skill and failed command at th
     artifacts: [],
     surfaces: [],
   };
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <ArchiveConnectionProvider>
         <ArchiveConversation
@@ -79,7 +81,7 @@ it('uses native activity controls with the loaded skill and failed command at th
   const user = userEvent.setup();
   expect(screen.getByLabelText('Marked message')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Unmark message' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: /^Activity:/ }));
+  openActivityRuns();
   await user.click(screen.getByRole('button', { name: 'Show result for Load skill' }));
   const skillDetails = await screen.findByRole('region', { name: 'Load skill: Result' });
   expect(skillDetails).toHaveTextContent('Recorded audit');
@@ -92,12 +94,12 @@ it('uses native activity controls with the loaded skill and failed command at th
   );
   expect(screen.queryByRole('region', { name: 'Load skill: Result' })).not.toBeInTheDocument();
   expect(screen.getByText('Get-Location')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Show result for Run' }));
-  expect(screen.getByRole('region', { name: 'Run: Result' })).toHaveTextContent(
+  await user.click(screen.getByRole('button', { name: 'Show result for Run command' }));
+  expect(screen.getByRole('region', { name: 'Run command: Result' })).toHaveTextContent(
     'Connected-source access decisions could not be read',
   );
-  await user.click(screen.getByRole('button', { name: 'Technical details for Run' }));
-  const details = await screen.findByRole('dialog', { name: 'Run: Technical details' });
+  await user.click(screen.getByRole('button', { name: 'Technical details for Run command' }));
+  const details = await screen.findByRole('dialog', { name: 'Run command: Technical details' });
   expect(within(details).getByText(/D:\/dataset/)).toBeVisible();
   expect(details).toHaveTextContent('Connected-source access decisions could not be read');
 });
@@ -166,7 +168,7 @@ it('merges captured interactions with authoritative answers at their owning tool
       },
     ],
   };
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <ArchiveConnectionProvider>
         <ArchiveConversation
@@ -209,8 +211,14 @@ it('merges captured interactions with authoritative answers at their owning tool
     </QueryClientProvider>,
   );
   expect(screen.queryByText('PRIVATE RESUME ENVELOPE')).not.toBeInTheDocument();
-  await userEvent.setup().click(screen.getByRole('button', { name: /^Activity:/ }));
-  expect(await screen.findByText('Which label is control?')).toBeVisible();
-  expect(screen.getByText('The control mapping is unconfirmed.')).toBeVisible();
+  expect(
+    await screen.findByRole('button', { name: 'Expand Asked 2 questions' }),
+  ).toBeInTheDocument();
+  openActivityRuns();
+  // Each answer folds into its owning call's row; the call opens to the question it asked.
+  expect(await screen.findByText('The control mapping is unconfirmed.')).toBeVisible();
   expect(screen.getByText('Review the recorded report.')).toBeVisible();
+  const [control] = screen.getAllByRole('button', { name: 'Show result for Answered' });
+  await userEvent.setup().click(control!);
+  expect(await screen.findByText('Which label is control?')).toBeVisible();
 });

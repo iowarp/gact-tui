@@ -14,6 +14,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfoTip } from './info-tip';
+import { CircleAlertIcon } from 'lucide-react';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from './primitives/icon-button';
+import { RingSpinner } from './primitives/ring-spinner';
+import { SourceField, SourceStatusLine } from './source-form-parts';
 import { SshHostDialog } from './ssh-host-dialog';
 import { sshTargetDefinition, targetMatchesHost } from './managed-service-target-utils';
 
@@ -67,8 +72,19 @@ export function SourceSftpTarget({
     }
   };
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
+    <SourceField
+      label="SSH host"
+      aside={
+        <>
+          From {hostLabel}
+          <InfoTip label="About this SFTP connection">
+            Uses SFTP from {hostLabel}. Choose browses the selected remote host. Basic key and
+            password login are supported; interactive authentication requires {vocab.product}.
+          </InfoTip>
+        </>
+      }
+    >
+      <div className="flex min-w-0 items-center gap-1.5">
         <Select
           value={selected?.id ?? initialTargetId ?? ''}
           disabled={busy}
@@ -77,7 +93,10 @@ export function SourceSftpTarget({
             if (target) void connect(target);
           }}
         >
-          <SelectTrigger aria-label="SSH connection" className="min-w-0 flex-1">
+          <SelectTrigger
+            aria-label="SSH connection"
+            className="h-[30px] min-w-0 flex-1 rounded-[7px] text-[12.5px] data-[size=default]:h-[30px]"
+          >
             <SelectValue placeholder="Choose a connection" />
           </SelectTrigger>
           <SelectContent>
@@ -90,9 +109,20 @@ export function SourceSftpTarget({
               ))}
           </SelectContent>
         </Select>
+        {selected && (
+          <IconButton
+            label="Configure this connection"
+            icon={<ConfigureIcon />}
+            onClick={() => {
+              setEditing(selected);
+              setOpen(true);
+            }}
+          />
+        )}
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setEditing(undefined);
             setOpen(true);
@@ -100,26 +130,6 @@ export function SourceSftpTarget({
         >
           Add connection
         </Button>
-      </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        Connect from {hostLabel}
-        <InfoTip label="About this SFTP connection">
-          Uses SFTP from {hostLabel}. Choose folder browses the selected remote host. Basic key and
-          password login are supported; interactive authentication requires {vocab.product}.
-        </InfoTip>
-        {selected && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setEditing(selected);
-              setOpen(true);
-            }}
-          >
-            Configure
-          </Button>
-        )}
       </div>
       {open && (
         <SshHostDialog
@@ -170,15 +180,15 @@ export function SourceSftpTarget({
         />
       )}
       {busy && (
-        <p role="status" className="text-sm">
-          Connecting…
-        </p>
+        <SourceStatusLine role="status" icon={<RingSpinner />}>
+          Connecting?
+        </SourceStatusLine>
       )}
       {(error || targets.error) && (
-        <p role="alert" className="text-sm text-destructive">
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
           {error || targets.error?.message}
-        </p>
+        </SourceStatusLine>
       )}
-    </div>
+    </SourceField>
   );
 }

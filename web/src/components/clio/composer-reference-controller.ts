@@ -1,5 +1,6 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import { useCallback, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import type { ReferenceMenuHandle } from './composer-references';
 import {
   workspaceReferenceIdentity,
   type InlineReferenceSelection,
@@ -26,16 +27,18 @@ interface ComposerReferenceControllerInput {
 }
 
 export interface ComposerReferenceController {
+  /**
+   * Always undefined: the menu owns its highlight and the editor subscribes to
+   * it directly, so arrowing through suggestions never re-renders the composer.
+   * @deprecated Kept until the composer stops passing it to the editor.
+   */
   activeOptionId?: string;
-  activeReferenceId?: string;
   dismiss: () => void;
   /** Consumes a key the popover owns; false leaves it to the composer. */
   handleKeyDown: (event: KeyboardEvent<HTMLDivElement>) => boolean;
-  onActiveOptionChange: (optionId: string | undefined) => void;
-  onActiveReferenceChange: (identity: string) => void;
-  onOptionsChange: (references: readonly WorkspaceReference[]) => void;
+  /** The open menu's handle: its highlighted row and how to move it. */
+  menuRef: RefObject<ReferenceMenuHandle | null>;
   onCaretChange: (offset: number | undefined) => void;
-  onQueryChange: (query: string) => void;
   open: boolean;
   openPicker: () => void;
   pickerOpen: boolean;
@@ -83,9 +86,10 @@ export function referenceMentionAt(
 }
 
 /**
- * Owns the composer's reference popover: which surface opened it, what it is
- * searching for, which option is highlighted, and where a chosen reference
- * lands in the draft.
+ * Owns the composer's reference popover: which surface opened it, what the
+ * typed mention searches for, and where a chosen reference lands in the draft.
+ * The menu itself owns its highlight and the picker's search, so neither
+ * re-renders the composer.
  */
 export function useComposerReferenceController({
   contextReferences,
@@ -98,11 +102,8 @@ export function useComposerReferenceController({
   workspaceId,
 }: ComposerReferenceControllerInput): ComposerReferenceController {
   const popoverId = `${useId()}-composer-references`;
-  const [options, setOptions] = useState<readonly WorkspaceReference[]>([]);
-  const [activeReferenceId, setActiveReferenceId] = useState<string>();
-  const [activeOptionId, setActiveOptionId] = useState<string>();
+  const menuRef = useRef<ReferenceMenuHandle>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   // The exact caret-local mention dismissed with Escape. Moving to another
   // mention in the same draft may open it, while this one remains ordinary
   // sendable text until the person edits it.
@@ -116,22 +117,19 @@ export function useComposerReferenceController({
 
   const mention = referenceMentionAt(input, caret);
   const mentionIdentity = mention ? JSON.stringify([input, mention.start, mention.end]) : undefined;
+  // Escape dismisses one mention until it is edited away. Deleting it and
+  // typing the same `@` again is a new mention, so the menu offers itself again.
+  if (dismissedMention !== undefined && mentionIdentity !== dismissedMention) {
+    setDismissedMention(undefined);
+  }
   const open =
     contextReferences &&
     Boolean(workspaceId) &&
     (pickerOpen || (Boolean(mention) && dismissedMention !== mentionIdentity));
-  const query = pickerOpen ? searchQuery : (mention?.query ?? '');
-  const effectiveActiveReferenceId =
-    activeReferenceId &&
-    options.some((reference) => workspaceReferenceIdentity(reference) === activeReferenceId)
-      ? activeReferenceId
-      : options[0]
-        ? workspaceReferenceIdentity(options[0])
-        : undefined;
+  const query = pickerOpen ? '' : (mention?.query ?? '');
 
   const dismiss = useCallback(() => {
     setPickerOpen(false);
-    setSearchQuery('');
     setDismissedMention(mentionIdentity);
     focusEditor(pickerOpen ? pickerCaretRef.current : caretRef.current);
   }, [focusEditor, mentionIdentity, pickerOpen]);
@@ -141,7 +139,6 @@ export function useComposerReferenceController({
     caretRef.current = insertionPoint;
     pickerCaretRef.current = insertionPoint;
     setCaret(insertionPoint);
-    setSearchQuery('');
     setDismissedMention(undefined);
     setPickerOpen(true);
   }, [editorRef, input.length]);
@@ -190,11 +187,7 @@ export function useComposerReferenceController({
       setCaret(caret);
       setPickerOpen(false);
       pickerCaretRef.current = undefined;
-      setSearchQuery('');
       setDismissedMention(undefined);
-      setOptions([]);
-      setActiveReferenceId(undefined);
-      setActiveOptionId(undefined);
       focusEditor(caret);
     },
     [
@@ -213,17 +206,12 @@ export function useComposerReferenceController({
   /**
    * Tab on an HDF5 file or group lists its contents instead of adding it: the
    * mention becomes `file.h5::/group/`, so the typed text and the listing agree.
+   * The picker's own search box drills inside the menu.
    */
   const drill = useCallback(
     (reference: WorkspaceReference): boolean => {
       const next = hdf5DrillQuery(reference);
-      if (!next) return false;
-      setActiveReferenceId(undefined);
-      if (pickerOpen) {
-        setSearchQuery(next);
-        return true;
-      }
-      if (!mention) return false;
+      if (!next || pickerOpen || !mention) return false;
       const nextInput = `${input.slice(0, mention.start + 1)}${next}${input.slice(mention.end)}`;
       const shift = nextInput.length - input.length;
       const offset = mention.start + 1 + next.length;
@@ -251,15 +239,11 @@ export function useComposerReferenceController({
         dismiss();
         return true;
       }
-      if (options.length === 0) return false;
-      const activeIndex = options.findIndex(
-        (reference) => workspaceReferenceIdentity(reference) === effectiveActiveReferenceId,
-      );
+      const menu = menuRef.current;
+      if (!menu) return false;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        if (!menu.move(event.key === 'ArrowDown' ? 1 : -1)) return false;
         event.preventDefault();
-        const direction = event.key === 'ArrowDown' ? 1 : -1;
-        const nextIndex = (Math.max(activeIndex, 0) + direction + options.length) % options.length;
-        setActiveReferenceId(workspaceReferenceIdentity(options[nextIndex]!));
         return true;
       }
       if (
@@ -267,15 +251,20 @@ export function useComposerReferenceController({
         !event.shiftKey &&
         !event.nativeEvent.isComposing
       ) {
+        const active = menu.active();
+        if (!active) {
+          if (event.key !== 'Enter' || !menu.offering()) return false;
+          event.preventDefault();
+          return true;
+        }
         event.preventDefault();
-        const active = options[Math.max(activeIndex, 0)]!;
         if (event.key === 'Tab' && drill(active)) return true;
         select(active);
         return true;
       }
       return false;
     },
-    [dismiss, drill, effectiveActiveReferenceId, open, options, select],
+    [dismiss, drill, open, select],
   );
 
   const onCaretChange = useCallback((offset: number | undefined) => {
@@ -287,15 +276,11 @@ export function useComposerReferenceController({
   const restoreEditorFocus = useCallback(() => focusEditor(caretRef.current), [focusEditor]);
 
   return {
-    activeOptionId: open ? activeOptionId : undefined,
-    activeReferenceId: effectiveActiveReferenceId,
+    activeOptionId: undefined,
     dismiss,
     handleKeyDown,
-    onActiveOptionChange: setActiveOptionId,
-    onActiveReferenceChange: setActiveReferenceId,
+    menuRef,
     onCaretChange,
-    onOptionsChange: setOptions,
-    onQueryChange: setSearchQuery,
     open,
     openPicker,
     pickerOpen,

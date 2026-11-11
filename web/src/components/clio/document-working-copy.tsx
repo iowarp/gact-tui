@@ -1,85 +1,59 @@
+import { brand } from '@brand';
 import type { DocumentWorkingCopy } from '@clio/core/v3';
-import { ShieldCheckIcon } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { ClioStatus } from './status';
+import { StateView } from './primitives/state-view';
 
-/** The document's working copy: its status and the conflict/close decisions. */
-export function WorkingCopyStatus({
+/** "CLIO saved version 5 while you were editing. Keep its version, or save yours as version 6." */
+function conflictDetail(headVersion: number | undefined) {
+  return headVersion === undefined
+    ? `${brand.agentName} saved a newer version while you were editing. Keep its version, or save yours as the next one.`
+    : `${brand.agentName} saved version ${headVersion} while you were editing. Keep its version, or save yours as version ${headVersion + 1}.`;
+}
+
+/**
+ * A working copy that needs a decision replaces the document body: Changed
+ * elsewhere (Keep current, Use mine) when the artifact moved on while it was
+ * open, or the failed copy with a way back to the document.
+ */
+export function WorkingCopyState({
   copy,
-  closePending,
-  resolvePending,
-  onClose,
+  headVersion,
+  pending,
   onResolve,
+  onDismiss,
 }: {
-  copy?: DocumentWorkingCopy;
-  closePending: boolean;
-  resolvePending: boolean;
-  onClose: () => void;
+  copy: DocumentWorkingCopy;
+  /** The version that moved on, once its manifest is known. */
+  headVersion?: number;
+  pending: boolean;
   onResolve: (resolution: 'keep-current' | 'use-working-copy') => void;
+  onDismiss: () => void;
 }) {
-  if (!copy) return null;
+  if (copy.status === 'conflict')
+    return (
+      <StateView
+        action={{
+          label: 'Use mine',
+          disabled: pending,
+          onClick: () => onResolve('use-working-copy'),
+        }}
+        detail={conflictDetail(headVersion)}
+        kind="changed-elsewhere"
+        secondaryAction={{
+          label: 'Keep current',
+          disabled: pending,
+          onClick: () => onResolve('keep-current'),
+        }}
+        size="viewer"
+        title="Changed since you opened it"
+      />
+    );
   return (
-    <Alert
-      variant={copy.status === 'conflict' || copy.status === 'error' ? 'destructive' : 'default'}
-    >
-      <AlertTitle className="flex flex-wrap items-center gap-2">
-        Working copy <ClioStatus label={copy.status} value={workingCopyStatusValue(copy.status)} />
-      </AlertTitle>
-      <AlertDescription>
-        Head version {copy.head_version}. Stable saves checkpoint into immutable artifact history.
-      </AlertDescription>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {copy.status === 'conflict' ? (
-          <>
-            <Button disabled={resolvePending} onClick={() => onResolve('keep-current')} size="sm">
-              Keep current artifact
-            </Button>
-            <Button
-              disabled={resolvePending}
-              onClick={() => onResolve('use-working-copy')}
-              size="sm"
-              variant="destructive"
-            >
-              Use working copy
-            </Button>
-          </>
-        ) : copy.status === 'active' ? (
-          <Button disabled={closePending} onClick={onClose} size="sm" variant="outline">
-            Close working copy
-          </Button>
-        ) : null}
-      </div>
-    </Alert>
+    <StateView
+      action={{ label: 'Back to the document', onClick: onDismiss }}
+      detail={copy.error ?? `Your edits after version ${copy.head_version} were not saved`}
+      kind="unavailable"
+      size="viewer"
+      title="The working copy stopped saving"
+    />
   );
-}
-
-/** The immutable-document guarantees. */
-export function DocumentPolicy({ workingCopy }: { workingCopy?: DocumentWorkingCopy }) {
-  return (
-    <Alert>
-      <ShieldCheckIcon aria-hidden="true" />
-      <AlertTitle>Immutable document boundary</AlertTitle>
-      <AlertDescription className="grid gap-3">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>The original artifact is canonical; PDF renditions are derived.</li>
-          <li>Reviews bind to one version and checksum, so stale anchors are rejected.</li>
-          <li>Stable working-copy saves mint or deduplicate immutable revisions.</li>
-        </ul>
-        {workingCopy ? (
-          <p className="font-mono text-[0.625rem]">
-            Working copy {workingCopy.id}, head version {workingCopy.head_version}
-          </p>
-        ) : null}
-      </AlertDescription>
-    </Alert>
-  );
-}
-
-function workingCopyStatusValue(status: DocumentWorkingCopy['status']) {
-  if (status === 'active') return 'healthy' as const;
-  if (status === 'closed') return 'completed' as const;
-  if (status === 'conflict') return 'degraded' as const;
-  if (status === 'missing') return 'unavailable' as const;
-  return 'failed' as const;
 }

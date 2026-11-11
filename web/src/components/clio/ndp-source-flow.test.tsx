@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ConnectedSourcePicker } from './connected-source-picker';
@@ -116,7 +117,7 @@ it.each(['link', 'download'])(
   'reviews the ordinary Download/Link choice before the %s action',
   async (choice) => {
     const onSelect = vi.fn();
-    render(
+    renderWithTooltips(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
@@ -137,18 +138,22 @@ it.each(['link', 'download'])(
     await user.click(dataset);
     await screen.findByRole('checkbox', { name: /stations.csv/ });
     await user.click(screen.getByRole('checkbox', { name: /stations.csv/ }));
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByRole('button', { name: /^Connect/ }));
+    // The connected dataset opens on its source detail: Link is the primary finish, Download a copy beside it.
+    expect(await screen.findByRole('heading', { name: 'Sea observations' })).toBeVisible();
     expect(
-      await screen.findByRole('heading', { name: 'How do you want to use these files?' }),
+      screen.getByText(/A link reads the originals .* A download saves a copy in this workspace\./),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download selected files' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Link selected files' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Download a copy' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Link selected files/ })).toBeVisible();
+    // One Access choice, opening on the source's mode, governs both finishes.
+    expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
     expect(fixture.repository.linkConnectedSource).not.toHaveBeenCalled();
     expect(fixture.repository.transferConnectedSource).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
     expect(screen.queryByText(/Nothing is downloaded/)).not.toBeInTheDocument();
     if (choice === 'link') {
-      await user.click(screen.getByRole('button', { name: 'Link selected files' }));
+      await user.click(screen.getByRole('button', { name: /^Link selected files/ }));
       await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
       expect(fixture.repository.linkConnectedSource).toHaveBeenCalledWith(
         'w',
@@ -160,14 +165,14 @@ it.each(['link', 'download'])(
       );
       expect(fixture.repository.transferConnectedSource).not.toHaveBeenCalled();
     } else {
-      await user.click(screen.getByRole('button', { name: 'Download selected files' }));
+      await user.click(screen.getByRole('button', { name: 'Download a copy' }));
       await waitFor(() =>
         expect(fixture.repository.transferConnectedSource).toHaveBeenCalledWith(
           'w',
           'source-ndp',
           undefined,
           'draft',
-          'editable',
+          'read_only',
           'session_ndp',
         ),
       );

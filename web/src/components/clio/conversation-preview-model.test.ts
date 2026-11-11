@@ -36,6 +36,12 @@ describe('selected conversation preview', () => {
     expect(history.boundaryRetained).toBe(false);
     expect(history.continuation).toHaveLength(2);
   });
+  it('treats a fork point older than the newest page as retained, not rewound', () => {
+    const history = conversationPreview(branch, [message('new1', 'user'), message('new2')], true);
+    expect(history.copied).toEqual([]);
+    expect(history.boundaryRetained).toBe(true);
+    expect(history.continuation).toHaveLength(2);
+  });
   it('handles an empty fork and a regular root without inventing copied history', () => {
     const empty = conversationPreview(
       {

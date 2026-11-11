@@ -2,13 +2,16 @@
 // actions live in `conversation.test.tsx`; scroll/virtualization/minimap behaviour
 // lives in `conversation-viewport.test.tsx`. This file covers the child-agent and
 // tool-activity chain rendering, and interactive-surface routing.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ClioConversation } from './conversation';
+
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
 
@@ -91,21 +94,16 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(
       screen.getByText('Ground the requested region before catalog search.'),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
     expect(
       screen.getByText('Resolved the region with authoritative coordinates.'),
     ).toBeInTheDocument();
 
-    const dispatch = screen.getByRole('button', {
-      name: 'Open child conversation geospatial #1',
-    });
+    const dispatch = screen.getByRole('button', { name: 'Open geospatial' });
     fireEvent.click(dispatch);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
 
     fireEvent.click(dispatch, { shiftKey: true });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
-    fireEvent.keyDown(dispatch, { key: 'Enter' });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
-    fireEvent.keyDown(dispatch, { key: 'Enter', shiftKey: true });
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
   });
 
@@ -149,27 +147,17 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Activity: Read files' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Activity: Read files' }));
-    const activity = screen.getByRole('button', {
-      name: 'Show result for Read',
-    });
-    expect(activity).toBeInTheDocument();
-    // The shared row names the file beside its action: `Read evidence.json`.
-    expect(activity.closest('[data-slot="tool-action-label"]')).toHaveTextContent(
-      /Read\s*evidence\.json/,
-    );
+    expect(screen.queryByRole('button', { name: /^Activity:/u })).not.toBeInTheDocument();
+    const activity = screen.getByRole('button', { name: 'Show result for Read file' });
+    expect(activity.closest('[data-slot="activity-row"]')).toHaveTextContent(/evidence\.json/u);
     expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
     fireEvent.click(activity);
-    expect(await screen.findByRole('region', { name: /Read: Result/ })).toHaveTextContent(
+    expect(await screen.findByRole('region', { name: /Read file: Result/ })).toHaveTextContent(
       'Three station records are available.',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read file' }));
     expect(
-      await screen.findByRole('dialog', { name: /Read: Technical details/ }),
+      await screen.findByRole('dialog', { name: /Read file: Technical details/ }),
     ).toHaveTextContent('large payload omitted from the collapsed summary');
   });
 
@@ -213,21 +201,21 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    // A finished run folds into one counted row; its calls are one press away.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, ran 1 task' }));
     const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
     if (!taskLine) throw new Error('the task activity line was not rendered');
-    expect(taskLine).toBeInTheDocument();
     expect(taskLine).toHaveTextContent('Review station quality');
-    expect(taskLine).toHaveTextContent('Completed');
-    expect(taskLine).toHaveTextContent('Evidence retained with source identity.');
+    expect(
+      within(taskLine as HTMLElement).getByRole('img', { name: 'Completed' }),
+    ).toBeInTheDocument();
     expect(taskLine).not.toHaveTextContent('completed.');
     expect(taskLine.closest('button')).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Review station quality' }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
+    expect(screen.getByText('Evidence retained with source identity.')).toBeInTheDocument();
   });
 
-  it('opens the compact causal timeline and can condense it again', () => {
+  it('shows the causal timeline as visible rows without a fold', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -260,18 +248,12 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    const activity = screen.getByRole('button', { name: /^Activity:/ });
-    expect(activity).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(activity);
-    expect(activity).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Inspecting the evidence.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Technical details for Read' })).toBeInTheDocument();
-    expect(screen.getByText('The evidence is ready.')).toBeInTheDocument();
-    fireEvent.click(activity);
-    expect(activity).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /^Activity:/u })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Thinking:/u })).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Technical details for Read' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Technical details for Read file' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The evidence is ready.')).toBeInTheDocument();
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {

@@ -6,27 +6,28 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Changed
+
+- On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
+  only while a conversation is still running
+- The bundled Windows setup installs about 20 s faster: it stores the already-compressed
+  runtime pack as is instead of zlib-compressing it again (the setup is about 3% larger)
+
 ## [0.11.3] - 2026-10-28
 
 ### Changed
 
-- A study's Views are the dashboards its conversations attached to it. Each shows
-  its title, purpose and the branch that made it, and its charts and tables can
-  read the study's measurements, entries or plugin records live, updating as
-  entries arrive. Exports keep each view with the data it showed.
-- Load conversations and older messages in bounded pages, including the workspace
-  rail, so opening a view does not fetch every session.
-- Supervise Windows protection and managed-package preparation through the desktop
-  launcher, retaining progress and ownership until each operation settles.
+- A study's Views update live as entries arrive
+- Large workspaces open faster
+- Windows setup shows its progress until it finishes
 
 ### Fixed
 
-- Wait for the evidence rail's parent layout before reopening a child conversation
-  after closing its canvas.
+- Reopening a child conversation works again
 
 ### Removed
 
-- Plugin-declared views, and the Views canvas tab outside a study.
+- Plugin views, and Views outside a study
 
 ## [0.11.3-beta.11] - 2026-10-21
 

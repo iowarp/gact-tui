@@ -15,6 +15,7 @@ vi.mock('@/providers/appearance-provider', () => ({
 afterEach(() => {
   cleanup();
   files.mockReset();
+  vi.restoreAllMocks();
 });
 
 it('opens the explicitly requested directory in its owning workspace', async () => {
@@ -57,7 +58,11 @@ it('shows a folder access failure without pretending it granted access', async (
       <WorkspaceDirectoryTree workspaceId="workspace" directory="private" onSelect={vi.fn()} />
     </QueryClientProvider>,
   );
-  expect(await screen.findByText(/Folder is outside the permitted roots/)).toBeVisible();
+  // The row names the failure; the server's reason is its hover detail.
+  const failure = await screen.findByText("Couldn't list this folder");
+  expect(failure).toBeVisible();
+  expect(failure).toHaveAttribute('title', 'Folder is outside the permitted roots');
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   expect(files).toHaveBeenCalledTimes(1);
 });
 
@@ -143,4 +148,61 @@ it('shows a loading status, not bare text, while a folder loads', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: 'Expand folder analysis' }));
   expect(await screen.findByRole('status', { name: 'Loading folder' })).toBeInTheDocument();
   expect(screen.queryByText('Loading folder…')).not.toBeInTheDocument();
+});
+
+it('marks files this conversation changed in a paged folder', () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <WorkspaceDirectoryTree
+        workspaceId="workspace"
+        changedPaths={new Set(['run.py'])}
+        root={{
+          entries: [
+            { path: 'run.py', type: 'file', internal: false },
+            { path: 'notes.md', type: 'file', internal: false },
+          ],
+          truncated: true,
+          next_offset: 2,
+        }}
+        onSelect={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
+  expect(
+    screen.getByRole('treeitem', { name: 'run.py, changed in this conversation' }),
+  ).toHaveAttribute('data-changed');
+  expect(screen.getByRole('treeitem', { name: 'notes.md' })).not.toHaveAttribute('data-changed');
+});
+
+it('mounts only the rows in view when a paged folder holds thousands of files', () => {
+  // jsdom has no layout: give the scroll viewport a 600 px window.
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'scroll-area-viewport' ? 600 : 0;
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <div data-slot="scroll-area-viewport">
+        <WorkspaceDirectoryTree
+          workspaceId="workspace"
+          root={{
+            entries: Array.from({ length: 5000 }, (_, index) => ({
+              path: `sample-${String(index).padStart(5, '0')}.csv`,
+              type: 'file' as const,
+              internal: false,
+            })),
+            truncated: true,
+            next_offset: 5000,
+          }}
+          onSelect={vi.fn()}
+        />
+      </div>
+    </QueryClientProvider>,
+  );
+  const rows = screen.getAllByRole('treeitem');
+  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.length).toBeLessThan(100);
+  // 5,000 files plus the "Load more files" row.
+  expect(screen.getByRole('tree').style.height).toBe(`${5001 * 28}px`);
 });

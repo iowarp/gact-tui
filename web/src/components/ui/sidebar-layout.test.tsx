@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +12,18 @@ import {
 import { TooltipProvider } from './tooltip';
 import { createPortal } from 'react-dom';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+/** The strip previews after a short hover intent, not on the first pointer contact. */
+function hoverSidebar(sidebar: Element) {
+  vi.useFakeTimers();
+  fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+  fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
+  act(() => vi.advanceTimersByTime(200));
+}
 
 describe('sidebar vertical layout', () => {
   it('uses the available parent height instead of adding another viewport height', () => {
@@ -87,11 +98,51 @@ describe('collapsed navigation preview', () => {
       </SidebarProvider>,
     );
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    vi.useFakeTimers();
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
+    expect(sidebar).not.toHaveAttribute('data-preview');
+    act(() => vi.advanceTimersByTime(200));
     expect(sidebar).toHaveAttribute('data-preview', 'true');
     expect(screen.getByRole('button')).toHaveTextContent('unpinned expanded');
     fireEvent.pointerLeave(sidebar);
     expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
+  });
+
+  it('stays folded when the layout shifts under a still pointer', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    vi.useFakeTimers();
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    act(() => vi.advanceTimersByTime(500));
+    expect(sidebar).not.toHaveAttribute('data-preview');
+  });
+
+  it('lets a direct click act on the strip before the hover preview reflows it', () => {
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarToggle />
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = document.querySelector('[data-slot="sidebar"]')!;
+    const toggle = screen.getByRole('button', { name: 'Toggle navigation' });
+    vi.useFakeTimers();
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerDown(toggle, { pointerType: 'mouse' });
+    fireEvent.click(toggle);
+    act(() => vi.advanceTimersByTime(200));
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+    expect(sidebar).not.toHaveAttribute('data-preview');
   });
 
   it('keeps the preview while a control has focus and dismisses with Escape', () => {
@@ -124,6 +175,7 @@ describe('collapsed navigation preview', () => {
     const control = screen.getByRole('button');
     act(() => control.focus());
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
     fireEvent.pointerDown(control, { pointerType: 'mouse' });
     fireEvent.click(control);
     fireEvent.pointerLeave(sidebar);
@@ -176,6 +228,30 @@ describe('collapsed navigation preview', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('keeps the preview when an opened menu covers a pointer that has not moved', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <button aria-haspopup="menu" aria-expanded="true" aria-controls="sidebar-menu">
+            Workspace actions
+          </button>
+          {createPortal(<div id="sidebar-menu">Edit workspace</div>, document.body)}
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    const panel = container.querySelector('[data-slot="sidebar-container"]')!;
+    panel.getBoundingClientRect = () => new DOMRect(0, 0, 256, 800);
+    hoverSidebar(sidebar);
+    // A modal menu disables pointer events under the stationary pointer.
+    fireEvent.pointerLeave(sidebar, { clientX: 100, clientY: 100, relatedTarget: document.body });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    fireEvent.pointerMove(screen.getByText('Edit workspace'), { clientX: 400, clientY: 100 });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    fireEvent.pointerMove(document.body, { clientX: 900, clientY: 700 });
+    expect(sidebar).not.toHaveAttribute('data-preview');
+  });
+
   it('lets a portaled menu consume Escape without closing the navigation preview', () => {
     const { container } = render(
       <SidebarProvider defaultOpen={false}>
@@ -189,7 +265,7 @@ describe('collapsed navigation preview', () => {
       </SidebarProvider>,
     );
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
-    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    hoverSidebar(sidebar);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Menu item' }), { key: 'Escape' });
     expect(sidebar).toHaveAttribute('data-preview', 'true');
   });

@@ -7,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // the React.lazy boundary resolves from the module cache.
 import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -16,6 +20,49 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation content and subject rendering', () => {
+  it('opens a delegate onto the calls its child session made', async () => {
+    const search = {
+      id: 'child-search',
+      session_id: 'sess_ndp',
+      name: 'ndp_search',
+      title: 'ndp_search',
+      state: 'succeeded' as const,
+      started_at: '2026-11-01T00:00:01Z',
+    };
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: {
+            task_ndp: {
+              id: 'task_ndp',
+              session_id: 's',
+              child_session_id: 'sess_ndp',
+              title: 'NDP explorer',
+              state: 'running',
+            },
+          },
+          tools: { [search.id]: search },
+        }}
+      >
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'delegate',
+            session_id: 's',
+            name: 'spawn_agent_task',
+            title: 'Delegate',
+            state: 'running',
+            input: { name: 'NDP explorer', task: 'find SMAP L3 granules' },
+            output: { task_id: 'task_ndp', child_session_id: 'sess_ndp' },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Expand/ }));
+    const calls = screen.getByRole('group', { name: 'Calls by NDP explorer' });
+    expect(within(calls).getByText('ndp_search')).toBeVisible();
+  });
   it('names an inspected task once across the row and expanded result, with one working opener', async () => {
     const open = vi.fn();
     render(
@@ -110,7 +157,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
     // A named (unlinked) subject is the row's target: it stays in the row when open.
     expect(
-      within(document.querySelector<HTMLElement>('[data-slot="tool-action-label"]')!).getByText(
+      within(document.querySelector<HTMLElement>('[data-slot="activity-row"]')!).getByText(
         'Planning guide',
       ),
     ).toBeVisible();
@@ -153,9 +200,10 @@ describe('ClioToolInvocation content and subject rendering', () => {
       />,
     );
     expect(screen.getByRole('button', { name: 'Show result for Wait for' })).toBeDisabled();
-    expect(screen.getByText('(0 returned, 2 running)')).toBeVisible();
-    expect(screen.getByText('worker_a')).toBeVisible();
-    expect(screen.getByText('worker_b')).toBeVisible();
+    expect(screen.getByText('0 returned, 2 running')).toBeVisible();
+    expect(document.querySelector('[data-slot="activity-argument"]')).toHaveTextContent(
+      'worker_a and worker_b',
+    );
     expect(screen.queryByRole('region', { name: 'Wait for: Result' })).not.toBeInTheDocument();
     expect(screen.queryByText('Pending when this call returned.')).not.toBeInTheDocument();
   });
@@ -179,7 +227,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Show result for Update checklist' }));
-    expect(screen.getAllByText('(1 todo changed)')).toHaveLength(1);
+    expect(screen.getAllByText('1 todo changed')).toHaveLength(1);
     expect(screen.queryByText('Review evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Show completed 1' }));
     expect(screen.getByText('Review evidence')).toBeVisible();
@@ -201,7 +249,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    expect(screen.getByText('(No schedules)')).toBeVisible();
+    expect(screen.getByText('No schedules')).toBeVisible();
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
   });
   it('insets rendered Markdown and keeps table action chrome out of the preview', async () => {
@@ -235,49 +283,51 @@ describe('ClioToolInvocation content and subject rendering', () => {
     const openFile = vi.fn();
     const path = 'D:/workspace/long-readable-evidence.txt';
     const { container } = render(
-      <PresentationNavigation.Provider
-        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
-      >
-        <ClioToolInvocation
-          tool={{
-            id: 'call',
-            session_id: 's',
-            name: 'internal_overloaded_tool_name',
-            state: 'succeeded',
-            duration_ms: 42,
-            input: { payload: 'RAW PAYLOAD' },
-            presentation: {
-              action: 'Write',
-              subject: 'file',
-              summary: '',
-              blocks: [
-                {
-                  id: 'file',
-                  type: 'link',
-                  target: 'file',
-                  uri: path,
-                  label: 'long-readable-evidence.txt',
-                },
-                {
-                  id: 'effect',
-                  type: 'diff',
-                  text: '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new\n',
-                },
-              ],
-            },
-          }}
-        />
-      </PresentationNavigation.Provider>,
+      <TooltipProvider>
+        <PresentationNavigation.Provider
+          value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+        >
+          <ClioToolInvocation
+            tool={{
+              id: 'call',
+              session_id: 's',
+              name: 'internal_overloaded_tool_name',
+              state: 'succeeded',
+              duration_ms: 42,
+              input: { payload: 'RAW PAYLOAD' },
+              presentation: {
+                action: 'Write',
+                subject: 'file',
+                summary: '',
+                blocks: [
+                  {
+                    id: 'file',
+                    type: 'link',
+                    target: 'file',
+                    uri: path,
+                    label: 'long-readable-evidence.txt',
+                  },
+                  {
+                    id: 'effect',
+                    type: 'diff',
+                    text: '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new\n',
+                  },
+                ],
+              },
+            }}
+          />
+        </PresentationNavigation.Provider>
+      </TooltipProvider>,
     );
     const row = container.querySelector('[data-slot="activity-row"]')!;
     const file = screen.getByRole('button', { name: 'long-readable-evidence.txt' });
     expect(row).toContainElement(file);
     expect(row).toHaveTextContent('Write');
-    expect(container.querySelector('[data-slot="tool-human-result"]')).not.toContainElement(file);
+    expect(screen.getByRole('region', { name: 'Write: Result' })).not.toContainElement(file);
     expect(container).not.toHaveTextContent('RAW PAYLOAD');
-    expect(container.querySelector('[data-diff-line="addition"]')).toHaveTextContent('+new');
-    expect(container.querySelector('[data-diff-line="deletion"]')).toHaveTextContent('-old');
-    expect(container.querySelectorAll('[data-diff-line]')).toHaveLength(5);
+    expect(container.querySelector('[data-diff-line="added"]')).toHaveTextContent('new');
+    expect(container.querySelector('[data-diff-line="removed"]')).toHaveTextContent('old');
+    expect(container.querySelectorAll('[data-diff-line]')).toHaveLength(2);
     await userEvent.setup().click(file);
     expect(openFile).toHaveBeenCalledWith(path);
   });
@@ -556,9 +606,9 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(2);
     expect(screen.getByText('Report body content unique-marker-xyz')).toBeVisible();
     expect(screen.getByText('One input file could not be resolved.')).toBeVisible();
-    expect(screen.getByRole('status', { name: 'Degraded' })).toBeVisible();
+    expect(screen.getByRole('img', { name: /^Degraded/ })).toBeVisible();
   });
-  it('wraps qualifying result details instead of clipping them in a narrow pane', () => {
+  it('keeps qualifying result details as row metadata', () => {
     const { container } = render(
       <ClioToolInvocation
         tool={{
@@ -577,10 +627,6 @@ describe('ClioToolInvocation content and subject rendering', () => {
     );
     const metadata = container.querySelector('[data-slot="activity-metadata"]');
     expect(metadata).toHaveTextContent('rejected: escapes_root');
-    expect(screen.getByText('rejected: escapes_root')).toHaveClass(
-      'whitespace-pre-wrap',
-      '[overflow-wrap:anywhere]',
-    );
   });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
@@ -624,7 +670,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
     expect(screen.getByText('Preview unavailable for text/html.')).toBeVisible();
   });
   it.each([false, true])(
@@ -701,5 +747,34 @@ it('marks a call the sandbox blocked on its compact row (#1905)', () => {
     presentation: { action: 'Run', summary: '', blocks: [] },
   };
   render(<ClioToolInvocation compact tool={tool} />);
-  expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
+  expect(screen.getByLabelText('Sandbox: Desktop')).toHaveTextContent('Blocked');
+});
+
+it('shows a returned question call as in progress while its question waits (N5a)', () => {
+  const tool = {
+    id: 'ask1',
+    session_id: 's',
+    name: 'ask_user',
+    state: 'succeeded' as const,
+    presentation: { action: 'Ask', summary: '', blocks: [] },
+  };
+  const waiting = {
+    id: 'question:ask1',
+    kind: 'question' as const,
+    status: 'pending' as const,
+    owner_session_id: 's',
+    attended_session_id: 's',
+    title: 'Question from agent',
+    prompt: 'Which grid?',
+    created_at: '2026-10-08T00:00:00Z',
+    source: { protocol: 'native' as const, tool_name: 'ask_user', invocation_id: 'ask1' },
+    payload: { response_mode: 'blocking', question_id: 'q', question_kind: 'freeform' },
+    actions: ['answer', 'cancel'],
+  };
+  render(<ClioToolInvocation compact tool={tool} waitingFor={waiting as never} />);
+  expect(screen.getByRole('img', { name: 'Waiting for you' })).toHaveAttribute(
+    'data-tone',
+    'running',
+  );
+  expect(screen.queryByRole('img', { name: 'Succeeded' })).not.toBeInTheDocument();
 });

@@ -1,13 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { copyText } from '@/lib/clipboard';
 import { CheckIcon, CopyIcon } from 'lucide-react';
@@ -23,7 +16,6 @@ import {
   useState,
 } from 'react';
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
-import { createCssVariablesTheme, createHighlighter } from 'shiki';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -157,14 +149,24 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
-// Token colors are `var(--syntax-*)` references, so highlighting follows the
-// active theme (web/src/theme/themes.css) without re-tokenizing.
-const syntaxTheme = createCssVariablesTheme({
-  name: 'clio-syntax',
-  variablePrefix: '--syntax-',
-  variableDefaults: {},
-  fontStyle: true,
-});
+// Shiki loads on first highlight so it stays out of the initial bundle; raw
+// tokens render until it arrives. Token colors are `var(--syntax-*)`
+// references, so highlighting follows the active theme
+// (web/src/theme/themes.css) without re-tokenizing.
+const createLazyHighlighter = async (language: BundledLanguage) => {
+  const { createCssVariablesTheme, createHighlighter } = await import('shiki');
+  return createHighlighter({
+    langs: [language],
+    themes: [
+      createCssVariablesTheme({
+        name: 'clio-syntax',
+        variablePrefix: '--syntax-',
+        variableDefaults: {},
+        fontStyle: true,
+      }),
+    ],
+  });
+};
 
 const getHighlighter = (
   language: BundledLanguage,
@@ -174,10 +176,7 @@ const getHighlighter = (
     return cached;
   }
 
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: [syntaxTheme],
-  });
+  const highlighterPromise = createLazyHighlighter(language);
 
   highlighterCache.set(language, highlighterPromise);
   return highlighterPromise;
@@ -545,41 +544,3 @@ export const CodeBlockCopyButton = ({
     </Button>
   );
 };
-
-export type CodeBlockLanguageSelectorProps = ComponentProps<typeof Select>;
-
-export const CodeBlockLanguageSelector = (props: CodeBlockLanguageSelectorProps) => (
-  <Select {...props} />
-);
-
-export type CodeBlockLanguageSelectorTriggerProps = ComponentProps<typeof SelectTrigger>;
-
-export const CodeBlockLanguageSelectorTrigger = ({
-  className,
-  ...props
-}: CodeBlockLanguageSelectorTriggerProps) => (
-  <SelectTrigger
-    className={cn('h-7 border-none bg-transparent px-2 text-xs shadow-none', className)}
-    size="sm"
-    {...props}
-  />
-);
-
-export type CodeBlockLanguageSelectorValueProps = ComponentProps<typeof SelectValue>;
-
-export const CodeBlockLanguageSelectorValue = (props: CodeBlockLanguageSelectorValueProps) => (
-  <SelectValue {...props} />
-);
-
-export type CodeBlockLanguageSelectorContentProps = ComponentProps<typeof SelectContent>;
-
-export const CodeBlockLanguageSelectorContent = ({
-  align = 'end',
-  ...props
-}: CodeBlockLanguageSelectorContentProps) => <SelectContent align={align} {...props} />;
-
-export type CodeBlockLanguageSelectorItemProps = ComponentProps<typeof SelectItem>;
-
-export const CodeBlockLanguageSelectorItem = (props: CodeBlockLanguageSelectorItemProps) => (
-  <SelectItem {...props} />
-);

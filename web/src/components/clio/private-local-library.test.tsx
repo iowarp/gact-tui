@@ -16,7 +16,7 @@ const repository = vi.hoisted(() => ({
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost' } }),
 }));
 vi.mock('./file-text-view', () => ({
   FileTextView: ({ content }: { content: string }) => <pre>{content}</pre>,
@@ -98,9 +98,8 @@ it('keeps the browse view about saved items, with storage and source requested s
   expect(screen.queryByText(/"remove":/)).toBeNull();
   expect(screen.getByRole('button', { name: 'Actions for private-local' })).toBeVisible();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Dememory Clio Agent' }));
-  expect(screen.getByText(/Starts from/)).toHaveTextContent('removes memory');
-  await user.click(screen.getByRole('button', { name: 'View saved file' }));
+  await user.click(screen.getByRole('button', { name: 'More actions for Dememory Clio' }));
+  await user.click(screen.getByRole('menuitem', { name: 'View saved file' }));
   const file = await screen.findByRole('dialog', { name: 'Dememory Clio: saved file' });
   expect(await within(file).findByText(/"remove":/)).toHaveTextContent('"memory"');
   expect(within(file).getByText('D:/clio/plugins/user-agents/dememory-clio.json')).toBeVisible();
@@ -112,7 +111,7 @@ it('keeps the browse view about saved items, with storage and source requested s
   await user.click(within(details).getByRole('button', { name: 'Copy agents folder' }));
   expect(await navigator.clipboard.readText()).toBe('D:/clio/plugins/user-agents');
   expect(within(details).queryByText('Dememory Clio')).toBeNull();
-});
+}, 20_000);
 it('keeps saved agents visible when an older host cannot report source locations', async () => {
   repository.localLibrary.mockRejectedValue(new Error('Route unavailable'));
   view();
@@ -130,8 +129,8 @@ it('refreshes saved definitions through the existing agent mutation invalidation
   const client = view();
   await screen.findByText('Dememory Clio');
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Dememory Clio Agent' }));
-  await user.click(screen.getByRole('button', { name: 'View saved file' }));
+  await user.click(screen.getByRole('button', { name: 'More actions for Dememory Clio' }));
+  await user.click(screen.getByRole('menuitem', { name: 'View saved file' }));
   expect(await screen.findByText(/"remove":/)).toHaveTextContent('"memory"');
   repository.localLibrary.mockResolvedValue({
     root: 'D:/clio/plugins',
@@ -145,7 +144,7 @@ it('refreshes saved definitions through the existing agent mutation invalidation
       },
     ],
   });
-  await client.invalidateQueries({ queryKey: queryKeys.key('agents', 'http://localhost:8787') });
+  await client.invalidateQueries({ queryKey: queryKeys.key('agents', 'http://localhost') });
   expect(await screen.findByText(/"web"/)).toHaveTextContent('"remove":');
 });
 

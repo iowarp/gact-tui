@@ -87,6 +87,28 @@ class ErrorBridge extends FakeBridge {
   }
 }
 
+class StartingBridge extends FakeBridge {
+  public override async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    if (command === 'gact_http') {
+      this.calls.push({ command, args });
+      return {
+        status: 503,
+        status_text: 'Service Unavailable',
+        headers: { 'content-type': 'application/json', 'retry-after': '1' },
+        body: JSON.stringify({
+          error: {
+            error: 'task_runtime_starting',
+            message: 'Durable task services are starting.',
+            details: { readiness: 'starting', starting: ['task_runtime'] },
+            retry_after_s: 1,
+          },
+        }),
+      } as T;
+    }
+    return super.invoke(command, args);
+  }
+}
+
 class UnavailableHealthBridge extends FakeBridge {
   public override async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
     if (command === 'gact_http') {
@@ -144,7 +166,7 @@ describe('TauriClioTransport', () => {
   it('routes negotiated REST through the Rust bridge', async () => {
     const bridge = new FakeBridge();
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       token: 'secret',
       bridge,
     });
@@ -157,7 +179,7 @@ describe('TauriClioTransport', () => {
       headers: Record<string, string>;
       url: string;
     };
-    expect(request.url).toBe('http://127.0.0.1:8787/v1/capabilities');
+    expect(request.url).toBe('http://127.0.0.1/v1/capabilities');
     expect(request.headers.Authorization).toBe('Bearer secret');
     expect(request.headers['X-GACT-Version']).toBe('0.3');
     expect(request.headers['X-A2UI-Version']).toBe('0.9.1');
@@ -165,7 +187,7 @@ describe('TauriClioTransport', () => {
 
   it('preserves text responses from the Rust bridge', async () => {
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new TextBridge(),
     });
 
@@ -181,7 +203,7 @@ describe('TauriClioTransport', () => {
 
   it('preserves structured errors from the Rust bridge for typed recovery', async () => {
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new ErrorBridge(),
     });
 
@@ -199,9 +221,25 @@ describe('TauriClioTransport', () => {
     });
   });
 
+  it("carries a starting service's readiness and Retry-After from the Rust bridge", async () => {
+    const transport = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1',
+      bridge: new StartingBridge(),
+    });
+
+    await expect(
+      transport.request({ method: 'GET', path: '/v1/workspaces', decode: (value) => value }),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: 'task_runtime_starting',
+      details: { readiness: 'starting' },
+      retryAfterMs: 1000,
+    });
+  });
+
   it('decodes an explicitly accepted non-success domain response', async () => {
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new UnavailableHealthBridge(),
     });
 
@@ -217,7 +255,7 @@ describe('TauriClioTransport', () => {
 
   it('decodes native base64 bodies into the original binary bytes', async () => {
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new BinaryBridge(),
     });
 
@@ -233,7 +271,7 @@ describe('TauriClioTransport', () => {
 
   it('gives an ordinary call the ordinary budget', async () => {
     const bridge = new FakeBridge();
-    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1:8787', bridge });
+    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1', bridge });
 
     await transport.request({ method: 'GET', path: '/v1/capabilities', decode: (value) => value });
 
@@ -243,7 +281,7 @@ describe('TauriClioTransport', () => {
   it('gives a byte transfer in either direction the transfer budget', async () => {
     const uploadBridge = new FakeBridge();
     await new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: uploadBridge,
     }).request({
       method: 'PATCH',
@@ -255,7 +293,7 @@ describe('TauriClioTransport', () => {
 
     const downloadBridge = new BinaryBridge();
     await new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: downloadBridge,
     }).request({
       method: 'GET',
@@ -266,9 +304,9 @@ describe('TauriClioTransport', () => {
     expect(timeoutOf(downloadBridge)).toBe(GACT_HTTP_TRANSFER_TIMEOUT_MS);
   });
 
-  it("lets a request that knows its own shape name its budget", async () => {
+  it('lets a request that knows its own shape name its budget', async () => {
     const bridge = new FakeBridge();
-    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1:8787', bridge });
+    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1', bridge });
 
     await transport.request({
       method: 'POST',
@@ -283,7 +321,7 @@ describe('TauriClioTransport', () => {
 
   it('distinguishes a bridge refusal from a dead connection', async () => {
     const oversized = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new FailingBridge(
         'gact_http_response_too_large: response exceeds the 67108864-byte bridge limit',
       ),
@@ -294,7 +332,7 @@ describe('TauriClioTransport', () => {
     ).rejects.toMatchObject({ code: 'native_response_too_large' });
 
     const unreachable = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new FailingBridge('gact_http_transport_error: connection refused'),
     });
 
@@ -303,7 +341,7 @@ describe('TauriClioTransport', () => {
     ).rejects.toMatchObject({ code: 'native_transport_failed' });
 
     const unknown = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge: new FailingBridge('the webview went away'),
     });
 
@@ -315,7 +353,7 @@ describe('TauriClioTransport', () => {
   it('turns the keyed Rust SSE event into the shared transport frame', async () => {
     const bridge = new FakeBridge();
     const transport = new TauriClioTransport({
-      endpoint: 'http://127.0.0.1:8787',
+      endpoint: 'http://127.0.0.1',
       bridge,
       clientId: () => 'test-client',
       now: () => '2026-08-22T12:00:01Z',

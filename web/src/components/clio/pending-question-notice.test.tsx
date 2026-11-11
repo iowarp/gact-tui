@@ -2,6 +2,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 import { PendingQuestionNotice } from './pending-question-notice';
 
 afterEach(cleanup);
@@ -33,7 +34,8 @@ describe('PendingQuestionNotice', () => {
       />,
     );
 
-    expect(screen.getByText('The agent asked you 2 questions')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(`${vocab.agent} asked you 2 questions`);
+    expect(screen.getByRole('status')).toHaveClass('h-[30px]', 'max-w-4xl');
     await user.click(screen.getByRole('button', { name: 'Go to question' }));
     expect(onGoToQuestion).toHaveBeenCalledWith(first);
   });

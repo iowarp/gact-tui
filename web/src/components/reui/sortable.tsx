@@ -106,6 +106,17 @@ const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: 10 } }
 const TOUCH_SENSOR_OPTIONS = {
   activationConstraint: { delay: 250, tolerance: 5 },
 }
+// A modified Enter or Space (⌥↩ maximize, ⌘↩) is a shortcut, not a pick-up.
+class PlainKeyboardSensor extends KeyboardSensor {
+  static activators = KeyboardSensor.activators.map((activator) => ({
+    ...activator,
+    handler: (...args: Parameters<typeof activator.handler>) => {
+      const event = args[0].nativeEvent as KeyboardEvent
+      if (event.altKey || event.ctrlKey || event.metaKey) return false
+      return activator.handler(...args)
+    },
+  }))
+}
 const KEYBOARD_SENSOR_OPTIONS = {
   coordinateGetter: sortableKeyboardCoordinates,
 }
@@ -176,7 +187,7 @@ function Sortable<T>({
   const sensors = useSensors(
     useSensor(MouseSensor, MOUSE_SENSOR_OPTIONS),
     useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS),
-    useSensor(KeyboardSensor, KEYBOARD_SENSOR_OPTIONS)
+    useSensor(PlainKeyboardSensor, KEYBOARD_SENSOR_OPTIONS)
   )
 
   const handleDragStart = useCallback(

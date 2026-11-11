@@ -1,5 +1,6 @@
-// Governed presentation fallbacks, session status, canvas duration/wait, and
-// artifact/source provenance ownership live in `observability-dock.test.tsx`;
+// Governed presentation fallbacks and session status live in
+// `observability-dock.test.tsx`; source provenance ownership lives in
+// `observability-evidence-sources.test.ts`;
 // this file covers empty/failed section states, provenance provider
 // switching and degradation, and transcript-causality ordering.
 import type { AsyncProcess, ExecutionProvenanceResult } from '@clio/core/v3';
@@ -32,15 +33,13 @@ function renderObservability(children: React.ReactNode) {
 }
 
 describe('ClioObservabilityView provenance and section states', () => {
-  it('distinguishes a failed observability section from an empty one', async () => {
-    const user = userEvent.setup();
+  it('distinguishes a failed observability section from an empty one', () => {
     renderObservability(
       <ClioObservabilityView
         artifacts={[]}
         contextFiles={[]}
         contextFrames={[]}
         diffs={[]}
-        diffsError="The service could not read session diffs: 500"
         messages={[]}
         processes={[]}
         processesError="The service could not read background work: 500"
@@ -51,10 +50,8 @@ describe('ClioObservabilityView provenance and section states', () => {
       />,
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Background work unavailable')).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
-    expect(screen.getByText('File changes unavailable')).toBeVisible();
   });
 
   it('labels containing-turn placement inline without a global timing warning', async () => {
@@ -97,6 +94,54 @@ describe('ClioObservabilityView provenance and section states', () => {
     expect(screen.getByText('Campaign health')).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
     expect(screen.getByTitle('Observed in its containing turn')).toHaveTextContent('In this turn');
+  });
+
+  it('names a failed step in words beside its label, not only with the status icon', () => {
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[
+          {
+            id: 'message_1',
+            session_id: 'sess_1',
+            role: 'assistant',
+            created_at: '2026-08-22T12:00:00Z',
+            blocks: [
+              { id: 'block_1', type: 'tool', tool_id: 'tool_ok' },
+              { id: 'block_2', type: 'tool', tool_id: 'tool_bad' },
+            ],
+          },
+        ]}
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[
+          {
+            id: 'tool_ok',
+            session_id: 'sess_1',
+            name: 'campaign_health',
+            title: 'Campaign health',
+            state: 'succeeded',
+          },
+          {
+            id: 'tool_bad',
+            session_id: 'sess_1',
+            name: 'fetch_sites',
+            title: 'Fetch sites',
+            state: 'failed',
+          },
+        ]}
+      />,
+    );
+
+    const failed = screen.getByText('Fetch sites').parentElement!;
+    expect(failed).toHaveTextContent(/Fetch sites\s*Failed/u);
+    const succeeded = screen.getByText('Campaign health').parentElement!;
+    expect(succeeded).not.toHaveTextContent(/Succeeded|Completed/u);
   });
 
   it('switches authoritative provenance providers and exposes artifact custody', async () => {
@@ -150,7 +195,6 @@ describe('ClioObservabilityView provenance and section states', () => {
     await user.click(screen.getByRole('option', { name: /Flowcept/u }));
     expect(onProviderChange).toHaveBeenCalledWith('flowcept');
 
-    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
     expect(screen.getByText('Evidence sources')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'About evidence records' }));
     expect(screen.getByText('Artifact relationships')).toBeVisible();
@@ -236,11 +280,6 @@ describe('ClioObservabilityView provenance and section states', () => {
       if (provider === 'native') expect(screen.queryByText('arc+jsonl')).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Technical details' }));
       expect(screen.getByText(/provider marked the snapshot incomplete/u)).toBeVisible();
-      await user.click(screen.getByRole('button', { name: 'View activity timeline' }));
-      expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
     },
   );
 
@@ -419,8 +458,8 @@ describe('ClioObservabilityView provenance and section states', () => {
     expect(labels).toEqual([
       'Open transcript event Researcher A',
       'Open transcript event Reviewer B',
-      'Open transcript event Reviewer B',
-      'Open transcript event Researcher A',
+      'Open transcript event Reviewer B returned',
+      'Open transcript event Researcher A returned',
       'Open transcript event Wait',
       'Open transcript event Collect Reviewer B',
       'Open transcript event Collect Researcher A',

@@ -1,214 +1,48 @@
-import type { AgentResolution, SessionAgent } from '@clio/core/v3';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import type { SessionAgent } from '@clio/core/v3';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  addHdf5,
+  agentRepository as repository,
+  agentTranscript as transcript,
+  emptyDelta,
+  openUse,
+  renderAgentView,
+  resolution,
+  seedAgentRepository,
+  sessionAgent,
+} from '@/test-fixtures/agent-tab';
 
-const repository = vi.hoisted(() => ({
-  sessionAgent: vi.fn(),
-  capabilities: vi.fn(
-    async (): Promise<{ capabilities: Record<string, unknown>; gact_versions: string[] }> => ({
-      capabilities: { x_clio_agent_plugins: true },
-      gact_versions: [],
-    }),
-  ),
-  updateSessionAgent: vi.fn(),
-  plugins: vi.fn(),
-  agents: vi.fn(),
-  previewPluginRemoval: vi.fn(),
-  resolveAgent: vi.fn(),
-  saveUserAgent: vi.fn(),
-  compactSession: vi.fn(),
-}));
-// Messages in the conversation: with any, a plugin change asks first.
-const transcript = vi.hoisted(() => ({ messages: 2 }));
-
-vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/hooks/use-repository', async () => {
+  const { agentRepository } = await import('@/test-fixtures/agent-tab');
+  return { useRepository: () => agentRepository };
+});
+vi.mock(
+  '@/hooks/use-provider-groups',
+  async () => (await import('@/test-fixtures/agent-tab')).providerGroupsMock,
+);
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
-vi.mock('@/hooks/use-session-message-count', () => ({
-  useSessionMessageCount: () => transcript.messages,
-}));
+vi.mock('@/hooks/use-session-message-count', async () => {
+  const { agentTranscript } = await import('@/test-fixtures/agent-tab');
+  return { useSessionMessageCount: () => agentTranscript.messages };
+});
 vi.mock('sonner', () => ({
   toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 import { AgentCompositionView, DraftAgentCompositionView } from './agent-composition-view';
-import { SessionAgentControl } from './session-agent-control';
-
-function plugin(
-  id: string,
-  provenance: AgentResolution['plugins'][number]['provenance'],
-  extra: Partial<AgentResolution['plugins'][number]> = {},
-): AgentResolution['plugins'][number] {
-  return {
-    id,
-    version: '1.0.0',
-    kind: 'plugin',
-    marketplace: 'clio',
-    description: `${id} plugin`,
-    provenance,
-    requires: [],
-    members: [],
-    removable: true,
-    ...extra,
-  };
-}
-
-const emptyDelta = { add: [], remove: [] };
-
-const resolution: AgentResolution = {
-  agent: {
-    ref: 'clio/standard',
-    id: 'standard',
-    name: 'CLIO',
-    role: 'a scientific assistant',
-    description: '',
-    version: '1.0.0',
-    marketplace: 'clio',
-    parent: '',
-    kind: 'agent',
-  },
-  plugins: [
-    plugin('core', { source: 'core', via: 'core', label: 'core' }, { removable: false }),
-    plugin('shell', { source: 'agent', via: 'standard', label: 'standard' }),
-    plugin(
-      'documents',
-      { source: 'agent', via: 'standard', label: 'standard' },
-      { kind: 'pack', members: ['pdf', 'xlsx'] },
-    ),
-    plugin(
-      'pdf',
-      { source: 'pack', via: 'documents', label: 'pack documents' },
-      { requires: ['document-runtime'] },
-    ),
-    plugin('document-runtime', { source: 'required', via: 'pdf', label: 'required by pdf' }),
-  ],
-  removed: [],
-  tools: [
-    { name: 'shell_run', plugin: 'shell', description: '' },
-    { name: 'prepare_document', plugin: 'document-runtime', description: '' },
-  ],
-  skills: [{ id: 'gh-releases', plugin: 'shell', description: 'Cut a release with gh.' }],
-  subagents: [],
-  flows: [],
-  hooks: [],
-  commands: [],
-  catalogs: [],
-  mcp_servers: { 'pdf-reader': { plugin: 'pdf', spec: { type: 'stdio' } } },
-  prompt: {
-    sections: [
-      {
-        section: 'identity',
-        fragments: [
-          {
-            id: 'standard.identity',
-            plugin: 'agent:standard',
-            section: 'identity',
-            text: 'You are CLIO.',
-          },
-        ],
-      },
-      {
-        section: 'capabilities',
-        fragments: [
-          {
-            id: 'shell.prefer-gh',
-            plugin: 'shell',
-            section: 'capabilities',
-            text: 'Prefer gh.',
-            tokens: 12,
-          },
-        ],
-      },
-    ],
-    digest: 'd',
-    warnings: [],
-  },
-  delta: { add: [], remove: ['xlsx'] },
-  diagnostics: [],
-  digest: 'r',
-};
-
-const sessionAgent: SessionAgent = {
-  session_id: 'sess_1',
-  delta: { add: [], remove: ['xlsx'] },
-  subagent: false,
-  resolution,
-  prompt_basis: {
-    digest: 'r',
-    pending: false,
-    added: [],
-    removed: [],
-    skills_now: [],
-    tools_unlisted: [],
-    tools_still_listed: [],
-  },
-};
 
 function renderView(view = <AgentCompositionView sessionId="sess_1" />) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <MemoryRouter>
-      <QueryClientProvider client={client}>
-        <TooltipProvider>{view}</TooltipProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
+  return renderAgentView(view);
 }
 
-/** Opens the + menu and picks hdf5; returns the warning dialog. */
-async function addHdf5(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
-  await user.click(await screen.findByRole('option', { name: /hdf5/u }));
-  return screen.findByRole('alertdialog');
-}
-
-beforeEach(() => {
-  transcript.messages = 2;
-  repository.sessionAgent.mockResolvedValue(sessionAgent);
-  repository.agents.mockResolvedValue([
-    { ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' },
-  ]);
-  repository.plugins.mockResolvedValue({
-    plugins: [
-      {
-        id: 'hdf5',
-        ref: 'clio/hdf5',
-        version: '1.0.0',
-        description: 'Read HDF5 files',
-        kind: 'plugin',
-        format: 'agent-plugins',
-        marketplace: 'clio',
-        requires: [],
-        members: [],
-        tools: [],
-        skills: [],
-        mcp_servers: [],
-        subagents: [],
-        flows: [],
-        hooks: [],
-        commands: [],
-        catalogs: [],
-        fragments: [],
-        trusted: true,
-        pending_trust: false,
-        diagnostics: [],
-      },
-    ],
-    default_marketplace_error: null,
-  });
-  repository.updateSessionAgent.mockImplementation(
-    async (_sid: string, input: { delta?: SessionAgent['delta'] }) => ({
-      ...sessionAgent,
-      delta: input.delta ?? sessionAgent.delta,
-    }),
-  );
-});
+// The drill-in is a lazy chunk; load it once so the first test does not wait on a cold import.
+beforeAll(() => import('./agent-tab-drill-in'));
+beforeEach(seedAgentRepository);
 
 afterEach(() => {
   cleanup();
@@ -217,9 +51,11 @@ afterEach(() => {
 
 describe('AgentCompositionView', () => {
   it('shows every active plugin with its provenance and nests pack members under their pack', async () => {
+    const user = userEvent.setup();
     renderView();
+    await openUse(user);
     const active = await screen.findByRole('list', { name: 'Active plugins' });
-    expect(within(active).getByText('Core')).toBeVisible();
+    expect(within(active).getByText('Built in')).toBeVisible();
     expect(within(active).getAllByText('From standard')).toHaveLength(2);
     expect(within(active).getByText('Required by pdf')).toBeVisible();
     const members = within(active).getByRole('list', { name: 'Members of documents' });
@@ -231,7 +67,9 @@ describe('AgentCompositionView', () => {
   });
 
   it('summarizes what each plugin adds on its line', async () => {
+    const user = userEvent.setup();
     renderView();
+    await openUse(user);
     const active = await screen.findByRole('list', { name: 'Active plugins' });
     expect(within(active).getByText('1 tool, 1 skill, 1 prompt part')).toBeVisible();
     expect(within(active).getByText('1 MCP server')).toBeVisible();
@@ -242,6 +80,7 @@ describe('AgentCompositionView', () => {
   it('expands a plugin to the details the resolution reports and collapses it again', async () => {
     const user = userEvent.setup();
     renderView();
+    await openUse(user);
     const toggle = await screen.findByRole('button', { name: 'shell' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('group', { name: 'shell details' })).toBeNull();
@@ -263,6 +102,7 @@ describe('AgentCompositionView', () => {
   it('expands pack members by keyboard and names requirements both ways', async () => {
     const user = userEvent.setup();
     renderView();
+    await openUse(user);
     const members = await screen.findByRole('list', { name: 'Members of documents' });
     within(members).getByRole('button', { name: 'pdf' }).focus();
     await user.keyboard('{Enter}');
@@ -281,6 +121,7 @@ describe('AgentCompositionView', () => {
   it('expands and collapses every plugin at once', async () => {
     const user = userEvent.setup();
     renderView();
+    await openUse(user);
     await user.click(await screen.findByRole('button', { name: 'Expand all' }));
     expect(screen.getAllByRole('group', { name: / details$/u })).toHaveLength(4);
     expect(screen.getByRole('list', { name: 'Members of documents' })).toBeVisible();
@@ -291,6 +132,7 @@ describe('AgentCompositionView', () => {
   });
 
   it('says a pack left because none of its members remain', async () => {
+    const user = userEvent.setup();
     repository.sessionAgent.mockResolvedValue({
       ...sessionAgent,
       resolution: {
@@ -302,6 +144,7 @@ describe('AgentCompositionView', () => {
       },
     });
     renderView();
+    await openUse(user);
     const removed = await screen.findByRole('region', { name: 'Removed plugins' });
     expect(within(removed).getByText('Left because none of its members remain')).toBeVisible();
     expect(
@@ -321,6 +164,7 @@ describe('AgentCompositionView', () => {
       tools_removed: ['prepare_document'],
     });
     renderView();
+    await openUse(user);
     await user.click(await screen.findByRole('button', { name: 'Remove document-runtime' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
@@ -401,6 +245,7 @@ describe('AgentCompositionView', () => {
     transcript.messages = 0;
     const user = userEvent.setup();
     renderView();
+    await openUse(user, 'Tools', false);
     await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
     await user.click(await screen.findByRole('option', { name: /hdf5/u }));
     await waitFor(() =>
@@ -419,6 +264,7 @@ describe('AgentCompositionView', () => {
       () => new Promise<SessionAgent>((resolve) => (finish = resolve)),
     );
     renderView();
+    await openUse(user);
     await user.click(await screen.findByRole('button', { name: 'Add back' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Yes, after compaction' }));
@@ -462,6 +308,7 @@ describe('AgentCompositionView', () => {
     });
     repository.compactSession.mockResolvedValue({ session_id: 'sess_1', compacted: true });
     renderView();
+    await openUse(user);
     const notice = await screen.findByRole('region', {
       name: 'Plugin changes waiting for compaction',
     });
@@ -485,11 +332,11 @@ describe('AgentCompositionView', () => {
   it('switches the conversation agent only after the warning', async () => {
     const user = userEvent.setup();
     repository.agents.mockResolvedValue([
-      { ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' },
+      { ref: 'clio/standard', id: 'standard', name: 'Standard', plugins: [], kind: 'agent' },
       { ref: 'clio/science', id: 'science', name: 'Scientist', plugins: [], kind: 'agent' },
     ]);
     renderView();
-    await user.click(await screen.findByRole('button', { name: 'Switch agent' }));
+    await user.click(await screen.findByRole('button', { name: /^Setup: Standard/u }));
     await user.click(await screen.findByRole('option', { name: /Scientist/u }));
     const dialog = await screen.findByRole('alertdialog');
     expect(
@@ -507,38 +354,6 @@ describe('AgentCompositionView', () => {
     );
   });
 
-  it('uses Customize in the header and confirms an agent selection before applying it', async () => {
-    const user = userEvent.setup();
-    const onOpenAgent = vi.fn();
-    repository.agents.mockResolvedValue([
-      { ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' },
-      { ref: 'clio/science', id: 'science', name: 'Scientist', plugins: [], kind: 'agent' },
-    ]);
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await user.click(await screen.findByRole('button', { name: 'Customize the agent (1 change)' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Add a plugin to this conversation' })).toBeNull();
-    const picker = screen.getByRole('combobox', { name: 'Conversation agent' });
-    await screen.findByRole('option', { name: 'Scientist' });
-    await user.selectOptions(picker, 'clio/science');
-    let dialog = await screen.findByRole('alertdialog');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    expect(picker).toHaveValue('clio/standard');
-    await user.click(within(dialog).getByRole('button', { name: 'No' }));
-    expect(picker).toHaveValue('clio/standard');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    await user.selectOptions(picker, 'clio/science');
-    dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, as an injection' }));
-    await waitFor(() =>
-      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
-        ref: 'clio/science',
-        delta: emptyDelta,
-        apply: 'note',
-      }),
-    );
-  });
-
   it('saves the composition as a user agent: parent plus delta', async () => {
     const user = userEvent.setup();
     repository.saveUserAgent.mockResolvedValue({
@@ -549,7 +364,7 @@ describe('AgentCompositionView', () => {
       plugins: [],
     });
     renderView();
-    await user.click(await screen.findByRole('button', { name: 'Save as agent' }));
+    await user.click(await screen.findByRole('button', { name: 'Save as a setup…' }));
     await user.type(screen.getByRole('textbox', { name: 'Agent name' }), 'My analyst');
     expect(screen.getByText('Saved as user/my-analyst.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Save agent' }));
@@ -569,20 +384,20 @@ describe('AgentCompositionView', () => {
   it('attributes every prompt fragment to its plugin', async () => {
     const user = userEvent.setup();
     renderView();
-    await user.click(await screen.findByRole('tab', { name: 'Prompt' }));
+    await openUse(user, 'Instructions');
     expect(
       await screen.findByRole('article', { name: 'shell.prefer-gh from shell' }),
     ).toHaveTextContent('Prefer gh.');
     expect(
       screen.getByRole('article', { name: 'standard.identity from Agent standard' }),
-    ).toHaveTextContent('You are CLIO.');
+    ).toHaveTextContent('You are the standard agent.');
     expect(screen.getByRole('region', { name: 'Capabilities section' })).toBeVisible();
   });
 
   it('folds each prompt fragment to one line and searches them', async () => {
     const user = userEvent.setup();
     renderView();
-    await user.click(await screen.findByRole('tab', { name: 'Prompt' }));
+    await openUse(user, 'Instructions');
     const shell = await screen.findByRole('article', { name: 'shell.prefer-gh from shell' });
     const row = within(shell).getByRole('button');
     expect(row).toHaveAttribute('aria-expanded', 'false');
@@ -598,28 +413,112 @@ describe('AgentCompositionView', () => {
 
   it('says so instead of calling plugin routes when the service lacks agent plugins', async () => {
     repository.capabilities.mockResolvedValueOnce({ capabilities: {}, gact_versions: [] });
-    renderView();
+    const { container } = renderView();
     expect(await screen.findByText('Agents are not composable here')).toBeVisible();
+    expect(container.querySelector('[data-slot="state-view"]')).toHaveAttribute(
+      'data-kind',
+      'unavailable',
+    );
     expect(repository.sessionAgent).not.toHaveBeenCalled();
     expect(repository.plugins).not.toHaveBeenCalled();
   });
 
   it('keeps a defined subagent read-only', async () => {
+    const user = userEvent.setup();
     repository.sessionAgent.mockResolvedValue({ ...sessionAgent, subagent: true });
     renderView();
     expect(await screen.findByText(/runs a defined subagent/u)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Setup:/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save as a setup…' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset to setup' })).toBeNull();
+    await openUse(user);
     expect(screen.queryByRole('button', { name: 'Add plugin' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove shell' })).toBeNull();
   });
 
-  it('keeps the header selector read-only for a defined subagent while allowing its details to open', async () => {
-    repository.sessionAgent.mockResolvedValue({ ...sessionAgent, subagent: true });
-    const onOpenAgent = vi.fn();
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'View agent' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.getByRole('combobox', { name: 'Conversation agent' })).toBeDisabled();
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  it('lays out the agent as the setup it runs with and what it can use', async () => {
+    const { container } = renderView();
+    const grid = (label: string) =>
+      container.querySelector<HTMLElement>(`dl[aria-label="${label}"]`)!;
+    expect(await screen.findByRole('heading', { name: 'Agent for Station review' })).toBeVisible();
+    expect(screen.getByText('Changed settings are teal')).toBeVisible();
+    const runs = grid('Runs with');
+    expect(within(runs).getByRole('button', { name: 'Setup: Standard' })).toBeVisible();
+    expect(
+      await within(runs).findByRole('button', { name: 'Model: OpenRouter / mercury-3' }),
+    ).toBeVisible();
+    expect(within(runs).getByText(/Medium/u)).toBeVisible();
+    expect(within(runs).getByRole('button', { name: 'Permissions: Ask first' })).toBeVisible();
+    const uses = grid('What it can use');
+    expect(
+      await within(uses).findByRole('button', {
+        name: 'Tools: 2 of 3, changed for this conversation',
+      }),
+    ).toHaveClass('text-changed');
+    expect(within(uses).getByRole('button', { name: 'Subagents: None' })).toBeVisible();
+    expect(within(uses).getByRole('button', { name: 'Skills: gh-releases' })).toBeVisible();
+    expect(
+      within(uses).getByRole('button', { name: 'Instructions: 2 prompt parts' }),
+    ).toBeVisible();
+    expect(repository.resolveAgent).toHaveBeenCalledWith(
+      'clio/standard',
+      emptyDelta,
+      expect.anything(),
+    );
+    expect(screen.getByText('This conversation changes Standard: removes xlsx.')).toBeVisible();
+  });
+
+  it('opens a drill-in with the plugins that add it and returns to its row', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await openUse(user, 'Skills', false);
+    const active = await screen.findByRole('list', { name: 'Active plugins' });
+    expect(within(active).getByRole('button', { name: 'shell' })).toBeVisible();
+    expect(within(active).queryByRole('button', { name: 'core' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back to the agent' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Skills: gh-releases' })).toHaveFocus(),
+    );
+  });
+
+  it('resets the conversation to its setup after the warning', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(await screen.findByRole('button', { name: 'Reset to setup' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByText('Restores Standard’s plugins in this conversation.'),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
+    await waitFor(() =>
+      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
+        delta: emptyDelta,
+        apply: 'now',
+      }),
+    );
+  });
+
+  it('changes the conversation’s confirmations from the Permissions row', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(await screen.findByRole('button', { name: 'Permissions: Ask first' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Workspace edits/u }));
+    await waitFor(() =>
+      expect(repository.updateSession).toHaveBeenCalledWith('sess_1', {
+        approval_mode: 'auto-edits',
+      }),
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Permissions: Workspace edits, changed for this conversation',
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /^Permissions: Workspace edits/u }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Bypass checks/u }));
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent(
+      'The agent may perform supported actions without asking first.',
+    );
+    expect(repository.updateSession).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -634,7 +533,13 @@ describe('the agent of a conversation not yet started', () => {
   }
 
   it('resolves the chosen agent with its changes, without a session', async () => {
+    const user = userEvent.setup();
     renderDraft();
+    expect(
+      await screen.findByRole('heading', { name: 'Agent for a new conversation' }),
+    ).toBeVisible();
+    expect(screen.getAllByTitle('Choose it in the message box before you send')).toHaveLength(2);
+    await openUse(user);
     expect(await screen.findByRole('list', { name: 'Active plugins' })).toBeVisible();
     expect(repository.resolveAgent).toHaveBeenCalledWith(
       'clio/standard',
@@ -647,6 +552,7 @@ describe('the agent of a conversation not yet started', () => {
   it('adds a plugin at once: nothing is cached before the first message', async () => {
     const user = userEvent.setup();
     const onChange = renderDraft();
+    await openUse(user, 'Tools', false);
     await user.click(await screen.findByRole('button', { name: 'Add plugin' }));
     await user.click(await screen.findByRole('option', { name: /hdf5/u }));
     await waitFor(() =>
@@ -670,6 +576,7 @@ describe('the agent of a conversation not yet started', () => {
       tools_removed: ['prepare_document'],
     });
     const onChange = renderDraft();
+    await openUse(user);
     await user.click(await screen.findByRole('button', { name: 'Remove document-runtime' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(await within(dialog).findByText('requires document-runtime')).toBeVisible();
@@ -682,5 +589,137 @@ describe('the agent of a conversation not yet started', () => {
       }),
     );
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  });
+});
+
+describe('an agent explored from the library', () => {
+  const draft = { ref: 'clio/standard', delta: { add: [], remove: ['xlsx'] } };
+  const library = {
+    ...resolution,
+    subagents: [
+      { id: 'pdf-reviewer', plugin: 'pdf', description: 'Reviews a PDF page by page.' },
+      { id: 'release-helper', plugin: 'shell', description: 'Cuts a release.' },
+    ],
+  };
+
+  beforeEach(() => repository.resolveAgent.mockResolvedValue(library));
+
+  function renderLibrary(onChange = vi.fn()) {
+    renderView(<DraftAgentCompositionView draft={draft} library onChange={onChange} />);
+    return onChange;
+  }
+
+  it('leads with the packages it is built from and opens its full prompt', async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    const packages = await screen.findByRole('group', { name: 'Packages' });
+    for (const id of ['shell', 'documents', 'pdf'])
+      expect(within(packages).getByRole('button', { name: id })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Tools:/u })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    expect(await screen.findByText('You are the standard agent.')).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Packages' })).toBeNull();
+  });
+
+  it('shows only what a package brings in the chosen category, each opening its details', async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    await user.click(await screen.findByRole('radio', { name: 'Subagents' }));
+    const packages = screen.getByRole('group', { name: 'Packages' });
+    expect(within(packages).queryByRole('button', { name: 'documents' })).toBeNull();
+    await user.click(within(packages).getByRole('button', { name: 'pdf' }));
+    const brings = screen.getByRole('region', { name: 'pdf brings this subagent' });
+    expect(within(brings).getByRole('button', { name: 'pdf-reviewer' })).toBeVisible();
+    expect(within(brings).queryByText('pdf-reader')).toBeNull();
+    expect(within(brings).queryByText('release-helper')).toBeNull();
+    await user.click(within(brings).getByRole('button', { name: 'pdf-reviewer' }));
+    const detail = await screen.findByRole('region', { name: 'Subagent pdf-reviewer' });
+    expect(within(detail).getByText('Reviews a PDF page by page.')).toBeVisible();
+    await user.click(within(detail).getByRole('button', { name: 'Back to packages' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'pdf-reviewer' })).toHaveFocus());
+    expect(screen.getByRole('radio', { name: 'Subagents' })).toBeChecked();
+  });
+
+  it('folds a narrow category filter to the current category and ⋯', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly report: ResizeObserverCallback) {}
+        observe() {
+          const box = [{ inlineSize: 150, blockSize: 28 }];
+          this.report(
+            [{ contentRect: { width: 150 }, borderBoxSize: box, contentBoxSize: box }] as never,
+            this as never,
+          );
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      renderLibrary();
+      await screen.findByRole('group', { name: 'Packages' });
+      const filter = screen.getByRole('radiogroup', { name: 'Show what packages bring' });
+      expect(
+        within(filter)
+          .getAllByRole('radio')
+          .map((radio) => radio.textContent),
+      ).toEqual(['All']);
+      await user.click(screen.getByRole('button', { name: 'Other categories' }));
+      await user.click(await screen.findByRole('menuitemradio', { name: 'Subagents' }));
+      expect(await screen.findByRole('radio', { name: 'Subagents' })).toBeChecked();
+      expect(
+        within(screen.getByRole('group', { name: 'Packages' })).queryByRole('button', {
+          name: 'documents',
+        }),
+      ).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('opens the prompt in a pane without an empty header, Back focused without its name', async () => {
+    const user = userEvent.setup();
+    renderView(
+      <DraftAgentCompositionView
+        draft={{ ref: 'clio/standard', delta: { add: [], remove: [] } }}
+        embedded
+        library
+        onChange={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Prompt' }));
+    expect(await screen.findByText('You are the standard agent.')).toBeVisible();
+    expect(screen.queryByText('Changed settings are teal')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back to the agent' })).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('adds and removes packages from the list', async () => {
+    const user = userEvent.setup();
+    repository.previewPluginRemoval.mockResolvedValue({
+      plugin: 'shell',
+      removes: [{ id: 'shell', reason: { reason: 'removed', because: '' } }],
+      tools_removed: ['shell_run'],
+    });
+    const onChange = renderLibrary();
+    await user.click(await screen.findByRole('button', { name: 'Add package' }));
+    await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove shell' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: [], remove: ['xlsx', 'shell'] },
+      }),
+    );
   });
 });

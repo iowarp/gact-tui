@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useKeyPlatform } from '@/lib/shortcuts/hooks';
+import { gestureModifiers } from '@/lib/shortcuts/keys';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
@@ -7,6 +9,7 @@ import { MousePointerSquareDashedIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { ChartDataNotice } from './chart-data-notice';
+import { ChartHeader } from './a2ui-chart-header';
 import { ChartZoomActions } from './chart-zoom-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -50,6 +53,7 @@ import {
   isContinuousAxis,
 } from './chart-view-helpers';
 import { buildSpec, distinctFieldValues } from './chart-spec-build';
+import { useDashboardChartSpec, useDashboardPresentation } from './dashboard-presentation';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { dataViewFlexStyle } from './data-view-layout';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
@@ -114,6 +118,7 @@ const DEFAULT_CHART_HEIGHT = 320;
 
 /** A Vega-Lite chart over inline or artifact rows, with a selection linkable across components. */
 export function ClioChart(props: ClioChartProps) {
+  const keys = gestureModifiers(useKeyPlatform());
   const { accessibility, componentId, height = DEFAULT_CHART_HEIGHT, title, weight } = props;
   const { entityField, facetField, preset, xType } = props;
   const xField = props.xField ?? chartChannelField(props.spec, 'x');
@@ -294,16 +299,18 @@ export function ClioChart(props: ClioChartProps) {
     return () => observer.disconnect();
   }, [fullscreen, boxplotWidthLimit]);
   const renderer = useMemo<ChartRenderer>(() => (canvasAvailable() ? 'canvas' : 'svg'), []);
+  const dashboard = useDashboardPresentation();
+  const presented = useDashboardChartSpec(built.spec);
   const spec = useMemo(
     () =>
-      built.spec
+      presented.spec
         ? preset === 'trajectories' || preset === 'spectra'
           ? withChartLinePointTargets(
-              withChartPointSelection(built.spec, param, markSelectionField),
+              withChartPointSelection(presented.spec, param, markSelectionField),
             )
-          : withChartPointSelection(built.spec, param, selectionField)
+          : withChartPointSelection(presented.spec, param, selectionField)
         : undefined,
-    [built.spec, markSelectionField, param, preset, selectionField],
+    [presented.spec, markSelectionField, param, preset, selectionField],
   );
   const hasRows = rows !== undefined;
   const boxSelectionInjection = useMemo(
@@ -646,7 +653,7 @@ export function ClioChart(props: ClioChartProps) {
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom">
             {selectsSeries
-              ? 'Drag to select points. Ctrl-drag selects whole curves. Shift adds or removes.'
+              ? `Drag to select points. ${keys.primary}-drag selects whole curves. Shift adds or removes.`
               : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
           </TooltipContent>
         </Tooltip>
@@ -676,7 +683,7 @@ export function ClioChart(props: ClioChartProps) {
       linkable && selectionField ? (
         <span>
           {zoomParam
-            ? 'Click a point to select it. Ctrl-click selects its curve. Shift-click toggles a point; Ctrl+Shift-click merges or removes a curve. Drag selects points; Ctrl-drag selects curves. Alt+drag pans and Ctrl+wheel zooms.'
+            ? `Click a point to select it. ${keys.primary}-click selects its curve. Shift-click toggles a point; ${keys.primaryShift}-click merges or removes a curve. Drag selects points; ${keys.primary}-drag selects curves. ${keys.alt}-drag pans and ${keys.primary}-scroll zooms.`
             : 'Choose Box select or hold Shift and drag to select matching rows.'}
         </span>
       ) : undefined,
@@ -686,26 +693,27 @@ export function ClioChart(props: ClioChartProps) {
     <section
       {...a2uiAccessibilityProps(accessibility)}
       aria-label={label}
-      className="group relative min-w-0"
+      className="group group/chart relative min-w-0 outline-none"
       data-slot="a2ui-chart"
       data-a2ui-component-id={componentId}
       data-visual-state={failure ? 'failed' : loading ? 'loading' : 'ready'}
       role="group"
       style={dataViewFlexStyle(weight)}
+      // A tap focuses a dashboard chart, which reveals its actions in a narrow pane on touch.
+      tabIndex={dashboard ? -1 : undefined}
     >
-      <div className="mb-2 flex min-w-0 items-start gap-3">
-        <h3
-          className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
-          title={heading}
-        >
-          {heading}
-        </h3>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {renderBoxSelectAction()}
-          {renderZoomActions()}
-          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-        </div>
-      </div>
+      <ChartHeader
+        dashboard={dashboard}
+        heading={heading}
+        caption={presented.caption}
+        actions={
+          <>
+            {renderBoxSelectAction()}
+            {renderZoomActions()}
+            <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+          </>
+        }
+      />
       {refreshing ? <LoadingFeedback label="Updating chart…" /> : null}
       <SurfaceFullScreenHost
         fullscreen={fullscreen}

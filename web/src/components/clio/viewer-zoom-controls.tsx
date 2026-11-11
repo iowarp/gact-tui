@@ -1,54 +1,100 @@
 import { ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, useMemo, useRef, type ReactNode } from 'react';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { FileViewerInformationHost } from './file-viewer-context';
+import { frameKeyRegion } from './file-viewer-modes';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
-/** Zoom controls stay in one place at every width; the percentage button resets the view. */
+/**
+ * A viewer's two zoom icons in the frame's Format: zoom out, zoom in. A
+ * renderer hands the bar at most two icons, so readouts (zoom %, "3 / 12")
+ * are the renderer's facts, and fitting is where zooming out stops. Outside a
+ * frame they make the viewer's own single row, after its readout (`children`).
+ * + − 0 zoom in, out and back to fit while focus is in the viewer showing them.
+ */
 export function ViewerZoomControls({
-  percent,
   onIn,
   onOut,
-  onFit,
-  labels,
+  onReset,
+  label,
   disabledIn = false,
   disabledOut = false,
-  inline = false,
+  readout,
+  children,
 }: {
-  percent: number;
   onIn: () => void;
   onOut: () => void;
-  onFit: () => void;
-  labels: { in: string; out: string; reset: string; fit: string; menu: string; group?: string };
+  /** Back to the fitted view; the 0 key. */
+  onReset?: () => void;
+  /** Accessible name of the group ("Image zoom"). */
+  label: string;
   disabledIn?: boolean;
   disabledOut?: boolean;
-  inline?: boolean;
+  /** A position between the icons, as the document bar draws "3 / 12" (frame-bar 07). */
+  readout?: ReactNode;
+  /** What a standalone row shows before the icons; in a frame these are facts. */
+  children?: ReactNode;
 }) {
-  const shared = useContext(FileViewerInformationHost) !== undefined;
+  const framed = useContext(FileViewerInformationHost) !== undefined;
   const host = useContext(ViewerToolbarHost);
+  const group = useRef<HTMLDivElement>(null);
+  // The keys answer where the frame's own keys do, also while a narrow bar folds the
+  // icons away, but not under Lineage, which hides the renderer and its tools.
+  const region = useMemo(
+    () => ({
+      get current(): Element | null {
+        const element = group.current;
+        if (!element?.isConnected) return null;
+        const frame = element.closest('[data-slot="file-viewer"]');
+        if (!frame) return element.getClientRects().length ? element.parentElement : null;
+        const tools = element.closest('[data-slot="frame-format-host"]');
+        return tools?.classList.contains('hidden') ? null : frameKeyRegion(frame);
+      },
+    }),
+    [],
+  );
+  useShortcut('view-zoom-in', () => !disabledIn && onIn(), { region });
+  useShortcut('view-zoom-out', () => !disabledOut && onOut(), { region });
+  useShortcut('view-zoom-fit', () => onReset?.(), { region, enabled: Boolean(onReset) });
+  // The frame's Format host mounts after the renderer; wait for it rather than drawing a row.
+  if (framed && !host) return null;
   return (
-    <ViewerToolbarContent inline={inline}>
+    <ViewerToolbarContent>
       <div
+        ref={group}
         className={cn(
-          'flex shrink-0 items-center gap-0.5',
-          ((!shared && !host) || inline) && 'h-9 border-b px-2',
+          'flex shrink-0 items-center gap-px',
+          !host && 'h-[34px] justify-end border-b border-border px-1.5',
         )}
         data-slot="viewer-zoom-controls"
         role="group"
-        aria-label={labels.group || 'Image zoom'}
+        aria-label={label}
       >
-        <ToolbarAction label={labels.out} disabled={disabledOut} onClick={onOut}>
+        {framed ? null : children}
+        <ToolbarAction
+          label="Zoom out"
+          shortcut="view-zoom-out"
+          disabled={disabledOut}
+          onClick={onOut}
+        >
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>
+        {framed && readout ? (
+          <span
+            className="flex shrink-0 items-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums"
+            data-slot="viewer-zoom-readout"
+          >
+            {readout}
+          </span>
+        ) : null}
         <ToolbarAction
-          label={labels.reset}
-          className="w-10 text-xs tabular-nums text-muted-foreground @max-[360px]/viewer:w-8"
-          onClick={onFit}
+          label="Zoom in"
+          shortcut="view-zoom-in"
+          disabled={disabledIn}
+          onClick={onIn}
         >
-          {Math.round(percent)}%
-        </ToolbarAction>
-        <ToolbarAction label={labels.in} disabled={disabledIn} onClick={onIn}>
           <ZoomInIcon aria-hidden="true" />
         </ToolbarAction>
       </div>

@@ -21,8 +21,17 @@ export const COLOR_TOKENS = [
   'secondary-foreground',
   'muted',
   'muted-foreground',
+  // Workbench chrome: rules and line numbers (never body text), row hover,
+  // menu highlight, and the key chip that shows a keyboard shortcut
+  'faint',
+  'hover',
+  'menu-highlight',
+  'key',
+  'key-border',
   'accent',
   'accent-foreground',
+  // The edge of a selected accent chip
+  'accent-border',
   'border',
   'input',
   'ring',
@@ -33,6 +42,9 @@ export const COLOR_TOKENS = [
   'primary',
   'primary-foreground',
   'action',
+  // The agent's question to you: the ask card's edge and icon. A brand accent may restyle
+  // `action`, never this.
+  'question',
   // Sidebar
   'sidebar',
   'sidebar-foreground',
@@ -45,12 +57,18 @@ export const COLOR_TOKENS = [
   // Outcomes. Refuted is a science state, not an error, so it is not `destructive`.
   'destructive',
   'destructive-foreground',
+  // Destructive text. Dark lightens it to keep 4.5:1 on menus; icons and fills keep `destructive`.
+  'destructive-text',
   'info',
   'info-foreground',
   'success',
   'success-foreground',
   'warning',
   'warning-foreground',
+  // A value changed from its setup default (the Agent tab's teal rows)
+  'changed',
+  // The faint ring a busy spinner's arc turns on
+  'spin-track',
   // Science states: a tint for the chip or node and a text color for its label and icon
   'status-supported',
   'status-supported-foreground',
@@ -82,6 +100,7 @@ export const COLOR_TOKENS = [
   'scale-low',
   'scale-mid',
   'scale-high',
+  'on-category',
   // Terminals and logs
   'terminal',
   'terminal-foreground',
@@ -130,10 +149,8 @@ export const STATUS_KINDS = ['supported', 'running', 'refuted', 'superseded'] as
 export type StatusKind = (typeof STATUS_KINDS)[number];
 
 export const CATEGORY_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('category-'));
-export const CHART_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('chart-'));
-
 /** A theme's id, which `themes.css` selects with `:root[data-theme='<id>']`. */
-export type ThemeId = 'light' | 'dark' | 'notebook' | 'debug';
+export type ThemeId = 'light' | 'dark' | 'classic-light' | 'classic-dark' | 'debug';
 /** What the person picks. `system` follows the OS between Light and Dark. */
 export type ThemePreference = 'system' | ThemeId;
 
@@ -149,11 +166,7 @@ export interface ThemeDefinition {
 export const THEMES: readonly ThemeDefinition[] = [
   { id: 'light', label: 'Light', scheme: 'light' },
   { id: 'dark', label: 'Dark', scheme: 'dark' },
-  { id: 'notebook', label: 'Notebook', scheme: 'system' },
+  { id: 'classic-light', label: 'Cool', scheme: 'light' },
+  { id: 'classic-dark', label: 'Neutral', scheme: 'dark' },
   { id: 'debug', label: 'Debug', scheme: 'system', development: true },
-];
-
-export const THEME_PREFERENCES: readonly ThemePreference[] = [
-  'system',
-  ...THEMES.map((theme) => theme.id),
 ];

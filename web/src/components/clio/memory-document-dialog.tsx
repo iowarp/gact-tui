@@ -1,30 +1,96 @@
 import { refreshAfterMemoryRemoval } from '@/lib/memory-cache';
 import { memoryChanges } from '@/lib/memory-changes';
-import { MemoryFactChanges } from './memory-fact-changes';
 import type { MemoryDocument, MemoryFact, MemoryVersion } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckIcon, HistoryIcon } from 'lucide-react';
+import { CheckIcon, DownloadIcon, HistoryIcon } from 'lucide-react';
 import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
+import {
+  liveFactCount,
+  memoryCategoryIcon,
+  memoryDocumentTitle,
+  memoryErrorText,
+  memoryTime,
+  useMemoryDocumentExport,
+} from './memory-document-helpers';
+import { MemoryFactChanges } from './memory-fact-changes';
 import { MemorySourceIcon } from './memory-source';
 import { MEMORY_CATEGORY_LABELS } from './memory-presentation';
+import { DetailPane } from './primitives/detail-pane';
+import { DialogFrame } from './primitives/dialog-frame';
+import { MemoryErrorLine } from './memory-error-line';
+import { IconButton } from './primitives/icon-button';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { KeyValueGrid } from './primitives/key-value-grid';
+import { SegmentedControl } from './primitives/segmented-control';
+import { Tag } from './primitives/tag';
 
 type SessionHref = (sessionId: string) => string | undefined;
+export type MemoryPaneTab = 'facts' | 'history';
+
+function usageLabel(document: MemoryDocument) {
+  const usage = document.usage;
+  if (!usage || (!usage.read && !usage.loaded)) return 'Not used yet';
+  const parts = [];
+  if (usage.read) parts.push(`read ${usage.read}×`);
+  if (usage.loaded) parts.push(`loaded ${usage.loaded}×`);
+  return `${parts.join(', ')}${usage.last_read ? `; last ${usage.last_read.slice(0, 10)}` : ''}`;
+}
+
+/** Confirms deleting a whole document; the one destructive button in this section. */
+export function MemoryDeleteDialog({
+  document,
+  onOpenChange,
+  onDeleted,
+}: {
+  /** The document to delete; the frame is open while one is given. */
+  document?: MemoryDocument;
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: (name: string) => void;
+}) {
+  const repository = useRepository();
+  const client = useQueryClient();
+  const remove = useMutation({
+    mutationFn: (target: MemoryDocument) =>
+      repository.forgetMemoryDocument(target.name, target.sha),
+    onSuccess: (_result, target) => {
+      void refreshAfterMemoryRemoval(client, target.name);
+      toast.success(`Deleted ${memoryDocumentTitle(target)}`);
+      onOpenChange(false);
+      onDeleted?.(target.name);
+    },
+    onError: (error) => toast.error(memoryErrorText(error)),
+  });
+  const live = document ? liveFactCount(document) : 0;
+  return (
+    <DialogFrame
+      cancelLabel="Keep it"
+      confirm={{
+        label: 'Delete',
+        tone: 'destructive',
+        disabled: remove.isPending,
+        onConfirm: () => {
+          if (document) remove.mutate(document);
+        },
+      }}
+      description={
+        live === 1
+          ? 'The agent forgets its fact and will not learn it again from past conversations.'
+          : `The agent forgets its ${live} facts and will not learn them again from past conversations.`
+      }
+      icon={<DeleteIcon />}
+      onOpenChange={onOpenChange}
+      open={Boolean(document)}
+      title={document ? `Delete ${memoryDocumentTitle(document)}?` : 'Delete memory?'}
+    />
+  );
+}
 
 function FactRow({
   document,
@@ -74,19 +140,20 @@ function FactRow({
       }
     },
   });
+  const error = edit.error ?? forget.error;
   return (
     <li
       aria-current={highlighted ? 'true' : undefined}
       className={cn(
-        'flex items-start gap-2 py-1.5',
-        highlighted && '-mx-2 rounded-md bg-accent px-2 ring-1 ring-primary/60',
+        'group/fact grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-start gap-x-1.5 border-b border-border/70 py-1',
+        highlighted && 'bg-primary/10 shadow-[inset_2px_0_var(--color-primary)]',
       )}
       ref={row}
     >
       <MemorySourceIcon fact={fact} sessionHref={sessionHref(fact.session)} />
       {editing ? (
         <form
-          className="flex min-w-0 flex-1 gap-2"
+          className="col-span-2 flex min-w-0 items-center gap-1"
           onSubmit={(event) => {
             event.preventDefault();
             if (text.trim()) edit.mutate();
@@ -94,155 +161,122 @@ function FactRow({
         >
           <Input
             aria-label="Corrected fact"
+            autoFocus
+            className="h-7 text-[13px]"
             onChange={(event) => setText(event.target.value)}
             value={text}
           />
-          <Button aria-label="Save correction" disabled={edit.isPending} size="icon" type="submit">
-            <CheckIcon aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label="Cancel correction"
+          <IconButton
+            disabled={edit.isPending}
+            icon={<CheckIcon />}
+            label="Save correction"
+            type="submit"
+          />
+          <IconButton
+            icon={<CloseIcon />}
+            label="Cancel correction"
             onClick={() => setEditing(false)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <CloseIcon aria-hidden="true" />
-          </Button>
+          />
         </form>
       ) : (
         <>
-          <p className="min-w-0 flex-1 text-sm leading-6">{fact.text}</p>
-          <Button
-            aria-label={`Correct “${fact.text}”`}
-            onClick={() => setEditing(true)}
-            size="icon"
-            variant="ghost"
-          >
-            <EditIcon aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label={`Forget “${fact.text}”`}
-            disabled={forget.isPending}
-            onClick={() => forget.mutate()}
-            size="icon"
-            variant="ghost"
-          >
-            <DeleteIcon aria-hidden="true" />
-          </Button>
+          <p className="min-w-0 py-0.5 leading-5 break-words">{fact.text}</p>
+          <span className="invisible flex gap-px group-focus-within/fact:visible group-hover/fact:visible">
+            <IconButton
+              icon={<EditIcon />}
+              label={`Correct “${fact.text}”`}
+              onClick={() => setEditing(true)}
+              size="sm"
+            />
+            <IconButton
+              disabled={forget.isPending}
+              icon={<DeleteIcon />}
+              label={`Forget “${fact.text}”`}
+              onClick={() => forget.mutate()}
+              size="sm"
+            />
+          </span>
         </>
       )}
-      {edit.error || forget.error ? (
-        <p className="text-xs text-destructive" role="alert">
-          {(edit.error ?? forget.error)?.message}
+      {error ? (
+        <p className="col-start-2 col-end-4 text-xs text-destructive" role="alert">
+          {memoryErrorText(error)}
         </p>
       ) : null}
     </li>
   );
 }
 
-/** One document: its live facts (editable), with superseded ones collapsed below. */
-export function MemoryDocumentDialog({
-  name,
-  open,
-  onOpenChange,
-  sessionHref,
-  highlight = '',
+function DocumentFacts({
+  document,
+  highlight,
   scopeLabel,
-  onSessionIds,
+  sessionHref,
+  onRemoved,
 }: {
-  name: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  document: MemoryDocument;
+  highlight: string;
+  scopeLabel: string;
   sessionHref: SessionHref;
-  /** The sessions the shown facts came from, so their links can be resolved. */
-  onSessionIds?: (sessionIds: readonly string[]) => void;
-  /** A fact id to scroll to and mark (from a memory notice's "Edit in memory"). */
-  highlight?: string;
-  scopeLabel?: string;
+  onRemoved: () => void;
 }) {
-  const repository = useRepository();
-  const document = useQuery({
-    queryKey: ['memory', 'document', name],
-    queryFn: ({ signal }) => repository.memoryDocument(name, signal),
-    enabled: open,
-  });
-  useEffect(() => {
-    if (document.data) onSessionIds?.(document.data.facts.map((fact) => fact.session));
-  }, [document.data, onSessionIds]);
-  const live = document.data?.facts.filter((fact) => fact.live) ?? [];
-  const superseded = document.data?.facts.filter((fact) => !fact.live) ?? [];
+  const live = document.facts.filter((fact) => fact.live);
+  const superseded = document.facts.filter((fact) => !fact.live);
+  const category = MEMORY_CATEGORY_LABELS[document.category] ?? document.category;
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{document.data?.description || document.data?.slug || 'Memory'}</DialogTitle>
-          <DialogDescription>
-            {document.data
-              ? (scopeLabel ??
-                (document.data.scope === 'user'
-                  ? 'Account memory'
-                  : `Workspace memory: ${document.data.scope.replace('project/', '')}`))
-              : 'Loading…'}
-          </DialogDescription>
-        </DialogHeader>
-        {document.isPending ? <Skeleton className="h-24 w-full" /> : null}
-        {document.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Memory unavailable</AlertTitle>
-            <AlertDescription>{document.error.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        {document.data ? (
-          <div className="grid gap-3">
-            <div className="flex flex-wrap gap-1.5">
-              {(document.data.description || document.data.slug) !==
-              (MEMORY_CATEGORY_LABELS[document.data.category] ?? document.data.category) ? (
-                <Badge variant="outline">
-                  {MEMORY_CATEGORY_LABELS[document.data.category] ?? document.data.category}
-                </Badge>
-              ) : null}
-              {document.data.aliases.map((alias) => (
-                <Badge key={alias} variant="secondary">
-                  {alias}
-                </Badge>
-              ))}
-            </div>
-            {live.length ? (
-              <ul aria-label="Facts" className="divide-y">
-                {live.map((fact) => (
-                  <FactRow
-                    document={document.data}
-                    fact={fact}
-                    highlighted={fact.id === highlight}
-                    key={fact.id}
-                    onRemoved={() => onOpenChange(false)}
-                    sessionHref={sessionHref}
-                  />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">No facts yet.</p>
-            )}
-            {superseded.length ? (
-              <details className="text-sm">
-                <summary className="cursor-pointer text-muted-foreground">
-                  {superseded.length} replaced {superseded.length === 1 ? 'fact' : 'facts'}
-                </summary>
-                <ul className="mt-2 grid gap-1">
-                  {superseded.map((fact) => (
-                    <li className="flex items-start gap-2 text-muted-foreground" key={fact.id}>
-                      <MemorySourceIcon fact={fact} sessionHref={sessionHref(fact.session)} />
-                      <span className="line-through">{fact.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+    <div className="grid gap-3">
+      <KeyValueGrid
+        items={[
+          { label: 'Kept in', value: scopeLabel },
+          { label: 'Category', value: category },
+          { label: 'Used', value: usageLabel(document) },
+          { label: 'Updated', value: document.updated || 'Not recorded' },
+        ]}
+      />
+      {document.aliases.length ? (
+        <div aria-label="Also called" className="flex min-w-0 flex-wrap gap-1" role="group">
+          {document.aliases.map((alias) => (
+            <Tag key={alias} width="auto">
+              {alias}
+            </Tag>
+          ))}
+        </div>
+      ) : null}
+      {live.length ? (
+        <ul aria-label="Facts" className="grid">
+          {live.map((fact) => (
+            <FactRow
+              document={document}
+              fact={fact}
+              highlighted={fact.id === highlight}
+              key={fact.id}
+              onRemoved={onRemoved}
+              sessionHref={sessionHref}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground">No facts yet.</p>
+      )}
+      {superseded.length ? (
+        <details>
+          <summary className="w-fit cursor-pointer text-muted-foreground">
+            {superseded.length} replaced {superseded.length === 1 ? 'fact' : 'facts'}
+          </summary>
+          <ul className="mt-1 grid gap-1">
+            {superseded.map((fact) => (
+              <li
+                className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-x-1.5 text-muted-foreground"
+                key={fact.id}
+              >
+                <MemorySourceIcon fact={fact} sessionHref={sessionHref(fact.session)} />
+                <span className="py-0.5 leading-5 break-words line-through">{fact.text}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -263,27 +297,12 @@ function authorLabel(version: MemoryVersion) {
 }
 
 /** A document's versions, each diffed against the current text, with restore. */
-export function MemoryHistoryDialog({
-  name,
-  open,
-  onOpenChange,
-}: {
-  name: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+function MemoryHistory({ name, current }: { name: string; current: string }) {
   const repository = useRepository();
   const client = useQueryClient();
   const versions = useQuery({
     queryKey: ['memory', 'versions', name],
     queryFn: ({ signal }) => repository.memoryVersions(name, signal),
-    enabled: open,
-  });
-  const current = useQuery({
-    queryKey: ['memory', 'document', name],
-    queryFn: ({ signal }) => repository.memoryDocument(name, signal),
-    enabled: open,
-    retry: false,
   });
   const [selected, setSelected] = useState<number>();
   const restore = useMutation({
@@ -293,61 +312,154 @@ export function MemoryHistoryDialog({
       toast.success('Version restored');
     },
   });
-  const list = [...(versions.data ?? [])].reverse();
+  if (versions.isPending) return <Skeleton className="h-16 w-full" />;
+  if (versions.error)
+    return (
+      <MemoryErrorLine
+        error={versions.error}
+        onRetry={() => void versions.refetch()}
+        what="History could not be loaded."
+      />
+    );
+  const list = [...versions.data].reverse();
   const chosen = list.find((version) => version.n === selected) ?? list[0];
+  if (!chosen) return <p className="text-muted-foreground">No earlier versions.</p>;
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <HistoryIcon aria-hidden="true" className="size-4" /> History
-          </DialogTitle>
-          <DialogDescription>{name}</DialogDescription>
-        </DialogHeader>
-        {versions.isPending ? <Skeleton className="h-24 w-full" /> : null}
-        <div className="grid gap-4 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-          <ol aria-label="Versions" className="grid content-start gap-1">
-            {list.map((version) => (
-              <li key={version.n}>
-                <Button
-                  aria-pressed={chosen?.n === version.n}
-                  className="h-auto w-full flex-col items-start gap-0.5 py-2 text-left"
-                  onClick={() => setSelected(version.n)}
-                  variant={chosen?.n === version.n ? 'secondary' : 'ghost'}
-                >
-                  <span className="text-sm">{authorLabel(version)}</span>
-                  <time className="text-xs font-normal text-muted-foreground" dateTime={version.at}>
-                    {new Date(version.at).toLocaleString()}
-                  </time>
-                </Button>
-              </li>
-            ))}
-          </ol>
-          {chosen ? (
-            <div className="grid content-start gap-3">
-              <p className="text-sm text-muted-foreground">
-                The document before this change, compared with the current one.
-              </p>
-              <MemoryDiff after={current.data?.text ?? ''} before={chosen.text} />
-              {chosen.text ? (
-                <Button
-                  className="w-fit"
-                  disabled={restore.isPending}
-                  onClick={() => restore.mutate(chosen.n)}
-                  variant="outline"
-                >
-                  Restore this version
-                </Button>
-              ) : null}
-              {restore.error ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {restore.error.message}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div className="grid gap-3">
+      <ItemList label="Versions">
+        {list.map((version) => (
+          <ItemRow
+            aria-pressed={chosen.n === version.n}
+            className="cursor-pointer"
+            icon={<HistoryIcon />}
+            key={version.n}
+            meta={<time dateTime={version.at}>{memoryTime(version.at)}</time>}
+            onClick={() => setSelected(version.n)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setSelected(version.n);
+              }
+            }}
+            role="button"
+            selected={chosen.n === version.n}
+            size="sm"
+            tabIndex={0}
+            title={authorLabel(version)}
+          />
+        ))}
+      </ItemList>
+      <p className="text-muted-foreground">
+        The document before this change, compared with the current one.
+      </p>
+      <MemoryDiff after={current} before={chosen.text} />
+      {chosen.text ? (
+        <Button
+          className="w-fit"
+          disabled={restore.isPending}
+          onClick={() => restore.mutate(chosen.n)}
+          size="sm"
+          variant="outline"
+        >
+          Restore this version
+        </Button>
+      ) : null}
+      {restore.error ? (
+        <p className="text-destructive" role="alert">
+          {memoryErrorText(restore.error)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One document beside the memory list: its live facts (editable), replaced
+ * facts collapsed below, and its history with restore. Download and Delete sit
+ * in the title row.
+ */
+export function MemoryDocumentPane({
+  name,
+  tab,
+  onTabChange,
+  onClose,
+  onDelete,
+  sessionHref,
+  highlight = '',
+  scopeLabel,
+  onSessionIds,
+}: {
+  name: string;
+  tab: MemoryPaneTab;
+  onTabChange: (tab: MemoryPaneTab) => void;
+  onClose: () => void;
+  onDelete: (document: MemoryDocument) => void;
+  sessionHref: SessionHref;
+  /** The sessions the shown facts came from, so their links can be resolved. */
+  onSessionIds?: (sessionIds: readonly string[]) => void;
+  /** A fact id to scroll to and mark (from a memory notice's "Edit in memory"). */
+  highlight?: string;
+  scopeLabel: string;
+}) {
+  const repository = useRepository();
+  const document = useQuery({
+    queryKey: ['memory', 'document', name],
+    queryFn: ({ signal }) => repository.memoryDocument(name, signal),
+    retry: false,
+  });
+  const exportOne = useMemoryDocumentExport();
+  useEffect(() => {
+    if (document.data) onSessionIds?.(document.data.facts.map((fact) => fact.session));
+  }, [document.data, onSessionIds]);
+  const loaded = document.data;
+  return (
+    <DetailPane
+      actions={
+        loaded ? (
+          <>
+            <IconButton
+              disabled={exportOne.isPending}
+              icon={<DownloadIcon />}
+              label="Download"
+              onClick={() => exportOne.mutate(loaded.name)}
+            />
+            <IconButton icon={<DeleteIcon />} label="Delete" onClick={() => onDelete(loaded)} />
+          </>
+        ) : null
+      }
+      icon={createElement(memoryCategoryIcon(document.data?.category ?? ''))}
+      onClose={onClose}
+      tabs={
+        <SegmentedControl
+          label="Memory view"
+          onValueChange={onTabChange}
+          options={[
+            { value: 'facts', label: 'Facts' },
+            { value: 'history', label: 'History' },
+          ]}
+          value={tab}
+        />
+      }
+      title={loaded ? memoryDocumentTitle(loaded) : 'Memory'}
+    >
+      {document.isPending ? <Skeleton className="h-24 w-full" /> : null}
+      {document.error ? (
+        <MemoryErrorLine
+          error={document.error}
+          onRetry={() => void document.refetch()}
+          what="This memory could not be loaded."
+        />
+      ) : null}
+      {loaded && tab === 'facts' ? (
+        <DocumentFacts
+          document={loaded}
+          highlight={highlight}
+          onRemoved={onClose}
+          scopeLabel={scopeLabel}
+          sessionHref={sessionHref}
+        />
+      ) : null}
+      {loaded && tab === 'history' ? <MemoryHistory current={loaded.text} name={name} /> : null}
+    </DetailPane>
   );
 }

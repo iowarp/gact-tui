@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 const repositoryMocks = vi.hoisted(() => ({
@@ -20,8 +21,13 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: v
 afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
+/** The editor places the caret after a selected token on the next frame; type after it lands. */
+async function caretSettles(): Promise<void> {
+  await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 beforeEach(() => {
@@ -69,6 +75,7 @@ function renderComposer({
         />
       </PromptInputProvider>
     </QueryClientProvider>,
+    { wrapper: LiveConnection },
   );
   return { onSubmit };
 }
@@ -138,8 +145,10 @@ describe('composer reference selection', () => {
 
     await user.type(input, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+    await caretSettles();
     await user.type(input, ' @plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+    await caretSettles();
 
     expect(screen.getAllByRole('button', { name: 'Open artifact Displacement plot' })).toHaveLength(
       1,
@@ -193,6 +202,7 @@ describe('composer reference selection', () => {
     expect(onSubmit).not.toHaveBeenCalled();
     expect(document.querySelector('input[name="message"]')).toHaveValue(' ');
     expect(screen.getByRole('button', { name: 'Open artifact Review notes.md' })).toBeVisible();
+    await caretSettles();
 
     await user.type(input, 'Make the conclusion clearer.{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
@@ -250,7 +260,7 @@ describe('composer reference selection', () => {
         </QueryClientProvider>
       );
     }
-    render(<DraftOwner />);
+    render(<DraftOwner />, { wrapper: LiveConnection });
 
     await user.type(composerEditor(), '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
@@ -293,12 +303,11 @@ describe('composer reference selection', () => {
     const user = userEvent.setup();
     renderComposer();
 
-    await user.click(screen.getByRole('button', { name: 'Add context' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
+    await user.click(screen.getByRole('button', { name: 'Add a reference' }));
 
     expect(await screen.findByText('Conversations')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Expand Conversations' }));
-    expect(screen.getByText('Prior evidence review')).toBeVisible();
+    expect(screen.getByRole('option', { name: /^Prior evidence review/ })).toBeVisible();
   });
 
   it('bounds reference options returned by an older unbounded server', async () => {
@@ -318,8 +327,11 @@ describe('composer reference selection', () => {
 
     await user.type(composerEditor(), '@');
 
-    await screen.findByText('file-0.txt');
-    expect(screen.getAllByRole('option')).toHaveLength(100);
+    await screen.findByRole('option', { name: /^file-0\.txt / });
+    // The first rows mount with the menu; the rest follow once the browser is idle.
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(100), {
+      timeout: 10_000,
+    });
     expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();
   });
 
@@ -358,9 +370,9 @@ describe('composer reference selection', () => {
 
     await user.type(composerEditor(), '@observations');
     await user.click(await screen.findByRole('option', { name: /observations.csv/ }));
-    expect(screen.getByRole('button', { name: 'Queue message' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeEnabled();
     await user.keyboard('{Control>}');
-    const steer = screen.getByRole('button', { name: 'Steer current work' });
+    const steer = screen.getByRole('button', { name: 'Steer' });
     expect(steer).toBeEnabled();
     await user.click(steer);
     await user.keyboard('{/Control}');

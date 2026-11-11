@@ -1,68 +1,125 @@
-import { AtSignIcon, PaperclipIcon } from 'lucide-react';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { AtSignIcon, DatabaseIcon, PaperclipIcon } from 'lucide-react';
+import { useRef } from 'react';
+import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import {
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
-  PromptInputButton,
-} from '@/components/ai-elements/prompt-input';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AddIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from './primitives/icon-button';
+import { MenuRow } from './primitives/menu-row';
 
-export function ComposerAddContextButton({
+const MENU_ITEM = 'min-h-[30px] py-0 text-[12.5px]';
+
+/**
+ * The first two controls of the composer row: `+` attaches files and `@`
+ * opens the reference picker. With both files and connected data on offer,
+ * `+` opens a two-row menu; with one, it goes straight there. Files open the
+ * system picker; there is no intermediate dialog.
+ */
+export function ComposerAddContextButtons({
   attachments: attachmentEnabled,
   contextReferences,
-  onOpenFileUpload,
+  disabled,
   onOpenReferences,
   onOpenSources,
+  onReturnFocus,
+  pending = false,
+  sourcesPending = false,
 }: {
   attachments: boolean;
   contextReferences: boolean;
-  onOpenFileUpload: () => void;
+  disabled?: boolean;
+  /** Capabilities are still loading: both controls hold their place, disabled. */
+  pending?: boolean;
+  /**
+   * Connected data is still being probed: `+` holds its place, disabled, so it
+   * becomes a menu (or not) before anyone can focus it, never while focused.
+   */
+  sourcesPending?: boolean;
   onOpenReferences: () => void;
   onOpenSources?: () => void;
+  /** Files were chosen: typing resumes in the composer rather than on `+`. */
+  onReturnFocus?: () => void;
 }) {
-  if (!contextReferences) {
-    return (
-      <>
-        {attachmentEnabled || onOpenSources ? (
-          <PromptInputButton
-            aria-label="Attach"
-            onClick={onOpenSources ?? onOpenFileUpload}
-            title="Attach"
-          >
-            <AddIcon aria-hidden="true" />
-          </PromptInputButton>
-        ) : null}
-      </>
-    );
-  }
+  const files = usePromptInputAttachments();
+  // Escape dismisses the menu back to the editor, not to `+`.
+  const escaped = useRef(false);
+  const attach = attachmentEnabled
+    ? () => {
+        const input = files.fileInputRef.current;
+        if (input && onReturnFocus) {
+          const done = (event: Event) => {
+            input.removeEventListener('change', done);
+            input.removeEventListener('cancel', done);
+            if (event.type === 'change') onReturnFocus();
+          };
+          input.addEventListener('change', done);
+          input.addEventListener('cancel', done);
+        }
+        files.openFileDialog();
+      }
+    : undefined;
+  const single = attach && onOpenSources ? undefined : (attach ?? onOpenSources);
+  const plusPending = pending || (Boolean(attach) && sourcesPending);
+  const button = (
+    <IconButton
+      className="aria-expanded:bg-hover"
+      data-tour="add-context"
+      disabled={disabled || plusPending}
+      icon={<AddIcon />}
+      label={attach || plusPending ? 'Attach files' : 'Add connected data'}
+      onClick={single}
+      size="toolbar"
+      tooltipSide="top"
+      type="button"
+    />
+  );
   return (
-    <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
-        <AddIcon aria-hidden="true" />
-      </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent className="w-auto min-w-44 whitespace-nowrap">
-        {attachmentEnabled || onOpenSources ? (
-          <PromptInputActionMenuItem
-            aria-label="Attach"
-            onSelect={onOpenSources ?? onOpenFileUpload}
-            title="Attach files, folders, or connected data"
+    <>
+      {attach && onOpenSources && !plusPending ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-64"
+            onCloseAutoFocus={(event) => {
+              if (!escaped.current || !onReturnFocus) return;
+              escaped.current = false;
+              event.preventDefault();
+              onReturnFocus();
+            }}
+            onEscapeKeyDown={() => {
+              escaped.current = true;
+            }}
+            side="top"
           >
-            <PaperclipIcon aria-hidden="true" />
-            Attach
-          </PromptInputActionMenuItem>
-        ) : null}
-        {contextReferences && (
-          <PromptInputActionMenuItem
-            aria-label="Reference existing context"
-            onSelect={onOpenReferences}
-            title="Reference existing context"
-          >
-            <AtSignIcon aria-hidden="true" />
-            Reference
-          </PromptInputActionMenuItem>
-        )}
-      </PromptInputActionMenuContent>
-    </PromptInputActionMenu>
+            <DropdownMenuItem className={MENU_ITEM} onSelect={attach}>
+              <MenuRow icon={<PaperclipIcon />} label="Upload files…" />
+            </DropdownMenuItem>
+            <DropdownMenuItem className={MENU_ITEM} onSelect={onOpenSources}>
+              <MenuRow icon={<DatabaseIcon />} label="From connected data…" />
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : single || plusPending ? (
+        button
+      ) : null}
+      {contextReferences || pending ? (
+        <IconButton
+          disabled={disabled || pending}
+          icon={<AtSignIcon />}
+          label="Add a reference"
+          onClick={onOpenReferences}
+          shortcut="mention"
+          shortcutSide="above-icon"
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
+      ) : null}
+    </>
   );
 }

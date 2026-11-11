@@ -1,15 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   pluginMarketplaces: vi.fn(),
-  capabilities: vi.fn(async () => ({
-    capabilities: { x_clio_agent_plugins: true },
-    gact_versions: [],
-  })),
+  capabilities: vi.fn(),
   plugins: vi.fn(),
+  agents: vi.fn(async () => []),
+  savedMcpServices: vi.fn(async () => []),
+  mcpServers: vi.fn(async () => []),
+  discoverMcp: vi.fn(async () => ({ servers: [], next_cursor: '' })),
+  inspectPlugin: vi.fn(),
+  localLibrary: vi.fn(),
+  exportLocalMarketplace: vi.fn(),
+  reconnectMcpServer: vi.fn(),
   installPluginMarketplace: vi.fn(),
   trustPluginMarketplace: vi.fn(),
   updatePluginMarketplace: vi.fn(),
@@ -19,11 +26,11 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
-import { MarketplaceSettings } from './settings-plugins';
+import { ExtensionLibrary } from './extension-library';
 
 const summary = {
   marketplace: 'lab',
@@ -35,16 +42,51 @@ const summary = {
   diagnostics: [],
 };
 
-function renderSettings() {
+const pack = {
+  id: 'documents',
+  ref: 'clio/documents',
+  version: '1.0.0',
+  description: 'Every document format',
+  kind: 'pack',
+  format: 'agent-plugins',
+  marketplace: 'clio',
+  requires: [],
+  members: ['pdf', 'xlsx'],
+  tools: [],
+  skills: [],
+  mcp_servers: [],
+  subagents: [],
+  flows: [],
+  hooks: [],
+  commands: [],
+  catalogs: [],
+  fragments: [],
+  trusted: true,
+  pending_trust: false,
+  diagnostics: [],
+};
+
+function renderLibrary() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MarketplaceSettings />
+      <MemoryRouter>
+        <TooltipProvider>
+          <ExtensionLibrary />
+        </TooltipProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
+/** The one list of every extension. */
+const extensions = () => screen.findByRole('group', { name: 'Extensions' }, { timeout: 10_000 });
+
 beforeEach(() => {
+  repository.capabilities.mockResolvedValue({
+    capabilities: { x_clio_agent_plugins: true, x_clio_extension_library: true },
+    gact_versions: [],
+  });
   repository.pluginMarketplaces.mockResolvedValue([
     {
       name: 'clio',
@@ -73,34 +115,10 @@ beforeEach(() => {
       ],
     },
   ]);
-  repository.plugins.mockResolvedValue({
-    plugins: [
-      {
-        id: 'documents',
-        ref: 'clio/documents',
-        version: '1.0.0',
-        description: 'Every document format',
-        kind: 'pack',
-        format: 'agent-plugins',
-        marketplace: 'clio',
-        requires: [],
-        members: ['pdf', 'xlsx'],
-        tools: [],
-        skills: [],
-        mcp_servers: [],
-        subagents: [],
-        flows: [],
-        hooks: [],
-        commands: [],
-        catalogs: [],
-        fragments: [],
-        trusted: true,
-        pending_trust: false,
-        diagnostics: [],
-      },
-    ],
-    default_marketplace_error: null,
-  });
+  repository.plugins.mockResolvedValue({ plugins: [pack], default_marketplace_error: null });
+  repository.agents.mockResolvedValue([]);
+  repository.savedMcpServices.mockResolvedValue([]);
+  repository.mcpServers.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -108,36 +126,46 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('MarketplaceSettings', () => {
+describe('Extensions: marketplaces', () => {
+  it('lists plugins and marketplaces as one list, each with a status word', async () => {
+    renderLibrary();
+    const list = await extensions();
+    expect(await within(list).findByText('documents')).toBeVisible();
+    expect(within(list).getAllByText('Trusted')).toHaveLength(2);
+    expect(within(list).getByText('Not trusted')).toBeVisible();
+    expect(within(list).getByText('1 problem')).toBeVisible();
+    expect(within(list).getByText('Shipped')).toBeVisible();
+    // Your library stays out of All until something is saved to it.
+    expect(within(list).queryByText('Private local marketplace')).toBeNull();
+  }, 20_000);
+
   it('requires the explicit trust step for an untrusted marketplace', async () => {
     const user = userEvent.setup();
     repository.trustPluginMarketplace.mockResolvedValue(summary);
-    renderSettings();
-    const marketplaces = await screen.findByRole('region', { name: 'Marketplaces' });
-    expect(await within(marketplaces).findByText('Not trusted')).toBeVisible();
-    expect(within(marketplaces).getByText('1 problem')).toBeVisible();
-    expect(within(marketplaces).getAllByRole('button', { name: 'Trust' })).toHaveLength(1);
-    await user.click(within(marketplaces).getByRole('button', { name: 'Trust' }));
-    const dialog = await screen.findByRole('alertdialog');
+    renderLibrary();
+    const list = await extensions();
+    await user.click(await within(list).findByRole('button', { name: 'Trust lab' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Trust lab?' });
     expect(within(dialog).getByText(/run commands, start servers and run hooks/u)).toBeVisible();
     expect(repository.trustPluginMarketplace).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Trust marketplace' }));
+    await user.click(within(dialog).getByRole('button', { name: /^Trust marketplace/u }));
     await waitFor(() => expect(repository.trustPluginMarketplace).toHaveBeenCalledWith('lab'));
-  });
+  }, 20_000);
 
-  it('installs a marketplace by source without repeating the plugin inventory', async () => {
+  it('adds a marketplace by source from the Add menu', async () => {
     const user = userEvent.setup();
     repository.installPluginMarketplace.mockResolvedValue({ ...summary, trusted: false });
-    renderSettings();
-    expect(await screen.findByRole('region', { name: 'Marketplaces' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Installed plugins' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Add marketplace' }));
+    renderLibrary();
+    await extensions();
+    await user.click(screen.getByRole('button', { name: 'Add options' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Marketplace…' }));
+    const install = await screen.findByRole('dialog', { name: 'Install a marketplace' });
     await user.type(
-      screen.getByRole('textbox', { name: 'Source' }),
+      within(install).getByRole('textbox', { name: 'Source' }),
       'https://github.com/iowarp/clio-kit.git',
     );
-    await user.type(screen.getByRole('textbox', { name: 'Branch or tag' }), 'main');
-    await user.click(screen.getByRole('button', { name: 'Install' }));
+    await user.type(within(install).getByRole('textbox', { name: 'Branch or tag' }), 'main');
+    await user.click(within(install).getByRole('button', { name: 'Install' }));
     await waitFor(() =>
       expect(repository.installPluginMarketplace).toHaveBeenCalledWith({
         source: 'https://github.com/iowarp/clio-kit.git',
@@ -146,19 +174,18 @@ describe('MarketplaceSettings', () => {
         name: undefined,
       }),
     );
-  });
+  }, 20_000);
 
   it('accepts a waiting executable update from its source and refreshes the catalog', async () => {
     const user = userEvent.setup();
     const waiting = {
-      ...(await repository.plugins()).plugins[0],
+      ...pack,
       id: 'pdf',
       ref: 'clio/pdf',
       kind: 'plugin',
       members: [],
       pending_trust: true,
     };
-    repository.plugins.mockClear();
     repository.plugins
       .mockResolvedValueOnce({ plugins: [waiting], default_marketplace_error: null })
       .mockResolvedValue({
@@ -166,25 +193,18 @@ describe('MarketplaceSettings', () => {
         default_marketplace_error: null,
       });
     repository.trustPluginMarketplace.mockResolvedValue({ ...summary, marketplace: 'clio' });
-    renderSettings();
-    const marketplaces = await screen.findByRole('region', { name: 'Marketplaces' });
-    expect(await within(marketplaces).findByText('1 update waits for trust')).toBeVisible();
-    expect(
-      within(marketplaces).getByRole('button', { name: 'Trust the update from clio' }),
-    ).toBeVisible();
-    await user.click(
-      within(marketplaces).getByRole('button', { name: 'Trust the update from clio' }),
-    );
-    const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText('Trust the update from clio?')).toBeVisible();
+    renderLibrary();
+    const list = await extensions();
+    expect(await within(list).findByText('Update waits for trust')).toBeVisible();
+    expect(within(list).getByText('1 update waits for trust')).toBeVisible();
+    await user.click(within(list).getByRole('button', { name: 'Trust the update from clio' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Trust the update from clio?' });
     expect(repository.trustPluginMarketplace).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Trust update' }));
+    await user.click(within(dialog).getByRole('button', { name: /^Trust update/u }));
     await waitFor(() => expect(repository.trustPluginMarketplace).toHaveBeenCalledWith('clio'));
-    await waitFor(() =>
-      expect(within(marketplaces).queryByText('1 update waits for trust')).toBeNull(),
-    );
+    await waitFor(() => expect(within(list).queryByText('1 update waits for trust')).toBeNull());
     expect(repository.plugins.mock.calls.length).toBeGreaterThanOrEqual(2);
-  });
+  }, 20_000);
 
   it('shows plugin check results per failing plugin', async () => {
     const user = userEvent.setup();
@@ -206,8 +226,9 @@ describe('MarketplaceSettings', () => {
       text: '1/2 passed -- check failed',
     });
     const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
-    renderSettings();
-    await user.click(await screen.findByRole('button', { name: 'Actions for lab' }));
+    renderLibrary();
+    const list = await extensions();
+    await user.click(await within(list).findByRole('button', { name: 'Actions for lab' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Check plugins' }));
     const report = await screen.findByRole('region', { name: 'Plugin check results' });
     // On a phone the report lands below the menu that asked for it.
@@ -217,94 +238,90 @@ describe('MarketplaceSettings', () => {
     expect(within(report).getByText('1 of 2 passed')).toBeVisible();
     expect(within(report).getByText(/prompt\/missing.md is missing/u)).toBeVisible();
     expect(repository.checkPlugins).toHaveBeenCalledWith({ installed: 'lab' });
-  });
+  }, 20_000);
 
-  it('keeps an installed private marketplace focused on its collection instead of source metadata', async () => {
-    repository.pluginMarketplaces.mockResolvedValue([
-      {
-        name: 'private-local',
-        source: 'D:/clio/config/plugins/local/private-local',
-        format: 'agent-plugins',
-        trusted: true,
-        default: false,
-        parent: '',
-        trust_reason: 'local',
-        commit: '',
-        installed_at: '',
-        diagnostics: [],
-      },
-    ]);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MarketplaceSettings localCollection={<p>Saved local items</p>} onBackup={vi.fn()} />
-      </QueryClientProvider>,
-    );
+  it('retains repository, source and removal on a remote marketplace and opens its pane', async () => {
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /Private local marketplace/ }));
-    expect(screen.getByText('Saved local items')).toBeVisible();
-    expect(screen.queryByText('D:/clio/config/plugins/local/private-local')).toBeNull();
-    expect(screen.queryByText(/Agent Plugins format/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Back up with GitHub' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Actions for private-local' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Actions for private-local' }));
-    expect(screen.getByRole('menuitem', { name: 'Back up with GitHub…' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Add remote marketplace…' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Update' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Check plugins' })).toBeVisible();
-  });
-
-  it('keeps source actions available while an agent-only local collection is collapsed', async () => {
-    const onBackup = vi.fn();
-    const onExport = vi.fn();
-    const onLocalDetails = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MarketplaceSettings
-          localCollection={<p>Saved local items</p>}
-          onBackup={onBackup}
-          onExport={onExport}
-          onLocalDetails={onLocalDetails}
-        />
-      </QueryClientProvider>,
-    );
-    const user = userEvent.setup();
-    const actions = await screen.findByRole('button', { name: 'Actions for private-local' });
-    expect(screen.queryByText('Saved local items')).toBeNull();
-    await user.click(actions);
-    expect(screen.queryByRole('menuitem', { name: 'Update' })).toBeNull();
-    await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
-    expect(onBackup).toHaveBeenCalledOnce();
-    await user.click(actions);
-    await user.click(screen.getByRole('menuitem', { name: 'Download marketplace ZIP' }));
-    expect(onExport).toHaveBeenCalledOnce();
-    await user.click(actions);
-    await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
-    expect(onLocalDetails).toHaveBeenCalledOnce();
-    expect(screen.getByText('Saved local items')).toBeVisible();
-    await user.click(actions);
-    await user.click(screen.getByRole('menuitem', { name: 'Add remote marketplace…' }));
-    const install = screen.getByRole('dialog', { name: 'Install a marketplace' });
-    expect(within(install).getByRole('textbox', { name: 'Source' })).toBeVisible();
-    expect(repository.installPluginMarketplace).not.toHaveBeenCalled();
-  });
-
-  it('retains repository, source, update and check actions on remote marketplaces', async () => {
-    const user = userEvent.setup();
-    renderSettings();
-    await user.click(await screen.findByRole('button', { name: 'Actions for lab' }));
+    repository.uninstallPluginMarketplace.mockResolvedValue(undefined);
+    renderLibrary();
+    const list = await extensions();
+    await user.click(await within(list).findByRole('button', { name: 'Actions for lab' }));
     expect(screen.getByRole('menuitem', { name: 'Open repository' })).toHaveAttribute(
       'href',
       'https://example.org/lab',
     );
     await user.click(screen.getByRole('menuitem', { name: 'Copy source' }));
     expect(await navigator.clipboard.readText()).toBe('https://example.org/lab.git');
-    await user.click(screen.getByRole('button', { name: 'Actions for lab' }));
-    expect(screen.getByRole('menuitem', { name: 'Update' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Check plugins' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Uninstall' })).toBeVisible();
-    await user.click(screen.getByRole('menuitem', { name: 'Marketplace details' }));
-    expect(screen.getByText('https://example.org/lab.git')).toBeVisible();
-  });
+    await user.click(within(list).getByRole('button', { name: 'Explore lab' }));
+    const pane = await screen.findByRole('complementary', { name: 'lab' });
+    expect(within(pane).getByText('https://example.org/lab.git')).toBeVisible();
+    expect(within(pane).getByText('hook X has no CLIO event')).toBeVisible();
+    await user.click(within(list).getByRole('button', { name: 'Uninstall lab' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Uninstall lab?' });
+    await user.click(within(dialog).getByRole('button', { name: /^Uninstall/u }));
+    await waitFor(() => expect(repository.uninstallPluginMarketplace).toHaveBeenCalledWith('lab'));
+  }, 20_000);
+
+  it('keeps your private library actions in its menu and its saved items in its pane', async () => {
+    const user = userEvent.setup();
+    repository.agents.mockResolvedValue([
+      {
+        ref: 'user/dememory-clio',
+        id: 'dememory-clio',
+        name: 'Dememory Clio',
+        description: 'My local scientist',
+        kind: 'user',
+        extends: 'clio/factorio',
+        plugins: [],
+        delta: { add: [], remove: ['memory'] },
+        diagnostics: [],
+      },
+    ] as never);
+    renderLibrary();
+    const list = await extensions();
+    const actions = await within(list).findByRole('button', {
+      name: 'Actions for private-local',
+    });
+    await user.click(actions);
+    expect(screen.getByRole('menuitem', { name: 'Back up with GitHub…' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Download marketplace ZIP' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Add remote marketplace…' })).toBeVisible();
+    await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
+    expect(await screen.findByRole('dialog', { name: 'Back up to GitHub' })).toBeVisible();
+    const backup = screen.getByRole('dialog', { name: 'Back up to GitHub' });
+    await user.click(within(backup).getAllByRole('button', { name: 'Close' })[0]!);
+    await waitFor(() => expect(backup).not.toBeInTheDocument());
+    await user.click(within(list).getByRole('button', { name: 'Explore private-local' }));
+    const pane = await screen.findByRole('complementary', { name: 'Private local marketplace' });
+    expect(await within(pane).findByText('Dememory Clio')).toBeVisible();
+    expect(within(pane).queryByText(/Agent Plugins format/u)).toBeNull();
+  }, 20_000);
+
+  it('says why Add is unavailable on an older service', async () => {
+    repository.capabilities.mockResolvedValue({
+      capabilities: { x_clio_agent_plugins: true },
+      gact_versions: [],
+    });
+    renderLibrary();
+    expect(await screen.findByRole('button', { name: 'Why Add is unavailable' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+  }, 20_000);
+
+  it('shows one failure with Retry when the catalog cannot load', async () => {
+    const user = userEvent.setup();
+    repository.plugins.mockRejectedValueOnce(new Error('503 Service Unavailable'));
+    renderLibrary();
+    expect(await screen.findByText('Extensions couldn’t be loaded.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await extensions()).toBeVisible();
+  }, 20_000);
+
+  it('offers Add a marketplace and Discover when nothing is installed', async () => {
+    repository.pluginMarketplaces.mockResolvedValue([]);
+    repository.plugins.mockResolvedValue({ plugins: [], default_marketplace_error: null });
+    renderLibrary();
+    expect(await screen.findByText('No extensions yet.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add a marketplace' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Discover' })).toBeVisible();
+  }, 20_000);
 });

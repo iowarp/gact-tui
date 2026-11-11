@@ -18,15 +18,25 @@ import type {
   SubagentRun,
   Task,
   ToolInvocation,
+  UsageSnapshot,
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
   WorkspaceResource,
   WorkspaceSourceFolder,
 } from '@clio/core/v3';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
-import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
-import { useState, useSyncExternalStore, type RefObject } from 'react';
+import {
+  BoxesIcon,
+  MessageCircleQuestionIcon,
+  PanelRightOpenIcon,
+  PanelRightDashedIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
+import { useId, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
+import { cn } from '@/lib/utils';
+import { failedWorkCount, railButtonLook, type RailButtonLook } from './rail-button-look';
 import {
   Popover,
   PopoverContent,
@@ -42,22 +52,21 @@ import {
 } from '@/lib/presentation-overrides';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioInteractiveRow } from './interactive-row';
-import { SessionEvidencePopover } from './session-evidence-popover';
-import { EvidenceLayoutIcon } from './evidence-layout-icon';
+import { ConversationRail, type ConversationRailControl } from './conversation-rail';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { ObservabilityView } from './observability-view-storage';
+import type { ProvenanceEarlier } from './observability-provenance';
 
 import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 
 export interface ClioObservabilityDockProps {
   /** Opens a shared browser page in the workbench (the Work rail's Browser pages). */
   onOpenBrowser?: (request: Extract<ClioWorkbenchOpenRequest, { kind: 'browser' }>) => void;
+  /** The conversation family shown by the Relationships view. */
   sessions?: readonly Session[];
-  familyProvenance?: ExecutionProvenanceResult;
-  familyProvenancePending?: boolean;
-  onLoadFamilyProvenance?: () => void;
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   contextFrames: readonly ContextFrame[];
@@ -75,6 +84,8 @@ export interface ClioObservabilityDockProps {
   runs: readonly Run[];
   subagents: readonly SubagentRun[];
   context?: ContextSnapshot;
+  /** What this conversation has used so far: tokens sent and received, and cost. */
+  usage?: UsageSnapshot;
   contextError?: string;
   contextFilesError?: string;
   contextFilesPending?: boolean;
@@ -99,6 +110,8 @@ export interface ClioObservabilityDockProps {
   onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
+  /** The views offered; the workbench lists recorded work in its Activity list instead. */
+  views?: readonly ObservabilityView[];
   onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
@@ -114,6 +127,8 @@ export interface ClioObservabilityDockProps {
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceProvider?: string;
   provenancePending?: boolean;
+  /** Set while older activity records exist beyond the pages read so far. */
+  provenanceEarlier?: ProvenanceEarlier;
   provenanceDegradation?: ExecutionProvenanceDegradation;
   onProvenanceProviderChange?: (provider: string) => void;
   resources?: readonly WorkspaceResource[];
@@ -194,33 +209,21 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
 
   return (
     <div className="flex min-w-0 items-center gap-1" data-slot="composer-evidence">
-      <SessionEvidencePopover evidence={props}>
-        {({ visible, buttonRef, panelId, layout, cycle }) => (
-          <Button
-            ref={buttonRef}
-            aria-label={`Evidence layout: ${layout.charAt(0).toUpperCase() + layout.slice(1)}`}
-            aria-expanded={visible}
-            aria-controls={panelId}
-            aria-haspopup="dialog"
-            data-evidence-layout={layout}
-            onClick={() => cycle(1)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              cycle(-1);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                event.preventDefault();
-                cycle(event.key === 'ArrowLeft' ? -1 : 1);
-              }
-            }}
-            className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
-            size={props.toolbar ? 'icon-sm' : 'sm'}
-            title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
-            type="button"
-            variant="ghost"
+      <ConversationRail evidence={props}>
+        {(rail) => (
+          <RailButton
+            rail={rail}
+            toolbar={props.toolbar}
+            failedCount={failedWorkCount(props.processes, props.subagents)}
+            look={(seenFailed) =>
+              railButtonLook({
+                processes: props.processes,
+                subagents: props.subagents,
+                interactions: props.interactions,
+                seenFailed,
+              })
+            }
           >
-            <EvidenceLayoutIcon layout={layout} />
             <span
               className={
                 props.toolbar
@@ -240,9 +243,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             {!props.toolbar && showDockStatusBadge ? (
               <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
             ) : null}
-          </Button>
+          </RailButton>
         )}
-      </SessionEvidencePopover>
+      </ConversationRail>
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">
@@ -342,5 +345,106 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         </Popover>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Pins the conversation rail. Its key opens the rail at Running (or its first
+ * row) and, pressed again, closes it.
+ */
+function RailButton({
+  rail,
+  toolbar,
+  look,
+  failedCount,
+  children,
+}: {
+  rail: ConversationRailControl;
+  toolbar?: boolean;
+  look: (seenFailed: number) => RailButtonLook;
+  failedCount: number;
+  children: ReactNode;
+}) {
+  const { open, setOpen, buttonRef, panelId, panelRef } = rail;
+  // Failed work stays red until the person has had the rail open on it.
+  const [seenFailed, setSeenFailed] = useState(0);
+  if ((open || failedCount < seenFailed) && seenFailed !== failedCount) setSeenFailed(failedCount);
+  const current = look(seenFailed);
+  const describedBy = useId();
+  // Only keyboard paths open into the rail. WebKit doesn't count ⇧⌘. as keyboard
+  // modality, so the focus ring is requested explicitly.
+  const openIntoRail = () => {
+    setOpen(true);
+    requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      // The first run, else the Running row, else the rail's first row.
+      const running = panel?.querySelectorAll<HTMLElement>(
+        '[aria-label="Running section"] [data-rail-row]',
+      );
+      const target =
+        running?.[1] ?? running?.[0] ?? panel?.querySelector<HTMLElement>('[data-rail-row]');
+      target?.focus({ focusVisible: true });
+    });
+  };
+  useShortcut('conversation-runs', () => (open ? setOpen(false) : openIntoRail()));
+  return (
+    <Button
+      ref={buttonRef}
+      aria-label="Conversation rail"
+      aria-describedby={toolbar ? describedBy : undefined}
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+      // The rail is portaled, so a keyboard opener (detail 0) would otherwise have no Tab path in.
+      onClick={(event) => (!open && event.detail === 0 ? openIntoRail() : setOpen(!open))}
+      className={cn(
+        'h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground',
+        // Fixed slots, so the button keeps its width whatever it shows. A phone's
+        // top bar has no room for empty slots, so an idle button is just its icon.
+        toolbar && 'w-[3.25rem] justify-end gap-1 px-1.5',
+        toolbar && current.kind === 'idle' && 'max-sm:w-7 max-sm:justify-center',
+      )}
+      data-rail-look={toolbar ? current.kind : undefined}
+      size="sm"
+      title={`${toolbar ? `${current.label}. ` : ''}${open ? 'Close' : 'Open'} the conversation rail`}
+      type="button"
+      variant="ghost"
+    >
+      {toolbar ? (
+        <>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'flex size-3 shrink-0 items-center justify-center',
+              current.kind === 'idle' && 'max-sm:hidden',
+            )}
+          >
+            {current.kind === 'running' ? (
+              <RingSpinner className="size-[11px]" />
+            ) : current.kind === 'waiting' ? (
+              <MessageCircleQuestionIcon className="size-3 text-warning" />
+            ) : current.kind === 'failed' ? (
+              <TriangleAlertIcon className="size-3 text-destructive-text" />
+            ) : null}
+          </span>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
+              current.kind === 'idle' && 'max-sm:hidden',
+              current.kind === 'waiting' && 'text-warning',
+              current.kind === 'failed' && 'text-destructive-text',
+              current.kind === 'running' && 'text-foreground',
+            )}
+          >
+            {current.count ? (current.count > 99 ? '99+' : current.count) : ''}
+          </span>
+          <span className="sr-only" id={describedBy}>
+            {current.label}
+          </span>
+        </>
+      ) : null}
+      <PanelRightDashedIcon aria-hidden="true" />
+      {children}
+    </Button>
   );
 }

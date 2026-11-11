@@ -1,3 +1,4 @@
+import { mockDesktopHost } from '@/test/desktop-host';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
@@ -54,7 +55,7 @@ beforeEach(() => {
   mocks.listen.mockReset();
   xterm.MockTerminal.instances = [];
   xterm.MockFitAddon.instances = [];
-  Object.assign(window, { __TAURI_INTERNALS__: {} });
+  mockDesktopHost();
 });
 
 describe('openWorkspaceTerminal', () => {
@@ -120,9 +121,9 @@ describe('ensureEmbeddedTerminal', () => {
 
     expect(second).toBe(first);
     expect(second.term).toBe(first.term);
-    expect(
-      mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length,
-    ).toBe(1);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length).toBe(
+      1,
+    );
   });
 });
 

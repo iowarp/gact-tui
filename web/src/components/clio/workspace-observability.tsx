@@ -1,6 +1,6 @@
 import type { WorkspaceSourceFolder } from '@clio/core/v3';
 import type { RunState } from '@clio/core/v3';
-import type { RefObject } from 'react';
+import type { ComponentProps, RefObject } from 'react';
 import type { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import type { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
@@ -67,7 +67,17 @@ function sharedProps(
     onProvenanceProviderChange: provenance.setProvider,
     processes: data.processes,
     provenanceDegradation: provenance.degradation,
-    provenancePending: provenance.providers.isPending || provenance.execution.isPending,
+    // isLoading, not isPending: a disabled query (no queryable provider) stays
+    // pending forever, which left the evidence list loading next to its reason.
+    provenancePending: provenance.providers.isLoading || provenance.execution.isLoading,
+    provenanceEarlier:
+      provenance.hasEarlier || provenance.loadingEarlier
+        ? {
+            limit: provenance.limit,
+            loading: provenance.loadingEarlier,
+            onLoad: provenance.loadEarlier,
+          }
+        : undefined,
     provenanceProvider: provenance.provider,
     provenanceProviders: provenance.providers.data?.providers,
     resources: data.workspaceResources.data ?? [],
@@ -128,10 +138,12 @@ export function WorkspaceObservabilityView({
   contextTargetId,
   onContextTargetChange,
   workspaceFolders,
+  views,
 }: {
   data: ObservabilityData;
   navigation: ObservabilityNavigation;
   sessionId: string;
+  views?: ComponentProps<typeof WorkspaceLiveObservabilityView>['views'];
   requestedView: ReturnType<typeof useObservabilityNavigation>['requestedView'];
   contextTargetId: string;
   onContextTargetChange: (targetId: string) => void;
@@ -158,12 +170,13 @@ export function WorkspaceObservabilityView({
       diffsError={sessionObservability.diffs.error?.message}
       diffsPending={sessionObservability.diffs.isPending}
       processesError={sessionObservability.processes.error?.message}
-      processesPending={sessionObservability.processes.isPending}
+      processesPending={sessionObservability.processes.isLoading}
       onCompactContext={() => sessionContext.compact.mutateAsync()}
       onContextTargetChange={onContextTargetChange}
       onUpdateContextPreferences={(input) => sessionContext.preferences.mutateAsync(input)}
       selectedContextTargetId={contextTargetId}
       workspaceFolders={workspaceFolders}
+      views={views}
     />
   );
 }

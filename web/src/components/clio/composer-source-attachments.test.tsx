@@ -3,6 +3,8 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer } from './composer';
 
 const repository = vi.hoisted(() => ({
@@ -89,26 +91,37 @@ function renderComposer() {
   const onSubmit = vi.fn(async () => undefined);
   render(
     <QueryClientProvider client={client}>
-      <PromptInputProvider>
-        <ClioComposer
-          attachments
-          contextReferences
-          workspaceId="w"
-          sessionId="sess_attachments"
-          state="completed"
-          provider="codex"
-          model="gpt-5.6-luna"
-          onSubmit={onSubmit}
-        />
-      </PromptInputProvider>
+      <TooltipProvider>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments
+            contextReferences
+            workspaceId="w"
+            sessionId="sess_attachments"
+            state="completed"
+            provider="codex"
+            model="gpt-5.6-luna"
+            onSubmit={onSubmit}
+          />
+        </PromptInputProvider>
+      </TooltipProvider>
     </QueryClientProvider>,
+    { wrapper: LiveConnection },
   );
   return { client, onSubmit, user: userEvent.setup() };
 }
 
+/** The + becomes a menu once the service shows it offers connected data. */
+const attachMenu = () =>
+  vi.waitFor(() => {
+    const button = screen.getByRole('button', { name: 'Attach files' });
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    return button;
+  });
+
 async function openSource(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Add context' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Attach' }));
+  await user.click(await attachMenu());
+  await user.click(screen.getByRole('menuitem', { name: 'From connected data…' }));
   await user.click(await screen.findByRole('button', { name: 'Your sources' }));
   await user.click(screen.getByRole('button', { name: /^Research inputs/ }));
 }
@@ -155,10 +168,7 @@ describe('source attachments in the composer', () => {
     await openSource(user);
     await user.click(screen.getByRole('button', { name: 'Link folder' }));
     await screen.findByRole('group', { name: 'Attached sources' });
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/ }),
-      'Inspect this{Enter}',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask / }), 'Inspect this{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(repository.finishSourceDraft).not.toHaveBeenCalled();
     expect(screen.getByRole('group', { name: 'Attached sources' })).toBeVisible();
@@ -210,6 +220,8 @@ describe('source attachments in the composer', () => {
     });
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
+    // Access is one choice for the source; an editable copy is asked for explicitly.
+    await user.click(screen.getByRole('radio', { name: /^Editable download/ }));
     await user.click(await screen.findByRole('button', { name: 'Download file' }));
     expect(
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
@@ -237,10 +249,7 @@ describe('source attachments in the composer', () => {
       'draft_test',
     );
     expect(repository.attachSourceFolder).not.toHaveBeenCalled();
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/ }),
-      'Read this{Enter}',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask / }), 'Read this{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -258,7 +267,7 @@ describe('source attachments in the composer', () => {
     expect(within(tray).getByText('Research inputs')).toBeVisible();
     expect(within(tray).getByText('Linked folder')).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Attach' })).toBeNull();
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     expect(editor).not.toHaveTextContent('Research inputs');
     await user.type(editor, 'Inspect this folder{Enter}');
     await waitFor(() =>
@@ -283,12 +292,12 @@ describe('source attachments in the composer', () => {
   it('keeps a download visible after closing Attach, preserves typed text, and sends only when ready', async () => {
     const { user, client, onSubmit } = renderComposer();
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(screen.getByRole('button', { name: 'Download a copy' }));
     expect(
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
     ).toHaveTextContent('Research inputs');
     expect(screen.queryByRole('dialog', { name: 'Attach' })).toBeNull();
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     await user.type(editor, 'Inspect the download{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
     repository.sourceOperations.mockResolvedValue([
@@ -320,14 +329,14 @@ describe('source attachments in the composer', () => {
         }),
     );
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(screen.getByRole('button', { name: 'Download a copy' }));
     await screen.findByRole('group', { name: 'Preparing source attachments' });
     repository.sourceOperations.mockResolvedValue([{ ...running, state: 'completed' }]);
     await client.invalidateQueries();
     await waitFor(() => expect(finish).toBeDefined());
     await user.click(screen.getByRole('button', { name: 'Remove attachment Research inputs' }));
     finish?.(resource);
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     await user.type(editor, 'Just this text{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(

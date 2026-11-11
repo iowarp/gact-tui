@@ -35,6 +35,11 @@ export interface RunRow {
   workspaceId?: string;
   targetSessionId?: string;
   updatedAt: string;
+  /** When the run was created and when it reached a final state, for "running 4m" and "done in 6m". */
+  createdAt?: string;
+  terminalAt?: string;
+  /** How long a child agent ran, for rows without a timestamp (a conversation's rail). */
+  elapsedMs?: number;
   /** The task handle of a flow run, opened in its conversation with `?flow=`. */
   flowHandle?: string;
 }
@@ -46,7 +51,8 @@ export const sourceLabels: Record<RunSource, string> = {
   flow: 'Flow',
 };
 
-function conciseReason(reason: string | undefined): string | undefined {
+/** One readable line from a server-authored failure reason (JSON or text). */
+export function conciseReason(reason: string | undefined): string | undefined {
   if (!reason) return undefined;
   try {
     const parsed = JSON.parse(reason) as Record<string, unknown>;
@@ -119,6 +125,8 @@ export function buildRows(
       workspaceId,
       targetSessionId,
       updatedAt: run.updated_at,
+      createdAt: run.created_at || undefined,
+      terminalAt: run.terminal_at || undefined,
     };
   });
 }
@@ -138,6 +146,24 @@ function taskState(task: TaskSnapshot): RunState {
 }
 
 // Pure indexing keeps transcript-derived flow identity deterministic and testable.
+/**
+ * Keep only what the Flows view reads from a scanned conversation: its workflow
+ * tool calls. The scan reads whole transcripts (no tools-only route yet), so the
+ * cache holds this projection instead of every message of every scanned session.
+ */
+export function retainFlowTools(transcript: TranscriptSnapshot): TranscriptSnapshot {
+  return {
+    cursor: transcript.cursor,
+    next_cursor: transcript.next_cursor,
+    messages: [],
+    tools: transcript.tools.filter((tool) => Boolean(flowToolDescriptor(tool))),
+    tasks: [],
+    subagents: [],
+    artifacts: [],
+    surfaces: [],
+  };
+}
+
 export function buildFlowRows(
   transcripts: readonly TranscriptSnapshot[],
   sessions: readonly Session[],
@@ -193,6 +219,8 @@ export function buildFlowRows(
           updatedAt:
             task?.updated_at || tool.completed_at || tool.started_at || session?.updated_at || '',
           flowHandle: flow.handle,
+          createdAt: task?.created_at || tool.started_at || undefined,
+          terminalAt: task?.terminal_at || tool.completed_at || undefined,
           cancellable: task?.supported_actions.includes('cancel'),
           ownerSessionId: task?.owner.session_id,
         },

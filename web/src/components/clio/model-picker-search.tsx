@@ -1,23 +1,34 @@
-import { RemoveIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { ChevronDownIcon, SearchIcon } from 'lucide-react';
+import { AdjustIcon } from '@/lib/icon-vocabulary';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { NamedTooltip } from './primitives/icon-button';
+import { isQuickFilterToken, quickFilters, toggleQuickFilter } from '@/lib/model-quick-filters';
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
-import { Badge } from '@/components/reui/badge';
 import type { FacetChip, FacetTab } from '@/lib/model-facets';
+import { cn } from '@/lib/utils';
 import {
   addModelFilterToken,
   filterTokenSuggestions,
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
-import { ModelPickerFacetPanel } from './model-picker-facet-panel';
-import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
-import { Input } from '@/components/ui/input';
+import { ModelPickerAnchors, ModelPickerFieldTokens } from './model-picker-anchors';
+import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-facet-panel';
+import { rangeFilterSections } from './model-picker-filter-ranges';
+import { ModelPickerQuickStrip } from './model-picker-quick-strip';
 
 interface ModelPickerSearchProps {
   query: string;
   /** Replaces the free-text query (the picker owns it; the cascader reads it). */
   onQueryChange: (query: string) => void;
   tokens: readonly ModelFilterToken[];
+  /**
+   * Tokens on by default that row 2 does not draw (`input:text`,
+   * `output:text`): the Filters panel shows and changes them, Backspace
+   * leaves them, and the Filters count leaves them out.
+   */
+  quietTokens?: readonly ModelFilterToken[];
   onTokensChange: (tokens: ModelFilterToken[]) => void;
   /** Every token the listed models carry: what completion offers. */
   availableTokens: ReadonlySet<ModelFilterToken>;
@@ -33,11 +44,24 @@ interface ModelPickerSearchProps {
   onFacetsOpenChange: (open: boolean) => void;
   /** The highest input price the listed models state (the Cost slider's top). */
   maxInputPrice?: number;
+  /** Whether any listed model states its size: the Size chip and slider show only then. */
+  sizes?: boolean;
   /** Downloads share the picker search without claiming serving capabilities or prices. */
   label?: string;
   inputId?: string;
   /** Repository searches run remotely on submission rather than filtering a loaded catalog. */
   onSearch?: () => void;
+  /**
+   * The narrowest picker (under 400px): row 2 folds into the Filters button
+   * and shows above the filter panel while it is open.
+   */
+  compact?: boolean;
+  /** One column: the count is the matches alone ("6"), as each group states its own. */
+  single?: boolean;
+  /** Spec `.c3btns`: Task, Organization and Capabilities anchors under the field (Find a model). */
+  anchors?: boolean;
+  /** Results are loading: the anchors say so instead of offering no choices. */
+  searching?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -46,17 +70,19 @@ function lastWord(query: string): string {
 }
 
 /**
- * The picker's search field: the active filter tokens as removable chips,
- * then the free-text search (model name and provider), then how many models
- * match the text AND the tokens, of every listed model ("12 / 469"). Pressing
- * the field opens the filter panel under it. Typing the start of a token offers the
- * tokens that exist; a finished token followed by a space becomes a chip;
- * Backspace in an empty field removes the last chip.
+ * The picker's two search rows. Row 1: the free-text search (model name and
+ * provider), how many models match the text AND the filters of every listed
+ * model ("12 / 469"), and the Filters button with how many filters are on.
+ * Row 2: the quick filters as icons, then any other filter that is on. Pressing
+ * the field opens the filter panel under it. Typing the start of a token offers
+ * the tokens that exist; a finished token followed by a space turns it on;
+ * Backspace in an empty field drops the last one.
  */
 export function ModelPickerSearch({
   query,
   onQueryChange,
   tokens,
+  quietTokens = [],
   onTokensChange,
   availableTokens,
   shown,
@@ -66,12 +92,30 @@ export function ModelPickerSearch({
   facetsOpen,
   onFacetsOpenChange,
   maxInputPrice,
+  sizes = false,
   label = 'Search providers and models',
   inputId,
   onSearch,
+  compact = false,
+  single = false,
+  anchors = false,
+  searching = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<FacetPanelHandle>(null);
+  // Nothing narrowed out: the total alone ("3"), as the spec's count reads; "2 / 3" once something is.
+  const totalOnly = single || shown === total;
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
+  const chosen = tokens.filter((token) => !quietTokens.includes(token));
+  const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined, sizes);
+  const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
+  // With the spec anchors, the filters that are on read as named tokens inside the field.
+  const fieldTokens = anchors && onSearch ? extraTokens : [];
+  const rowTokens = fieldTokens.length ? [] : extraTokens;
+  const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
+  const rowTwo =
+    (strip.length || rowTokens.length || suggestions.length) &&
+    (!compact || facetsOpen || suggestions.length);
 
   function addToken(token: ModelFilterToken) {
     onTokensChange(addModelFilterToken(tokens, token));
@@ -81,13 +125,55 @@ export function ModelPickerSearch({
   }
 
   /** A chip press: off when on; otherwise on, swapping out any default token it replaces. */
-  function toggleChip(chip: FacetChip) {
-    if (tokens.includes(chip.token)) {
-      onTokensChange(tokens.filter((item) => item !== chip.token));
-      return;
-    }
-    onTokensChange([...tokens.filter((item) => !chip.replaces.includes(item)), chip.token]);
-  }
+  const toggleChip = useCallback(
+    (chip: FacetChip) => {
+      if (tokens.includes(chip.token)) {
+        onTokensChange(tokens.filter((item) => item !== chip.token));
+        return;
+      }
+      onTokensChange([...tokens.filter((item) => !chip.replaces.includes(item)), chip.token]);
+    },
+    [tokens, onTokensChange],
+  );
+  const removeToken = useCallback(
+    (token: string) => onTokensChange(tokens.filter((item) => item !== token)),
+    [tokens, onTokensChange],
+  );
+  const closeFacets = useCallback(() => onFacetsOpenChange(false), [onFacetsOpenChange]);
+  // The anchors and the open panel depend on the filters, not the typed query,
+  // so they keep their render between keys.
+  const anchorRow = useMemo(
+    () =>
+      anchors ? (
+        <div className="pt-2">
+          <ModelPickerAnchors
+            onRemoveToken={removeToken}
+            onToggleChip={toggleChip}
+            searching={searching}
+            tabs={facetTabs}
+            tokens={tokens}
+          />
+        </div>
+      ) : null,
+    [anchors, removeToken, toggleChip, searching, facetTabs, tokens],
+  );
+  const facetPanel = useMemo(
+    () =>
+      facetsOpen ? (
+        <ModelPickerFacetPanel
+          onClose={closeFacets}
+          onToggleChip={toggleChip}
+          ranges={
+            maxInputPrice === undefined
+              ? undefined
+              : rangeFilterSections({ tokens, onTokensChange, maxInputPrice, sizes })
+          }
+          ref={panelRef}
+          tabs={facetTabs}
+        />
+      ) : null,
+    [facetsOpen, closeFacets, toggleChip, maxInputPrice, tokens, onTokensChange, sizes, facetTabs],
+  );
 
   // A press anywhere outside the field and the panel closes the panel.
   useEffect(() => {
@@ -101,6 +187,16 @@ export function ModelPickerSearch({
   }, [facetsOpen, onFacetsOpenChange]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // The picker's own highlight seed presses arrows; those are not the person's.
+    if (event.currentTarget.dataset.seeding !== undefined) return;
+    // The open panel moves and toggles its own rows; the list behind it stays put.
+    if (facetsOpen && panelRef.current?.keyDown(event)) {
+      event.preventDefault();
+      (
+        event as KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler?: () => void }
+      ).preventBaseUIHandler?.();
+      return;
+    }
     if (event.key === 'Enter' && onSearch) {
       event.preventDefault();
       onFacetsOpenChange(false);
@@ -123,8 +219,9 @@ export function ModelPickerSearch({
     ) {
       onFacetsOpenChange(false);
     }
-    if (event.key === 'Backspace' && !query && tokens.length) {
-      onTokensChange(tokens.slice(0, -1));
+    if (event.key === 'Backspace' && !query && chosen.length) {
+      const last = chosen.at(-1);
+      onTokensChange(tokens.filter((token) => token !== last));
       return;
     }
     if (event.key === ' ') {
@@ -143,43 +240,36 @@ export function ModelPickerSearch({
 
   return (
     <div
-      className="relative flex w-full min-w-0 flex-col gap-1.5"
+      className="@container/picker-search relative flex w-full min-w-0 flex-col"
       data-slot="model-picker-search"
+      data-tokens={tokens.join(' ')}
       ref={rootRef}
     >
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-        {tokens.length ? (
-          <div
-            className="flex max-w-full basis-full flex-wrap items-center gap-1 sm:max-w-[70%] sm:basis-auto"
-            data-slot="filter-tokens"
-          >
-            {tokens.map((token) => (
-              <Badge
-                className="gap-0.5 pe-0.5 font-mono font-normal"
-                data-token={token}
-                key={token}
-                radius="full"
-                size="lg"
-                variant="primary-light"
-              >
-                {token}
-                <button
-                  aria-label={`Remove ${token}`}
-                  className="inline-flex size-4 items-center justify-center rounded-full outline-none hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring/50"
-                  onClick={() => onTokensChange(tokens.filter((item) => item !== token))}
-                  type="button"
-                >
-                  <RemoveIcon aria-hidden="true" className="size-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-        <div className="min-w-32 flex-1">
+      <div
+        className={cn(
+          'flex h-10 w-full min-w-0 items-center gap-1.5 ps-3 pe-2',
+          // Spec `.c3in`: the Hub search is a 30px field.
+          onSearch &&
+            'h-[30px] rounded-[7px] border border-input bg-input/30 ps-2.5 pe-1 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20',
+        )}
+      >
+        <SearchIcon
+          aria-hidden="true"
+          className={cn('shrink-0 text-muted-foreground', onSearch ? 'size-3.5' : 'size-[15px]')}
+        />
+        <div className={cn('min-w-0 flex-1', onSearch && 'flex items-center gap-1')}>
+          {fieldTokens.length ? (
+            <ModelPickerFieldTokens
+              onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
+              tabs={facetTabs}
+              tokens={fieldTokens}
+            />
+          ) : null}
           {onSearch ? (
-            <Input
+            <input
               id={inputId}
               aria-label={label}
+              className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"
               placeholder={label}
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
@@ -189,6 +279,7 @@ export function ModelPickerSearch({
           ) : (
             <CascaderInput
               aria-label={label}
+              className="px-0 text-[13px] placeholder:text-faint"
               onKeyDown={handleKeyDown}
               onPointerDown={() => onFacetsOpenChange(true)}
               placeholder={label}
@@ -196,47 +287,80 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
-          className="shrink-0 px-1 text-xs text-muted-foreground tabular-nums"
+          aria-label={
+            totalOnly
+              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'}${single ? ' match' : ''}`
+              : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+          }
+          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
-          {shown} / {total}
+          {shown}
+          {totalOnly ? '' : ` / ${total}`}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
+        {hasFilters ? (
+          <>
+            <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
+            <TooltipProvider disableHoverableContent>
+              <NamedTooltip label="Filters" shortcut="menu-filters">
+                <button
+                  aria-expanded={facetsOpen}
+                  aria-label={chosen.length ? `Filters, ${chosen.length} on` : 'Filters'}
+                  className={cn(
+                    'group/filters relative inline-flex h-[26px] shrink-0 items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+                    facetsOpen &&
+                      'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
+                  )}
+                  data-slot="model-filters-button"
+                  // The panel answers keys through the search field, so a press
+                  // leaves focus there and a key press on the button returns it.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onFacetsOpenChange(!facetsOpen);
+                    rootRef.current
+                      ?.querySelector<HTMLInputElement>('input')
+                      ?.focus({ preventScroll: true });
+                  }}
+                  type="button"
+                >
+                  <span className="grid w-6 place-items-center">
+                    <AdjustIcon aria-hidden="true" className="size-[15px]" />
+                  </span>
+                  <span
+                    className={cn(
+                      'grid w-[13px] place-items-center',
+                      !facetsOpen && 'text-faint group-hover/filters:text-foreground',
+                    )}
+                  >
+                    <ChevronDownIcon aria-hidden="true" className="size-[11px]" />
+                  </span>
+                  {chosen.length ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-[3px] -right-[3px] rounded-[6px] bg-primary px-[3px] text-[8.5px] leading-3 font-semibold text-primary-foreground tabular-nums"
+                    >
+                      {chosen.length}
+                    </span>
+                  ) : null}
+                </button>
+              </NamedTooltip>
+            </TooltipProvider>
+          </>
+        ) : null}
       </div>
-      {suggestions.length ? (
-        <div
-          className="flex flex-wrap items-center gap-1 px-1 pb-1"
-          data-slot="filter-token-suggestions"
-        >
-          {suggestions.map((token) => (
-            <Badge asChild key={token} radius="full" size="lg" variant="outline">
-              <button
-                className="cursor-pointer font-mono font-normal hover:bg-accent"
-                onClick={() => addToken(token)}
-                type="button"
-              >
-                {token}
-              </button>
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-      {facetsOpen ? (
-        <ModelPickerFacetPanel
-          onToggleChip={toggleChip}
-          sliders={
-            maxInputPrice === undefined ? undefined : (
-              <ModelPickerFacetSliders
-                maxInputPrice={maxInputPrice}
-                onTokensChange={onTokensChange}
-                tokens={tokens}
-              />
-            )
-          }
-          tabs={facetTabs}
+      {anchorRow}
+      {rowTwo ? (
+        <ModelPickerQuickStrip
+          extraTokens={rowTokens}
+          filters={strip}
+          onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
+          onSuggestion={addToken}
+          onToggle={(filter) => onTokensChange(toggleQuickFilter(tokens, filter))}
+          suggestions={suggestions}
         />
       ) : null}
+      {facetPanel}
     </div>
   );
 }

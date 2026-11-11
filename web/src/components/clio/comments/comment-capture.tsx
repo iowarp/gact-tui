@@ -2,10 +2,13 @@ import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { useSelectionComment } from '@/hooks/use-selection-action-file';
 import { cn } from '@/lib/utils';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
 import { CommentTextLayer } from './comment-text-layer';
+import { FrameCommentsSessionIcon } from './frame-comments';
+import { useInFrameComments } from './frame-comments-slot';
 import { SvgElementLayer } from './svg-element-layer';
 import { textQuoteFromSelection } from './text-anchor';
 
@@ -16,8 +19,10 @@ function screenBox(rect: DOMRect) {
 /** The toolbar control that opens and closes the surface's comment session. */
 export function CommentToggle({ className }: { className?: string }) {
   const session = useCommentSession();
+  const inFrame = useInFrameComments();
   const destination = session?.surface.destination;
   if (!session || (destination?.kind === 'artifact' && !destination.artifactId)) return null;
+  if (inFrame) return <FrameCommentsSessionIcon />;
   const count = session.marks.length;
   return (
     <Button
@@ -62,6 +67,8 @@ export function CommentCapture({
   const mine = (mark: { viewer?: string }) => !mark.viewer || mark.viewer === viewer;
   const host = useRef<HTMLDivElement>(null);
   const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
+  // The selection menu's Comment opens this session with the selected passage.
+  useSelectionComment(hostElement, sourcePath);
   const elementMode = Boolean(session?.active && session.mode === 'element' && svg);
   const textMode = session?.active && session.mode === 'text';
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);

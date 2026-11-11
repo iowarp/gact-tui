@@ -17,6 +17,13 @@ export interface CascaderNode<T = unknown> {
   /** Trailing count. Defaults to known children; set it for async nodes. */
   count?: number;
   disabled?: boolean;
+  /**
+   * A row of controls, not a choice: rendered by `renderItem` as a
+   * `role="group"` named by `label`, never an option. An option may not hold
+   * buttons (axe `nested-interactive`); a listbox may hold a group. Arrows
+   * skip it; its buttons are Tab stops.
+   */
+  static?: boolean;
   keywords?: string[];
   /**
    * Only read on a node nested inside a `getChildren` result. For the level a
@@ -25,7 +32,6 @@ export interface CascaderNode<T = unknown> {
   hasMore?: boolean;
   data?: T;
 }
-
 
 /** Panel layout. See the docs for the keyboard map of each. */
 export type CascaderMode = 'drill' | 'columns' | 'tree';
@@ -40,7 +46,9 @@ export type CascaderSearchScope = 'level' | 'deep';
  */
 export type CascaderSelectable<T = unknown> = 'leaf' | 'any' | ((node: CascaderNode<T>) => boolean);
 
-export type CascaderChangeReason = 'select' | 'deselect' | 'clear';
+/** `reselect`: a single-select press (click or Enter) on the row already chosen;
+ *  the value is unchanged, but the person still made the choice. */
+export type CascaderChangeReason = 'select' | 'deselect' | 'clear' | 'reselect';
 
 /** Second argument to `onValueChange`: resolved nodes, so no re-lookup. */
 export interface CascaderChangeDetails<T = unknown> {

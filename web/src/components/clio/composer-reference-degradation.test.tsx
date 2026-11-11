@@ -25,14 +25,10 @@ function renderMenu() {
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <ClioComposerReferenceMenu
-        activeReferenceId=""
-        onActiveOptionChange={vi.fn()}
-        onActiveReferenceChange={vi.fn()}
         onDismiss={vi.fn()}
-        onQueryChange={vi.fn()}
-        onReferencesChange={vi.fn()}
         onRestoreFocus={vi.fn()}
         onSelect={vi.fn()}
+        popoverId="refs"
         query=""
         searchInput
         workspaceId="workspace_1"
@@ -64,10 +60,10 @@ describe('composer reference listing honesty', () => {
     );
     renderMenu();
 
-    const expanded = await screen.findByRole('button', { name: 'Collapse Workspace files' });
-    // The group's query has not run yet, so its count is unknown — not zero.
-    expect(expanded).toHaveTextContent('…');
-    expect(expanded).not.toHaveTextContent('0');
+    // While the group's first fetch runs it has no heading at all — not an
+    // empty one and not a count of zero.
+    expect(await screen.findByRole('option', { name: /Displacement plot/ })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Workspace files' })).not.toBeInTheDocument();
 
     resolveFiles([
       {

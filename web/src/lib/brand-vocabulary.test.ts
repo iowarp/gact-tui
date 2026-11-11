@@ -1,7 +1,14 @@
 import { brand } from '@brand';
 import { describe, expect, it } from 'vitest';
 
-import { PROTOCOL, capitalize, describeProtocol, vocab } from './brand-vocabulary';
+import { PROTOCOL, capitalize, vocab, withArticle } from './brand-vocabulary';
+
+describe('withArticle', () => {
+  it('picks A or An from the noun', () => {
+    expect(withArticle('CLIO')).toBe('A CLIO');
+    expect(withArticle('Agent')).toBe('An Agent');
+  });
+});
 
 describe('vocab', () => {
   it('reads product/agent/workspace nouns straight from the resolved brand', () => {
@@ -29,16 +36,9 @@ describe('capitalize', () => {
   });
 });
 
-describe('PROTOCOL and describeProtocol', () => {
+describe('PROTOCOL', () => {
   it('names both protocols explicitly, never a bare acronym', () => {
     expect(PROTOCOL.a2ui).toBe('A2UI protocol');
     expect(PROTOCOL.gact).toBe('GACT protocol');
-  });
-
-  it('describes what each protocol is for, in plain language', () => {
-    expect(describeProtocol('a2ui')).toMatch(/^A2UI protocol:/u);
-    expect(describeProtocol('a2ui')).toMatch(/interactive surfaces/u);
-    expect(describeProtocol('gact')).toMatch(/^GACT protocol:/u);
-    expect(describeProtocol('gact')).toMatch(/talk to the agent/u);
   });
 });

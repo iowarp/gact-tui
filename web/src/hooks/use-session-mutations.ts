@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
@@ -8,13 +9,12 @@ import type {
   MessageDelivery,
   PendingInteraction,
   PendingInteractionResponse,
-  QueuedMessage,
   Session,
   SubagentRun,
   WorkspaceResource,
+  AgentDelta,
 } from '@clio/core/v3';
-import { QueuedMessageReorderConflictError, type AgentDelta } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MutationObserver, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -24,6 +24,7 @@ import {
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import { useStableCallback } from './use-stable-callback';
 import { useActionCard } from './use-action-card';
 import {
   uploadWorkspaceResources,
@@ -120,24 +121,28 @@ export function useSessionMutations({
     };
   }, [sessionId]);
 
-  const queuedMessages = useQuery({
-    enabled: Boolean(sessionId),
-    queryFn: ({ signal }) => repository.queuedMessages(sessionId, signal),
-    queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
-  });
+  // Pending-steer events on the live stream invalidate this read.
+  const streamHealthy = useLiveStreamHealthy();
   const pendingSteers = useQuery({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.pendingSteers(sessionId, signal),
     queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
-    refetchInterval: session?.state === 'running' ? ACTIVE_SESSION_POLL_MS : false,
+    // Read only as data; the transcript that reads it is absent on the welcome screen.
+    notifyOnChangeProps: ['data'],
+    refetchInterval:
+      session?.state === 'running'
+        ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy)
+        : false,
   });
 
-  const invalidateComposerState = () => {
+  const invalidateComposerState = () => invalidateSessionReads(true);
+  const invalidateSessionReads = (transcript: boolean) => {
     invalidateQueriesInBackground(queryClient, [
       queryKeys.queuedMessages(settings.endpoint, sessionId),
       queryKeys.pendingSteers(settings.endpoint, sessionId),
       queryKeys.workspaceResources(settings.endpoint, workspaceId),
-      queryKeys.transcript(settings.endpoint, sessionId),
+      // A queued message joins the queue, not the conversation.
+      ...(transcript ? [queryKeys.transcript(settings.endpoint, sessionId)] : []),
       queryKeys.allSessionReads(settings.endpoint),
     ]);
   };
@@ -221,6 +226,32 @@ export function useSessionMutations({
     [queryClient, repository, sessionId, workspaceId],
   );
 
+  // A draft becomes one session, whether its first action is a message or a command.
+  // Retain a successful creation across failed sends/retries; concurrent
+  // submits share the same creation rather than minting extra sessions.
+  const materializeDraft = (
+    fields: Omit<Parameters<typeof repository.createSession>[0], 'workspace_id' | 'title'>,
+  ): Promise<Session> => {
+    const controller = uploadController.current;
+    if (!controller || controller.signal.aborted)
+      return Promise.reject(new Error('This draft is no longer open.'));
+    draftSession.current ??= repository
+      .createSession({
+        workspace_id: workspaceId,
+        title: 'New conversation',
+        ...fields,
+        ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
+        ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
+          ? { agent_delta: draftAgentDelta }
+          : {}),
+      })
+      .catch((error: unknown) => {
+        draftSession.current = null;
+        throw error;
+      });
+    return draftSession.current;
+  };
+
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
     if (!target) return;
@@ -237,50 +268,56 @@ export function useSessionMutations({
       sessions: { ...useLiveStore.getState().entities.sessions, [updated.id]: updated },
     });
   };
+  // What every delivery needs first: the route, a retry-stable identity and the
+  // message parts, with any attachments uploaded.
+  const prepareSend = async (value: SessionSendInput) => {
+    const provider = value.provider ?? activeProvider;
+    const model = value.model ?? activeModel;
+    if (!provider || !model) throw new Error('Choose an available provider and model.');
+    const identity = sendIdentities.current.forSend(sendFingerprint(value));
+
+    const uploaded = value.files?.length
+      ? await prepareFiles(value.files, value.onUploadProgress)
+      : { parts: [] as ComposerMessagePart[], resources: [] };
+    const text = value.text.trim();
+    const parts: ComposerMessagePart[] = [
+      ...(text ? [{ text, type: 'text' as const }] : []),
+      ...(value.references ?? []),
+      ...uploaded.parts,
+    ];
+    if (parts.length === 0) throw new Error('Write a message or attach a resource.');
+    return { identity, parts, route: { model_id: model, provider_id: provider } };
+  };
+  const queuedMessageInput = (
+    value: SessionSendInput,
+    { identity, parts, route }: Awaited<ReturnType<typeof prepareSend>>,
+  ) => ({
+    behavior: value.behavior,
+    client_message_id: identity.clientMessageId,
+    idempotency_key: identity.idempotencyKey,
+    model: route,
+    parts,
+    ...(value.answersQuestionId
+      ? { metadata: { answers_question_id: value.answersQuestionId } }
+      : {}),
+  });
+
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
-      const provider = value.provider ?? activeProvider;
-      const model = value.model ?? activeModel;
-      if (!provider || !model) throw new Error('Choose an available provider and model.');
-      const identity = sendIdentities.current.forSend(sendFingerprint(value));
-
-      const uploaded = value.files?.length
-        ? await prepareFiles(value.files, value.onUploadProgress)
-        : { parts: [] as ComposerMessagePart[], resources: [] };
-      const text = value.text.trim();
-      const parts: ComposerMessagePart[] = [
-        ...(text ? [{ text, type: 'text' as const }] : []),
-        ...(value.references ?? []),
-        ...uploaded.parts,
-      ];
-      if (parts.length === 0) throw new Error('Write a message or attach a resource.');
-
-      const route = { model_id: model, provider_id: provider };
+      const prepared = await prepareSend(value);
+      const { identity, parts, route } = prepared;
       const controller = uploadController.current;
       let target = session;
       if (!sessionId && createOnSend) {
-        if (!controller || controller.signal.aborted)
-          throw new Error('This draft is no longer open.');
-        // Retain a successful creation across failed sends/retries. Concurrent
-        // submits share the same creation rather than minting extra sessions.
-        draftSession.current ??= repository
-          .createSession({
-            workspace_id: workspaceId,
-            title: 'New conversation',
-            mode: sessionModeForExecution(value.behavior.execution_mode),
-            routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
-            approval_mode: value.behavior.confirmation_policy,
-            ...(value.spotterModel ? { spotter_model: value.spotterModel } : {}),
-            ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
-            ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
-              ? { agent_delta: draftAgentDelta }
-              : {}),
-          })
-          .catch((error: unknown) => {
-            draftSession.current = null;
-            throw error;
-          });
-        target = await draftSession.current;
+        target = await materializeDraft({
+          // The created session carries the turn's model, so the open
+          // conversation names it before the first turn reports back.
+          ...route,
+          mode: sessionModeForExecution(value.behavior.execution_mode),
+          routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
+          approval_mode: value.behavior.confirmation_policy,
+          ...(value.spotterModel ? { spotter_model: value.spotterModel } : {}),
+        });
         if (value.memoryOff) await repository.turnMemoryOff(target.id);
       }
       const targetId = sessionId || target?.id;
@@ -292,16 +329,10 @@ export function useSessionMutations({
         });
       }
       if (value.delivery === 'queued') {
-        const result = await repository.createQueuedMessage(targetId, {
-          behavior: value.behavior,
-          client_message_id: identity.clientMessageId,
-          idempotency_key: identity.idempotencyKey,
-          model: route,
-          parts,
-          ...(value.answersQuestionId
-            ? { metadata: { answers_question_id: value.answersQuestionId } }
-            : {}),
-        });
+        const result = await repository.createQueuedMessage(
+          targetId,
+          queuedMessageInput(value, prepared),
+        );
         if (!sessionId && target) openStartedSession(target, controller);
         return result;
       }
@@ -332,13 +363,57 @@ export function useSessionMutations({
     },
     onSuccess: () => sendIdentities.current.accepted(),
     onSettled: (_result, _error, value) => {
-      invalidateComposerState();
+      invalidateSessionReads(value.delivery !== 'queued' || !sessionId);
       if (value.answersQuestionId) {
         invalidateQueriesInBackground(queryClient, [
           queryKeys.pendingInteractions(settings.endpoint, interactionRootSessionId),
           queryKeys.key('pending-questions', settings.endpoint),
         ]);
       }
+    },
+  });
+
+  // Adding to an open conversation's queue runs outside the page's send state:
+  // nothing observes it here, so the page and its transcript don't re-render.
+  // The composer follows it by key (`queryKeys.queueSend`).
+  const queueMessage = useStableCallback((value: SessionSendInput) =>
+    new MutationObserver(queryClient, {
+      mutationKey: queryKeys.queueSend(settings.endpoint, sessionId),
+      mutationFn: async (input: SessionSendInput) =>
+        repository.createQueuedMessage(
+          sessionId,
+          queuedMessageInput(input, await prepareSend(input)),
+        ),
+      onSuccess: () => sendIdentities.current.accepted(),
+      onSettled: () =>
+        invalidateQueriesInBackground(queryClient, [
+          queryKeys.queuedMessages(settings.endpoint, sessionId),
+          ...(value.files?.length
+            ? [queryKeys.workspaceResources(settings.endpoint, workspaceId)]
+            : []),
+        ]),
+    }).mutate(value),
+  );
+  /** The composer's send: a queued follow-up joins the queue without touching the page. */
+  const sendMessage = useStableCallback(
+    (value: SessionSendInput): Promise<unknown> =>
+      value.delivery === 'queued' && sessionId && !value.answersQuestionId
+        ? queueMessage(value)
+        : send.mutateAsync(value),
+  );
+
+  // A command chosen in a draft runs in the conversation it starts, then opens it.
+  const runDraftCommand = useMutation({
+    mutationFn: async ({ commandId, input }: { commandId: string; input: string }) => {
+      const controller = uploadController.current;
+      const target = await materializeDraft({
+        ...(activeProvider && activeModel
+          ? { provider_id: activeProvider, model_id: activeModel }
+          : {}),
+      });
+      const result = await repository.dispatchCommand(target.id, commandId, input);
+      openStartedSession(target, controller);
+      return result;
     },
   });
 
@@ -359,53 +434,6 @@ export function useSessionMutations({
       { replace: true },
     );
   }
-
-  const updateQueuedMessage = useMutation({
-    mutationFn: ({ message, text }: { message: QueuedMessage; text: string }) =>
-      repository.updateQueuedMessage(sessionId, message.id, {
-        parts: replaceQueuedText(message.parts, text),
-        revision: message.revision,
-      }),
-    onSuccess: invalidateComposerState,
-  });
-
-  const deleteQueuedMessage = useMutation({
-    mutationFn: (message: QueuedMessage) =>
-      repository.deleteQueuedMessage(sessionId, message.id, message.revision),
-    onSuccess: invalidateComposerState,
-  });
-
-  const promoteQueuedMessage = useMutation({
-    mutationFn: async ({
-      delivery,
-      message,
-    }: {
-      delivery: MessageDelivery;
-      message: QueuedMessage;
-    }) => {
-      if (delivery === 'start') await reconcileTurnMode(message.behavior);
-      return repository.promoteQueuedMessage(sessionId, message.id, message.revision, delivery);
-    },
-    onSuccess: invalidateComposerState,
-  });
-
-  const reorderQueuedMessages = useMutation({
-    mutationFn: (messages: QueuedMessage[]) =>
-      repository.reorderQueuedMessages(sessionId, messages),
-    onSuccess: (messages) => {
-      queryClient.setQueryData(queryKeys.queuedMessages(settings.endpoint, sessionId), messages);
-    },
-    onError: (error) => {
-      // A refused reorder still tells us what the service holds. Show that
-      // rather than leaving the surface on an order the service rejected.
-      if (!(error instanceof QueuedMessageReorderConflictError)) return;
-      queryClient.setQueryData(
-        queryKeys.queuedMessages(settings.endpoint, sessionId),
-        error.queuedMessages,
-      );
-    },
-    onSettled: invalidateComposerState,
-  });
 
   const cancelPendingSteer = useMutation({
     mutationFn: (messageId: string) => repository.cancelPendingSteer(sessionId, messageId),
@@ -576,23 +604,16 @@ export function useSessionMutations({
     cancel,
     cancelQuestion,
     cancelPendingSteer,
-    deleteQueuedMessage,
     pendingSteers,
-    promoteQueuedMessage,
     prepareFiles,
     discardFiles,
-    queuedMessages,
-    reorderQueuedMessages,
+    reconcileTurnMode,
     respondInteraction,
     respondPermission,
     retry,
+    runDraftCommand,
     send,
-    updateQueuedMessage,
+    sendMessage,
     updateSessionBehavior,
   };
-}
-
-function replaceQueuedText(parts: ComposerMessagePart[], text: string): ComposerMessagePart[] {
-  const remaining = parts.filter((part) => part.type !== 'text');
-  return text.trim() ? [{ text: text.trim(), type: 'text' }, ...remaining] : remaining;
 }

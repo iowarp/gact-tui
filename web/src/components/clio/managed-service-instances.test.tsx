@@ -45,6 +45,8 @@ vi.mock('@/tauri/ssh-credentials', () => ({
 }));
 
 import { ManagedServices } from './managed-services';
+import { InfraTabActionsProvider } from './infrastructure-tab-actions';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const facts = {
   target_id: 'local',
@@ -127,7 +129,11 @@ function renderServices() {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <ManagedServices />
+        <TooltipProvider>
+          <InfraTabActionsProvider value={document.body}>
+            <ManagedServices />
+          </InfraTabActionsProvider>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -171,6 +177,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+async function openAddInstance(label: string, user = userEvent.setup()) {
+  await user.click(await screen.findByRole('button', { name: `More actions for ${label}` }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Add named instance' }));
+}
+
 describe('named model-service instances', () => {
   it('labels instance rows and shows each deployment’s GPUs', async () => {
     renderServices();
@@ -179,15 +190,17 @@ describe('named model-service instances', () => {
     expect(screen.getByText('GPU 0')).toBeInTheDocument();
     expect(screen.getByText('GPU 1')).toBeInTheDocument();
     // Only the engine offers further instances; an instance row does not.
-    expect(screen.getByRole('button', { name: 'Add vLLM instance' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add vLLM (spotter) instance' })).toBeNull();
+    await openAddInstance('vLLM');
+    expect(screen.getByRole('form', { name: 'Add vLLM instance' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions for vLLM (spotter)' }));
+    expect(screen.queryByRole('menuitem', { name: 'Add named instance' })).toBeNull();
   });
 
   it('names a new instance, then installs it on the chosen GPUs as <engine>@<name>', async () => {
     const user = userEvent.setup();
     renderServices();
 
-    await user.click(await screen.findByRole('button', { name: 'Add vLLM instance' }));
+    await openAddInstance('vLLM', user);
     const form = screen.getByRole('form', { name: 'Add vLLM instance' });
     const name = within(form).getByLabelText('Instance name');
 
@@ -238,7 +251,7 @@ describe('named model-service instances', () => {
     const user = userEvent.setup();
     renderServices();
 
-    await user.click(await screen.findByRole('button', { name: 'Add vLLM instance' }));
+    await openAddInstance('vLLM', user);
     await user.type(screen.getByLabelText('Instance name'), 'judge');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     const dialog = await screen.findByRole('dialog', { name: 'Set up vLLM (judge)' });
@@ -258,7 +271,8 @@ describe('named model-service instances', () => {
     renderServices();
 
     expect(await screen.findByRole('button', { name: 'Manage vLLM' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add vLLM instance' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions for vLLM' }));
+    expect(screen.queryByRole('menuitem', { name: 'Add named instance' })).toBeNull();
     expect(screen.getByText('GPU 0')).toBeInTheDocument();
   });
 });

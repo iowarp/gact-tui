@@ -11,9 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { CheckIcon, CircleAlertIcon, CircleIcon } from 'lucide-react';
 import { sourceBytes } from './connected-source-labels';
+import { RingSpinner } from './primitives/ring-spinner';
+import { SourceStatusLine } from './source-form-parts';
 
-/** Storage controls confirm cancellation and retain pending ownership until settlement. */
+/**
+ * A download or index as the spec's status line: a spinner, one sentence and
+ * Cancel. Cancelling still asks first and holds until the task settles.
+ */
 export function SourceOperationStatus({
   operation,
   label,
@@ -31,43 +37,69 @@ export function SourceOperationStatus({
   const active = ['queued', 'running'].includes(operation.state);
   const cancelling =
     active && (operation.cancel_requested || pending || requestedId === operation.id);
+  const failed = operation.state === 'failed' || Boolean(operation.error);
+  const amount = indexing
+    ? `${operation.entries_done} ${operation.entries_done === 1 ? 'entry' : 'entries'} indexed`
+    : `${sourceBytes(operation.bytes_done)}${operation.bytes_total ? ` of ${sourceBytes(operation.bytes_total)}` : ''}`;
+  const sentence = cancelling
+    ? `Cancelling, ${amount}`
+    : operation.state === 'completed'
+      ? indexing
+        ? `Folder index ready, ${amount}`
+        : `Downloaded to workspace Files, ${amount}`
+      : active
+        ? indexing
+          ? `Indexing, ${amount}`
+          : `Downloading ${amount}`
+        : `${indexing ? 'Indexing' : 'Download'} ${operation.state}, ${amount}`;
   return (
-    <div className="space-y-2 rounded-md border p-3" role="status">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <span>
-          {cancelling
-            ? 'Cancellation requested'
-            : operation.state === 'completed'
-              ? indexing
-                ? 'Folder index ready'
-                : 'Downloaded to workspace Files'
-              : operation.state}
-          :{' '}
-          {indexing
-            ? `${operation.entries_done} entries indexed`
-            : `${sourceBytes(operation.bytes_done)}${operation.bytes_total ? ` / ${sourceBytes(operation.bytes_total)}` : ''}`}
-        </span>
-        {active && (
-          <Button size="sm" variant="ghost" disabled={cancelling} onClick={() => setConfirm(true)}>
-            {cancelling
-              ? 'Cancellation requested'
-              : indexing
-                ? 'Cancel indexing'
-                : 'Cancel transfer'}
-          </Button>
-        )}
-      </div>
+    <div role="status" className="flex min-w-0 flex-col gap-1">
+      <SourceStatusLine
+        tone={failed ? 'error' : operation.state === 'completed' ? 'ok' : 'default'}
+        icon={
+          active ? (
+            <RingSpinner />
+          ) : failed ? (
+            <CircleAlertIcon />
+          ) : operation.state === 'completed' ? (
+            <CheckIcon />
+          ) : (
+            <CircleIcon />
+          )
+        }
+        actions={
+          active ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[12px]"
+              disabled={cancelling}
+              onClick={() => setConfirm(true)}
+            >
+              {cancelling ? 'Cancelling…' : 'Cancel'}
+            </Button>
+          ) : undefined
+        }
+      >
+        {sentence}
+      </SourceStatusLine>
       {active && (
         <progress
-          className="h-1.5 w-full accent-primary"
+          className="ml-[22px] h-1 w-[calc(100%-22px)] accent-primary"
           aria-label={indexing ? 'Indexing progress' : 'Transfer progress'}
           value={!indexing && operation.bytes_total ? operation.bytes_done : undefined}
           max={!indexing && operation.bytes_total ? operation.bytes_total : undefined}
         />
       )}
-      {operation.error && <p className="text-xs text-destructive">{operation.error}</p>}
+      {operation.error && (
+        <p className="pl-[22px] text-[11.5px] leading-[1.45] text-destructive">{operation.error}</p>
+      )}
       {operation.native_job_id && (
-        <p className="break-all text-xs text-muted-foreground">
+        <p
+          className="truncate pl-[22px] font-mono text-[11px] text-faint"
+          title={operation.native_job_id}
+        >
           Globus task {operation.native_job_id}
         </p>
       )}

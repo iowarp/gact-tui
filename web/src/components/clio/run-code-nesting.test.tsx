@@ -6,12 +6,12 @@ import {
   type ToolInvocation,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { useLiveStore } from '@/store/live-store';
-import { NestedToolCalls } from './nested-tool-calls';
+import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
 import { PermissionResponse } from './permission-response';
 import { PresentationNavigation } from './presentation-navigation';
 
@@ -72,9 +72,9 @@ describe('run_code nesting', () => {
       />,
     );
     expect(
-      screen.getByText('10 tool calls from this script (1 failed, 1 running)'),
+      screen.getByRole('group', { name: '10 tool calls from this script (1 failed, 1 running)' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByTestId('child')).toHaveLength(8);
+    expect(screen.getAllByTestId('child')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Show all 10' }));
     expect(screen.getAllByTestId('child')).toHaveLength(10);
   });
@@ -97,7 +97,9 @@ describe('run_code nesting', () => {
       tool('12', { parent_call_id: 'run' }),
     ]);
     render(<NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />);
-    expect(screen.getByText('13 tool calls from this script')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: '13 tool calls from this script' }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/^Called 12 times/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Called \d+ times/)).toHaveLength(1);
   });
@@ -115,16 +117,21 @@ describe('run_code nesting', () => {
         <NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />
       </PresentationNavigation.Provider>,
     );
-    expect(screen.getByText('1 tool call from this script')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '1 tool call from this script' })).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument();
   });
 
-  it('renders nothing for a call without children', () => {
+  it('renders nothing for a call without children, and keeps its source until it has some', () => {
     seed([tool('run', { name: 'run_code' })]);
     const { container } = render(
       <NestedToolCalls parentId="run" renderCall={() => <span>child</span>} />,
     );
     expect(container).toBeEmptyDOMElement();
+    cleanup();
+    render(<UnlessNestedCalls parentId="run">script source</UnlessNestedCalls>);
+    expect(screen.getByText('script source')).toBeInTheDocument();
+    act(() => seed([tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })]));
+    expect(screen.queryByText('script source')).not.toBeInTheDocument();
   });
 });
 
@@ -147,12 +154,17 @@ function scriptQuestion(actions: string[]): PendingInteraction {
   } as PendingInteraction;
 }
 
-function renderQuestion(interaction: PendingInteraction) {
+function renderQuestion(interaction: PendingInteraction, onOpenScript = vi.fn()) {
   const onResponse = vi.fn(async () => undefined);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PermissionResponse interaction={interaction} onResponse={onResponse} showOwner={false} />
+      <PermissionResponse
+        interaction={interaction}
+        onOpenScript={onOpenScript}
+        onResponse={onResponse}
+        showOwner={false}
+      />
     </QueryClientProvider>,
   );
   return onResponse;
@@ -161,22 +173,36 @@ function renderQuestion(interaction: PendingInteraction) {
 describe('a permission question asked from a script', () => {
   it('shows the paused script and offers the rest of the script', async () => {
     const user = userEvent.setup();
-    const onResponse = renderQuestion(
-      scriptQuestion(['allow', 'deny', 'allow_session', 'allow_workspace', 'allow_script']),
-    );
-    expect(
-      screen.getByText('Asked from this script, which is paused until you answer:'),
-    ).toBeInTheDocument();
+    const onOpenScript = vi.fn();
+    const interaction = scriptQuestion([
+      'allow',
+      'deny',
+      'allow_session',
+      'allow_workspace',
+      'allow_script',
+    ]);
+    const onResponse = renderQuestion(interaction, onOpenScript);
+    expect(screen.getByRole('group', { name: 'Script' })).toBeInTheDocument();
     expect(screen.getByText(/await tools\.fs\.write_file/)).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Permission duration' }));
-    await user.click(screen.getByRole('option', { name: 'Rest of this script' }));
+    await user.click(screen.getByRole('button', { name: /Open in tab/u }));
+    expect(onOpenScript).toHaveBeenCalledWith(interaction, 'call_run');
     await user.click(screen.getByRole('button', { name: 'Allow for the rest of this script' }));
     expect(onResponse).toHaveBeenCalledWith(expect.anything(), { action: 'allow_script' });
   });
 
   it('does not offer the rest of the script where the question does not', () => {
     renderQuestion(scriptQuestion(['allow', 'deny']));
-    expect(screen.queryByRole('combobox', { name: 'Permission duration' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeInTheDocument();
     expect(screen.queryByText('Rest of this script')).toBeNull();
   });
+
+  it('colours the script with the theme syntax tokens once the highlighter loads', async () => {
+    renderQuestion(scriptQuestion(['allow', 'deny']));
+    const script = screen.getByRole('group', { name: 'Script' });
+    await waitFor(
+      () => expect(script.querySelector('code span[style*="--syntax-"]')).not.toBeNull(),
+      { timeout: 20_000 },
+    );
+    expect(script.querySelector('pre')).toHaveTextContent(/await tools\.fs\.write_file\(f\)/u);
+  }, 30_000);
 });

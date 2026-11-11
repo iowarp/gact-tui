@@ -1,15 +1,22 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { CommentAttachment } from '@clio/core/v3';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
 
-/** One session's unsent composer draft, held outside the composer. */
+/**
+ * One session's unsent composer draft, held outside the composer.
+ *
+ * The text changes on every keystroke, so it is not part of the owner's render
+ * state: read it with `readValue()` inside handlers, and render it with
+ * `useComposerDraftValue(draft)` in the component that shows it.
+ */
 export interface ComposerDraft {
   annotations: readonly CommentAttachment[];
   onAnnotationsChange: (annotations: readonly CommentAttachment[]) => void;
   onReferencesChange: (references: readonly InlineReferenceSelection[]) => void;
   onValueChange: (value: string) => void;
+  readValue: () => string;
   references: readonly InlineReferenceSelection[];
-  value: string;
+  subscribeValue: (listener: () => void) => () => void;
 }
 
 const EMPTY_REFERENCES: readonly InlineReferenceSelection[] = [];
@@ -19,21 +26,97 @@ interface HeldDraft {
   annotations: readonly CommentAttachment[];
   references: readonly InlineReferenceSelection[];
   scope: string;
-  value: string;
 }
 
 type DraftPersistence = { persist: true; endpoint: string } | { persist: false };
 
-function emptyDraft(scope: string, storageKey: string | null): HeldDraft {
-  let value = '';
-  if (storageKey && typeof window !== 'undefined') {
-    try {
-      value = window.sessionStorage.getItem(storageKey) ?? '';
-    } catch {
-      // Private browsing can deny storage; the in-memory draft still works.
-    }
+function emptyDraft(scope: string): HeldDraft {
+  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, scope };
+}
+
+function storedText(storageKey: string | null): string {
+  if (!storageKey || typeof window === 'undefined') return '';
+  try {
+    return window.sessionStorage.getItem(storageKey) ?? '';
+  } catch {
+    // Private browsing can deny storage; the in-memory draft still works.
+    return '';
   }
-  return { annotations: EMPTY_ANNOTATIONS, references: EMPTY_REFERENCES, scope, value };
+}
+
+/** The draft text for one scope at a time, with change listeners. */
+function createTextStore() {
+  const listeners = new Set<() => void>();
+  let held: { scope: string; value: string } | null = null;
+  const read = (scope: string, storageKey: string | null) => {
+    if (held?.scope !== scope) held = { scope, value: storedText(storageKey) };
+    return held.value;
+  };
+  return {
+    read,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    write(scope: string, storageKey: string | null, value: string) {
+      if (read(scope, storageKey) === value) return;
+      held = { scope, value };
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+/** Typing settles for this long before the draft is written to tab storage. */
+const DRAFT_SAVE_DELAY_MS = 400;
+
+function storeText(storageKey: string, value: string) {
+  try {
+    if (value) window.sessionStorage.setItem(storageKey, value);
+    else window.sessionStorage.removeItem(storageKey);
+  } catch {
+    // The current tab retains the draft even if browser storage is unavailable.
+  }
+}
+
+/**
+ * Writes the draft to tab storage once typing pauses rather than on every
+ * keystroke. A cleared draft is removed at once, and a pending write is flushed
+ * before another session's draft is written and whenever `flush` is called.
+ */
+function createDraftSaver() {
+  let pending: { storageKey: string; value: string } | null = null;
+  let timer: number | undefined;
+  const flush = () => {
+    window.clearTimeout(timer);
+    timer = undefined;
+    if (!pending) return;
+    const { storageKey, value } = pending;
+    pending = null;
+    storeText(storageKey, value);
+  };
+  return {
+    flush,
+    save(storageKey: string, value: string) {
+      if (pending && pending.storageKey !== storageKey) flush();
+      if (!value) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        pending = null;
+        storeText(storageKey, value);
+        return;
+      }
+      pending = { storageKey, value };
+      window.clearTimeout(timer);
+      timer = window.setTimeout(flush, DRAFT_SAVE_DELAY_MS);
+    },
+  };
+}
+
+/** Render the draft text; only the calling component re-renders as it changes. */
+export function useComposerDraftValue(
+  draft: Pick<ComposerDraft, 'readValue' | 'subscribeValue'>,
+): string {
+  return useSyncExternalStore(draft.subscribeValue, draft.readValue, draft.readValue);
 }
 
 /**
@@ -56,30 +139,42 @@ export function useComposerDraft(
 ): ComposerDraft {
   const scope = JSON.stringify([persistence.persist ? persistence.endpoint : null, sessionId]);
   const storageKey = persistence.persist ? `clio:composer-draft:${scope}` : null;
-  const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(scope, storageKey));
-  const current = draft.scope === scope ? draft : emptyDraft(scope, storageKey);
+  const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(scope));
+  const [text] = useState(createTextStore);
+  const [saver] = useState(createDraftSaver);
+  const current = draft.scope === scope ? draft : emptyDraft(scope);
+
+  // A reload, a closed tab or leaving the session keeps the last keystrokes.
+  useEffect(() => {
+    if (!storageKey) return undefined;
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') saver.flush();
+    };
+    window.addEventListener('pagehide', saver.flush);
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    return () => {
+      window.removeEventListener('pagehide', saver.flush);
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+      saver.flush();
+    };
+  }, [saver, storageKey]);
 
   const patch = useCallback(
     (change: Partial<Omit<HeldDraft, 'scope'>>) =>
       setDraft((held) => ({
-        ...(held.scope === scope ? held : emptyDraft(scope, storageKey)),
+        ...(held.scope === scope ? held : emptyDraft(scope)),
         ...change,
       })),
-    [scope, storageKey],
+    [scope],
   );
   const onValueChange = useCallback(
     (value: string) => {
-      patch({ value });
-      if (!storageKey) return;
-      try {
-        if (value) window.sessionStorage.setItem(storageKey, value);
-        else window.sessionStorage.removeItem(storageKey);
-      } catch {
-        // The current tab retains the draft even if browser storage is unavailable.
-      }
+      text.write(scope, storageKey, value);
+      if (storageKey) saver.save(storageKey, value);
     },
-    [patch, storageKey],
+    [saver, scope, storageKey, text],
   );
+  const readValue = useCallback(() => text.read(scope, storageKey), [scope, storageKey, text]);
   const onReferencesChange = useCallback(
     (references: readonly InlineReferenceSelection[]) => patch({ references }),
     [patch],
@@ -89,12 +184,24 @@ export function useComposerDraft(
     [patch],
   );
 
-  return {
-    annotations: current.annotations,
-    onAnnotationsChange,
-    onReferencesChange,
-    onValueChange,
-    references: current.references,
-    value: current.value,
-  };
+  return useMemo(
+    () => ({
+      annotations: current.annotations,
+      onAnnotationsChange,
+      onReferencesChange,
+      onValueChange,
+      readValue,
+      references: current.references,
+      subscribeValue: text.subscribe,
+    }),
+    [
+      current.annotations,
+      current.references,
+      onAnnotationsChange,
+      onReferencesChange,
+      onValueChange,
+      readValue,
+      text,
+    ],
+  );
 }

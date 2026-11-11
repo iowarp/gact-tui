@@ -1,111 +1,116 @@
-import { useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { CloseIcon, EditIcon } from '@/lib/icon-vocabulary';
-import { cn } from '@/lib/utils';
-import { QuestionMarkdown } from './question-markdown';
+import type { FormEvent } from 'react';
+import { Input } from '@/components/ui/input';
+import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
+import { plainQuestionText } from './question-card-model';
 
-// Choice-card presentation adapted from https://reui.io/components/questionnaire/c-questionnaire-1.
-// Existing Radix controls and CLIO's draft/response owners retain interaction semantics.
-/** REUI questionnaire choice presentation over CLIO's existing controlled answers. */
-export function QuestionChoiceCard({
-  id,
-  label,
-  description,
-  control,
-  selected,
-  disabled,
-  comment,
-  onCommentChange,
-  onCommentOpen,
-  children,
-}: {
-  id: string;
+export interface QuestionChoice {
+  value: string;
   label: string;
   description?: string;
-  control: ReactNode;
-  selected: boolean;
+}
+
+/**
+ * How a row answers: `answer` sends it at once (↵ picks the first), `pick`
+ * chooses one for a later submit, `multi` toggles several.
+ */
+export type QuestionChoiceMode = 'answer' | 'pick' | 'multi';
+
+/** The options of one question as numbered 30px rows with their line of detail. */
+export function QuestionChoiceRows({
+  choices,
+  mode,
+  selected = [],
+  disabled,
+  label,
+  onChoose,
+}: {
+  choices: readonly QuestionChoice[];
+  mode: QuestionChoiceMode;
+  selected?: readonly string[];
   disabled?: boolean;
-  comment?: string;
-  onCommentChange?: (value: string) => void;
-  onCommentOpen?: () => void;
-  children?: ReactNode;
+  /** The question, naming the group. */
+  label: string;
+  onChoose: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(Boolean(comment));
-  const expanded = selected && open;
   return (
-    <div
-      data-slot="question-choice-card"
-      data-selected={selected || undefined}
-      className={cn(
-        'relative min-w-0 rounded-xl border bg-card transition-colors hover:bg-muted/40 focus-within:ring-2 focus-within:ring-ring/40',
-        selected && 'border-primary/60 bg-primary/5',
-        disabled && 'opacity-60',
-      )}
-    >
-      <Label
-        htmlFor={id}
-        className={cn(
-          'flex w-full min-w-0 cursor-pointer items-start gap-3 px-3.5 py-3',
-          onCommentChange && 'pr-12',
-          disabled && 'cursor-default',
-        )}
-      >
-        <span className="mt-0.5 shrink-0">{control}</span>
-        <span className="min-w-0 flex-1 space-y-1">
-          <span className="block text-sm font-medium leading-snug">
-            <QuestionMarkdown>{label}</QuestionMarkdown>
-          </span>
-          {description ? (
-            <span className="block text-sm font-normal leading-snug text-muted-foreground">
-              <QuestionMarkdown>{description}</QuestionMarkdown>
-            </span>
-          ) : null}
-        </span>
-      </Label>
-      {onCommentChange ? (
-        <Button
-          aria-expanded={expanded}
-          aria-controls={expanded ? `${id}-comment` : undefined}
-          aria-label={`${expanded ? 'Hide' : 'Add'} comment on ${label}`}
-          title={`${expanded ? 'Hide' : comment ? 'Edit' : 'Add'} details`}
-          className={cn(
-            'absolute right-2 top-2.5 text-muted-foreground',
-            comment && 'text-primary',
-          )}
-          disabled={disabled}
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => {
-            if (expanded) setOpen(false);
-            else {
-              onCommentOpen?.();
-              setOpen(true);
-            }
-          }}
-        >
-          {expanded ? <CloseIcon aria-hidden="true" /> : <EditIcon aria-hidden="true" />}
-        </Button>
-      ) : null}
-      {expanded && onCommentChange ? (
-        <div className="grid min-w-0 gap-1.5 px-3.5 pb-3 sm:pl-10">
-          <Label htmlFor={`${id}-comment`} className="text-xs font-normal text-muted-foreground">
-            Additional details (optional)
-          </Label>
-          <Textarea
-            id={`${id}-comment`}
-            aria-label={`Comment on ${label}`}
-            className="min-h-16 resize-y field-sizing-fixed bg-background"
+    <AskRows aria-label={plainQuestionText(label)} role={mode === 'pick' ? 'radiogroup' : 'group'}>
+      {choices.map((choice, index) => {
+        const checked = selected.includes(choice.value);
+        const text = plainQuestionText(choice.label);
+        const detail = choice.description ? plainQuestionText(choice.description) : undefined;
+        return (
+          <AskRow
+            aria-checked={mode === 'answer' ? undefined : checked}
+            // Only the number key leads the row; a chosen row ends in the check column.
+            detail={detail}
             disabled={disabled}
-            placeholder="Add context for the agent"
-            rows={2}
-            value={comment ?? ''}
-            onChange={(event) => onCommentChange(event.target.value)}
+            highlighted={mode === 'answer' && index === 0}
+            key={choice.value}
+            label={text}
+            number={index + 1}
+            onClick={() => onChoose(choice.value)}
+            role={mode === 'answer' ? undefined : mode === 'pick' ? 'radio' : 'checkbox'}
+            title={detail ? `${text}: ${detail}` : text}
           />
-        </div>
-      ) : null}
-      {children}
-    </div>
+        );
+      })}
+    </AskRows>
+  );
+}
+
+/** A written answer in the card: one 34px field and Send. */
+export function QuestionWriteIn({
+  id,
+  value,
+  onChange,
+  onSubmit,
+  disabled,
+  placeholder = 'Type your answer',
+  label = 'Your response',
+  enterKey,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit?: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+  label?: string;
+  /** Show ↵ on Send: the field is the card's only answer. */
+  enterKey?: boolean;
+}) {
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (value.trim() && !disabled) onSubmit?.();
+  };
+  return (
+    <AskSection className="mt-2">
+      <form
+        className="flex min-w-0 items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch"
+        onSubmit={submit}
+      >
+        <Input
+          aria-label={label}
+          className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
+          disabled={disabled}
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+        {onSubmit ? (
+          <AskButton
+            aria-label="Send response"
+            className="h-[34px]"
+            disabled={disabled || !value.trim()}
+            hint={enterKey ? 'Enter' : undefined}
+            primary
+            type="submit"
+          >
+            Send
+          </AskButton>
+        ) : null}
+      </form>
+    </AskSection>
   );
 }

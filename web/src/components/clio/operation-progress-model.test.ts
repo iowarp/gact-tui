@@ -97,7 +97,7 @@ describe('step progress', () => {
   });
 
   it('words the counter by unit', () => {
-    const bytes = step({ unit: 'bytes', current: 1_500_000, total: 4_000_000 });
+    const bytes = step({ unit: 'bytes', current: 1.5 * 1024 ** 2, total: 4 * 1024 ** 2 });
     expect(stepCounter(bytes.progress)).toBe('1.5 MB of 4.0 MB');
     expect(stepCounter(step({ unit: 'packages', current: 12, total: 80 }).progress)).toBe(
       '12 of 80 packages',
@@ -114,7 +114,7 @@ describe('step progress', () => {
         thing: 'vLLM image',
         identity: 'sha256:0123456789abcdef0123',
         path: '',
-        size_bytes: 9_800_000_000,
+        size_bytes: 9.8 * 1024 ** 3,
         saved_seconds: 754,
         message: '',
       }),

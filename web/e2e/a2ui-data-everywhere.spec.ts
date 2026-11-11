@@ -107,7 +107,7 @@ async function openEarthquakeDemo(page: Page) {
   expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.
@@ -292,7 +292,7 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-test('a detached surface never overlaps the subagent card in the message before it', async ({
+test('a detached surface never overlaps the delegate row in the message before it', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -306,11 +306,12 @@ test('a detached surface never overlaps the subagent card in the message before 
   // persistently undercount a row (here, a message expanded to show a
   // completed subagent card) with no further resize event ever correcting
   // it. `conversation.tsx` now independently measures the real DOM and pads
-  // the gap; this proves it holds for the actual card+artifact+surface
+  // the gap; this proves it holds for the actual delegate+artifact+surface
   // sequence the bug was found in, not just in principle.
-  const card = page.getByRole('article', {
-    name: 'Child conversation unavailable for Station evidence specialist',
-  });
+  const card = page
+    .locator('[data-slot="delegate"]')
+    .filter({ hasText: 'Station evidence specialist' })
+    .last();
   const surface = page.locator('[aria-label^="Interactive surface,"]').last();
   await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   // Both rectangles must come from the same layout. Separate Playwright

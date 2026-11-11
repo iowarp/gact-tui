@@ -132,7 +132,7 @@ it('connects selected metadata for source review without creating a link or mess
   expect(screen.queryByText(/Nothing is downloaded/)).not.toBeInTheDocument();
   expect(fixture.repository.attachNdp).not.toHaveBeenCalled();
   await user.click(screen.getByRole('checkbox', { name: /stations.csv/ }));
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   await waitFor(() => expect(onConnected).toHaveBeenCalledWith([{ id: 'sea', label: 'sea' }]));
   expect(fixture.repository.attachNdp).toHaveBeenCalledWith('workspace', {
     endpoint_id: 'ocean',
@@ -148,9 +148,9 @@ it('retains selected dataset resources while inspecting endpoint connections', a
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: /Sea observations/ }));
   await user.click(screen.getByRole('checkbox', { name: /stations.csv/ }));
-  await user.click(screen.getByRole('button', { name: 'Endpoints & streams' }));
+  await user.click(screen.getByRole('radio', { name: 'Endpoints & streams' }));
   await screen.findByLabelText('Endpoint connection method');
-  await user.click(screen.getByRole('button', { name: 'Datasets' }));
+  await user.click(screen.getByRole('radio', { name: 'Datasets' }));
   expect(screen.getByRole('checkbox', { name: /stations.csv/ })).toBeChecked();
   expect(screen.getByRole('button', { name: 'Selected (1)' })).toBeVisible();
 });
@@ -215,7 +215,7 @@ it('preserves selections from different searches and connects every selected dat
   await user.click(screen.getByRole('checkbox', { name: /temperatures.nc/ }));
   await user.click(screen.getByRole('button', { name: 'Selected (2)' }));
   expect(screen.getByRole('button', { name: /Sea observations/ })).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   await waitFor(() =>
     expect(onConnected).toHaveBeenCalledWith([
       { id: 'sea', label: 'sea' },
@@ -341,7 +341,7 @@ it('refreshes an expired backend selection once while retaining the exact chosen
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: /Sea observations/ }));
   await user.click(screen.getByRole('checkbox', { name: /stations.csv/ }));
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   await waitFor(() => expect(onConnected).toHaveBeenCalledOnce());
   expect(fixture.repository.searchNdp).toHaveBeenLastCalledWith({
     query: dataset.name,
@@ -358,9 +358,9 @@ it('keeps selection available when connecting fails and supports clearing it', a
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: /Sea observations/ }));
   await user.click(screen.getByRole('checkbox', { name: /stations.csv/ }));
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Search again');
   expect(screen.getByRole('checkbox', { name: /stations.csv/ })).toBeChecked();
   await user.click(screen.getByRole('button', { name: 'Clear selection' }));
-  expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
 });

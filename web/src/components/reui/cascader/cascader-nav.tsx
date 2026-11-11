@@ -1,17 +1,13 @@
 import * as React from 'react';
 import { useCascaderActions, useCascaderState } from '@/components/reui/cascader/cascader-context';
 import { resolveCascaderSearchLabel } from '@/components/reui/cascader/cascader-i18n';
-import {
-  getCascaderFooterStops,
-  isCascaderRtl,
-} from '@/components/reui/cascader/cascader-lib';
+import { isCascaderRtl } from '@/components/reui/cascader/cascader-lib';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react';
 import { useDirection } from '@base-ui/react/direction-provider';
 import { Slot } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 import { ChevronLeftIcon } from 'lucide-react';
-
 
 /* -------------------------------------------------------------------------- */
 /*                                     Nav                                    */
@@ -74,7 +70,7 @@ function CascaderBack({ className, asChild = false, children, ...props }: Cascad
       aria-label={labels.back}
       onClick={() => popLevel()}
       className={cn(
-        'text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex shrink-0 items-center justify-center rounded-md outline-hidden transition-colors focus-visible:ring-2',
+        'text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-ring/50 flex shrink-0 items-center justify-center rounded-md outline-hidden transition-colors focus-visible:ring-2',
         /* A notch under the row height: an affordance, not a second field. */
         'size-6',
         className,
@@ -123,7 +119,7 @@ function CascaderInput({
     baseId,
   } = useCascaderActions();
   const direction = useDirection();
-  const { currentParent, query, path, renderedItems, treeRows } = useCascaderState();
+  const { currentParent, query, path, treeRows } = useCascaderState();
 
   const resolvedPlaceholder =
     placeholder ?? resolveCascaderSearchLabel(labels, currentParent?.label);
@@ -144,9 +140,11 @@ function CascaderInput({
   // second ref into Base UI's input). SSR renders the "ltr" default and
   // corrects on hydration. `direction` is the only dep: a `dir` attribute and
   // the stylesheet are declarations, not state, so nothing to resubscribe to.
+  // A passive effect: `getComputedStyle` before paint forces a whole-document
+  // style recalc on every picker open; after paint the styles are already clean.
   const hintRef = React.useRef<HTMLSpanElement>(null);
   const [hintDir, setHintDir] = React.useState<'ltr' | 'rtl'>('ltr');
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     const hint = hintRef.current;
     if (!hint) return;
     setHintDir(isCascaderRtl(hint, direction) ? 'rtl' : 'ltr');
@@ -241,32 +239,21 @@ function CascaderInput({
     if (event.defaultPrevented) return;
 
     const field = event.currentTarget;
-    const caretAtStart = field.selectionStart === 0 && field.selectionEnd === 0;
-    const caretAtEnd = field.selectionStart === query.length && field.selectionEnd === query.length;
 
-    // ArrowDown at the END of the list hands real focus to the pinned footer,
-    // the key a combobox is actually navigated with; Tab still works and still
-    // skips the scroll area. An EMPTY list hands off at once, and the footer
-    // owns the way back. Counted from state, so a windowed list still answers.
-    if (event.key === 'ArrowDown' && !event.altKey) {
-      const rowCount = mode === 'tree' ? treeRows.length : renderedItems.length;
-      const lastValue =
-        mode === 'tree' ? treeRows[rowCount - 1]?.node.value : renderedItems[rowCount - 1]?.value;
-      const highlighted = getHighlighted();
-      const atEnd = rowCount === 0 || (highlighted != null && highlighted.value === lastValue);
-      if (atEnd) {
-        const panel = field.closest<HTMLElement>('[data-slot="cascader-panel"]');
-        const stop = panel ? getCascaderFooterStops(panel)[0] : undefined;
-        if (stop) {
-          event.preventDefault();
-          // Base UI's handler is deliberately NOT vetoed: its wrap's first
-          // press CLEARS the highlight, so no stale row stays active behind the
-          // focused command, and the emptied highlight completes the ring.
-          stop.focus();
-          return;
-        }
+    // Base UI picks the highlighted row on Enter only while `open`, which an
+    // inline panel never is, so Enter presses that row as a click would.
+    if (inline && event.key === 'Enter' && !event.nativeEvent.isComposing) {
+      const panel = field.closest<HTMLElement>('[data-slot="cascader-panel"]');
+      const row = panel?.querySelector<HTMLElement>('[role="option"][data-highlighted]');
+      if (row) {
+        event.preventDefault();
+        event.preventBaseUIHandler();
+        row.click();
+        return;
       }
     }
+    const caretAtStart = field.selectionStart === 0 && field.selectionEnd === 0;
+    const caretAtEnd = field.selectionStart === query.length && field.selectionEnd === query.length;
 
     // The level keys are LOGICAL, not physical: in RTL, ArrowLeft opens a
     // branch and ArrowRight goes back. They act only at the caret edge, and

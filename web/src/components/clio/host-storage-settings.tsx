@@ -1,14 +1,20 @@
 import type { HostStorageLocations, HostStorageSettings as Settings } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ChevronRightIcon, CircleAlertIcon, FolderIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { cn } from '@/lib/utils';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator } from './primitives/status-indicator';
+import { SourceStatusLine, sourceInputClass } from './source-form-parts';
 import { displayHostPath } from '@/lib/host-path-display';
+import { formatBytes } from '@/lib/format';
 import { toast } from 'sonner';
 
 const labels: Record<keyof HostStorageLocations, string> = {
@@ -19,8 +25,27 @@ const labels: Record<keyof HostStorageLocations, string> = {
   temporary: 'Temporary files',
 };
 
+/** What a frame's Save button needs from the form it closes. */
+export interface HostStorageSaveState {
+  submit: () => void;
+  disabled: boolean;
+  pending: boolean;
+}
+
 /** Persistent paths on a named host; existing deployments retain their receipts. */
-export function HostStorageSettings({ targetId }: { targetId: string }) {
+export function HostStorageSettings({
+  targetId,
+  onSaved,
+  onSaveState,
+}: {
+  targetId: string;
+  onSaved?: () => void;
+  /**
+   * The form sits in a frame whose footer owns Save (Storage on <host>): the
+   * form drops its own button and reports what the frame's button needs.
+   */
+  onSaveState?: (state: HostStorageSaveState | null) => void;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const query = useQuery({
@@ -30,24 +55,39 @@ export function HostStorageSettings({ targetId }: { targetId: string }) {
   });
   if (query.error)
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {query.error.message}
-      </p>
+      <StateView
+        action={{ label: 'Retry', onClick: () => void query.refetch() }}
+        detail={query.error.message}
+        kind="error"
+        size="row"
+        title="Could not read storage locations"
+      />
     );
   if (!query.data)
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        Loading storage locations…
-      </p>
-    );
+    return <StateView kind="loading" size="row" title="Loading storage locations…" />;
   return (
-    <div className="space-y-4" key={`${settings.endpoint}:${targetId}`}>
-      <StorageForm data={query.data} />
-    </div>
+    <StorageForm
+      data={query.data}
+      key={`${settings.endpoint}:${targetId}`}
+      onSaveState={onSaveState}
+      onSaved={onSaved}
+    />
   );
 }
 
-function StorageForm({ data }: { data: Settings }) {
+/** A path field quiet as a key-value value (`.c3kv .v`) until pointed at or focused. */
+const overrideInputClass =
+  'h-[25px] min-w-0 rounded-[5px] border-transparent bg-transparent px-1.5 text-right font-mono text-[11.5px] text-foreground/85 shadow-none placeholder:text-faint hover:border-input md:text-[11.5px] dark:bg-transparent';
+
+function StorageForm({
+  data,
+  onSaved,
+  onSaveState,
+}: {
+  data: Settings;
+  onSaved?: () => void;
+  onSaveState?: (state: HostStorageSaveState | null) => void;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
@@ -74,6 +114,7 @@ function StorageForm({ data }: { data: Settings }) {
     onSuccess: (next) => {
       queryClient.setQueryData(['host-storage', settings.endpoint, data.target_id], next);
       toast.success('Locations saved for new deployments.');
+      onSaved?.();
     },
   });
   const change = (name: keyof HostStorageLocations, value: string) => {
@@ -85,66 +126,118 @@ function StorageForm({ data }: { data: Settings }) {
     queryFn: ({ signal }) => repository.inspectHostPath(data.target_id, { path: root }, signal),
     retry: false,
   });
-  const field = (name: keyof HostStorageLocations) => (
-    <Field key={name}>
-      <FieldLabel htmlFor={`storage-${name}`}>{labels[name]}</FieldLabel>
-      <div className="flex gap-2">
-        <Input
-          id={`storage-${name}`}
-          value={draft[name] || ''}
-          placeholder={inherited[name]}
-          disabled={save.isPending}
-          onChange={(event) => change(name, event.target.value)}
-        />
-        <HostPathPicker
-          targetId={data.target_id}
-          label={labels[name]}
-          hostLabel={data.host_label}
-          path={draft[name] || inherited[name] || ''}
-          disabled={save.isPending}
-          onChoose={(path) => change(name, path)}
-        />
-      </div>
-    </Field>
+  const saveDisabled = save.isPending || !check.data?.writable || check.isFetching;
+  const { mutate } = save;
+  useEffect(() => {
+    onSaveState?.({ submit: () => mutate(), disabled: saveDisabled, pending: save.isPending });
+  }, [onSaveState, mutate, saveDisabled, save.isPending]);
+  useEffect(() => () => onSaveState?.(null), [onSaveState]);
+  const picker = (name: keyof HostStorageLocations, triggerClassName: string) => (
+    <HostPathPicker
+      targetId={data.target_id}
+      label={labels[name]}
+      hostLabel={data.host_label}
+      path={draft[name] || inherited[name] || ''}
+      disabled={save.isPending}
+      onChoose={(path) => change(name, path)}
+      triggerClassName={triggerClassName}
+    />
   );
+  const failure = check.error?.message || save.error?.message;
   return (
-    <section className="space-y-4" aria-label={`Storage on ${data.host_label}`}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">{field('root')}</div>
-        <InfoTip label="About storage locations">
-          Paths are on the selected host. New deployments inherit these locations; existing
-          deployments keep their recorded paths. Docker and Podman image storage is configured
-          separately in the container engine.
-        </InfoTip>
-      </div>
-      <details>
-        <summary className="cursor-pointer text-sm">Override individual folders</summary>
-        <div className="mt-4 space-y-4">
-          {(['models', 'service_data', 'captures', 'temporary'] as const).map(field)}
-        </div>
-      </details>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="ml-auto flex items-center gap-2">
-          <InfoTip label="Folder capacity and permissions">
-            {check.data
-              ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available; ${check.data.writable ? 'writable' : 'not writable'}.`
-              : 'Folder capacity is being checked.'}
+    <section
+      className="flex min-w-0 flex-col gap-[13px] text-[12.5px]"
+      aria-label={`Storage on ${data.host_label}`}
+    >
+      <div className="flex min-w-0 flex-col gap-[5px]">
+        <div className="flex items-center gap-1.5">
+          <label
+            htmlFor="storage-root"
+            className="text-[11.5px] whitespace-nowrap text-muted-foreground"
+          >
+            {labels.root}
+          </label>
+          <InfoTip label="About storage locations">
+            Paths are on the selected host. New deployments inherit these locations; existing
+            deployments keep their recorded paths. Docker and Podman image storage is configured
+            separately in the container engine.
           </InfoTip>
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Input
+            id="storage-root"
+            className={cn(sourceInputClass, 'min-w-0 flex-1 font-mono text-[12px] md:text-[12px]')}
+            value={draft.root || ''}
+            placeholder={inherited.root}
+            disabled={save.isPending}
+            onChange={(event) => change('root', event.target.value)}
+          />
+          {picker('root', 'h-[30px] shrink-0 px-2 text-[12px] text-muted-foreground')}
+        </div>
+      </div>
+      <Collapsible className="group/override -mx-2 flex min-w-0 flex-col">
+        <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
+          <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
+            <ChevronRightIcon className="size-3 group-data-[state=open]/override:rotate-90 motion-safe:transition-transform" />
+          </span>
+          Override individual folders
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid grid-cols-[40%_minmax(0,1fr)_auto] items-center gap-x-2.5 px-2 pt-1 text-[12px]">
+          {(['models', 'service_data', 'captures', 'temporary'] as const).map((name) => (
+            <div className="contents" key={name}>
+              <label
+                htmlFor={`storage-${name}`}
+                className="flex min-h-[25px] min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground"
+                title={labels[name]}
+              >
+                <FolderIcon aria-hidden="true" className="size-[13px] shrink-0" />
+                <span className="truncate">{labels[name]}</span>
+              </label>
+              <Input
+                id={`storage-${name}`}
+                className={overrideInputClass}
+                value={draft[name] || ''}
+                placeholder={inherited[name]}
+                title={draft[name] || inherited[name]}
+                disabled={save.isPending}
+                onChange={(event) => change(name, event.target.value)}
+              />
+              {picker(name, 'h-[22px] shrink-0 px-1.5 text-[11.5px] text-muted-foreground')}
+            </div>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+      <div className="flex min-w-0 flex-col gap-[5px]">
+        <h4 className="text-[11.5px] font-normal text-muted-foreground">
+          Folder capacity and permissions
+        </h4>
+        <div className="flex min-h-[26px] min-w-0 items-center text-[12px]">
+          {check.isFetching ? (
+            <StatusIndicator label="Checking folder…" tone="running" />
+          ) : check.data ? (
+            <StatusIndicator
+              label={`${labels.root}: ${formatBytes(check.data.free_bytes)} free, ${check.data.writable ? 'writable' : 'not writable'}`}
+              tone={check.data.writable ? 'success' : 'error'}
+            />
+          ) : null}
+        </div>
+      </div>
+      {failure ? (
+        <SourceStatusLine icon={<CircleAlertIcon />} role="alert" tone="error">
+          {failure}
+        </SourceStatusLine>
+      ) : null}
+      {onSaveState ? null : (
+        <div className="flex items-center justify-end">
           <Button
-            className="min-w-32"
             aria-busy={save.isPending || check.isFetching}
-            disabled={save.isPending || !check.data?.writable || check.isFetching}
+            disabled={saveDisabled}
             onClick={() => save.mutate()}
           >
-            {save.isPending ? 'Saving…' : check.isFetching ? 'Checking folder…' : 'Save locations'}
+            {save.isPending ? 'Saving…' : 'Save locations'}
           </Button>
         </div>
-      </div>
-      {check.error || save.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {check.error?.message || save.error?.message}
-        </p>
-      ) : null}
+      )}
     </section>
   );
 }

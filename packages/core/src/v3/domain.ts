@@ -697,6 +697,9 @@ export interface TranscriptPageOptions {
   before?: string;
 }
 
+/** An inclusive byte range of a file, or its last `suffix` bytes. */
+export type WorkspaceFileRange = { start: number; end: number } | { suffix: number };
+
 export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;

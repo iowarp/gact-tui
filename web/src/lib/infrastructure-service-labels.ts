@@ -16,6 +16,7 @@ export function infrastructureServiceName(id: string): string {
     ollama: 'Ollama',
     flowcept: 'Flowcept',
     cmf: 'HPE CMF',
+    clio_agent: vocab.agent,
   };
   return names[id] ?? id.replaceAll('_', ' ');
 }

@@ -63,10 +63,9 @@ import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
 import { resolvedCardAction } from './kernel-catalog-card-actions';
 import { KernelIcon } from './kernel-catalog-icon';
-import { copyTextToClipboard } from '@/components/clio/surface-export';
-import { SurfaceToolbar, type SurfaceCapabilities } from '@/components/clio/surface-toolbar';
 import { A2uiSurface } from './kernel-surface';
 import { dataViewFlexStyle } from '@/components/clio/data-view-layout';
+import { MetricView } from './kernel-metric';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -238,38 +237,17 @@ const Metric = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props }) => {
-    // G0 row for clio.metric.v1: "copy value; Reference this." (No query/
-    // filter/selection concept applies to a single scalar, so only `onCopy`
-    // is declared here — Reference this is scoped to data views that can
-    // describe a zone, which a bare metric cannot.)
-    const metricCapabilities: SurfaceCapabilities = {
-      onCopy: () =>
-        copyTextToClipboard(`${String(props.value)}${props.unit ? ` ${props.unit}` : ''}`),
-    };
-    return (
-      <div
-        {...a2uiAccessibilityProps(props.accessibility)}
-        className="group relative min-w-0 rounded-lg border border-t-2 border-t-foreground/50 bg-card/70 p-4"
-        style={dataViewFlexStyle(props.weight)}
-        role="group"
-      >
-        <SurfaceToolbar capabilities={metricCapabilities} />
-        <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
-        <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
-          {String(props.value)}
-          {props.unit ? (
-            <span className="ml-1 text-sm text-muted-foreground">{props.unit}</span>
-          ) : null}
-        </p>
-        {props.trend || props.detail ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {[props.trend, props.detail].filter(Boolean).join(', ')}
-          </p>
-        ) : null}
-      </div>
-    );
-  },
+  ({ props }) => (
+    <MetricView
+      accessibility={props.accessibility}
+      detail={props.detail}
+      label={props.label}
+      trend={props.trend}
+      unit={props.unit}
+      value={props.value}
+      weight={props.weight}
+    />
+  ),
 );
 
 const ClioProgress = createComponentImplementation(
@@ -357,7 +335,9 @@ function RenderedCode({
 }) {
   return (
     <Suspense
-      fallback={<div aria-busy="true" className="h-24 animate-pulse rounded-lg bg-muted" />}
+      fallback={
+        <div aria-busy="true" className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />
+      }
     >
       <ClioA2UICodeView
         accessibility={componentAccessibility}
@@ -390,7 +370,7 @@ function ClioCodeArtifactSource({
     );
   }
   if (loading || text === undefined) {
-    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+    return <div className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />;
   }
   return (
     <RenderedCode accessibility={accessibility} code={text} language={language} title={title} />
@@ -491,7 +471,7 @@ function ClioDiffArtifactSource({
     );
   }
   if (loading || text === undefined) {
-    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+    return <div className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />;
   }
   return (
     <ClioDiffView

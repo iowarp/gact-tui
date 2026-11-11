@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import { useQueryClient, type Query, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
-import { STREAM_RECONNECT_BASE_MS, TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
+import {
+  CONNECTION_PROBE_TIMEOUT_MS,
+  LIVE_PROVENANCE_REFRESH_MS,
+  LIVE_SESSION_LIST_REFRESH_MS,
+  STREAM_OFFLINE_AFTER_MS,
+  STREAM_RECONNECT_BASE_MS,
+  TRANSCRIPT_PAGE_SIZE,
+} from '@/lib/runtime-limits';
+import { serviceUnreachable } from '@/lib/connection-attempt';
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
@@ -91,6 +99,39 @@ export function useSessionLiveStream({
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     let resumeCursor = initialCursor;
     let reconcileBeforeConnect = false;
+    let failingSince: number | undefined;
+    // Whether /v1/health could not be reached. A health check that is merely slow
+    // (a warming agent can take many seconds) is not an outage.
+    const serviceDown = async () => {
+      const probe = new AbortController();
+      const stop = () => probe.abort();
+      controller.signal.addEventListener('abort', stop, { once: true });
+      const timer = window.setTimeout(stop, CONNECTION_PROBE_TIMEOUT_MS);
+      try {
+        await repository.serviceHealth(probe.signal);
+        return false;
+      } catch (error) {
+        if (probe.signal.aborted) return false;
+        return serviceUnreachable(error instanceof Error ? error : undefined);
+      } finally {
+        window.clearTimeout(timer);
+        controller.signal.removeEventListener('abort', stop);
+      }
+    };
+    // A drop reads "Resuming updates" at first. Once it has lasted past the
+    // reconnect window, a retry that could not reach the service, or a failed
+    // /v1/health probe after any other drop, reads offline until it answers.
+    const reportDrop = async (error?: unknown) => {
+      reconcileBeforeConnect = true;
+      failingSince ??= performance.now();
+      if (performance.now() - failingSince < STREAM_OFFLINE_AFTER_MS) {
+        setStreamState('reconnecting');
+        return;
+      }
+      const down =
+        serviceUnreachable(error instanceof Error ? error : undefined) || (await serviceDown());
+      if (!controller.signal.aborted) setStreamState(down ? 'offline' : 'reconnecting');
+    };
     const reconcileAfterDisconnect = async () => {
       const [workspaces, sessions, transcript, surfaces] = await Promise.all([
         repository.workspaces(controller.signal),
@@ -132,6 +173,10 @@ export function useSessionLiveStream({
         queryClient.invalidateQueries({
           queryKey: queryKeys.sessionContext(settings.endpoint, sessionId),
         }),
+        // A queued message drained while the stream was down leaves no event to replay.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
+        }),
       ]);
     };
     const consume = async () => {
@@ -150,6 +195,7 @@ export function useSessionLiveStream({
             controller.signal,
           )) {
             reconnectDelay = STREAM_RECONNECT_BASE_MS;
+            failingSince = undefined;
             setStreamState('live');
             if (frame.eventName === 'lm.provider.changed') {
               clearCachedSessionModelReferences(queryClient, settings.endpoint);
@@ -173,6 +219,7 @@ export function useSessionLiveStream({
                 cursor: frame.cursor,
               }),
             );
+            if (frame.eventName === 'message.completed') invalidations.flushThrottled();
             const notice = streamNoticeForFrame(frame);
             if (notice)
               toast.error(notice.title, { id: notice.id, description: notice.description });
@@ -181,15 +228,15 @@ export function useSessionLiveStream({
           // not a frame ever arrived, the connection is gone (server close,
           // idle timeout, network drop). Reporting 'live' here would be a
           // status lie; the next loop iteration's first frame flips it back.
-          if (!controller.signal.aborted) {
-            reconcileBeforeConnect = true;
-            setStreamState('reconnecting');
-          }
+          if (!controller.signal.aborted) await reportDrop();
         } catch (error) {
           if (controller.signal.aborted) break;
-          reconcileBeforeConnect = true;
-          setStreamState('reconnecting');
-          if (error instanceof Error && error.name === 'AbortError') break;
+          if (error instanceof Error && error.name === 'AbortError') {
+            reconcileBeforeConnect = true;
+            setStreamState('reconnecting');
+            break;
+          }
+          await reportDrop(error);
         }
         await abortableDelay(controller, reconnectDelay);
         reconnectDelay = nextReconnectDelay(reconnectDelay);
@@ -323,7 +370,12 @@ function isPendingSteerEvent(eventName: string): boolean {
 }
 
 function isQueuedMessageEvent(eventName: string): boolean {
-  return eventName.startsWith('queued_message.');
+  return (
+    eventName.startsWith('queued_message.') ||
+    // The service drains a queued message into the next turn as a new user
+    // message and sends no queued_message.* event for it.
+    eventName === 'message.upserted'
+  );
 }
 
 function isResourceEvent(eventName: string): boolean {
@@ -425,6 +477,10 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'session.work.updated') {
     keys.push(['session-work', endpoint, sessionId]);
   }
+  // A turn ended (a scheduled one included) or work changed: next runs may have moved.
+  if (eventName === 'session.work.updated' || eventName === 'message.completed') {
+    keys.push(['session-work-schedules', endpoint, sessionId]);
+  }
   // A browser page opened, changed or closed: the Browser tabs and the Work rail refresh.
   if (eventName.startsWith('browser.page.')) {
     keys.push(['browser-pages', endpoint, sessionId]);
@@ -495,35 +551,141 @@ export function queryInvalidationKeysForEvent({
   return keys;
 }
 
+/**
+ * Reads refreshed at most once per window while a turn streams, in milliseconds:
+ * the first event refreshes now, later ones in the window refresh once at its end,
+ * and the turn's `message.completed` refreshes them all at once. Execution
+ * provenance is a graph read that takes seconds on a long session, so per-event
+ * refetches cancelled each other and never settled; the session lists are read
+ * by many queries and change with every process and status event.
+ */
+const THROTTLED_INVALIDATION_MS: Readonly<Record<string, number>> = {
+  'execution-provenance': LIVE_PROVENANCE_REFRESH_MS,
+  sessions: LIVE_SESSION_LIST_REFRESH_MS,
+  'session-work': LIVE_SESSION_LIST_REFRESH_MS,
+};
+
+/**
+ * A query that a session's stream must not refresh: its data belongs to another
+ * conversation, so this stream's events never change it (`meta`).
+ */
+export const OUTSIDE_LIVE_STREAM = { liveStreamInvalidation: false } as const;
+
+function refreshedByStream(query: Query): boolean {
+  return query.meta?.liveStreamInvalidation !== false;
+}
+
 class QueryInvalidationBatcher {
   private readonly pending = new Map<string, QueryKey>();
+  /** Window-opening refreshes of throttled reads; they never abort a read in flight. */
+  private readonly leading = new Map<string, QueryKey>();
+  private readonly throttled = new Map<string, { key: QueryKey; due: boolean; timer?: number }>();
+  private readonly lastRefresh = new Map<string, number>();
   private scheduled = false;
   private stopped = false;
 
-  constructor(private readonly queryClient: Pick<QueryClient, 'invalidateQueries'>) {}
+  constructor(
+    private readonly queryClient: Pick<QueryClient, 'invalidateQueries' | 'isFetching'>,
+  ) {}
 
   push(...keys: QueryKey[]): void {
     if (this.stopped) return;
-    for (const key of keys) this.pending.set(JSON.stringify(key), key);
-    if (this.scheduled || this.pending.size === 0) return;
+    for (const key of keys) {
+      const id = JSON.stringify(key);
+      const windowMs = THROTTLED_INVALIDATION_MS[String(key[0])];
+      if (windowMs === undefined) {
+        this.pending.set(id, key);
+        continue;
+      }
+      const elapsed = Date.now() - (this.lastRefresh.get(id) ?? 0);
+      const entry = this.throttled.get(id);
+      if (entry) {
+        entry.due = true;
+      } else if (elapsed >= windowMs) {
+        this.leading.set(id, key);
+        this.lastRefresh.set(id, Date.now());
+        this.throttled.set(id, { key, due: false, timer: this.windowEnd(id, windowMs) });
+      } else {
+        this.throttled.set(id, { key, due: true, timer: this.windowEnd(id, windowMs - elapsed) });
+      }
+    }
+    if (this.scheduled || this.pending.size + this.leading.size === 0) return;
     this.scheduled = true;
     queueMicrotask(() => this.flush());
+  }
+
+  /**
+   * The turn ended: refresh every throttled read now, with nothing left waiting.
+   * A read already in flight is allowed to finish and is then read once more, so
+   * the final state arrives without aborting a request.
+   */
+  flushThrottled(): void {
+    for (const [id, entry] of this.throttled) {
+      window.clearTimeout(entry.timer);
+      if (entry.due) this.refreshAfterInFlight(entry.key);
+      this.lastRefresh.set(id, Date.now());
+    }
+    this.throttled.clear();
   }
 
   flush(): void {
     this.scheduled = false;
     const keys = [...this.pending.values()];
+    const leading = [...this.leading.values()];
     this.pending.clear();
-    if (keys.length === 0) return;
-    void Promise.allSettled(
-      keys.map((queryKey) => this.queryClient.invalidateQueries({ queryKey })),
-    );
+    this.leading.clear();
+    this.invalidate(keys, true);
+    this.invalidate(leading, false);
   }
 
   stop({ flush }: { flush: boolean }): void {
-    if (flush) this.flush();
+    if (flush) {
+      this.flushThrottled();
+      this.flush();
+    }
+    for (const entry of this.throttled.values()) window.clearTimeout(entry.timer);
+    this.throttled.clear();
     this.stopped = true;
     this.pending.clear();
+    this.leading.clear();
+  }
+
+  private windowEnd(id: string, delayMs: number): number {
+    return window.setTimeout(() => {
+      const entry = this.throttled.get(id);
+      this.throttled.delete(id);
+      if (!entry?.due || this.stopped) return;
+      this.lastRefresh.set(id, Date.now());
+      // A read still in flight from the window's start is kept, not restarted.
+      this.invalidate([entry.key], false);
+    }, delayMs);
+  }
+
+  private refreshAfterInFlight(queryKey: QueryKey): void {
+    const inFlight = this.queryClient.isFetching({ queryKey, predicate: refreshedByStream }) > 0;
+    const refresh = () =>
+      this.queryClient.invalidateQueries(
+        { queryKey, predicate: refreshedByStream },
+        { cancelRefetch: false },
+      );
+    void refresh()
+      .catch(() => undefined)
+      .then(() => {
+        if (inFlight && !this.stopped) return refresh();
+      })
+      .catch(() => undefined);
+  }
+
+  private invalidate(keys: readonly QueryKey[], cancelRefetch: boolean): void {
+    if (keys.length === 0) return;
+    void Promise.allSettled(
+      keys.map((queryKey) =>
+        this.queryClient.invalidateQueries(
+          { queryKey, predicate: refreshedByStream },
+          { cancelRefetch },
+        ),
+      ),
+    );
   }
 }
 

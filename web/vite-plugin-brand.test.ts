@@ -103,6 +103,20 @@ describe('brandPlugin', () => {
     });
   });
 
+  it('applies the brand accent and theme tokens to the Classic themes only, never Notebook or Debug', () => {
+    const root = makeBrandingRoot('acme', {
+      name: 'Acme Desktop',
+      accent: '#5b8def',
+      themeTokens: { '--ring': '#123456' },
+    });
+
+    const style = transformIndexHtml(brandPlugin(root, 'acme')).find((tag) => tag.tag === 'style');
+
+    expect(style?.children).toBe(
+      "html:root:is([data-theme='classic-light'], [data-theme='classic-dark']) { --ring: #123456; --action: #5b8def; }",
+    );
+  });
+
   it('falls back to the tracked neutral favicon.svg when the brand declares no logoSvg', () => {
     const root = makeBrandingRoot('bare', { name: 'Bare Brand' });
     const plugin = brandPlugin(root, 'bare');

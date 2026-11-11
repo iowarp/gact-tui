@@ -15,8 +15,17 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
+import { useShownByPage } from './infrastructure-reachability';
+import { StateView } from './primitives/state-view';
+import { TechnicalDetails } from './technical-details';
 import { ManagedServiceLogo } from './managed-service-identity';
-import { ClioStatus } from './status';
+import { CheckConnectionIcon, DeleteIcon } from '@/lib/icon-vocabulary';
+import { ActivityIcon, LinkIcon, PlayIcon, UnlinkIcon } from 'lucide-react';
+import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { IconButton } from './primitives/icon-button';
+import { InfraRowMenu } from './infrastructure-row-menu';
+import { KeyValueGrid } from './primitives/key-value-grid';
+import { SERVICE_COLUMNS } from './managed-service-groups';
 import { HostPathPicker } from './host-path-picker';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -42,26 +51,28 @@ export function ProvenanceConnections({
     refetchInterval: 15_000,
   });
   const refresh = () => client.invalidateQueries({ queryKey: key });
+  const errorShownByPage = useShownByPage(query.error);
   return (
-    <section aria-label="Connected provenance services" className="mt-5 space-y-3">
-      {query.data?.length ? (
-        <h3 className="text-sm font-semibold">
-          Provenance connected to {settings.label || `this ${vocab.agent}`}
-        </h3>
-      ) : null}
-      {query.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {query.error.message}
-        </p>
+    <section aria-label="Connected provenance services" className="min-w-0 pt-3 empty:hidden">
+      {query.error && !errorShownByPage ? (
+        <StateView
+          action={{ label: 'Retry', onClick: () => void query.refetch() }}
+          detail={query.error.message}
+          kind="error"
+          size="row"
+          title="Provenance connections could not load"
+        />
       ) : null}
       {query.isPending ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading provenance connections…
-        </p>
+        <StateView kind="loading" size="row" title="Loading provenance connections" />
       ) : null}
-      {query.data?.map((row) => (
-        <ConnectionRow key={`${scope}:${row.id}`} row={row} onChanged={refresh} />
-      ))}
+      {query.data?.length ? (
+        <InfraList heading="Provenance connections" {...SERVICE_COLUMNS}>
+          {query.data.map((row) => (
+            <ConnectionRow key={`${scope}:${row.id}`} row={row} onChanged={refresh} />
+          ))}
+        </InfraList>
+      ) : null}
       {connect ? (
         <ConnectDialog
           key={`${scope}:${connect.service_id}`}
@@ -75,6 +86,19 @@ export function ProvenanceConnections({
   );
 }
 
+function connectionStatus(row: ProvenanceConnection): InfraStatus {
+  const restartPending = row.selected !== row.active;
+  if (row.active)
+    return row.selected
+      ? { tone: row.verified ? 'success' : 'warning', label: 'In use' }
+      : { tone: 'warning', label: 'Disconnect after restart' };
+  if (row.selected) return { tone: 'warning', label: 'Restart to activate' };
+  if (row.verified && !restartPending) return { tone: 'success', label: 'Verified' };
+  return { tone: 'idle', label: 'Not verified' };
+}
+
+const stopRowClick = (event: { stopPropagation: () => void }) => event.stopPropagation();
+
 function ConnectionRow({
   row,
   onChanged,
@@ -83,6 +107,7 @@ function ConnectionRow({
   onChanged: () => Promise<unknown>;
 }) {
   const repository = useRepository();
+  const [expanded, setExpanded] = useState(false);
   const restartPending = row.selected !== row.active;
   const action = useMutation({
     mutationFn: async (verb: 'verify' | 'use' | 'disconnect' | 'forget') => {
@@ -93,97 +118,126 @@ function ConnectionRow({
     },
     onSettled: onChanged,
   });
+  const showDetails = expanded || restartPending || Boolean(action.error);
   return (
-    <article aria-label={`${row.label} connection`} className="rounded-xl border p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <ManagedServiceLogo service={{ id: row.service_id }} />
-        <div className="min-w-0 flex-1">
-          <p className="font-medium">{row.label}</p>
-          <p className="break-all text-xs text-muted-foreground">{row.url}</p>
-        </div>
-        <ClioStatus
-          value={row.verified && !restartPending ? 'healthy' : 'degraded'}
-          label={
-            row.active
-              ? row.selected
-                ? 'In use'
-                : 'Disconnect after restart'
-              : row.selected
-                ? 'Restart to activate'
-                : row.verified
-                  ? 'Write/readback verified'
-                  : 'Not verified'
-          }
+    <InfraRow
+      actions={
+        <InfraRowMenu
+          actions={[
+            {
+              disabled: action.isPending,
+              icon: <CheckConnectionIcon />,
+              label:
+                action.isPending && action.variables === 'verify'
+                  ? 'Verifying…'
+                  : 'Verify connection',
+              onSelect: () => action.mutate('verify'),
+            },
+            ...(!row.selected && !row.active
+              ? [
+                  {
+                    disabled: action.isPending,
+                    icon: <DeleteIcon />,
+                    label: 'Forget connection',
+                    onSelect: () => action.mutate('forget'),
+                  },
+                ]
+              : []),
+          ]}
+          label={`More actions for ${row.label}`}
         />
-        <InfoTip label={`About ${row.label} connection`}>
-          This {vocab.agent} connects to the service; its deployment and data stay under the service
-          owner's control. Verification writes a small provenance record and reads it back.
-          Attention readiness needs a separate instrumented inference check.
-          {row.service_id === 'flowcept'
-            ? ' In use, it is also where SPOTTER and the provenance views read from.'
-            : null}
-        </InfoTip>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={action.isPending}
-          onClick={() => action.mutate('verify')}
+      }
+      aria-label={`${row.label} connection`}
+      className="cursor-pointer"
+      description={
+        row.service_id === 'flowcept' ? 'Workflow provenance records' : 'Provenance records'
+      }
+      details={
+        showDetails ? (
+          <>
+            {restartPending ? (
+              <p className="text-[12px]" role="status">
+                Saved. Restart the connected {vocab.agent} to apply this choice.
+              </p>
+            ) : null}
+            {action.error ? (
+              <StateView
+                detail={action.error.message}
+                kind="error"
+                size="row"
+                title="This connection action did not finish"
+              />
+            ) : null}
+            {expanded ? (
+              <>
+                <KeyValueGrid
+                  items={[{ label: 'Address', icon: <LinkIcon />, value: row.url, mono: true }]}
+                />
+                <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                  This {vocab.agent} connects to the service; the owner keeps its deployment and
+                  data.
+                  <InfoTip label={`About ${row.label} connection`}>
+                    This {vocab.agent} connects to the service; its deployment and data stay under
+                    the service owner's control. Verification writes a small provenance record and
+                    reads it back. Attention readiness needs a separate instrumented inference
+                    check.
+                    {row.service_id === 'flowcept'
+                      ? ' In use, it is also where SPOTTER and the provenance views read from.'
+                      : null}
+                  </InfoTip>
+                </p>
+                {Object.keys(row.verification).length ? (
+                  <TechnicalDetails className="text-[12px]" title="Verification receipt">
+                    <pre className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap text-muted-foreground">
+                      {JSON.stringify(row.verification, null, 2)}
+                    </pre>
+                  </TechnicalDetails>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : undefined
+      }
+      icon={<ActivityIcon />}
+      onClick={() => setExpanded((open) => !open)}
+      primaryAction={
+        <span onClick={stopRowClick}>
+          {!row.selected ? (
+            <IconButton
+              disabled={action.isPending || !row.verified}
+              icon={<PlayIcon />}
+              label="Use for provenance"
+              onClick={() => action.mutate('use')}
+              size="sm"
+            />
+          ) : (
+            <IconButton
+              disabled={action.isPending}
+              icon={<UnlinkIcon />}
+              label="Disconnect on restart"
+              onClick={() => action.mutate('disconnect')}
+              size="sm"
+            />
+          )}
+        </span>
+      }
+      status={connectionStatus(row)}
+      title={
+        <button
+          aria-expanded={expanded}
+          className="max-w-full truncate text-left font-medium outline-none focus-visible:underline"
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded((open) => !open);
+          }}
+          type="button"
         >
-          {action.isPending && action.variables === 'verify' ? 'Verifying…' : 'Verify connection'}
-        </Button>
-        {!row.selected ? (
-          <Button
-            size="sm"
-            disabled={action.isPending || !row.verified}
-            onClick={() => action.mutate('use')}
-          >
-            Use for provenance
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={action.isPending}
-            onClick={() => action.mutate('disconnect')}
-          >
-            Disconnect on restart
-          </Button>
-        )}
-        {!row.selected && !row.active ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={action.isPending}
-            onClick={() => action.mutate('forget')}
-          >
-            Forget connection
-          </Button>
-        ) : null}
-      </div>
-      {restartPending ? (
-        <p role="status" className="mt-2 text-sm">
-          Saved. Restart the connected {vocab.agent} to apply this choice.
-        </p>
-      ) : null}
-      {action.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          {action.error.message}
-        </p>
-      ) : null}
-      {Object.keys(row.verification).length ? (
-        <details className="mt-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Verification receipt</summary>
-          <pre className="mt-2 whitespace-pre-wrap break-all">
-            {JSON.stringify(row.verification, null, 2)}
-          </pre>
-        </details>
-      ) : null}
-    </article>
+          {row.label}
+        </button>
+      }
+    />
   );
 }
-
 function ConnectDialog({
   initial,
   onClose,

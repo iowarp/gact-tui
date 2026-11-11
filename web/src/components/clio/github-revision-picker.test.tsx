@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -45,24 +46,30 @@ function Example() {
         hostLabel="CLIO"
         onBack={vi.fn()}
         onConnected={vi.fn()}
-        provider={{
-          id: 'github',
-          name: 'GitHub',
-          authentication: 'browser',
-          configured: true,
-          logo: 'github',
-          setup_requirement: null,
-          capabilities: { supported_modes: ['read_only'], unavailable_reasons: {} },
-        }}
+        initialChoice="github"
+        localConnection={false}
+        onConnectedMany={vi.fn()}
+        onSignIn={vi.fn()}
+        providers={[
+          {
+            id: 'github',
+            name: 'GitHub',
+            authentication: 'browser',
+            configured: true,
+            logo: 'github',
+            setup_requirement: null,
+            capabilities: { supported_modes: ['read_only'], unavailable_reasons: {} },
+          },
+        ]}
       />
     </QueryClientProvider>
   );
 }
 
 it('starts disabled, loads the default branch and publishes the selected branch to setup', async () => {
-  render(<Example />);
+  renderWithTooltips(<Example />);
   const user = userEvent.setup();
-  expect(screen.getByRole('combobox', { name: 'Revision' })).toBeDisabled();
+  expect(screen.getByRole('combobox', { name: 'Revision kind' })).toBeDisabled();
   expect(screen.getByRole('combobox', { name: 'Branch' })).toBeDisabled();
   expect(fixtures.githubRevisions).not.toHaveBeenCalled();
   await user.type(
@@ -76,7 +83,7 @@ it('starts disabled, loads the default branch and publishes the selected branch 
     screen.getByRole('combobox', { name: 'Branch' }),
     await screen.findByRole('option', { name: 'feature/data' }),
   );
-  await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   expect(fixtures.createConnectedSource).toHaveBeenCalledWith(
     'w',
     expect.objectContaining({ configuration: { github_ref: 'feature/data' } }),
@@ -84,30 +91,30 @@ it('starts disabled, loads the default branch and publishes the selected branch 
 });
 
 it('loads tags and commits on demand and keeps an explicit commit ID valid', async () => {
-  render(<Example />);
+  renderWithTooltips(<Example />);
   const user = userEvent.setup();
   await user.type(
     screen.getByRole('textbox', { name: 'Repository or folder link' }),
     'https://github.com/owner/repo',
   );
   await screen.findByRole('option', { name: 'Default: main' });
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Revision' }), 'tag');
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Revision kind' }), 'tag');
   await screen.findByRole('option', { name: 'v1.0' });
-  expect(screen.getByRole('button', { name: 'Connect folder' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
   await user.selectOptions(screen.getByRole('combobox', { name: 'Tag' }), 'v1.0');
-  await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   expect(fixtures.createConnectedSource).toHaveBeenLastCalledWith(
     'w',
     expect.objectContaining({ configuration: { github_ref: 'refs/tags/v1.0' } }),
   );
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Revision' }), 'commit');
-  await screen.findByRole('option', { name: 'ccccccc — Fix data' });
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Revision kind' }), 'commit');
+  await screen.findByRole('option', { name: 'ccccccc Fix data' });
   await user.selectOptions(screen.getByRole('combobox', { name: 'Commit' }), '__manual__');
   await user.type(screen.getByRole('textbox', { name: 'Commit ID' }), 'invalid');
-  expect(screen.getByRole('button', { name: 'Connect folder' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
   await user.clear(screen.getByRole('textbox', { name: 'Commit ID' }));
   await user.type(screen.getByRole('textbox', { name: 'Commit ID' }), 'deadbeef');
-  await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   expect(fixtures.createConnectedSource).toHaveBeenLastCalledWith(
     'w',
     expect.objectContaining({ configuration: { github_ref: 'deadbeef' } }),
@@ -115,7 +122,7 @@ it('loads tags and commits on demand and keeps an explicit commit ID valid', asy
 });
 
 it('clears the previous selection and disables choices while changing repositories', async () => {
-  render(<Example />);
+  renderWithTooltips(<Example />);
   const user = userEvent.setup();
   const url = screen.getByRole('textbox', { name: 'Repository or folder link' });
   await user.type(url, 'https://github.com/owner/repo');
@@ -126,7 +133,7 @@ it('clears the previous selection and disables choices while changing repositori
   expect(screen.queryByRole('option', { name: 'main' })).not.toBeInTheDocument();
   await user.type(url, 'https://github.com/owner/another');
   await screen.findByRole('option', { name: 'Default: main' });
-  await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
   expect(fixtures.createConnectedSource).toHaveBeenLastCalledWith(
     'w',
     expect.objectContaining({
@@ -138,7 +145,7 @@ it('clears the previous selection and disables choices while changing repositori
 
 it('shows an access error without retrying repeatedly or enabling a stale revision', async () => {
   fixtures.githubRevisions.mockRejectedValue(new Error('Sign in with access to this repository.'));
-  render(<Example />);
+  renderWithTooltips(<Example />);
   const user = userEvent.setup();
   await user.type(
     screen.getByRole('textbox', { name: 'Repository or folder link' }),
@@ -146,7 +153,7 @@ it('shows an access error without retrying repeatedly or enabling a stale revisi
   );
   expect(await screen.findByRole('alert')).toHaveTextContent('Sign in with access');
   expect(screen.getByRole('combobox', { name: 'Branch' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Connect folder' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
   expect(fixtures.githubRevisions).toHaveBeenCalledTimes(1);
   await user.click(screen.getByRole('button', { name: 'Try again' }));
   await waitFor(() => expect(fixtures.githubRevisions).toHaveBeenCalledTimes(2));

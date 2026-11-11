@@ -27,7 +27,9 @@ test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'Agent Workspace');
   assert.equal(cfg.identifier, 'ai.iowarp.gact.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/workspace build/);
+  // Type-checking gates CI on Linux; repeating it here needs a >2 GB heap,
+  // which exceeds Node's default on 7 GB macOS runners.
+  assert.equal(cfg.build.beforeBuildCommand, 'pnpm --filter @clio/workspace build:bundle');
   assert.match(cfg.build.beforeDevCommand, /@clio\/workspace dev/);
   assert.equal(cfg.build.frontendDist, '../../web/dist');
 });
@@ -36,7 +38,7 @@ test('explicit GACT overlay uses the shared configurable workspace build', () =>
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'GACT Desktop');
   assert.equal(cfg.identifier, 'land.charm.gact.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/workspace build/);
+  assert.equal(cfg.build.beforeBuildCommand, 'pnpm --filter @clio/workspace build:bundle');
   assert.match(cfg.build.beforeDevCommand, /@clio\/workspace dev/);
   assert.equal(cfg.app.windows[0].title, 'GACT Desktop');
   assert.equal(cfg.app.windows[0].width, 1440);
@@ -66,7 +68,7 @@ test('desktop variants use product-owned frameless chrome with scoped window con
   }
 
   const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
-  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu\)/);
+  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu(?:\.clone\(\))?\)/);
 });
 
 test('desktop close, reopen, and quit lifecycle route through one guarded request_quit path', () => {
@@ -170,18 +172,25 @@ test('desktop close, reopen, and quit lifecycle route through one guarded reques
   );
 });
 
-test('tray Quit routes through the single guarded request_quit path', () => {
+test('tray Quit routes through the user Quit that ends in request_quit', () => {
   // Secondary/lightweight: the primary coverage is the pure
   // tray_action_for() mapping unit-tested in tray.rs (cargo test), which
   // together with the closure's two-arm match (visible by inspection) is
   // what actually guarantees this wiring. This just double-checks the
   // literal call site didn't regress to an inline shutdown_owned_services
-  // call.
+  // call. Tray Quit is the same user Quit as Cmd-Q (request_user_quit), which
+  // confirms on macOS while a conversation runs and then ends in request_quit.
   const trayRs = readFileSync(resolve(root, 'src-tauri', 'src', 'tray.rs'), 'utf8');
   assert.match(
     trayRs,
-    /TrayAction::Quit\)\s*=>\s*crate::request_quit\(app\)/,
-    'tray Quit must route through crate::request_quit',
+    /TrayAction::Quit\)\s*=>\s*crate::request_user_quit\(app\)/,
+    'tray Quit must route through crate::request_user_quit',
+  );
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(
+    libRs,
+    /fn request_user_quit[\s\S]*?request_quit\(&app_handle\)/,
+    'request_user_quit must end in the guarded request_quit',
   );
 });
 
@@ -205,11 +214,17 @@ test('CSP is present, localhost-scoped, and identical across config variants', (
   // (2) connect-src is scoped to localhost; broad wildcards are removed because
   // remote/SSH-tunneled egress is done by Rust (gact_http/gact_sse), not the WebView.
   for (const csp of [baseCsp, gactCsp]) {
-    assert.match(csp, /(?:^|;)\s*frame-src 'self' http: https: gact-viewer:(?:;|$)/,
-      'the opaque interactive renderer must load from the connected service, '
-        + 'and the HDF5 viewer from its own gact-viewer: origin');
-    assert.match(csp, /(?:^|;)\s*script-src 'self'(?:;|$)/,
-      'preview scripts must not relax the main application script policy');
+    assert.match(
+      csp,
+      /(?:^|;)\s*frame-src 'self' http: https: gact-viewer:(?:;|$)/,
+      'the opaque interactive renderer must load from the connected service, ' +
+        'and the HDF5 viewer from its own gact-viewer: origin',
+    );
+    assert.match(
+      csp,
+      /(?:^|;)\s*script-src 'self'(?:;|$)/,
+      'preview scripts must not relax the main application script policy',
+    );
     assert.match(csp, /connect-src[^;]*'self'/, 'connect-src must allow self');
     // Attachments are read from `blob:` object URLs the page itself created
     // (prompt-input.tsx's URL.createObjectURL). Without `blob:` here, the

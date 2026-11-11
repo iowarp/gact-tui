@@ -1,11 +1,12 @@
 import type { ManagedServiceDefinition, ServerParameter } from '@clio/core/v3';
 import { managedServiceDefinitionSchema } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManagedServiceCard } from './managed-service-card';
-import { configurationForVariant, modelRuntimeInModels } from './managed-service-target-utils';
+import { configurationForVariant } from './managed-service-target-utils';
 
 afterEach(cleanup);
 
@@ -109,7 +110,7 @@ function renderCard(
 ) {
   const onConfiguration = vi.fn();
   const onAction = vi.fn();
-  render(
+  renderWithTooltips(
     <MemoryRouter>
       <ManagedServiceCard
         configuration={configuration}
@@ -209,7 +210,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('shows the operation progress CLIO reports while an install runs', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
@@ -229,7 +230,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('says an install can take several minutes as it starts, without a dialog', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
@@ -249,7 +250,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('keeps an unrelated action free of the install expectation', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="stop"
@@ -306,7 +307,7 @@ describe('deployments CLIO lost track of', () => {
   it('lets a running install be cancelled', async () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
@@ -340,22 +341,5 @@ describe('deployments CLIO lost track of', () => {
         'cpu',
       ),
     ).toEqual({ model: 'm', 'param.cpu_kvcache_space': '2', 'param.max_num_seqs': '4' });
-  });
-});
-
-describe('deployment target facts', () => {
-  it('recognizes a runtime already saved as its Models preset address', () => {
-    const saved = [
-      {
-        id: 'ollama',
-        preset_id: 'ollama',
-        label: 'Ollama',
-        address: 'http://127.0.0.1:52011/v1',
-        custom: false,
-      },
-    ];
-    expect(modelRuntimeInModels(saved as never, 'ollama', 'http://127.0.0.1:52011')).toBe(true);
-    expect(modelRuntimeInModels(saved as never, 'ollama', 'http://127.0.0.1:52012')).toBe(false);
-    expect(modelRuntimeInModels(saved as never, 'vllm', 'http://127.0.0.1:52011')).toBe(false);
   });
 });

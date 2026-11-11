@@ -1,13 +1,26 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import type { ReactNode } from 'react';
-import { Frame } from '@/components/reui/frame';
-import { cn } from '@/lib/utils';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
-import { InteractionFrameHeader } from './interaction-frame-header';
+import type { AskPager } from './ask-card-keys';
+import { AskPagerControls } from './ask-card';
+import { CloseIcon } from '@/lib/icon-vocabulary';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { respondFromControl } from './interaction-control';
+import { QuestionCard, QuestionFooter, type QuestionCardProps } from './interaction-frame-header';
+import { canDismissQuestion } from './question-card-model';
 import { PendingA2UIResponse } from './pending-a2ui-response';
+import { IconButton } from './primitives/icon-button';
 import { ResponseViewportContext } from './response-viewport-context';
 
-/** One surface shared by text, choice, form and link questions. */
+export type QuestionFrameCard = Omit<
+  QuestionCardProps,
+  'interaction' | 'children' | 'heading' | 'ownerLabel' | 'showOwner' | 'showFullPrompt'
+> &
+  Record<`data-${string}`, string | undefined>;
+
+/**
+ * One frame shared by text, choice, form, link and bundle questions: the ask
+ * card, or the resizable visual surface when the question carries one.
+ */
 export function QuestionResponseFrame({
   children,
   interaction,
@@ -16,8 +29,13 @@ export function QuestionResponseFrame({
   ownerLabel,
   showOwner,
   showFullPrompt,
-  questionTitle,
-  progress,
+  heading,
+  meta,
+  allowsComposer,
+  composerOnly,
+  pager,
+  hints,
+  card,
 }: {
   children: ReactNode;
   interaction: PendingInteraction;
@@ -29,12 +47,25 @@ export function QuestionResponseFrame({
   ownerLabel?: string;
   showOwner: boolean;
   showFullPrompt?: boolean;
-  questionTitle?: string;
-  progress?: ReactNode;
+  /** The question on screen, when it is not the interaction's prompt (a bundle page). */
+  heading?: string;
+  meta?: ReactNode;
+  /** The answer may be written in the composer instead. */
+  allowsComposer?: boolean;
+  /** The composer is the only way to answer (a written-answer question). */
+  composerOnly?: boolean;
+  /** The card's own pages (a bundle's questions), as ‹ 1/2 › beside ✕. */
+  pager?: AskPager;
+  /** Footer hints before the composer and dismiss hints. */
+  hints?: ReactNode;
+  /** Frame attributes for a card shown outside the tray (the transcript's inline question). */
+  card?: QuestionFrameCard;
 }) {
   if (interaction.source.surface_id) {
     return (
       <PendingA2UIResponse
+        allowsComposer={allowsComposer}
+        composerOnly={composerOnly}
         interaction={interaction}
         disabled={disabled}
         onResponse={onResponse}
@@ -43,47 +74,53 @@ export function QuestionResponseFrame({
         showFullPrompt={showFullPrompt}
         renderBody={(viewport) => (
           <ResponseViewportContext.Provider value={viewport}>
-            <div className="min-w-0 px-3 pb-3">{children}</div>
+            <div className="min-w-0">{children}</div>
           </ResponseViewportContext.Provider>
         )}
       />
     );
   }
-  const questionnaire =
-    (interaction.kind === 'question' && !interaction.payload?.mode) || Boolean(questionTitle);
+  const dismiss = canDismissQuestion(interaction)
+    ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
+    : undefined;
   return (
-    <Frame
-      className={cn(
-        'min-w-0 self-stretch',
-        questionnaire ? 'rounded-2xl border bg-card' : 'rounded-none bg-transparent',
-        interaction.kind === 'mcp_task_input' && 'border-accent-foreground/15 bg-accent/25',
-      )}
-      data-interaction-kind={interaction.kind}
-      dense
-      variant={questionnaire || interaction.kind === 'mcp_task_input' ? 'default' : 'ghost'}
-      id={pendingInteractionDomId(interaction.id)}
-      spacing="xs"
-      tabIndex={-1}
+    <QuestionCard
+      {...card}
+      headerActions={
+        pager || dismiss ? (
+          <>
+            {pager ? <AskPagerControls label="Questions" noun="question" pager={pager} /> : null}
+            {dismiss ? (
+              <TooltipProvider>
+                <IconButton
+                  disabled={disabled}
+                  icon={<CloseIcon aria-hidden="true" />}
+                  label="Close question"
+                  onClick={dismiss}
+                  size="sm"
+                />
+              </TooltipProvider>
+            ) : null}
+          </>
+        ) : undefined
+      }
+      heading={heading}
+      interaction={interaction}
+      meta={meta}
+      ownerLabel={ownerLabel}
+      showFullPrompt={showFullPrompt}
+      showOwner={showOwner}
     >
-      <InteractionFrameHeader
-        className={questionnaire ? 'px-4 pb-4 pt-4 pr-10' : 'px-3 py-2'}
+      {children}
+      <QuestionFooter
+        allowsComposer={allowsComposer}
+        composerOnly={composerOnly}
         disabled={disabled}
         interaction={interaction}
-        onCancel={
-          !interaction.payload?.task_handle && (interaction.actions ?? []).includes('cancel')
-            ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-            : undefined
-        }
-        ownerLabel={ownerLabel}
-        showOwner={showOwner}
-        showFullPrompt={showFullPrompt}
-        questionTitle={questionTitle}
-        progress={progress}
-        questionnaire={questionnaire}
-      />
-      <div className={cn('min-w-0 overflow-hidden', questionnaire ? 'px-4 pb-4' : 'px-3 pb-3')}>
-        {children}
-      </div>
-    </Frame>
+        onDismiss={dismiss}
+      >
+        {hints}
+      </QuestionFooter>
+    </QuestionCard>
   );
 }

@@ -38,6 +38,11 @@ interface LiveStore {
   applyFrames: (frames: readonly TransportFrame[]) => void;
   replaceSnapshots: (snapshot: Partial<EntityState>) => void;
   mergeSnapshots: (snapshot: Partial<EntityState>) => void;
+  /**
+   * Like `mergeSnapshots`, but adds rows without dropping those the snapshot
+   * does not list: an older transcript page extends the held history.
+   */
+  addSnapshots: (snapshot: Partial<EntityState>) => void;
   reconcileSnapshots: (snapshot: Partial<EntityState>) => void;
   clearSessionModelReferences: () => void;
   /**
@@ -90,6 +95,7 @@ function mergeEntityMap(
   snapshot: Record<string, unknown>,
   streamOwned: ReadonlySet<string>,
   mapKey: string,
+  retainUnlisted = false,
 ): Record<string, unknown> {
   const merged: Record<string, unknown> = {};
   for (const [id, entity] of Object.entries(snapshot)) {
@@ -119,13 +125,40 @@ function mergeEntityMap(
         : entity;
   }
   for (const [id, entity] of Object.entries(current)) {
-    if (!(id in merged) && streamOwned.has(id)) merged[id] = entity;
+    if (!(id in merged) && (retainUnlisted || streamOwned.has(id))) merged[id] = entity;
   }
   return merged;
 }
 
 /** `a2ui.action.*` statuses that will never change again — see below. */
 const TERMINAL_A2UI_LIFECYCLE_STATUSES = new Set(['consumed', 'failed', 'duplicate']);
+
+function mergedState(
+  state: LiveStore,
+  snapshot: Partial<EntityState>,
+  retainUnlisted: boolean,
+): Partial<LiveStore> {
+  const streamOwned = streamOwnedIds(state.entities.revisions);
+  const entities: EntityState = { ...state.entities };
+  for (const [key, value] of Object.entries(snapshot)) {
+    if (isEntityMapKey(key) && value) {
+      Reflect.set(
+        entities,
+        key,
+        mergeEntityMap(
+          (Reflect.get(state.entities, key) ?? {}) as Record<string, unknown>,
+          value as Record<string, unknown>,
+          streamOwned,
+          key,
+          retainUnlisted,
+        ),
+      );
+    } else {
+      Reflect.set(entities, key, value);
+    }
+  }
+  return { entities, error: undefined };
+}
 
 /**
  * `a2ui_action_lifecycles` (the action-lifecycle footer's data) is
@@ -177,28 +210,8 @@ export const useLiveStore = create<LiveStore>((set) => ({
     }),
   replaceSnapshots: (snapshot) =>
     set((state) => ({ entities: { ...state.entities, ...snapshot }, error: undefined })),
-  mergeSnapshots: (snapshot) =>
-    set((state) => {
-      const streamOwned = streamOwnedIds(state.entities.revisions);
-      const entities: EntityState = { ...state.entities };
-      for (const [key, value] of Object.entries(snapshot)) {
-        if (isEntityMapKey(key) && value) {
-          Reflect.set(
-            entities,
-            key,
-            mergeEntityMap(
-              (Reflect.get(state.entities, key) ?? {}) as Record<string, unknown>,
-              value as Record<string, unknown>,
-              streamOwned,
-              key,
-            ),
-          );
-        } else {
-          Reflect.set(entities, key, value);
-        }
-      }
-      return { entities, error: undefined };
-    }),
+  mergeSnapshots: (snapshot) => set((state) => mergedState(state, snapshot, false)),
+  addSnapshots: (snapshot) => set((state) => mergedState(state, snapshot, true)),
   reconcileSnapshots: (snapshot) =>
     set((state) => ({
       entities: {

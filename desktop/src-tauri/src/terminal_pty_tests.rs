@@ -26,6 +26,13 @@ fn pid_alive(pid: u32) -> bool {
     }
     #[cfg(unix)]
     {
+        // A killed direct child stays a zombie, which `kill(pid, 0)` still
+        // reports as alive, until its parent reaps it. Production registers a
+        // waiter thread that reaps; these tests register without one.
+        let mut status = 0;
+        if unsafe { libc::waitpid(pid as i32, &mut status, libc::WNOHANG) } == pid as i32 {
+            return false;
+        }
         unsafe { libc::kill(pid as i32, 0) == 0 }
     }
 }
@@ -120,8 +127,10 @@ fn immediate_exit_command() -> CommandBuilder {
     }
     #[cfg(not(windows))]
     {
+        // Silent on purpose: macOS blocks a tty's last close until unread
+        // output drains, and this test deliberately never reads.
         let mut cmd = CommandBuilder::new("/bin/sh");
-        cmd.args(["-c", "echo hi"]);
+        cmd.args(["-c", "exit 0"]);
         cmd
     }
 }
@@ -144,32 +153,44 @@ fn pty_open_write_read_roundtrip() {
     } = spawned;
 
     let marker = "CLIO_PTY_ROUNDTRIP_MARKER";
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
     thread::spawn(move || {
         let mut reader = reader;
         let mut buf = [0u8; 4096];
-        let mut collected = Vec::new();
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    collected.extend_from_slice(&buf[..n]);
-                    if String::from_utf8_lossy(&collected).contains(marker) {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(n) = reader.read(&mut buf) {
+            if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                break;
             }
         }
-        let _ = tx.send(String::from_utf8_lossy(&collected).into_owned());
     });
+
+    // A cold shell (pwsh on a loaded Windows runner) can take well over 10s
+    // to produce anything. Wait for its first output before writing, then
+    // give the echo a generous deadline; a broken bridge still fails.
+    let mut collected = Vec::new();
+    match rx.recv_timeout(Duration::from_secs(60)) {
+        Ok(chunk) => collected.extend_from_slice(&chunk),
+        Err(_) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("the pty produced no output within 60s of spawning the shell");
+        }
+    }
 
     writer
         .write_all(format!("echo {marker}\r\n").as_bytes())
         .expect("write command line");
     writer.flush().expect("flush command line");
 
-    let observed = rx.recv_timeout(Duration::from_secs(10)).unwrap_or_default();
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !String::from_utf8_lossy(&collected).contains(marker) {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        match rx.recv_timeout(remaining) {
+            Ok(chunk) => collected.extend_from_slice(&chunk),
+            Err(_) => break,
+        }
+    }
+    let observed = String::from_utf8_lossy(&collected).into_owned();
     let _ = child.kill();
     let _ = child.wait();
 
@@ -306,4 +327,15 @@ fn rejects_cwd_outside_workspace() {
     let bogus = std::env::temp_dir().join("clio-terminal-does-not-exist-3f9c1a");
     let result = crate::workspace_terminal::resolve_workspace_dir(bogus.to_str().unwrap());
     assert!(result.is_err(), "a nonexistent cwd must be rejected");
+}
+
+#[test]
+fn unix_shells_start_as_login_shells() {
+    let expected: &[&str] = if cfg!(windows) { &[] } else { &["-l"] };
+    for shell in ["/bin/zsh", "/bin/bash", "/opt/homebrew/bin/fish", "sh"] {
+        assert_eq!(login_shell_args(shell), expected, "{shell}");
+    }
+    for shell in ["pwsh.exe", "cmd.exe", "/usr/bin/python3", "/bin/zsh-wrapper"] {
+        assert!(login_shell_args(shell).is_empty(), "{shell}");
+    }
 }

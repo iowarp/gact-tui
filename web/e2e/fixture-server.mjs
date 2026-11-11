@@ -2,13 +2,19 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import {
   behavior,
+  codexPreset,
   compactionCheckpoint,
+  lmStudioNotRunningCatalogEntry,
+  localRuntimeModels,
+  localServerPresets,
   observedAt,
+  ollamaCatalogEntry,
   pendingSteer,
   providerCatalog,
   readyResource,
   sessionId,
   workspaceId,
+  settingsUsageAccounts,
 } from './fixture-data.mjs';
 import {
   a2uiCapabilities,
@@ -23,17 +29,32 @@ import {
 } from './a2ui-data-demo-fixture.mjs';
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
+import { createConversationFamilyFixture } from './conversation-family-fixture.mjs';
+import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
+import { createScienceViewsFixture } from './science-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createSettingsFixture } from './settings-fixture.mjs';
+import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
+import { createAgentFixture } from './agent-fixture.mjs';
+import {
+  DECISION_CARDS,
+  decisionCardArtifacts,
+  decisionCardInteractions,
+  decisionChildSession,
+} from './fixture-decision-cards.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
   throw new Error(`Invalid CLIO_FIXTURE_PORT: ${process.env['CLIO_FIXTURE_PORT'] ?? ''}`);
 }
 const streamMessageId = 'msg_stream';
+const decisionChildSessionId = 'sess_station_specialist';
 const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
 let questionTrayDemo = false;
+/** One of DECISION_CARDS while the screens harness captures that card. */
+let decisionCardsDemo = null;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
 let a2uiDataDemo = false;
@@ -47,6 +68,19 @@ let a2uiRasterDemo = false;
 let meshDemoFormat = 'obj';
 let meshDemoRevision = 1;
 let attachmentsEnabled = false;
+// `/__test/sandbox-inactive`: the service resolved its OS write fence off.
+let sandboxInactive = false;
+const inactiveSandboxRow = {
+  name: 'sandbox',
+  status: 'degraded',
+  summary: 'No OS write fence: agent tools run with the advisory permission layer only.',
+  next_action: 'Reinstall CLIO Desktop to restore the bundled Codex sandbox.',
+  required: true,
+  reason: 'codex_not_installed',
+  active: false,
+  acknowledgement_required: true,
+  warning: 'Agent commands will run without OS isolation.',
+};
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -135,6 +169,7 @@ function mcpSandboxHtml() {
 
 const capabilities = {
   contract_version: '0.2',
+  service: { name: 'clio-agent', version: '0.9.5.1' },
   gact_versions: ['0.3'],
   a2ui_versions: ['0.9.1'],
   replay: { supported: true, retention: 2048 },
@@ -769,13 +804,27 @@ function transcriptMessages() {
         id: 'block_reasoning',
         type: 'reasoning',
         text: 'Compare station coverage, quality flags, and the derived displacement series.',
+        started_at: '2026-08-22T19:59:59.000Z',
+        duration_ms: 6000,
         streaming: false,
+      },
+      {
+        id: 'block_prose_plan',
+        type: 'text',
+        channel: 'next_thought',
+        text: "I'll search the EarthScope catalog for stations inside the study box, then run the quality check on what comes back before fitting anything.",
       },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
       ...(questionTrayDemo
         ? [{ id: 'block_fixture_question', type: 'tool', tool_id: 'tool_fixture_question' }]
         : []),
       { id: 'block_task', type: 'task', task_id: 'task_quality' },
+      {
+        id: 'block_prose_delegate',
+        type: 'text',
+        channel: 'next_thought',
+        text: "The catalog returned the expected stations and the quality flags are clean enough to proceed. I'm handing the displacement fit to a station analyst so each series is derived the same way.",
+      },
       { id: 'block_subagent', type: 'subagent', subagent_id: 'subagent_station' },
       { id: 'block_artifact', type: 'artifact', artifact_id: 'artifact_plot' },
       ...(mcpV2UiDemo
@@ -1196,6 +1245,28 @@ function sendJson(response, body, status = 200) {
   response.end(JSON.stringify(body));
 }
 
+function initialFleetSettings() {
+  return {
+    revision: 'fleet_1',
+    search: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+    spotter: null,
+    judges: {
+      goals: null,
+      variants: null,
+      permissions: null,
+      memory_extract: null,
+      memory_consolidate: null,
+      explore: null,
+    },
+    explore_nudge: { enabled: true, after: 6 },
+  };
+}
+let fleetSettings = initialFleetSettings();
+// Settings > Usage accounts: none unless a settings scenario asks for them, so
+// the composer baselines keep no usage readout.
+let fleetAccounts = [];
+let fleetFailure = false;
+
 /** Read one bounded JSON request body from the local browser fixture. */
 async function readJson(request) {
   const chunks = [];
@@ -1398,7 +1469,1007 @@ const branchArtifacts = createBranchArtifactFixture({
   commonHeaders,
 });
 
+const conversationFamily = createConversationFamilyFixture({ session, workspaceId, sendJson });
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const scienceViews = createScienceViewsFixture({
+  sendJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+  readyResource,
+  observedAt,
+});
+const settingsFixture = createSettingsFixture({
+  sendJson,
+  readJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+});
+const agentFixture = createAgentFixture({ sendJson, readJson });
+
+// Infrastructure of "This computer": a Windows workstation with an AMD GPU and
+// Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
+// The service catalog is the production catalog captured for review.
+const observedEpoch = Date.parse(observedAt) / 1000;
+const localHome = 'C:\\Users\\researcher';
+const modelsRoot = `${localHome}\\.clio\\models`;
+const webSearchUrl = 'http://127.0.0.1:8089';
+const llamaCppUrl = 'http://127.0.0.1:8088';
+const webSearchSpec = {
+  name: 'CLIO Web Search',
+  command: 'clio-kit',
+  args: ['mcp-server', 'web', '--remote-url', webSearchUrl],
+  env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
+  always_load: true,
+};
+const webSearchTools = [
+  { name: 'web_search', description: 'Search the web and return ranked results with snippets.' },
+  { name: 'web_fetch', description: 'Fetch a page and return its readable text and links.' },
+];
+const webSearchConfiguration = {
+  name: 'web',
+  configured: true,
+  scope: 'user',
+  status: 'ready',
+  transport: 'stdio',
+  tools_count: webSearchTools.length,
+  tools: webSearchTools.map((tool) => tool.name),
+  tool_details: webSearchTools,
+  spec: webSearchSpec,
+  retryable: false,
+};
+const savedMcpServices = [
+  {
+    name: 'web',
+    label: 'CLIO Web Search',
+    transport: 'stdio',
+    always_load: true,
+    spec: webSearchSpec,
+  },
+  {
+    name: 'earthscope',
+    label: 'EarthScope GNSS',
+    transport: 'http',
+    always_load: false,
+    spec: { url: 'https://mcp.earthscope.org/gnss', authentication: 'oauth' },
+  },
+];
+/*
+ * Settings > Models and Providers: the active model configuration, the saved
+ * model servers and the runtimes that answer on this computer. Mutable until
+ * `/__test/reset`; `/__test/settings-models` swaps in the spec or empty data
+ * and makes chosen reads fail.
+ */
+const runtimeIds = Object.keys(localRuntimeModels);
+const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const unreachableError = 'No answer at this address';
+
+function reachableCheck(models, checkedAt = observedAt) {
+  return { reachable: true, connectivity: 'ok', models, error: '', checked_at: checkedAt };
+}
+function unreachableCheck(checkedAt = observedAt) {
+  return {
+    reachable: false,
+    connectivity: 'unreachable',
+    models: [],
+    error: unreachableError,
+    checked_at: checkedAt,
+  };
+}
+const runtimeModelIds = (id) => localRuntimeModels[id].map((model) => model.id);
+
+function initialModelServers(scenario) {
+  if (scenario === 'empty') return [];
+  if (scenario === 'spec') {
+    return [
+      {
+        id: 'ollama',
+        preset_id: 'ollama',
+        label: 'Ollama',
+        address: 'http://localhost:11434/v1',
+        custom: false,
+        check: reachableCheck(runtimeModelIds('ollama')),
+      },
+      {
+        id: 'lmstudio',
+        preset_id: 'lmstudio',
+        label: 'LM Studio',
+        address: 'http://localhost:1234/v1',
+        custom: false,
+        check: unreachableCheck(),
+      },
+      {
+        id: 'workstation',
+        preset_id: 'vllm',
+        label: 'Workstation',
+        address: 'http://10.0.4.12:8000/v1',
+        custom: true,
+        check: unreachableCheck(),
+      },
+    ];
+  }
+  return [
+    {
+      id: 'lmstudio',
+      preset_id: 'lmstudio',
+      label: 'LM Studio',
+      address: 'http://127.0.0.1:1234/v1',
+      custom: false,
+      check: reachableCheck(runtimeModelIds('lmstudio')),
+    },
+    {
+      id: 'llama_cpp',
+      preset_id: 'llama_cpp',
+      label: 'llama.cpp',
+      address: `${llamaCppUrl}/v1`,
+      custom: false,
+      check: reachableCheck(runtimeModelIds('llama_cpp')),
+    },
+    {
+      id: 'lab_vllm',
+      preset_id: 'vllm',
+      label: 'Lab GPU server (vLLM)',
+      address: 'http://10.42.0.17:8000/v1',
+      custom: true,
+    },
+    {
+      id: 'ollama',
+      preset_id: 'ollama',
+      label: 'Ollama',
+      address: 'http://localhost:11434/v1',
+      custom: false,
+      check: reachableCheck(runtimeModelIds('ollama')),
+    },
+  ];
+}
+
+function initialLmConfiguration(scenario) {
+  if (scenario === 'spec') {
+    return {
+      configured: true,
+      provider_id: 'ollama',
+      provider: 'ollama',
+      api_base: 'http://localhost:11434/v1',
+      model: 'qwen3:32b',
+      provider_options: {},
+    };
+  }
+  if (scenario === 'empty') {
+    // A fresh agent: no model chosen yet.
+    return {
+      configured: false,
+      provider_id: '',
+      provider: '',
+      api_base: '',
+      model: '',
+      provider_options: {},
+    };
+  }
+  return {
+    configured: true,
+    provider_id: 'codex',
+    provider: 'codex',
+    api_base: 'codex://direct',
+    model: 'gpt-5.6-luna',
+    thinking_level: 'medium',
+    thinking_effective: 'medium (budget 8192)',
+    provider_options: {},
+  };
+}
+
+function initialModelSettings(scenario = 'default', failures = []) {
+  return {
+    scenario,
+    failures: new Set(failures),
+    // The local runtimes answering on this computer; in the spec LM Studio is stopped.
+    running: new Set(scenario === 'spec' ? ['ollama'] : runtimeIds),
+    servers: initialModelServers(scenario),
+    configuration: initialLmConfiguration(scenario),
+    workingContexts: new Map(),
+    nextServer: 1,
+  };
+}
+let modelSettings = initialModelSettings();
+
+function modelSettingsFailure(response, failure, message) {
+  if (!modelSettings.failures.has(failure)) return false;
+  sendJson(response, { error: { error: 'service_unavailable', message } }, 503);
+  return true;
+}
+
+function settingsPresets() {
+  if (modelSettings.scenario === 'empty') return [codexPreset];
+  return [
+    codexPreset,
+    ...localServerPresets.map((preset) => {
+      const saved = modelSettings.servers.find((server) => server.id === preset.id);
+      const address = saved?.address ?? preset.api_base;
+      const probe = probeServer(preset.id, address);
+      return probe.reachable
+        ? preset
+        : { ...preset, status: 'unavailable', status_message: `No answer at ${address}` };
+    }),
+  ];
+}
+
+function lmConfigurationBody() {
+  return { ...modelSettings.configuration, presets: settingsPresets() };
+}
+
+function settingsProviderCatalog() {
+  if (modelSettings.scenario === 'empty') {
+    return {
+      ...providerCatalog,
+      providers: providerCatalog.providers.filter((entry) => !runtimeIds.includes(entry.id)),
+    };
+  }
+  if (modelSettings.scenario === 'spec') {
+    return {
+      ...providerCatalog,
+      providers: [
+        ollamaCatalogEntry,
+        lmStudioNotRunningCatalogEntry,
+        ...providerCatalog.providers.filter((entry) => entry.id !== 'lmstudio'),
+      ],
+    };
+  }
+  return providerCatalog;
+}
+
+function parseServerAddress(value) {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What a live probe of `address` finds: only this computer's running runtimes answer. */
+function probeServer(presetId, address) {
+  const url = parseServerAddress(address);
+  const local = url && loopbackHosts.has(url.hostname.toLowerCase());
+  if (local && runtimeIds.includes(presetId) && modelSettings.running.has(presetId)) {
+    return { reachable: true, models: localRuntimeModels[presetId] };
+  }
+  return { reachable: false, models: [] };
+}
+
+function checkServer(server) {
+  const probe = probeServer(server.preset_id, server.address);
+  const checkedAt = new Date().toISOString();
+  server.check = probe.reachable
+    ? reachableCheck(
+        probe.models.map((model) => model.id),
+        checkedAt,
+      )
+    : unreachableCheck(checkedAt);
+  return server;
+}
+
+function settingsError(response, status, error, message) {
+  sendJson(response, { error: { error, message } }, status);
+}
+
+/** The models a provider reports now, for its handshake, catalog and refresh. */
+function providerReport(providerId, apiBase) {
+  const generatedAt = new Date().toISOString();
+  if (providerId === 'codex') {
+    return {
+      models: [{ id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', context_window: 262144 }],
+      source: 'live',
+      connectivity: 'ok',
+      auth: 'ok',
+      default_model: 'gpt-5.6-luna',
+      generated_at: generatedAt,
+    };
+  }
+  const preset = localServerPresets.find((item) => item.id === providerId);
+  if (preset && modelSettings.scenario !== 'empty') {
+    const saved = modelSettings.servers.find((server) => server.id === providerId);
+    const address = apiBase || saved?.address || preset.api_base;
+    const probe = probeServer(providerId, address);
+    return {
+      models: probe.models.map((model) => ({
+        id: model.id,
+        name: model.id,
+        availability: 'available',
+        context_window: model.context_window,
+        context_source: 'live',
+      })),
+      source: probe.reachable ? 'live' : 'unavailable',
+      connectivity: probe.reachable ? 'ok' : 'unreachable',
+      auth: 'not_required',
+      error: probe.reachable ? undefined : `No answer at ${address}`,
+      default_model: probe.reachable ? preset.suggested_model : '',
+      generated_at: generatedAt,
+    };
+  }
+  const entry = settingsProviderCatalog().providers.find((item) => item.id === providerId);
+  if (!entry) return undefined;
+  return {
+    models: entry.models.map((model) => ({
+      id: model.model_id,
+      name: model.model_id,
+      ...(model.context_window ? { context_window: model.context_window } : {}),
+    })),
+    source: entry.connectivity === 'ok' ? 'live' : 'unavailable',
+    connectivity: ['ok', 'unreachable', 'timeout', 'skipped'].includes(entry.connectivity)
+      ? entry.connectivity
+      : 'unreachable',
+    auth: ['ok', 'missing', 'rejected', 'not_required', 'deferred'].includes(entry.auth)
+      ? entry.auth
+      : 'deferred',
+    error: entry.failure || undefined,
+    default_model: entry.models[0]?.model_id ?? '',
+    generated_at: generatedAt,
+  };
+}
+
+/** The largest context a bound (not CLIO-run) model reports, when it reports one. */
+function modelMaximumContext(providerId, model) {
+  if (providerId === 'codex' && model === 'gpt-5.6-luna') return 262144;
+  return localRuntimeModels[providerId]?.find((item) => item.id === model)?.context_window;
+}
+
+function workingContextBody(providerId, model) {
+  const maximum = modelMaximumContext(providerId, model);
+  const saved = modelSettings.workingContexts.get(`${providerId}\u0000${model}`);
+  const choice = saved?.choice ?? 'max';
+  return {
+    semantics: 'model',
+    maximum: maximum ?? null,
+    maximum_reason: maximum ? 'Reported by the provider for this model.' : '',
+    minimum: 256,
+    current: choice === 'number' ? saved.tokens : (maximum ?? null),
+    current_choice: choice,
+    current_reason:
+      choice === 'number' ? 'Set in Settings.' : 'The full context the model reports.',
+    fit_to_gpu: {
+      available: false,
+      reason: 'CLIO binds this model but does not run it.',
+      strategy: '',
+      strategies: [],
+    },
+  };
+}
+
+/** Handle the model settings routes; false when the request is not one of them. */
+async function handleModelSettings(request, response, url) {
+  const { method } = request;
+  const path = url.pathname;
+  if (method === 'GET' && path === '/v1/providers/lm') {
+    if (modelSettingsFailure(response, 'providers-lm', 'The agent could not load model settings.'))
+      return true;
+    sendJson(response, lmConfigurationBody());
+    return true;
+  }
+  if (method === 'PUT' && path === '/v1/providers/lm') {
+    const body = await readJson(request);
+    const providerId = typeof body.provider_id === 'string' ? body.provider_id : '';
+    const provider = typeof body.provider === 'string' ? body.provider : '';
+    if (!providerId && !provider) {
+      settingsError(response, 400, 'invalid_request', 'Choose a provider.');
+      return true;
+    }
+    if (typeof body.model !== 'string') {
+      settingsError(response, 400, 'invalid_request', 'Choose a model.');
+      return true;
+    }
+    const preset = settingsPresets().find(
+      (item) => item.id === providerId || (!providerId && item.provider === provider),
+    );
+    if (!preset) {
+      settingsError(
+        response,
+        400,
+        'unknown_provider',
+        `This agent has no provider ${providerId || provider}.`,
+      );
+      return true;
+    }
+    const current = modelSettings.configuration;
+    const sameProvider = current.provider_id === preset.id;
+    const next = {
+      configured: true,
+      provider_id: preset.id,
+      provider: provider || preset.provider,
+      api_base:
+        typeof body.api_base === 'string' && body.api_base
+          ? body.api_base
+          : (preset.api_base ?? ''),
+      model: body.model || preset.suggested_model || '',
+      provider_options:
+        body.provider_options && typeof body.provider_options === 'object'
+          ? Object.fromEntries(
+              Object.entries(body.provider_options).map(([key, value]) => [key, String(value)]),
+            )
+          : {},
+    };
+    for (const key of [
+      'temperature',
+      'max_tokens',
+      'top_p',
+      'top_k',
+      'min_p',
+      'presence_penalty',
+      'frequency_penalty',
+      'repetition_penalty',
+      'seed',
+      'context_length',
+      'parallel',
+    ]) {
+      const value = key in body ? body[key] : sameProvider ? current[key] : undefined;
+      if (typeof value === 'number') next[key] = value;
+    }
+    if ('thinking_level' in body) {
+      if (typeof body.thinking_level === 'string' && body.thinking_level) {
+        next.thinking_level = body.thinking_level;
+        next.thinking_level_source = 'user';
+        next.thinking_effective = body.thinking_level;
+      }
+    } else if (sameProvider && current.thinking_level) {
+      next.thinking_level = current.thinking_level;
+      if (current.thinking_level_source) next.thinking_level_source = current.thinking_level_source;
+      if (current.thinking_effective) next.thinking_effective = current.thinking_effective;
+    }
+    modelSettings.configuration = next;
+    sendJson(response, lmConfigurationBody());
+    return true;
+  }
+  if (method === 'GET' && path === '/v1/providers/servers') {
+    if (
+      modelSettingsFailure(response, 'servers', 'The agent could not load the saved model servers.')
+    )
+      return true;
+    if (url.searchParams.get('check') === 'true') modelSettings.servers.forEach(checkServer);
+    sendJson(response, { servers: modelSettings.servers });
+    return true;
+  }
+  if (method === 'POST' && path === '/v1/providers/servers') {
+    const body = await readJson(request);
+    const address = parseServerAddress(body.address);
+    if (!address) {
+      settingsError(response, 400, 'invalid_address', 'Enter an http:// or https:// address.');
+      return true;
+    }
+    const presetId = typeof body.preset_id === 'string' && body.preset_id ? body.preset_id : 'vllm';
+    const preset = localServerPresets.find((item) => item.id === presetId);
+    if (!preset) {
+      settingsError(response, 400, 'unknown_preset', `There is no model server type ${presetId}.`);
+      return true;
+    }
+    const custom = presetId === 'vllm';
+    const label = typeof body.label === 'string' && body.label.trim() ? body.label.trim() : '';
+    const entry = {
+      id: custom ? `server_${modelSettings.nextServer++}` : presetId,
+      preset_id: presetId,
+      label: label || (custom ? address.host : preset.label),
+      address: String(body.address).trim().replace(/\/$/u, ''),
+      custom,
+    };
+    checkServer(entry);
+    const index = modelSettings.servers.findIndex((server) => server.id === entry.id);
+    if (index >= 0) modelSettings.servers[index] = entry;
+    else modelSettings.servers.push(entry);
+    sendJson(response, entry, 201);
+    return true;
+  }
+  const serverPath = /^\/v1\/providers\/servers\/([^/]+)(\/check)?$/u.exec(path);
+  if (serverPath && ['PATCH', 'DELETE', 'POST'].includes(method)) {
+    const serverId = decodeURIComponent(serverPath[1]);
+    const isCheck = Boolean(serverPath[2]);
+    if (method === 'POST' && !isCheck) return false;
+    if (method !== 'POST' && isCheck) return false;
+    const server = modelSettings.servers.find((item) => item.id === serverId);
+    if (!server) {
+      settingsError(response, 404, 'server_not_found', 'No saved model server has this id.');
+      return true;
+    }
+    if (method === 'DELETE') {
+      modelSettings.servers = modelSettings.servers.filter((item) => item !== server);
+      sendJson(response, { removed: server.id });
+      return true;
+    }
+    if (method === 'PATCH') {
+      const body = await readJson(request);
+      if (body.address !== undefined) {
+        if (!parseServerAddress(body.address)) {
+          settingsError(response, 400, 'invalid_address', 'Enter an http:// or https:// address.');
+          return true;
+        }
+        server.address = String(body.address).trim().replace(/\/$/u, '');
+      }
+      if (typeof body.label === 'string' && body.label.trim()) server.label = body.label.trim();
+    }
+    sendJson(response, checkServer(server));
+    return true;
+  }
+  if (method === 'GET' && path === '/v1/providers/support/installs') {
+    sendJson(response, { running: false, installs: [] });
+    return true;
+  }
+  if (method === 'POST' && path === '/v1/providers/models/refresh') {
+    const body = await readJson(request);
+    const requested =
+      Array.isArray(body.providers) && body.providers.length
+        ? body.providers.map(String)
+        : settingsPresets().map((preset) => preset.id);
+    const results = requested.map((providerId) => {
+      const report = providerReport(providerId);
+      const ids = report?.models.map((model) => model.id) ?? [];
+      return {
+        provider: providerId,
+        discovered: report?.models ?? [],
+        source: report?.source ?? 'unavailable',
+        default_model: report?.default_model ?? '',
+        generated_at: report?.generated_at ?? new Date().toISOString(),
+        added: [],
+        removed: [],
+        unchanged: ids,
+        failed_reason: report ? (report.error ?? null) : 'This agent has no such provider.',
+        rejected: [],
+      };
+    });
+    sendJson(response, { results });
+    return true;
+  }
+  const providerPath = /^\/v1\/providers\/([^/]+)\/(handshake|models|working-context)$/u.exec(path);
+  if (!providerPath) return false;
+  const providerId = decodeURIComponent(providerPath[1]);
+  const action = providerPath[2];
+  if (action === 'working-context' && (method === 'GET' || method === 'PUT')) {
+    const body = method === 'PUT' ? await readJson(request) : {};
+    const model = method === 'PUT' ? body.model : url.searchParams.get('model');
+    if (typeof model !== 'string' || !model) {
+      settingsError(response, 400, 'invalid_request', 'Name the model.');
+      return true;
+    }
+    if (method === 'PUT') {
+      const maximum = modelMaximumContext(providerId, model);
+      if (body.choice === 'max') {
+        modelSettings.workingContexts.set(`${providerId}\u0000${model}`, { choice: 'max' });
+      } else if (body.choice === 'number') {
+        const tokens = body.tokens;
+        if (!Number.isInteger(tokens) || tokens < 256 || (maximum && tokens > maximum)) {
+          settingsError(
+            response,
+            400,
+            'invalid_context',
+            maximum ? `Choose between 256 and ${maximum} tokens.` : 'Choose at least 256 tokens.',
+          );
+          return true;
+        }
+        modelSettings.workingContexts.set(`${providerId}\u0000${model}`, {
+          choice: 'number',
+          tokens,
+        });
+      } else {
+        settingsError(response, 400, 'invalid_request', 'Choose Max or a number of tokens.');
+        return true;
+      }
+    }
+    sendJson(response, workingContextBody(providerId, model));
+    return true;
+  }
+  if (method !== 'GET' || action === 'working-context') return false;
+  // Codex keeps its own catalog route below.
+  if (action === 'models' && providerId === 'codex') return false;
+  const report = providerReport(providerId, url.searchParams.get('api_base') ?? '');
+  if (!report) {
+    settingsError(response, 404, 'unknown_provider', 'This agent has no provider with this id.');
+    return true;
+  }
+  if (action === 'handshake') {
+    sendJson(response, {
+      models: report.models,
+      source: report.source,
+      error: report.error ?? null,
+      connectivity: report.connectivity,
+      auth: report.auth,
+      latency_ms: null,
+      generated_at: report.generated_at,
+    });
+  } else {
+    sendJson(response, {
+      models: report.models,
+      source: report.source,
+      default_model: report.default_model,
+      generated_at: report.generated_at,
+      error: report.error ?? null,
+    });
+  }
+  return true;
+}
+const objectSchema = (properties, required = Object.keys(properties)) => ({
+  type: 'object',
+  properties,
+  required,
+});
+const stringField = (description) => ({ type: 'string', description });
+const builtinTools = [
+  [
+    'fs_read_file',
+    'Read file',
+    'workspace',
+    'Read a workspace file, optionally a line range.',
+    { path: stringField('Workspace-relative path.') },
+  ],
+  [
+    'fs_write_file',
+    'Write file',
+    'workspace',
+    'Create or replace a workspace file.',
+    { path: stringField('Workspace-relative path.'), content: stringField('Full file content.') },
+  ],
+  [
+    'fs_edit_file',
+    'Edit file',
+    'workspace',
+    'Replace exact text in a workspace file.',
+    {
+      path: stringField('Workspace-relative path.'),
+      old_text: stringField('Text to replace.'),
+      new_text: stringField('Replacement text.'),
+    },
+  ],
+  [
+    'fs_list_directory',
+    'List directory',
+    'workspace',
+    'List the entries of a workspace directory.',
+    { path: stringField('Workspace-relative directory.') },
+  ],
+  [
+    'fs_search_text',
+    'Search text',
+    'workspace',
+    'Search workspace files with a regular expression.',
+    { pattern: stringField('Regular expression.'), glob: stringField('Optional file glob.') },
+  ],
+  [
+    'shell_bash',
+    'Run command',
+    'shell',
+    'Run a shell command in the workspace and return its output.',
+    { command: stringField('Command line to run.'), timeout_s: { type: 'integer', minimum: 1 } },
+  ],
+  [
+    'create_artifact',
+    'Create artifact',
+    'artifacts',
+    'Save a versioned artifact such as a plot, table or report.',
+    { name: stringField('Artifact name.'), path: stringField('Source file.') },
+  ],
+  [
+    'update_plan',
+    'Update plan',
+    'planning',
+    'Record the current plan and step status.',
+    { steps: { type: 'array', items: { type: 'string' } } },
+  ],
+  [
+    'memory_search',
+    'Search memory',
+    'memory',
+    'Search saved memory documents for relevant facts.',
+    { query: stringField('What to look for.') },
+  ],
+  [
+    'log_entry',
+    'Log entry',
+    'science',
+    'Append a measurement or observation to the science log.',
+    { title: stringField('Entry title.'), body: stringField('Entry text.') },
+  ],
+].map(([name, title, domain, description, properties]) => ({
+  id: `clio:${name}`,
+  name,
+  title,
+  description,
+  source: 'builtin',
+  status: 'available',
+  enabled: true,
+  owner: 'clio',
+  tags: [domain],
+  visible_to: [],
+  input_schema: objectSchema(properties, Object.keys(properties).slice(0, 1)),
+  output_schema: {},
+  domain,
+}));
+const liveTools = [
+  ...builtinTools.filter((tool) => tool.name !== 'log_entry'),
+  ...webSearchTools.map(({ name, description }) => ({
+    id: `mcp_web:${name}`,
+    name,
+    title: name === 'web_search' ? 'Web search' : 'Fetch page',
+    description,
+    server_id: 'mcp_web',
+    source: 'mcp',
+    status: 'available',
+    enabled: true,
+    owner: 'web',
+    tags: ['web'],
+    visible_to: [],
+    input_schema: objectSchema(
+      name === 'web_search'
+        ? { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } }
+        : { url: stringField('Page address.') },
+      [name === 'web_search' ? 'query' : 'url'],
+    ),
+    output_schema: {},
+  })),
+];
+const localTargetFacts = {
+  target_id: 'local',
+  label: 'This computer',
+  os: 'windows',
+  arch: 'x86_64',
+  identity: { uid: -1, gid: -1 },
+  home: localHome,
+  hostname: 'SCIENCE-WS',
+  agent_data_root: `${localHome}\\.clio`,
+  accelerator: 'amd',
+  docker_available: true,
+  docker_installed: true,
+  uv_available: true,
+  transport_state: 'connected',
+  container_runtimes: [
+    { name: 'docker', installed: true, usable: true, version: '28.3.2', detail: 'Docker Desktop' },
+    { name: 'podman', installed: false, usable: false, reason: 'not_installed', detail: '' },
+  ],
+  gpus: [
+    { index: 0, name: 'AMD Radeon RX 7900 XTX', vendor: 'amd', memory_total_mib: 24560, uuid: '' },
+  ],
+};
+const runningServices = {
+  llama_cpp: {
+    state: 'running',
+    connection_url: llamaCppUrl,
+    connection_strategy: 'loopback',
+    configuration: {
+      model_path: `${modelsRoot}\\Qwen--Qwen3-8B-GGUF\\Qwen3-8B-Q4_K_M.gguf`,
+      port: '8088',
+    },
+    effective_parameters: [
+      {
+        id: 'ctx_size',
+        label: 'Context size',
+        value: '32768',
+        source: 'server_report',
+        detail: '',
+      },
+      { id: 'parallel', label: 'Parallel slots', value: '4', source: 'launch_request', detail: '' },
+      { id: 'gpu_layers', label: 'GPU layers', value: '37', source: 'engine_default', detail: '' },
+    ],
+    owned_resources: [
+      {
+        kind: 'directory',
+        ref: `${localHome}\\.clio\\services\\llama_cpp`,
+        created_at: '2026-08-20T15:12:00.000Z',
+      },
+    ],
+    access: {
+      mode: 'api_key',
+      detail: 'Protected by the key this agent made for it.',
+      verified: true,
+    },
+  },
+  web_search: {
+    state: 'running',
+    connection_url: webSearchUrl,
+    connection_strategy: 'loopback',
+    owned_resources: [
+      {
+        kind: 'directory',
+        ref: `${localHome}\\.clio\\services\\web_search`,
+        created_at: '2026-08-18T09:40:00.000Z',
+      },
+    ],
+  },
+  ollama: { state: 'stopped' },
+};
+const reviewCatalog = JSON.parse(
+  readFileSync(new URL('../tests/review/service-methods-catalog.json', import.meta.url), 'utf8'),
+);
+const managedServiceCatalog = {
+  facts: localTargetFacts,
+  services: reviewCatalog
+    .find((scenario) => scenario.label === 'Windows AMD + Docker')
+    .services.map((service) => ({
+      ...service,
+      state: 'not_installed',
+      ...runningServices[service.id],
+    })),
+};
+const downloadedModel = (id, repository, revision, folder, bytes, extra = {}) => ({
+  id,
+  target_id: 'local',
+  storage_root: modelsRoot,
+  repository,
+  requested_revision: 'main',
+  revision,
+  destination: `${modelsRoot}\\${folder}`,
+  state: 'ready',
+  phase: 'Model available',
+  bytes_done: bytes,
+  bytes_total: bytes,
+  created_at: observedEpoch - 3 * 86_400,
+  updated_at: observedEpoch - 3 * 86_400 + 1_260,
+  observed_at: observedEpoch,
+  error: null,
+  origin: 'receipt',
+  ...extra,
+});
+const localModelInventory = {
+  target_id: 'local',
+  models: [
+    downloadedModel(
+      'model_qwen3_8b_gguf',
+      'Qwen/Qwen3-8B-GGUF',
+      '7c41481f57cb95916b40956ab2f0b9a7e5d4f0a3',
+      'Qwen--Qwen3-8B-GGUF',
+      5_027_783_488,
+      {
+        file_path: `${modelsRoot}\\Qwen--Qwen3-8B-GGUF\\Qwen3-8B-Q4_K_M.gguf`,
+        files: ['Qwen3-8B-Q4_K_M.gguf'],
+      },
+    ),
+    downloadedModel(
+      'model_nomic_embed',
+      'nomic-ai/nomic-embed-text-v1.5-GGUF',
+      '3b0d7e5b1a6f1d6c2e8f5a1c9b4d7e2f6a0c3b5d',
+      'nomic-ai--nomic-embed-text-v1.5-GGUF',
+      146_146_432,
+      {
+        file_path: `${modelsRoot}\\nomic-ai--nomic-embed-text-v1.5-GGUF\\nomic-embed-text-v1.5.Q8_0.gguf`,
+        files: ['nomic-embed-text-v1.5.Q8_0.gguf'],
+      },
+    ),
+    downloadedModel(
+      'model_granite_33_8b',
+      'ibm-granite/granite-3.3-8b-instruct',
+      '51dd4bc2ade4059a6bd87649d68aa11e4fb2529b',
+      'ibm-granite--granite-3.3-8b-instruct',
+      16_337_210_368,
+      {
+        storage_root: `${localHome}\\.cache\\huggingface\\hub`,
+        destination: `${localHome}\\.cache\\huggingface\\hub\\models--ibm-granite--granite-3.3-8b-instruct\\snapshots\\51dd4bc2ade4059a6bd87649d68aa11e4fb2529b`,
+        phase: 'Model available (Hugging Face cache)',
+        origin: 'hf_cache',
+      },
+    ),
+  ],
+  errors: [],
+  unavailable_reason: null,
+};
+const hubEvidence = [
+  { detail: 'Hugging Face model card', observed_at: observedAt, source: 'hf_repo' },
+];
+const tagged = (values) => values.map((value) => ({ evidence: hubEvidence, value }));
+const registryDetails = (repository, revision, model) => {
+  const card = `# ${repository}\n\n${model.description}\n`;
+  return {
+    repository,
+    metadata_repository: model.base ?? repository,
+    revision,
+    capability_tags: {
+      model_key: repository,
+      model_type: { evidence: hubEvidence, value: model.type },
+      capabilities: tagged(model.capabilities),
+      input_modalities: tagged(['text']),
+      output_modalities: tagged([model.type === 'embedding' ? 'embeddings' : 'text']),
+      domains: tagged(['language']),
+      tasks: tagged([model.type === 'embedding' ? 'feature-extraction' : 'text-generation']),
+    },
+    model_facts: {
+      model_key: repository,
+      description: {
+        evidence: hubEvidence,
+        value: { plain: model.description, text: model.description },
+      },
+      parameters: {
+        evidence: hubEvidence,
+        value: {
+          active: model.parameters,
+          experts_active: null,
+          experts_total: null,
+          precision: 'rounded',
+          total: model.parameters,
+        },
+      },
+      pricing: null,
+      recent: null,
+      released_at: { evidence: hubEvidence, value: { date: model.released, precision: 'day' } },
+    },
+    context_window: model.context,
+    reasoning: model.capabilities.includes('reasoning')
+      ? { mechanism: 'chat_template', levels: ['on', 'off'] }
+      : null,
+    native_tool_calling: model.capabilities.includes('tool_calling'),
+    hub_tags: model.tags,
+    card_url: `https://huggingface.co/${repository}`,
+    card_markdown: card,
+    card_repository: repository,
+    card_revision: revision,
+    card_status: 'complete',
+    card_chars: card.length,
+  };
+};
+const modelRegistry = new Map(
+  [
+    registryDetails('Qwen/Qwen3-8B-GGUF', '7c41481f57cb95916b40956ab2f0b9a7e5d4f0a3', {
+      base: 'Qwen/Qwen3-8B',
+      type: 'chat',
+      capabilities: ['tool_calling', 'reasoning'],
+      description: 'Qwen3 8B dense language model with switchable thinking, quantized to GGUF.',
+      parameters: 8_190_000_000,
+      released: '2025-04-29',
+      context: 32_768,
+      tags: ['gguf', 'text-generation', 'qwen3'],
+    }),
+    registryDetails(
+      'nomic-ai/nomic-embed-text-v1.5-GGUF',
+      '3b0d7e5b1a6f1d6c2e8f5a1c9b4d7e2f6a0c3b5d',
+      {
+        base: 'nomic-ai/nomic-embed-text-v1.5',
+        type: 'embedding',
+        capabilities: [],
+        description:
+          'Long-context text embedding model with Matryoshka dimensions, quantized to GGUF.',
+        parameters: 137_000_000,
+        released: '2024-02-10',
+        context: 8_192,
+        tags: ['gguf', 'sentence-similarity', 'feature-extraction'],
+      },
+    ),
+    registryDetails(
+      'ibm-granite/granite-3.3-8b-instruct',
+      '51dd4bc2ade4059a6bd87649d68aa11e4fb2529b',
+      {
+        type: 'chat',
+        capabilities: ['tool_calling', 'reasoning'],
+        description: 'Granite 3.3 8B instruction model with reasoning and tool calling.',
+        parameters: 8_170_000_000,
+        released: '2025-04-16',
+        context: 131_072,
+        tags: ['safetensors', 'text-generation', 'granite'],
+      },
+    ),
+  ].map((details) => [details.repository, details]),
+);
+const settingsCatalog = createSettingsCatalog(
+  process.env.CLIO_FIXTURE_SETTINGS_CATALOG?.trim() || 'off',
+);
+const infrastructure = createInfrastructureFixture({
+  sendJson,
+  readJson,
+  localTargetFacts,
+  localCatalog: managedServiceCatalog,
+  localModels: { root: modelsRoot, home: localHome, inventory: localModelInventory },
+  catalogFor: (label) => reviewCatalog.find((scenario) => scenario.label === label).services,
+  serviceUrls: { llamaCpp: llamaCppUrl, webSearch: webSearchUrl },
+});
+const provenanceConnections = [
+  {
+    id: 'prov_flowcept_lab',
+    service_id: 'flowcept',
+    label: 'Lab Flowcept',
+    url: 'http://10.42.0.21:8008',
+    configuration: {
+      settings_path: `${localHome}\\flowcept\\settings.yaml`,
+      capture_attention: 'false',
+    },
+    verification: { wrote_record: true, read_back: true, checked_at: observedAt },
+    managed: false,
+    verified: true,
+    active: false,
+    selected: false,
+  },
+];
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1408,12 +2479,17 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    scienceViews.reset();
+    settingsFixture.reset();
+    agentFixture.reset();
     branchArtifacts.reset();
+    conversationFamily.reset();
     session.state = 'running';
     session.updated_at = observedAt;
     permissionPending = true;
     questionPending = true;
     questionTrayDemo = false;
+    decisionCardsDemo = null;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
     // Every spec shares this server: a demo left on by one spec file (the
@@ -1429,6 +2505,7 @@ const server = createServer(async (request, response) => {
     meshDemoFormat = 'obj';
     meshDemoRevision = 1;
     attachmentsEnabled = false;
+    sandboxInactive = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
     mcpAppModelContextUpdates = 0;
@@ -1441,13 +2518,41 @@ const server = createServer(async (request, response) => {
     transcriptActivityTools = [];
     nextCursor = 1;
     queuedMessages = [];
+    fleetSettings = initialFleetSettings();
+    fleetAccounts = [];
+    fleetFailure = false;
+    modelSettings = initialModelSettings();
+    settingsCatalog.reset();
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
     return;
   }
+  if (request.method === 'POST' && url.pathname === '/__test/settings-models') {
+    const body = await readJson(request);
+    const scenario = body.scenario ?? 'default';
+    const failures = body.failures ?? [];
+    const known = ['providers-lm', 'servers', 'fleet', 'usage'];
+    if (!['default', 'spec', 'empty'].includes(scenario)) {
+      sendJson(response, { error: `Unknown scenario ${scenario}` }, 400);
+      return;
+    }
+    if (!Array.isArray(failures) || failures.some((failure) => !known.includes(failure))) {
+      sendJson(response, { error: `failures must be some of ${known.join(', ')}` }, 400);
+      return;
+    }
+    modelSettings = initialModelSettings(scenario, failures);
+    fleetAccounts = scenario === 'spec' ? settingsUsageAccounts() : [];
+    fleetFailure = failures.includes('usage');
+    sendJson(response, { ok: true });
+    return;
+  }
+  if (await settingsCatalog.handle(request, response, url, { sendJson, readJson })) return;
+  if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
+  if (await conversationFamily.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
+  if (await scienceViews.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
     session.state = 'failed';
     session.updated_at = new Date().toISOString();
@@ -1455,6 +2560,11 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/sandbox-inactive') {
+    sandboxInactive = true;
+    sendJson(response, { status: 'ready' }, 202);
+    return;
+  }
   if (request.method === 'POST' && url.pathname === '/__test/attachments-demo') {
     attachmentsEnabled = true;
     sendJson(response, { status: 'ready' }, 202);
@@ -1502,6 +2612,19 @@ const server = createServer(async (request, response) => {
       closes: mcpAppCloses,
       resolved_interactions: [...resolvedInteractionIds],
     });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/decision-cards') {
+    const { card } = await readJson(request);
+    if (!DECISION_CARDS.includes(card)) {
+      sendJson(response, { detail: `card must be one of ${DECISION_CARDS.join(', ')}` }, 400);
+      return;
+    }
+    decisionCardsDemo = card;
+    permissionPending = false;
+    questionPending = false;
+    sendJson(response, { status: 'pending' }, 202);
     return;
   }
 
@@ -1922,8 +3045,12 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
-        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
+        x_clio_agent_plugins: true,
+        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo || decisionCardsDemo
+          ? { x_clio_interactions: true }
+          : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
+        ...settingsCatalog.capabilities(request),
       },
     });
     return;
@@ -1951,7 +3078,15 @@ const server = createServer(async (request, response) => {
       healthy: true,
       uptime_s: 1,
       overall_status: 'healthy',
-      integrations: [],
+      // Only ready rows unless a spec asks for the unprotected sandbox: a warning
+      // here would show in navigation on every page.
+      integrations: [
+        ...['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
+          name,
+          status: 'ready',
+        })),
+        ...(sandboxInactive ? [inactiveSandboxRow] : []),
+      ],
       tool_hooks_installed: true,
     });
     return;
@@ -1959,8 +3094,22 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/v1/system/sandbox') {
     // The app observes setup globally, including outside Infrastructure. This
     // test-owned server runs no protected processes and has no setup in flight.
+    if (sandboxInactive) {
+      sendJson(response, {
+        ...inactiveSandboxRow,
+        resolved: true,
+        mechanism: 'none',
+        setup_in_progress: false,
+      });
+      return;
+    }
     sendJson(response, {
       name: 'sandbox',
+      resolved: true,
+      active: false,
+      mechanism: null,
+      acknowledgement_required: false,
+      warning: null,
       status: 'not_required',
       detail: 'Protected execution is not required by this test-owned fixture.',
       required: false,
@@ -1984,8 +3133,72 @@ const server = createServer(async (request, response) => {
     sendJson(response, { servers: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/mcp/configuration') {
+    sendJson(response, { servers: savedMcpServices });
+    return;
+  }
+  const mcpConfiguration = /^\/v1\/mcp\/configuration\/([^/]+)$/u.exec(url.pathname);
+  if (request.method === 'GET' && mcpConfiguration) {
+    const name = decodeURIComponent(mcpConfiguration[1]);
+    sendJson(
+      response,
+      name === 'web'
+        ? webSearchConfiguration
+        : { name, configured: false, scope: 'user', status: 'local_fallback', retryable: false },
+    );
+    return;
+  }
+  if (await handleModelSettings(request, response, url)) return;
+  if (request.method === 'GET' && url.pathname === '/v1/catalog/tools') {
+    sendJson(response, { tools: builtinTools });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/tools') {
+    sendJson(response, { tools: liveTools });
+    return;
+  }
+  if (await infrastructure.handle(request, response, url)) return;
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/catalog') {
+    const targetId = url.searchParams.get('target_id') ?? 'local';
+    const catalog = infrastructure.catalog(targetId);
+    if (!catalog) {
+      sendJson(response, { error: 'target_not_found', target_id: targetId }, 404);
+      return;
+    }
+    sendJson(response, catalog);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/provenance/connections') {
+    sendJson(response, { connections: provenanceConnections });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/models/details') {
+    const repository = url.searchParams.get('repository') ?? '';
+    const details = modelRegistry.get(repository);
+    if (details) sendJson(response, details);
+    else sendJson(response, { error: 'model_not_found', repository }, 404);
+    return;
+  }
+  const targetModels = /^\/v1\/infrastructure\/targets\/([^/]+)\/models$/u.exec(url.pathname);
+  if (request.method === 'GET' && targetModels) {
+    const targetId = decodeURIComponent(targetModels[1]);
+    sendJson(
+      response,
+      infrastructure.models(targetId) ?? {
+        target_id: targetId,
+        models: [],
+        errors: [],
+        unavailable_reason: 'Unknown execution host.',
+      },
+    );
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/commands') {
     sendJson(response, { commands: [] });
+    return;
+  }
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/summon-targets$/u.test(url.pathname)) {
+    sendJson(response, { subagents: [], servers: [], workflows: [], flows: [] });
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
@@ -2015,7 +3228,12 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    const all = [session, ...branchArtifacts.sessions()];
+    const all = [
+      session,
+      ...(decisionCardsDemo ? [decisionChildSession(session, decisionChildSessionId)] : []),
+      ...branchArtifacts.sessions(),
+      ...conversationFamily.sessions(),
+    ];
     const byId = new Map(all.map((row) => [row.id, row]));
     const rootOf = (id) => {
       const seen = new Set();
@@ -2032,21 +3250,24 @@ const server = createServer(async (request, response) => {
     const search = url.searchParams.get('q')?.toLowerCase();
     const waiting = url.searchParams.get('waiting_on_person') === 'true';
     const waitingIds = new Set();
-    for (const row of all.filter((row) => ['waiting_user', 'waiting_permission'].includes(row.state))) {
+    for (const row of all.filter((row) =>
+      ['waiting_user', 'waiting_permission'].includes(row.state),
+    )) {
       let id = row.id;
       while (id && !waitingIds.has(id)) {
         waitingIds.add(id);
         id = byId.get(id)?.parent_session_id;
       }
     }
-    const rows = all.filter((row) =>
-      (!named || named.includes(row.id)) &&
-      (!family || rootOf(row.id) === rootOf(family)) &&
-      (!waiting || waitingIds.has(row.id)) &&
-      (!workspace || row.workspace_id === workspace) &&
-      (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
-      (!search || row.title.toLowerCase().includes(search)) &&
-      Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
+    const rows = all.filter(
+      (row) =>
+        (!named || named.includes(row.id)) &&
+        (!family || rootOf(row.id) === rootOf(family)) &&
+        (!waiting || waitingIds.has(row.id)) &&
+        (!workspace || row.workspace_id === workspace) &&
+        (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
+        (!search || row.title.toLowerCase().includes(search)) &&
+        Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
     );
     const limit = Number(url.searchParams.get('limit') || rows.length || 1);
     const offset = Number(url.searchParams.get('cursor') || 0);
@@ -2058,8 +3279,11 @@ const server = createServer(async (request, response) => {
     return;
   }
   const scienceLog = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/science-log$/u);
-  if (request.method === 'GET' && scienceLog &&
-      [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])) {
+  if (
+    request.method === 'GET' &&
+    scienceLog &&
+    [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])
+  ) {
     // These conversation fixtures have no study; the production read still runs.
     sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
@@ -2160,6 +3384,9 @@ const server = createServer(async (request, response) => {
                 created_at: observedAt,
               },
             ]
+          : []),
+        ...(decisionCardsDemo
+          ? decisionCardArtifacts(decisionCardsDemo, { sessionId, observedAt })
           : []),
       ],
       surfaces: [
@@ -2311,16 +3538,51 @@ const server = createServer(async (request, response) => {
     sendJson(response, resources.get(resourcePath(url.pathname)).record);
     return;
   }
+  // Helper models: search on Codex, the judges inheriting the conversation model.
+  if (url.pathname === '/v1/settings/fleet' && ['GET', 'PATCH'].includes(request.method)) {
+    if (
+      request.method === 'GET' &&
+      modelSettingsFailure(response, 'fleet', 'The agent could not load the helper models.')
+    )
+      return;
+    if (request.method === 'PATCH') {
+      const patch = await readJson(request);
+      fleetSettings = {
+        ...fleetSettings,
+        ...patch,
+        judges: { ...fleetSettings.judges, ...patch.judges },
+        revision: `fleet_${Number(fleetSettings.revision.split('_')[1]) + 1}`,
+      };
+    }
+    sendJson(response, fleetSettings);
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
-    sendJson(response, providerCatalog);
+    sendJson(response, settingsProviderCatalog());
+    return;
+  }
+  if (request.method === 'PATCH' && url.pathname.startsWith('/v1/fleet/accounts/')) {
+    const id = decodeURIComponent(url.pathname.slice('/v1/fleet/accounts/'.length));
+    const body = await readJson(request);
+    const account = fleetAccounts.find((candidate) => candidate.id === id);
+    if (!account) {
+      sendJson(response, { error: `Unknown account ${id}` }, 404);
+      return;
+    }
+    account.delegation_allowed = Boolean(body.delegation_allowed);
+    sendJson(response, { account: id, delegation_allowed: account.delegation_allowed });
     return;
   }
   // The model fleet: no connected account reports usage here, so the composer
   // shows no usage readout and no model-fit notice (the baselines predate both).
   if (request.method === 'GET' && url.pathname === '/v1/fleet') {
+    if (fleetFailure) {
+      sendJson(response, { error: 'The agent could not read account usage.' }, 503);
+      return;
+    }
     sendJson(response, {
       observed_at: '2026-01-01T00:00:00+00:00',
-      accounts: [],
+      accounts: fleetAccounts,
       entries: [],
       spend_by_model: {},
       estimated_sessions: 0,
@@ -2331,6 +3593,7 @@ const server = createServer(async (request, response) => {
     const artifacts = [
       ...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]),
       ...branchArtifacts.artifacts(),
+      ...scienceViews.artifacts(),
     ];
     sendJson(response, {
       artifacts,
@@ -2491,30 +3754,6 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/providers/lm') {
-    sendJson(response, {
-      configured: true,
-      provider: 'codex',
-      api_base: 'codex://direct',
-      model: 'gpt-5.6-luna',
-      thinking_level: 'medium',
-      thinking_effective: 'medium (budget 8192)',
-      presets: [
-        {
-          id: 'codex',
-          label: 'Codex',
-          provider: 'codex',
-          api_base: 'codex://direct',
-          suggested_model: 'gpt-5.6-luna',
-          requires_api_key: false,
-          is_authenticated: true,
-          supports_live_catalog: true,
-          supports_vision: true,
-        },
-      ],
-    });
-    return;
-  }
   if (request.method === 'GET' && url.pathname === '/v1/providers/codex/components') {
     sendJson(response, {
       provider_id: 'codex',
@@ -2536,47 +3775,58 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (
-    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo) &&
+    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo || decisionCardsDemo) &&
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/interactions`
   ) {
     sendJson(response, {
-      interactions: questionTrayDemo
-        ? [
-            {
-              id: 'native:question:tray',
-              kind: 'question',
-              status: 'pending',
-              requires_human_response: true,
-              audience: 'human',
-              owner_session_id: sessionId,
-              attended_session_id: sessionId,
-              title: 'Question',
-              prompt: 'Which evidence view should remain primary?',
-              created_at: observedAt,
-              source: {
-                protocol: 'native',
-                tool_name: 'ask_user',
-                invocation_id: 'tool_fixture_question',
+      interactions: decisionCardsDemo
+        ? decisionCardInteractions(decisionCardsDemo, {
+            sessionId,
+            childSessionId: decisionChildSessionId,
+            workspaceId,
+            observedAt,
+          }).filter((interaction) => !resolvedInteractionIds.has(interaction.id))
+        : questionTrayDemo
+          ? [
+              {
+                id: 'native:question:tray',
+                kind: 'question',
+                status: 'pending',
+                requires_human_response: true,
+                audience: 'human',
+                owner_session_id: sessionId,
+                attended_session_id: sessionId,
+                title: 'Question',
+                prompt: 'Which evidence view should remain primary?',
+                created_at: observedAt,
+                source: {
+                  protocol: 'native',
+                  tool_name: 'ask_user',
+                  invocation_id: 'tool_fixture_question',
+                },
+                actions: ['answer'],
+                payload: {
+                  question_id: 'tray',
+                  kind: 'choice',
+                  options: [{ label: 'Table', value: 'table' }],
+                },
               },
-              actions: ['answer'],
-              payload: {
-                question_id: 'tray',
-                kind: 'choice',
-                options: [{ label: 'Table', value: 'table' }],
-              },
-            },
-          ]
-        : a2uiMapDemo
-          ? earthScopeMapInteractions()
-          : mcpV2Interactions(),
+            ]
+          : a2uiMapDemo
+            ? earthScopeMapInteractions()
+            : mcpV2Interactions(),
     });
     return;
   }
   const interactionResponseMatch = url.pathname.match(
     new RegExp(`^/v1/sessions/${sessionId}/interactions/([^/]+)/respond$`),
   );
-  if ((mcpV2UiDemo || a2uiMapDemo) && request.method === 'POST' && interactionResponseMatch) {
+  if (
+    (mcpV2UiDemo || a2uiMapDemo || decisionCardsDemo) &&
+    request.method === 'POST' &&
+    interactionResponseMatch
+  ) {
     const interactionId = decodeURIComponent(interactionResponseMatch[1]);
     const body = await readJson(request);
     resolvedInteractionIds.add(interactionId);
@@ -2830,6 +4080,7 @@ const server = createServer(async (request, response) => {
         { path: 'results', type: 'dir' },
         { path: 'results/stations.csv', type: 'file', size: 2048 },
         { path: 'results/vertical-displacement.png', type: 'file', size: 8192 },
+        ...scienceViews.files(),
       ],
       truncated: false,
     });
@@ -2869,43 +4120,15 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agents') {
-    sendJson(response, {
-      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
-    });
-    return;
-  }
-  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
-    sendJson(response, { plugins: [], default_marketplace_error: null });
-    return;
-  }
-  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
-    sendJson(response, {
-      session_id: url.pathname.split('/')[3],
-      delta: { add: [], remove: [] },
-      subagent: false,
-      resolution: {
-        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
-        plugins: [
-          {
-            id: 'core',
-            kind: 'plugin',
-            marketplace: 'clio-builtin',
-            provenance: { source: 'core', via: 'core', label: 'core' },
-            removable: false,
-          },
-        ],
-        prompt: { sections: [] },
-      },
-    });
-    return;
-  }
+  // Agents, the plugin catalog and each session's composable agent.
+  if (await agentFixture.handle(request, url, response)) return;
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {
     response.writeHead(204, commonHeaders());
     response.end();
     return;
   }
 
+  if (scienceViews.fallback(request, response, url)) return;
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);
 });
 

@@ -1,4 +1,5 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { mockDesktopHost } from '@/test/desktop-host';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
@@ -13,6 +14,15 @@ const xterm = vi.hoisted(() => {
     rows = 24;
     element: HTMLDivElement | undefined;
     write = vi.fn();
+    clear = vi.fn();
+    buffer = {
+      active: {
+        length: 2,
+        getLine: (index: number) => ({
+          translateToString: () => ['hello', 'world   '][index],
+        }),
+      },
+    };
     dispose = vi.fn();
     loadAddon = vi.fn();
     onData = vi.fn();
@@ -37,26 +47,34 @@ const xterm = vi.hoisted(() => {
 vi.mock('@xterm/xterm', () => ({ Terminal: xterm.MockTerminal }));
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: xterm.MockFitAddon }));
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn(async () => {}) }));
 
 const resizeObserverMock = vi.hoisted(() => {
   class TestResizeObserver {
     static instances: TestResizeObserver[] = [];
     callback: ResizeObserverCallback;
+    targets: Element[] = [];
     constructor(callback: ResizeObserverCallback) {
       this.callback = callback;
       TestResizeObserver.instances.push(this);
     }
-    observe() {}
+    observe(target: Element) {
+      this.targets.push(target);
+    }
     unobserve() {}
     disconnect() {}
   }
   return { TestResizeObserver };
 });
 
+import userEvent from '@testing-library/user-event';
+import { copyText } from '@/lib/clipboard';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 import { getEmbeddedTerminal } from '@/tauri/workspace-terminal';
 
-type EventHandler = (event: { payload: { id: string; data?: string; code?: number | null } }) => void;
+type EventHandler = (event: {
+  payload: { id: string; data?: string; code?: number | null };
+}) => void;
 
 function setupListen(): Map<string, EventHandler> {
   const listeners = new Map<string, EventHandler>();
@@ -78,7 +96,7 @@ beforeEach(() => {
   xterm.MockFitAddon.instances = [];
   resizeObserverMock.TestResizeObserver.instances = [];
   vi.stubGlobal('ResizeObserver', resizeObserverMock.TestResizeObserver);
-  Object.assign(window, { __TAURI_INTERNALS__: {} });
+  mockDesktopHost();
 });
 
 afterEach(() => {
@@ -150,9 +168,9 @@ describe('WorkspaceTerminalPanel', () => {
     expect(xterm.MockTerminal.instances).toHaveLength(1);
     expect(getEmbeddedTerminal('tab-2')?.term).toBe(firstTerm);
     expect(firstTerm.open).toHaveBeenCalledTimes(1);
-    expect(
-      mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length,
-    ).toBe(1);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length).toBe(
+      1,
+    );
     expect(mocks.invoke).not.toHaveBeenCalledWith('terminal_close', expect.anything());
   });
 
@@ -168,12 +186,17 @@ describe('WorkspaceTerminalPanel', () => {
         expect.objectContaining({ cwd: '/workspace/demo' }),
       ),
     );
-    await waitFor(() => expect(resizeObserverMock.TestResizeObserver.instances).toHaveLength(1));
+    // The frame bar measures its own fit; the terminal's observer is the other one.
+    const terminalObserver = () =>
+      resizeObserverMock.TestResizeObserver.instances.find(
+        (candidate) => !candidate.targets.some((target) => target.matches('[data-slot=frame-bar]')),
+      );
+    await waitFor(() => expect(terminalObserver()).toBeDefined());
 
     const term = xterm.MockTerminal.instances[0];
     term.cols = 120;
     term.rows = 40;
-    const observer = resizeObserverMock.TestResizeObserver.instances[0];
+    const observer = terminalObserver()!;
 
     // Simulate a drag: several observed resizes in quick succession must
     // collapse into a single `terminal_resize` call once things settle.
@@ -212,6 +235,27 @@ describe('WorkspaceTerminalPanel', () => {
     });
 
     expect(await screen.findByText('Shell exited (code 1)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /restart/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeInTheDocument();
+    const frame = screen.getByRole('toolbar', { name: 'Terminal' });
+    expect(within(frame).getByText('Exited with code 1')).toBeInTheDocument();
+    expect(within(frame).getByRole('button', { name: 'Restart the shell' })).toBeInTheDocument();
+    expect(within(frame).getByRole('button', { name: 'Clear the terminal' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  it('names the working folder and copies the scrollback from its frame bar', async () => {
+    mockInvokeOpenResolves();
+    setupListen();
+    const user = userEvent.setup();
+
+    render(<WorkspaceTerminalPanel cwd="/workspace/demo" sessionId="sess_1" tabId="tab-5" />);
+    await waitFor(() => expect(getEmbeddedTerminal('tab-5')?.term).toBeDefined());
+
+    const frame = screen.getByRole('toolbar', { name: 'Terminal' });
+    expect(within(frame).getByLabelText('Location')).toHaveTextContent('demo');
+    await user.click(within(frame).getByRole('button', { name: 'Copy output' }));
+    expect(copyText).toHaveBeenCalledWith('hello\nworld');
   });
 });

@@ -1,85 +1,96 @@
-import { useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import type { SessionExportMode } from '@clio/core/v3';
-import { CheckIcon, DownloadIcon } from 'lucide-react';
+import { BoxIcon, CheckIcon, DownloadIcon, FileTextIcon } from 'lucide-react';
 import {
   DropdownMenuCheckboxItem,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { KeyMenuItem } from './menu-key-items';
+import { ResponsiveMenuSub } from './responsive-menu-sub';
 
-/** Transcript is the default; workspace inclusion implies session effects. */
+/**
+ * One download: with nothing ticked it is the transcript as HTML; ticking
+ * files makes it a ZIP of the transcript plus those files. Workspace files
+ * imply the agent's artifacts.
+ */
 export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExportMode) => void }) {
   const [effects, setEffects] = useState(false);
   const [full, setFull] = useState(false);
-  const trigger = useRef<HTMLDivElement>(null);
-  const [sideOffset, setSideOffset] = useState(0);
-  const mode: SessionExportMode = full ? 'full' : effects ? 'effects' : 'transcript';
+  const options = (
+    <>
+      <DropdownMenuLabel>Transcript is always included</DropdownMenuLabel>
+      <ExportOption
+        checked={effects}
+        description="files the agent made"
+        label="Artifacts"
+        onCheckedChange={(value) => {
+          setEffects(value);
+          if (!value) setFull(false);
+        }}
+      />
+      <ExportOption
+        checked={full}
+        description="can be large"
+        label="Workspace files"
+        onCheckedChange={(value) => {
+          setFull(value);
+          if (value) setEffects(true);
+        }}
+      />
+      <DropdownMenuSeparator />
+      <KeyMenuItem
+        icon={effects ? BoxIcon : FileTextIcon}
+        label={effects ? 'Download ZIP' : 'Download HTML'}
+        menuKey="S"
+        onSelect={() => onExport(full ? 'full' : effects ? 'effects' : 'transcript')}
+      />
+    </>
+  );
   return (
-    <DropdownMenuSub
-      onOpenChange={(open) => {
-        if (!open || !trigger.current) return;
-        const bounds = trigger.current.getBoundingClientRect();
-        // Radix flips a submenu but cannot fit it beside its parent on a phone.
-        // In that case overlap the parent, retaining the full export options.
-        const width = 288;
-        const padding = 8;
-        const right = window.innerWidth - bounds.right - padding;
-        const left = bounds.left - padding;
-        setSideOffset(right < width && left < width ? right - width : 0);
-      }}
+    <ResponsiveMenuSub icon={DownloadIcon} label="Export" width={260}>
+      {options}
+    </ResponsiveMenuSub>
+  );
+}
+
+function ExportOption({
+  checked,
+  label,
+  description,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  label: string;
+  description: string;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <DropdownMenuCheckboxItem
+      aria-describedby={`${id}-description`}
+      aria-labelledby={`${id}-label`}
+      checked={checked}
+      className="pr-2 whitespace-nowrap [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
+      onCheckedChange={(value) => onCheckedChange(value === true)}
+      onSelect={(event) => event.preventDefault()}
     >
-      <DropdownMenuSubTrigger ref={trigger}>
-        <DownloadIcon aria-hidden="true" /> Export session
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent
-        className="w-72 max-w-[calc(100vw-1rem)]"
-        collisionPadding={8}
-        sideOffset={sideOffset}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+          checked
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-input dark:bg-input/30',
+        )}
       >
-        <DropdownMenuLabel>Transcript included</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem
-          className="pr-2 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
-          checked={effects}
-          onSelect={(event) => event.preventDefault()}
-          onCheckedChange={(value) => {
-            setEffects(value === true);
-            if (!value) setFull(false);
-          }}
-        >
-          <span
-            aria-hidden="true"
-            className="flex size-4 items-center justify-center rounded-sm border border-current"
-          >
-            {effects ? <CheckIcon className="size-3" /> : null}
-          </span>
-          Include session artifacts
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          className="pr-2 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
-          checked={full}
-          onSelect={(event) => event.preventDefault()}
-          onCheckedChange={(value) => {
-            setFull(value === true);
-            if (value) setEffects(true);
-          }}
-        >
-          <span
-            aria-hidden="true"
-            className="flex size-4 items-center justify-center rounded-sm border border-current"
-          >
-            {full ? <CheckIcon className="size-3" /> : null}
-          </span>
-          Include workspace files
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onExport(mode)}>
-          <DownloadIcon aria-hidden="true" /> Download {mode === 'transcript' ? 'HTML' : 'ZIP'}
-        </DropdownMenuItem>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
+        {checked ? <CheckIcon className="size-3.5" /> : null}
+      </span>
+      <span id={`${id}-label`}>{label}</span>
+      <span className="min-w-0 truncate text-muted-foreground" id={`${id}-description`}>
+        {description}
+      </span>
+    </DropdownMenuCheckboxItem>
   );
 }

@@ -6,6 +6,9 @@ import { installExpectation } from './install-expectation-model';
 
 afterEach(cleanup);
 
+// Sizes read in binary units, as file managers show them.
+const GIB = 1024 ** 3;
+
 const reuse = (thing: string) => ({
   kind: 'apptainer',
   thing,
@@ -26,7 +29,7 @@ describe('installExpectation', () => {
   });
 
   it('adds only what was measured: download size and the last install time', () => {
-    const text = installExpectation({ thing: 'vLLM', downloadBytes: 8e9, lastSeconds: 754 });
+    const text = installExpectation({ thing: 'vLLM', downloadBytes: 8 * GIB, lastSeconds: 754 });
     expect(text).toContain('About 8.0 GB to download.');
     expect(text).toContain('Last install took ~13 min.');
     expect(installExpectation({ thing: 'vLLM', lastSeconds: 40 })).toContain(
@@ -50,7 +53,7 @@ describe('installExpectation', () => {
 
 describe('InstallExpectation', () => {
   it('renders a quiet line, not a second live status', () => {
-    render(<InstallExpectation thing="org/model" downloadBytes={2e9} />);
+    render(<InstallExpectation thing="org/model" downloadBytes={2 * GIB} />);
     const line = screen.getByText(/This can take several minutes/u);
     expect(line).toHaveTextContent('org/model');
     expect(line).toHaveTextContent('About 2.0 GB to download.');

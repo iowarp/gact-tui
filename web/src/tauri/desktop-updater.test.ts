@@ -319,6 +319,27 @@ describe('Desktop-owned runtime updates (#1777)', () => {
     expect(readPendingUpdateMarker()).toMatchObject({ action: 'both', version: '0.7.2' });
   });
 
+  it('reports an unpublished own release as such, not as an update being published', async () => {
+    runtimeMocks.has.mockResolvedValue(true);
+    runtimeMocks.mode.mockResolvedValue('bundled');
+    runtimeMocks.version.mockResolvedValue('0.7.1');
+    mocks.check.mockResolvedValueOnce(null);
+    channelMocks.invoke.mockRejectedValueOnce(
+      new Error('Could not fetch a valid release JSON from the remote'),
+    );
+
+    await expect(checkForDesktopUpdate()).rejects.toThrow("This app's release v0.7.2");
+
+    const { getDesktopUpdateSnapshot } = await import('./desktop-updater');
+    expect(getDesktopUpdateSnapshot()).toEqual({
+      status: 'error',
+      reason: 'release_not_published',
+      message:
+        "This app's release v0.7.2 is not published, so the runtime (0.7.1) cannot be restored to match it.",
+    });
+    expect(mocks.update.install).not.toHaveBeenCalled();
+  });
+
   it('does not change either component if restart intent cannot be saved', async () => {
     await checkForDesktopUpdate();
     const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {

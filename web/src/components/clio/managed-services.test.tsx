@@ -21,6 +21,8 @@ const connection = vi.hoisted(() => ({
 const repository = vi.hoisted(() => ({
   workspaces: vi.fn(),
   mcpServers: vi.fn(),
+  mcpServer: vi.fn(),
+  mcpServerInventory: vi.fn(async () => []),
   savedMcpServices: vi.fn(),
   tools: vi.fn(),
   infrastructureInventory: vi.fn(),
@@ -66,13 +68,19 @@ vi.mock('@/tauri/ssh-credentials', () => ({
 }));
 
 import { ManagedServices } from './managed-services';
+import { InfraTabActionsProvider } from './infrastructure-tab-actions';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { localServiceFacts, services } from '@/test-fixtures/managed-services';
 
 function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <ManagedServices {...props} />
+        <TooltipProvider>
+          <InfraTabActionsProvider value={document.body}>
+            <ManagedServices {...props} />
+          </InfraTabActionsProvider>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -167,30 +175,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+async function openAddMenu(user = userEvent.setup()) {
+  const more = await screen.findByRole('button', { name: 'More ways to add a service' });
+  await waitFor(() => expect(more).toBeEnabled());
+  await user.click(more);
+}
+
 describe('ManagedServices', () => {
-  it('lets a browser select an already registered remote host without creating a Desktop transport', async () => {
-    runtime.desktop = false;
-    repository.infrastructureTargets.mockResolvedValue([
-      { id: 'local', label: 'Local', kind: 'local', transport_state: 'connected' },
-      {
-        id: 'homelab',
-        label: 'Homelab',
-        kind: 'ssh',
-        transport_state: 'connected',
-        ssh: { profile: 'homelab' },
-      },
-    ]);
-    renderServices();
-    await userEvent.click(await screen.findByRole('button', { name: 'Select Homelab computer' }));
-    await waitFor(() =>
-      expect(repository.managedServiceCatalog).toHaveBeenCalledWith(
-        'homelab',
-        expect.any(AbortSignal),
-      ),
-    );
-    expect(repository.createInfrastructureTarget).not.toHaveBeenCalled();
-    expect(screen.queryByRole('combobox', { name: 'Saved SSH host' })).not.toBeInTheDocument();
-  });
   it('restores a server-owned operation after reloading the page', async () => {
     repository.infrastructureInventory.mockResolvedValue({
       operations: [
@@ -251,19 +242,24 @@ describe('ManagedServices', () => {
     const onConnectExistingService = vi.fn();
     renderServices({ onConnectExistingService });
 
-    await user.click(screen.getByRole('button', { name: 'Connect existing service…' }));
+    await openAddMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Connect an existing service' }));
 
     expect(onConnectExistingService).toHaveBeenCalledOnce();
   });
 
-  it('summarizes connected MCP services before deployment controls', async () => {
+  it('opens the connected MCP services from the add menu', async () => {
+    const user = userEvent.setup();
     renderServices({
       connectedAgentLocation: 'Ares',
     });
 
-    expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Add MCP' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Install service' })).toBeVisible();
+    await openAddMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'MCP services' }));
+    const dialog = await screen.findByRole('dialog', { name: 'MCP services' });
+    expect(within(dialog).getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Add MCP' })).toBeVisible();
   });
 
   it('identifies a command-backed connection on the agent without requiring a service URL', async () => {
@@ -282,9 +278,13 @@ describe('ManagedServices', () => {
     renderServices({
       connectedAgentLocation: 'Ares',
     });
-    await user.click(await screen.findByRole('button', { name: 'Show the tools of Web search' }));
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('fetch');
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('search');
+    await openAddMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'MCP services' }));
+    repository.mcpServer.mockImplementation(async () => (await repository.mcpServers())[0]);
+    await user.click(await screen.findByRole('button', { name: 'Details for Web search' }));
+    const tools = await screen.findByRole('group', { name: 'Tools of Web search' });
+    expect(tools).toHaveTextContent(/fetch/i);
+    expect(tools).toHaveTextContent(/search/i);
     expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.queryByText('No service address configured')).toBeNull();
   });
@@ -295,11 +295,11 @@ describe('ManagedServices', () => {
     expect(
       await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
     ).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Set up vLLM' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Install service' }));
     await user.click(screen.getByRole('button', { name: 'Set up vLLM' }));
-    expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Set up vLLM' })).toBeVisible();
     await user.click(screen.getByText('Advanced settings', { exact: true }));
     expect(screen.getByLabelText('vLLM Reasoning parser')).toBeVisible();
     expect(repository.runManagedServiceAction).not.toHaveBeenCalled();
@@ -339,9 +339,9 @@ describe('ManagedServices', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Install service' }));
     expect(screen.getByText('Requires Docker.')).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: `${vocab.agent} Web Search unavailable` }),
-    ).toBeDisabled();
+    const research = screen.getByRole('group', { name: 'Web research' });
+    expect(within(research).getByText('Unavailable')).toBeVisible();
+    expect(within(research).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('connects a running service to CLIO without repeating its state as command output', async () => {
@@ -515,12 +515,10 @@ describe('ManagedServices', () => {
       ),
     );
 
-    const panel = await screen.findByRole('region', {
-      name: `${vocab.agent} Web Search recent logs`,
-    });
-    expect(panel).toHaveTextContent('Recent logs');
-    expect(panel).toHaveTextContent('line one');
-    expect(panel.querySelector('pre')).toHaveClass('max-h-80', 'overflow-auto');
+    const logs = await screen.findByLabelText(`${vocab.agent} Web Search recent logs`);
+    expect(screen.getByText('Recent logs on Local')).toBeVisible();
+    expect(logs).toHaveTextContent('line one');
+    expect(logs).toHaveTextContent('line two');
   });
 
   it('does not claim a selected deployment is connected when CLIO points elsewhere', async () => {
@@ -551,17 +549,6 @@ describe('ManagedServices', () => {
     const action = screen.getByRole('button', { name: 'Connect' });
     await user.click(action);
     expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
-  });
-
-  it('limits a remote CLIO to lifecycle management on its own computer', async () => {
-    connection.isManagedConnection = false;
-    renderServices({
-      connectedAgentLabel: 'Utah CLIO',
-      connectedAgentLocation: 'Utah',
-    });
-    expect(await screen.findByRole('button', { name: 'Select Local computer' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Add computer' })).not.toBeInTheDocument();
-    expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
   });
 
   it('uses the endpoint reported by remote CLIO for a same-host service', async () => {
@@ -599,132 +586,6 @@ describe('ManagedServices', () => {
     expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
   });
 
-  it('keeps the infrastructure view usable while target inspection is pending', () => {
-    deployment.managedServiceCatalog.mockReturnValue(new Promise(() => undefined));
-    renderServices();
-
-    expect(screen.getByRole('button', { name: 'Select Local computer' })).toBeVisible();
-    expect(screen.getByText('Inspecting this computer')).toBeVisible();
-  });
-
-  it('identifies the selected SSH host while remote discovery is running', async () => {
-    const user = userEvent.setup();
-    deployment.listSshProfiles.mockResolvedValue([
-      { name: 'homelab', port: 22, jump_hosts: [], platform: 'linux', managed: false },
-    ]);
-    deployment.managedServiceCatalog.mockImplementation((targetId: string) =>
-      targetId === 'ssh-target'
-        ? new Promise(() => undefined)
-        : Promise.resolve({
-            facts: {
-              target: 'local',
-              os: 'windows',
-              arch: 'x86_64',
-              accelerator: 'none',
-              docker_available: true,
-              docker_installed: true,
-              uv_available: true,
-            },
-            services,
-          }),
-    );
-    renderServices();
-    await user.click(screen.getByRole('button', { name: 'Add computer' }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: 'homelab' }));
-
-    expect(await screen.findByText('Connecting to homelab')).toBeVisible();
-    expect(screen.getByText(new RegExp(`existing ${brand.agentName} services`, 'u'))).toBeVisible();
-  });
-
-  it('reuses a host registered before the target list answered instead of adding a duplicate', async () => {
-    const user = userEvent.setup();
-    const registered = {
-      id: 'homelab',
-      label: 'homelab',
-      kind: 'ssh' as const,
-      install_root: '',
-      ssh: {
-        profile: 'homelab',
-        host: '',
-        user: '',
-        port: 22,
-        identity_file: '',
-        jump_hosts: [],
-        platform: 'linux' as const,
-      },
-      transport_state: 'disconnected' as const,
-      auto_reconnect: true,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    };
-    deployment.listSshProfiles.mockResolvedValue([
-      { name: 'homelab', port: 22, jump_hosts: [], platform: 'linux', managed: false },
-    ]);
-    // The page's own targets query never answers (a slow reload); the
-    // registration must still find the stored host.
-    repository.infrastructureTargets
-      .mockImplementationOnce(() => new Promise(() => undefined))
-      .mockResolvedValue([registered]);
-    repository.updateInfrastructureTarget.mockResolvedValue(registered);
-    renderServices();
-    await user.click(screen.getByRole('button', { name: 'Add computer' }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: 'homelab' }));
-
-    await waitFor(() =>
-      expect(repository.updateInfrastructureTarget).toHaveBeenCalledWith(
-        'homelab',
-        expect.objectContaining({ kind: 'ssh' }),
-      ),
-    );
-    expect(repository.createInfrastructureTarget).not.toHaveBeenCalled();
-  });
-
-  it('adds a manual SSH host beside imported profiles and uses it for inspection', async () => {
-    const user = userEvent.setup();
-    const create = repository.createInfrastructureTarget.getMockImplementation()!;
-    repository.createInfrastructureTarget.mockImplementationOnce(async (input) => {
-      const created = await create(input);
-      repository.infrastructureTargets.mockResolvedValue([
-        { id: 'local', label: 'Local', kind: 'local', transport_state: 'connected' },
-        created,
-      ]);
-      return created;
-    });
-    renderServices();
-    await user.click(screen.getByRole('button', { name: 'Add computer' }));
-    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
-    await user.type(screen.getByLabelText('Address'), 'login.example.edu');
-    await user.clear(screen.getByLabelText('Port'));
-    await user.type(screen.getByLabelText('Port'), '2222');
-    await user.type(screen.getByLabelText('Username'), 'alice');
-    await user.type(screen.getByLabelText('Name'), 'Utah cluster');
-    await user.click(screen.getByRole('button', { name: 'Save host' }));
-
-    await waitFor(() =>
-      expect(repository.createInfrastructureTarget).toHaveBeenCalledWith(
-        expect.objectContaining({
-          kind: 'ssh',
-          label: 'Utah cluster',
-          ssh: expect.objectContaining({ host: 'login.example.edu', user: 'alice', port: 2222 }),
-        }),
-      ),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Connect a computer' })).not.toBeInTheDocument(),
-    );
-    expect(
-      await screen.findByRole('button', { name: 'Select Utah cluster computer' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    // The route's own sortable list also renders an assistive-tech live
-    // region once it has a destination row, so this scopes past it.
-    expect(repository.setInfrastructureTransportState).toHaveBeenCalledWith(
-      'ssh-target',
-      'connected',
-    );
-  });
-
   it('renders a recoverable error when target inspection fails', async () => {
     deployment.managedServiceCatalog.mockRejectedValue(new Error('Docker inspection stalled'));
     renderServices();
@@ -732,15 +593,9 @@ describe('ManagedServices', () => {
     expect(await screen.findByText('Could not inspect Local')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
     expect(screen.queryByText(/No managed services on/u)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Install service' })).toBeDisabled();
-  });
-
-  it('keeps same-host CLIO lifecycle controls available in browser mode', async () => {
-    runtime.desktop = false;
-    connection.isManagedConnection = false;
-    renderServices();
-    expect(await screen.findByRole('button', { name: 'Select Local computer' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Add computer' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Install service' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Install a service' });
+    expect(within(dialog).getByText('Could not inspect Local')).toBeVisible();
   });
 
   it('opens the installer-requested runtime directly', async () => {
@@ -753,7 +608,7 @@ describe('ManagedServices', () => {
 
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
-    expect(await screen.findByRole('heading', { name: 'llama.cpp' })).toBeVisible();
+    expect(await screen.findByRole('dialog', { name: 'Set up llama.cpp' })).toBeVisible();
     // Choosing the form is not installation: the banner follows the catalog.
     expect(screen.getByText('Finish setting up your local model runtime')).toBeVisible();
   });
@@ -762,7 +617,7 @@ describe('ManagedServices', () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
     renderServices();
 
-    await screen.findByRole('button', { name: 'Select Local computer' });
+    await screen.findByRole('button', { name: 'Computer: Local' });
     expect(
       screen.queryByText('Finish setting up your local model runtime'),
     ).not.toBeInTheDocument();
@@ -778,7 +633,7 @@ describe('ManagedServices', () => {
     });
     renderServices();
 
-    await screen.findByRole('button', { name: 'Select Local computer' });
+    await screen.findByRole('button', { name: 'Computer: Local' });
     expect(
       screen.queryByText('Finish setting up your local model runtime'),
     ).not.toBeInTheDocument();

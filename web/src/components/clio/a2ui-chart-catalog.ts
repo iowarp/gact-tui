@@ -159,7 +159,7 @@ export const ClioChartCatalogComponent = createComponentImplementation(
           {
             fallback: createElement('div', {
               'aria-busy': true,
-              className: 'h-80 animate-pulse rounded-lg bg-muted',
+              className: 'h-80 motion-safe:animate-pulse rounded-lg bg-muted',
             }),
           },
           createElement(LazyChart, {

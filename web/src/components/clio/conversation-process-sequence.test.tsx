@@ -30,7 +30,7 @@ describe('ConversationProcessSequence task blocks', () => {
     const user = userEvent.setup();
     renderTask(task);
 
-    const trigger = screen.getByRole('button', { name: /Review station quality/ });
+    const trigger = screen.getByRole('button', { name: 'Expand task Review station quality' });
     expect(screen.queryByText('Evidence retained with source identity.')).not.toBeInTheDocument();
     await user.tab();
     expect(trigger).toHaveFocus();
@@ -42,7 +42,7 @@ describe('ConversationProcessSequence task blocks', () => {
     const user = userEvent.setup();
     renderTask({ ...task, detail: '' });
 
-    await user.click(screen.getByRole('button', { name: /Review station quality/ }));
+    await user.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
 
     expect(screen.getByText('No task detail was reported.')).toBeVisible();
   });
@@ -50,7 +50,8 @@ describe('ConversationProcessSequence task blocks', () => {
   it('labels the task state for a reader rather than echoing the wire value', () => {
     renderTask({ ...task, state: 'waiting_permission' });
 
-    expect(screen.getByText('Permission needed')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Permission needed' })).toBeInTheDocument();
+    expect(screen.getByText('permission needed')).toBeVisible();
     expect(screen.queryByText('waiting_permission')).not.toBeInTheDocument();
   });
 
@@ -58,7 +59,7 @@ describe('ConversationProcessSequence task blocks', () => {
     renderTask(undefined);
 
     expect(screen.getByRole('button', { name: /Task unavailable/ })).toBeVisible();
-    expect(screen.getByText('Unavailable')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Unavailable' })).toBeInTheDocument();
   });
 });
 

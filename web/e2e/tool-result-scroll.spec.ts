@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { selectFileView } from './file-viewer-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -100,17 +101,21 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
   // Its composer briefly coexists with the docked composer during the transition.
   await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: /conversation welcome$/i })).toHaveCount(0);
-  const responses = page
-    .getByRole('region', { name: 'Conversation workspace', exact: true })
-    .getByRole('button', { name: 'Agent needs your attention', exact: true });
-  await expect(responses).toHaveCount(1);
-  await responses.click();
-  const activity = page.getByRole('button', { name: /^Activity:/ }).last();
-  await expect(activity).toBeVisible();
-  if ((await activity.getAttribute('aria-expanded')) === 'false') await activity.click();
   await expect(
-    page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
-  ).toBeVisible();
+    page
+      .getByRole('region', { name: 'Conversation workspace', exact: true })
+      .getByRole('region', { name: 'Agent needs your attention', exact: true }),
+  ).toHaveCount(1);
+  // A finished run folds into its counted row; open it to reach its calls.
+  const closedRuns = page.locator(
+    '[data-run-summary] [data-slot="activity-disclosure"][aria-expanded="false"]',
+  );
+  await expect(async () => {
+    for (const run of await closedRuns.all()) await run.click();
+    await expect(
+      page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
+    ).toBeVisible({ timeout: 1000 });
+  }).toPass();
 }
 
 for (const width of [640, 1003]) {
@@ -204,9 +209,11 @@ test('session Work is a readable canvas peer with accessible task state', async 
     }),
   );
   await openFixture(page, 'text', 'A short readable result.');
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Work', exact: true }).click();
+  await showWorkbenchList(page, 'Activity');
+  await page
+    .getByRole('region', { name: 'Activity list', exact: true })
+    .getByRole('button', { name: new RegExp(`^Goal: ${goal.title}`, 'u') })
+    .click();
   const panel = page.getByRole('tabpanel', { name: 'Work', exact: true });
   await expect(panel).toBeVisible();
   await expect(panel.getByText(goal.title, { exact: true })).toBeVisible();
@@ -215,7 +222,8 @@ test('session Work is a readable canvas peer with accessible task state', async 
   await status.focus();
   await expect(page.getByRole('tooltip', { name: 'In progress' })).toBeVisible();
   await expect.poll(() => panel.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
-  await expect(panel.getByRole('heading', { name: 'Schedules' })).toBeAttached();
+  // Kinds of work with nothing recorded are left out rather than listed empty.
+  await expect(panel.getByRole('heading', { name: 'Schedules' })).toHaveCount(0);
 });
 
 test('file explorer reflows converted Markdown and keeps exact source accessible', async ({
@@ -248,9 +256,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
     }),
   );
   await openFixture(page, 'short');
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   await page.getByRole('treeitem', { name: 'converted.md', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
@@ -298,7 +304,9 @@ for (const shortTranscript of [false, true]) {
     const log = page.getByRole('log', { name: 'Conversation', exact: true });
     await log.focus();
     await log.press('Control+Home');
-    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeLessThan(2);
+    // Home may still be settling at 1px; reading the anchor then made the
+    // restored position appear to drift by one pixel.
+    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBe(0);
     const anchor = log.locator('[data-index]').first();
     const topBefore = await anchor.evaluate((e) => e.getBoundingClientRect().top);
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
@@ -336,6 +344,8 @@ for (const shortTranscript of [false, true]) {
 
     // Hold a real background refresh so both edges of the history-sync
     // indicator are observable without depending on the network's timing.
+    // While the live stream is healthy the transcript refreshes on its slow
+    // fallback cadence (LIVE_STREAM_FALLBACK_POLL_MS, 15 s), not every 5 s.
     const syncing = log.getByRole('status').filter({ hasText: 'Syncing history' });
     await expect(syncing).toHaveCount(0);
     let releaseRefresh!: () => void;
@@ -352,7 +362,7 @@ for (const shortTranscript of [false, true]) {
     );
     const beforeRefresh = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
     try {
-      await expect(syncing).toBeVisible({ timeout: 10_000 });
+      await expect(syncing).toBeVisible({ timeout: 20_000 });
       await expect
         .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
         .toBeCloseTo(beforeRefresh, 0);
@@ -402,10 +412,15 @@ for (const size of [
     });
     const body = dialog.getByRole('region', { name: 'Scrollable result content' });
     await expect(body).toBeVisible();
-    // Lazy syntax highlighting replaces its bounded fallback. Exercise keyboard
-    // scrolling against the loaded panes, not during that geometry transition.
-    await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(2);
-    const input = body.getByRole('heading', { name: 'Arguments' }).locator('..');
+    // Arguments and Result are each one line-numbered block at full height; the
+    // dialog body is the only scroller.
+    await expect(body.locator('[data-slot="details-code"]')).toHaveCount(2);
+    await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(0);
+    const input = body
+      .locator('[data-slot="details-section"]')
+      // has is queried inside each section, so it names the heading from the page root.
+      .filter({ has: page.getByRole('heading', { name: 'Arguments', exact: true }) })
+      .locator('[data-slot="details-code"]');
     await expect.poll(() => input.evaluate((e) => e.clientHeight >= e.scrollHeight)).toBe(true);
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await body.focus();
@@ -421,7 +436,6 @@ for (const size of [
     });
     await page.keyboard.press('Escape');
     await expect(body).toHaveCount(0);
-    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await expect(trigger).toBeFocused();
   });
 }

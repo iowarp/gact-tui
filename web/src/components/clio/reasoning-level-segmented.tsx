@@ -3,8 +3,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 
 const MODEL_DEFAULT = '__model_default__';
-/** The chosen level reads at a glance, in light and dark. */
-const SELECTED = 'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
+/**
+ * The segmented control (spec .xsg): the chosen level is the raised segment.
+ * Seven levels fit a phone column only with tighter segments.
+ */
+const ITEM =
+  'h-6 rounded-[0.3125rem] border-0 px-2.5 max-[25rem]:px-1! text-xs font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground';
 
 interface ReasoningLevelSegmentedProps {
   reasoning: ModelReasoningLevels | undefined;
@@ -31,8 +35,8 @@ export function ReasoningLevelSegmented({
   const defaultName = reasoning?.default ? REASONING_EFFORT_LABELS[reasoning.default] : undefined;
   return (
     <ToggleGroup
-      aria-label="Thinking"
-      className="flex-wrap"
+      aria-label="Reasoning effort"
+      className="shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
       data-slot="reasoning-level"
       disabled={disabled}
       onValueChange={(next) => {
@@ -43,17 +47,17 @@ export function ReasoningLevelSegmented({
       spacing={0}
       type="single"
       value={selected}
-      variant="outline"
+      variant="default"
     >
       <ToggleGroupItem
-        className={SELECTED}
+        className={ITEM}
         title={defaultName ? `The model's own default (${defaultName})` : "The model's own default"}
         value={MODEL_DEFAULT}
       >
         Default
       </ToggleGroupItem>
       {levels.map((level) => (
-        <ToggleGroupItem className={SELECTED} key={level} value={level}>
+        <ToggleGroupItem className={ITEM} key={level} value={level}>
           {REASONING_EFFORT_LABELS[level]}
         </ToggleGroupItem>
       ))}

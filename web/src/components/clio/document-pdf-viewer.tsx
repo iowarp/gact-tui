@@ -1,10 +1,16 @@
-import type { DocumentAnchor } from '@clio/core/v3';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ViewerZoomControls } from './viewer-zoom-controls';
-import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
+import { frameKeyRegion } from './file-viewer-modes';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
+import {
+  PDF_FLING_PX_PER_MS,
+  PDF_FLING_SETTLE_MS,
+  PDF_PAGE_GAP_PX,
+} from '@/lib/runtime-limits';
 import {
   estimatedPdfPageHeight,
   fitPdfPageWidth,
@@ -12,14 +18,17 @@ import {
   pdfPageWindow,
   pdfRenderDensity,
 } from './document-pdf-window';
-import { ClioStatus } from './status';
+import { StateView } from './primitives/state-view';
+import { useCommentSession } from './comments/comment-session';
+import { useSelectionMarkCommenter, type SelectionMark } from '@/hooks/use-selection-action-file';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
 
-const MIN_ZOOM = 0.25;
+/** Page fit: zooming out stops here. */
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.15;
 
@@ -34,9 +43,9 @@ export function ClioDocumentPdfViewer({
   fit = 'page',
   initialPage,
   name,
-  onSelection,
   highlight,
   onPagePoint,
+  pageFacts = false,
 }: {
   bytes: Uint8Array;
   fit?: 'page' | 'width';
@@ -44,26 +53,36 @@ export function ClioDocumentPdfViewer({
    * knows which page matters (e.g. a view_pdf call's viewed page range). */
   initialPage?: number;
   name: string;
-  onSelection: (anchor: DocumentAnchor) => void;
   /** Outlined on its page and scrolled into view when it changes (LaTeX click-through). */
   highlight?: PdfHighlight;
   /** A double-click on a page, as its 0-based index and the point as fractions of the page. */
   onPagePoint?: (page: number, x: number, y: number) => void;
+  /** States "12 pages" and the size as the frame's facts (frame-bar 07), for a PDF file itself. */
+  pageFacts?: boolean;
 }) {
-  const hostRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
+  // A width-fitted viewer (LaTeX) zooms out to the whole page, where zooming out stops.
   const [fitOverride, setFitOverride] = useState<'page'>();
   const fitMode = fitOverride ?? fit;
+  const atFit = scale <= MIN_ZOOM && fitMode === 'page';
   const zoomIn = useCallback(() => setScale((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP)), []);
-  const zoomOut = useCallback(() => setScale((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP)), []);
+  const zoomOut = useCallback(() => {
+    if (scale > MIN_ZOOM + 1e-6) setScale(Math.max(MIN_ZOOM, scale - ZOOM_STEP));
+    else setFitOverride('page');
+  }, [scale]);
   const resetZoom = useCallback(() => {
-    setFitOverride('page');
-    setScale(1);
+    setScale(MIN_ZOOM);
+    setFitOverride(undefined);
   }, []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
+  const [flinging, setFlinging] = useState(false);
+  const lastScrollRef = useRef({ top: 0, at: 0 });
+  const settleRef = useRef<number | undefined>(undefined);
   const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
   // pdf.js transfers a typed array it is handed to its worker thread, which
   // detaches the caller's buffer — and these bytes are the cached resource
@@ -75,8 +94,12 @@ export function ClioDocumentPdfViewer({
     if (!host) return;
     // clientWidth excludes the scrollbar. Reserve the scroller's 24px padding
     // and the page border so a fitted page never creates horizontal overflow.
-    const update = (width: number) =>
+    const update = (width: number) => {
+      // Hidden (under Lineage, or in a background tab) the host measures 0: keep the
+      // last geometry instead of re-rendering every mounted page at 1px and back.
+      if (!isRendered(host)) return;
       setHostWidth(Math.max(1, (scrollRef.current?.clientWidth || width) - 26));
+    };
     update(host.getBoundingClientRect().width);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) update(entry.contentRect.width);
@@ -87,14 +110,26 @@ export function ClioDocumentPdfViewer({
 
   const readScroll = useCallback(() => {
     const container = scrollRef.current;
-    if (!container) return;
+    if (!container || !isRendered(container)) return;
     if (container.clientWidth > 0) setHostWidth(Math.max(1, container.clientWidth - 26));
+    // A fling passes pages faster than pdf.js can paint them: pages entering the window
+    // keep their sized card until the scroll settles, instead of each painting in passing.
+    const now = performance.now();
+    const last = lastScrollRef.current;
+    const speed = Math.abs(container.scrollTop - last.top) / Math.max(1, now - last.at);
+    lastScrollRef.current = { top: container.scrollTop, at: now };
+    if (speed > PDF_FLING_PX_PER_MS) {
+      setFlinging(true);
+      window.clearTimeout(settleRef.current);
+      settleRef.current = window.setTimeout(() => setFlinging(false), PDF_FLING_SETTLE_MS);
+    }
     setScroll((current) =>
       current.top === container.scrollTop && current.viewport === container.clientHeight
         ? current
         : { top: container.scrollTop, viewport: container.clientHeight },
     );
   }, []);
+  useEffect(() => () => window.clearTimeout(settleRef.current), []);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -188,89 +223,135 @@ export function ClioDocumentPdfViewer({
     viewportHeight: scroll.viewport,
   });
   const windowedPages = pdfPageNumbers(pageWindow);
+  // The page whose upper half has reached the top of the view, so short pages that all fit
+  // still read as page 1; the end of a scrolled document is its last page.
+  const pageStride = Math.max(1, pageHeightPx);
+  const atEnd = scroll.top > 0 && scroll.top + scroll.viewport >= pageCount * pageStride - 1;
+  const currentPage = atEnd
+    ? pageCount
+    : Math.min(
+        pageCount,
+        Math.max(
+          1,
+          Math.floor((scroll.top + Math.min(scroll.viewport, pageStride) / 2) / pageStride) + 1,
+        ),
+      );
+  const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
+  // PgUp and PgDn turn whole pages, wherever focus is in the frame showing this PDF.
+  const pageRegion = useMemo(
+    () => ({
+      get current(): Element | null {
+        const host = hostRef.current;
+        if (!host?.isConnected || !host.getClientRects().length) return null;
+        const frame = host.closest('[data-slot="file-viewer"]');
+        return frame ? frameKeyRegion(frame) : host;
+      },
+    }),
+    [],
+  );
+  useShortcut(
+    'pdf-page',
+    (event) => {
+      const container = scrollRef.current;
+      if (!container || !pageCount || pageStride <= 0) return;
+      // Step from the page at the scroll top: at the bottom the readout can show a
+      // later page than the one the top edge sits on.
+      const atTop = Math.min(pageCount, Math.floor((container.scrollTop + 4) / pageStride) + 1);
+      // Back from partway down a page goes to its own top first.
+      const partway = container.scrollTop > (atTop - 1) * pageStride + 4;
+      const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
+      const target = Math.min(pageCount, Math.max(1, atTop + step));
+      container.scrollTop = (target - 1) * pageStride;
+      readScroll();
+    },
+    { region: pageRegion, enabled: pageCount > 0 },
+  );
+  useFileViewerFacts(
+    pageFacts && pageCount
+      ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`, FILE_SIZE_FACT]
+      : undefined,
+  );
+  const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
+  // The page sits between zoom − and + (frame-bar 07), so the bar's fact is the size.
+  const pageCounter = pageFact ? (
+    <span title={`Page ${currentPage} of ${pageCount}`}>
+      <span aria-hidden="true">{pageFact}</span>
+      <span className="sr-only">
+        Page {currentPage} of {pageCount}
+      </span>
+    </span>
+  ) : null;
 
-  const captureSelection = () => {
+  // The viewer makes its own text marks (pdf-quad): in a comment session's text mode a
+  // selection becomes one at once, and the selection menu's Comment makes one too.
+  const session = useCommentSession();
+  useSelectionMarkCommenter(hostElement, (selection) =>
+    hostElement ? pdfSelectionMark(selection, hostElement) : undefined,
+  );
+  const captureSelection = useCallback(() => {
     const selection = window.getSelection();
-    const host = hostRef.current;
-    if (!selection || selection.isCollapsed || !selection.rangeCount || !host) return;
-    const range = selection.getRangeAt(0);
-    // The page the selection starts on: a selection across pages is placed on its first.
-    const start =
-      range.startContainer instanceof Element
-        ? range.startContainer
-        : range.startContainer.parentElement;
-    const page = start?.closest<HTMLElement>('[data-page]');
-    if (!page || !host.contains(page)) return;
-    const exact = selection.toString().trim();
-    const pageRect = page.getBoundingClientRect();
-    if (!exact || !pageRect.width || !pageRect.height) return;
-    const quads = Array.from(range.getClientRects())
-      .filter((rect) => rect.width > 0 && rect.height > 0)
-      .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom)
-      .map((rect) => {
-        const left = bounded((rect.left - pageRect.left) / pageRect.width);
-        const right = bounded((rect.right - pageRect.left) / pageRect.width);
-        const top = bounded((rect.top - pageRect.top) / pageRect.height);
-        const bottom = bounded((rect.bottom - pageRect.top) / pageRect.height);
-        return [left, top, right, top, right, bottom, left, bottom];
-      });
-    if (!quads.length) return;
-    const pageIndex = Number(page.dataset.page);
-    onSelection({
-      profile: 'pdf-quad',
-      exact,
-      page_index: Number.isInteger(pageIndex) ? pageIndex : 0,
-      quads,
-    });
-  };
+    if (!session?.active || session.mode !== 'text' || !selection || !hostRef.current) return;
+    const mark = pdfSelectionMark(selection, hostRef.current);
+    if (!mark) return;
+    session.addMark(mark.anchor, mark.place);
+    selection.removeAllRanges();
+  }, [session]);
 
   return (
     <div
       className="flex h-full min-h-0 flex-col"
-      // The viewer makes its own text marks (pdf-quad), so a surrounding CommentCapture
-      // leaves selections in here alone; a mouse, touch or keyboard selection all reach it.
+      // A surrounding CommentCapture leaves selections in here to the viewer's own
+      // pdf-quad marks; a mouse, touch or keyboard selection all reach it.
       data-comment-text="own"
       onKeyUp={(event) => {
         if (event.shiftKey) captureSelection();
       }}
       onTouchEnd={captureSelection}
-      ref={hostRef}
+      ref={(element) => {
+        hostRef.current = element;
+        setHostElement(element);
+      }}
     >
       <ViewerZoomControls
-        percent={scale * 100}
+        label="PDF zoom"
         onIn={zoomIn}
         onOut={zoomOut}
-        onFit={resetZoom}
+        onReset={resetZoom}
         disabledIn={scale >= MAX_ZOOM}
-        disabledOut={scale <= MIN_ZOOM}
-        labels={{
-          in: 'Zoom in',
-          out: 'Zoom out',
-          reset: 'Reset zoom',
-          fit: 'Fit document to view',
-          menu: 'PDF actions',
-          group: 'PDF zoom',
-        }}
-      />
+        disabledOut={atFit}
+        readout={
+          pageCounter || zoomFact ? (
+            <>
+              {pageCounter}
+              {zoomFact ? <span>{zoomFact}</span> : null}
+            </>
+          ) : undefined
+        }
+      >
+        <span
+          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums"
+          data-slot="pdf-page-counter"
+        >
+          {pageCounter}
+          {zoomFact ? <span>{zoomFact}</span> : null}
+        </span>
+      </ViewerZoomControls>
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
           to scroll — every host has to give it a bounded box. */}
       <div
-        className="min-h-0 flex-1 overflow-auto px-3 py-3"
+        aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
+        className="min-h-0 flex-1 overflow-auto px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
+        role="region"
+        tabIndex={0}
       >
         <Document
-          error={
-            <ClioStatus
-              detail={`Could not render ${name}.`}
-              label="PDF unavailable"
-              value="failed"
-            />
-          }
+          error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
           file={file}
-          loading={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}
+          loading={<StateView kind="loading" size="viewer" title={`Loading ${name}`} />}
           onLoadSuccess={({ numPages }) => setPageCount(numPages)}
         >
           <div className="grid gap-3">
@@ -290,7 +371,9 @@ export function ClioDocumentPdfViewer({
                 onPagePoint={onPagePoint}
                 onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
                 onMouseUp={captureSelection}
+                pageCount={pageCount}
                 pageNumber={visiblePage}
+                paint={!flinging}
                 scale={scale}
                 width={hostWidth}
                 viewportHeight={readingHeight}
@@ -307,20 +390,21 @@ export function ClioDocumentPdfViewer({
           </div>
         </Document>
       </div>
-      <footer className="shrink-0 border-t px-3 py-1 font-mono text-[10px] text-muted-foreground">
-        {pageCount ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : 'Loading pages…'}
-      </footer>
     </div>
   );
 }
 
-function PdfPage({
+// Memoized: a scroll re-renders the viewer, and a page that stays in the window keeps
+// its rendered canvas and text layer without reconciling them again.
+const PdfPage = memo(function PdfPage({
   fit,
   highlight,
   onMeasure,
   onMouseUp,
   onPagePoint,
+  pageCount,
   pageNumber,
+  paint,
   scale,
   width,
   viewportHeight,
@@ -330,20 +414,28 @@ function PdfPage({
   onMeasure?: (element: HTMLDivElement | null) => void;
   onMouseUp: () => void;
   onPagePoint?: (page: number, x: number, y: number) => void;
+  pageCount: number;
   pageNumber: number;
+  /** False while the reader flings past: an unpainted page holds its size until then. */
+  paint: boolean;
   scale: number;
   width: number;
   viewportHeight: number;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const [aspectRatio, setAspectRatio] = useState(11 / 8.5);
+  // Once painted, a page keeps its canvas through later flings while it stays mounted.
+  const [painted, setPainted] = useState(paint);
+  if (paint && !painted) setPainted(true);
   const fittedWidth =
     fit === 'page' ? fitPdfPageWidth({ hostWidth: width, viewportHeight, aspectRatio }) : width;
 
   return (
     <div
+      aria-label={`Page ${pageNumber} of ${pageCount}`}
       className="relative mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
+      role="group"
       onDoubleClick={
         onPagePoint
           ? (event) => {
@@ -360,24 +452,34 @@ function PdfPage({
       onMouseUp={onMouseUp}
       ref={pageRef}
     >
-      <Page
-        devicePixelRatio={pdfRenderDensity({
-          width: fittedWidth * scale,
-          aspectRatio,
-          displayDensity: window.devicePixelRatio,
-        })}
-        onLoadSuccess={(page) => {
-          const viewport = page.getViewport({ scale: 1 });
-          setAspectRatio(viewport.height / viewport.width);
-        }}
-        onRenderSuccess={() => onMeasure?.(pageRef.current)}
-        pageNumber={pageNumber}
-        renderAnnotationLayer
-        renderTextLayer
-        scale={scale}
-        width={fittedWidth}
-      />
-      {highlight ? (
+      {painted || paint ? (
+        <Page
+          devicePixelRatio={pdfRenderDensity({
+            width: fittedWidth * scale,
+            aspectRatio,
+            displayDensity: window.devicePixelRatio,
+          })}
+          onLoadSuccess={(page) => {
+            const viewport = page.getViewport({ scale: 1 });
+            setAspectRatio(viewport.height / viewport.width);
+          }}
+          onRenderSuccess={() => onMeasure?.(pageRef.current)}
+          pageNumber={pageNumber}
+          renderAnnotationLayer
+          renderTextLayer
+          scale={scale}
+          width={fittedWidth}
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          data-pdf-unpainted=""
+          style={{
+            width: `${fittedWidth * scale}px`,
+            height: `${fittedWidth * scale * aspectRatio}px`,
+          }}
+        />
+      )}  {highlight ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute rounded-sm bg-primary/15 ring-2 ring-primary"
@@ -392,8 +494,61 @@ function PdfPage({
       ) : null}
     </div>
   );
+});
+
+/**
+ * A selection on a page as a pdf-quad mark: its text and its line boxes as fractions of
+ * the page it starts on (a selection across pages is placed on its first).
+ */
+function pdfSelectionMark(selection: Selection, host: HTMLElement): SelectionMark | undefined {
+  if (selection.isCollapsed || !selection.rangeCount) return undefined;
+  const range = selection.getRangeAt(0);
+  const start =
+    range.startContainer instanceof Element
+      ? range.startContainer
+      : range.startContainer.parentElement;
+  const page = start?.closest<HTMLElement>('[data-page]');
+  if (!page || !host.contains(page)) return undefined;
+  const exact = selection.toString().trim();
+  const pageRect = page.getBoundingClientRect();
+  if (!exact || !pageRect.width || !pageRect.height) return undefined;
+  const rects = Array.from(range.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom);
+  if (!rects.length) return undefined;
+  const quads = rects.map((rect) => {
+    const left = bounded((rect.left - pageRect.left) / pageRect.width);
+    const right = bounded((rect.right - pageRect.left) / pageRect.width);
+    const top = bounded((rect.top - pageRect.top) / pageRect.height);
+    const bottom = bounded((rect.bottom - pageRect.top) / pageRect.height);
+    return [left, top, right, top, right, bottom, left, bottom];
+  });
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const pageIndex = Number(page.dataset.page);
+  return {
+    anchor: {
+      profile: 'pdf-quad',
+      exact,
+      page_index: Number.isInteger(pageIndex) ? pageIndex : 0,
+      quads,
+    },
+    place: {
+      box: {
+        left,
+        top,
+        width: Math.max(...rects.map((rect) => rect.right)) - left,
+        height: Math.max(...rects.map((rect) => rect.bottom)) - top,
+      },
+    },
+  };
 }
 
 function bounded(value: number) {
   return Math.max(0, Math.min(1, value));
+}
+
+/** Laid out on screen: a `display: none` ancestor leaves it no boxes and no size. */
+function isRendered(element: HTMLElement) {
+  return element.getClientRects().length > 0 || element.clientWidth > 0 || element.clientHeight > 0;
 }

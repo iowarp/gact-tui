@@ -1,39 +1,48 @@
-import { RunActions } from '@/components/clio/run-actions';
 import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
-import { DATA_GRID_PAGE_SIZES, RUNS_POLL_MS } from '@/lib/runtime-limits';
+import { RUNS_POLL_MS } from '@/lib/runtime-limits';
 import type { Session } from '@clio/core/v3';
 import {
   keepPreviousData,
+  replaceEqualDeep,
   useInfiniteQuery,
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
-import { useTable } from '@tanstack/react-table';
 import {
   ActivityIcon,
-  ChevronLeftIcon,
-  ExternalLinkIcon,
+  BotIcon,
+  CheckIcon,
+  ListIcon,
+  MessageCircleQuestionIcon,
   SearchIcon,
+  TriangleAlertIcon,
   WorkflowIcon,
+  WrenchIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { memo, useCallback, useMemo, useRef, useState, type RefObject } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ClioDataGridTable } from '@/components/clio/data-grid-table';
-import { ClioStatus } from '@/components/clio/status';
-import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
-import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
+import { FilterChips } from '@/components/clio/primitives/filter-chips';
+import { FrameDivider } from '@/components/clio/primitives/frame-bar';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
+import { ClioAppShell } from '@/components/clio/app-shell';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { MenuRow } from '@/components/clio/primitives/menu-row';
+import { SegmentedControl } from '@/components/clio/primitives/segmented-control';
+import { StateView } from '@/components/clio/primitives/state-view';
+import { RunActions } from '@/components/clio/run-actions';
+import { RunListRow } from '@/components/clio/run-list-row';
+import { RunTab } from '@/components/clio/run-tab';
+import { RunsNavigation } from '@/components/clio/runs-navigation';
 import {
-  DataGrid,
-  DataGridContainer,
-  dataGridFeatures,
-  type DataGridFeatures,
-} from '@/components/reui/data-grid/data-grid';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+  RUN_GROUP_LABELS,
+  runGroup,
+  runStateLabel,
+  type RunGroup,
+} from '@/components/clio/run-presentation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,38 +53,104 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
-import { buildFlowRows, buildRows, sourceLabels, type RunRow } from '@/routes/runs-rows';
-import { taskProgressLabel } from '@/components/clio/task-progress-label';
+import {
+  returnRouteFromState,
+  sessionIdFromRoute,
+  workspaceIdFromRoute,
+} from '@/lib/workspace-route-memory';
+import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
+import { cn } from '@/lib/utils';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 
 const FLOW_SCAN_BATCH = 4;
 /** Conversations read per page for the flow index (a few scan batches). */
 const FLOW_SESSION_PAGE = 20;
 type ConfirmedRunAction = { kind: 'cancel'; row: RunRow };
 
-function formatWhen(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+/** Rows drawn at once; more appear on request so a long history stays light. */
+const RUN_ROW_STEP = 150;
+const RUN_GROUP_ORDER: readonly RunGroup[] = ['needs-you', 'running', 'queued', 'earlier'];
+const STATE_OPTIONS = [
+  { value: 'all', label: 'All states', icon: <ListIcon aria-hidden="true" /> },
+  {
+    value: 'active',
+    label: 'Active',
+    icon: <RingSpinner className="size-[9px]" />,
+  },
+  {
+    value: 'waiting_user',
+    label: 'Waiting for you',
+    icon: <MessageCircleQuestionIcon aria-hidden="true" />,
+  },
+  { value: 'attention', label: 'Needs attention', icon: <TriangleAlertIcon aria-hidden="true" /> },
+  { value: 'completed', label: 'Completed', icon: <CheckIcon aria-hidden="true" /> },
+] as const;
+/** The bar's execution-type chips; none chosen shows every type. */
+const SOURCE_CHIPS = [
+  { value: 'agent_task', label: 'Agents', icon: <BotIcon aria-hidden="true" /> },
+  { value: 'mcp_task', label: 'Tools', icon: <WrenchIcon aria-hidden="true" /> },
+];
+/**
+ * One list row with its actions built from stable inputs, so a poll that leaves a
+ * run unchanged doesn't re-render its row, menu and tooltips.
+ */
+const RunsPageRow = memo(function RunsPageRow({
+  row,
+  cancelRequested,
+  canStop,
+  pending,
+  selected,
+  onSelect,
+  onCancel,
+}: {
+  row: RunRow;
+  cancelRequested: boolean;
+  canStop: boolean;
+  pending: boolean;
+  selected: boolean;
+  onSelect: (row: RunRow) => void;
+  onCancel: (row: RunRow) => void;
+}) {
+  return (
+    <RunListRow
+      actions={
+        <RunActions
+          onCancel={() => onCancel(row)}
+          pending={pending}
+          row={{ ...row, cancelRequested }}
+        />
+      }
+      cancelRequested={cancelRequested}
+      onSelect={onSelect}
+      onTitleKeyDown={(event) => {
+        if (event.key !== 'Delete' || !canStop) return;
+        event.preventDefault();
+        onCancel(row);
+      }}
+      row={row}
+      selected={selected}
+    />
+  );
+}, sameRowProps);
+/** Props are equal by identity, except the row: a poll rebuilds it, so compare its data. */
+function sameRowProps<P extends { row: RunRow }>(previous: P, next: P): boolean {
+  return (Object.keys(next) as (keyof P)[]).every((key) =>
+    key === 'row'
+      ? replaceEqualDeep(previous.row, next.row) === previous.row
+      : Object.is(previous[key], next[key]),
+  );
 }
-
 export function RunsPage() {
   const location = useLocation();
   const repository = useRepository();
@@ -88,6 +163,21 @@ export function RunsPage() {
   const [stateFilter, setStateFilter] = useState('active');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedRunAction>();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  // `/` searches the list from anywhere on the page, including before anything has focus.
+  const searchRegion = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        const active = document.activeElement;
+        return !active || active === document.body ? document.body : pageRef.current;
+      },
+    }),
+    [],
+  );
+  useShortcut('list-search', () => setSearchOpen(true), { region: searchRegion });
+  const [revealCount, setRevealCount] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
@@ -105,20 +195,18 @@ export function RunsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled: category === 'flows',
   });
+  // Waiting for you is a subset of active, so it reads the same active-only query.
+  const activeOnly =
+    category === 'executions' && (stateFilter === 'active' || stateFilter === 'waiting_user');
   const runs = useInfiniteQuery({
-    queryKey: queryKeys.key(
-      'tasks',
-      settings.endpoint,
-      category === 'executions' && stateFilter === 'active',
-    ),
+    queryKey: queryKeys.key('tasks', settings.endpoint, activeOnly),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ signal, pageParam }) =>
-      repository.queryTasks(
-        { cursor: pageParam, activeOnly: category === 'executions' && stateFilter === 'active' },
-        signal,
-      ),
+      repository.queryTasks({ cursor: pageParam, activeOnly }, signal),
     getNextPageParam: (page) => page.cursor ?? undefined,
-    refetchInterval: RUNS_POLL_MS,
+    // A refetch re-reads every loaded page; spacing it by the page count keeps the
+    // list's reads per minute the same however far it has been paged.
+    refetchInterval: (query) => RUNS_POLL_MS * Math.max(1, query.state.data?.pages.length ?? 1),
   });
   const tasks = useMemo(
     () => [
@@ -182,8 +270,9 @@ export function RunsPage() {
   const flowTranscripts = useQueries({
     queries: orderedFlowSessions.map((session, index) => ({
       enabled: category === 'flows' && index < flowScanLimit,
-      queryKey: queryKeys.key('transcript', settings.endpoint, session.id),
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.transcript(session.id, signal),
+      queryKey: queryKeys.transcript(settings.endpoint, session.id, 'flow-tools'),
+      queryFn: async ({ signal }: { signal: AbortSignal }) =>
+        retainFlowTools(await repository.transcript(session.id, signal)),
       staleTime: RUNS_POLL_MS,
     })),
   });
@@ -247,148 +336,11 @@ export function RunsPage() {
       return stateMatches && sourceMatches && searchMatches;
     });
   }, [category, rows, search, sourceFilter, stateFilter]);
-  const columns = useMemo<ColumnDef<DataGridFeatures, RunRow, unknown>[]>(
-    () => [
-      {
-        accessorKey: 'label',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Run" />,
-        cell: ({ row }) => (
-          <div className="min-w-56 py-0.5">
-            {row.original.workspaceId && row.original.targetSessionId ? (
-              <Link
-                className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                to={`${`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}${row.original.flowHandle ? `?flow=${encodeURIComponent(row.original.flowHandle)}` : ''}`}
-              >
-                {truncate(row.original.label, 80)}
-                <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-              </Link>
-            ) : (
-              <span className="font-medium">{row.original.label}</span>
-            )}
-            {row.original.taskKind && (
-              <p className="text-xs text-muted-foreground">{row.original.taskKind}</p>
-            )}
-            <details className="mt-1 max-w-80 text-xs">
-              <summary className="cursor-pointer text-muted-foreground">Details</summary>
-              <p className="mt-2 whitespace-pre-wrap break-words">{row.original.assignment}</p>
-              <p className="mt-2 break-all font-mono">{row.original.taskId}</p>
-              <p className="text-muted-foreground">Backend: {row.original.reportedStatus}</p>
-              {row.original.statusDetail ? (
-                <p className="mt-2 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-                  Reported issue: {row.original.statusDetail}
-                </p>
-              ) : null}
-            </details>
-          </div>
-        ),
-        meta: { autoSize: true, headerTitle: 'Run' },
-      },
-      {
-        accessorKey: 'state',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="State" />,
-        cell: ({ row }) => (
-          <div className="max-w-72 space-y-1.5 py-1">
-            <ClioStatus
-              detail={row.original.statusReason}
-              label={
-                (row.original.cancelRequested ||
-                  requestedCancellation.has(row.original.handleId)) &&
-                !['completed', 'failed', 'cancelled', 'interrupted'].includes(row.original.state)
-                  ? 'Cancellation requested'
-                  : undefined
-              }
-              value={row.original.state}
-            />
-            {taskProgressLabel(
-              row.original.progress,
-              row.original.taskKind,
-              row.original.statusDetail,
-            ) && (
-              <p className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                {taskProgressLabel(
-                  row.original.progress,
-                  row.original.taskKind,
-                  row.original.statusDetail,
-                )}
-              </p>
-            )}
-            {row.original.statusReason && row.original.state !== 'task_state_uncertain' ? (
-              <p
-                className="line-clamp-2 text-xs text-destructive"
-                title={row.original.statusReason}
-              >
-                {row.original.statusReason}
-              </p>
-            ) : null}
-          </div>
-        ),
-        meta: { autoSize: true, headerTitle: 'State' },
-      },
-      {
-        accessorKey: 'source',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Execution" />,
-        cell: ({ row }) => (
-          <div className="max-w-52 py-0.5">
-            <p className="text-sm">{sourceLabels[row.original.source]}</p>
-            <p className="truncate text-xs text-muted-foreground" title={row.original.placement}>
-              {row.original.source === 'flow'
-                ? row.original.placement
-                : row.original.host || 'Host unavailable'}
-            </p>
-          </div>
-        ),
-        meta: { headerTitle: 'Execution' },
-      },
-      {
-        accessorKey: 'workspaceLabel',
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title={capitalize(vocab.workspace)} />
-        ),
-        cell: ({ row }) => (
-          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
-            <span>{row.original.workspaceLabelFields.name}</span>
-            {row.original.workspaceLabelFields.qualifiers.map((qualifier) => (
-              <span className="text-xs text-muted-foreground" key={qualifier}>
-                {qualifier}
-              </span>
-            ))}
-          </span>
-        ),
-        meta: { headerTitle: capitalize(vocab.workspace) },
-      },
-      {
-        accessorKey: 'updatedAt',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Updated" />,
-        cell: ({ row }) => (
-          <time
-            className="whitespace-nowrap text-xs text-muted-foreground"
-            dateTime={row.original.updatedAt}
-          >
-            {formatWhen(row.original.updatedAt)}
-          </time>
-        ),
-        meta: { headerTitle: 'Updated' },
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <RunActions
-            onCancel={() => setConfirmedAction({ kind: 'cancel', row: row.original })}
-            pending={cancel.isPending && cancel.variables?.handleId === row.original.handleId}
-            row={{
-              ...row.original,
-              cancelRequested:
-                row.original.cancelRequested || requestedCancellation.has(row.original.handleId),
-            }}
-          />
-        ),
-        meta: { autoSize: true, headerTitle: 'Actions' },
-      },
-    ],
-    [cancel.isPending, cancel.variables, requestedCancellation],
+  const [visibleLimit, setVisibleLimit] = useState(RUN_ROW_STEP);
+  const shownRows = useMemo(
+    () => filteredRows.slice(0, visibleLimit),
+    [filteredRows, visibleLimit],
   );
-  const table = useTable({ columns, data: filteredRows, features: dataGridFeatures });
   const flowError = flowTranscripts.find((query) => query.error)?.error;
   const error =
     category === 'flows'
@@ -400,178 +352,388 @@ export function RunsPage() {
   const flowsRemaining = Math.max(0, flowSessionTotal - flowsIndexed);
   const flowsIndexing = flowTranscripts.slice(0, flowScanLimit).some((query) => query.isFetching);
   const flowFailures = flowTranscripts.filter((query) => query.isError).length;
+  const loading =
+    sessions.isPending ||
+    workspaces.isPending ||
+    (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing);
+  const groups = useMemo(() => {
+    const byGroup = new Map<RunGroup, RunRow[]>();
+    for (const row of shownRows) {
+      const group = runGroup(row.state);
+      const list = byGroup.get(group);
+      if (list) list.push(row);
+      else byGroup.set(group, [row]);
+    }
+    return RUN_GROUP_ORDER.flatMap((group) => {
+      const groupRows = byGroup.get(group);
+      return groupRows ? [{ group, rows: groupRows }] : [];
+    });
+  }, [shownRows]);
+  const noun = category === 'flows' ? 'flows' : 'runs';
+  const navigationWorkspaceId =
+    workspaceIdFromRoute(returnRouteFromState(location.state, settings.endpoint)) ??
+    workspaces.data?.[0]?.id ??
+    '';
+  const selectedHandle = searchParams.get('run') ?? undefined;
+  const selectedRow = selectedHandle
+    ? (executionRows.find((row) => row.handleId === selectedHandle) ??
+      flowRows.find((row) => row.handleId === selectedHandle))
+    : undefined;
+  const selectRun = useCallback(
+    (row: RunRow) => {
+      setRevealCount((count) => count + 1);
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.set('run', row.handleId);
+          return next;
+        },
+        { replace: true, state: location.state },
+      );
+    },
+    [location.state, setSearchParams],
+  );
+  const closeRun = useCallback(
+    () =>
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.delete('run');
+          return next;
+        },
+        { replace: true, state: location.state },
+      ),
+    [location.state, setSearchParams],
+  );
+  const canStopRow = (row: RunRow) =>
+    row.cancellable &&
+    !row.cancelRequested &&
+    !requestedCancellation.has(row.handleId) &&
+    !(cancel.isPending && cancel.variables?.handleId === row.handleId);
+  const confirmCancel = useCallback(
+    (row: RunRow) => setConfirmedAction({ kind: 'cancel', row }),
+    [],
+  );
+  const runActions = (row: RunRow, part?: 'menu') => {
+    const cancelRequested = Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId);
+    return (
+      <RunActions
+        onCancel={() => setConfirmedAction({ kind: 'cancel', row })}
+        part={part}
+        pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
+        row={{ ...row, cancelRequested }}
+      />
+    );
+  };
+  // Counts are exact only for what is loaded: the active views load active runs.
+  const stateCount = (value: string) =>
+    rows.filter((row) => matchesRunState(row.state, value)).length;
+  const stateOptions = STATE_OPTIONS.map((option) => ({
+    ...option,
+    count:
+      option.value === 'active' || option.value === 'waiting_user'
+        ? stateCount(option.value)
+        : option.value === 'attention' && !activeOnly
+          ? stateCount(option.value)
+          : undefined,
+  }));
+  const currentState =
+    stateOptions.find((option) => option.value === stateFilter) ?? stateOptions[0];
+  // The chips are the states themselves; no chip chosen shows all of them.
+  const stateChips = stateOptions.filter((option) => option.value !== 'all');
+  const canIndexMore =
+    category === 'flows' &&
+    (flowScanLimit < orderedFlowSessions.length || Boolean(flowSessionPages.hasNextPage));
+  const indexMore = () => {
+    // Read the next page of conversations when the indexed ones run out.
+    if (
+      flowScanLimit + FLOW_SCAN_BATCH > orderedFlowSessions.length &&
+      flowSessionPages.hasNextPage
+    ) {
+      void flowSessionPages.fetchNextPage();
+    }
+    setFlowScanLimit((current) => current + FLOW_SCAN_BATCH);
+  };
+  const footerNote =
+    category === 'executions'
+      ? runs.hasNextPage
+        ? runs.data?.pages[0]?.total == null
+          ? 'More available; search covers loaded runs.'
+          : `${runs.data.pages[0].total} in total. Search covers loaded runs.`
+        : undefined
+      : [
+          flowsRemaining > 0 ? `${flowsIndexed} of ${flowSessionTotal} sessions indexed` : '',
+          flowFailures > 0
+            ? `${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(', ') || undefined;
+  const showFooter =
+    Boolean(footerNote) ||
+    filteredRows.length > visibleLimit ||
+    Boolean(runs.hasNextPage && category === 'executions') ||
+    (canIndexMore && filteredRows.length > 0);
+
+  const title = (
+    <h1 className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-foreground">
+      <ActivityIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      Runs
+    </h1>
+  );
+
+  const bar = (
+    <div
+      className="@container/runbar flex h-10 min-w-0 shrink-0 items-center gap-2 border-b border-border pr-2.5 pl-3.5 whitespace-nowrap"
+      data-slot="runs-list-bar"
+    >
+      <SegmentedControl
+        className="mr-1"
+        iconOnly
+        label="Run categories"
+        onValueChange={setCategory}
+        options={[
+          { value: 'executions', label: 'Executions', icon: <ActivityIcon aria-hidden="true" /> },
+          { value: 'flows', label: 'Flows', icon: <WorkflowIcon aria-hidden="true" /> },
+        ]}
+        value={category}
+      />
+      <FilterChips
+        className="hidden @[440px]/runbar:flex"
+        label="Filter by state"
+        none="all"
+        onValueChange={setStateFilter}
+        options={stateChips}
+        value={stateFilter}
+      />
+      <DropdownMenu modal={false}>
+        <NamedTooltip label={`Filter by state: ${currentState.label}`}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Filter by state: ${currentState.label}${
+                currentState.count === undefined ? '' : `, ${currentState.count}`
+              }`}
+              className={cn(
+                'h-6 w-[46px] shrink-0 gap-1 rounded-[12px] border border-border px-0 text-[11.5px] font-medium text-muted-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-[13px]',
+                stateFilter !== 'all' && 'border-accent-border bg-accent text-accent-foreground',
+              )}
+              size="sm"
+              variant="ghost"
+            >
+              {currentState.icon}
+              {currentState.count === undefined ? null : (
+                <span className="tabular-nums">{currentState.count}</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+        </NamedTooltip>
+        <DropdownMenuContent align="start" className="w-56">
+          {stateOptions.map((option) => (
+            <DropdownMenuItem key={option.value} onSelect={() => setStateFilter(option.value)}>
+              <MenuRow
+                checked={option.value === stateFilter}
+                icon={option.icon}
+                label={option.label}
+                value={option.count === undefined ? undefined : String(option.count)}
+              />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {category === 'executions' ? (
+        <>
+          <FrameDivider className="mx-1 hidden @[480px]/runbar:block" />
+          <FilterChips
+            className="hidden @[480px]/runbar:flex"
+            label="Filter by execution type"
+            none="all"
+            onValueChange={setSourceFilter}
+            options={SOURCE_CHIPS}
+            value={sourceFilter}
+          />
+        </>
+      ) : null}
+      <span aria-hidden="true" className="flex-1" />
+      <span className="hidden shrink-0 text-[11.5px] text-faint tabular-nums @[520px]/runbar:inline">
+        {filteredRows.length} {filteredRows.length === 1 ? noun.slice(0, -1) : noun}
+      </span>
+      {searchOpen || search ? (
+        <div className="relative w-44 min-w-24 shrink">
+          <SearchIcon
+            aria-hidden="true"
+            className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            aria-label="Search runs"
+            autoFocus
+            className="h-7 pl-7 text-[12px]"
+            onBlur={() => {
+              if (!search) setSearchOpen(false);
+            }}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.stopPropagation();
+              setSearch('');
+              setSearchOpen(false);
+            }}
+            placeholder={category === 'flows' ? 'Search flows' : 'Search runs'}
+            title={
+              category === 'flows'
+                ? 'Search flow, workspace, or state'
+                : 'Search run, workspace, state, host, or task'
+            }
+            value={search}
+          />
+        </div>
+      ) : (
+        <IconButton
+          icon={<SearchIcon aria-hidden="true" />}
+          label="Search runs"
+          onClick={() => setSearchOpen(true)}
+          shortcut="list-search"
+          size="sm"
+        />
+      )}
+    </div>
+  );
+
+  const list = (
+    <div
+      className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-2"
+      data-run-list=""
+    >
+      {error ? (
+        <StateView
+          action={{ label: 'Retry', onClick: () => void refreshRuns() }}
+          detail={error.message}
+          kind="error"
+          title="Run explorer unavailable"
+        />
+      ) : loading ? (
+        <StateView kind="loading" title={`Loading ${noun}`} />
+      ) : filteredRows.length === 0 ? (
+        category === 'flows' && !search ? (
+          <StateView
+            action={
+              canIndexMore
+                ? {
+                    label: flowsIndexing ? 'Indexing…' : 'Index more sessions',
+                    onClick: indexMore,
+                  }
+                : undefined
+            }
+            detail={footerNote}
+            kind="empty"
+            title="No flows started in the indexed conversations."
+          />
+        ) : (
+          <StateView kind="empty" title="No runs match the current search and filters." />
+        )
+      ) : (
+        groups.map(({ group, rows: groupRows }) => (
+          <section
+            aria-labelledby={`runs-group-${group}`}
+            className="mb-1 max-w-[840px]"
+            key={group}
+          >
+            <h2
+              className="flex h-6 items-center gap-2 px-2 text-[11px] font-semibold text-muted-foreground"
+              id={`runs-group-${group}`}
+            >
+              <span>{RUN_GROUP_LABELS[group]}</span>
+              <span className="font-normal tabular-nums">{groupRows.length}</span>
+            </h2>
+            {groupRows.map((row) => (
+              <RunsPageRow
+                canStop={Boolean(canStopRow(row))}
+                cancelRequested={
+                  Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId)
+                }
+                key={row.handleId}
+                onCancel={confirmCancel}
+                onSelect={selectRun}
+                pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
+                row={row}
+                selected={row.handleId === selectedHandle}
+              />
+            ))}
+          </section>
+        ))
+      )}
+      {showFooter && !(filteredRows.length === 0 && category === 'flows' && !search) ? (
+        <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
+          {footerNote ? <span className="min-w-0 truncate">{footerNote}</span> : null}
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            {filteredRows.length > visibleLimit ? (
+              <Button
+                onClick={() => setVisibleLimit((current) => current + RUN_ROW_STEP)}
+                size="xs"
+                variant="ghost"
+              >
+                Show {Math.min(RUN_ROW_STEP, filteredRows.length - visibleLimit)} more
+              </Button>
+            ) : null}
+            {category === 'executions' && runs.hasNextPage ? (
+              <Button
+                disabled={runs.isFetchingNextPage}
+                onClick={() => void runs.fetchNextPage()}
+                size="xs"
+                variant="ghost"
+              >
+                {runs.isFetchingNextPage ? 'Loading…' : 'Load more tasks'}
+              </Button>
+            ) : null}
+            {canIndexMore ? (
+              <Button
+                disabled={flowsIndexing || flowSessionPages.isFetchingNextPage}
+                onClick={indexMore}
+                size="xs"
+                variant="ghost"
+              >
+                {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
+              </Button>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
-    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-              Operations
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Runs</h1>
-            <p className="mt-2 text-muted-foreground">
-              Track operational handles and the flows agents started (workflows, councils and more).
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
-              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
-            </Link>
-          </Button>
-        </div>
-        <Tabs
-          className="mt-8"
-          onValueChange={(value) => setCategory(value as 'executions' | 'flows')}
-          value={category}
-        >
-          <TabsList aria-label="Run categories">
-            <TabsTrigger value="executions">
-              <ActivityIcon aria-hidden="true" /> Executions
-              <Badge className="ml-1" variant="secondary">
-                {executionRows.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="flows">
-              <WorkflowIcon aria-hidden="true" /> Flows
-              <Badge className="ml-1" variant="secondary">
-                {flowRows.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <SearchIcon
-              aria-hidden="true"
-              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              aria-label="Search runs"
-              className="pl-9"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={
-                category === 'flows'
-                  ? 'Search flow, workspace, or state'
-                  : 'Search run, workspace, state, host, or task'
-              }
-              value={search}
-            />
-          </div>
-          <Select onValueChange={setStateFilter} value={stateFilter}>
-            <SelectTrigger aria-label="Filter by state" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All states</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="waiting_user">Waiting for you</SelectItem>
-              <SelectItem value="attention">Needs attention</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          {category === 'executions' ? (
-            <Select onValueChange={setSourceFilter} value={sourceFilter}>
-              <SelectTrigger aria-label="Filter by execution type" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All execution</SelectItem>
-                <SelectItem value="agent_task">Agents</SelectItem>
-                <SelectItem value="mcp_task">Tools</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Badge variant="secondary">
-            {filteredRows.length} {category === 'flows' ? 'flows' : 'runs'}
-          </Badge>
-        </div>
-        {category === 'flows' ? (
-          <Alert className="mt-6">
-            <WorkflowIcon aria-hidden="true" />
-            <AlertTitle>Flow runs</AlertTitle>
-            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-              <span>
-                Each row is a flow an agent started in a conversation, with its task&apos;s current
-                state. Open one to see its steps and any stall in the workspace canvas.
-                {flowsRemaining > 0
-                  ? ` ${flowsIndexed} of ${flowSessionTotal} sessions indexed.`
-                  : ''}
-                {flowFailures > 0
-                  ? ` ${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed.`
-                  : ''}
-              </span>
-              {flowScanLimit < orderedFlowSessions.length || flowSessionPages.hasNextPage ? (
-                <Button
-                  disabled={flowsIndexing || flowSessionPages.isFetchingNextPage}
-                  onClick={() => {
-                    // Read the next page of conversations when the indexed ones run out.
-                    if (
-                      flowScanLimit + FLOW_SCAN_BATCH > orderedFlowSessions.length &&
-                      flowSessionPages.hasNextPage
-                    ) {
-                      void flowSessionPages.fetchNextPage();
-                    }
-                    setFlowScanLimit((current) => current + FLOW_SCAN_BATCH);
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {error ? (
-          <Alert className="mt-6" variant="destructive">
-            <ActivityIcon aria-hidden="true" />
-            <AlertTitle>Run explorer unavailable</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
-        ) : (
-          <DataGrid
-            emptyMessage="No runs match the current search and filters."
-            isLoading={
-              sessions.isPending ||
-              workspaces.isPending ||
-              (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing)
+    <ClioAppShell
+      contextBar={title}
+      navigation={<RunsNavigation workspaceId={navigationWorkspaceId} />}
+      statusStrip={null}
+      workbench={
+        selectedRow ? (
+          <RunTab
+            actions={runActions(selectedRow, 'menu')}
+            onClose={closeRun}
+            onStop={
+              selectedRow.cancellable
+                ? () => setConfirmedAction({ kind: 'cancel', row: selectedRow })
+                : undefined
             }
-            recordCount={filteredRows.length}
-            table={table}
-            tableLayout={{
-              columnsResizable: true,
-              dense: true,
-              headerSticky: true,
-              width: 'fixed',
-            }}
-          >
-            <DataGridContainer className="mt-6 rounded-xl border bg-card">
-              <ClioDataGridTable />
-              <div className="border-t px-4">
-                <DataGridPagination sizes={DATA_GRID_PAGE_SIZES} />
-              </div>
-            </DataGridContainer>
-          </DataGrid>
-        )}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>
-            {runs.data?.pages[0]?.total == null
-              ? `${tasks.length} tasks loaded`
-              : `Showing ${tasks.length} of ${runs.data.pages[0].total} tasks`}
-            . Search covers loaded results.
-          </span>
-          {runs.hasNextPage ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={runs.isFetchingNextPage}
-              onClick={() => void runs.fetchNextPage()}
-            >
-              {runs.isFetchingNextPage ? 'Loading…' : 'Load more tasks'}
-            </Button>
-          ) : null}
-        </div>
+            row={selectedRow}
+            stopping={
+              Boolean(selectedRow.cancelRequested) ||
+              requestedCancellation.has(selectedRow.handleId) ||
+              (cancel.isPending && cancel.variables?.handleId === selectedRow.handleId)
+            }
+            stateLabel={runStateLabel(
+              selectedRow,
+              Boolean(selectedRow.cancelRequested) ||
+                requestedCancellation.has(selectedRow.handleId),
+            )}
+          />
+        ) : null
+      }
+      workbenchRevealKey={selectedRow ? `${selectedRow.handleId}:${revealCount}` : undefined}
+    >
+      <div className="flex h-full min-h-0 flex-col" ref={pageRef}>
+        {bar}
+        {list}
       </div>
       <AlertDialog
         onOpenChange={(open) => !open && setConfirmedAction(undefined)}
@@ -602,6 +764,6 @@ export function RunsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </ClioAppShell>
   );
 }

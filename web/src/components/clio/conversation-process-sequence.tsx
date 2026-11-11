@@ -7,13 +7,15 @@ import type {
   Task,
   ToolInvocation,
 } from '@clio/core/v3';
-import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
-import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
-import { ClioStatus } from './status';
+import { TranscriptTaskRow } from './transcript-task-row';
 import { ClioStreamingText } from './streaming-text';
 import { ClioAgentMessageLine, ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
-import { questionInteractionsForTool } from './agent-answer-domain';
+import {
+  permissionInteractionForTool,
+  questionInteractionsForTool,
+  splitWaitingQuestion,
+} from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { bucketIntensity } from '@/lib/attention-text';
@@ -109,7 +111,11 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
-    const questions = questionInteractionsForTool(entities.interactions, block.tool_id);
+    const { waiting: question, rest: questions } = splitWaitingQuestion(
+      questionInteractionsForTool(entities.interactions, block.tool_id),
+      tool?.name,
+    );
+    const waiting = question ?? permissionInteractionForTool(entities.interactions, tool);
     const attentionEntries = entities.messageAttentionIndex?.toolStepsByToolId.get(block.tool_id);
     const thoughtAttention = attentionEntries?.find((entry) => entry.kind === 'thought');
     const toolShare = toolStepShare(attentionEntries);
@@ -143,6 +149,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           attentionFields={attentionEntries}
           sessionId={entities.messageSessionId}
           tool={tool}
+          waitingFor={waiting}
         />
         {questions.map((interaction) => (
           <ConversationInteractionActivity
@@ -157,38 +164,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     );
   }
   if (block.type === 'task') {
-    const task = entities.tasks[block.task_id];
-    const title = task?.title || 'Task unavailable';
-    const state = task?.state ?? 'unavailable';
-    return (
-      // The detail is the only thing a task record adds beyond its title and
-      // state, so it has to be reachable — a `title` attribute on a plain span
-      // reaches neither the keyboard nor a screen reader. The AI Elements task
-      // disclosure owns that reveal; only its trigger is replaced, because the
-      // stock one wears a search glyph that reads as a search result here.
-      <AITask className="mb-0" defaultOpen={false}>
-        <TaskTrigger title={title}>
-          <button
-            className="flex w-full min-w-0 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            type="button"
-          >
-            <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate text-foreground/85">{title}</span>
-            <ClioStatus
-              className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
-              value={state}
-            />
-            <ChevronDownIcon
-              aria-hidden="true"
-              className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180"
-            />
-          </button>
-        </TaskTrigger>
-        <TaskContent>
-          <TaskItem className="text-xs">{task?.detail || 'No task detail was reported.'}</TaskItem>
-        </TaskContent>
-      </AITask>
-    );
+    return <TranscriptTaskRow id={block.task_id} task={entities.tasks[block.task_id]} />;
   }
   if (block.type === 'agent_message') {
     return (

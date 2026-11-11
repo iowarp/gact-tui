@@ -1,3 +1,4 @@
+import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -50,6 +51,28 @@ describe('connection availability probing', () => {
 
     await waitFor(() => expect(result.current['http://127.0.0.1:8788']?.state).toBe('healthy'));
     expect(mocks.repository.capabilities).toHaveBeenCalledTimes(2);
+    client.clear();
+  });
+
+  it('keeps an unreachable answer while re-probing instead of flashing back to Checking', async () => {
+    mocks.repository.capabilities.mockRejectedValue(
+      new TransportError('connection refused', undefined, 'network_unavailable'),
+    );
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const endpoint = 'http://10.0.4.12:8100';
+    const { result } = renderHook(() => useConnectionAvailabilities([{ endpoint }]), { wrapper });
+
+    await waitFor(() => expect(result.current[endpoint]?.label).toBe('Not reachable'), {
+      timeout: 5_000,
+    });
+    mocks.repository.capabilities.mockImplementation(() => new Promise(() => {}));
+    void client.refetchQueries();
+
+    await waitFor(() => expect(client.isFetching()).toBeGreaterThan(0));
+    expect(result.current[endpoint]?.label).toBe('Not reachable');
     client.clear();
   });
 

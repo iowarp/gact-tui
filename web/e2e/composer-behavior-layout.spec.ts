@@ -27,7 +27,7 @@ for (const width of [320, 390, 1280]) {
     );
     await page.goto('/workspaces/ws_flat_ndp/new');
 
-    for (const name of ['Confirmation policy: Ask first', 'Execution mode: Execute']) {
+    for (const name of ['Confirmation policy: Ask first', 'Mode: Execute']) {
       await page.getByRole('button', { name, exact: true }).click();
       const menu = page.getByRole('menu');
       await expect(menu).toBeVisible();
@@ -43,6 +43,14 @@ for (const width of [320, 390, 1280]) {
           const failures: string[] = [];
           while (text.nextNode()) {
             if (!text.currentNode.textContent?.trim()) continue;
+            // Descriptions may end in an ellipsis on narrow screens (spec: text
+            // truncates at the end) when hover still gives the full words.
+            const parent = text.currentNode.parentElement;
+            if (
+              parent?.title === text.currentNode.textContent &&
+              getComputedStyle(parent).textOverflow === 'ellipsis'
+            )
+              continue;
             const range = document.createRange();
             range.selectNodeContents(text.currentNode);
             if (

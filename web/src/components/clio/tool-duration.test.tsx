@@ -25,11 +25,13 @@ it.each(['succeeded', 'failed', 'cancelled'] as const)(
     const row = screen.getByRole('button', {
       name: 'Show result for Inspect execution environment',
     });
-    expect(row.closest('[data-slot=activity-row]')).toHaveTextContent('12.5 s');
+    expect(row.closest('[data-slot=activity-row]')).toHaveTextContent('13s');
     fireEvent.click(
       screen.getByRole('button', { name: 'Technical details for Inspect execution environment' }),
     );
-    expect(screen.getByText('Execution time: 12.5 s')).toBeVisible();
+    expect(screen.getByText('Execution time')).toBeVisible();
+    // The dialog reads the duration the way the row's elapsed column does.
+    expect(screen.getByRole('dialog')).toHaveTextContent('13s');
   },
 );
 
@@ -43,16 +45,16 @@ it('updates a running call and freezes at the recorded duration without keeping 
     started_at: '2026-10-09T12:00:00Z',
   };
   const view = render(<ClioToolInvocation compact tool={running} />);
-  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('3 s');
+  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('3.0s');
   act(() => vi.advanceTimersByTime(2_000));
-  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('5 s');
+  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('5.0s');
   view.rerender(
     <ClioToolInvocation compact tool={{ ...running, state: 'succeeded', duration_ms: 4_840 }} />,
   );
-  expect(screen.getByTitle('Execution time')).toHaveTextContent('4.8 s');
+  expect(screen.getByTitle('Execution time')).toHaveTextContent('4.8s');
   expect(vi.getTimerCount()).toBe(0);
   act(() => vi.advanceTimersByTime(10_000));
-  expect(screen.getByTitle('Execution time')).toHaveTextContent('4.8 s');
+  expect(screen.getByTitle('Execution time')).toHaveTextContent('4.8s');
 });
 
 it('uses timestamps after reload and preserves a real zero duration', () => {
@@ -63,7 +65,7 @@ it('uses timestamps after reload and preserves a real zero duration', () => {
     completed_at: '2026-10-09T12:01:45Z',
   };
   render(<ClioToolInvocation compact tool={timestamps} />);
-  expect(screen.getByTitle('Execution time')).toHaveTextContent('1 min 45 s');
+  expect(screen.getByTitle('Execution time')).toHaveTextContent('1m 45s');
   expect(toolDuration({ ...timestamps, duration_ms: 0 }, Date.now())).toBe(0);
 });
 
@@ -110,7 +112,7 @@ it('stops elapsed timing when a historical call has no recorded completion', () 
     started_at: '2026-10-15T12:00:00Z',
   };
   const view = render(<ClioToolInvocation compact tool={running} />);
-  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('3 s');
+  expect(screen.getByTitle('Elapsed time; updates while running')).toHaveTextContent('3.0s');
   view.rerender(
     <ClioToolInvocation
       compact
@@ -122,10 +124,10 @@ it('stops elapsed timing when a historical call has no recorded completion', () 
       }}
     />,
   );
-  expect(screen.getByRole('status', { name: 'Unknown' })).toBeVisible();
+  expect(screen.getByRole('img', { name: /^Unknown/ })).toBeVisible();
   expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
   act(() => vi.advanceTimersByTime(60_000));
-  expect(screen.getByRole('status', { name: 'Unknown' })).toBeVisible();
+  expect(screen.getByRole('img', { name: /^Unknown/ })).toBeVisible();
   expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
 });

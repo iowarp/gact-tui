@@ -13,7 +13,7 @@ use std::{
 use crate::package_stamp::{self, LaunchCheck};
 use crate::supervisor_boot_log::boot_log_line;
 
-fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
+pub(crate) fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
     let manifest = std::fs::read(runtime.join("runtime.json"))
         .map_err(|error| format!("read bundled runtime manifest: {error}"))?;
     let manifest: serde_json::Value = serde_json::from_slice(&manifest)
@@ -318,13 +318,14 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
                 let Ok(line) = line else { break };
                 log(&line);
                 // Retain installer-command progress as well as Desktop's log.
-                println!("{line}");
+                crate::install_log::line(&line);
             }
         });
         scope.spawn(|| {
             for line in BufReader::new(stderr).lines() {
                 let Ok(line) = line else { break };
                 log(&line);
+                crate::install_log::record(&line);
                 if let Ok(mut detail) = tail.lock() {
                     detail.push_str(&line);
                     detail.push('\n');

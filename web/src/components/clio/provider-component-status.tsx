@@ -1,8 +1,9 @@
-import { LoaderCircleIcon } from 'lucide-react';
-import { useState } from 'react';
+import { CircleArrowUpIcon, LoaderCircleIcon } from 'lucide-react';
+import { RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { type ComponentProps, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
+import { cn } from '@/lib/utils';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { restartClio } from '@/tauri/managed-backend';
 import { InfoTip } from './info-tip';
@@ -15,6 +16,20 @@ function providerClientLabel(group: ProviderGroup): string | undefined {
   if (!client?.source) return undefined;
   const source = client.source === 'installed' ? 'Installed' : 'Bundled';
   return [source, group.name, client.version].filter(Boolean).join(' ');
+}
+
+/** A text action in the picker's 11px status row (the spec's `.pft .lk`). */
+function StatusLink({ className, ...props }: ComponentProps<'button'>) {
+  return (
+    <button
+      className={cn(
+        'inline-flex shrink-0 items-center gap-[5px] rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-[13px] [&_svg]:shrink-0',
+        className,
+      )}
+      type="button"
+      {...props}
+    />
+  );
 }
 
 /**
@@ -62,69 +77,74 @@ export function ProviderComponentStatus({
 
   return (
     <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-t px-2 py-1.5 text-xs text-muted-foreground"
+      className="flex h-8 min-w-0 shrink-0 flex-nowrap items-center gap-3 overflow-hidden border-t px-3 text-[11px] whitespace-nowrap text-faint"
       data-slot="provider-component-status"
     >
       {version || label ? (
         <span
-          className="truncate"
+          className="min-w-0 truncate"
           data-slot="provider-client-fact"
           title={clientDetails || details}
         >
           {version ? `Version ${version}` : label}
         </span>
       ) : null}
-      <Button
-        disabled={busy || Boolean(stage) || state.checking}
-        onClick={state.check}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
+      <StatusLink disabled={busy || Boolean(stage) || state.checking} onClick={state.check}>
+        {state.checking ? (
+          <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+        ) : (
+          <RefreshIcon aria-hidden="true" />
+        )}
         {state.checking ? 'Checking updates…' : 'Check updates'}
-      </Button>
+      </StatusLink>
       {stage ? (
         <span
-          className="flex items-center gap-1"
+          className="inline-flex shrink-0 items-center gap-[5px] text-muted-foreground"
           data-slot="provider-component-stage"
           role="status"
         >
-          <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
+          <LoaderCircleIcon aria-hidden="true" className="size-[13px] motion-safe:animate-spin" />
           {stage}
         </span>
       ) : components?.update_available ? (
-        <Button
+        <StatusLink
+          className="text-accent-foreground hover:text-accent-foreground hover:underline"
           data-slot="provider-update-available"
           disabled={busy}
           onClick={state.update}
-          size="xs"
           title={details}
-          type="button"
-          variant="outline"
         >
+          <CircleArrowUpIcon aria-hidden="true" />
           Update to {components.target_version}
-        </Button>
+        </StatusLink>
       ) : null}
       {noCompatibleRelease ? (
-        <span role="status">No compatible client update is available yet.</span>
+        <span
+          className="min-w-0 truncate"
+          role="status"
+          title="No compatible client update is available yet."
+        >
+          No compatible client update is available yet.
+        </span>
       ) : state.checkError || components?.error?.message ? (
-        <span className="text-destructive" role="alert">
+        <span
+          className="min-w-0 truncate text-destructive"
+          role="alert"
+          title={state.checkError || components?.error?.message}
+        >
           {state.checkError || components?.error?.message}
         </span>
       ) : null}
       {restart ? (
         inTauri() ? (
-          <Button
-            disabled={restarting}
-            onClick={() => void restartNow()}
-            size="xs"
-            type="button"
-            variant="outline"
-          >
+          <StatusLink disabled={restarting} onClick={() => void restartNow()}>
+            <RetryIcon aria-hidden="true" />
             Restart {vocab.agent}
-          </Button>
+          </StatusLink>
         ) : (
-          <span data-slot="provider-update-restart">Restart {vocab.agent} to finish</span>
+          <span className="text-muted-foreground" data-slot="provider-update-restart">
+            Restart {vocab.agent} to finish
+          </span>
         )
       ) : null}
       {failure && !stage ? (

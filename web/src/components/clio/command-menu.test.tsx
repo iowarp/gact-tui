@@ -29,7 +29,7 @@ const artifact = {
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
-    settings: { endpoint: 'http://127.0.0.1:8787' },
+    settings: { endpoint: 'http://127.0.0.1' },
     credentialsReady: repository.credentialsReady,
   }),
 }));
@@ -53,6 +53,11 @@ vi.mock('@/hooks/use-switch-connection', () => ({
 }));
 vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
+  useAppearancePreferences: () => ({
+    conversationWidth: 'focused',
+    interfaceSize: 100,
+    motion: 'system',
+  }),
 }));
 
 import { ClioCommandMenu } from './command-menu';
@@ -215,7 +220,7 @@ describe('ClioCommandMenu workspace search', () => {
   });
 
   it.each([
-    ['drive', 'Data sources', '/settings/data-sources'],
+    ['drive', /^Data sources/u, '/settings/data-sources'],
     ['reviewer', /Station Reviewer/u, '/settings/agents#agent-lab%2Freviewer'],
     ['delta', /Delta GPU host/u, '/infrastructure/services?target=delta'],
   ])(
@@ -231,7 +236,7 @@ describe('ClioCommandMenu workspace search', () => {
         '"from":"/workspaces/ws_current/sessions/sess_current"',
       );
       expect(screen.getByTestId('location-state')).toHaveTextContent(
-        '"endpoint":"http://127.0.0.1:8787"',
+        '"endpoint":"http://127.0.0.1"',
       );
     },
   );
@@ -252,14 +257,14 @@ describe('ClioCommandMenu workspace search', () => {
 
   it('routes a file found from Settings back into a scoped workspace canvas', async () => {
     localStorage.setItem(
-      'clio.last-workspace-route:http%3A%2F%2F127.0.0.1%3A8787',
+      'clio.last-workspace-route:http%3A%2F%2F127.0.0.1',
       '/workspaces/ws_current/sessions/sess_current',
     );
     const user = userEvent.setup();
     renderMenu(vi.fn(), '/settings/general', false);
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('stations');
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
         '/workspaces/ws_current/sessions/sess_current',
@@ -273,13 +278,13 @@ describe('ClioCommandMenu workspace search', () => {
     'opens a file in the current new-conversation canvas (existing session=%s)',
     async (hasSession) => {
       const route = '/workspaces/ws_current/new';
-      localStorage.removeItem('clio.last-workspace-route:http%3A%2F%2F127.0.0.1%3A8787');
+      localStorage.removeItem('clio.last-workspace-route:http%3A%2F%2F127.0.0.1');
       if (!hasSession) sessionRows.mockResolvedValue([]);
       const user = userEvent.setup();
       renderMenu(vi.fn(), route, false);
       await user.keyboard('{Control>}k{/Control}');
       await user.keyboard('stations');
-      await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+      await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
       expect(repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_current',
         expect.any(AbortSignal),
@@ -308,14 +313,80 @@ describe('ClioCommandMenu workspace search', () => {
     );
     expect(screen.getByRole('dialog')).toBeVisible();
   });
-  it('focuses the search immediately on each open and keeps the assistant shortcut inside its input', async () => {
+  it('narrows to one result type with tabs, a typed prefix and the arrow keys', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
+    await user.keyboard('>dark');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+
+    await user.keyboard('{ArrowRight}');
+    expect(input).toHaveValue('dark');
+    expect(screen.getByRole('tab', { name: /^Settings/u })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.queryByRole('option', { name: 'Switch to dark mode' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /^All/u }));
+    expect(input).toHaveFocus();
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+
+    await user.clear(input);
+    await user.click(screen.getByRole('tab', { name: /^Files/u }));
+    expect(screen.getByText('Type to find a workspace file.')).toBeVisible();
+    await user.keyboard('{Backspace}');
+    expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('counts only the result types that found something', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard('dark mode');
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Actions/u }).textContent).toMatch(/^Actions\d+$/u);
+    const files = screen.getByRole('tab', { name: /^Files/u });
+    expect(files).toHaveTextContent(/^Files$/u);
+    expect(files).toHaveAccessibleName('Files');
+    expect(files).toHaveClass('text-faint');
+    expect(files).toHaveAttribute('data-empty', 'true');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).not.toHaveClass('text-faint');
+    expect(screen.getByRole('tab', { name: /^More/u })).not.toHaveClass('text-faint');
+  });
+
+  it('opens Settings filtered to the search when every result is a setting', async () => {
+    // No remembered passages match, so only settings remain once the search settles.
+    repository.searchMemory.mockResolvedValue({
+      query: 'drive',
+      include_cross_session: true,
+      searched_sessions: [],
+      hits: [],
+      metadata: { source: 'arc' },
+    });
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard('drive');
+    await screen.findByRole('option', { name: /^Data sources/u });
+    expect(await screen.findByRole('button', { name: /^All in Settings/u })).toBeVisible();
+    await waitFor(() => expect(repository.searchMemory).toHaveBeenCalled());
+    expect(await screen.findByRole('button', { name: /^All in Settings/u })).toBeVisible();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(screen.getByTestId('location')).toHaveTextContent('/settings/data-sources?q=drive');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('focuses the search immediately on each open and keeps the assistant in the footer', async () => {
     const user = userEvent.setup();
     renderMenu();
     await user.keyboard('{Control>}k{/Control}');
     const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
     await waitFor(() => expect(input).toHaveFocus());
-    const shortcut = screen.getByRole('button', { name: /^Ask .+ Search Tab$/u });
-    expect(shortcut.closest('[data-slot="input-group"]')).toContainElement(input);
+    const shortcut = screen.getByRole('button', { name: /^Ask .+ Tab$/u });
+    expect(shortcut.closest('[data-slot="picker-footer"]')).toBeInTheDocument();
     await user.keyboard('station');
     expect(input).toHaveValue('station');
     await user.keyboard('{Escape}');
@@ -336,7 +407,7 @@ describe('ClioCommandMenu workspace search', () => {
     expect(
       screen.queryByText('.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv'),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     expect(onOpenResource).toHaveBeenCalledWith({
       kind: 'workspace-file',
       path: 'results/stations.csv',
@@ -365,9 +436,10 @@ describe('ClioCommandMenu workspace search', () => {
     });
     expect(passage.querySelector('mark')).toHaveTextContent(/immutable/i);
     const headings = [...document.querySelectorAll('[cmdk-group-heading]')].map(
-      (item) => item.textContent,
+      (item) => item.querySelector('span > span')?.textContent,
     );
-    expect(headings.indexOf('Sessions')).toBeLessThan(headings.indexOf('Matching messages'));
+    expect(headings).toContain('Conversations');
+    expect(headings.indexOf('Conversations')).toBeLessThan(headings.indexOf('Matching messages'));
     await user.click(passage);
 
     await waitFor(() =>

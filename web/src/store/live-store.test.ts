@@ -209,6 +209,17 @@ describe('live store snapshot merges', () => {
     expect(Object.keys(useLiveStore.getState().entities.sessions)).toEqual(['sess_3']);
   });
 
+  it('adds an older transcript page without dropping the newer messages already held', () => {
+    useLiveStore.getState().mergeSnapshots({ messages: { msg_new: restMessage('msg_new') } });
+
+    useLiveStore.getState().addSnapshots({ messages: { msg_old: restMessage('msg_old') } });
+
+    expect(Object.keys(useLiveStore.getState().entities.messages).sort()).toEqual([
+      'msg_new',
+      'msg_old',
+    ]);
+  });
+
   it('clears stale model overrides without disturbing the rest of each session', () => {
     useLiveStore.getState().replaceSnapshots({
       sessions: {

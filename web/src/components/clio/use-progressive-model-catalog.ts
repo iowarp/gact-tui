@@ -29,7 +29,11 @@ export function useProgressiveModelCatalog(providers: readonly ProviderGroup[], 
       const provider = queue.shift();
       if (!provider) return;
       provider.choices.forEach(cachedModelFacts);
-      startTransition(() => setReady((current) => new Set(current).add(provider.id)));
+      startTransition(() =>
+        setReady((current) =>
+          current.has(provider.id) ? current : new Set(current).add(provider.id),
+        ),
+      );
       scheduled = requestAnimationFrame(next);
     };
     const firstFrame = requestAnimationFrame(() => {

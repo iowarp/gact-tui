@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
@@ -11,9 +11,11 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
+import { ObservabilityViewControl } from './observability-view-control';
+import type { ObservabilityView } from './observability-view-storage';
 
 beforeEach(() => {
   localStorage.clear();
@@ -139,7 +141,7 @@ describe('ClioObservabilityView', () => {
 
     expect(screen.getByText('1 display fallback')).toBeInTheDocument();
     // "Working" renders both in the visible status badge and in the persistent sr-only live
-    // region (which always mirrors it so status transitions are announced) — assert the badge.
+    // region (which always mirrors it so status transitions are announced) â€” assert the badge.
     const workingBadge = screen
       .getAllByText('Working')
       .find((element) => element.closest('[data-slot="badge"]'));
@@ -147,12 +149,13 @@ describe('ClioObservabilityView', () => {
     warn.mockRestore();
   });
 
-  it('opens a dismissible evidence panel and hands full details to the workspace canvas', async () => {
+  it('pins the conversation rail open and hands full details to the workspace canvas', async () => {
     const user = userEvent.setup();
     const onOpenCanvas = vi.fn();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
+        <p>Transcript</p>
         <ClioObservabilityDock
           artifacts={[]}
           contextFiles={[]}
@@ -169,41 +172,28 @@ describe('ClioObservabilityView', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.queryByRole('button', { name: 'Work rail' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Evidence layout: None' }));
-    expect(screen.getByRole('dialog', { name: 'Activity and evidence' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Session rail' })).not.toBeInTheDocument();
-    const launcher = screen.getByRole('button', { name: 'Evidence layout: Bottom' });
-    expect(launcher).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.contextMenu(launcher);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.keyDown(launcher, { key: 'ArrowLeft' });
-    expect(launcher).toHaveAccessibleName('Evidence layout: Both');
-    expect(screen.getByRole('region', { name: 'Session rail' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Hide session rail' }));
-    expect(launcher).toHaveAccessibleName('Evidence layout: Bottom');
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Hide work rail' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
-    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
-    expect(launcher).toHaveAccessibleName('Evidence layout: Top');
-    await user.click(screen.getByRole('button', { name: 'Open full details' }));
-
+    const button = screen.getByRole('button', { name: 'Conversation rail' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await user.click(button);
+    const rail = screen.getByRole('region', { name: 'This conversation' });
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(within(rail).getByRole('region', { name: 'Context section' })).toBeVisible();
+    // Pinned: working in the transcript leaves it open.
+    await user.click(screen.getByText('Transcript'));
+    expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
+    await user.click(within(rail).getByRole('button', { name: 'Open full view' }));
     expect(onOpenCanvas).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // The full view replaces the rail.
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await user.click(button);
+    expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
+    await user.click(button);
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   });
 
-  it('restores the old top preference and keeps its customized sections when both are shown', async () => {
-    localStorage.setItem(
-      'clio.evidence-disclosures.v1',
-      JSON.stringify({
-        'evidence-layout:top': true,
-        'evidence-layout:bottom': false,
-      }),
-    );
+  it('opens at the first run with its key and closes with it again', async () => {
+    const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
@@ -213,7 +203,16 @@ describe('ClioObservabilityView', () => {
           contextFrames={[]}
           diffs={[]}
           messages={[]}
-          processes={[]}
+          processes={[
+            {
+              id: 'relay_export',
+              kind: 'mcp-task',
+              title: 'Export station data',
+              live_state: 'running',
+              status: 'running',
+              metadata: {},
+            },
+          ]}
           runs={[]}
           subagents={[]}
           tasks={[]}
@@ -229,13 +228,16 @@ describe('ClioObservabilityView', () => {
         />
       </QueryClientProvider>,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Evidence layout: Top' }));
-    expect(screen.getByRole('button', { name: 'Evidence layout: Both' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
+    await user.keyboard('{Control>}.{/Control}');
+    const rail = await screen.findByRole('region', { name: 'This conversation' });
+    expect(within(rail).getByRole('region', { name: 'Tool calls section' })).toBeVisible();
+    await vi.waitFor(() =>
+      expect(within(rail).getByRole('button', { name: 'Export station data' })).toHaveFocus(),
     );
-    expect(screen.getByRole('region', { name: 'Context section' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Tool calls section' })).toBeVisible();
+    await user.keyboard('{ArrowUp}');
+    expect(within(rail).getByRole('button', { name: 'Collapse Running' })).toHaveFocus();
+    await user.keyboard('{Control>}.{/Control}');
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   });
 
   it('shows a session waiting on permission with its own typed status, not the running spinner', () => {
@@ -262,7 +264,7 @@ describe('ClioObservabilityView', () => {
     expect(badge).not.toHaveTextContent('Up to date');
     expect(badge).toHaveClass('border-action/30');
     expect(badge).not.toHaveClass('border-info/30');
-    expect(badge?.querySelector('svg')).not.toHaveClass('motion-safe:animate-spin');
+    expect(badge?.querySelector('svg[class*="animate-spin"]')).toBeNull();
   });
 
   it('labels a failed session truthfully, never a red "Up to date" (rel18)', () => {
@@ -311,7 +313,7 @@ describe('ClioObservabilityView', () => {
     expect(liveRegion).not.toBeNull();
     expect(liveRegion).toHaveTextContent('No active work');
     expect(liveRegion).not.toHaveTextContent('Up to date');
-    const button = screen.getByRole('button', { name: 'Evidence layout: None' });
+    const button = screen.getByRole('button', { name: 'Conversation rail' });
     expect(button.contains(liveRegion)).toBe(false);
 
     rerender(
@@ -342,58 +344,6 @@ describe('ClioObservabilityView', () => {
     expect(liveRegionAfter).not.toBeNull();
     expect(liveRegionAfter).toBe(liveRegion);
     expect(liveRegionAfter).toHaveTextContent('Working');
-  });
-
-  it('opens a child duration in a tab and uses Shift-click for the center', async () => {
-    const user = userEvent.setup();
-    const onOpenSubagent = vi.fn();
-    const child = {
-      id: 'task_geo',
-      session_id: 'sess_1',
-      child_session_id: 'sess_child',
-      title: 'geospatial #1',
-      state: 'completed' as const,
-      summary: 'main <- geospatial',
-    };
-    renderObservability(
-      <ClioObservabilityView
-        artifacts={[]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        messages={[]}
-        onOpenSubagent={onOpenSubagent}
-        processes={[
-          {
-            kind: 'agent',
-            id: 'task_geo',
-            title: 'geospatial #1',
-            live_state: 'completed',
-            status: 'completed',
-            created_at: '2026-08-22T00:00:00Z',
-            updated_at: '2026-08-22T00:01:00Z',
-            metadata: {},
-          },
-        ]}
-        runs={[]}
-        sessionId="sess_dock"
-        subagents={[child]}
-        tasks={[]}
-        tools={[]}
-      />,
-    );
-
-    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
-    // The reui gantt swap (f15c56ce) added a tree-row expand toggle whose
-    // aria-label is the bare title ("geospatial #1"); the clickable bar's own
-    // aria-label always appends a time range, so the trailing comma
-    // disambiguates it from the toggle.
-    const childLane = screen.getByRole('button', { name: /geospatial #1,/iu });
-    await user.click(childLane);
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
-
-    fireEvent.click(childLane, { shiftKey: true });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
   });
 
   it('keeps child conversations directly accessible beside the observability control', async () => {
@@ -443,7 +393,7 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('2 background activities')).toBeVisible();
-    const evidenceControl = screen.getByRole('button', { name: 'Evidence layout: None' });
+    const evidenceControl = screen.getByRole('button', { name: 'Conversation rail' });
     expect(within(evidenceControl).getByText('Settled')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(
@@ -458,320 +408,33 @@ describe('ClioObservabilityView', () => {
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
   });
 
-  it('shows real process spans and groups session evidence without raw payloads', async () => {
-    const user = userEvent.setup();
-    const openDiff = vi.fn();
-    const openResource = vi.fn();
-    renderObservability(
-      <ClioObservabilityView
-        artifacts={[
-          {
-            id: 'artifact_1',
-            session_id: 'sess_1',
-            name: 'station-plot.png',
-            media_type: 'image/png',
-            uri: 'artifact://station-plot.png',
-          },
-        ]}
-        contextFiles={[
-          {
-            path: 'notes.md',
-            display_path: 'notes.md',
-            mode: 'pin',
-            size: 42,
-          },
-        ]}
-        contextFrames={[
-          {
-            id: 'frame_1',
-            session_id: 'sess_1',
-            created_at: '2026-08-22T00:00:00Z',
-            updated_at: '2026-08-22T00:01:00Z',
-            status: 'completed',
-            model: {},
-            agent: {},
-            prompt: {},
-            items: [],
-            tokens_estimated: 256,
-            metadata: {},
-          },
-        ]}
-        diffs={[
-          {
-            id: 'chg_1',
-            path: 'src/analysis.py',
-            status: 'applied',
-            created: false,
-            undo_available: true,
-            unified_diff: '@@ -1 +1 @@\n-old\n+new',
-          },
-        ]}
-        messages={[
-          {
-            id: 'message_resource',
-            session_id: 'sess_1',
-            role: 'user',
-            created_at: '2026-08-21T23:59:59Z',
-            blocks: [
-              {
-                id: 'resource_1',
-                type: 'resource',
-                resource_id: 'resource_pdf',
-                resource_revision: '1',
-                workspace_id: 'ws_1',
-                name: 'paper.pdf',
-                media_type: 'application/pdf',
-              },
-            ],
-          },
-          {
-            id: 'message_1',
-            session_id: 'sess_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [
-              { id: 'plan_1', type: 'plan', title: 'Validate the station catalog' },
-              {
-                id: 'citation_1',
-                type: 'citation',
-                label: 'EarthScope catalog',
-                uri: 'https://example.test/earthscope',
-              },
-            ],
-          },
-        ]}
-        onOpenDiff={openDiff}
-        onOpenResource={openResource}
-        onOpenSubagent={() => undefined}
-        processes={[
-          {
-            kind: 'agent',
-            id: 'task_1',
-            title: 'ndp #1',
-            live_state: 'completed',
-            status: 'completed',
-            created_at: '2026-08-22T00:00:00Z',
-            updated_at: '2026-08-22T00:01:00Z',
-            result: {
-              workflow_state: {
-                acquisition: {
-                  metadata_source_url: 'https://example.test/data.csv',
-                  provenance: 'osm_nominatim',
-                },
-              },
-            },
-            metadata: {},
-          },
-        ]}
-        runs={[]}
-        resources={[
-          {
-            id: 'resource_pdf',
-            workspace_id: 'ws_1',
-            client_upload_id: 'upload_1',
-            revision: 1,
-            name: 'paper.pdf',
-            claimed_mime: 'application/pdf',
-            detected_mime: 'application/pdf',
-            detection_source: 'signature',
-            declared_size: 4096,
-            received_size: 4096,
-            sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            state: 'ready',
-            failure: '',
-            created_at: '2026-08-21T23:59:58Z',
-            updated_at: '2026-08-21T23:59:59Z',
-            completed_at: '2026-08-21T23:59:59Z',
-            mime_mismatch: false,
-          },
-        ]}
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
+  it('shows the host-controlled view without its own view switch', () => {
+    const props = {
+      artifacts: [],
+      contextFiles: [],
+      contextFrames: [],
+      diffs: [],
+      messages: [],
+      processes: [],
+      tasks: [],
+      tools: [],
+      runs: [],
+      subagents: [],
+      sessionId: 'host-controlled',
+    };
+    const view = (control: ObservabilityView) => (
+      <ObservabilityViewControl.Provider value={{ view: control }}>
+        <ClioObservabilityView {...props} requestedView={{ key: 'ignored', view: 'activity' }} />
+      </ObservabilityViewControl.Provider>
     );
-
-    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
-    expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeVisible();
-    expect(screen.getByText('Main agent', { exact: true })).toBeVisible();
-    // Agent durations appear directly beside their named owner. Expanding an
-    // owner is only needed when it has tool-call rows to inspect.
-    expect(screen.queryByRole('button', { name: 'Agent work' })).not.toBeInTheDocument();
-    expect(document.querySelectorAll('[data-slot="gantt-bar"]')).toHaveLength(2);
-    // Renders once as the owner group's row title and once as the span's own
-    // event label.
-    for (const element of screen.getAllByText('ndp #1')) expect(element).toBeVisible();
-    // GanttTitle now appends the visible time window ("Execution: <range>").
-    expect(screen.getByText(/^Execution/u)).toBeVisible();
-
-    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
-
-    expect(screen.queryByText('Session evidence')).not.toBeInTheDocument();
-    expect(screen.getByText('Files')).toBeVisible();
-    expect(screen.getByText('analysis.py')).toBeVisible();
-    expect(screen.getByRole('link', { name: /EarthScope catalog/i })).toHaveAttribute(
-      'href',
-      'https://example.test/earthscope',
+    const rendered = renderObservability(view('context'));
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('id', expect.stringMatching(/context$/u));
+    rendered.rerender(
+      <QueryClientProvider client={new QueryClient()}>{view('activity')}</QueryClientProvider>,
     );
-    expect(screen.getByRole('link', { name: /data\.csv/i })).toHaveAttribute(
-      'href',
-      'https://example.test/data.csv',
-    );
-    expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
-    expect(screen.getByText('OpenStreetMap Nominatim')).toHaveAttribute('title', 'osm_nominatim');
-    expect(screen.getByText('paper.pdf')).toBeVisible();
-    // Resource detail renders as separate sibling elements (type/revision/size/sha), never a
-    // single middot-joined string.
-    expect(screen.getByText('Revision 1')).toBeVisible();
-    expect(screen.getByText('application/pdf')).toBeVisible();
-    expect(screen.getByText(/SHA-256 0123456789ab/u)).toBeVisible();
-    expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
-    expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Open source paper.pdf' }));
-    expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
-
-    await user.click(
-      screen.getByRole('button', { name: 'Open the change to src/analysis.py in canvas' }),
-    );
-    expect(openDiff).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'chg_1', path: 'src/analysis.py', status: 'applied' }),
-    );
-  });
-
-  it('uses typed child provenance for source and artifact ownership instead of workflow scraping', async () => {
-    const user = userEvent.setup();
-    renderObservability(
-      <ClioObservabilityView
-        artifacts={[
-          {
-            id: 'artifact_review',
-            session_id: 'session_leaf',
-            name: 'review.md',
-            media_type: 'text/markdown',
-            uri: 'artifact://review.md',
-          },
-        ]}
-        contextFiles={[]}
-        contextFrames={[]}
-        diffs={[]}
-        executionProvenance={{
-          schema_version: 'clio.execution_provenance.v1',
-          provider: 'native',
-          session_id: 'session_root',
-          root_session_id: 'session_root',
-          complete: true,
-          truncated: false,
-          provider_health: {},
-          campaigns: [],
-          workflows: [],
-          agents: [],
-          session_lineage: [
-            {
-              session_id: 'session_root',
-              parent_session_id: '',
-              task_id: '',
-              agent_id: '',
-              label: 'Investigation',
-              depth: 0,
-              task_path: [],
-            },
-            {
-              session_id: 'session_leaf',
-              parent_session_id: 'session_root',
-              task_id: 'task_leaf',
-              agent_id: 'critic',
-              label: 'Evidence critic',
-              depth: 1,
-              task_path: ['task_leaf'],
-            },
-          ],
-          spans: [],
-          nodes: [
-            {
-              id: 'task:task_leaf',
-              kind: 'task',
-              label: 'Evidence critic',
-              status: 'completed',
-              session_id: 'session_leaf',
-              agent_id: 'critic',
-              start_time: null,
-              end_time: null,
-              attributes: { owner_session_id: 'session_leaf', task_id: 'task_leaf' },
-            },
-            {
-              id: 'resource:catalog_1',
-              kind: 'resource',
-              label: 'EarthScope dataset',
-              status: 'available',
-              session_id: 'session_leaf',
-              agent_id: 'critic',
-              start_time: null,
-              end_time: null,
-              attributes: { owner_session_id: 'session_leaf', resource_id: 'catalog_1' },
-            },
-            {
-              id: 'artifact:artifact_review',
-              kind: 'artifact',
-              label: 'review.md',
-              status: 'available',
-              session_id: 'session_leaf',
-              agent_id: 'critic',
-              start_time: null,
-              end_time: null,
-              attributes: { artifact_id: 'artifact_review' },
-            },
-          ],
-          edges: [
-            {
-              id: 'used:task:task_leaf->resource:catalog_1',
-              source: 'task:task_leaf',
-              target: 'resource:catalog_1',
-              kind: 'used',
-            },
-            {
-              id: 'generated:task:task_leaf->artifact:artifact_review',
-              source: 'task:task_leaf',
-              target: 'artifact:artifact_review',
-              kind: 'generated',
-            },
-          ],
-        }}
-        messages={[]}
-        processes={[
-          {
-            kind: 'agent',
-            id: 'task_leaf',
-            title: 'Evidence critic',
-            live_state: 'completed',
-            status: 'completed',
-            owner_session_id: 'session_leaf',
-            task_path: ['task_leaf'],
-            result: {
-              workflow_state: { source_url: 'https://legacy.invalid/scraped' },
-            },
-            metadata: {},
-          },
-        ]}
-        runs={[]}
-        subagents={[]}
-        tasks={[]}
-        tools={[]}
-      />,
-    );
-
-    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
-    expect(screen.getByText('EarthScope dataset')).toBeVisible();
-    expect(screen.getByText('Used by Evidence critic')).toBeVisible();
-    expect(screen.getByText('catalog_1')).toBeVisible();
-    expect(screen.queryByText('https://legacy.invalid/scraped')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Artifacts, 1 recorded' }));
-    expect(screen.queryByText('Generated by Evidence critic')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Provenance for / }));
-    expect(screen.getByText('Generated by Evidence critic')).toBeVisible();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('id', expect.stringMatching(/activity$/u));
   });
 });
 

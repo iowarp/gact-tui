@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const draftRoute = '/workspaces/ws_flat_ndp/new';
@@ -74,8 +75,7 @@ async function serveHdf5(page: Page) {
 
 async function openWaterH5(page: Page) {
   await page.goto(draftRoute);
-  await page.getByRole('button', { name: 'Open workspace canvas' }).click();
-  await page.getByRole('tab', { name: 'Files', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   // Maximize first: the viewer then mounts once, at full width. h5web starts
   // with its sidebar collapsed in a narrow pane.
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
@@ -115,7 +115,11 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
 
   // NeXus defaults: the file opens at /entry/results as a line plot of I
   // against q, with units from the file.
-  await expect(viewer.getByRole('tab', { name: 'NX Line' })).toBeVisible({ timeout: 15_000 });
+  // The frame's Format shows h5web's visualizations as modes; a NeXus line is a plot.
+  const modes = page.getByRole('group', { name: 'Show as' });
+  await expect(modes.getByRole('button', { name: 'Plot', pressed: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(viewer.getByText('I (counts)').first()).toBeVisible();
   await expect(viewer.getByText('q (1/nm)')).toBeVisible();
   await expect(viewer.locator('canvas').first()).toBeVisible();
@@ -123,15 +127,20 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
 
   // The default plot opens without expanding the tree to it.
   const entry = viewer.locator('[role="treeitem"][data-path="/entry"]');
-  if (!(await entry.isVisible()))
-    await viewer.getByRole('button', { name: 'Toggle sidebar' }).click();
+  const explorer = page.getByRole('button', { name: 'Explorer' });
+  if (!(await entry.isVisible())) await explorer.click();
+  await expect(explorer).toHaveAttribute('aria-pressed', 'true');
   await entry.click();
   await viewer.locator('[role="treeitem"][data-path="/entry/image"]').click();
-  await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible();
+  await expect(modes.getByRole('button', { name: 'Image', pressed: true })).toBeVisible();
+  // The frame bar folds the file's facts first when it runs out of room; the
+  // file has the maximized canvas to itself, so its shape shows.
+  await expect(page.getByText('48 × 48')).toBeVisible();
   await expect.poll(() => calls).toContain('data?dtype=safe&format=bin&path=%2Fentry%2Fimage');
 
-  // Restoring the canvas rebuilds its Files tab, which closes the file.
-  // Opening it again returns to where the user was, not the file root.
+  // Files opens as its tab again; picking the file there returns to its tab,
+  // where the user was, not the file root.
+  await showWorkbenchList(page, 'Files');
   await page.getByRole('button', { name: 'Restore canvas beside conversation' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   const frameElement = page.locator(`iframe[data-hdf5-viewer="${h5Path}"]`);
@@ -142,7 +151,22 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
       await canvas.getByText('results', { exact: true }).first().click();
     await file.click();
   }
-  await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible({ timeout: 15_000 });
+  await expect(frameElement).toBeVisible({ timeout: 15_000 });
+  // Beside the conversation the frame is at its narrowest fold, where the
+  // modes are a checked list in the frame's … menu.
+  const actions = canvas.getByRole('toolbar', { name: 'File' }).getByRole('button', {
+    name: 'File actions',
+  });
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await actions.click();
+    await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+      { timeout: 1_000 },
+    );
+  }).toPass({ timeout: 15_000 });
+  await page.keyboard.press('Escape');
 
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);
@@ -173,6 +197,12 @@ test('on the app origin, the desktop CSP blocks the HDF5 viewer', async ({ page 
       });
     },
   );
+  // A fulfilled document has no server address, so Chromium places it in the
+  // public address space and its Local Network Access check refuses every
+  // fetch to the loopback fixture service. The app then reports the workspace
+  // unavailable and unmounts the viewer before h5web loads. The real document
+  // is served from loopback, where the check does not apply.
+  await page.context().grantPermissions(['local-network-access']);
   await page.addInitScript((connection) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
   }, endpoint);
@@ -186,6 +216,8 @@ test('on the app origin, the desktop CSP blocks the HDF5 viewer', async ({ page 
 
   const viewer = await openWaterH5(page);
   await expect.poll(() => evalRefusals.length, { timeout: 15_000 }).toBeGreaterThan(0);
-  await expect(viewer.getByRole('tab', { name: 'NX Line' })).toHaveCount(0);
+  // h5web's visualization tabs are hidden behind the frame's modes, so count them in the DOM.
+  await expect(viewer.locator('[aria-label="Visualization"] [role="tab"]')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Show as' })).toHaveCount(0);
   expect(otherErrors).toEqual([]);
 });

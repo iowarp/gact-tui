@@ -1,137 +1,194 @@
-import { AlertTriangleIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Spinner } from '@/components/ui/spinner';
-import { formatBytes } from '@/lib/format';
+import { useState } from 'react';
+import { brand } from '@brand';
+import { CircleAlertIcon } from 'lucide-react';
+import { formatBytes, formatDuration } from '@/lib/format';
 import { vocab } from '@/lib/brand-vocabulary';
 import {
   clearPendingUpdateMarker,
   useUpdateFlowStore,
+  type UpdateAction,
+  type UpdateDownloadProgress,
   type UpdateStep,
 } from '@/store/update-flow-store';
+import { BrandStatusHeader } from './brand-status-header';
+import { DialogFrame } from './primitives/dialog-frame';
+import { StateView } from './primitives/state-view';
+import { StepList, type StepListStep } from './primitives/step-list';
+import { updatePageShown, useUpdatePaneHosted } from './update-page-host';
 
-type OverlayStep = Exclude<UpdateStep, 'idle' | 'done' | 'failed'>;
+type PageStep = 'checking' | 'downloading' | 'installing' | 'restart' | 'verifying';
 
-const STEP_COPY: Record<OverlayStep, { label: string; detail: string }> = {
-  checking: {
-    label: 'Checking for updates',
-    detail: `Comparing the installed and published ${vocab.agent} versions.`,
-  },
-  downloading: {
-    label: 'Downloading update',
-    detail: `Fetching the signed ${vocab.product} update.`,
-  },
-  installing: {
-    label: `Installing ${vocab.product}`,
-    detail: 'Applying the update on this computer.',
-  },
-  restarting: {
-    label: `Restarting ${vocab.product}`,
-    detail: 'The update finished. Restarting to apply it.',
-  },
-  reconnecting: {
-    label: 'Reconnecting',
-    detail: `Waiting for ${vocab.agent} to come back online.`,
-  },
-  verifying: {
-    label: 'Verifying update',
-    detail: 'Checking the running app and runtime against the selected release.',
-  },
+const STEP_OF: Partial<Record<UpdateStep, PageStep>> = {
+  checking: 'checking',
+  downloading: 'downloading',
+  installing: 'installing',
+  restarting: 'restart',
+  reconnecting: 'restart',
+  verifying: 'verifying',
 };
 
+const LABEL: Record<PageStep, string> = {
+  checking: 'Checking for updates',
+  downloading: 'Downloading',
+  installing: 'Installing',
+  restart: 'Restarting and reconnecting',
+  verifying: 'Verifying the update',
+};
+
+const MEBIBYTE = 1024 * 1024;
+
+function downloadLabel(progress?: UpdateDownloadProgress): string {
+  if (!progress) return LABEL.downloading;
+  const { downloadedBytes, totalBytes } = progress;
+  if (totalBytes && totalBytes >= MEBIBYTE)
+    return `Downloading, ${Math.round(downloadedBytes / MEBIBYTE)} of ${Math.round(totalBytes / MEBIBYTE)} MB`;
+  return `Downloading, ${formatBytes(downloadedBytes)}${totalBytes ? ` of ${formatBytes(totalBytes)}` : ''}`;
+}
+
+function stepStart(times: Partial<Record<UpdateStep, number>>, step: PageStep): number | undefined {
+  return step === 'restart' ? (times.restarting ?? times.reconnecting) : times[step];
+}
+
+/** The page's steps: an agent-only update downloads nothing of its own. */
+function updateSteps({
+  step,
+  action,
+  progress,
+  lines,
+  stepStartedAt,
+}: {
+  step: UpdateStep;
+  action?: UpdateAction;
+  progress?: UpdateDownloadProgress;
+  lines: readonly string[];
+  stepStartedAt: Partial<Record<UpdateStep, number>>;
+}): StepListStep[] {
+  const order: PageStep[] = (
+    ['checking', 'downloading', 'installing', 'restart', 'verifying'] as const
+  ).filter((id) => id !== 'downloading' || action !== 'agent');
+  const current = order.indexOf(STEP_OF[step] ?? 'checking');
+  return order.map((id, index) => {
+    const state = index < current ? 'done' : index === current ? 'current' : 'todo';
+    const started = stepStart(stepStartedAt, id);
+    const next = order.slice(index + 1).find((later) => stepStart(stepStartedAt, later));
+    const ended = next ? stepStart(stepStartedAt, next) : undefined;
+    const percent =
+      id === 'downloading' && progress?.totalBytes
+        ? Math.min(1, progress.downloadedBytes / progress.totalBytes)
+        : undefined;
+    return {
+      id,
+      state,
+      label: id === 'downloading' && state !== 'todo' ? downloadLabel(progress) : LABEL[id],
+      meta:
+        state === 'done' && started && ended
+          ? formatDuration(ended - started, 'compact')
+          : state === 'current' && percent !== undefined
+            ? `${Math.round(percent * 100)}%`
+            : undefined,
+      progress: state === 'current' ? percent : undefined,
+      log: state === 'current' && id === 'installing' ? lines.at(-1) : undefined,
+    };
+  });
+}
+
 /**
- * Full-screen blocking status shown while an update is actively running, and
- * again after a process-replacing restart until the managed backend answers
- * (`UpdateRestartRecovery` drives that second half from the persisted
- * marker — see `store/update-flow-store.ts`). Replaces the silent
- * disconnect + transport-error cards a `git log`-worthy update used to leave
- * behind: every phase here is a real, observed state, never a guessed delay.
- *
- * Mount once near the app root. Renders nothing for `idle`/`done` (a
- * completed update gets a brief toast instead — see `UpdateRestartRecovery`).
+ * The update in the content pane: the steps while it runs, observed rather
+ * than timed, and the error state if it did not finish. A process-replacing
+ * restart resumes it from the persisted marker (`UpdateRestartRecovery`).
  */
-export function UpdateRestartOverlay() {
+export function UpdatePage() {
   const step = useUpdateFlowStore((state) => state.step);
+  const action = useUpdateFlowStore((state) => state.action);
+  const version = useUpdateFlowStore((state) => state.version);
   const progress = useUpdateFlowStore((state) => state.progress);
   const lines = useUpdateFlowStore((state) => state.lines);
+  const stepStartedAt = useUpdateFlowStore((state) => state.stepStartedAt);
   const reason = useUpdateFlowStore((state) => state.reason);
   const reset = useUpdateFlowStore((state) => state.reset);
+  const [details, setDetails] = useState(false);
 
-  if (step === 'idle' || step === 'done') return null;
+  if (!updatePageShown(step)) return null;
 
   if (step === 'failed') {
     return (
       <div
-        aria-labelledby="update-restart-failed-title"
-        className="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-6 backdrop-blur-sm"
-        role="alertdialog"
+        data-slot="update-page"
+        className="clio-scrollbar grid size-full min-h-0 overflow-y-auto bg-background"
       >
-        <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl">
-          <div className="flex items-start gap-3">
-            <AlertTriangleIcon
-              aria-hidden="true"
-              className="mt-0.5 size-5 shrink-0 text-destructive"
-            />
-            <div className="min-w-0 flex-1">
-              <h2 className="font-heading font-semibold" id="update-restart-failed-title">
-                Update did not finish
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {reason || `${vocab.agent} could not be reached after the update.`}
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 flex justify-end">
-            <Button
-              onClick={() => {
+        {/* The running page's column, so the error lands where its steps were. */}
+        <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
+          <BrandStatusHeader
+            tone="error"
+            status={version ? `Not updated to ${version}` : 'Not updated'}
+          />
+          <StateView
+            kind="error"
+            title="Update did not finish"
+            className="min-h-0 py-0"
+            action={{
+              label: 'Dismiss',
+              icon: null,
+              onClick: () => {
                 clearPendingUpdateMarker();
                 reset();
-              }}
-              type="button"
-              variant="outline"
-            >
-              Dismiss
-            </Button>
-          </div>
-        </div>
+              },
+            }}
+            link={{ label: 'Details', onClick: () => setDetails(true) }}
+          />
+        </section>
+        <DialogFrame
+          open={details}
+          onOpenChange={setDetails}
+          icon={<CircleAlertIcon />}
+          title="Update details"
+          description={version ? `Updating ${brand.wordmark} to ${version}` : undefined}
+        >
+          <p className="text-[13px] leading-5 break-words">
+            {reason || `${vocab.agent} could not be reached after the update.`}
+          </p>
+          {lines.length ? (
+            <pre className="clio-scrollbar mt-3 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-words text-muted-foreground">
+              {lines.slice(-40).join('\n')}
+            </pre>
+          ) : null}
+        </DialogFrame>
       </div>
     );
   }
 
-  const copy = STEP_COPY[step];
-  const percent =
-    progress?.totalBytes && progress.totalBytes > 0
-      ? Math.min(100, Math.round((progress.downloadedBytes / progress.totalBytes) * 100))
-      : undefined;
-
+  // One name on the page: the header's wordmark ("Updating CLIO to 0.11.4" under "CLIO").
+  const title = version ? `Updating ${brand.wordmark} to ${version}` : `Updating ${brand.wordmark}`;
   return (
     <div
-      aria-labelledby="update-restart-title"
-      aria-live="polite"
-      className="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-6 backdrop-blur-sm"
-      role="status"
+      data-slot="update-page"
+      className="clio-scrollbar grid size-full min-h-0 overflow-y-auto bg-background"
     >
-      <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-2xl">
-        <Spinner className="mx-auto size-6 text-primary" />
-        <h2 className="mt-4 font-heading text-lg font-semibold" id="update-restart-title">
-          {copy.label}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.detail}</p>
-        {step === 'downloading' && percent !== undefined && progress ? (
-          <div className="mt-4">
-            <Progress value={percent} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {percent}% ({formatBytes(progress.downloadedBytes)}
-              {progress.totalBytes ? ` of ${formatBytes(progress.totalBytes)}` : ''})
-            </p>
-          </div>
-        ) : null}
-        {lines.length > 0 ? (
-          <pre className="mt-4 max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-muted p-2 text-left font-mono text-[11px] text-muted-foreground">
-            {lines.slice(-6).join('\n')}
-          </pre>
-        ) : null}
-      </div>
+      {/* The local startup page's column, so both step lists read alike. */}
+      <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
+        <BrandStatusHeader status={version ? `Updating to ${version}` : 'Updating'} />
+        <StateView kind="loading" title={title} className="min-h-0 py-0 pb-3" />
+        <StepList
+          label={title}
+          steps={updateSteps({ step, action, progress, lines, stepStartedAt })}
+        />
+      </section>
+    </div>
+  );
+}
+
+/**
+ * The update page for routes without an app shell (the connection page,
+ * Infrastructure): it covers the window, title bar included, without blur.
+ * Where a shell is mounted the page sits in its content pane instead.
+ */
+export function UpdateRestartOverlay() {
+  const shown = useUpdateFlowStore((state) => updatePageShown(state.step));
+  const hosted = useUpdatePaneHosted();
+  if (!shown || hosted) return null;
+  return (
+    <div className="fixed inset-0 z-[100] bg-background">
+      <UpdatePage />
     </div>
   );
 }

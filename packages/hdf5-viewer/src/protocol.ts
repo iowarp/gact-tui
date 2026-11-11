@@ -30,7 +30,106 @@ export type ViewerMessage =
       params: Record<string, string>;
     }
   | { source: typeof VIEWER_SOURCE; type: 'abort'; id: number }
-  | { source: typeof VIEWER_SOURCE; type: 'select'; locator: string };
+  | { source: typeof VIEWER_SOURCE; type: 'select'; locator: string }
+  | {
+      source: typeof VIEWER_SOURCE;
+      type: 'entity';
+      locator: string;
+      kind: 'dataset' | 'group' | 'other';
+      /** A dataset's dimensions; empty for a scalar. */
+      shape?: number[];
+      /** A dataset's element type in numpy terms, e.g. `float32`. */
+      dtype?: string;
+    }
+  | {
+      source: typeof VIEWER_SOURCE;
+      type: 'modes';
+      /** The ways the current object can be shown. */
+      modes: Hdf5Mode[];
+      mode?: Hdf5Mode;
+      /** Whether the object tree is open. */
+      explorer: boolean;
+    }
+  /** What the reader has set up, for the host to hand back when the page reloads. */
+  | { source: typeof VIEWER_SOURCE; type: 'view'; view: Hdf5ViewMemory };
+
+/**
+ * One dimension in h5web's dimension mapper: the slice index shown, the axis
+ * it is drawn along, or `null` where h5web locks it.
+ */
+export type Hdf5DimSlot = number | 'x' | 'y' | null;
+
+/**
+ * A reader's view of one object. The host keeps it while the file stays open:
+ * moving the viewer's iframe in the page (maximizing the canvas does) reloads
+ * the page, and `init` hands it back so the reader returns to the same slice.
+ */
+export interface Hdf5ViewMemory {
+  locator: string;
+  mode?: Hdf5Mode;
+  explorer: boolean;
+  /** Whether the pane fit the tree beside the data when this was read. */
+  wide: boolean;
+  mapping?: Hdf5DimSlot[];
+}
+
+/**
+ * How the viewer shows the current object. The host draws these in its own
+ * frame, so the viewer's breadcrumb bar and visualization tabs stay hidden.
+ */
+export const HDF5_MODES = ['table', 'plot', 'image', 'attributes'] as const;
+export type Hdf5Mode = (typeof HDF5_MODES)[number];
+
+/**
+ * The host theme's colors, as `#rrggbb`, that the viewer paints h5web's
+ * chrome with so the tree and tables read as part of the workbench.
+ */
+export const HDF5_PALETTE_KEYS = [
+  'background',
+  'foreground',
+  'muted',
+  'border',
+  'hover',
+  'selected',
+  'accent',
+] as const;
+export type Hdf5Palette = Record<(typeof HDF5_PALETTE_KEYS)[number], string>;
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/iu;
+
+function isPalette(value: unknown): value is Hdf5Palette {
+  return (
+    isRecord(value) &&
+    HDF5_PALETTE_KEYS.every((key) => typeof value[key] === 'string' && HEX_COLOR.test(value[key]))
+  );
+}
+
+function isMode(value: unknown): value is Hdf5Mode {
+  return (HDF5_MODES as readonly unknown[]).includes(value);
+}
+
+function isDimSlot(value: unknown): value is Hdf5DimSlot {
+  return (
+    value === null ||
+    value === 'x' ||
+    value === 'y' ||
+    (typeof value === 'number' && Number.isInteger(value) && value >= 0)
+  );
+}
+
+export function isViewMemory(value: unknown): value is Hdf5ViewMemory {
+  return (
+    isRecord(value) &&
+    typeof value.locator === 'string' &&
+    (value.mode === undefined || isMode(value.mode)) &&
+    typeof value.explorer === 'boolean' &&
+    typeof value.wide === 'boolean' &&
+    (value.mapping === undefined ||
+      (Array.isArray(value.mapping) &&
+        value.mapping.length <= 32 &&
+        value.mapping.every(isDimSlot)))
+  );
+}
 
 export type HostMessage =
   | {
@@ -45,7 +144,13 @@ export type HostMessage =
       revision: number;
       /** The host's theme. Absent: the viewer follows the operating system. */
       theme?: 'light' | 'dark';
+      /** The host theme's colors for the viewer's chrome. Absent: h5web's own. */
+      palette?: Hdf5Palette;
+      /** The reader's last view of `locator`, to restore after a reload. */
+      view?: Hdf5ViewMemory;
     }
+  /** Show the current object another way, or open or close the object tree. */
+  | { source: typeof HOST_SOURCE; type: 'show'; mode?: Hdf5Mode; explorer?: boolean }
   | { source: typeof HOST_SOURCE; type: 'response'; id: number; ok: true; body: ArrayBuffer }
   | {
       source: typeof HOST_SOURCE;
@@ -76,6 +181,23 @@ export function isViewerMessage(value: unknown): value is ViewerMessage {
       return typeof value.id === 'number';
     case 'select':
       return typeof value.locator === 'string';
+    case 'entity':
+      return (
+        typeof value.locator === 'string' &&
+        (value.kind === 'dataset' || value.kind === 'group' || value.kind === 'other') &&
+        (value.shape === undefined ||
+          (Array.isArray(value.shape) && value.shape.every((dim) => typeof dim === 'number'))) &&
+        (value.dtype === undefined || typeof value.dtype === 'string')
+      );
+    case 'modes':
+      return (
+        Array.isArray(value.modes) &&
+        value.modes.every(isMode) &&
+        (value.mode === undefined || isMode(value.mode)) &&
+        typeof value.explorer === 'boolean'
+      );
+    case 'view':
+      return isViewMemory(value.view);
     default:
       return false;
   }
@@ -90,7 +212,9 @@ export function isHostMessage(value: unknown): value is HostMessage {
         typeof value.filepath === 'string' &&
         typeof value.revision === 'number' &&
         (value.locator === undefined || typeof value.locator === 'string') &&
-        (value.theme === undefined || value.theme === 'light' || value.theme === 'dark')
+        (value.theme === undefined || value.theme === 'light' || value.theme === 'dark') &&
+        (value.palette === undefined || isPalette(value.palette)) &&
+        (value.view === undefined || isViewMemory(value.view))
       );
     case 'response':
       return (
@@ -98,6 +222,11 @@ export function isHostMessage(value: unknown): value is HostMessage {
         (value.ok === true
           ? value.body instanceof ArrayBuffer
           : typeof value.status === 'number' && typeof value.message === 'string')
+      );
+    case 'show':
+      return (
+        (value.mode === undefined || isMode(value.mode)) &&
+        (value.explorer === undefined || typeof value.explorer === 'boolean')
       );
     default:
       return false;
