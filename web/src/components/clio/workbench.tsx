@@ -204,6 +204,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       moveTab,
       stepTab,
     } = useWorkbenchTabState(workspaceId, sessionId, inStudy);
+    // Read by open requests, so their callback keeps its identity as tabs change.
+    const latestTabs = useRef({ active: activeTab, tabs: orderedTabs });
+    useLayoutEffect(() => {
+      latestTabs.current = { active: activeTab, tabs: orderedTabs };
+    }, [activeTab, orderedTabs]);
     const [listDirectory, setListDirectory] = useState<string>();
     // Unknown until the panel is first measured.
     const [narrow, setNarrow] = useState<boolean>();
@@ -393,6 +398,20 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           case 'terminal':
             openInstance(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
             return;
+          // A new conversation's first page arrives after it starts: the New page
+          // tab its address was typed in becomes the page, as pickTab does in a conversation.
+          case 'browser': {
+            const tab = tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId);
+            const current = latestTabs.current;
+            const blank = request.fromNewPage
+              ? current.active?.kind === 'list' && current.active.newPage
+                ? current.active
+                : current.tabs.findLast((open) => open.kind === 'list' && open.newPage)
+              : undefined;
+            if (blank) replaceTab(blank.id, tab);
+            else openTab(tab);
+            return;
+          }
           default: {
             if (openInBrowser(request, targetWorkspaceId)) return;
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
@@ -405,6 +424,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         openInstance,
         openSubagentTab,
         openTab,
+        replaceTab,
         sessionId,
         showFolder,
         showList,
