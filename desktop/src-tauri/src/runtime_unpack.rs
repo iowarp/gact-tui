@@ -176,6 +176,7 @@ enum Piece {
 #[cfg(windows)]
 struct PieceReader<'a> {
     pieces: &'a mpsc::Receiver<Piece>,
+    queued: &'a std::sync::atomic::AtomicUsize,
     current: Vec<u8>,
     offset: usize,
     ended: bool,
@@ -188,7 +189,11 @@ impl Read for PieceReader<'_> {
             if self.ended {
                 return Ok(0);
             }
-            match self.pieces.recv() {
+            let piece = self.pieces.recv();
+            if piece.is_ok() {
+                self.queued.fetch_sub(1, Ordering::Relaxed);
+            }
+            match piece {
                 Ok(Piece::Chunk(data)) => {
                     self.current = data;
                     self.offset = 0;
@@ -271,13 +276,20 @@ fn unpack_runtime_with_system_tar(
     }
 
     let mut archive = tar::Archive::new(decoder);
+    // Pieces queued per writer. Each entry goes to the least-loaded writer, so
+    // a writer whose tar.exe waits on a scan when a large file closes doesn't
+    // stall the reading thread.
+    let queued: Vec<std::sync::atomic::AtomicUsize> = (0..children.len())
+        .map(|_| std::sync::atomic::AtomicUsize::new(0))
+        .collect();
     let outcome = thread::scope(|scope| -> Result<(u64, u64), String> {
         let mut senders = Vec::new();
         let mut writers = Vec::new();
         for (index, child) in children.iter_mut().enumerate() {
             let stdin = child.stdin.take().ok_or("tar.exe has no input pipe")?;
             let mut stderr = child.stderr.take().ok_or("tar.exe has no error pipe")?;
-            let (sender, pieces) = mpsc::sync_channel::<Piece>(32);
+            let queued = &queued[index];
+            let (sender, pieces) = mpsc::sync_channel::<Piece>(64);
             senders.push(sender);
             writers.push(
                 thread::Builder::new()
@@ -292,11 +304,13 @@ fn unpack_runtime_with_system_tar(
                             let mut builder =
                                 tar::Builder::new(io::BufWriter::with_capacity(1024 * 1024, stdin));
                             while let Ok(piece) = pieces.recv() {
+                                queued.fetch_sub(1, Ordering::Relaxed);
                                 let Piece::Start(mut header, path) = piece else {
                                     return Err(io::Error::other("runtime entry out of order"));
                                 };
                                 let mut data = PieceReader {
                                     pieces: &pieces,
+                                    queued,
                                     current: Vec::new(),
                                     offset: 0,
                                     ended: false,
@@ -339,24 +353,26 @@ fn unpack_runtime_with_system_tar(
                     .into_owned();
                 checked_destination(staging, &relative)?;
                 let kind = entry.header().entry_type();
-                let target = if kind.is_dir() {
-                    0
-                } else if kind.is_file() {
+                if kind.is_file() {
                     if !seen.insert(relative.to_string_lossy().to_lowercase()) {
                         return Err(format!("runtime pack repeats the file {relative:?}"));
                     }
                     files += 1;
                     bytes += entry.size();
-                    (files as usize) % senders.len()
-                } else {
+                } else if !kind.is_dir() {
                     return Err(format!(
                         "runtime pack contains a link or special entry: {relative:?}"
                     ));
-                };
+                }
+                let target = (0..senders.len())
+                    .min_by_key(|&index| queued[index].load(Ordering::Relaxed))
+                    .unwrap_or(0);
                 let sender = &senders[target];
-                sender
-                    .send(Piece::Start(entry.header().clone(), relative))
-                    .map_err(|_| closed())?;
+                let send = |piece: Piece| {
+                    queued[target].fetch_add(1, Ordering::Relaxed);
+                    sender.send(piece).map_err(|_| closed())
+                };
+                send(Piece::Start(entry.header().clone(), relative))?;
                 let mut left = entry.size();
                 while left > 0 {
                     let mut chunk = vec![0_u8; left.min(CHUNK as u64) as usize];
@@ -364,9 +380,9 @@ fn unpack_runtime_with_system_tar(
                         .read_exact(&mut chunk)
                         .map_err(|e| format!("read runtime entry: {e}"))?;
                     left -= chunk.len() as u64;
-                    sender.send(Piece::Chunk(chunk)).map_err(|_| closed())?;
+                    send(Piece::Chunk(chunk))?;
                 }
-                sender.send(Piece::End).map_err(|_| closed())?;
+                send(Piece::End)?;
                 if last_progress.elapsed() >= Duration::from_secs(3) {
                     let read_mb = consumed.get() / (1024 * 1024);
                     let total_mb = archive_bytes / (1024 * 1024);
