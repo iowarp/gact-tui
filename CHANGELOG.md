@@ -6,6 +6,28 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.12.0] - 2026-11-11
+
+The stable release of the 0.12.0 interface. Everything in 0.12.0-beta.1 below is
+included, plus these changes since the beta.
+
+### Changed
+
+- Everything between two updates in a conversation folds into one row, so session
+  facts, short thoughts and lone tool calls no longer sit loose above the answer
+- Office files (.docx, .xlsx, .pptx) open straight into their rendered preview,
+  with Export to PDF next to Download
+- The ask to turn on notifications lives in the bell instead of a toast over the
+  transcript
+
+### Fixed
+
+- Windows Desktop: the agent receives plain paths instead of `\\?\` paths, which
+  had made the backend hang and then crash after start
+- Windows Desktop: the first launch from the Start menu no longer repeats the
+  package check that the installer already ran
+- A beta lite Desktop installs its own beta agent instead of the latest stable one
+- Linux: the lite AppImage installs and finds its agent
 ## [0.12.0-beta.1] - 2026-11-11
 
 ### Added
