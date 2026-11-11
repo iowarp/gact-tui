@@ -15,6 +15,7 @@ import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationFooter } from './navigation-footer';
 import { NavigationHeader } from './navigation-header';
 import { StableInput } from './primitives/stable-input';
+import { holdPreviews } from './row-preview-hold';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -145,6 +146,8 @@ export function ClioNavigation({
           <nav
             aria-label="Workspace navigation"
             data-keyboard-region=""
+            // Wheeling moves rows under a still pointer; their previews wait for it to move.
+            onWheel={(event) => holdPreviews(event.clientX, event.clientY)}
             ref={navRef}
             {...tourAnchor('workspace-navigation')}
             className="flex h-full min-w-0 flex-1 flex-col"

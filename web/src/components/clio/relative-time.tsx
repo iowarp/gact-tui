@@ -1,10 +1,11 @@
-import type { HTMLAttributes } from 'react';
+import { useSyncExternalStore, type HTMLAttributes } from 'react';
 import {
   RelativeTime,
   RelativeTimeZone,
   RelativeTimeZoneDate,
   RelativeTimeZoneDisplay,
 } from '@/components/kibo-ui/relative-time';
+import { formatFullTimestamp } from '@/lib/full-timestamp';
 import { cn } from '@/lib/utils';
 
 interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
@@ -22,14 +23,16 @@ export function ClioRelativeTime({
   ...props
 }: ClioRelativeTimeProps) {
   const time = new Date(timestamp);
-  if (Number.isNaN(time.getTime())) {
+  const valid = !Number.isNaN(time.getTime());
+  // Every compact label reads one shared coarse clock and re-renders only when its text changes.
+  const compactText = useSyncExternalStore(subscribeClock, () =>
+    compact && valid ? compactTimestamp(time, clockNow()) : '',
+  );
+  if (!valid) {
     return <span className={className}>Unavailable</span>;
   }
 
-  const fullLabel = new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(time);
+  const fullLabel = formatFullTimestamp(time);
 
   if (compact) {
     return (
@@ -40,12 +43,12 @@ export function ClioRelativeTime({
         title={`${label} ${fullLabel}`}
         {...props}
       >
-        {compactTimestamp(time)}
+        {compactText}
       </time>
     );
   }
 
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const timeZone = LOCAL_TIME_ZONE;
   return (
     <RelativeTime
       aria-label={`${label} ${fullLabel}`}
@@ -64,8 +67,46 @@ export function ClioRelativeTime({
   );
 }
 
-function compactTimestamp(time: Date): string {
-  const now = new Date();
+// Formatters are costly to build; a list of rows shares these.
+const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const MONTH_DAY = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const MONTH_DAY_YEAR = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  year: '2-digit',
+});
+const LOCAL_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+// One coarse clock for every compact label: it ticks only while one is mounted.
+const CLOCK_TICK_MS = 30_000;
+const clockListeners = new Set<() => void>();
+let clockTimer: ReturnType<typeof setInterval> | undefined;
+let clockAt = Date.now();
+
+function clockNow(): number {
+  return clockTimer === undefined ? Date.now() : clockAt;
+}
+
+function subscribeClock(listener: () => void): () => void {
+  clockListeners.add(listener);
+  if (clockTimer === undefined) {
+    clockAt = Date.now();
+    clockTimer = setInterval(() => {
+      clockAt = Date.now();
+      for (const notify of clockListeners) notify();
+    }, CLOCK_TICK_MS);
+  }
+  return () => {
+    clockListeners.delete(listener);
+    if (clockListeners.size === 0 && clockTimer !== undefined) {
+      clearInterval(clockTimer);
+      clockTimer = undefined;
+    }
+  };
+}
+
+function compactTimestamp(time: Date, nowMs: number): string {
+  const now = new Date(nowMs);
   const elapsedMilliseconds = Math.max(0, now.getTime() - time.getTime());
   const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
   if (elapsedMinutes < 1) return 'Now';
@@ -79,16 +120,8 @@ function compactTimestamp(time: Date): string {
   const startOfDay = (date: Date) =>
     new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const calendarDays = Math.round((startOfDay(now) - startOfDay(time)) / 86_400_000);
-  if (calendarDays < 7) {
-    return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(time);
-  }
+  if (calendarDays < 7) return WEEKDAY.format(time);
 
-  if (time.getFullYear() === now.getFullYear()) {
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(time);
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: '2-digit',
-  }).format(time);
+  if (time.getFullYear() === now.getFullYear()) return MONTH_DAY.format(time);
+  return MONTH_DAY_YEAR.format(time);
 }

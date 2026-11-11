@@ -10,6 +10,8 @@ UI aren't tracked.
 
 - On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
   only while a conversation is still running
+- The bundled Windows setup installs about 20 s faster: it stores the already-compressed
+  runtime pack as is instead of zlib-compressing it again (the setup is about 3% larger)
 
 ## [0.11.3] - 2026-10-28
 

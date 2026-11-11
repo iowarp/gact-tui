@@ -577,12 +577,16 @@ function refreshedByStream(query: Query): boolean {
 
 class QueryInvalidationBatcher {
   private readonly pending = new Map<string, QueryKey>();
+  /** Window-opening refreshes of throttled reads; they never abort a read in flight. */
+  private readonly leading = new Map<string, QueryKey>();
   private readonly throttled = new Map<string, { key: QueryKey; due: boolean; timer?: number }>();
   private readonly lastRefresh = new Map<string, number>();
   private scheduled = false;
   private stopped = false;
 
-  constructor(private readonly queryClient: Pick<QueryClient, 'invalidateQueries'>) {}
+  constructor(
+    private readonly queryClient: Pick<QueryClient, 'invalidateQueries' | 'isFetching'>,
+  ) {}
 
   push(...keys: QueryKey[]): void {
     if (this.stopped) return;
@@ -598,23 +602,27 @@ class QueryInvalidationBatcher {
       if (entry) {
         entry.due = true;
       } else if (elapsed >= windowMs) {
-        this.pending.set(id, key);
+        this.leading.set(id, key);
         this.lastRefresh.set(id, Date.now());
         this.throttled.set(id, { key, due: false, timer: this.windowEnd(id, windowMs) });
       } else {
         this.throttled.set(id, { key, due: true, timer: this.windowEnd(id, windowMs - elapsed) });
       }
     }
-    if (this.scheduled || this.pending.size === 0) return;
+    if (this.scheduled || this.pending.size + this.leading.size === 0) return;
     this.scheduled = true;
     queueMicrotask(() => this.flush());
   }
 
-  /** The turn ended: refresh every throttled read now, with nothing left waiting. */
+  /**
+   * The turn ended: refresh every throttled read now, with nothing left waiting.
+   * A read already in flight is allowed to finish and is then read once more, so
+   * the final state arrives without aborting a request.
+   */
   flushThrottled(): void {
     for (const [id, entry] of this.throttled) {
       window.clearTimeout(entry.timer);
-      if (entry.due) this.invalidate([entry.key], true);
+      if (entry.due) this.refreshAfterInFlight(entry.key);
       this.lastRefresh.set(id, Date.now());
     }
     this.throttled.clear();
@@ -623,8 +631,11 @@ class QueryInvalidationBatcher {
   flush(): void {
     this.scheduled = false;
     const keys = [...this.pending.values()];
+    const leading = [...this.leading.values()];
     this.pending.clear();
+    this.leading.clear();
     this.invalidate(keys, true);
+    this.invalidate(leading, false);
   }
 
   stop({ flush }: { flush: boolean }): void {
@@ -636,6 +647,7 @@ class QueryInvalidationBatcher {
     this.throttled.clear();
     this.stopped = true;
     this.pending.clear();
+    this.leading.clear();
   }
 
   private windowEnd(id: string, delayMs: number): number {
@@ -647,6 +659,21 @@ class QueryInvalidationBatcher {
       // A read still in flight from the window's start is kept, not restarted.
       this.invalidate([entry.key], false);
     }, delayMs);
+  }
+
+  private refreshAfterInFlight(queryKey: QueryKey): void {
+    const inFlight = this.queryClient.isFetching({ queryKey, predicate: refreshedByStream }) > 0;
+    const refresh = () =>
+      this.queryClient.invalidateQueries(
+        { queryKey, predicate: refreshedByStream },
+        { cancelRefetch: false },
+      );
+    void refresh()
+      .catch(() => undefined)
+      .then(() => {
+        if (inFlight && !this.stopped) return refresh();
+      })
+      .catch(() => undefined);
   }
 
   private invalidate(keys: readonly QueryKey[], cancelRefetch: boolean): void {
