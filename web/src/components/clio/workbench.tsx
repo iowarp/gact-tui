@@ -61,7 +61,12 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
-import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
+import {
+  agentTab,
+  listTab,
+  newBrowserPageTab,
+  WORKBENCH_LIST_TITLES,
+} from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { focusListRow, focusOpenedFrame, refocusActiveCanvasTab } from './workbench-focus';
 import { WorkbenchTabRow } from './workbench-tab-row';
@@ -511,6 +516,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         pickRequest({ kind: 'resource', resource, relatedResources: resources }),
       onOpenSubagent: (subagent) => pickTab(subagentTab(subagent, workspaceId)),
       onOpenDraftBrowserPage,
+      onNewBrowserPage: () => openInstance(newBrowserPageTab),
       onOpenTerminal,
       onRefreshFiles,
       onSelectTab: setActiveTabId,
