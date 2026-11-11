@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { LiveConnection } from '@/test/live-connection';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 // Split from composer.test.tsx (the 800-line CLIO-owned file-size ratchet) --
@@ -157,7 +158,7 @@ function renderComposer({
       </PromptInputProvider>
     </QueryClientProvider>
   );
-  const view = render(build());
+  const view = render(build(), { wrapper: LiveConnection });
   return {
     onCommand,
     onStop,
@@ -175,7 +176,11 @@ function renderComposer({
  */
 function withTestQueryClient(node: ReactNode): ReactNode {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>;
+  return (
+    <LiveConnection>
+      <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+    </LiveConnection>
+  );
 }
 
 describe('ClioComposer service commands', () => {

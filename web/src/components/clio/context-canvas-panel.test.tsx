@@ -50,7 +50,7 @@ describe('ClioContextCanvasPanel', () => {
     expect(screen.getByText('460K / 922K')).toBeVisible();
     expect(screen.getByText('Unattributed prompt')).toBeVisible();
     expect(screen.getByText(/Provider-reported usage/)).toBeVisible();
-    expect(screen.getByText(/Prompt cache: 230K reused \(50.0%\)/)).toBeVisible();
+    expect(screen.getByText(/Prompt cache: 230K reused \(50\.0% of the prompt\)/)).toBeVisible();
     expect(screen.queryByText('Session-only working context')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Context agent' }));
@@ -93,6 +93,8 @@ describe('ClioContextCanvasPanel', () => {
         context={{
           ...context,
           used_tokens: 1000,
+          // No measured cache: cached tokens above the reported total would be added back.
+          cache_tokens_measured: false,
           prompt_breakdown: {
             method: 'characters_div_4',
             tokens_estimated: 1800,
