@@ -6,12 +6,84 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.12.0-beta.1] - 2026-11-11
+
+### Added
+
+- Notebook is the default look in light and dark; the earlier themes remain as Classic
+  light and Classic dark in Settings > Appearance
+- A conversation rail shows context and account usage, goals, questions, todos, running
+  work and what the conversation produced; Customize arranges its sections
+- Notifications list each pending request with Allow and Deny in place, runs that ended
+  while you were away with Retry, and Mark all read
+- Desktop notifications open their conversation when clicked and are on by default; on
+  macOS they use the system notification settings and show a Dock badge
+- Runs and Infrastructure open from the CLIO menu, covering hosts, services, models,
+  storage, tools and activity
+- Move a conversation to another workspace when the agent supports it, and export a
+  conversation as HTML or as a ZIP of its artifacts
+- Ctrl+S puts the composer draft aside; Up in an empty composer brings it back
+- Reference an object inside an HDF5 file with `@file.h5::/path`, and open Jupyter
+  notebooks as cells with their outputs
+- When an agent drafts alternatives, each try opens as a tab and a card picks or refines
+  one
+- GitHub Copilot and Inception Mercury model providers; diffusion answers are drawn as
+  they form
+- Attention heat paints by line, word or token, and you can choose the model SPOTTER
+  runs on
+- A short tutorial runs on first launch and can be replayed from Settings > General
+- When the OS sandbox is off, a banner asks you to acknowledge starting without
+  protection; a blocked write names its folder and offers to allow it
+
 ### Changed
 
+- The left bar, top bar, transcript, composer, permission and question cards, menus,
+  dialogs and toasts are rebuilt on one shared design across Web and Desktop
+- The workbench opens Files, Sources, Artifacts, Activity, Agent, Terminal and Browser
+  as tabs; viewers switch between Render, Source and Lineage, and Activity leads with
+  the timeline of work across subagents again
+- Settings opens as a window grouped into App, Workspace and Agent, and its sections
+  share one row and detail layout
+- The app loads about a quarter of its previous JavaScript at startup; long conversations
+  open at the newest messages, and streaming replies and idle pages cost less
+- Cut-off text can be read in full on hover or keyboard focus, holding Ctrl or Cmd shows
+  each control's keys, and dialogs, pickers and tabs keep keyboard focus
+- Provider installs keep running when you switch views, and a completed sign-in waits
+  until the agent reports the provider ready
+- Skills, plugins, marketplaces and agents list as single-line rows; saved agents and
+  plugins lead the private marketplace
+- Failed sends and uploads explain what happened and offer Retry; a message sent while
+  offline waits and goes out once the connection returns
+- The macOS app is signed with a Developer ID and notarized, requires macOS 14 or later,
+  and has a native menu bar and Mac shortcuts
 - On macOS, closing the window keeps CLIO running in the Dock without asking; Quit asks
   only while a conversation is still running
 - The bundled Windows setup installs about 20 s faster: it stores the already-compressed
   runtime pack as is instead of zlib-compressing it again (the setup is about 3% larger)
+- Windows setup reads the runtime pack once and lets the system's tar tool write its
+  files, so a desktop install takes about half as long
+
+### Fixed
+
+- Enter selects the highlighted model in the model picker
+- The macOS keychain prompt no longer returns after each Allow
+- macOS startup no longer flashes white or flickers before the startup screen
+- Signing in through the browser no longer fails when the browser is slow to send its
+  request
+- Long conversations no longer open blank or lose their newest turns after older
+  messages load
+- "Update ready" no longer appears for a failed update check, and update checks wait
+  for GitHub's rate limit to reset
+- Settings sections and the new conversation screen recover after the agent restarts
+- A flow that ended before its first checkpoint shows as ended, and a parallel group says
+  how many of its calls run at once
+- Tokens left in browser storage by releases from May to August 2026 are removed on start
+
+### Removed
+
+- The conversation Gantt view, the bottom status strip and the starter prompts on a new
+  conversation
+- Legacy terminal UI binaries and container image from releases
 
 ## [0.11.3] - 2026-10-28
 
