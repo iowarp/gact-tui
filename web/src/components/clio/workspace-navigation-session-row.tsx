@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { toast } from 'sonner';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -31,8 +31,10 @@ import { cn } from '@/lib/utils';
 import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-origin';
 import { KeyMenuItem } from './menu-key-items';
 import { selectMenuKey } from './select-menu-key';
+import { formatFullTimestamp } from '@/lib/full-timestamp';
 import { ClioRelativeTime } from './relative-time';
 import { holdPreviews, previewsHeld } from './row-preview-hold';
+import { useHoldRailWhile } from './rail-menu-hold';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
@@ -73,7 +75,12 @@ interface SessionNavigationRowProps {
   topLevel?: boolean;
 }
 
-export function SessionNavigationRow({
+/**
+ * A row re-renders only when its own conversation, attention or selection
+ * changed: streaming and list refreshes elsewhere leave it alone. Callbacks
+ * must be stable (the rail passes latest-ref wrappers).
+ */
+export const SessionNavigationRow = memo(function SessionNavigationRow({
   session,
   workspaceId,
   workspacePath,
@@ -128,6 +135,36 @@ export function SessionNavigationRow({
       ) : null}
     </div>
   );
+}, sameRowProps);
+
+function sameRowProps(prev: SessionNavigationRowProps, next: SessionNavigationRowProps): boolean {
+  for (const key of Object.keys({ ...prev, ...next }) as (keyof SessionNavigationRowProps)[]) {
+    if (key === 'activeSessionId') {
+      if ((prev.activeSessionId === prev.session.id) !== (next.activeSessionId === next.session.id))
+        return false;
+    } else if (key === 'attention') {
+      if (!sameAttention(prev.attention, next.attention)) return false;
+    } else if (!Object.is(prev[key], next[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// The attention map is rebuilt on every list change; compare what the row shows.
+function sameAttention(a?: SessionAttention, b?: SessionAttention): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.total !== b.total) return false;
+  const sameList = <T,>(x: readonly T[] = [], y: readonly T[] = []) =>
+    x.length === y.length && x.every((item, index) => Object.is(item, y[index]));
+  return (
+    sameList(a.permissionIds, b.permissionIds) &&
+    sameList(a.questionIds, b.questionIds) &&
+    sameList(a.mcpTaskInputIds, b.mcpTaskInputIds) &&
+    sameList(a.a2uiIds, b.a2uiIds) &&
+    sameList(a.unknownIds, b.unknownIds) &&
+    sameList(a.requests, b.requests)
+  );
 }
 
 function SessionRow({
@@ -161,6 +198,7 @@ function SessionRow({
   const closeDialog = () => presentDialog(null);
   // One menu for ⋯ and right-click; the hover card stays out of its way while open.
   const [menuOpen, setMenuOpen] = useState(false);
+  useHoldRailWhile(menuOpen);
   const [hoverOpen, setHoverOpen] = useState(false);
   // The phone sheet leaves no room beside it for the preview, and touch has no hover.
   const isMobile = useIsMobile();
@@ -511,9 +549,7 @@ function sessionStateLabel(state: Session['state']): string {
 function startedLabel(timestamp: string): string {
   const time = new Date(timestamp);
   if (Number.isNaN(time.getTime())) return 'at an unknown time';
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    time,
-  );
+  return formatFullTimestamp(time);
 }
 
 function messageCountLabel(count: number | undefined): string {

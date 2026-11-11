@@ -275,7 +275,11 @@ type LiveStatusStripProps = Omit<
 };
 
 export function WorkspaceLiveStatusStrip({ sessionId, work, ...props }: LiveStatusStripProps) {
-  const stream = useLiveStore((state) => state.entities.stream);
+  // Only an open session stream writes `stream`; with none open (a missing
+  // conversation, or before the stream starts) the value is stale, not an outage.
+  const stream = useLiveStore((state) =>
+    state.streamOwners > 0 ? state.entities.stream : 'live',
+  );
   // The cursor advances on every frame but is only shown while recovering.
   const cursor = useLiveStore((state) =>
     state.entities.stream === 'reconnecting' || state.entities.stream === 'gapped'

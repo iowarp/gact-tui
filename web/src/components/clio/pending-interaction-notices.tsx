@@ -8,10 +8,25 @@
  *   - the negotiation that degraded but did not fail;
  *   - who is asking, when it is not the session on screen.
  */
-import type { PendingInteraction } from '@clio/core/v3';
+import type { PendingInteraction, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon, BotIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { isOfflineError } from '@/lib/list-state';
 import { AskError } from './ask-card';
+
+/**
+ * The read failure worth a "Some responses could not be read" alert. While the
+ * service is offline, reconnecting or reopening its stream, the connection status
+ * already says why reads fail, and a request that never reached the service is
+ * that same outage; neither is a missing response.
+ */
+export function responseReadFailure(
+  error: Error | undefined,
+  connection: StreamState,
+): Error | undefined {
+  if (!error || connection !== 'live' || isOfflineError(error)) return undefined;
+  return error;
+}
 
 /**
  * The surface's own read failure, and any degradation that did not fail.
