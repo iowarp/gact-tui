@@ -96,6 +96,18 @@ const VIEW = toolSettingsSchema.parse({
   ],
 });
 
+// jsdom has no layout. The Tools table measures its width to pick a fold, and mounts only
+// the parts that fold shows, so each test gives it one: wide by default, the full table.
+let tableWidth: { mockRestore(): void } | undefined;
+function measureTableAt(width: number) {
+  tableWidth?.mockRestore();
+  tableWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'tools-table' ? width : 0;
+  });
+}
+
 function client() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
@@ -158,10 +170,16 @@ const PLUGINS = [
     mcp_servers: ['home', 'calendar'],
   },
   { ref: 'clio-builtin/empty', id: 'empty-pack', description: '' },
-  { ref: 'clio-builtin/postgres', id: 'postgres-tools', description: '', mcp_servers: ['postgres'] },
+  {
+    ref: 'clio-builtin/postgres',
+    id: 'postgres-tools',
+    description: '',
+    mcp_servers: ['postgres'],
+  },
 ].map((plugin) => pluginEntrySchema.parse(plugin));
 
 beforeEach(() => {
+  measureTableAt(1200);
   viewport.inView = true;
   vi.stubGlobal('IntersectionObserver', InViewObserver);
   repository.toolSettings.mockImplementation(async (ref: string) => {
@@ -185,6 +203,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  tableWidth?.mockRestore();
+  tableWidth = undefined;
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -197,8 +217,8 @@ it('groups tools by their flags and states defaults and outcomes in words', asyn
   expect(within(read).getByTitle(/read-only tools run without asking/u)).toBeVisible();
   expect(within(write).getAllByText('Destructive').length).toBeGreaterThan(0);
   expect(within(write).getByText('Rule: allowed in one conversation')).toBeVisible();
-  // The mode's outcome and the script's outcome, each a mark with a word.
-  expect(within(write).getAllByText("Agent can't call it").length).toBeGreaterThan(0);
+  // The mode's outcome and the script's outcome, each a mark with a word in its own column.
+  expect(within(write).getAllByText('Not available').length).toBeGreaterThan(0);
   expect(within(write).getAllByText('Asks you').length).toBeGreaterThan(0);
   expect(screen.getByText('Not loaded yet')).toBeVisible();
   expect(screen.getAllByTitle(/Tools of calendar appear here/u).length).toBeGreaterThan(0);
@@ -430,14 +450,19 @@ it('names every page in text, as the spec segment does', () => {
 });
 
 it('a summary row opens one picker for both choices and keeps the reason', async () => {
+  measureTableAt(400);
   const user = userEvent.setup();
   renderPage();
   const write = await screen.findByRole('region', { name: 'Write and delete tools' });
-  // The sub line: the values a summary row shows, the outcomes, then the reason.
-  expect(within(write).getByText('Rule: allowed in one conversation')).toBeInTheDocument();
+  // The sub line folds the outcomes in as words.
+  expect(within(write).getByText("Agent can't call it")).toBeInTheDocument();
+  expect(within(write).getByText('Script asks you')).toBeInTheDocument();
+  // A summary row has no room for the reason on its line; its picker states it.
+  expect(within(write).queryByText('Rule: allowed in one conversation')).toBeNull();
   await user.click(
     within(write).getByRole('button', { name: 'Permission and I/O: home_light_set' }),
   );
+  expect(await screen.findByText('Destructive. Rule: allowed in one conversation.')).toBeVisible();
   await user.click(await screen.findByRole('option', { name: /^Both/u }));
   expect(repository.updateToolSettings).toHaveBeenLastCalledWith({
     tools: ['home_light_set'],
@@ -454,6 +479,7 @@ it('a summary row opens one picker for both choices and keeps the reason', async
 }, 15_000);
 
 it("a group's summary row sets the whole group", async () => {
+  measureTableAt(400);
   const user = userEvent.setup();
   renderPage();
   await screen.findByRole('region', { name: 'Read-only tools' });
