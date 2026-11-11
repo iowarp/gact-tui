@@ -103,17 +103,16 @@ describe('ClioWorkbench canvas', () => {
     expect(within(list).getByText('Earlier')).toBeVisible();
   });
 
-  it('opens a new page when the Browser list opens with none', async () => {
+  it('opens a new page from the strip Browser with its address field focused', async () => {
     const user = userEvent.setup();
     repository.browserPages.mockResolvedValue([]);
     renderWorkbench();
 
-    await user.click(strip().getByRole('button', { name: 'Browser pages' }));
-    const list = screen.getByRole('region', { name: 'Browser pages list' });
-    expect(await within(list).findByRole('textbox', { name: 'Address' })).toHaveFocus();
+    await user.click(strip().getByRole('button', { name: 'Browser' }));
+    expect(await screen.findByRole('textbox', { name: 'Address' })).toHaveFocus();
   });
 
-  it('lists browser pages after "New page"', async () => {
+  it('lists the open browser pages from the Browser menu', async () => {
     const user = userEvent.setup();
     repository.browserPages.mockResolvedValue([
       {
@@ -125,11 +124,17 @@ describe('ClioWorkbench canvas', () => {
       },
     ]);
     renderWorkbench();
-    await user.click(strip().getByRole('button', { name: 'Browser pages' }));
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: strip().getByRole('button', { name: 'Browser' }),
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Show browser pages' }));
     const rows = await within(
       screen.getByRole('region', { name: 'Browser pages list' }),
     ).findAllByRole('button', { name: /New page|Example/ });
-    expect(rows.map((row) => row.textContent)).toEqual(['New page', 'Exampleexample.org']);
+    // The list is plain page rows; New page stays on the strip's Browser.
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent(/^Exampleexample\.org/u);
     expect(screen.queryByRole('textbox', { name: 'Address' })).not.toBeInTheDocument();
   });
 
