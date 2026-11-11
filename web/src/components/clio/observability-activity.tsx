@@ -33,6 +33,7 @@ import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { flowLabel } from './flow-tool-presentation';
+import { taskFlow } from './task-flow-state';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -119,7 +120,8 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
 export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
-  if (process.flow) return `${flowLabel(process.flow.id)} run`;
+  const flow = taskFlow(process);
+  if (flow) return `${flowLabel(flow.id)} run`;
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }

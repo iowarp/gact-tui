@@ -79,7 +79,7 @@ export function RailRuns({
   const canRetry = (run: RailRun) => run.retryable && Boolean(run.entry.process && onControlTask);
   const open = (run: RailRun, target: 'canvas' | 'conversation' = 'canvas') => {
     const { process, subagent } = run.entry;
-    if (process?.flow && onOpenFlow) return onOpenFlow(run.row.taskId, run.row.label);
+    if (run.row.flowHandle && onOpenFlow) return onOpenFlow(run.row.flowHandle, run.row.label);
     const conversation =
       subagent ?? (process ? mergeSessionSubagents([], [process])[0] : undefined);
     if (conversation?.child_session_id) onOpenSubagent?.(conversation, target);
