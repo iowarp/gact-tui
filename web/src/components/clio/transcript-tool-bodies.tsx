@@ -184,7 +184,8 @@ export function TranscriptTerminalBody({
               <CopyAction value={command} label="Copy command" />
             </span>
           </div>
-          <pre className={cn('overflow-x-auto border-b border-border px-3 py-1.5', MONO)}>
+          {/* Bounded like the output, so a long script never pushes its result out of view. */}
+          <pre className={cn('max-h-60 overflow-auto border-b border-border px-3 py-1.5', MONO)}>
             <span aria-hidden="true" className="mr-2 text-muted-foreground">
               $
             </span>

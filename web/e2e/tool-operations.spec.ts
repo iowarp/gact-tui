@@ -56,6 +56,11 @@ const skillBatch: ToolInvocation = {
     ],
   },
 };
+// The finished audit child's only recorded call, served from its transcript page.
+const childCall: ToolInvocation = {
+  ...tool('child-read', 'fs_read_file', { path: '/workspace/observations.csv' }, 'id,value\n'),
+  session_id: 'child-audit',
+};
 const fixture = {
   subagents: {
     build: {
@@ -155,8 +160,11 @@ for (const width of [1440, 390]) {
     page.on('pageerror', (error) => errors.push(error.message));
     await page.route('**/__test/operation-tools', (route) => route.fulfill({ json: fixture }));
     await page.route('**/v1/**', (route) => {
-      requests.push(route.request().url());
-      return route.fulfill({ json: {} });
+      const url = new URL(route.request().url());
+      requests.push(`${url.pathname}${url.search}`);
+      return route.fulfill({
+        json: url.pathname.endsWith('/messages') ? { messages: [], tools: [childCall] } : {},
+      });
     });
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/tests/review/tool-operations.html');
@@ -181,6 +189,13 @@ for (const width of [1440, 390]) {
     await expect(row('delegate')).toContainText(
       'Check the package against the original observations.',
     );
+    // Opening a delegate reads its child's newest bounded page once: nothing is
+    // read on render, and a finished child is never polled.
+    await expect(
+      row('delegate').getByRole('group', { name: 'Calls by Independent audit' }),
+    ).toContainText('observations.csv');
+    const childPage = ['/v1/sessions/child-audit/messages?limit=40'];
+    expect(requests).toEqual(childPage);
     await opener('returned', 'Wait for').click();
     await expect(
       row('returned').getByRole('heading', { name: 'Build package report' }),
@@ -248,7 +263,7 @@ for (const width of [1440, 390]) {
         .evaluateAll((nodes) => nodes.some((node) => getComputedStyle(node).overflowY === 'auto')),
     ).toBe(false);
     expect(errors).toEqual([]);
-    expect(requests).toEqual([]);
+    expect(requests).toEqual(childPage);
     await page.getByRole('button', { name: 'Expand all', exact: true }).click();
     await expect(
       row('returned').getByRole('heading', { name: 'Build package report' }),
