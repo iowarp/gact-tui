@@ -215,7 +215,7 @@ export function ToolCompactRow({
           <button
             type="button"
             disabled={!operation.expandable}
-            aria-label={`Show result for ${action}`}
+            aria-label={`Show result for ${denied ? `denied ${action}` : action}`}
             data-slot="tool-action-text"
             // The chevron is the row's tab stop; the name repeats it for the pointer.
             tabIndex={-1}
