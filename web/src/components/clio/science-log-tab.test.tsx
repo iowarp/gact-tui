@@ -227,7 +227,8 @@ describe('Science log tab', () => {
   it('frames the log with its count and two modes, the log and the study graph', () => {
     render(<ScienceLogView sessionId="sess_root" study={study} views={<p>Live boards</p>} />);
     const frame = screen.getByRole('toolbar', { name: 'Science log' });
-    expect(within(frame).getByText('8 entries')).toHaveAttribute('data-frame-position');
+    // A count, not a position: it folds with the other facts (runs-attention/09).
+    expect(within(frame).getByText('8 entries')).not.toHaveAttribute('data-frame-position');
     expect(within(frame).getByRole('tab', { name: 'Log' })).toHaveAttribute(
       'aria-selected',
       'true',

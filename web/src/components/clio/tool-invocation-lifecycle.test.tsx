@@ -134,7 +134,8 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: /^Cancelled/ })).toBeVisible();
+    // A cancelled call reads Stopped, its runtime diagnostic kept out of the name.
+    expect(screen.getByRole('img', { name: 'Stopped' })).toBeVisible();
     expect(screen.queryByText(/CancellationError/u)).not.toBeInTheDocument();
   });
 

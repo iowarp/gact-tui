@@ -9,7 +9,9 @@ import type {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useContext } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ObservabilityViewControl } from './observability-view-control';
 import { QuestionAnswerContext } from './question-answer-context';
 import { ClioWorkbench } from './workbench';
 import {
@@ -118,6 +120,17 @@ function source(fields: Partial<WorkbenchActivitySource> = {}): WorkbenchActivit
   };
 }
 
+/** The conversation timeline as the Activity tab hosts it: under the host's header. */
+function TimelineView() {
+  const control = useContext(ObservabilityViewControl);
+  return (
+    <>
+      {control?.renderHeader?.(null)}
+      <p>Timeline view</p>
+    </>
+  );
+}
+
 function mount(
   activity = source(),
   answer = { openQuestion: vi.fn(), startAnswer: vi.fn(), stopAnswer: vi.fn() },
@@ -135,7 +148,7 @@ function mount(
             onOpenSubagent={onOpenSubagent}
             onUndoDiff={vi.fn()}
             sessionId="session_parent"
-            sessionView={<p>Timeline view</p>}
+            sessionView={<TimelineView />}
             workspaceId="workspace_1"
           />
         </WorkbenchActivityProvider>
@@ -147,16 +160,37 @@ function mount(
 
 async function openActivity() {
   const user = userEvent.setup();
-  // A conversation's pocket opens on its Activity tab; the lit icon again would leave it.
+  // An empty pocket opens on Files; the lit Activity icon again would leave Activity.
   const button = within(screen.getByRole('toolbar', { name: 'Workbench lists' })).getByRole(
     'button',
     { name: 'Activity' },
   );
   if (button.getAttribute('aria-pressed') !== 'true') await user.click(button);
+  const list = screen.getByRole('region', { name: 'Activity list' });
+  // Activity leads with the causal timeline; every event as a flat list is its Events view.
+  if (within(list).queryByText('Timeline view')) {
+    await user.click(within(list).getByRole('button', { name: 'Activity views' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Events' }));
+  }
   return { user, list: screen.getByRole('region', { name: 'Activity list' }) };
 }
 
 describe('Workbench Activity', () => {
+  it('leads with the causal timeline, the flat event list one view away', async () => {
+    mount();
+    await userEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Workbench lists' })).getByRole('button', {
+        name: 'Activity',
+      }),
+    );
+    const list = screen.getByRole('region', { name: 'Activity list' });
+    expect(within(list).getByText('Timeline view')).toBeVisible();
+    expect(within(list).queryByRole('listitem')).toBeNull();
+    await openActivity();
+    expect(within(list).queryByText('Timeline view')).toBeNull();
+    expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(0);
+  });
+
   it('groups what ran into Now, This turn and Earlier with a fixed trailing column', async () => {
     mount();
     const { list } = await openActivity();

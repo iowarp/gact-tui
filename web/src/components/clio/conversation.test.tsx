@@ -242,10 +242,8 @@ describe('ClioConversation recovery actions', () => {
     const attachment = screen.getByLabelText('Open paper.pdf');
     expect(attachment).toHaveTextContent('paper.pdf');
     expect(attachment).not.toHaveTextContent('Converted');
-    expect(within(attachment).getByLabelText('Attachment status: Ready')).toHaveAttribute(
-      'role',
-      'img',
-    );
+    // A ready attachment needs no status.
+    expect(within(attachment).queryByLabelText(/^Attachment status/)).toBeNull();
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     const textBubble = screen
       .getByText('Analyze this filing.')
@@ -257,7 +255,7 @@ describe('ClioConversation recovery actions', () => {
       'group-[.is-user]:py-[9px]',
     );
     expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
-    const attachmentTray = attachment.closest<HTMLElement>('[data-slot="scroll-area"]');
+    const attachmentTray = attachment.closest<HTMLElement>('[data-slot="message-attachments"]');
     expect(attachmentTray).not.toContainElement(textBubble);
     expect(textBubble?.parentElement?.firstElementChild).toBe(attachmentTray);
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();

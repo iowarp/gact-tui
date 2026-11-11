@@ -277,7 +277,8 @@ export function FileViewerShell({
     ? isSourceMode({ value: selectedValue })
     : sourceMode !== undefined && renderer?.value === sourceMode.value;
   // A file whose only rendering is its source (code) states its facts there, e.g. its language.
-  const sourceOnly = (renderer?.modes.length ?? 0) < 2;
+  // A frame-level Source tab sits beside another rendering, so it states the bytes.
+  const sourceOnly = !frameActive && (renderer?.modes.length ?? 0) < 2;
   const positioned =
     selectedValue === LINEAGE_VIEW || ((!showingSource || sourceOnly) && rendererFacts.length > 0);
   // A view with no mode segment (one representation) states its facts and its size.

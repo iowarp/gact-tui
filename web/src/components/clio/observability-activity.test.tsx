@@ -379,7 +379,8 @@ describe('child work activity projection', () => {
     const listed = items.find((item) => item.id === 'projected:tool_list');
 
     expect(read?.label).toBe('Read very-long-station-quality-summary.md');
-    expect(listed?.label).toBe('fs_list_directory reports');
+    // Humane action names, never the tool id.
+    expect(listed?.label).toBe('List reports');
     read?.onActivate?.();
     expect(onOpenFile).toHaveBeenCalledWith('reports/very-long-station-quality-summary.md');
     expect(listed?.onActivate).toBeUndefined();
@@ -558,6 +559,8 @@ describe('child work activity projection', () => {
 
     const items = childProjectionActivityItems(untitledOwnerProvenance, []);
 
-    expect(items.find((item) => item.id === 'task_child:branch-open')?.label).toBe('Untitled task');
+    expect(items.find((item) => item.id === 'task_child:branch-open')?.label).toBe(
+      'Subagent started',
+    );
   });
 });

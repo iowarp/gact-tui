@@ -157,7 +157,8 @@ describe('FileBrowser', () => {
       />,
     );
 
-    expect(screen.getByText(/Hide dot files and folders.*is on/)).toBeVisible();
+    expect(screen.getByText('No files in this workspace')).toBeVisible();
+    expect(screen.getByText(/^Hidden files are off in Settings/)).toBeVisible();
   });
 
   it('refetches once as soon as the Files view mounts (opening the tab)', () => {

@@ -59,7 +59,9 @@ it('shows the model, tokens and duration of a finished answer, with details in t
       <button>Copy</button>
     </MessageCompletionFooter>,
   );
-  expect(screen.getByText('Stopped')).toHaveClass('text-destructive');
+  // A stop is said in words, muted: it is not a failure.
+  expect(screen.getByText('Stopped')).toBeVisible();
+  expect(screen.getByText('Stopped')).not.toHaveClass('text-destructive');
   expect(view.container).not.toHaveTextContent('in,');
   expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
