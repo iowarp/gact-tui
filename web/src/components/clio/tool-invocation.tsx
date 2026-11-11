@@ -82,7 +82,8 @@ export function ClioToolInvocation({
   sessionId?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
-  const questionContext = useQuestionAnswer();
+  // A live workspace shares its interaction inventory; an export carries it on its navigation.
+  const interactions = useQuestionAnswer()?.interactions ?? navigation?.interactions;
   const sentMessage = sentAgentMessage(tool);
   const recipientTitle = useLiveStore(
     (state) => state.entities.sessions[sentMessage?.sessionId ?? sentMessage?.target ?? '']?.title,
@@ -139,16 +140,14 @@ export function ClioToolInvocation({
               withSkillPresentation(
                 withTaskWaitInterruption(
                   withTodoPresentation(
-                    withStorageToolPresentation(
-                      withPermissionDecision(tool, questionContext?.interactions),
-                    ),
+                    withStorageToolPresentation(withPermissionDecision(tool, interactions)),
                   ),
                 ),
               ),
               navigation?.resources,
             ),
           ),
-          questionContext?.interactions,
+          interactions,
         ),
         agentMessageName(
           sentMessage?.sessionId ?? sentMessage?.target,
@@ -251,9 +250,7 @@ export function ClioToolInvocation({
     contentBlocks.length > 0 &&
     contentBlocks.every((block) => block.type === 'code');
   const questionReading =
-    surface !== 'evidence'
-      ? answeredQuestionReading(tool, questionContext?.interactions)
-      : undefined;
+    surface !== 'evidence' ? answeredQuestionReading(tool, interactions) : undefined;
   const gateSource = (node: ReactNode) =>
     sourceOnly ? <UnlessNestedCalls parentId={tool.id}>{node}</UnlessNestedCalls> : node;
   return (

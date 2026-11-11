@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { expect, vi, type Mock } from 'vitest';
 import { toMessagePart } from '@/lib/composer-reference-domain';
@@ -9,7 +10,7 @@ import { ConnectedSourcePicker } from './connected-source-picker';
 export async function assertFolderResourceAttachment(attachSourceFolder: Mock) {
   const onSelect = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={client}>
       <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={onSelect} />
     </QueryClientProvider>,

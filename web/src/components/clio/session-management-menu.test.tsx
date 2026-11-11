@@ -7,6 +7,12 @@ import type { ResourceActions } from './resource-dialogs';
 import { ClioSessionActions } from './session-actions';
 import { downloadUrl } from './surface-export';
 
+// The Move to submenu reads service capabilities through the ConnectionProvider the app supplies.
+vi.mock('@/hooks/use-session-move', () => ({
+  useSessionMoveSupported: () => false,
+  useSessionMoveTargets: () => ({ data: undefined }),
+}));
+
 vi.mock('./surface-export', () => ({ downloadUrl: vi.fn() }));
 
 vi.mock('sonner', () => ({
@@ -77,7 +83,7 @@ it('renames from the header using the shared resource dialog', async () => {
   const { actions, user, open } = setup();
   await open();
   await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
-  expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeVisible();
+  expect(screen.getByRole('dialog', { name: 'Rename conversation' })).toBeVisible();
   // The name is the point of the dialog: it takes focus with its text selected.
   const name = screen.getByRole<HTMLInputElement>('textbox', { name: 'Name' });
   await waitFor(() => expect(name).toHaveFocus());
@@ -109,11 +115,13 @@ it('requires the existing permanent deletion confirmation and keeps failures vis
   await open();
   await user.click(screen.getByRole('menuitem', { name: 'Delete…' }));
   expect(actions.deleteSession).not.toHaveBeenCalled();
-  expect(screen.getByRole('alertdialog')).toHaveTextContent('permanently removes the session');
-  await user.click(screen.getByRole('button', { name: 'Remove session' }));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(
+    'Removes it and its record from the service. This can’t be undone.',
+  );
+  await user.click(screen.getByRole('button', { name: /^Delete permanently/ }));
   expect(screen.getByRole('alert')).toHaveTextContent('Service unavailable');
   expect(screen.getByRole('alertdialog')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Remove session' }));
+  await user.click(screen.getByRole('button', { name: /^Delete permanently/ }));
   expect(actions.deleteSession).toHaveBeenCalledTimes(2);
   await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 });

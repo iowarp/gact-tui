@@ -1,5 +1,6 @@
 import { managedServiceDefinitionSchema } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -67,7 +68,7 @@ function service(phase: 'stopped' | 'not_installed', variant = 'native-cuda') {
 
 function mount(phase: 'stopped' | 'not_installed', variant = 'native-cuda') {
   const onAction = vi.fn();
-  render(
+  renderWithTooltips(
     <MemoryRouter>
       <ManagedServiceCard
         service={service(phase, variant)}

@@ -1,6 +1,7 @@
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const fixture = vi.hoisted(() => ({
@@ -78,7 +79,7 @@ function setup(outerForm = false) {
   const onChange = vi.fn();
   const outerSubmit = vi.fn((event) => event.preventDefault());
   const content = <SourceSshTarget onChange={onChange} />;
-  render(
+  renderWithTooltips(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >

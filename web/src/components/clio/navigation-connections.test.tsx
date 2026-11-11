@@ -1,4 +1,5 @@
 import { brand } from '@brand';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -70,23 +71,26 @@ afterEach(cleanup);
 
 it('offers the managed local service from Aurora even though only Aurora is remembered', async () => {
   const user = userEvent.setup();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = () => (
-    <MemoryRouter>
-      <TooltipProvider>
-        <SidebarProvider>
-          <ClioNavigation
-            endpoint={mocks.settings.endpoint}
-            workspaces={[]}
-            sessions={[]}
-            activeWorkspaceId=""
-            activeSessionId=""
-            actions={{} as ResourceActions}
-            agents={[]}
-            attentions={{}}
-          />
-        </SidebarProvider>
-      </TooltipProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <TooltipProvider>
+          <SidebarProvider>
+            <ClioNavigation
+              endpoint={mocks.settings.endpoint}
+              workspaces={[]}
+              sessions={[]}
+              activeWorkspaceId=""
+              activeSessionId=""
+              actions={{} as ResourceActions}
+              agents={[]}
+              attentions={{}}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
   const { rerender } = render(view());
   for (const destination of [mocks.connections[1]!, mocks.connections[0]!]) {

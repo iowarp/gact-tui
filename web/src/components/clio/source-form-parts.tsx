@@ -93,15 +93,15 @@ export function SourceField({
   const Label = htmlFor ? 'label' : 'div';
   return (
     <div className={cn('flex min-w-0 flex-col gap-[5px]', className)}>
-      <Label
-        htmlFor={htmlFor}
-        className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground"
-      >
-        {label}
+      {/* The aside stays outside the label so its controls never join the field's name. */}
+      <div className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+          {label}
+        </Label>
         {aside ? (
           <span className="ml-auto flex items-center gap-1.5 text-[11px] text-faint">{aside}</span>
         ) : null}
-      </Label>
+      </div>
       {children}
       {hint ? <p className="text-[11px] leading-[1.45] text-faint">{hint}</p> : null}
     </div>

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -97,7 +98,7 @@ const source = {
 
 it('relinks an existing unlinked source from Files without a composer draft', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={client}>
       <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
     </QueryClientProvider>,
@@ -145,7 +146,7 @@ it.each([1, 2])(
         <ConnectedSourcePicker workspaceId="w" manageOnly open={open} onOpenChange={vi.fn()} />
       </QueryClientProvider>
     );
-    const rendered = render(view(true));
+    const rendered = renderWithTooltips(view(true));
     const user = userEvent.setup();
     expect(await screen.findByText('Your sources')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Choose folder' })).toBeNull();
@@ -170,7 +171,7 @@ it('opens a summary-selected source directly without changing the composer selec
     'w',
   ];
   client.setQueryData(key, 'some-other-source');
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={client}>
       <ConnectedSourcePicker
         workspaceId="w"
@@ -206,7 +207,7 @@ describe('with no conversations in the workspace', () => {
   });
   const open = async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithTooltips(
       <QueryClientProvider client={client}>
         <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
@@ -243,14 +244,16 @@ describe('with no conversations in the workspace', () => {
 
   it('downloads into the started conversation and reuses it for later work', async () => {
     const { user } = await open();
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    // Download a copy sits beside Link and follows the one Access choice (Read only here).
+    expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Download a copy' }));
     await waitFor(() =>
       expect(repository.transferConnectedSource).toHaveBeenCalledWith(
         'w',
         's1',
         undefined,
         undefined,
-        'editable',
+        'read_only',
         'session_new',
       ),
     );
@@ -261,7 +264,7 @@ describe('with no conversations in the workspace', () => {
         's1',
         ['input.csv'],
         undefined,
-        'editable',
+        'read_only',
         'session_new',
       ),
     );

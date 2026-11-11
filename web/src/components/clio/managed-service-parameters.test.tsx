@@ -1,6 +1,7 @@
 import type { ManagedServiceDefinition, ServerParameter } from '@clio/core/v3';
 import { managedServiceDefinitionSchema } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -109,7 +110,7 @@ function renderCard(
 ) {
   const onConfiguration = vi.fn();
   const onAction = vi.fn();
-  render(
+  renderWithTooltips(
     <MemoryRouter>
       <ManagedServiceCard
         configuration={configuration}
@@ -209,7 +210,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('shows the operation progress CLIO reports while an install runs', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
@@ -229,7 +230,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('says an install can take several minutes as it starts, without a dialog', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
@@ -249,7 +250,7 @@ describe('model runtime server parameters', () => {
   });
 
   it('keeps an unrelated action free of the install expectation', () => {
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="stop"
@@ -306,7 +307,7 @@ describe('deployments CLIO lost track of', () => {
   it('lets a running install be cancelled', async () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
-    render(
+    renderWithTooltips(
       <MemoryRouter>
         <ManagedServiceCard
           activeAction="install"
