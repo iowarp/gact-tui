@@ -72,6 +72,11 @@ interface TranscriptAutoscroll {
   followingRef: RefObject<boolean>;
   /** Render-time engagement; the scroll-to-bottom control shows when false and scrollable. */
   engaged: boolean;
+  /**
+   * Engaged, but a non-user navigation left the view off the bottom, so growth
+   * is not followed. The scroll-to-bottom control also shows in this state.
+   */
+  adrift: boolean;
   /** Whether the transcript actually overflows its viewport. */
   scrollable: boolean;
   /** Programmatic scroll to the bottom. Never changes engagement. */
@@ -102,12 +107,14 @@ interface TranscriptAutoscroll {
  *
  * Following also requires the view to be stuck to the bottom. A non-user
  * programmatic navigation (a script's `scrollTo`, find-in-page, a focus
- * `scrollIntoView`) is not user intent, so it never disengages or shows the
- * button, but it does unstick the view: growth then leaves it where that code
- * put it instead of seizing it back. A scroll is navigation when the geometry
- * is unchanged since the last observation; one that coincides with a size
- * change (virtualizer compensation, a clamp) is layout and leaves the stuck
- * state alone.
+ * `scrollIntoView`) is not user intent, so it never disengages, but it does
+ * unstick the view: growth then leaves it where that code put it instead of
+ * seizing it back, and the view is `adrift`, which offers the button so the
+ * reader can always get back. A scroll is navigation when the geometry is
+ * unchanged since the last observation; one that coincides with a size change
+ * (virtualizer compensation, a clamp) is layout and leaves the stuck state
+ * alone. The button's own smooth scroll is neither: it stays stuck until it
+ * arrives.
  */
 export function useTranscriptAutoscroll(
   scrollRef: RefObject<HTMLDivElement | null>,
@@ -118,12 +125,17 @@ export function useTranscriptAutoscroll(
   // ref stays current so following never re-renders the transcript for it.
   const scrollableRef = useRef(false);
   const [scrollable, setScrollableState] = useState(false);
+  const adriftRef = useRef(false);
+  const [adrift, setAdriftState] = useState(false);
   const setScrollable = useCallback((next: boolean) => {
     scrollableRef.current = next;
-    if (!engagedRef.current) setScrollableState(next);
+    if (!engagedRef.current || adriftRef.current) setScrollableState(next);
   }, []);
   const stuckRef = useRef(true);
   const followingRef = useRef(true);
+  // Set while the jump control's smooth scroll is on its way to the bottom.
+  // Its intermediate scroll events are ours, not navigation away.
+  const jumpingRef = useRef(false);
   // Geometry at the last scroll we observed or produced. Deliberately not
   // updated by the ResizeObserver, so the scroll event a resize causes still
   // reads as a size change.
@@ -142,6 +154,11 @@ export function useTranscriptAutoscroll(
   const setStuck = useCallback((next: boolean) => {
     stuckRef.current = next;
     followingRef.current = engagedRef.current && next;
+    const nextAdrift = engagedRef.current && !next;
+    if (adriftRef.current === nextAdrift) return;
+    adriftRef.current = nextAdrift;
+    setAdriftState(nextAdrift);
+    if (nextAdrift) setScrollableState(scrollableRef.current);
   }, []);
 
   const setEngaged = useCallback(
@@ -172,6 +189,7 @@ export function useTranscriptAutoscroll(
       const element = scrollRef.current;
       if (!element) return;
       element.scrollTo({ behavior, top: element.scrollHeight });
+      jumpingRef.current = behavior === 'smooth';
       programmaticTopRef.current = behavior === 'smooth' ? null : element.scrollTop;
       recordGeometry(element);
       setStuck(true);
@@ -190,6 +208,7 @@ export function useTranscriptAutoscroll(
   const noteUserInput = useCallback(() => {
     lastUserInputAtRef.current = performance.now();
     programmaticTopRef.current = null;
+    jumpingRef.current = false;
   }, []);
 
   /** Disengage now, before a queued follow can cancel the reader's scroll. */
@@ -222,6 +241,11 @@ export function useTranscriptAutoscroll(
       scrollbarPointerRef.current ||
       touchYRef.current !== null ||
       performance.now() - lastUserInputAtRef.current <= USER_SCROLL_WINDOW_MS;
+    if (jumpingRef.current && !userDriven) {
+      if (atBottom) jumpingRef.current = false;
+      setStuck(true);
+      return;
+    }
     if (!userDriven && followingRef.current && performance.now() <= layoutFollowUntilRef.current) {
       if (!atBottom) scrollToBottom('instant');
       return;
@@ -276,6 +300,7 @@ export function useTranscriptAutoscroll(
     if (event.target === event.currentTarget) {
       scrollbarPointerRef.current = true;
       programmaticTopRef.current = null;
+      jumpingRef.current = false;
     }
   }, []);
 
@@ -325,10 +350,17 @@ export function useTranscriptAutoscroll(
       if (!scrollbarPointerRef.current && touchYRef.current === null) {
         lastUserInputAtRef.current = Number.NEGATIVE_INFINITY;
       }
+      // Output that arrived during the jump moved the bottom past where the
+      // smooth scroll was headed; finish there.
+      if (jumpingRef.current) {
+        jumpingRef.current = false;
+        if (followingRef.current && distanceFromBottom(element) > BOTTOM_EPSILON_PX)
+          scrollToBottom('instant');
+      }
     };
     element.addEventListener('scrollend', closeGesture);
     return () => element.removeEventListener('scrollend', closeGesture);
-  }, [scrollRef]);
+  }, [scrollRef, scrollToBottom]);
 
   // Follow every size change of the viewport or its content while engaged.
   // ResizeObserver delivers after layout and before paint, so the pinned view
@@ -382,6 +414,7 @@ export function useTranscriptAutoscroll(
   return {
     followingRef,
     engaged,
+    adrift,
     scrollable,
     scrollToBottom,
     engage,
