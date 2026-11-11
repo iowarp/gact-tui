@@ -177,8 +177,17 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     localStorage.setItem(
       'clio.workbench-tabs.v1:ws_flat_ndp',
       JSON.stringify({
-        activeTabId: 'session',
-        tabs: [{ id: 'session', kind: 'session', label }],
+        // A long-titled file tab; older builds' 'session' tab now restores as Activity.
+        activeTabId: 'file:report',
+        tabs: [
+          {
+            id: 'file:report',
+            kind: 'workspace-file',
+            label,
+            path: 'reports/station-availability.md',
+            workspaceId: 'ws_flat_ndp',
+          },
+        ],
       }),
     );
   }, longTitle);
@@ -206,11 +215,11 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     .getByRole('button', { name: 'Agent', exact: true })
     .click();
   await showWorkbenchList(page, 'Activity');
-  // An Activity row opens its detail (or its file) as one more tab.
+  // An Activity timeline row opens its detail (or its file) as one more tab.
   await page
     .getByRole('region', { name: 'Activity list', exact: true })
-    .getByRole('list', { name: 'Activity', exact: true })
-    .getByRole('button')
+    .getByRole('list', { name: 'Activity timeline', exact: true })
+    .getByRole('button', { name: /^Open / })
     .first()
     .click();
   for (const width of [1280, 1100]) {

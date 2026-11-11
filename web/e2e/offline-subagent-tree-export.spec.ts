@@ -71,7 +71,11 @@ test('an exported subagent tree reaches every descendant from its spawn and back
   ];
   for (const edge of edges) {
     const parent = section(page, edge.parent);
-    // Activity rows are always visible: the spawn is reachable without opening anything.
+    // A finished turn folds its tool runs into one counted row; the spawn is a row inside it.
+    const folded = parent.locator(
+      '[data-run-summary] [data-slot="activity-disclosure"][aria-expanded="false"]',
+    );
+    while (await folded.count()) await folded.first().click();
     await parent.getByRole('button', { name: edge.link, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${edge.child}$`, 'u'));
     const child = section(page, edge.child);

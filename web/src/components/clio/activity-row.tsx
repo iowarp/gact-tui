@@ -99,6 +99,9 @@ export const ActivityRow = memo(
       onClick,
       onPointerEnter,
       onFocus,
+      // The row is no button; its disclosure carries the expanded state. On the
+      // row itself aria-expanded is a critical axe violation (aria-allowed-attr).
+      'aria-expanded': _expanded,
       ...rest
     },
     ref,

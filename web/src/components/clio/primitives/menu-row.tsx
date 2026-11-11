@@ -166,8 +166,9 @@ export function jumpLetterIndex(label: string, letter: string): number {
 export function JumpLabel({ label, letter }: { label: string; letter?: string }) {
   const index = letter ? jumpLetterIndex(label, letter) : -1;
   if (index < 0) return label;
+  // One inline box: inside a flex row, bare pieces would each become a spaced item ("R e ad").
   return (
-    <>
+    <span className="min-w-0">
       {label.slice(0, index)}
       <u
         data-slot="menu-jump-letter"
@@ -176,7 +177,7 @@ export function JumpLabel({ label, letter }: { label: string; letter?: string })
         {label[index]}
       </u>
       {label.slice(index + 1)}
-    </>
+    </span>
   );
 }
 
