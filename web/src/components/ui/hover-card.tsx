@@ -98,15 +98,36 @@ function HoverCardTrigger({
   )
 }
 
+/** Surfaces on a layer above the page: a card opened from one must sit above it. */
+const LAYERED_OPENER =
+  "[data-radix-popper-content-wrapper], [data-slot='dialog-content'], [data-slot='alert-dialog-content']"
+
 function HoverCardContent({
   className,
   align = "center",
   sideOffset = 4,
+  ref,
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
+  const triggerRef = React.useContext(HoverCardTriggerRef)
+  // A card opened inside a popover, menu or dialog is marked nested, and
+  // index.css raises its popper wrapper onto the tooltip layer. Page-level
+  // cards stay below dialogs.
+  const layeredRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) {
+        if (triggerRef?.current?.closest(LAYERED_OPENER)) node.dataset.overlayLayer = "nested"
+        else delete node.dataset.overlayLayer
+      }
+      if (typeof ref === "function") return ref(node)
+      if (ref) ref.current = node
+    },
+    [ref, triggerRef]
+  )
   return (
     <HoverCardPrimitive.Portal container={useOverlayContainer()} data-slot="hover-card-portal">
       <HoverCardPrimitive.Content
+        ref={layeredRef}
         data-slot="hover-card-content"
         align={align}
         sideOffset={sideOffset}
