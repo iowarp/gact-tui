@@ -63,7 +63,8 @@ pub(crate) fn for_host(command: &mut Command) -> &mut Command {
     command
 }
 
-#[cfg(test)]
+// AppImages are Linux-only, and these values use the Unix `:` list separator.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
