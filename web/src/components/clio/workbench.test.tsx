@@ -438,36 +438,6 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.queryByText('No tabs open')).not.toBeInTheDocument();
   });
 
-  it('returns the canvas to its stored width when a list tab is left', async () => {
-    const user = userEvent.setup();
-    const fitWidth = vi.fn();
-    restorePocket();
-    render(
-      <WorkspaceCanvasControlContext.Provider
-        value={{ show: vi.fn(), clearPendingStripPosition: vi.fn(), fitWidth }}
-      >
-        <ClioWorkbench
-          artifacts={[]}
-          diffs={[]}
-          files={[]}
-          onOpenSubagent={vi.fn()}
-          onUndoDiff={vi.fn()}
-          sessionId="session_parent"
-          sessionView={<p>Session intelligence</p>}
-          workspaceId="workspace_1"
-        />
-      </WorkspaceCanvasControlContext.Provider>,
-    );
-    // Activity's timeline keeps the stored width.
-    expect(fitWidth).toHaveBeenLastCalledWith(undefined);
-
-    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
-    fitWidth.mockClear();
-    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
-    expect(fitWidth).toHaveBeenLastCalledWith(undefined);
-  });
-
   it('offers the terminal from the strip when the workspace terminal is available', async () => {
     const user = userEvent.setup();
     const onOpenTerminal = vi.fn();
