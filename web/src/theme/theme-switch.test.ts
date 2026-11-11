@@ -2,10 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { followSystemScheme, switchTheme } from './preference';
 
-const transitionsPaused = () =>
-  Array.from(document.head.querySelectorAll('style')).some((style) =>
-    style.textContent?.includes('transition: none'),
-  );
+const transitionsPaused = () => document.documentElement.hasAttribute('data-theme-switching');
 
 describe('switchTheme', () => {
   afterEach(() => {

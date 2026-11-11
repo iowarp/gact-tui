@@ -1,5 +1,5 @@
 import type { SubagentRun } from '@clio/core/v3';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
@@ -47,6 +47,31 @@ export function useWorkbenchTabState(
     );
     setActiveTabId(tab.id);
   }, []);
+  // The latest tabs, for numbering instances opened faster than a render.
+  const tabsRef = useRef(tabs);
+  useLayoutEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
+  /** Opens `tab` as a new instance: the first keeps its id and label, later ones are numbered. */
+  const openInstance = useCallback(
+    (tab: WorkbenchTab) => {
+      const taken = new Set(tabsRef.current.map((item) => item.id));
+      let number = 1;
+      let id = tab.id;
+      while (taken.has(id)) {
+        number += 1;
+        id = `${tab.id}:${number}`;
+      }
+      const instance = {
+        ...tab,
+        id,
+        label: number === 1 ? tab.label : `${tab.label} ${number}`,
+      } as WorkbenchTab;
+      tabsRef.current = [...tabsRef.current, instance];
+      openTab(instance);
+    },
+    [openTab],
+  );
   const openSubagentTab = useCallback(
     (subagent: SubagentRun) => openTab(subagentTab(subagent, workspaceId)),
     [openTab, workspaceId],
@@ -121,6 +146,7 @@ export function useWorkbenchTabState(
     pinned,
     setPinnedIds,
     openTab,
+    openInstance,
     openSubagentTab,
     replaceTab,
     selectFilesPath,

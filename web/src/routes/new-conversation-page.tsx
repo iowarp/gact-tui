@@ -135,15 +135,16 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   // Plugin changes made to the agent before the first message (the Agent tab).
   const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
   const draftChanges = draftDelta.add.length + draftDelta.remove.length;
-  const { send, runDraftCommand, prepareFiles, discardFiles } = useSessionMutations({
-    activeProvider: provider,
-    activeModel: model,
-    sessionId: '',
-    workspaceId,
-    createOnSend: true,
-    draftAgentRef: agentChoice || undefined,
-    draftAgentDelta: draftDelta,
-  });
+  const { send, runDraftCommand, prepareFiles, discardFiles, openDraftBrowserPage } =
+    useSessionMutations({
+      activeProvider: provider,
+      activeModel: model,
+      sessionId: '',
+      workspaceId,
+      createOnSend: true,
+      draftAgentRef: agentChoice || undefined,
+      draftAgentDelta: draftDelta,
+    });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const commands = useSessionCommands('', workspaceId);
   const sessions = useMemo(
@@ -343,6 +344,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           diffActionPending={diffActions.undo.isPending}
           onOpenSubagent={openSubagent}
           onOpenTerminal={terminalActions.onOpenTerminal}
+          onOpenDraftBrowserPage={openDraftBrowserPage}
           requests={requests}
         />
       }

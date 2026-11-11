@@ -40,6 +40,14 @@ export interface OpenBrowserPageDetail {
   label: string;
 }
 
+/**
+ * Route state: a page the person opened from a new conversation's Browser list,
+ * shown as a tab once the conversation it started opens.
+ */
+export interface DraftBrowserPageState extends OpenBrowserPageDetail {
+  scope: string;
+}
+
 /** The browser target of a workbench open request for an HTML file, if it is one. */
 export function htmlBrowserTarget(
   request:
