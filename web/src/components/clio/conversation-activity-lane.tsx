@@ -17,7 +17,7 @@ import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 
-/** Rows a step shows before the earlier ones fold behind "Show all N". */
+/** Rows a live step shows before the earlier ones fold behind "Show N earlier". */
 const LANE_LIMIT = 6;
 const LANE_TAIL = 4;
 interface ActivityLaneProps {
@@ -123,9 +123,9 @@ function laneTail(group: readonly ConversationIteration[], keep: number): Conver
 /**
  * A step's activity as flat rows in the conversation: thoughts, calls,
  * delegates and tasks, one 28px row each, in the order they happened. A long
- * step shows its latest rows; "Show all N" opens the rest and stays open.
+ * step shows its latest rows; "Show N earlier" opens the rest and stays open.
  * Once the run has finished, it folds into one row that counts what it did,
- * "Called 3 tools, edited 2 files, delegated 1 task", and opens to the rows.
+ * "Called 3 tools, edited 2 files, delegated 1 task", and opens to all its rows.
  */
 function ActivityLaneView({
   id,
@@ -142,8 +142,6 @@ function ActivityLaneView({
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
-  const folded = !all && total > LANE_LIMIT;
-  const shown = folded ? laneTail(group, LANE_TAIL) : group;
   // Steps after the last call that only think are the agent moving on; they
   // stay below the run rather than inside it.
   let headEnd = group.length;
@@ -159,6 +157,10 @@ function ActivityLaneView({
   );
   const collapses =
     (!turnLive || afterIds.size > 0) && headCalls > 1 && runSettled(head, interactions);
+  // A folded run already counts its rows, so opening it shows every one of them.
+  const folded = !all && !collapses && total > LANE_LIMIT;
+  const shown = folded ? laneTail(group, LANE_TAIL) : group;
+  const earlier = folded ? total - shown.reduce((sum, item) => sum + laneRows(item), 0) : 0;
   // While a call in a longer run waits on the person, the run's row already shows,
   // open, with "waiting for you" in place of its outcome. A lone call says it itself.
   const waiting =
@@ -172,7 +174,7 @@ function ActivityLaneView({
       className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
       data-slot="activity-show-all"
     >
-      {`Show all ${total}`}
+      {`Show ${earlier} earlier`}
     </Button>
   ) : null;
   const run =
