@@ -9,11 +9,11 @@ import type {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useContext } from 'react';
+import { createRef, useContext } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ObservabilityViewControl } from './observability-view-control';
 import { QuestionAnswerContext } from './question-answer-context';
-import { ClioWorkbench } from './workbench';
+import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import {
   WorkbenchActivityProvider,
   type WorkbenchActivitySource,
@@ -37,6 +37,9 @@ vi.mock('./use-session-work', () => ({ useSessionWork: sessionWork }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  sessionWork.mockReturnValue({ data: undefined });
+  // A focus request no row answered would open its task in the next test.
+  useWorkTaskFocus.setState({ handle: undefined });
   window.localStorage.clear();
 });
 
@@ -134,6 +137,7 @@ function TimelineView() {
 function mount(
   activity = source(),
   answer = { openQuestion: vi.fn(), startAnswer: vi.fn(), stopAnswer: vi.fn() },
+  handle = createRef<ClioWorkbenchHandle>(),
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const onOpenSubagent = vi.fn();
@@ -142,6 +146,7 @@ function mount(
       <QuestionAnswerContext.Provider value={answer}>
         <WorkbenchActivityProvider source={activity}>
           <ClioWorkbench
+            ref={handle}
             artifacts={[]}
             diffs={[diff]}
             files={[]}
@@ -310,6 +315,32 @@ describe('Workbench Activity', () => {
       'true',
     );
     expect(useWorkTaskFocus.getState().handle).toBeUndefined();
+  });
+
+  it('opens session work on the list where its todos are a row', async () => {
+    sessionWork.mockReturnValue({
+      data: {
+        goal: null,
+        loop: null,
+        goals: [],
+        loops: [],
+        todos: [{ content: 'Check the report', status: 'in_progress' }],
+        todo_history: [],
+        schedules: [],
+        schedule_history: [],
+      },
+    });
+    const handle = createRef<ClioWorkbenchHandle>();
+    mount(source(), undefined, handle);
+    const user = userEvent.setup();
+    const list = () => screen.getByRole('region', { name: 'Activity list' });
+    await act(async () => handle.current?.open({ kind: 'session' }));
+    expect(within(list()).getByText('Timeline view')).toBeVisible();
+
+    await act(async () => handle.current?.open({ kind: 'resources', section: 'work' }));
+    expect(within(list()).queryByText('Timeline view')).toBeNull();
+    await user.click(within(list()).getByRole('button', { name: /^Todos, / }));
+    expect(screen.getByRole('tab', { name: 'Work' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('shows one empty state before anything ran', async () => {

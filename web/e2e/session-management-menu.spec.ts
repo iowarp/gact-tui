@@ -82,11 +82,14 @@ for (const theme of ['light', 'dark']) {
       await page.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
       await page.getByRole('menuitem', { name: 'Delete…', exact: true }).click();
       const confirmation = page.getByRole('alertdialog');
-      await expect(confirmation).toContainText('permanently removes the session');
+      await expect(confirmation).toContainText('This can’t be undone.');
+      await expect(
+        confirmation.getByRole('button', { name: 'Delete permanently', exact: true }),
+      ).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath(`${theme}-${width}-delete-confirmation.png`),
       });
-      await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await confirmation.getByRole('button', { name: 'Keep conversation', exact: true }).click();
       await expect(
         page.getByRole('button', { name: `Actions for ${title}`, exact: true }),
       ).toBeEnabled();
@@ -134,7 +137,7 @@ test('header rename and pin refresh both the header and sidebar menus', async ({
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: `Actions for ${title}`, exact: true }).click();
   await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Rename session', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Rename conversation', exact: true });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Renamed evidence review');
   await dialog.getByRole('button', { name: 'Save name', exact: true }).click();
   const header = page.getByRole('button', {
@@ -152,6 +155,8 @@ test('header rename and pin refresh both the header and sidebar menus', async ({
   await header.click();
   await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
+  // The title menu fades out; the left bar menu is then the only one.
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await sidebar.click();
   await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible();
   // The left bar menu is the title menu: history actions included.

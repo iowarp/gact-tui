@@ -100,7 +100,10 @@ for (const theme of ['light', 'dark']) {
       // The chevron opens a row at every width; phones hide the action name.
       await page.getByRole('button', { name: 'Expand Run command', exact: true }).click();
       const result = page.getByRole('region', { name: 'Run command: Result' });
-      await expect(result.getByRole('alert')).toContainText(failure);
+      // The failure is the command's output; the row's status names it, with no repeated alert.
+      await expect(result.getByRole('code')).toHaveText(failure);
+      await expect(result.getByRole('alert')).toHaveCount(0);
+      await expect(page.getByRole('img', { name: `Failed: ${failure}` })).toBeVisible();
       expect(await result.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       await expect(page.getByText(progress, { exact: true })).toBeVisible();
       await settleCapture(page);

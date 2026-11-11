@@ -133,7 +133,8 @@ test('draft remains usable when background preparation fails', async ({ page }) 
   });
   await page.route(`${endpoint}/v1/workspaces/*/warmup`, async (route) => {
     await waiting;
-    await route.fulfill({ status: 503, json: { error: 'Service is starting' } });
+    // A 503 is a restarting agent, waited out; any other failure is reported at once.
+    await route.fulfill({ status: 500, json: { error: 'The tool catalog could not be read' } });
   });
   let creations = 0;
   page.on('request', (request) => {
