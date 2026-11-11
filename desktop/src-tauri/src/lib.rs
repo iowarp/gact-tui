@@ -26,6 +26,7 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+mod host_env;
 mod install_log;
 #[cfg(not(windows))]
 mod install_prepare;

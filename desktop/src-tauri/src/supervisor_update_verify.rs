@@ -71,7 +71,7 @@ pub(crate) fn bundled_update_version_script(version: &str) -> String {
 
 fn verify_command(step: &VerifyStep) -> Command {
     let mut command = Command::new(&step.program);
-    command.args(&step.args);
+    crate::host_env::for_host(&mut command).args(&step.args);
     if let Some(cwd) = &step.cwd {
         command.current_dir(cwd);
     }
