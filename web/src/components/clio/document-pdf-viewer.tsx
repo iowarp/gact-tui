@@ -130,6 +130,16 @@ export function ClioDocumentPdfViewer({
     );
   }, []);
   useEffect(() => () => window.clearTimeout(settleRef.current), []);
+  // The viewer's own jump lands on its page rather than flinging past the pages
+  // between, so the pages it lands on paint at once.
+  const jumpTo = useCallback(
+    (container: HTMLElement, top: number) => {
+      container.scrollTop = top;
+      lastScrollRef.current = { top: container.scrollTop, at: performance.now() };
+      readScroll();
+    },
+    [readScroll],
+  );
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -175,9 +185,8 @@ export function ClioDocumentPdfViewer({
     const container = scrollRef.current;
     if (!container) return;
     scrolledToInitialPageRef.current = true;
-    container.scrollTop = Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height);
-    readScroll();
-  }, [initialPage, measured, pageCount, readScroll]);
+    jumpTo(container, Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height));
+  }, [initialPage, jumpTo, measured, pageCount]);
 
   // A new highlight scrolls its page into view, then its box within the page.
   useEffect(() => {
@@ -192,12 +201,11 @@ export function ClioDocumentPdfViewer({
         container.getBoundingClientRect().top +
         container.scrollTop
       : highlight.page * pageHeight;
-    container.scrollTop = Math.max(
-      0,
-      pageTop + highlight.rect[1] * pageHeight - container.clientHeight / 3,
+    jumpTo(
+      container,
+      Math.max(0, pageTop + highlight.rect[1] * pageHeight - container.clientHeight / 3),
     );
-    readScroll();
-  }, [highlight, measured, readScroll]);
+  }, [highlight, jumpTo, measured]);
 
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
@@ -338,10 +346,12 @@ export function ClioDocumentPdfViewer({
       </ViewerZoomControls>
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
-          to scroll — every host has to give it a bounded box. */}
+          to scroll — every host has to give it a bounded box. Scroll anchoring
+          is off: pages mounting at full size above a jump target would make
+          the browser shift scrollTop and land several pages late. */}
       <div
         aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
-        className="min-h-0 flex-1 overflow-auto px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="min-h-0 flex-1 overflow-auto [overflow-anchor:none] px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
@@ -479,7 +489,8 @@ const PdfPage = memo(function PdfPage({
             height: `${fittedWidth * scale * aspectRatio}px`,
           }}
         />
-      )}  {highlight ? (
+      )}
+      {highlight ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute rounded-sm bg-primary/15 ring-2 ring-primary"
