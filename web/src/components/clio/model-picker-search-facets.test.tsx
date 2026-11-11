@@ -336,7 +336,7 @@ describe('ClioModelPicker filter panel', () => {
 
     await user.type(searchField(), 'model');
 
-    expect(barCount()).toBe('250 / 250');
+    expect(barCount()).toBe('250'); // nothing narrowed: the total alone
     // 250 model rows plus their provider's header -- never cut at 200.
     await waitFor(() =>
       expect(document.querySelector('[data-slot="cascader-status"]')).toHaveTextContent(

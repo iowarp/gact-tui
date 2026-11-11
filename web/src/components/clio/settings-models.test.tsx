@@ -144,7 +144,7 @@ describe('ModelsSettings', () => {
     renderModels();
 
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="model-select-name"]' }),
+      await screen.findByText('luna 5.6', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
     const panel = document.querySelector('[data-slot="default-model-card"]') as HTMLElement;
     expect(within(panel).getByText('Codex')).toBeVisible();
@@ -244,7 +244,7 @@ describe('ModelsSettings', () => {
     expect(document.querySelector('[data-slot="reasoning-level"]')).toBeNull();
   });
 
-  it('shows no response settings at all for a model that accepts none (Codex)', async () => {
+  it('shows only the provider-set context size for a model that accepts no settings (Codex)', async () => {
     repository.providerCatalog.mockResolvedValue(
       catalog(catalogEntry('codex', [{ model_id: 'gpt-5.6-luna', accepted_parameters: [] }])),
     );
@@ -252,8 +252,11 @@ describe('ModelsSettings', () => {
 
     expect(await screen.findByRole('button', { name: 'Default model' })).toBeVisible();
     await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
-    expect(screen.queryByText('Response settings')).toBeNull();
-    expect(document.querySelector('[data-slot="response-settings"]')).toBeNull();
+    // Context size still shows, at the provider's maximum, but nothing here can be set.
+    const section = screen.getByRole('region', { name: 'Response settings' });
+    expect(within(section).queryByRole('textbox')).toBeNull();
+    expect(within(section).getByRole('radio', { name: 'Max' })).toBeDisabled();
+    expect(within(section).getByRole('spinbutton', { name: 'Context size' })).toBeDisabled();
   });
 
   it('shows a few accepted settings inline, blank meaning the provider default', async () => {
@@ -273,10 +276,11 @@ describe('ModelsSettings', () => {
     );
     renderModels();
 
-    const section = await screen.findByRole('region', { name: 'Response settings' });
+    const temperature = await screen.findByRole('textbox', { name: 'Temperature' });
+    const section = screen.getByRole('region', { name: 'Response settings' });
+    expect(section).toContainElement(temperature);
     // Inline: no disclosure to open.
     expect(screen.queryByRole('button', { name: /Response settings/u })).toBeNull();
-    const temperature = within(section).getByRole('textbox', { name: 'Temperature' });
     expect(temperature).toHaveValue('');
     // No stated default: one field reading the provider default, no slider claiming a position.
     expect(temperature).toHaveAttribute('placeholder', 'Provider default');
@@ -451,7 +455,7 @@ describe('ModelsSettings', () => {
   it('adopts a configuration the service changed', async () => {
     const queryClient = renderModels();
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="model-select-name"]' }),
+      await screen.findByText('luna 5.6', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
 
     act(() => {

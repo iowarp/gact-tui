@@ -133,6 +133,8 @@ function CompactModelDetails({
           <IconButton
             icon={<BookOpenIcon />}
             label="Model card"
+            // Find a model renders these facts inside its download form.
+            type="button"
             disabled={!model}
             onClick={() => setCardOpen(true)}
           />

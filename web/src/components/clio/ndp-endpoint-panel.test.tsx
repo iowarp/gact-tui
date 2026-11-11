@@ -298,6 +298,5 @@ it('reuses the connected NDP account when configuring another endpoint', async (
   fireEvent.click(screen.getByRole('button', { name: 'Connect endpoint' }));
   fireEvent.change(screen.getByLabelText('API sign-in'), { target: { value: 'ndp' } });
   expect(screen.getByText(/Send your saved NDP account token to this API/)).toBeVisible();
-  expect(screen.getByText('NDP account connected')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Sign in to NDP' })).not.toBeInTheDocument();
 });

@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
 
 const repository = vi.hoisted(() => ({
   externalServiceConnections: vi.fn(),
@@ -34,7 +35,7 @@ const external = {
 };
 
 function renderSetup(onOpenChange = vi.fn()) {
-  render(
+  renderWithTooltips(
     <QueryClientProvider client={new QueryClient()}>
       <WebSearchSetup onOpenChange={onOpenChange} open />
     </QueryClientProvider>,

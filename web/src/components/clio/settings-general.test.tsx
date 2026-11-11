@@ -83,7 +83,8 @@ it('shows shared preferences in the browser and preserves their existing saved v
   expect(
     screen.queryByRole('radiogroup', { name: 'Conversation activity' }),
   ).not.toBeInTheDocument();
-  expect(screen.queryByRole('switch', { name: 'Beta updates' })).not.toBeInTheDocument();
+  // The web app sets the release channel here; it has no other place for it.
+  expect(screen.getByRole('switch', { name: 'Beta updates' })).toBeChecked();
   expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument();
   expect(screen.queryByText(`${vocab.agent} updates`)).not.toBeInTheDocument();
   expect(screen.queryByText('Installed app only')).not.toBeInTheDocument();

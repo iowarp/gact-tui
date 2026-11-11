@@ -75,6 +75,8 @@ import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 afterEach(() => {
   cleanup();
+  // The shared polite announcer lives on document.body, outside what cleanup unmounts.
+  document.querySelector('[data-slot="polite-announcer"]')?.remove();
   window.localStorage.clear();
   vi.clearAllMocks();
   vi.restoreAllMocks();
@@ -153,10 +155,8 @@ describe('new session defaults settings', () => {
     expect(screen.queryByText('Default confirmation policy')).not.toBeInTheDocument();
     expect(screen.queryByText('Agent and work mode')).not.toBeInTheDocument();
     expect(screen.queryByText('Model and reasoning')).not.toBeInTheDocument();
-    expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
-      'Medium',
-    );
-    expect(screen.queryByRole('radio', { name: 'Medium' })).not.toBeInTheDocument();
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getByRole('radio', { name: 'Medium' })).toBeChecked();
     expect(screen.queryByText('sidecar')).not.toBeInTheDocument();
     expect(screen.getByText('Saved to Research agent.')).toBeVisible();
     expect(screen.queryByText(/127\.0\.0\.1/)).not.toBeInTheDocument();
@@ -252,7 +252,12 @@ describe('new session defaults settings', () => {
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'gpt-5.6-sol');
     await user.click(await screen.findByText('gpt-5.6-sol', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Low');
+    const effort = screen.getByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getAllByRole('radio').map((level) => level.textContent)).toEqual([
+      'Default',
+      'Low',
+    ]);
+    expect(within(effort).getByRole('radio', { name: 'Default' })).toBeChecked();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-sol', effort: null }),
@@ -267,7 +272,7 @@ describe('new session defaults settings', () => {
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'luna');
     await user.click(await screen.findByText('gpt-5.6-luna', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Default');
+    expect(screen.getByRole('radio', { name: 'Default' })).toBeChecked();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-luna', effort: null }),
@@ -301,33 +306,36 @@ describe('new session defaults settings', () => {
     expect(alert).not.toHaveTextContent('Defaults unavailable');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(
-      screen.queryByText('Loading defaults from the connected serviceâ€¦'),
+      screen.queryByText('Loading defaults from the connected service…'),
     ).not.toBeInTheDocument();
   });
 });
 
 describe('new session default reasoning comes from the model', () => {
   it('lists exactly the levels the model new sessions start on reports', async () => {
-    const user = userEvent.setup();
     renderSettings();
 
-    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Default (Medium)',
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getAllByRole('radio').map((level) => level.textContent)).toEqual([
+      'Default',
       'Minimal',
       'Low',
       'Medium',
       'High',
       'Extra high',
     ]);
+    expect(within(effort).getByRole('radio', { name: 'Default' })).toHaveAttribute(
+      'title',
+      "The model's own default (Medium)",
+    );
   });
 
   it('saves "Model default" as a reset, not a fixed level', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    await user.click(screen.getByRole('option', { name: 'Default (Medium)' }));
+    const effort = await screen.findByRole('radiogroup', { name: 'Reasoning effort' });
+    await user.click(within(effort).getByRole('radio', { name: 'Default' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(

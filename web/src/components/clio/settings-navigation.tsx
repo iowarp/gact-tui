@@ -358,15 +358,19 @@ export function SettingsSectionPicker({
 /** A section's matching rows in the filtered window: a neutral count, not a waiting badge. */
 export function ResultCount({ count }: { count?: number }) {
   if (!count) return null;
+  // The space keeps the row's name "Data sources 2", not "Data sources2"; flex layout drops it.
   return (
-    <Tag
-      className="ml-auto h-4 px-1.5 tabular-nums"
-      title={count === 1 ? '1 matching row' : `${count} matching rows`}
-      tone="chip"
-      width="auto"
-    >
-      {count}
-    </Tag>
+    <>
+      {' '}
+      <Tag
+        className="ml-auto h-4 px-1.5 tabular-nums"
+        title={count === 1 ? '1 matching row' : `${count} matching rows`}
+        tone="chip"
+        width="auto"
+      >
+        {count}
+      </Tag>
+    </>
   );
 }
 

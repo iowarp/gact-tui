@@ -179,7 +179,7 @@ async function openComputerMenu(user = userEvent.setup()) {
 
 async function chooseComputer(current: string, next: string, user = userEvent.setup()) {
   await user.click(await screen.findByRole('button', { name: `Computer: ${current}` }));
-  await user.click(await screen.findByRole('menuitem', { name: next }));
+  await user.click(await screen.findByRole('option', { name: (name) => name.startsWith(next) }));
 }
 
 describe('ManagedServices computer selection', () => {
@@ -192,7 +192,7 @@ describe('ManagedServices computer selection', () => {
         label: 'Homelab',
         kind: 'ssh',
         transport_state: 'connected',
-        ssh: { profile: 'homelab' },
+        ssh: { profile: 'homelab', jump_hosts: [] },
       },
     ]);
     renderServices();
@@ -214,7 +214,10 @@ describe('ManagedServices computer selection', () => {
     });
     expect(await screen.findByRole('button', { name: 'Computer: Local' })).toBeVisible();
     await openComputerMenu();
-    expect(screen.queryByRole('menuitem', { name: 'Add computer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /^Add computer/u })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
   });
 
@@ -249,7 +252,7 @@ describe('ManagedServices computer selection', () => {
     );
     renderServices();
     await openComputerMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Add computer' }));
+    await user.click(screen.getByRole('option', { name: 'Add computer' }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: 'homelab' }));
 
@@ -289,7 +292,7 @@ describe('ManagedServices computer selection', () => {
     repository.updateInfrastructureTarget.mockResolvedValue(registered);
     renderServices();
     await openComputerMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Add computer' }));
+    await user.click(screen.getByRole('option', { name: 'Add computer' }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: 'homelab' }));
 
@@ -315,7 +318,7 @@ describe('ManagedServices computer selection', () => {
     });
     renderServices();
     await openComputerMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Add computer' }));
+    await user.click(screen.getByRole('option', { name: 'Add computer' }));
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
     await user.type(screen.getByLabelText('Address'), 'login.example.edu');
     await user.clear(screen.getByLabelText('Port'));
@@ -351,6 +354,9 @@ describe('ManagedServices computer selection', () => {
     renderServices();
     expect(await screen.findByRole('button', { name: 'Computer: Local' })).toBeVisible();
     await openComputerMenu();
-    expect(screen.queryByRole('menuitem', { name: 'Add computer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /^Add computer/u })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });

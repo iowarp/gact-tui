@@ -244,7 +244,7 @@ describe('ClioModelPicker', () => {
     expect(screen.getByRole('link', { name: 'Provider settings' })).toBeVisible();
   });
 
-  it('shows provider health once as a hoverable visual signal', async () => {
+  it('names provider health in words, with its detail on hover', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -256,11 +256,9 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
-
-    const status = screen.getByTitle('Codex status: Ready');
-    expect(status).toHaveClass('text-success');
-    expect(status.querySelector('span.rounded-full')).toBeInTheDocument();
+    // Status is never a dot alone: the provider row says its word.
+    const status = screen.getByRole('img', { name: 'Codex status: Ready' });
+    expect(within(status.parentElement as HTMLElement).getByText('Ready')).toBeVisible();
     await user.hover(status);
     expect(await screen.findByText('Provider status')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
