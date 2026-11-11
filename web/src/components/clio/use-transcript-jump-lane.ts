@@ -6,12 +6,14 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
  */
 export function useTranscriptJumpLane({
   engaged,
+  adrift,
   scrollable,
   hasMessages,
   scrollRef,
   captureReadingAnchor,
 }: {
   engaged: boolean;
+  adrift: boolean;
   scrollable: boolean;
   hasMessages: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -38,7 +40,7 @@ export function useTranscriptJumpLane({
     };
   }, [pressHold]);
 
-  const jumpVisible = !engaged && scrollable && hasMessages && !pressHold;
+  const jumpVisible = (!engaged || adrift) && scrollable && hasMessages && !pressHold;
 
   // When the lane appears under the control the reader just pressed, lift the
   // view by the overlap so that control stays visible and clickable.

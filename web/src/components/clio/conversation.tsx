@@ -439,6 +439,7 @@ function ConversationBody({
 
   const { jumpVisible, holdPress } = useTranscriptJumpLane({
     engaged: autoscroll.engaged,
+    adrift: autoscroll.adrift,
     scrollable: autoscroll.scrollable,
     hasMessages: messages.length > 0,
     scrollRef,
