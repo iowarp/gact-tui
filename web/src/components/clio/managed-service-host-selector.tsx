@@ -1,4 +1,4 @@
-﻿import type { InfrastructureTarget } from '@clio/core/v3';
+import type { InfrastructureTarget } from '@clio/core/v3';
 import { ChevronDownIcon, LaptopIcon, ServerIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -126,7 +126,7 @@ export function ManagedServiceHostSelector({
           onSelect(host.id);
           setOpen(false);
         }}
-        title={route ? `${name} â€” ${route}` : name}
+        title={route ? `${name} — ${route}` : name}
         value={host.id}
       >
         <Icon aria-hidden="true" className="size-[15px] text-muted-foreground" />

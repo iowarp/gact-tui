@@ -89,11 +89,8 @@ function mountForm() {
 
 it('creates an empty editable vault without asking for a folder, installation or account', async () => {
   const { user, onConnected } = mountForm();
-  expect(screen.getByRole('radio', { name: 'Create a new vault' })).toBeChecked();
-  expect(screen.getByRole('link', { name: 'About Obsidian' })).toHaveAttribute(
-    'href',
-    'https://obsidian.md/',
-  );
+  expect(screen.getByRole('radio', { name: /^Create a new vault/ })).toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Read and write link/ })).toBeChecked();
   expect(screen.queryByRole('button', { name: 'Choose folder' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Create vault' }));
   await waitFor(() => expect(onConnected).toHaveBeenCalledWith(source));
@@ -112,7 +109,7 @@ it('creates an empty editable vault without asking for a folder, installation or
 
 it('attaches an existing folder read only using the shared folder picker', async () => {
   const { user } = mountForm();
-  await user.click(screen.getByRole('radio', { name: 'Attach an existing vault or folder' }));
+  await user.click(screen.getByRole('radio', { name: /^Attach an existing vault or folder/ }));
   expect(screen.getByRole('button', { name: 'Connect vault' })).toBeDisabled();
   expect(screen.queryByPlaceholderText('/path/to/data')).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Choose folder' }));
@@ -127,12 +124,12 @@ it('attaches an existing folder read only using the shared folder picker', async
 
 it('configures the selected remote vault and starts the managed client with independent edit consent', async () => {
   const { user, onConnected } = mountForm();
-  await user.click(screen.getByRole('radio', { name: 'Sync from Obsidian' }));
+  await user.click(screen.getByRole('radio', { name: /^Sync from Obsidian/ }));
   await screen.findByRole('option', { name: 'Research' });
   await user.selectOptions(screen.getByLabelText('Obsidian Sync vault'), 'remote-id');
   await user.type(screen.getByLabelText(/Vault encryption password/), 'vault-secret');
   await user.selectOptions(screen.getByLabelText('Sync direction'), 'bidirectional');
-  expect(screen.getByRole('checkbox', { name: /create and edit notes/ })).not.toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
   await user.click(screen.getByRole('button', { name: 'Connect vault' }));
   await waitFor(() => expect(onConnected).toHaveBeenCalledWith(source));
   expect(fixtures.repository.setupObsidianVault).toHaveBeenCalledWith('remote-id', 'vault-secret');
@@ -150,7 +147,7 @@ it('configures the selected remote vault and starts the managed client with inde
 it('rolls back the source connection if sync cannot start, so retry does not accumulate sources', async () => {
   fixtures.repository.knowledgeSync.mockRejectedValue(new Error('Sync could not start'));
   const { user, onConnected } = mountForm();
-  await user.click(screen.getByRole('radio', { name: 'Sync from Obsidian' }));
+  await user.click(screen.getByRole('radio', { name: /^Sync from Obsidian/ }));
   await screen.findByRole('option', { name: 'Research' });
   await user.selectOptions(screen.getByLabelText('Obsidian Sync vault'), 'remote-id');
   await user.click(screen.getByRole('button', { name: 'Connect vault' }));
@@ -161,11 +158,11 @@ it('rolls back the source connection if sync cannot start, so retry does not acc
 
 it('drops the chosen host folder when switching to a different CLIO connection', async () => {
   const { user, view, content } = mountForm();
-  await user.click(screen.getByRole('radio', { name: 'Attach an existing vault or folder' }));
+  await user.click(screen.getByRole('radio', { name: /^Attach an existing vault or folder/ }));
   await user.click(screen.getByRole('button', { name: 'Choose folder' }));
   fixtures.endpoint = 'https://clio-two';
   view.rerender(content());
-  expect(screen.getByRole('radio', { name: 'Create a new vault' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Create a new vault/ })).toBeChecked();
   expect(screen.queryByText('/host/notes')).not.toBeInTheDocument();
 });
 
@@ -223,8 +220,8 @@ it('starts Connect on existing notes with read-only access and no account requir
       />
     </QueryClientProvider>,
   );
-  expect(screen.getByRole('radio', { name: 'Attach an existing vault or folder' })).toBeChecked();
-  expect(screen.getByRole('checkbox', { name: /create and edit notes/ })).not.toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Attach an existing vault or folder/ })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
   expect(screen.getByRole('button', { name: 'Connect vault' })).toBeDisabled();
   expect(fixtures.repository.obsidianStatus).not.toHaveBeenCalled();
 });

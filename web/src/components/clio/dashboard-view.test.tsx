@@ -228,9 +228,10 @@ describe('authored dashboard', () => {
     expect(within(toolbar).getByText('dashboards')).toBeInTheDocument();
     expect(within(toolbar).getByText(report.title)).toBeInTheDocument();
     expect(within(toolbar).queryByText('design.dashboard.json')).toBeNull();
+    // Capture is a row of the frame's options menu, not a bar button.
     expect(
-      within(toolbar).getByRole('button', { name: 'Capture labelled regions' }),
-    ).toBeInTheDocument();
+      within(toolbar).queryByRole('button', { name: 'Capture labelled regions' }),
+    ).toBeNull();
     expect(screen.queryByRole('heading', { name: report.title })).toBeNull();
     for (const label of ['PNG image (displayed view)', 'HTML dashboard (all tabs and data)']) {
       await user.click(within(toolbar).getByRole('button', { name: 'Open options' }));

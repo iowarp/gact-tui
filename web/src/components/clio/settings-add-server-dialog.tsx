@@ -1,4 +1,4 @@
-﻿import type { LanguageModelPreset } from '@clio/core/v3';
+import type { LanguageModelPreset } from '@clio/core/v3';
 import { LoaderCircleIcon, ServerIcon } from 'lucide-react';
 import { Select as SelectPrimitive } from 'radix-ui';
 import { useState } from 'react';
@@ -141,7 +141,7 @@ export function SettingsAddServerDialog({
           {save.isPending ? (
             <p className="flex items-center gap-1.5 pt-2 text-muted-foreground" role="status">
               <LoaderCircleIcon aria-hidden="true" className="size-4 motion-safe:animate-spin" />
-              Adding and checkingâ€¦
+              Adding and checking…
             </p>
           ) : save.error ? (
             <p className="truncate pt-2 text-destructive" role="alert" title={save.error.message}>

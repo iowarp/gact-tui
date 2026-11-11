@@ -135,7 +135,7 @@ describe('administration settings', () => {
     renderQuery(<SystemSettings />);
 
     expect(
-      await screen.findByText('This service doesn’t offer storage statistics.'),
+      await screen.findByText('This agent doesn’t offer storage statistics.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Storage statistics unavailable.')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

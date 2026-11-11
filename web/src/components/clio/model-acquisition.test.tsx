@@ -126,7 +126,7 @@ describe('host model acquisition', () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(await screen.findByText('Downloaded models on Homelab')).toBeVisible();
-    expect(await screen.findByText('1.2 TB free')).toBeVisible();
+    expect(await screen.findByText('1.1 TB free')).toBeVisible();
   });
   it('lists a model with its revision, size, status and runtime, and expands its facts', async () => {
     fixtures.repository.modelInventory.mockResolvedValue({
@@ -141,7 +141,7 @@ describe('host model acquisition', () => {
     const row = (await screen.findByText('Qwen/Qwen2.5-7B-Instruct')).closest(
       '[role="listitem"]',
     ) as HTMLElement;
-    expect(row).toHaveTextContent('main, 16.4 GB');
+    expect(row).toHaveTextContent('main, 15.3 GB');
     expect(row).toHaveTextContent('Ready');
     expect(await within(row).findByText('vLLM')).toBeInTheDocument();
     expect(within(row).getByRole('link', { name: 'Set up runtime' })).toHaveAttribute(
@@ -360,16 +360,23 @@ describe('host model acquisition', () => {
     mount();
     await screen.findByText('No downloaded models on this host yet.');
     await user.click(screen.getByRole('button', { name: 'Download model' }));
-    expect(screen.getByText(/This can take several minutes/u)).toHaveTextContent(
-      'prepares the model files.',
+    // The footer note carries the full expectation as its hover text.
+    expect(screen.getByText('Progress continues if you close this window')).toHaveAttribute(
+      'title',
+      expect.stringContaining('prepares the model files. This can take several minutes.'),
     );
     await user.type(screen.getByLabelText('Find on Hugging Face'), 'large{Enter}');
     await user.click(await screen.findByRole('button', { name: /org\/large/ }));
-    const expectation = screen.getByText(/This can take several minutes/u);
-    expect(expectation).toHaveTextContent(
-      'prepares org/large. This can take several minutes. About 16.0 GB to download.',
+    const expectation = screen.getByText('14.9 GB to download');
+    expect(expectation).toHaveAttribute(
+      'title',
+      expect.stringContaining(
+        'prepares org/large. This can take several minutes. About 14.9 GB to download.',
+      ),
     );
-    expect(expectation).toHaveTextContent('You can leave this page; progress continues.');
+    expect(expectation.getAttribute('title')).toContain(
+      'You can leave this page; progress continues.',
+    );
   });
   it('scopes cancellation to the recorded host and job', async () => {
     fixtures.repository.modelInventory.mockResolvedValue({

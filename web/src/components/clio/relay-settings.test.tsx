@@ -79,12 +79,12 @@ it('says when there are no remote tools, and when the servers cannot be listed',
   repository.mcpServers.mockResolvedValue([LOCAL]);
   renderRemote();
   expect(await screen.findByText('No remote MCP servers yet.')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Add by URL' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Add a remote MCP server by URL' })).toBeVisible();
   cleanup();
 
   repository.mcpServers.mockRejectedValue(new Error('offline'));
   renderRemote();
-  expect(await screen.findByText('Remote servers could not be listed')).toBeVisible();
+  expect(await screen.findByText('Remote MCP servers couldn’t be listed.')).toBeVisible();
   repository.mcpServers.mockResolvedValue([REMOTE]);
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
   expect((await screen.findAllByText('home-assistant'))[0]).toBeVisible();

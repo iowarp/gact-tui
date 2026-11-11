@@ -206,7 +206,8 @@ describe('ProvidersSettings', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add server' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('radio', { name: 'Ollama' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Server kind' }));
+    await user.click(await screen.findByRole('option', { name: 'Ollama' }));
     expect(within(dialog).queryByLabelText('Name')).toBeNull();
     await user.type(within(dialog).getByLabelText('Server address'), 'gpu-7:11434');
     await user.click(within(dialog).getByRole('button', { name: /^Add/u }));
@@ -287,10 +288,13 @@ describe('ProvidersSettings', () => {
   });
 
   it('shows a load failure in place of the list, with Retry', async () => {
-    repository.savedServers.mockRejectedValue(new Error('The agent could not load servers.'));
+    repository.savedServers.mockRejectedValue(new Error('Request failed with 503'));
     renderPage();
 
-    expect(await screen.findByText('The agent could not load servers.')).toBeVisible();
+    // Plain words in place; the service's own message stays in the hover title.
+    const failure = await screen.findByText('The agent could not load providers.');
+    expect(failure).toBeVisible();
+    expect(screen.getByTitle('Request failed with 503')).toContainElement(failure);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(document.querySelector('[data-slot="model-server-row"]')).toBeNull();
   });

@@ -223,7 +223,7 @@ describe('ClioModelPicker filter tokens', () => {
     await dropDefault(user, 'input:text');
     await dropDefault(user, 'output:text');
 
-    expect(count()).toHaveTextContent('7 / 7');
+    expect(count()).toHaveTextContent(/^7$/u); // nothing narrowed: the total alone
     const sdxl = screen.getByText('sdxl').closest('[data-slot="cascader-item"]') as HTMLElement;
     expect(within(sdxl).getByRole('img', { name: 'Surrogate' })).toBeVisible();
     expect(within(sdxl).getByRole('img', { name: 'Image generator' })).toBeVisible();
@@ -344,7 +344,7 @@ describe('ClioModelPicker filter tokens', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(count()).toHaveTextContent('1 / 1'); // listed under the default filter
+    expect(count()).toHaveTextContent(/^1$/u); // listed under the default filter
     const tulu = screen.getByText('tulu-3').closest('[data-slot="cascader-item"]') as HTMLElement;
     expect(tulu.querySelector('[data-slot="model-row-facts"]')).toBeNull();
   });

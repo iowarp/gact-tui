@@ -296,7 +296,7 @@ export function SshHostDialog({
       footerStart={
         routeConnection ? undefined : (
           <Button
-            aria-label="Test connection"
+            aria-label={testing ? 'Testing connection…' : 'Test connection'}
             className="gap-[7px] text-foreground"
             disabled={!canTest}
             onClick={() => void testConnection()}

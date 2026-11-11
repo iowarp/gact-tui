@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PREVIEW_ROW_LIMIT } from '@/lib/runtime-limits';
 import { ClioCsvView } from './csv-view';
-import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { FILE_SIZE_FACT, FileViewerFactsRegistry } from './file-viewer-facts';
 import { readDenseGridText } from './primitives/dense-grid-data';
 
 afterEach(() => {
@@ -31,6 +31,7 @@ it('shows a bounded CSV as one windowed grid with its row count in the frame bar
   expect(within(grid).getAllByRole('row').length).toBeLessThan(100);
   expect(register).toHaveBeenCalledWith(expect.any(String), [
     `${PREVIEW_ROW_LIMIT.toLocaleString()}+ rows`,
+    FILE_SIZE_FACT,
   ]);
   expect(screen.getByRole('status')).toHaveTextContent(
     `Preview limited to the first ${PREVIEW_ROW_LIMIT.toLocaleString()} rows.`,

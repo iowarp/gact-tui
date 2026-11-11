@@ -64,7 +64,7 @@ it('filters Hub results with the shared task chips without inventing serving cap
   expect(within(filters).queryByRole('slider')).not.toBeInTheDocument();
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('region', { name: 'Filter models' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Remove task:text-generation' }));
+  await user.click(screen.getByRole('button', { name: 'Remove Text Generation' }));
   expect(within(results).getAllByRole('button')).toHaveLength(2);
   await user.type(screen.getByLabelText('Find on Hugging Face'), 'Nemotron{Enter}');
   expect(search).toHaveBeenCalledOnce();
