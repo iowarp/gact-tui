@@ -1,6 +1,6 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import { WrenchIcon } from 'lucide-react';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type {
   Artifact,
@@ -199,7 +199,7 @@ export function ConversationTurn({
   activeMcpAppId,
   mcpAppRepository,
   messageSessionId,
-  artifacts = {},
+  artifacts = NO_ARTIFACTS,
   onOpenArtifact,
   onOpenFile,
   onInteractionResponse,
@@ -396,12 +396,24 @@ export function ConversationTurn({
             {hasActivity ? (
               <ActivityLane
                 id={iteration.id}
-                group={[{ ...iteration, thinking: [] }, ...group.slice(1)]}
+                group={group}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
                 turnLive={(turnLive || followLiveActivity) && index === groups.length - 1}
                 subagents={subagents}
                 interactions={interactions}
+                rowInputs={[
+                  flowCards,
+                  onOpenSubagent,
+                  activeMcpAppId,
+                  mcpAppRepository,
+                  messageSessionId,
+                  artifacts,
+                  onInteractionResponse,
+                  onOpenArtifact,
+                  onOpenFile,
+                  messageAttentionIndex,
+                ]}
               >
                 {(item) => (
                   <Fragment key={item.id}>
@@ -452,6 +464,80 @@ export function ConversationTurn({
 const LANE_LIMIT = 6;
 const LANE_TAIL = 4;
 
+const NO_ARTIFACTS: Record<string, Artifact> = {};
+
+interface ActivityLaneProps {
+  id: string;
+  group: readonly ConversationIteration[];
+  label: string;
+  live: boolean;
+  turnLive: boolean;
+  subagents: Record<string, SubagentRun>;
+  interactions?: readonly PendingInteraction[];
+  /** Everything `children` reads besides the step, subagents and interactions. */
+  rowInputs: readonly unknown[];
+  children: (item: ConversationIteration) => ReactNode;
+}
+
+function sameItems(a: readonly unknown[], b: readonly unknown[]): boolean {
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+function sameFields(a: object, b: object): boolean {
+  if (a === b) return true;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key])
+  );
+}
+
+/**
+ * The parts of a step the lane reads. A streamed token rebuilds the step, but
+ * its public text is read above the lane and the first step's thinking too.
+ */
+function sameLaneSteps(
+  a: readonly ConversationIteration[],
+  b: readonly ConversationIteration[],
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((step, index) => {
+      const other = b[index];
+      return (
+        step === other ||
+        (step.id === other.id &&
+          step.streaming === other.streaming &&
+          step.interrupted === other.interrupted &&
+          (index === 0 ||
+            (step.thinking.length === other.thinking.length &&
+              step.thinking.every((thought, at) => sameFields(thought, other.thinking[at])))) &&
+          step.activity.length === other.activity.length &&
+          step.activity.every((entry, at) => sameFields(entry, other.activity[at])))
+      );
+    })
+  );
+}
+
+/**
+ * A lane renders again only when its own steps or what its rows read change,
+ * not for each token streamed elsewhere in the turn. `children` is rebuilt on
+ * every parent render, so `rowInputs` stands for it.
+ */
+const ActivityLane = memo(
+  ActivityLaneView,
+  // `children` is a fresh render prop each time; its closure is covered by rowInputs.
+  (a, b) =>
+    a.id === b.id &&
+    a.label === b.label &&
+    a.live === b.live &&
+    a.turnLive === b.turnLive &&
+    a.subagents === b.subagents &&
+    a.interactions === b.interactions &&
+    sameLaneSteps(a.group, b.group) &&
+    sameItems(a.rowInputs, b.rowInputs),
+);
+
 function laneRows(item: ConversationIteration): number {
   return item.thinking.length + item.activity.length;
 }
@@ -487,25 +573,18 @@ function laneTail(group: readonly ConversationIteration[], keep: number): Conver
  * Once the run has finished, it folds into one row that counts what it did,
  * "Called 3 tools, edited 2 files, delegated 1 task", and opens to the rows.
  */
-function ActivityLane({
+function ActivityLaneView({
   id,
-  group,
+  group: steps,
   label,
   live,
   turnLive,
   subagents,
   interactions,
   children,
-}: {
-  id: string;
-  group: readonly ConversationIteration[];
-  label: string;
-  live: boolean;
-  turnLive: boolean;
-  subagents: Record<string, SubagentRun>;
-  interactions?: readonly PendingInteraction[];
-  children: (item: ConversationIteration) => ReactNode;
-}) {
+}: ActivityLaneProps) {
+  // The first step's thinking is read above the lane, with its public update.
+  const group = [{ ...steps[0], thinking: [] }, ...steps.slice(1)];
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);

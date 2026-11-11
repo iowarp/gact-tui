@@ -97,9 +97,9 @@ describe('ClioComposerQueue', () => {
     const user = userEvent.setup();
     const props = renderQueue({ paused: true });
 
-    const live = screen.getByText('2 queued messages').closest('[aria-live]');
+    const live = screen.getByText('Paused').closest('[aria-live]');
     expect(live).toHaveAttribute('aria-live', 'polite');
-    expect(within(live as HTMLElement).getByText('Paused')).toBeVisible();
+    expect(screen.getByText('2 queued messages')).toBeVisible();
     expect(props.onPromote).not.toHaveBeenCalled();
     await user.click(screen.getAllByRole('button', { name: 'Steer now' })[0]);
     expect(props.onPromote).toHaveBeenCalledOnce();

@@ -305,6 +305,8 @@ function ExploreNudgeSetting({
         <Input
           aria-label="Reads before the Explore suggestion, as a number"
           className="w-[4.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums md:text-xs"
+          // While a number is typed, Esc only reverts it; the window's Esc listener runs first.
+          data-escape-scope={typed === undefined ? undefined : ''}
           disabled={pending || !value.enabled}
           id="fleet-explore-after"
           inputMode="numeric"

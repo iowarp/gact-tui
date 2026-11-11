@@ -29,6 +29,7 @@ import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
+import { ConnectionAnnouncer } from '@/components/clio/connection-announcer';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 import { OnboardingTourProvider } from '@/components/clio/onboarding/onboarding-tour';
 import {
@@ -230,6 +231,7 @@ export default function App() {
         </Suspense>
       ) : null}
       <Toaster />
+      {credentialsReady && routesLocation.pathname !== '/' ? <ConnectionAnnouncer /> : null}
       {/* The update page where no app shell hosts it in its content pane. */}
       <UpdateRestartOverlay />
       {/* One toolbar for every selectable surface; actions register per page. */}

@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import { memo, useEffect, useState, type Ref } from 'react';
 import type { BundledLanguage } from 'shiki';
 import { FileCode2Icon, NotebookTextIcon } from 'lucide-react';
 import { CodeBlock } from '@/components/ai-elements/code-block';
@@ -7,7 +7,7 @@ import { DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE } from '@/lib/document-ma
 import type { NotebookCell, NotebookOutput, NotebookRead } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
-import { StateView } from './primitives/state-view';
+import { StateView, type StateAction } from './primitives/state-view';
 
 /** The code viewer's type: 11.5 px mono at 1.65. */
 const MONO = 'font-mono text-[11.5px] leading-[1.65]';
@@ -47,7 +47,48 @@ export function NotebookView({
         title="Couldn't read it"
       />
     );
-  const { cells, language } = read.notebook;
+  return (
+    <NotebookCells
+      cells={read.notebook.cells}
+      language={read.notebook.language}
+      name={name}
+      readingRef={readingRef}
+      showSource={showSource}
+    />
+  );
+}
+
+/** Cells mounted in the first commit; the rest follow in idle-time chunks of this size. */
+const CELL_CHUNK = 40;
+
+function NotebookCells({
+  cells,
+  language,
+  name,
+  readingRef,
+  showSource,
+}: {
+  cells: NotebookCell[];
+  language: BundledLanguage;
+  name: string;
+  readingRef?: Ref<HTMLDivElement>;
+  showSource?: StateAction;
+}) {
+  // A long notebook mounts in chunks, so opening it paints the first screen without
+  // one long task for every highlighted cell; all cells are mounted moments later.
+  const [mounted, setMounted] = useState({ cells, count: CELL_CHUNK });
+  const count = mounted.cells === cells ? mounted.count : CELL_CHUNK;
+  if (mounted.cells !== cells) setMounted({ cells, count: CELL_CHUNK });
+  useEffect(() => {
+    if (count >= cells.length) return;
+    const next = () => setMounted({ cells, count: count + CELL_CHUNK });
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(next, { timeout: 200 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(next, 16);
+    return () => window.clearTimeout(id);
+  }, [cells, count]);
   if (!cells.length)
     return (
       <StateView
@@ -68,7 +109,7 @@ export function NotebookView({
           aria-label={`Cells of ${name}`}
           className="mx-auto flex w-full max-w-[110ch] min-w-0 list-none flex-col gap-3 px-4 py-4 @max-[36rem]/viewer:px-3"
         >
-          {cells.map((cell, index) => (
+          {cells.slice(0, count).map((cell, index) => (
             <NotebookCellView
               cell={cell}
               // Cells have no stable identity before nbformat 4.5; their order is the file's.
@@ -83,7 +124,7 @@ export function NotebookView({
   );
 }
 
-function NotebookCellView({
+const NotebookCellView = memo(function NotebookCellView({
   cell,
   number,
   language,
@@ -141,7 +182,7 @@ function NotebookCellView({
       </div>
     </li>
   );
-}
+});
 
 function NotebookOutputView({ output }: { output: NotebookOutput }) {
   switch (output.kind) {

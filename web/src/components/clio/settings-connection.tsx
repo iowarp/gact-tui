@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ItemList, ItemRow } from '@/components/clio/primitives/item-row';
+import { JumpLabel, menuAcceleratorKeyDown } from '@/components/clio/primitives/menu-row';
 import { SaveBar } from '@/components/clio/primitives/save-bar';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from '@/components/clio/settings-row';
@@ -30,6 +31,7 @@ import type { ConnectionAvailability } from '@/hooks/use-connection-availability
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { vocab } from '@/lib/brand-vocabulary';
+import { AFTER_DIALOG, announce } from '@/lib/announce';
 import { copyText } from '@/lib/clipboard';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
 import { DeleteIcon, EditIcon, ManageIcon, MoreIcon } from '@/lib/icon-vocabulary';
@@ -38,6 +40,7 @@ import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { agentAvailabilityLabel } from './connection-names';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import {
   AddAgentDialog,
   RemoveAgentDialog,
@@ -94,6 +97,8 @@ export function ConnectionsSettings() {
   const connectionSwitch = useMutation({
     mutationFn: (connection: ConnectionSettings) =>
       switchConnection(connection, { navigateToWorkspace: false }),
+    onSuccess: (_, connection) =>
+      announce(`Switched to ${connection.label?.trim() || hostOf(connection.endpoint)}`),
   });
 
   const draft = address ?? settings.endpoint;
@@ -234,7 +239,7 @@ export function ConnectionsSettings() {
         </SettingsRow>
       ) : null}
 
-      <div className={cn('w-full', SETTINGS_COLUMN)}>
+      <div className={cn('w-full', SETTINGS_COLUMN)} onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel
           actions={
             <IconButton
@@ -285,8 +290,13 @@ export function ConnectionsSettings() {
                           />
                         </DropdownMenuTrigger>
                       </NamedTooltip>
-                      <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuContent
+                        align="end"
+                        className="min-w-48"
+                        onKeyDown={menuAcceleratorKeyDown}
+                      >
                         <DropdownMenuItem
+                          data-accelerator="C"
                           onSelect={() =>
                             void copyText(connection.endpoint).then(
                               () => toast.success('Address copied'),
@@ -294,11 +304,13 @@ export function ConnectionsSettings() {
                             )
                           }
                         >
-                          <CopyIcon aria-hidden="true" /> Copy address
+                          <CopyIcon aria-hidden="true" />
+                          <JumpLabel label="Copy address" letter="C" />
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={manageAgents}>
-                          <ManageIcon aria-hidden="true" /> Manage agents…
+                        <DropdownMenuItem data-accelerator="M" onSelect={manageAgents}>
+                          <ManageIcon aria-hidden="true" />
+                          <JumpLabel label="Manage agents…" letter="M" />
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -399,7 +411,10 @@ export function ConnectionsSettings() {
       />
       <AddAgentDialog
         known={knownConnections}
-        onAdd={(connection, name) => rename(connection, name)}
+        onAdd={(connection, name) => {
+          rename(connection, name);
+          announce(`Added ${name.trim()}`, AFTER_DIALOG);
+        }}
         onOpenChange={setAdding}
         open={adding}
       />
@@ -410,7 +425,9 @@ export function ConnectionsSettings() {
           if (!open) setRenaming(undefined);
         }}
         onRename={(name) => {
-          if (renaming) rename(renaming, name);
+          if (!renaming) return;
+          rename(renaming, name);
+          announce(`Renamed to ${name.trim()}`, AFTER_DIALOG);
         }}
       />
       <RemoveAgentDialog
@@ -421,7 +438,9 @@ export function ConnectionsSettings() {
           if (!open) setRemoving(undefined);
         }}
         onRemove={() => {
-          if (removing) void forget(removing.endpoint);
+          if (!removing) return;
+          void forget(removing.endpoint);
+          announce(`Removed ${connectionName(removing)}`, AFTER_DIALOG);
         }}
       />
     </div>

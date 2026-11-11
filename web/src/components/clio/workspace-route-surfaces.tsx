@@ -1,11 +1,12 @@
-import type { RunState, StreamState } from '@clio/core/v3';
+import { TransportError, type RunState, type StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
 import { forwardRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
+import { isOfflineError } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
@@ -132,24 +133,73 @@ export function WorkspaceTranscriptAlerts({
 }
 
 /**
- * The spec's page-level Error state (conversation-states: states): icon, what
- * failed, the reason, and Retry. Manage connections stays as its text link.
+ * The spec's page-level Error state (conversation-states: states) for a
+ * conversation or workspace that did not open: plain words for what happened,
+ * Retry, and a way back. It sits inside the shell, so both bars stay.
  */
-export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
+export function WorkspaceUnavailable({
+  subject,
+  error,
+  onRetry,
+  back,
+}: {
+  subject: 'conversation' | 'workspace';
+  /** The failed read; none when the service answered without the item. */
+  error?: unknown;
+  onRetry?: () => void;
+  /** Where to go instead, e.g. the conversation's workspace. */
+  back?: { label: string; to: string };
+}) {
   const navigate = useNavigate();
+  const noun = subject === 'conversation' ? 'conversation' : vocab.workspace;
+  const missing = error === undefined || isNotFoundError(error);
+  const offline = !missing && isOfflineError(error);
+  const title = missing
+    ? `This ${noun} isn't available`
+    : offline
+      ? `Can't reach ${vocab.agent}`
+      : `This ${noun} couldn't be opened`;
+  const detail = missing
+    ? subject === 'conversation'
+      ? 'It may have been deleted or moved.'
+      : 'It may have been deleted, or it belongs to another connection.'
+    : offline
+      ? `Check that ${vocab.agent} is running, then retry.`
+      : withoutIdentifiers(error instanceof Error ? error.message : String(error));
   return (
-    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
+    <section
+      aria-label={title}
+      className="grid h-full min-h-0 place-items-center bg-background p-6"
+    >
       <StateView
         action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
         className="w-full max-w-xl"
-        detail={error}
+        detail={detail}
         kind="error"
-        link={{ label: 'Manage connections', onClick: () => navigate('/?intent=connect') }}
+        link={
+          back && !offline
+            ? { label: back.label, onClick: () => navigate(back.to) }
+            : { label: 'Manage connections', onClick: () => navigate('/?intent=connect') }
+        }
         size="page"
-        title={`${capitalize(vocab.workspace)} unavailable`}
+        title={title}
       />
-    </main>
+    </section>
   );
+}
+
+function isNotFoundError(error: unknown): boolean {
+  if (error instanceof TransportError && error.status === 404) return true;
+  return error instanceof Error && /\bnot[ _]found\b/i.test(error.message);
+}
+
+// Service messages name ids ("session not found: sess_…"); the page names the thing instead.
+function withoutIdentifiers(message: string): string {
+  const plain = message
+    .replace(/\b(?:sess|ws|run|task|msg)_[0-9a-z]+\b/gi, '')
+    .replace(/[\s:,]+$/, '')
+    .trim();
+  return plain ? `${plain.charAt(0).toUpperCase()}${plain.slice(1)}.`.replace(/\.\.$/, '.') : '';
 }
 
 /** The spec's page Loading state (`.xs.pn`): a spinner and one line. */

@@ -40,7 +40,7 @@ function useAgentCapabilities() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   return useQuery({
-    queryKey: queryKeys.key('capabilities', settings.endpoint, connectionScope(settings)),
+    queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
     select: capabilityFlags,
     // A restarting service stays unknown, not unsupported, until it answers again.

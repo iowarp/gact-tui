@@ -54,11 +54,12 @@ type Navigation = Pick<
 export const PresentationNavigation = createContext<Navigation | null>(null);
 
 // Only the navigation fields, so a parent render that leaves them unchanged does not
-// re-render every row's context consumers (links, hover cards, variant runs).
+// re-render every row's context consumers (links, hover cards, variant runs). The
+// messages change with each streamed chunk, so the live transcript carries them in
+// TranscriptMessagesContext instead; an export may still pass them here.
 export function usePresentationNavigation({
   artifacts,
   interactions,
-  messages,
   onInteractionResponse,
   onOpenArtifact,
   onOpenFile,
@@ -81,7 +82,6 @@ export function usePresentationNavigation({
     () => ({
       artifacts,
       interactions,
-      messages,
       onInteractionResponse,
       onOpenArtifact,
       onOpenFile,
@@ -103,7 +103,6 @@ export function usePresentationNavigation({
     [
       artifacts,
       interactions,
-      messages,
       onInteractionResponse,
       onOpenArtifact,
       onOpenFile,

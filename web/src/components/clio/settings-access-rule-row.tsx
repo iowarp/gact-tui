@@ -11,6 +11,7 @@ import {
 import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
+import { JumpLabel, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { RuleKindIcon } from './settings-access-rule-dialog';
 import {
@@ -159,16 +160,19 @@ export function AccessRuleRow({
             <DropdownMenuTrigger asChild>
               <IconButton icon={<MoreIcon />} label={`More for rule ${position}`} />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" onKeyDown={menuAcceleratorKeyDown}>
               {editable ? (
-                <DropdownMenuItem onSelect={onDuplicate}>
+                <DropdownMenuItem data-accelerator="D" onSelect={onDuplicate}>
                   <CopyPlusIcon aria-hidden="true" />
-                  Duplicate rule
+                  <JumpLabel label="Duplicate rule" letter="D" />
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(target)}>
+              <DropdownMenuItem
+                data-accelerator="C"
+                onSelect={() => void navigator.clipboard?.writeText(target)}
+              >
                 <CopyIcon aria-hidden="true" />
-                Copy pattern
+                <JumpLabel label="Copy pattern" letter="C" />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

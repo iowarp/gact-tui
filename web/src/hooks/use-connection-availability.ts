@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { ServiceVersionError } from '@/lib/service-version-error';
@@ -10,6 +10,7 @@ import {
   CONNECTION_PROBE_FAST_ATTEMPTS,
   CONNECTION_PROBE_POLL_MS,
   CONNECTION_PROBE_STARTING_MS,
+  CONNECTION_PROBE_STARTING_MAX_MS,
   CONNECTION_PROBE_RETRIES,
   CONNECTION_PROBE_RETRY_BASE_MS,
   CONNECTION_PROBE_RETRY_MAX_MS,
@@ -29,8 +30,10 @@ export interface ConnectionAvailability {
   diagnostics?: string;
   /** Why an `unavailable` service cannot be opened. */
   reason?: UnavailableReason;
-  /** The service answered but is still starting; it is re-checked every second. */
+  /** The service answered but is still starting; it is re-checked with a capped backoff. */
   starting?: boolean;
+  /** When this service was first seen starting (epoch ms), for the re-check backoff. */
+  startingSince?: number;
 }
 
 /** What a starting service is still bringing up, in words (`/v1/health` `starting`). */
@@ -48,15 +51,27 @@ function startingDetail(items: readonly string[] | undefined): string {
 }
 
 /**
- * Re-probe quickly while a service is starting or has not answered yet, so a service
- * started at the same time as this page is noticed within a second; slow down after
- * about two minutes of silence.
+ * Re-check a starting service after a quarter of the time it has been starting, between
+ * one second and a few seconds: a quick start is noticed within a second, and a slow one
+ * is not polled every second while readiness is still only delayed by a fraction.
+ */
+export function startingProbeInterval(startingForMs: number): number {
+  return Math.min(
+    CONNECTION_PROBE_STARTING_MAX_MS,
+    Math.max(CONNECTION_PROBE_STARTING_MS, Math.round(startingForMs / 4)),
+  );
+}
+
+/**
+ * Re-probe quickly while a service has not answered yet, so a service started at the
+ * same time as this page is noticed within a second; slow down after about two minutes
+ * of silence. A starting service backs off (`startingProbeInterval`).
  */
 export function connectionProbeInterval(query: {
   state: { data?: ConnectionAvailability; status: string; errorUpdateCount: number };
 }): number {
   const { data, status, errorUpdateCount } = query.state;
-  if (data?.starting) return CONNECTION_PROBE_STARTING_MS;
+  if (data?.starting) return startingProbeInterval(Date.now() - (data.startingSince ?? Date.now()));
   if (status === 'error' && errorUpdateCount < CONNECTION_PROBE_FAST_ATTEMPTS) {
     return CONNECTION_PROBE_STARTING_MS;
   }
@@ -83,17 +98,26 @@ export function connectionAvailability(
   return availability[endpoint] ?? CHECKING_CONNECTION;
 }
 
+/** One probe per address, shared by every view that shows its availability. */
+export function connectionAvailabilityKey(endpoint: string | undefined) {
+  return queryKeys.key('connection-availability', endpoint ?? '');
+}
+
 /** Probe remembered services without changing the active connection. */
 export function useConnectionAvailabilities(
   connections: readonly SavedConnection[],
 ): ConnectionAvailabilityMap {
   const { resolveConnection } = useConnectionSettings();
+  const queryClient = useQueryClient();
   const queries = useQueries({
     queries: connections.map((connection) => ({
-      queryKey: queryKeys.key('connection-availability', connection.endpoint),
+      queryKey: connectionAvailabilityKey(connection.endpoint),
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const resolved = await resolveConnection(connection);
-        return probeConnection(resolved, signal);
+        const previous = queryClient.getQueryData<ConnectionAvailability>(
+          connectionAvailabilityKey(connection.endpoint),
+        );
+        return probeConnection(resolved, signal, previous);
       },
       refetchInterval: connectionProbeInterval,
       refetchOnMount: 'always' as const,
@@ -137,22 +161,30 @@ export function useConnectionAvailabilities(
   );
 }
 
+/**
+ * Probe a service: its protocol versions, then its health. While the previous answer
+ * was "starting", the versions are already known compatible, so only health is read.
+ */
 export async function probeConnection(
   settings: ConnectionSettings,
   signal: AbortSignal,
+  previous?: ConnectionAvailability,
 ): Promise<ConnectionAvailability> {
   const controller = new AbortController();
   const forwardAbort = () => controller.abort();
   signal.addEventListener('abort', forwardAbort, { once: true });
   const timeout = globalThis.setTimeout(() => controller.abort(), CONNECTION_PROBE_TIMEOUT_MS);
+  const wasStarting = previous?.starting === true;
 
   try {
     const repository = createRepository(settings);
-    const capabilities = await repository.capabilities(controller.signal);
-    if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
-      return unavailableFromError(
-        new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions),
-      );
+    if (!wasStarting) {
+      const capabilities = await repository.capabilities(controller.signal);
+      if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
+        return unavailableFromError(
+          new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions),
+        );
+      }
     }
 
     try {
@@ -163,6 +195,7 @@ export async function probeConnection(
           label: 'Starting',
           detail: startingDetail(health.starting),
           starting: true,
+          startingSince: (wasStarting ? previous?.startingSince : undefined) ?? Date.now(),
         };
       }
       if (health.healthy && isHistoryMode(health)) {
@@ -177,6 +210,8 @@ export async function probeConnection(
           };
     } catch (error) {
       rethrowCancelledProbe(error, signal, controller.signal);
+      // Without a capabilities read this run, nothing proves the service is reachable.
+      if (wasStarting) throw error;
       // A compatible capabilities response already proves the service is reachable.
       return {
         state: 'degraded',

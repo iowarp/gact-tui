@@ -714,8 +714,10 @@ html[data-clio-motion='reduced'] .clio-search-arrival {
 }
 
 /* The filtered Settings window renders each matching section whole and shows only
-   its matching rows, plus the save bar and the loading line. */
-[data-settings-filter]
+   its matching rows, plus the save bar and the loading line. The ancestor is a
+   class so the style engine's ancestor filter rejects every element outside the
+   filtered view before evaluating the :has() below. */
+.clio-settings-filter
   :not(
     :has(
         [data-setting-match],

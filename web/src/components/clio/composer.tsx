@@ -42,6 +42,7 @@ import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-st
 import { composerFailureReason, humanFailureText } from './composer-failure';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
+import { ComposerRunAnnouncer } from './composer-run-announcer';
 import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type {
   ResourceUploadProgress,
@@ -568,6 +569,7 @@ export function ClioComposer({
       )}
       ref={rootRef}
     >
+      <ComposerRunAnnouncer queued={queuedMessages.length} sending={sending} state={state} />
       {showCommands ? (
         <ClioComposerCommandMenu
           commands={commands}
