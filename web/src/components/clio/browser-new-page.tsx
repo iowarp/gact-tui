@@ -1,6 +1,6 @@
 import type { BrowserPage } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { AddIcon } from '@/lib/icon-vocabulary';
@@ -16,13 +16,29 @@ export interface BrowserNewPageProps {
    */
   startOpen?: boolean;
   onOpened: (page: BrowserPage) => void;
+  /**
+   * Opens the address instead of this conversation's page call: a new
+   * conversation has no session yet, so its page starts the conversation.
+   * Resolves once the page is open somewhere the person is taken to.
+   */
+  open?: (url: string) => Promise<BrowserPage | undefined>;
 }
+
+/** The first-use Chromium download answers "preparing"; the open waits it out. */
+const PREPARING = 'browser_runtime_preparing';
+const PREPARING_RETRY_MS = 5_000;
+const PREPARING_LIMIT_MS = 10 * 60_000;
 
 /**
  * The Browser list's first row. "New page" turns into an address field; the
  * page opens in the shared browser and then as a tab.
  */
-export function BrowserNewPage({ sessionId, startOpen = false, onOpened }: BrowserNewPageProps) {
+export function BrowserNewPage({
+  sessionId,
+  startOpen = false,
+  onOpened,
+  open,
+}: BrowserNewPageProps) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -30,6 +46,30 @@ export function BrowserNewPage({ sessionId, startOpen = false, onOpened }: Brows
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+
+  const openPage = async (url: string): Promise<BrowserPage | undefined> => {
+    const started = Date.now();
+    for (;;) {
+      try {
+        return await (open ? open(url) : repository.openBrowserPage(sessionId, url));
+      } catch (reason) {
+        const text = reason instanceof Error ? reason.message : '';
+        if (!text.includes(PREPARING) || Date.now() - started > PREPARING_LIMIT_MS) throw reason;
+        if (!mounted.current) return undefined;
+        setPreparing(true);
+        await new Promise((resolve) => setTimeout(resolve, PREPARING_RETRY_MS));
+        if (!mounted.current) return undefined;
+      }
+    }
+  };
 
   const close = () => {
     setEditing(false);
@@ -47,19 +87,24 @@ export function BrowserNewPage({ sessionId, startOpen = false, onOpened }: Brows
     }
     setOpening(true);
     setError(undefined);
-    repository
-      .openBrowserPage(sessionId, url)
+    openPage(url)
       .then((page) => {
+        if (!page || !mounted.current) return;
         void queryClient.invalidateQueries({
-          queryKey: browserPagesKey(settings.endpoint, sessionId),
+          queryKey: browserPagesKey(settings.endpoint, page.session_id || sessionId),
         });
         close();
         onOpened(page);
       })
       .catch((reason: unknown) => {
+        if (!mounted.current) return;
         setError(reason instanceof Error ? reason.message : 'The page did not open.');
       })
-      .finally(() => setOpening(false));
+      .finally(() => {
+        if (!mounted.current) return;
+        setOpening(false);
+        setPreparing(false);
+      });
   };
 
   if (!editing)
@@ -125,7 +170,10 @@ export function BrowserNewPage({ sessionId, startOpen = false, onOpened }: Brows
             id={error ? 'browser-new-page-error' : undefined}
             role={error ? 'alert' : 'status'}
           >
-            {error ?? 'Opening the page'}
+            {error ??
+              (preparing
+                ? 'Downloading the browser for this computer (first use only). The page opens when it is ready.'
+                : 'Opening the page')}
           </p>
         ) : null}
       </form>
