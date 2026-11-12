@@ -175,11 +175,11 @@ function NoteCard({ data }: NodeProps<NoteNode>) {
       >
         <FileTextIcon aria-hidden="true" className="row-span-2 size-3.5 text-muted-foreground" />
         <span
-          className={cn('truncate text-[12.5px] leading-4 font-semibold', focus && 'text-primary')}
+          className={cn('truncate text-menu leading-4 font-semibold', focus && 'text-primary')}
         >
           {card.title}
         </span>
-        <span className="truncate text-[11px] leading-[14px] text-muted-foreground">{links}</span>
+        <span className="truncate text-caption leading-[14px] text-muted-foreground">{links}</span>
       </button>
       <Handle className={HANDLE} position={Position.Right} type="source" />
     </div>
@@ -192,7 +192,7 @@ function MoreCard({ data }: NodeProps<MoreNode>) {
       {data.side === 'out' ? (
         <Handle className={HANDLE} position={Position.Left} type="target" />
       ) : null}
-      <div className="flex h-full items-center rounded-md border border-dashed px-2.5 text-[11px] text-muted-foreground tabular-nums">
+      <div className="flex h-full items-center rounded-md border border-dashed px-2.5 text-caption text-muted-foreground tabular-nums">
         {data.count.toLocaleString()} more {data.count === 1 ? 'note' : 'notes'}
       </div>
       {data.side === 'in' ? (

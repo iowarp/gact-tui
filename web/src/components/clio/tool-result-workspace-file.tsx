@@ -180,7 +180,7 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
       {canOpen ? (
         <button
           aria-label={`Open ${name}`}
-          className="min-w-0 shrink truncate rounded-[4px] px-0.5 text-[12.5px] font-medium text-foreground outline-none group-data-[fold-where]/frame:hidden hover:underline focus-visible:ring-1 focus-visible:ring-ring"
+          className="min-w-0 shrink truncate rounded-[4px] px-0.5 text-menu font-medium text-foreground outline-none group-data-[fold-where]/frame:hidden hover:underline focus-visible:ring-1 focus-visible:ring-ring"
           data-frame-fit="name"
           onClick={() => {
             const page = block.pages?.[0];
@@ -195,7 +195,7 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
         </button>
       ) : (
         <span
-          className="min-w-0 shrink truncate text-[12.5px] font-medium text-foreground group-data-[fold-where]/frame:hidden"
+          className="min-w-0 shrink truncate text-menu font-medium text-foreground group-data-[fold-where]/frame:hidden"
           data-frame-fit="name"
           title={path}
         >

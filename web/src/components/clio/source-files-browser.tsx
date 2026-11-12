@@ -16,7 +16,7 @@ export type SourceFilesView = 'source' | 'downloads';
 // Unavailable reads as unavailable: the faint ink under the shared 50% fade, never the
 // muted ink an available quiet action uses. The reason is said in words beside it.
 const quietAction =
-  'h-6 shrink-0 px-2 text-[12px] text-muted-foreground hover:text-foreground disabled:text-faint';
+  'h-6 shrink-0 px-2 text-meta text-muted-foreground hover:text-foreground disabled:text-faint';
 
 type SourceFileAction = {
   label: string;
@@ -84,7 +84,7 @@ export function SourceFilesBrowser({
     nameParts.length === folder.split('/').length ? nameParts.slice(0, -1).join('/') : parent;
   return (
     <section aria-label="Source files" className="flex min-w-0 flex-col gap-[5px]">
-      <div className="flex min-h-7 min-w-0 items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+      <div className="flex min-h-7 min-w-0 items-center gap-1.5 text-label whitespace-nowrap text-muted-foreground">
         {copies ? 'Downloaded files' : 'Files'}
         {copies && copiesNote ? (
           <InfoTip label="About approved inputs">{copiesNote}</InfoTip>
@@ -125,11 +125,11 @@ export function SourceFilesBrowser({
         </div>
       </div>
       {folder || addFolder ? (
-        <div className="flex min-h-6 min-w-0 items-center gap-2 text-[11.5px]">
+        <div className="flex min-h-6 min-w-0 items-center gap-2 text-label">
           {folder ? (
             <button
               type="button"
-              className="min-w-0 truncate text-left font-mono text-[11px] text-muted-foreground hover:text-foreground"
+              className="min-w-0 truncate text-left font-mono text-caption text-muted-foreground hover:text-foreground"
               title={`Back to the top of the source from ${folderName}`}
               onClick={() => onGo('')}
             >
@@ -168,7 +168,7 @@ export function SourceFilesBrowser({
           </SourceStatusLine>
         ) : null}
         {browse.data?.notice ? (
-          <p className="px-2 py-1 text-[11.5px] leading-[1.45] text-faint">{browse.data.notice}</p>
+          <p className="px-2 py-1 text-label leading-[1.45] text-faint">{browse.data.notice}</p>
         ) : null}
         {browse.data?.entries.length === 0 ? (
           <SourceStatusLine tone="quiet" className="px-2">
@@ -182,7 +182,7 @@ export function SourceFilesBrowser({
           return (
             <div
               key={entry.path}
-              className="flex h-7 min-w-0 items-center gap-2 rounded-[6px] px-2 text-[12.5px] whitespace-nowrap hover:bg-hover"
+              className="flex h-7 min-w-0 items-center gap-2 rounded-[6px] px-2 text-menu whitespace-nowrap hover:bg-hover"
             >
               {entry.kind === 'directory' ? (
                 <FolderIcon
@@ -207,7 +207,7 @@ export function SourceFilesBrowser({
                 </span>
               )}
               {entry.kind === 'file' ? (
-                <span className="w-16 shrink-0 text-right font-mono text-[11px] text-faint tabular-nums">
+                <span className="w-16 shrink-0 text-right font-mono text-caption text-faint tabular-nums">
                   {sourceBytes(entry.size)}
                 </span>
               ) : null}

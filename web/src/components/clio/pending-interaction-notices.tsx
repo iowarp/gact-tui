@@ -68,7 +68,7 @@ export function OwnerAttribution({
   if (!show) return null;
   return (
     <span
-      className="flex h-5 min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
+      className="flex h-5 min-w-0 items-center gap-1.5 text-label text-muted-foreground"
       data-slot="pending-interaction-owner"
       title={ownerLabel ?? `Requested by session ${interaction.owner_session_id}`}
     >

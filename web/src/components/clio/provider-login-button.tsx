@@ -39,7 +39,7 @@ export function ProviderLoginButton({
   const xs = size === 'xs';
   const login = (
     <Button
-      className={xs ? 'h-[22px] gap-[5px] px-2 text-[11px] [&_svg]:size-3' : undefined}
+      className={xs ? 'h-[22px] gap-[5px] px-2 text-caption [&_svg]:size-3' : undefined}
       disabled={disabled}
       onClick={onLogIn}
       size={size}

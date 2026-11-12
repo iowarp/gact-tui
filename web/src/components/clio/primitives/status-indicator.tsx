@@ -132,7 +132,7 @@ export const StatusIndicator = memo(function StatusIndicator({
       data-slot="status-indicator"
       data-tone={tone}
       className={cn(
-        'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
+        'inline-flex min-w-0 items-center gap-1 text-meta whitespace-nowrap text-muted-foreground',
         statusWordClass(tone),
         className,
       )}

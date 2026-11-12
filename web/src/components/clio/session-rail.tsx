@@ -103,7 +103,7 @@ function RailSection({ id, item }: { id: SessionRailSectionId; item?: SessionRai
             type="button"
             data-rail-row=""
             aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
-            className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-[5px] px-1 text-left text-[13px] hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-[5px] px-1 text-left text-ui hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <ChevronRightIcon
               aria-hidden="true"

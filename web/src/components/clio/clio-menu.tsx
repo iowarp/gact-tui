@@ -129,13 +129,13 @@ const FACT_COLUMNS = 'grid-cols-[46%_minmax(0,1fr)_22px] gap-x-2.5';
 const FACT_GRID = cn(FACT_COLUMNS, 'auto-rows-[25px] gap-y-0');
 /** A fact row that is also a menu item: the same columns and height as the facts. */
 const FACT_ITEM = cn(
-  "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-[12px] [&_svg:not([class*='size-'])]:size-[13px]",
+  "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-meta [&_svg:not([class*='size-'])]:size-[13px]",
   FACT_COLUMNS,
 );
 /** A fact row's action column: one 22px icon at the row's end. */
 const FACT_ACTION = '-mr-1 grid size-[22px] place-items-center justify-self-end';
 const FACT_LABEL = 'flex min-w-0 items-center gap-2';
-const FACT_VALUE = 'min-w-0 truncate text-right font-mono text-[11.5px] text-foreground/85';
+const FACT_VALUE = 'min-w-0 truncate text-right font-mono text-label text-foreground/85';
 
 function addressOf(endpoint: string): string {
   try {
@@ -169,7 +169,7 @@ export function SwitchAgentItem({
   const unavailable = availability.state === 'unavailable';
   return (
     <DropdownMenuItem
-      className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
+      className="min-h-[30px] py-[3px] text-menu data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
       disabled={unavailable}
       onSelect={() => void onConnect(connection)}
       title={`${connection.endpoint}. ${agentAvailabilityLabel(availability, false)}: ${availability.detail}`}
@@ -295,7 +295,7 @@ export function ClioMenuContent({
           <input
             {...identifierInputProps}
             aria-label="Search agents"
-            className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="h-full min-w-0 flex-1 bg-transparent text-menu text-foreground outline-none placeholder:text-muted-foreground"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown') {
@@ -314,9 +314,9 @@ export function ClioMenuContent({
         </label>
       ) : null}
       {adding ? (
-        <div className="p-1.5 text-[12.5px]">
+        <div className="p-1.5 text-menu">
           <DropdownMenuItem
-            className="min-h-[30px] py-[3px] text-[12.5px]"
+            className="min-h-[30px] py-[3px] text-menu"
             onSelect={(event) => {
               event.preventDefault();
               setAdding(false);
@@ -334,7 +334,7 @@ export function ClioMenuContent({
           <AddAgentItems desktop={desktop} />
         </div>
       ) : (
-        <div className="p-1.5 text-[12.5px]">
+        <div className="p-1.5 text-menu">
           <DropdownMenuLabel className={GROUP_LABEL}>Talking to</DropdownMenuLabel>
           <div
             className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[5px] bg-accent px-2 py-[3px] text-accent-foreground"
@@ -345,11 +345,11 @@ export function ClioMenuContent({
             </span>
             <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
               <span className="truncate font-medium">{identity.name}</span>
-              <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
+              <span className="truncate text-caption text-accent-foreground">{identity.place}</span>
             </span>
             <span className="mr-[34px] flex min-w-[62px] shrink-0">
               <StatusIndicator
-                className="text-[11px] text-accent-foreground"
+                className="text-caption text-accent-foreground"
                 label={activeStatus.label}
                 tone={activeStatus.tone}
               />
@@ -376,7 +376,7 @@ export function ClioMenuContent({
             <DropdownMenuLabel className={GROUP_LABEL}>Switch to</DropdownMenuLabel>
             <DropdownMenuItem
               asChild
-              className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-[11px] font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
+              className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-caption font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
             >
               <Link to="/?intent=connect">
                 <LayersIcon aria-hidden="true" />
@@ -394,14 +394,14 @@ export function ClioMenuContent({
               />
             ))
           ) : (
-            <p className="truncate px-2 py-1.5 text-[12px] text-muted-foreground">
+            <p className="truncate px-2 py-1.5 text-meta text-muted-foreground">
               {needle ? 'No saved agent matches' : 'No other saved agents'}
             </p>
           )}
           <DropdownMenuSeparator className="my-1.5" />
           {narrow ? (
             <DropdownMenuItem
-              className="min-h-[30px] text-[12.5px] text-link"
+              className="min-h-[30px] text-menu text-link"
               onSelect={(event) => {
                 event.preventDefault();
                 setAdding(true);
@@ -423,7 +423,7 @@ export function ClioMenuContent({
             </DropdownMenuItem>
           ) : (
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="min-h-[30px] text-[12.5px] text-link">
+              <DropdownMenuSubTrigger className="min-h-[30px] text-menu text-link">
                 <MenuRow
                   className="gap-[9px]"
                   icon={<AddIcon className="text-link" />}
@@ -431,7 +431,7 @@ export function ClioMenuContent({
                 />
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent
-                className="w-[292px] text-[12.5px] [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
+                className="w-[292px] text-menu [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
                 alignOffset={-7}
                 sideOffset={12}
               >
@@ -457,7 +457,7 @@ export function ClioMenuContent({
 function AddAgentItems({ desktop }: { desktop: boolean }) {
   return (
     <>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu">
         <Link to="/?intent=connect&mode=address">
           <MenuRow
             className="gap-[9px]"
@@ -467,7 +467,7 @@ function AddAgentItems({ desktop }: { desktop: boolean }) {
           />
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu" disabled={!desktop}>
         <Link to="/?intent=connect&mode=deploy">
           <MenuRow
             className="gap-[9px]"
@@ -477,7 +477,7 @@ function AddAgentItems({ desktop }: { desktop: boolean }) {
           />
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu" disabled={!desktop}>
         <Link to="/?intent=connect&mode=deploy">
           <MenuRow
             className="gap-[9px]"

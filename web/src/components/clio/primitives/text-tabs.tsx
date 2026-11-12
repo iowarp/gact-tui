@@ -70,7 +70,7 @@ function TextTabsImpl<Value extends string>({
             aria-label={compact ? name : undefined}
             aria-selected={selected}
             className={cn(
-              'relative inline-flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+              'relative inline-flex min-w-0 shrink-0 items-center gap-1.5 text-menu text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
               'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:opacity-0',
               empty && 'text-faint focus-visible:text-muted-foreground',
               selected && 'font-medium text-foreground after:opacity-100',

@@ -131,8 +131,8 @@ export function ManagedServiceHostSelector({
       >
         <Icon aria-hidden="true" className="size-[15px] text-muted-foreground" />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[12.5px] text-foreground">{name}</span>
-          {route ? <small className="truncate text-[11px] text-faint">{route}</small> : null}
+          <span className="truncate text-menu text-foreground">{name}</span>
+          {route ? <small className="truncate text-caption text-faint">{route}</small> : null}
         </span>
         <span className="flex w-28 shrink-0 items-center">
           <StatusIndicator label={status.label} tone={status.tone} />
@@ -177,7 +177,7 @@ export function ManagedServiceHostSelector({
         <div aria-hidden="true" className="mx-1 my-1.5 h-px bg-border" />
         <CommandGroup>
           <CommandItem
-            className="gap-2.5 text-[12.5px] [&>svg:last-child]:hidden"
+            className="gap-2.5 text-menu [&>svg:last-child]:hidden"
             disabled={!connecting}
             keywords={['Add computer']}
             onSelect={startConnect}
@@ -186,13 +186,13 @@ export function ManagedServiceHostSelector({
             <AddIcon aria-hidden="true" className="size-[15px] text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">Add computer</span>
             {connecting ? null : (
-              <small className="shrink-0 text-[11px] text-faint">{addReason}</small>
+              <small className="shrink-0 text-caption text-faint">{addReason}</small>
             )}
           </CommandItem>
         </CommandGroup>
       </CommandList>
       <button
-        className="flex h-9 w-full items-center gap-2 border-t border-border px-3 text-left text-[12px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+        className="flex h-9 w-full items-center gap-2 border-t border-border px-3 text-left text-meta text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
         onClick={() => {
           setOpen(false);
           void navigate('/infrastructure/agent');
@@ -208,7 +208,7 @@ export function ManagedServiceHostSelector({
   const trigger = (
     <Button
       aria-label={`Computer: ${selectedName}`}
-      className="h-7 w-[132px] min-w-[52px] shrink justify-start gap-1.5 px-2 text-[12px] font-normal @max-[600px]/infra-page:w-auto @max-[600px]/infra-page:max-w-24"
+      className="h-7 w-[132px] min-w-[52px] shrink justify-start gap-1.5 px-2 text-meta font-normal @max-[600px]/infra-page:w-auto @max-[600px]/infra-page:max-w-24"
       onClick={sheet ? () => setOpen(true) : undefined}
       size="sm"
       variant="outline"

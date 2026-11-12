@@ -434,7 +434,7 @@ function defaultModelProblem(group: ProviderGroup | undefined, chosen: boolean):
 function SaveMark({ saving = false }: { saving?: boolean }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1 text-[0.71875rem] whitespace-nowrap text-success"
+      className="inline-flex shrink-0 items-center gap-1 text-label whitespace-nowrap text-success"
       data-slot="settings-saved"
       role="status"
     >

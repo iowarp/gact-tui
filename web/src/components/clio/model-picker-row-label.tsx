@@ -110,7 +110,7 @@ export function PickerRowLabel({
     // row (status and actions) ends the group. Pressing it folds the group.
     return (
       <span
-        className="flex w-full min-w-0 items-center gap-[7px] text-[11px] font-semibold text-muted-foreground"
+        className="flex w-full min-w-0 items-center gap-[7px] text-caption font-semibold text-muted-foreground"
         data-collapsed={search.collapsed ? '' : undefined}
         data-slot="provider-group-header"
       >
@@ -145,7 +145,7 @@ export function PickerRowLabel({
         </span>
         {!stage ? (
           <span
-            className="shrink-0 text-[11px] text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
             data-slot="provider-row-status"
             title={node.data.group.detail}
           >
@@ -153,7 +153,7 @@ export function PickerRowLabel({
           </span>
         ) : stage ? (
           <span
-            className="shrink-0 text-[11px] text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
             data-slot="provider-row-status"
             title={stage}
           >

@@ -21,7 +21,7 @@ export function ConnectionWaitingNotice({
           <PopoverTrigger asChild>
             <IconButton icon={<InfoIcon />} label="Why it is waiting" size="sm" type="button" />
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] p-3 text-[12px]">
+          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] p-3 text-meta">
             {detail}
           </PopoverContent>
         </Popover>

@@ -83,7 +83,7 @@ export function ContextUsage({
           <ContextCompositionBar context={context} messages={messages} className="my-2 h-1.5" />
         </>
       )}
-      <p className="mb-2 text-[11px] leading-4 text-muted-foreground">
+      <p className="mb-2 text-caption leading-4 text-muted-foreground">
         {estimated ? 'Estimated usage' : 'Provider-reported usage'} for the last request
         {context?.usage_recorded_at
           ? ` at ${new Date(context.usage_recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
@@ -155,10 +155,10 @@ export function ContextUsage({
         ) : null}
       </div>
       {!context?.prompt_breakdown && !compact ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">No section data yet.</p>
+        <p className="mt-2 text-caption text-muted-foreground">No section data yet.</p>
       ) : null}
       {context?.cache_tokens_measured && used ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-2 text-caption text-muted-foreground">
           Prompt cache: {contextTokens(cacheRead)} reused (
           {contextPercent(Math.min(cacheRead, used), used)} of the prompt)
           {context.cache_write_tokens

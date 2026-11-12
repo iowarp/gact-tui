@@ -21,9 +21,9 @@ import { ActivityDisclosure, ActivityRow } from './activity-row';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 
-const ARGUMENT_CLASS = 'font-mono text-[11.5px] text-muted-foreground no-underline hover:underline';
+const ARGUMENT_CLASS = 'font-mono text-label text-muted-foreground no-underline hover:underline';
 const AGENT_LINK_CLASS =
-  'max-w-[16rem] truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
+  'max-w-[16rem] truncate text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
 
 /** One tool call as an activity row: name, argument, outcome, then fixed right columns. */
 export function ToolCompactRow({
@@ -102,7 +102,7 @@ export function ToolCompactRow({
           {onOpenFlow && index === 0 ? (
             <Button
               variant="link"
-              className="h-auto p-0 text-[12.5px] font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              className="h-auto p-0 text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
               onClick={onOpenFlow}
             >
               {subject.label || subject.text}

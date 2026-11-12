@@ -256,7 +256,7 @@ export const DialogFrame = memo(function DialogFrame({
         {description ? (
           <DialogDescription
             className={cn(
-              '-mt-2 pr-3.5 pb-1 text-[12.5px] leading-normal text-pretty',
+              '-mt-2 pr-3.5 pb-1 text-menu leading-normal text-pretty',
               icon ? 'pl-[42px]' : 'pl-4',
             )}
           >
@@ -273,7 +273,7 @@ export const DialogFrame = memo(function DialogFrame({
             // No rule closes it, so a last settings row drops its own too. Its setting rows
             // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
             className={cn(
-              'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              'min-w-0 pt-2 pr-[18px] text-ui [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
               '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
@@ -295,7 +295,7 @@ export const DialogFrame = memo(function DialogFrame({
           className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
-            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-meta whitespace-nowrap text-muted-foreground">
               {footerStart}
             </div>
           ) : null}

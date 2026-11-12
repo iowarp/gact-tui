@@ -17,14 +17,14 @@ export function GlobusReceivingStorageControl({ hostLabel }: { hostLabel: string
   const [open, setOpen] = useState(false);
   return (
     <details
-      className="text-[12px]"
+      className="text-meta"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="flex min-h-[26px] cursor-pointer items-center text-muted-foreground hover:text-foreground">
         Receiving storage on {hostLabel}
       </summary>
-      <p className="mt-1 text-[11px] leading-[1.45] text-faint">
+      <p className="mt-1 text-caption leading-[1.45] text-faint">
         Globus downloads need a receiving collection on this host. Other sources download directly
         into workspace storage.
       </p>

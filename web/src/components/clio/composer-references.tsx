@@ -205,14 +205,14 @@ const ReferenceOption = memo(function ReferenceOption({
       {detail ? (
         // A zero basis gives the description only the room the name leaves.
         <span
-          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-muted-foreground"
+          className="min-w-0 flex-1 basis-0 truncate text-label text-muted-foreground"
           data-slot={ROW_CUT_SLOT}
         >
           {detail}
         </span>
       ) : null}
       {drillable || active ? (
-        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-muted-foreground">
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-caption text-muted-foreground">
           {drillable ? <span>Tab to look inside</span> : null}
           {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
         </span>
@@ -564,7 +564,7 @@ export function ClioComposerReferenceMenu({
             aria-expanded="true"
             aria-label="Search workspace context"
             autoFocus
-            className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
+            className="h-full min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-faint"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={onSearchKeyDown}
             placeholder="Search evidence, files, conversations, and agent runs…"
@@ -573,7 +573,7 @@ export function ClioComposerReferenceMenu({
             value={searchQuery}
           />
         ) : (
-          <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
+          <span aria-hidden="true" className="min-w-0 flex-1 truncate text-ui">
             <span className="text-foreground">@{query}</span>
             {query ? null : <span className="text-faint"> type to search</span>}
           </span>
@@ -589,7 +589,7 @@ export function ClioComposerReferenceMenu({
       >
         {visibleRows.length === 0 ? (
           <div
-            className="flex h-[30px] min-w-0 items-center gap-2 px-2 text-[12px] text-muted-foreground"
+            className="flex h-[30px] min-w-0 items-center gap-2 px-2 text-meta text-muted-foreground"
             data-slot={loading ? 'composer-references-loading' : undefined}
           >
             {loading ? <RingSpinner /> : null}
@@ -599,7 +599,7 @@ export function ClioComposerReferenceMenu({
             <span className="truncate">{emptyText}</span>
             {failed ? (
               <button
-                className="ml-auto h-6 shrink-0 rounded-[5px] px-1.5 text-[12px] font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+                className="ml-auto h-6 shrink-0 rounded-[5px] px-1.5 text-meta font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => {
                   if (hdf5.mention) void hdf5.listing.refetch();
                   else {
@@ -681,7 +681,7 @@ export function ClioComposerReferenceMenu({
       </div>
       {unreadable + listing.unsupported > 0 ? (
         <div
-          className="flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5 text-[11px] text-muted-foreground"
+          className="flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5 text-caption text-muted-foreground"
           role="status"
         >
           {unreadable > 0 ? (

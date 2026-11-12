@@ -78,7 +78,7 @@ export function NavigationHeader({
       <SidebarMenu className="gap-px">
         <SidebarMenuItem className="group/new-row">
           <SidebarMenuButton
-            className="h-[30px] gap-2.5 pr-9 text-[13px] group-data-[collapsible=icon]:pr-2"
+            className="h-[30px] gap-2.5 pr-9 text-ui group-data-[collapsible=icon]:pr-2"
             onClick={onNewSession}
             tooltip="New conversation"
             type="button"
@@ -110,7 +110,7 @@ export function NavigationHeader({
         <SidebarMenuItem>
           <SidebarMenuButton
             aria-label="Search work"
-            className="h-[30px] gap-2.5 text-[13px]"
+            className="h-[30px] gap-2.5 text-ui"
             onClick={() => {
               // On a phone the command menu opens over the page, not over the sheet.
               if (isMobile) setOpenMobile(false);
@@ -123,7 +123,7 @@ export function NavigationHeader({
             <span className="truncate">Search</span>
             <ShortcutKeys
               className={cn(
-                'ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden max-[599px]:hidden',
+                'ml-auto text-caption text-muted-foreground group-data-[collapsible=icon]:hidden max-[599px]:hidden',
                 // The held badge takes its place.
                 commandKeyHeld && 'invisible',
               )}

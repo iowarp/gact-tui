@@ -34,8 +34,8 @@ export function KeyCap({
         size === 'sm'
           ? 'h-[18px] min-w-[18px] px-1 text-[10px]'
           : size === 'row'
-            ? 'h-5 min-w-5 px-1.5 text-[11px]'
-            : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
+            ? 'h-5 min-w-5 px-1.5 text-caption'
+            : 'h-[22px] min-w-[22px] px-1.5 text-caption',
         className,
       )}
     >
@@ -98,7 +98,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
         {chords.map((caps, chordIndex) => (
           <span key={chordIndex} className="inline-flex items-center gap-1">
             {chordIndex > 0 && (definition.joiner ?? 'or') === 'or' ? (
-              <span className="px-0.5 text-[11px] text-faint">or</span>
+              <span className="px-0.5 text-caption text-faint">or</span>
             ) : null}
             {caps.map((cap, capIndex) => (
               <KeyCap key={capIndex} size={capSize}>
@@ -148,7 +148,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     <kbd
       data-slot="shortcut-keys"
       className={cn(
-        'shrink-0 font-sans text-[11.5px] font-normal whitespace-nowrap text-muted-foreground tabular-nums',
+        'shrink-0 font-sans text-label font-normal whitespace-nowrap text-muted-foreground tabular-nums',
         className,
       )}
     >

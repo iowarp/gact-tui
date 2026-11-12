@@ -500,7 +500,7 @@ export function WorkbenchTabRow({
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label={`${hidden.length} more tabs`}
-                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-[11.5px] text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
+                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-label text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
                 data-slot="tab-overflow"
                 variant="ghost"
               >

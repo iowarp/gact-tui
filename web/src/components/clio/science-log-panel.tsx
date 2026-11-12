@@ -85,7 +85,7 @@ export function ScienceLogList({
               aria-expanded={selected}
               aria-label={`${name}, ${state.label}`}
               className={cn(
-                'col-span-3 mx-1.5 grid h-8 min-w-0 grid-cols-subgrid items-center rounded-md px-2 text-left text-[12.5px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                'col-span-3 mx-1.5 grid h-8 min-w-0 grid-cols-subgrid items-center rounded-md px-2 text-left text-menu outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                 selected && 'bg-accent text-accent-foreground hover:bg-accent',
               )}
               data-entry-row=""

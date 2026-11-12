@@ -127,7 +127,7 @@ export const SessionNavigationRow = memo(function SessionNavigationRow({
       {row}
       {forkLabel ? (
         <p
-          className="truncate px-2 pb-1 text-[11px] leading-4 text-muted-foreground"
+          className="truncate px-2 pb-1 text-caption leading-4 text-muted-foreground"
           title={forkLabel}
         >
           {forkLabel}
@@ -367,7 +367,7 @@ function SessionRow({
                   {unseen ? <span className="sr-only">New activity, </span> : null}
                   <ClioRelativeTime
                     className={cn(
-                      'text-[11px] group-data-selected/list-row:text-accent-foreground/80',
+                      'text-caption group-data-selected/list-row:text-accent-foreground/80',
                       unseen ? 'text-foreground' : 'text-muted-foreground',
                     )}
                     compact

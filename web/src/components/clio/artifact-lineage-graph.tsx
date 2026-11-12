@@ -110,7 +110,7 @@ function LineageNode({
           onClick={() => onOpen?.(node)}
           style={{ left: node.x, top: node.y, width: node.width, height: LINEAGE_NODE_HEIGHT }}
           className={cn(
-            'absolute flex items-center gap-[7px] rounded-lg border border-border bg-background px-[9px] text-left text-[11.5px] outline-none',
+            'absolute flex items-center gap-[7px] rounded-lg border border-border bg-background px-[9px] text-left text-label outline-none',
             'hover:outline-[1.5px] hover:outline-offset-2 hover:outline-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default',
             node.kind === 'action' && 'border-dashed bg-muted',
             node.kind === 'gap' && 'border-dashed border-warning/70',

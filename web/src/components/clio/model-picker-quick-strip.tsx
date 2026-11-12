@@ -19,7 +19,7 @@ interface ModelPickerQuickStripProps {
 }
 
 const CHIP_CLASS =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] border border-border px-1.5 font-mono text-[11px] whitespace-nowrap text-foreground';
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] border border-border px-1.5 font-mono text-caption whitespace-nowrap text-foreground';
 
 /**
  * Row 2 of the model picker: the quick filters as icons, each named on hover
@@ -73,7 +73,7 @@ export function ModelPickerQuickStrip({
                   <IconButton
                     aria-pressed={filter.active}
                     className={cn(
-                      'h-6 w-auto min-w-[26px] gap-1 px-[5px] font-mono text-[11px]',
+                      'h-6 w-auto min-w-[26px] gap-1 px-[5px] font-mono text-caption',
                       'aria-pressed:bg-accent aria-pressed:text-accent-foreground',
                     )}
                     data-token={filter.token}
@@ -113,8 +113,8 @@ export function ModelPickerQuickStrip({
               </div>
             ) : null}
             {removable ? (
-              <span className="ms-auto hidden shrink-0 items-center gap-1 ps-2 text-[11px] whitespace-nowrap text-faint @[30rem]/picker-search:inline-flex">
-                <ShortcutKeys className="text-[11px] text-faint" id="menu-drop-filter" />
+              <span className="ms-auto hidden shrink-0 items-center gap-1 ps-2 text-caption whitespace-nowrap text-faint @[30rem]/picker-search:inline-flex">
+                <ShortcutKeys className="text-caption text-faint" id="menu-drop-filter" />
                 drops the last filter
               </span>
             ) : null}

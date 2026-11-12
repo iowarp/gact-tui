@@ -350,7 +350,7 @@ function AgentComposition({
         />
       ) : null}
       {library && !view && !item ? (
-        <details className="px-3.5 pt-1 pb-2 text-[12px]">
+        <details className="px-3.5 pt-1 pb-2 text-meta">
           <summary className="w-fit cursor-pointer text-muted-foreground">About this agent</summary>
           <div className="mt-2 grid gap-2 leading-5">
             {resolution.agent.role ? <p>{resolution.agent.role}</p> : null}
@@ -363,13 +363,13 @@ function AgentComposition({
         </details>
       ) : null}
       {changed ? (
-        <p className="truncate px-3.5 pb-2 text-[12px] text-muted-foreground" title={summary}>
+        <p className="truncate px-3.5 pb-2 text-meta text-muted-foreground" title={summary}>
           {summary}
         </p>
       ) : null}
       {readOnly ? (
         <p
-          className="truncate px-3.5 pb-2 text-[12px] text-muted-foreground"
+          className="truncate px-3.5 pb-2 text-meta text-muted-foreground"
           title="This conversation runs a defined subagent. Its plugins follow the conversation that started it."
         >
           This conversation runs a defined subagent. Its plugins follow the conversation that

@@ -77,7 +77,7 @@ export function ProviderComponentStatus({
 
   return (
     <div
-      className="flex h-8 min-w-0 shrink-0 flex-nowrap items-center gap-3 overflow-hidden border-t px-3 text-[11px] whitespace-nowrap text-faint"
+      className="flex h-8 min-w-0 shrink-0 flex-nowrap items-center gap-3 overflow-hidden border-t px-3 text-caption whitespace-nowrap text-faint"
       data-slot="provider-component-status"
     >
       {version || label ? (

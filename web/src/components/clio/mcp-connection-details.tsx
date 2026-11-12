@@ -27,7 +27,7 @@ export function McpConnectionDetails({
         <div className="min-w-0" key={label}>
           <dt className="font-medium">{label}</dt>
           <dd
-            className={mono ? 'mt-1 truncate font-mono text-[0.75rem]' : 'mt-1'}
+            className={mono ? 'mt-1 truncate font-mono text-meta' : 'mt-1'}
             title={mono ? value : undefined}
           >
             {value}
@@ -40,7 +40,7 @@ export function McpConnectionDetails({
           <dd className="mt-1 min-w-0">
             <ol className="list-inside list-decimal space-y-1">
               {args.map((argument, index) => (
-                <li key={index} className="truncate font-mono text-[0.75rem]" title={argument}>
+                <li key={index} className="truncate font-mono text-meta" title={argument}>
                   {argument}
                 </li>
               ))}

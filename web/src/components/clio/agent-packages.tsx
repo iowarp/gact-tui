@@ -288,7 +288,7 @@ function PackageContents({
       id={contentsId(plugin)}
       role="region"
     >
-      <p className="truncate pb-1 text-[0.71875rem] text-muted-foreground">{heading}</p>
+      <p className="truncate pb-1 text-label text-muted-foreground">{heading}</p>
       {groups.map((group) => {
         const Icon = CATEGORY_ICONS[group];
         const info = PACKAGE_CATEGORY[group];
@@ -299,7 +299,7 @@ function PackageContents({
             label={category === 'all' ? `${plugin} ${info.plural}` : undefined}
           >
             {category === 'all' ? (
-              <p className="truncate pt-1 text-[0.6875rem] text-faint">
+              <p className="truncate pt-1 text-caption text-faint">
                 {countOf(group, items[group].length)}
               </p>
             ) : null}

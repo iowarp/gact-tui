@@ -21,7 +21,7 @@ export function CheckReport({
   return (
     <section
       aria-label="Plugin check results"
-      className="mt-4 grid gap-2 rounded-lg border border-border p-3 text-[0.8125rem]"
+      className="mt-4 grid gap-2 rounded-lg border border-border p-3 text-ui"
       ref={section}
     >
       <div className="flex min-w-0 items-center gap-2.5">

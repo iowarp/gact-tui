@@ -109,7 +109,7 @@ export function ProviderPanelFooter({
         className={cn(
           'flex min-w-0 shrink-0 flex-nowrap items-center overflow-hidden',
           // The dot lines up with the model names, past the check gutter.
-          manage ? 'h-7 w-full gap-[7px] text-[11px] text-faint' : 'h-full gap-1.5 ps-2 pe-1',
+          manage ? 'h-7 w-full gap-[7px] text-caption text-faint' : 'h-full gap-1.5 ps-2 pe-1',
           className,
         )}
         // Only a usable provider has the action row; a provider in setup shows its Settings link.
@@ -127,7 +127,7 @@ export function ProviderPanelFooter({
                 the bar repeats them visually and is named by its group label. */}
             <span
               aria-hidden="true"
-              className="min-w-0 max-w-[40%] shrink truncate text-[12px] text-foreground before:content-[attr(data-name)]"
+              className="min-w-0 max-w-[40%] shrink truncate text-meta text-foreground before:content-[attr(data-name)]"
               data-name={group.name}
             />
           </>
@@ -161,7 +161,7 @@ export function ProviderPanelFooter({
         ) : null}
         {age && !manage && !actions?.stage ? (
           <span
-            className="shrink-0 font-mono text-[11px] text-muted-foreground"
+            className="shrink-0 font-mono text-caption text-muted-foreground"
             title={`Checked ${formatFreshness(group.freshness!)}`}
           >
             {age}

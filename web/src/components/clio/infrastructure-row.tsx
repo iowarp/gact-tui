@@ -190,7 +190,7 @@ export const InfraRow = memo(
               <span className={NARROW_STATUS} style={{ width: columns.status }}>
                 {status ? (
                   <StatusIndicator
-                    className="text-[11px]"
+                    className="text-caption"
                     label={status.label}
                     tone={status.tone}
                   />
@@ -198,7 +198,7 @@ export const InfraRow = memo(
               </span>
               {columns.meta ? (
                 <span
-                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-[11px] text-muted-foreground @lg/infra:flex"
+                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-caption text-muted-foreground @lg/infra:flex"
                   style={{ width: columns.meta }}
                   title={metaTitle}
                 >

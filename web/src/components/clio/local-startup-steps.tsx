@@ -128,13 +128,13 @@ export function LocalStartupSteps({
       {detail || log ? (
         <TechnicalDetails
           title="Startup details"
-          className="mt-1.5 min-w-0 text-[12.5px]"
+          className="mt-1.5 min-w-0 text-menu"
           summaryClassName="min-h-[30px] gap-2.5 font-normal"
           contentClassName="pt-1.5"
         >
           {detail ? <p className="m-0 text-muted-foreground">{detail}</p> : null}
           {log ? (
-            <pre className="clio-scrollbar mt-1.5 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-words text-muted-foreground">
+            <pre className="clio-scrollbar mt-1.5 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-label whitespace-pre-wrap break-words text-muted-foreground">
               {log}
             </pre>
           ) : null}

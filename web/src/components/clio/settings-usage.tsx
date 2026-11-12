@@ -159,7 +159,7 @@ function AccountDetails({
           <p className="text-xs text-muted-foreground">Nothing recorded yet</p>
         )}
         <SettingsGroupLabel className="mt-3">Delegated work</SettingsGroupLabel>
-        <label className="flex items-center gap-2 text-[13px]" htmlFor={switchId}>
+        <label className="flex items-center gap-2 text-ui" htmlFor={switchId}>
           <DelegationSwitch account={account} id={switchId} />
           {vocab.agent} may use this account
         </label>

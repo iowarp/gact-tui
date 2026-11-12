@@ -104,7 +104,7 @@ function MemoryWrite({
       {!singleton ? (
         <SettingsRow htmlFor="memory-title" title="Subject">
           <Input
-            className="h-[1.875rem] text-[12.5px]"
+            className="h-[1.875rem] text-menu"
             disabled={create.isPending}
             id="memory-title"
             onChange={(event) => setTitle(event.target.value)}
@@ -116,7 +116,7 @@ function MemoryWrite({
       ) : null}
       <SettingsRow htmlFor="memory-facts" title="What to remember">
         <Textarea
-          className="min-h-20 text-[12.5px]"
+          className="min-h-20 text-menu"
           disabled={create.isPending}
           id="memory-facts"
           onChange={(event) => setFacts(event.target.value)}
@@ -127,7 +127,7 @@ function MemoryWrite({
         />
       </SettingsRow>
       {create.error ? (
-        <p className="pt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="pt-2 text-menu text-destructive" role="alert">
           {memoryErrorText(create.error)}
         </p>
       ) : null}

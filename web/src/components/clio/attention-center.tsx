@@ -177,7 +177,7 @@ function requestRow(session: Session, request: PendingInteraction): NeedRow {
         kind: { ...kind, verb: 'wants to run a command' },
         detail: (
           <>
-            <code className="font-mono text-[11px] text-foreground/85">{command}</code>
+            <code className="font-mono text-caption text-foreground/85">{command}</code>
             {where}
           </>
         ),
@@ -357,7 +357,7 @@ export function ClioAttentionCenter({
             ? `${entries[0]!.session.title} needs your response`
             : `${entries.length} sessions need your response`
         }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
-  const groupLabel = 'px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground';
+  const groupLabel = 'px-2 pt-2.5 pb-1 text-caption font-semibold text-muted-foreground';
   // Spec `.nf`: at least 46px, 6px 8px, so the age and the action share the right column.
   const rowFrame =
     'min-h-[46px] rounded-[6px] px-2 py-1.5 hover:bg-hover has-[a:focus-visible]:bg-hover';
@@ -403,7 +403,7 @@ export function ClioAttentionCenter({
         <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
           <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
           <button
-            className="ml-auto rounded-[6px] px-1.5 py-0.5 text-[11.5px] font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
+            className="ml-auto rounded-[6px] px-1.5 py-0.5 text-label font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
             disabled={!unread}
             onClick={() =>
               markAllNotificationsRead(
@@ -427,7 +427,7 @@ export function ClioAttentionCenter({
           />
         </div>
         {empty ? (
-          <p className="px-4 pt-4 pb-3 text-[12.5px] text-muted-foreground">Nothing needs you.</p>
+          <p className="px-4 pt-4 pb-3 text-menu text-muted-foreground">Nothing needs you.</p>
         ) : null}
         <div
           className="clio-scrollbar flex max-h-[min(30rem,70vh)] flex-col overflow-y-auto px-1.5 pb-2"
@@ -483,7 +483,7 @@ export function ClioAttentionCenter({
                             icon={<KindIcon aria-hidden="true" className="text-warning" />}
                             meta={
                               <ClioRelativeTime
-                                className="text-[11px] text-faint"
+                                className="text-caption text-faint"
                                 compact
                                 label="Asked"
                                 timestamp={row.timestamp}
@@ -505,11 +505,11 @@ export function ClioAttentionCenter({
                         {row.permission ? (
                           <div
                             aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
                             role="group"
                           >
                             <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
                               disabled={deciding}
                               onClick={() => decide('allow')}
                               size="xs"
@@ -517,7 +517,7 @@ export function ClioAttentionCenter({
                               Allow
                             </Button>
                             <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
                               disabled={deciding}
                               onClick={() => decide('deny')}
                               size="xs"
@@ -575,7 +575,7 @@ export function ClioAttentionCenter({
                           icon={AWAY_ICON[row.tone]}
                           meta={
                             <ClioRelativeTime
-                              className="text-[11px] text-faint"
+                              className="text-caption text-faint"
                               compact
                               label="Ended"
                               timestamp={row.timestamp}
@@ -604,7 +604,7 @@ export function ClioAttentionCenter({
                       {row.action === 'Retry' ? (
                         <button
                           aria-label={`Retry ${row.session.title}`}
-                          className="absolute right-2 bottom-1.5 text-[11.5px] leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
+                          className="absolute right-2 bottom-1.5 text-label leading-4.5 font-semibold text-accent-foreground hover:underline disabled:opacity-50"
                           disabled={retry.isPending && retry.variables?.id === row.session.id}
                           onClick={() => retry.mutate(row.session)}
                           type="button"
@@ -649,11 +649,11 @@ export function ClioAttentionCenter({
                       />
                       <div
                         aria-label="Desktop alerts"
-                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
                         role="group"
                       >
                         <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
                           onClick={() =>
                             void answerNotificationAsk(true).then((answer) => {
                               if (answer === 'denied') {
@@ -669,7 +669,7 @@ export function ClioAttentionCenter({
                           Allow
                         </Button>
                         <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
                           onClick={() => void answerNotificationAsk(false)}
                           size="xs"
                           variant="secondary"
@@ -721,7 +721,7 @@ export function ClioAttentionCenter({
           ) : null}
           {earlier > 0 ? (
             <button
-              className="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-left text-[11.5px] text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
+              className="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-left text-label text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
               onClick={() => setShowEarlier(true)}
               type="button"
             >

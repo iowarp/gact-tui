@@ -55,7 +55,7 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
 export function ResultDetail({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <span
-      className="flex h-[1lh] min-w-0 flex-[1_1_0%] flex-wrap overflow-hidden text-[11.5px] text-faint"
+      className="flex h-[1lh] min-w-0 flex-[1_1_0%] flex-wrap overflow-hidden text-label text-faint"
       title={title}
     >
       <span aria-hidden="true" className="h-[1lh] w-0" />
@@ -71,7 +71,7 @@ export function ResultDetail({ children, title }: { children: ReactNode; title?:
 export function ResultTrail({ children }: { children?: ReactNode }) {
   return (
     <span
-      className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] whitespace-nowrap text-faint tabular-nums"
+      className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-caption whitespace-nowrap text-faint tabular-nums"
       data-slot="command-shortcut"
     >
       {children}
@@ -80,7 +80,7 @@ export function ResultTrail({ children }: { children?: ReactNode }) {
         className="hidden group-data-[selected=true]/command-item:inline-flex"
       >
         {/* #825's KeyCap `row` size; S7 folds it into ShortcutKeys `row`. */}
-        <KeyCap className="h-5 min-w-5 px-1.5 text-[11px]">↵</KeyCap>
+        <KeyCap className="h-5 min-w-5 px-1.5 text-caption">↵</KeyCap>
       </span>
     </span>
   );

@@ -45,7 +45,7 @@ function ReplyUsedDetails({
   const { setup, usage } = replyUsedRows(message, agentName, counts);
   return (
     <section aria-label="This reply used">
-      <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">This reply used</p>
+      <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">This reply used</p>
       <KeyValueGrid variant="card" items={setup} />
       {usage.length ? (
         <>

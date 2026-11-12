@@ -41,8 +41,8 @@ export function SettingsSectionHeading({
         <Heading
           className={
             level === 1
-              ? 'min-w-0 truncate font-heading text-[1.0625rem] font-semibold'
-              : 'min-w-0 truncate font-heading text-[0.9375rem] font-semibold'
+              ? 'min-w-0 truncate font-heading text-title font-semibold'
+              : 'min-w-0 truncate font-heading text-h3 font-semibold'
           }
         >
           {title}

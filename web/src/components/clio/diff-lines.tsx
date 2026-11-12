@@ -31,7 +31,7 @@ export function DiffLines({ unified, className }: { unified: string; className?:
       ref={scrollRef}
       aria-label="Changed lines"
       className={cn(
-        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-[13px] text-foreground',
+        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-ui text-foreground',
         className,
       )}
       data-slot="diff-lines"

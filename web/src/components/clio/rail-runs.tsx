@@ -135,7 +135,7 @@ export function RailRuns({
         <Link
           to="/runs"
           data-rail-row=""
-          className="flex h-7 items-center gap-2 rounded-[5px] px-2 text-[13px] hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-7 items-center gap-2 rounded-[5px] px-2 text-ui hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ActivityIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
           <span className="flex-1">

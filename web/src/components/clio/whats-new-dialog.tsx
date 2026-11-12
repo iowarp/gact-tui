@@ -171,7 +171,7 @@ export function WhatsNewReleaseDialog({
                   className="data-active:shadow-[inset_0_-2px_0_var(--primary)]"
                   renderTrigger={({ className, children }) => (
                     <TabsTrigger
-                      className={`${className} h-full justify-start border-0 bg-transparent py-0 text-[12.5px] font-normal text-inherit shadow-none data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent`}
+                      className={`${className} h-full justify-start border-0 bg-transparent py-0 text-menu font-normal text-inherit shadow-none data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent`}
                       value={tab.id}
                     >
                       {children}

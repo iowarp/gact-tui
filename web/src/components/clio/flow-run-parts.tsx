@@ -57,7 +57,7 @@ export function FlowLegend({ tones, hint }: { tones: readonly FlowTone[]; hint?:
   const shown = TONE_WORDS.filter(([tone]) => tones.includes(tone));
   if (!shown.length && !hint) return null;
   return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+    <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
       {shown.map(([tone, word]) => (
         <span className="inline-flex items-center gap-1" key={tone}>
           <span
@@ -244,7 +244,7 @@ function PickFrame({
     >
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <ClioStatus
-          className="shrink-0 px-1.5 py-0 text-[11px]"
+          className="shrink-0 px-1.5 py-0 text-caption"
           label={status.label}
           value={status.value}
         />

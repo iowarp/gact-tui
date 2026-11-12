@@ -93,7 +93,7 @@ export function SandboxBoundaryNotice({
       className={
         placement === 'message'
           ? 'flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm'
-          : 'ml-[22px] flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground'
+          : 'ml-[22px] flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-menu text-muted-foreground'
       }
       data-placement={placement}
       data-slot="sandbox-boundary"
@@ -129,7 +129,7 @@ export function SandboxBoundaryNotice({
                 <Button
                   size="sm"
                   variant="outline"
-                  className={placement === 'call' ? 'h-6 gap-1.5 px-2 text-[12px]' : 'h-7'}
+                  className={placement === 'call' ? 'h-6 gap-1.5 px-2 text-meta' : 'h-7'}
                   title={root}
                   disabled={state[root] === 'pending'}
                   onClick={() => setAsking(root)}
@@ -168,7 +168,7 @@ export function SandboxBoundaryNotice({
                 title: `Read and write in ${asking ?? ''}`,
                 value: (
                   <span className="min-w-0">
-                    Read and write in <span className="font-mono text-[12px]">{asking}</span>
+                    Read and write in <span className="font-mono text-meta">{asking}</span>
                   </span>
                 ),
                 wrap: true,
@@ -184,7 +184,7 @@ export function SandboxBoundaryNotice({
             ]}
             variant="facts"
           />
-          <p className="mt-2 text-[12px] text-muted-foreground">
+          <p className="mt-2 text-meta text-muted-foreground">
             The blocked command is not run again. Ask the agent to try again.
           </p>
         </div>

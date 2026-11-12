@@ -28,7 +28,7 @@ export function CommandMenuNoMatch({
   return (
     <>
       <p
-        className="flex min-w-0 items-center gap-2 px-2.5 pt-4 pb-2 text-[12.5px] whitespace-nowrap text-muted-foreground"
+        className="flex min-w-0 items-center gap-2 px-2.5 pt-4 pb-2 text-menu whitespace-nowrap text-muted-foreground"
         role="status"
       >
         <SearchXIcon aria-hidden="true" className="size-4 shrink-0 text-faint" />

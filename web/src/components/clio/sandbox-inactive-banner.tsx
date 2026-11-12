@@ -80,7 +80,7 @@ export function SandboxInactiveStrip({
   return (
     <section
       aria-label="Protected execution is off"
-      className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-l-2 border-l-warning bg-warning/10 py-2 pr-1.5 pl-3 text-[12.5px]"
+      className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-l-2 border-l-warning bg-warning/10 py-2 pr-1.5 pl-3 text-menu"
       data-slot="sandbox-inactive-banner"
       role="alert"
     >

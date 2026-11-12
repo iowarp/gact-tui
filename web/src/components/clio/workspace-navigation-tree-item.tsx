@@ -119,7 +119,7 @@ export function WorkspaceTreeItem({
         meta={
           // An open workspace shows its conversations; only a folded one counts them.
           sessionTotal > 0 && !expanded ? (
-            <span className="text-[11px] font-normal tabular-nums text-faint">{sessionTotal}</span>
+            <span className="text-caption font-normal tabular-nums text-faint">{sessionTotal}</span>
           ) : null
         }
         status={

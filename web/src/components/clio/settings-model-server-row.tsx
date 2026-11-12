@@ -319,7 +319,7 @@ export function ModelServerRow({
       </Button>
     ) : isDefault ? (
       <span
-        className="inline-flex items-center rounded-[7px] bg-hover px-2 py-[3px] text-[13px] text-foreground"
+        className="inline-flex items-center rounded-[7px] bg-hover px-2 py-[3px] text-ui text-foreground"
         data-slot="server-in-use"
       >
         In use
@@ -353,7 +353,7 @@ export function ModelServerRow({
   const confirm =
     mode === 'remove' ? (
       <>
-        <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
+        <span className="min-w-0 truncate text-menu text-destructive" role="alert">
           {custom ? `Remove ${label}?` : `Go back to ${shortServerAddress(preset.api_base ?? '')}?`}
         </span>
         <Button

@@ -32,7 +32,7 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
         data-slot="settings-select-field"
         className={cn(
           // Light: the cream field of the row's text inputs (transparent on the card), not a tan fill.
-          'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-transparent px-2.5 text-[0.78125rem] whitespace-nowrap text-foreground outline-none',
+          'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-transparent px-2.5 text-menu whitespace-nowrap text-foreground outline-none',
           // Dark: inset like the row's text fields (the spec's dark field fill).
           'dark:bg-sidebar dark:hover:bg-input/30',
           'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',

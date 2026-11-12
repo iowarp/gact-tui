@@ -81,13 +81,13 @@ function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) 
 /** One `.tsk` line: the row's own status mark, the words and a faint fact. */
 function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string }) {
   return (
-    <div className="flex h-[30px] min-w-0 items-center gap-2.5 text-[12.5px] text-foreground/90">
+    <div className="flex h-[30px] min-w-0 items-center gap-2.5 text-menu text-foreground/90">
       <RunStatusMark cancelRequested={Boolean(row.cancelRequested)} row={row} />
       <span className="min-w-0 flex-1 truncate" title={text}>
         {text}
       </span>
       {meta ? (
-        <span className="shrink-0 text-[11px] whitespace-nowrap text-faint tabular-nums">
+        <span className="shrink-0 text-caption whitespace-nowrap text-faint tabular-nums">
           {meta}
         </span>
       ) : null}
@@ -98,11 +98,11 @@ function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string
 /** Where a run ran, its assignment and its backend ids: kept, behind Details. */
 function RunFacts({ row }: { row: RunRow }) {
   return (
-    <TechnicalDetails className="text-[12px]" title="Details">
+    <TechnicalDetails className="text-meta" title="Details">
       <div className="mt-1 grid gap-3">
         {row.assignment ? (
           <section className="grid gap-1">
-            <h3 className="text-[11px] font-semibold text-muted-foreground">Assignment</h3>
+            <h3 className="text-caption font-semibold text-muted-foreground">Assignment</h3>
             <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{row.assignment}</p>
           </section>
         ) : null}
@@ -187,8 +187,8 @@ function RunSummary({
     // The progress message is the last in-flight status ("Working"), not a result.
     return (
       <div className="grid gap-4 px-4 py-3.5">
-        <section className="grid text-[12.5px]">
-          <h3 className="mb-1.5 font-heading text-[15px] font-semibold text-foreground">Result</h3>
+        <section className="grid text-menu">
+          <h3 className="mb-1.5 font-heading text-h3 font-semibold text-foreground">Result</h3>
           <RunLine meta={progress} row={row} text={time ? `Finished in ${time}.` : 'Finished.'} />
         </section>
         <RunFacts row={row} />
@@ -213,7 +213,7 @@ function RunSummary({
         <RunLine meta={meta} row={row} text={headline} />
         {reason ? (
           <p
-            className="-mt-1 mb-1 ml-6 truncate text-[11.5px] text-destructive-text"
+            className="-mt-1 mb-1 ml-6 truncate text-label text-destructive-text"
             title={reason}
           >
             {reason}
