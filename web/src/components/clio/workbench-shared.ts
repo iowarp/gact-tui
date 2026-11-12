@@ -52,6 +52,8 @@ type WorkbenchTabKind =
       line?: number;
       find?: string;
       locator?: string;
+      /** PDF only: the page the viewer opens on. */
+      page?: number;
     }
   | {
       id: string;

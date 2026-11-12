@@ -260,6 +260,7 @@ export function WorkbenchTabContent({
           selectedPath={tab.path}
           searchLocation={tab.line || tab.find ? { line: tab.line, find: tab.find } : undefined}
           locator={tab.locator}
+          initialPage={tab.page}
           workspaceId={tab.workspaceId}
         />
       );

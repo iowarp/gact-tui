@@ -116,8 +116,13 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
     [isImage, bytes],
   );
   const canOpen = Boolean(path && navigation?.onOpenFile);
+  // A view_pdf call names the pages it read: the full viewer opens on the first of them.
+  const citedPage = block.pages?.[0];
   const open = () => {
-    if (canOpen) navigation?.onOpenFile?.(path);
+    if (!canOpen) return;
+    if (citedPage && navigation?.onOpenFileReference)
+      navigation.onOpenFileReference(path, { page: citedPage });
+    else navigation?.onOpenFile?.(path);
   };
   const onHeaderClick = (event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();

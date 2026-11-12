@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -6,11 +6,7 @@ import { ViewerZoomControls } from './viewer-zoom-controls';
 import { frameKeyRegion } from './file-viewer-modes';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
-import {
-  PDF_FLING_PX_PER_MS,
-  PDF_FLING_SETTLE_MS,
-  PDF_PAGE_GAP_PX,
-} from '@/lib/runtime-limits';
+import { PDF_FLING_PX_PER_MS, PDF_FLING_SETTLE_MS, PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
 import {
   estimatedPdfPageHeight,
   fitPdfPageWidth,
@@ -88,6 +84,9 @@ export function ClioDocumentPdfViewer({
   // detaches the caller's buffer — and these bytes are the cached resource
   // preview other surfaces read. One copy per document, never per render.
   const file = useMemo(() => ({ data: new Uint8Array(bytes) }), [bytes]);
+  // While new bytes load, the pages are gone and the scroller is back at the top.
+  const [loadedFile, setLoadedFile] = useState<typeof file>();
+  const loaded = loadedFile === file;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -108,9 +107,15 @@ export function ClioDocumentPdfViewer({
     return () => observer.disconnect();
   }, []);
 
+  // Set while the scroller is hidden: shown again, it may come back at the top.
+  const hiddenRef = useRef(false);
   const readScroll = useCallback(() => {
     const container = scrollRef.current;
-    if (!container || !isRendered(container)) return;
+    if (!container) return;
+    if (!isRendered(container)) {
+      hiddenRef.current = true;
+      return;
+    }
     if (container.clientWidth > 0) setHostWidth(Math.max(1, container.clientWidth - 26));
     // A fling passes pages faster than pdf.js can paint them: pages entering the window
     // keep their sized card until the scroll settles, instead of each painting in passing.
@@ -130,6 +135,16 @@ export function ClioDocumentPdfViewer({
     );
   }, []);
   useEffect(() => () => window.clearTimeout(settleRef.current), []);
+  // The viewer's own jump lands on its page rather than flinging past the pages
+  // between, so the pages it lands on paint at once.
+  const jumpTo = useCallback(
+    (container: HTMLElement, top: number) => {
+      container.scrollTop = top;
+      lastScrollRef.current = { top: container.scrollTop, at: performance.now() };
+      readScroll();
+    },
+    [readScroll],
+  );
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -156,29 +171,6 @@ export function ClioDocumentPdfViewer({
     return () => container.removeEventListener('wheel', onWheel);
   }, [zoomIn, zoomOut]);
 
-  // The scroll position alone decides the page window. An initial-page anchor
-  // jumps the scroll container once a real rendered page supplies its height.
-  // The first page to mount (page 1, at the initial scrollTop of 0) renders before any
-  // page after it can, so waiting for `measured` before computing the jump
-  // trades one page-1 flash for a jump built on this document's true page
-  // height rather than the generic aspect-ratio estimate. Guarded by a ref,
-  // not state, so it fires exactly once and never fights a later resize/zoom
-  // remeasurement or the reader's own scrolling.
-  const scrolledToInitialPageRef = useRef(false);
-  useEffect(() => {
-    if (scrolledToInitialPageRef.current) return;
-    if (!initialPage || initialPage <= 1) {
-      scrolledToInitialPageRef.current = true;
-      return;
-    }
-    if (!measured) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    scrolledToInitialPageRef.current = true;
-    container.scrollTop = Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height);
-    readScroll();
-  }, [initialPage, measured, pageCount, readScroll]);
-
   // A new highlight scrolls its page into view, then its box within the page.
   useEffect(() => {
     if (!highlight) return;
@@ -192,12 +184,11 @@ export function ClioDocumentPdfViewer({
         container.getBoundingClientRect().top +
         container.scrollTop
       : highlight.page * pageHeight;
-    container.scrollTop = Math.max(
-      0,
-      pageTop + highlight.rect[1] * pageHeight - container.clientHeight / 3,
+    jumpTo(
+      container,
+      Math.max(0, pageTop + highlight.rect[1] * pageHeight - container.clientHeight / 3),
     );
-    readScroll();
-  }, [highlight, measured, readScroll]);
+  }, [highlight, jumpTo, measured]);
 
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
@@ -216,6 +207,34 @@ export function ClioDocumentPdfViewer({
   );
   const pageHeightPx =
     measured?.geometry === geometry ? measured.height : estimatedPdfPageHeight(pageWidth * scale);
+
+  // The scroll position alone decides the page window. An initial-page anchor
+  // jumps the scroll container once a real rendered page supplies its height at
+  // the current geometry. The first page to mount (page 1, at the initial
+  // scrollTop of 0) renders before any page after it can, so waiting for that
+  // measurement trades one page-1 flash for a jump built on this document's
+  // true page height rather than the generic aspect-ratio estimate. Until the
+  // reader scrolls away from it, the anchor holds: a host still settling its
+  // size (a transcript card laying out) changes the page height, and the jump is
+  // redone at the new height instead of leaving the view dozens of pages early.
+  const initialJumpRef = useRef<{ top: number } | 'done'>(undefined);
+  useEffect(() => {
+    const jumped = initialJumpRef.current;
+    if (jumped === 'done') return;
+    if (!initialPage || initialPage <= 1) {
+      initialJumpRef.current = 'done';
+      return;
+    }
+    if (!pageCount || measured?.geometry !== geometry) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    if (jumped && Math.abs(container.scrollTop - jumped.top) > 1) {
+      initialJumpRef.current = 'done';
+      return;
+    }
+    jumpTo(container, Math.max(0, (Math.min(initialPage, pageCount) - 1) * measured.height));
+    initialJumpRef.current = { top: container.scrollTop };
+  }, [geometry, initialPage, jumpTo, measured, pageCount]);
   const pageWindow = pdfPageWindow({
     pageCount,
     pageHeightPx,
@@ -226,6 +245,69 @@ export function ClioDocumentPdfViewer({
   // The page whose upper half has reached the top of the view, so short pages that all fit
   // still read as page 1; the end of a scrolled document is its last page.
   const pageStride = Math.max(1, pageHeightPx);
+  // The reader's place is a page and a point within it, not a pixel offset: a narrower
+  // host, a change of fit or a zoom step changes every page's height, and the same
+  // scrollTop would then show another page (or clamp at the end). Whenever the page
+  // height changes, or a hidden scroller is shown or a document reloaded, the view
+  // returns to that place.
+  const anchorRef = useRef<{ stride: number; page: number }>(undefined);
+  // Set from a return to the anchor until it lands: pages below still laying out can
+  // stop it short, and that position isn't the reader's. Their own input ends it.
+  const restoringRef = useRef(false);
+  const retryRef = useRef<number>(undefined);
+  const restore = useCallback(
+    (container: HTMLElement) => {
+      const step = (attempt: number) => {
+        window.cancelAnimationFrame(retryRef.current ?? 0);
+        const anchor = anchorRef.current;
+        if (!anchor) return;
+        const top = anchor.page * anchor.stride;
+        restoringRef.current = true;
+        if (Math.abs(container.scrollTop - top) > 1) jumpTo(container, top);
+        if (Math.abs(container.scrollTop - top) <= 1 || attempt >= 60) {
+          restoringRef.current = false;
+          return;
+        }
+        retryRef.current = window.requestAnimationFrame(() => {
+          if (restoringRef.current) step(attempt + 1);
+        });
+      };
+      step(0);
+    },
+    [jumpTo],
+  );
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const release = () => {
+      restoringRef.current = false;
+      window.cancelAnimationFrame(retryRef.current ?? 0);
+    };
+    const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+    for (const type of events) container.addEventListener(type, release, { passive: true });
+    return () => {
+      release();
+      for (const type of events) container.removeEventListener(type, release);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (!loaded) {
+      if (anchorRef.current) hiddenRef.current = true;
+      return;
+    }
+    if (!container || !pageCount || !isRendered(container)) return;
+    const anchor = anchorRef.current;
+    if (anchor && (hiddenRef.current || Math.abs(anchor.stride - pageStride) > 0.5)) {
+      hiddenRef.current = false;
+      anchorRef.current = { stride: pageStride, page: anchor.page };
+      restore(container);
+      return;
+    }
+    hiddenRef.current = false;
+    if (anchor && restoringRef.current) return;
+    anchorRef.current = { stride: pageStride, page: scroll.top / pageStride };
+  }, [loaded, pageCount, pageStride, restore, scroll.top]);
   const atEnd = scroll.top > 0 && scroll.top + scroll.viewport >= pageCount * pageStride - 1;
   const currentPage = atEnd
     ? pageCount
@@ -261,8 +343,7 @@ export function ClioDocumentPdfViewer({
       const partway = container.scrollTop > (atTop - 1) * pageStride + 4;
       const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
       const target = Math.min(pageCount, Math.max(1, atTop + step));
-      container.scrollTop = (target - 1) * pageStride;
-      readScroll();
+      jumpTo(container, (target - 1) * pageStride);
     },
     { region: pageRegion, enabled: pageCount > 0 },
   );
@@ -338,10 +419,12 @@ export function ClioDocumentPdfViewer({
       </ViewerZoomControls>
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
-          to scroll — every host has to give it a bounded box. */}
+          to scroll — every host has to give it a bounded box. Scroll anchoring
+          is off: pages mounting at full size above a jump target would make
+          the browser shift scrollTop and land several pages late. */}
       <div
         aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
-        className="min-h-0 flex-1 overflow-auto px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="min-h-0 flex-1 overflow-auto [overflow-anchor:none] px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
         ref={scrollRef}
@@ -352,9 +435,15 @@ export function ClioDocumentPdfViewer({
           error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
           file={file}
           loading={<StateView kind="loading" size="viewer" title={`Loading ${name}`} />}
-          onLoadSuccess={({ numPages }) => setPageCount(numPages)}
+          onLoadSuccess={({ numPages }) => {
+            setPageCount(numPages);
+            setLoadedFile(file);
+          }}
         >
-          <div className="grid gap-3">
+          {/* No transitions on the page boxes: a spacer's height must hold the moment it
+              is set, or a return to the reader's place clamps against the old extent
+              (the reduced-motion rule gives every property a 1ms duration). */}
+          <div className="grid gap-3 [&_*]:transition-none">
             <div
               aria-hidden="true"
               data-pdf-spacer="leading"
@@ -479,7 +568,8 @@ const PdfPage = memo(function PdfPage({
             height: `${fittedWidth * scale * aspectRatio}px`,
           }}
         />
-      )}  {highlight ? (
+      )}
+      {highlight ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute rounded-sm bg-primary/15 ring-2 ring-primary"
