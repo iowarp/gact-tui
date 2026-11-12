@@ -969,45 +969,48 @@ html[data-clio-motion='reduced'] *::after {
   overflow-wrap: break-word;
 }
 /* Transcript markdown follows the conversation spec's `.md`, `.cbk` and `.tbl`:
-   one frame per block, a 30px header, compact rows and tight list rhythm. */
-[data-slot='message-text'] .space-y-4 > :not(:last-child) {
+   one frame per block, a 30px header, compact rows and tight list rhythm. The
+   final reply and the agent's interim prose between tool calls share it, so the
+   same text reads at one scale before and after a tool call. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :not(:last-child) {
   margin-block-end: 10px;
 }
-[data-slot='message-text'] :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;
   line-height: 1.35;
   color: var(--foreground);
 }
-[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
   margin-block-end: 6px;
 }
-[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
   margin-block-start: 14px;
 }
-[data-slot='message-text'] h1[data-streamdown] {
-  font-size: 18px;
-}
-[data-slot='message-text'] h2[data-streamdown] {
+/* The spec's largest transcript heading is `.md h3` at 17px; h1 stops there. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h1[data-streamdown] {
   font-size: 17px;
 }
-[data-slot='message-text'] h3[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h2[data-streamdown] {
+  font-size: 17px;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h3[data-streamdown] {
   font-size: 15px;
 }
-[data-slot='message-text'] :is(h4, h5, h6)[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h4, h5, h6)[data-streamdown] {
   font-size: 14px;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   list-style-position: outside;
   padding-left: 20px;
 }
-[data-slot='message-text'] li[data-streamdown='list-item'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li[data-streamdown='list-item'] {
   margin: 3px 0;
   padding: 0;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   li
   > :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   margin-top: 3px;
@@ -1017,20 +1020,20 @@ html[data-clio-motion='reduced'] *::after {
    would overflow it and be clipped by the message frame. MarkdownText marks a
    list whose widest marker (start + items − 1) has more digits, and the gutter
    widens to that count so every marker shows whole and item text keeps one edge. */
-[data-slot='message-text'] [data-streamdown='ordered-list'][data-marker-digits] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='ordered-list'][data-marker-digits] {
   padding-left: calc(var(--marker-digits, 2) * 1ch + 0.75em);
 }
-[data-slot='message-text'] li::marker {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li::marker {
   font-variant-numeric: tabular-nums;
 }
-[data-slot='message-text'] [data-streamdown='blockquote'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] {
   margin: 0;
   border-left: 2px solid var(--border);
   padding-left: 12px;
   font-style: normal;
   color: var(--muted-foreground);
 }
-[data-slot='message-text'] :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
   position: relative;
   gap: 0;
   margin: 0;
@@ -1040,8 +1043,8 @@ html[data-clio-motion='reduced'] *::after {
   background: var(--background);
   padding: 0;
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'],
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'],
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1053,27 +1056,27 @@ html[data-clio-motion='reduced'] *::after {
   color: var(--muted-foreground);
   white-space: nowrap;
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'] > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--foreground);
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'] > span:empty::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span:empty::before {
   content: 'Code';
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
   gap: 0;
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child::before {
   content: 'Table';
   margin-right: auto;
   font-size: 12px;
   font-weight: 500;
   color: var(--foreground);
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   [data-streamdown='code-block']
   > div:has(> [data-streamdown='code-block-actions']) {
   top: 0;
@@ -1081,14 +1084,14 @@ html[data-clio-motion='reduced'] *::after {
   margin-top: -30px;
   padding-right: 4px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-actions'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-actions'] {
   gap: 0;
   border: 0;
   background: transparent;
   padding: 0;
   backdrop-filter: none;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button {
   display: grid;
@@ -1098,19 +1101,19 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0;
   border-radius: 6px;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button:hover {
   background: var(--hover);
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button
   svg {
   width: 13px;
   height: 13px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1118,14 +1121,14 @@ html[data-clio-motion='reduced'] *::after {
   overflow-x: auto;
   font: 11.5px/1.65 var(--font-mono);
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] :is(pre, code) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] :is(pre, code) {
   font: inherit;
   white-space: pre;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] code > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span {
   padding-left: 34px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] code > span::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span::before {
   box-sizing: border-box;
   width: 34px;
   margin: 0 0 0 -34px;
@@ -1133,28 +1136,28 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 11.5px;
   color: var(--faint);
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:last-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child {
   border: 0;
   border-radius: 0;
   background: transparent;
 }
-[data-slot='message-text'] [data-streamdown='table-header'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header'] {
   background: transparent;
 }
 /* A table takes its content width up to max(100%, 48em) and scrolls past the column, so a
    narrow transcript gives long prose cells room instead of a one-word-wide column. */
-[data-slot='message-text'] [data-streamdown='table'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table'] {
   width: max-content;
   min-width: 100%;
   max-width: max(100%, 48em);
 }
-[data-slot='message-text'] [data-streamdown='table-header-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header-cell'] {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   font: 500 11px var(--font-sans);
   color: var(--muted-foreground);
 }
-[data-slot='message-text'] [data-streamdown='table-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] {
   min-width: 6em;
   padding: 6px 8px;
   vertical-align: top;
@@ -1162,7 +1165,7 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 12.5px;
   line-height: 1.45;
 }
-[data-slot='message-text'] [data-streamdown='table-row'] > :first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-row'] > :first-child {
   padding-left: 10px;
 }
 [data-diff-line='addition'] {
