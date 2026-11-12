@@ -252,7 +252,7 @@ export function ClioModelPicker({
           'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-[12.5px] shadow-lg',
           placement === 'composer'
             ? 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] max-w-[calc(100vw-1rem)]'
-            : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(40rem,calc(100vw-1rem))]',
+            : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(44rem,calc(100vw-1rem))]',
         )}
         collisionPadding={8}
         data-slot="model-picker"

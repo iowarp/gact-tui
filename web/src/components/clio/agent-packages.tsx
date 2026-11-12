@@ -224,8 +224,8 @@ function PackageRow({
         </>
       }
       className="cursor-default"
-      // Open and Remove: the meta keeps the rest of the row.
-      actionsWidth={58}
+      // Open and Remove float over the row's end on hover, so the meta keeps the row.
+      floatActions
       data-agent-package={plugin.id}
       icon={<Icon />}
       meta={

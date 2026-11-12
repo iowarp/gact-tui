@@ -1,15 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import { EyeIcon, EyeOffIcon, LayoutGridIcon } from 'lucide-react';
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LoadingFeedback } from './loading-feedback';
 import { NamedTooltip } from './primitives/icon-button';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
@@ -29,6 +20,7 @@ import {
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useProgressiveModelCatalog } from './use-progressive-model-catalog';
 import { useHiddenProviders } from '@/hooks/use-hidden-providers';
 import type { ClioModelOption } from '@/lib/model-options';
@@ -36,14 +28,11 @@ import { cn } from '@/lib/utils';
 import { modelTypeOf } from '@/lib/model-capability-tags';
 import {
   DEFAULT_FILTER_TOKENS,
-  addModelFilterToken,
   freeSearchText,
   surrogateChatReason,
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import {
-  MANAGE_NODE_PREFIX,
-  MODEL_NODE_PREFIX,
   MORE_NODE_PREFIX,
   modelNodeValue,
   PROVIDER_NODE_PREFIX,
@@ -52,7 +41,6 @@ import {
   providerNodeValue,
   type ProviderGroup,
   SEARCH_ALL_VALUE,
-  SEARCH_HEADER_PREFIX,
   SEARCH_RESULT_PREFIX,
   type SearchHeaderNodeData,
 } from './model-picker-model';
@@ -64,16 +52,13 @@ import { ModelPickerNoMatch } from './model-picker-no-match';
 import { quickFilters } from '@/lib/model-quick-filters';
 import { PickerRowLabel } from './model-picker-row-label';
 import { useModelPickerTree } from './model-picker-tree';
-import {
-  ALCF_FAMILY_VALUE,
-  ALCF_SERVERS,
-  groupAlcfProviders,
-  isAlcfServer,
-} from './model-picker-provider-families';
+import { ALCF_FAMILY_VALUE, ALCF_SERVERS, isAlcfServer } from './model-picker-provider-families';
 import { ProviderFamilyRow } from './model-picker-provider-family-row';
 import { useModelPickerFacets } from './use-model-picker-facets';
 import { useProviderInstallStages } from './provider-install-jobs';
 import { useModelPickerSearchView } from './use-model-picker-search-view';
+import { handleGroupLevelKey } from './model-picker-group-keys';
+import { useModelPickerNodes } from './model-picker-nodes';
 
 interface ModelPickerCatalogProps {
   loading?: boolean;
@@ -207,78 +192,22 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   const { toggleCollapsed, matchesText, searching } = search;
   // One column lists a few of each provider's models, then "N more" opens the rest.
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
-  const providerNodes = useMemo(() => {
-    if (grouped) {
-      // One flat list: each provider's header, then its models and the manage
-      // row that ends the group (the provider bar, folded), unless folded.
-      return tree.nodes.flatMap((node): CascaderNode<PickerNodeData>[] => {
-        const { children, ...header } = node;
-        const group = node.data?.kind === 'provider' ? node.data.group : undefined;
-        const open = !group || !search.collapsed.has(group.id);
-        if (!open) return [{ ...header, hasChildren: true }];
-        const manage: CascaderNode<PickerNodeData>[] =
-          group && !searching
-            ? [
-                {
-                  value: MANAGE_NODE_PREFIX + group.id,
-                  label: `Manage ${group.name}`,
-                  static: true,
-                  data: { kind: 'provider-manage', group },
-                },
-              ]
-            : [];
-        return [
-          { ...header, hasChildren: true },
-          ...previewModels(
-            children ?? [],
-            group,
-            searching || openGroups.has(group?.id ?? ''),
-            provider && model ? `${provider}:${model}` : '',
-          ),
-          ...manage,
-        ];
-      });
-    }
-    return searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded);
-  }, [grouped, tree.nodes, alcfExpanded, searching, search.collapsed, openGroups, provider, model]);
   // Two columns, search typed: "All providers" leads the providers column and
   // opens every match grouped under its provider; a provider row narrows to its own.
   const searchColumns = showColumns && searching;
-  const { matched, counts: searchCounts, matches: searchMatches } = search;
-  const columnNodes = useMemo(() => {
-    if (!searchColumns) return providerNodes;
-    const results = tree.nodes.flatMap((node): CascaderNode<PickerNodeData>[] => {
-      if (node.data?.kind !== 'provider') return [];
-      const group = node.data.group;
-      const models = (node.children ?? []).filter((child) => matched.has(child.value));
-      if (!models.length) return [];
-      const count = searchCounts.get(group.id);
-      return [
-        {
-          value: SEARCH_HEADER_PREFIX + group.id,
-          label: group.name,
-          icon: node.icon,
-          static: true,
-          data: {
-            kind: 'search-header',
-            group,
-            matches: count?.matches ?? models.length,
-            total: count?.total ?? models.length,
-          },
-        },
-        ...models.map((child) => ({ ...child, value: SEARCH_RESULT_PREFIX + child.value })),
-      ];
-    });
-    const all: CascaderNode<PickerNodeData> = {
-      value: SEARCH_ALL_VALUE,
-      label: 'All providers',
-      icon: <LayoutGridIcon aria-hidden="true" />,
-      hasChildren: true,
-      children: results,
-      data: { kind: 'search-all', matches: searchMatches },
-    };
-    return [all, ...providerNodes];
-  }, [searchColumns, providerNodes, tree.nodes, matched, searchCounts, searchMatches]);
+  const columnNodes = useModelPickerNodes({
+    nodes: tree.nodes,
+    grouped,
+    searching,
+    searchColumns,
+    collapsed: search.collapsed,
+    openGroups,
+    alcfExpanded,
+    chosenKey: provider && model ? `${provider}:${model}` : '',
+    matched: search.matched,
+    searchCounts: search.counts,
+    searchMatches: search.matches,
+  });
   const searchFilter = search.filter;
   const filter = useCallback(
     (node: CascaderNode<PickerNodeData>, normalizedQuery: string) =>
@@ -376,50 +305,6 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       setPath(back ? [back] : chosen ? [providerNodeValue(chosen.id)] : []);
     }
     setQuery(nextQuery);
-  }
-
-  // The grouped list draws provider headers as fold toggles, but the
-  // cascader's level keys drill (= toggle) any branch. Tree keys instead:
-  // forward on an open group goes to its first model, back folds it.
-  function handleGroupLevelKey(event: ReactKeyboardEvent<HTMLDivElement>): void {
-    const field = event.target;
-    if (
-      facetsOpen ||
-      !(field instanceof HTMLInputElement) ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey
-    ) {
-      return;
-    }
-    const rtl = getComputedStyle(field).direction === 'rtl';
-    const forward = event.key === (rtl ? 'ArrowLeft' : 'ArrowRight');
-    const back = event.key === (rtl ? 'ArrowRight' : 'ArrowLeft');
-    if (!forward && !back) return;
-    const end = field.value.length;
-    if (
-      forward
-        ? field.selectionStart !== end || field.selectionEnd !== end
-        : field.selectionEnd !== 0
-    ) {
-      return;
-    }
-    const panel = field.closest<HTMLElement>('[data-slot="cascader-panel"]');
-    const row = panel?.querySelector<HTMLElement>('[role="option"][data-highlighted]');
-    if (!panel || !row) return;
-    const header = row.querySelector('[data-slot="provider-group-header"]');
-    if (!header) {
-      // Back on a model goes to its group's header, as in a tree.
-      if (back) stepUpToGroupHeader(event, field, panel, row);
-      return;
-    }
-    if (header.hasAttribute('data-collapsed')) return;
-    event.preventDefault();
-    if (back) row.click();
-    else
-      field.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-      );
   }
 
   const visibilityButton = (
@@ -554,7 +439,6 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 }
               : undefined
           }
-          onTagToken={(token) => setTokens((current) => addModelFilterToken(current, token))}
           hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
           managingVisibility={managingVisibility}
           node={node}
@@ -600,7 +484,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         <CascaderNav className="gap-0 border-border p-0">
           <div
             className="flex w-full min-w-0 items-center"
-            onKeyDownCapture={grouped ? handleGroupLevelKey : undefined}
+            onKeyDownCapture={
+              grouped ? (event) => handleGroupLevelKey(event, facetsOpen) : undefined
+            }
           >
             <ModelPickerSearch
               availableTokens={tree.availableTokens}
@@ -686,9 +572,11 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 visibilityButton
               ) : (
                 // Nothing hidden: the eye alone, named on hover, still opens the manage mode.
-                <NamedTooltip label="Hide providers" side="top">
-                  {visibilityButton}
-                </NamedTooltip>
+                <TooltipProvider disableHoverableContent>
+                  <NamedTooltip label="Hide providers" side="top">
+                    {visibilityButton}
+                  </NamedTooltip>
+                </TooltipProvider>
               )
             }
             hints={footerHints(showColumns, searchColumns)}
@@ -722,85 +610,6 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     </Cascader>
   );
 });
-
-/** One column: models a provider's group lists before its "N more" row. */
-const GROUP_PREVIEW = 3;
-
-const GROUP_HEADER = '[data-slot="provider-group-header"]';
-
-/**
- * Moves the highlight from a model up to its group's header with the list's own ArrowUp, so the
- * cascader keeps one highlight. A long search group can render its header only once scrolled to,
- * so each frame steps as far as the rendered rows show, for a bounded number of frames.
- */
-function stepUpToGroupHeader(
-  event: ReactKeyboardEvent<HTMLDivElement>,
-  field: HTMLInputElement,
-  panel: HTMLElement,
-  row: HTMLElement,
-): void {
-  const rowsAbove = (from: HTMLElement) => {
-    const rows = [
-      ...panel.querySelectorAll<HTMLElement>('[role="option"]:not([aria-disabled="true"])'),
-    ];
-    let steps = 0;
-    for (let index = rows.indexOf(from) - 1; index >= 0; index -= 1) {
-      steps += 1;
-      if (rows[index]!.querySelector(GROUP_HEADER)) return { steps, header: true };
-    }
-    return { steps, header: false };
-  };
-  if (!rowsAbove(row).steps) return;
-  event.preventDefault();
-  const up = () =>
-    field.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }),
-    );
-  let current = row;
-  let frames = 0;
-  const step = () => {
-    const { steps, header } = rowsAbove(current);
-    for (let index = 0; index < Math.max(1, steps); index += 1) up();
-    if (header) return;
-    requestAnimationFrame(() => {
-      const next = panel.querySelector<HTMLElement>('[role="option"][data-highlighted]');
-      // Stop at a header, or at the top where the highlight no longer moves.
-      if (!next || next === current || next.querySelector(GROUP_HEADER) || ++frames > 30) return;
-      current = next;
-      step();
-    });
-  };
-  step();
-}
-
-/**
- * A provider's first models in one column, the chosen one always among them,
- * then a dim "N more" row that opens the rest (all of them while searching).
- */
-function previewModels(
-  children: CascaderNode<PickerNodeData>[],
-  group: ProviderGroup | undefined,
-  all: boolean,
-  /** `provider:model` of the chosen model, or empty. */
-  chosenKey: string,
-): CascaderNode<PickerNodeData>[] {
-  if (all || !group || children.length <= GROUP_PREVIEW + 1) return children;
-  let shown = children.slice(0, GROUP_PREVIEW);
-  const chosen = chosenKey
-    ? children.findIndex((child) => child.value === MODEL_NODE_PREFIX + chosenKey)
-    : -1;
-  if (chosen >= GROUP_PREVIEW) shown = [...shown.slice(0, -1), children[chosen]!];
-  const hidden = children.length - shown.length;
-  return [
-    ...shown,
-    {
-      value: MORE_NODE_PREFIX + group.id,
-      label: `${hidden} more`,
-      hasChildren: true,
-      data: { kind: 'provider-more', group, hidden },
-    },
-  ];
-}
 
 /**
  * Word, then key: the picker's keys. One column keeps Move, Choose and Close,
