@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CommentSurface } from './comment-model';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 const repository = {
   commentThreads: vi.fn(),
@@ -152,5 +153,52 @@ describe('a send refused because the file has a newer version', () => {
       expect.objectContaining({ expected_version: 2, expected_sha256: 'sha-2' }),
     );
     expect(opened).toEqual([head]);
+  });
+});
+
+describe('comment controls inside the pocket sheet', () => {
+  it('keeps the editor within the sheet so typing lands, and needs text before Done', async () => {
+    const user = userEvent.setup();
+    repository.commentThreads.mockResolvedValue({
+      artifact_id: 'notes-v1',
+      head,
+      next_label: 'S1',
+      threads: [],
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sheet open>
+          <SheetContent aria-describedby={undefined}>
+            <SheetTitle>Workspace canvas</SheetTitle>
+            <CommentSessionProvider initiallyActive surface={surface}>
+              <Probe />
+            </CommentSessionProvider>
+          </SheetContent>
+        </Sheet>
+      </QueryClientProvider>,
+    );
+    act(() => {
+      probe.session!.addMark({ profile: 'text-quote', exact: 'checkpoint writes' } as never);
+    });
+
+    const sheet = document.querySelector('[data-slot="sheet-content"]')!;
+    const editor = await screen.findByRole('dialog', { name: 'Comment on S1' });
+    expect(sheet.contains(editor)).toBe(true);
+    expect(sheet.contains(screen.getByRole('group', { name: 'Comments on qa-notes.md' }))).toBe(
+      true,
+    );
+
+    const done = screen.getByRole('button', { name: 'Done' });
+    expect(done).toBeDisabled();
+    const box = screen.getByRole('textbox', { name: 'Comment for S1' });
+    await user.type(box, '   {Enter}');
+    expect(probe.session!.editing).toBe('S1');
+
+    await user.clear(box);
+    await user.type(box, 'Name the stall');
+    expect(box).toHaveFocus();
+    expect(done).toBeEnabled();
+    await user.click(done);
+    expect(probe.session!.marks[0]!.comment).toBe('Name the stall');
   });
 });

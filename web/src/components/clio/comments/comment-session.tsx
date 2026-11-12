@@ -451,8 +451,53 @@ export function CommentSessionProvider({
   );
 }
 
+/**
+ * Where the comment controls are portalled. Inside a modal sheet or dialog (the pocket
+ * at phone width) they must sit within its content, or its focus trap pulls focus back
+ * out of the comment editor and nothing typed lands.
+ */
+const MODAL_CONTENT = '[data-slot="sheet-content"], [data-slot="dialog-content"]';
+
+const CommentRegion = createContext<HTMLElement | null>(null);
+
+/** The workbench pocket the commented surface sits in, which the controls' cards stay within. */
+// oxlint-disable-next-line react/only-export-components
+export function useCommentRegion(): HTMLElement | null {
+  return useContext(CommentRegion);
+}
+
 /** The shared comment controls and, for the mark being edited, its editor. */
 function CommentSessionControls({
+  session,
+  threadList,
+}: {
+  session: CommentSessionValue;
+  threadList?: ReactNode;
+}) {
+  const [place, setPlace] = useState<{ host: HTMLElement; region: HTMLElement | null }>();
+  const probe = useCallback((node: HTMLSpanElement | null) => {
+    if (!node) return;
+    setPlace({
+      host: node.closest<HTMLElement>(MODAL_CONTENT) ?? document.body,
+      region: node.closest<HTMLElement>('[data-workbench-pocket]'),
+    });
+  }, []);
+  return (
+    <>
+      <span data-slot="comment-controls-probe" hidden ref={probe} />
+      {place
+        ? createPortal(
+            <CommentRegion.Provider value={place.region}>
+              <CommentSessionControlsBody session={session} threadList={threadList} />
+            </CommentRegion.Provider>,
+            place.host,
+          )
+        : null}
+    </>
+  );
+}
+
+function CommentSessionControlsBody({
   session,
   threadList,
 }: {
@@ -464,7 +509,7 @@ function CommentSessionControls({
   const count = marks.length;
   const editing = marks.find((mark) => mark.label === session.editing);
   const rect = editing?.anchor.profile === 'region' ? editing.anchor.rect : undefined;
-  return createPortal(
+  return (
     <>
       <CommentControls
         busy={session.sending}
@@ -539,7 +584,6 @@ function CommentSessionControls({
           title={editing.anchor.source_path || surface.title}
         />
       ) : null}
-    </>,
-    document.body,
+    </>
   );
 }

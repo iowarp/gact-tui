@@ -460,6 +460,7 @@ export const FrameTab = memo(
         <span data-slot="frame-tab-name" className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>
           {label}
         </span>
+        {version && iconOnly ? <span className="sr-only"> {version}</span> : null}
         {version && !iconOnly ? (
           <span className="shrink-0 text-caption text-faint" data-slot="frame-tab-version">
             <span className="sr-only"> </span>
