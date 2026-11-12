@@ -1,4 +1,4 @@
-import { memo, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { memo, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from 'react';
 import {
   BoxIcon,
   CircleAlertIcon,
@@ -31,6 +31,33 @@ export type StateKind =
   | 'marker';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const FOCUSABLE =
+  'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Runs a state's action and, when the action replaces the state (Clear filters
+ * brings the rows back) and takes the focused button with it, lands focus on
+ * the first control of what replaced it, never on the page body.
+ */
+function keepingFocus(onClick: () => void) {
+  return (event: MouseEvent<HTMLElement>) => {
+    const container = event.currentTarget.closest('[data-slot="state-view"]')?.parentElement;
+    onClick();
+    if (!container) return;
+    requestAnimationFrame(() => {
+      if (!container.isConnected) return;
+      const focused = document.activeElement;
+      // A dialog's focus scope catches lost focus on itself, an ancestor of the list.
+      const lost = !focused || !focused.isConnected || focused.contains(container);
+      if (!lost) return;
+      const target =
+        container.querySelector<HTMLElement>('[tabindex="0"]') ??
+        container.querySelector<HTMLElement>(FOCUSABLE);
+      target?.focus();
+    });
+  };
+}
 
 const ICON: Record<Exclude<StateKind, 'loading'>, Icon> = {
   empty: InboxIcon,
@@ -219,7 +246,7 @@ export const StateView = memo(function StateView({
             <Button
               variant="outline"
               size={row ? 'xs' : 'default'}
-              onClick={secondaryAction.onClick}
+              onClick={keepingFocus(secondaryAction.onClick)}
               data-slot="state-secondary-action"
             >
               {secondaryAction.label}
@@ -229,7 +256,7 @@ export const StateView = memo(function StateView({
             variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
             size={row ? 'xs' : 'default'}
             disabled={action.disabled}
-            onClick={action.onClick}
+            onClick={keepingFocus(action.onClick)}
             className={cn(
               kind !== 'changed-elsewhere' && 'text-foreground',
               row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input',
@@ -361,7 +388,7 @@ function ViewerStateAction({ action }: { action: StateAction }) {
       className="relative h-auto shrink-0 gap-1 rounded-[6px] px-[9px] py-1 text-[11.5px] font-normal whitespace-nowrap text-foreground [&_svg:not([class*=size-])]:size-3.5"
       data-slot="state-action"
       disabled={action.disabled}
-      onClick={action.onClick}
+      onClick={keepingFocus(action.onClick)}
       size="xs"
       variant="secondary"
     >
