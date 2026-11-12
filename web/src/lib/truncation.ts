@@ -81,9 +81,9 @@ export function truncatedTextAt(start: EventTarget | null): HTMLElement | null {
     const scope = node.matches(SCOPE) && scopeCut(node);
     if (scope || (cutsText(node) && isTextTruncated(node))) {
       const cut = scope ? node : (node.closest<HTMLElement>(SCOPE) ?? node);
-      // A titled part of a line (its status dot) names itself natively.
+      // A part of a line that names itself (its status dot) raises no second hint.
       if (cut.matches(SCOPE)) {
-        const titled = from?.closest('[title]');
+        const titled = from?.closest('[title], [data-slot="status-indicator"]');
         if (titled && cut.contains(titled)) return null;
       }
       return cut.closest('[title], [data-truncation-hint="off"]') ? null : cut;

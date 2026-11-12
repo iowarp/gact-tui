@@ -524,7 +524,7 @@ export function ClioScientificMap({
         role="group"
       >
         <div className="mb-2 flex min-w-0 items-start gap-3">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
+          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={title}>
             {title}
           </h3>
           <div className="flex shrink-0 items-center gap-0.5">
