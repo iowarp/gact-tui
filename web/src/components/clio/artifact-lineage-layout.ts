@@ -94,29 +94,16 @@ export interface LineageSpread {
 }
 
 /**
- * The drawing for a pane `room` px wide. With room to spare, names show whole
- * and the columns spread toward the shared graph gap; otherwise the compact
- * drawing, which the canvas scales and scrolls as before.
+ * The drawing for a pane `room` px wide. Names always show whole: the canvas zooms and
+ * pans, so a drawing wider than its pane opens at its readable scale. With room to
+ * spare, the columns spread toward the shared graph gap.
  */
 export async function fitLineageLayout(
   build: (spread: LineageSpread) => Promise<LineageGraphLayout>,
   room: number | undefined,
 ): Promise<LineageGraphLayout> {
-  const compact = await build({});
-  if (!room) return compact;
-  if (compact.width >= room) return compact;
   const named = await build({ nameWidth: NAMED_MAX_WIDTH });
-  if (named.width > room) {
-    // Whole names do not fit: grow the nodes as far as the pane allows.
-    let fits = MAX_WIDTH;
-    let over = NAMED_MAX_WIDTH;
-    while (over - fits > 8) {
-      const mid = Math.floor((fits + over) / 2);
-      if ((await build({ nameWidth: mid })).width <= room) fits = mid;
-      else over = mid;
-    }
-    return fits > MAX_WIDTH ? build({ nameWidth: fits }) : compact;
-  }
+  if (!room || named.width >= room) return named;
   const wide = await build({ nameWidth: NAMED_MAX_WIDTH, rankGap: WIDE_RANK_GAP });
   if (wide.width <= room) return wide;
   // Each column gap adds to the width once per gap, so the width grows linearly with it.
@@ -422,7 +409,7 @@ const ELK_OPTIONS = {
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
   'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-  'elk.layered.mergeEdges': 'true',
+  'elk.layered.mergeEdges': 'false',
   'elk.spacing.nodeNode': String(ROW_GAP),
   'elk.spacing.edgeNode': '12',
   'elk.spacing.edgeEdge': '8',

@@ -1,7 +1,12 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
-import { layoutArtifactLineage, layoutVersionChain } from './artifact-lineage-layout';
+import {
+  fitLineageLayout,
+  layoutArtifactLineage,
+  layoutVersionChain,
+  type LineageSpread,
+} from './artifact-lineage-layout';
 
 const artifact: Artifact = {
   id: 'artifact_plot',
@@ -136,6 +141,28 @@ describe('layoutArtifactLineage', () => {
     expect(Number(x)).toBe(tool.x + tool.width);
     expect(Number(y)).toBeGreaterThan(tool.y);
     expect(Number(y)).toBeLessThan(tool.y + 40);
+  });
+});
+
+describe('fitLineageLayout', () => {
+  const build = (spread?: LineageSpread) =>
+    layoutArtifactLineage(artifact, lineage, { spread });
+
+  it('keeps whole names when the pane is narrower than the drawing', async () => {
+    const compact = await build(undefined);
+    const fitted = await fitLineageLayout(build, 200);
+    expect(fitted.width).toBeGreaterThan(compact.width);
+    const plot = fitted.nodes.find((node) => node.id === 'artifact_plot')!;
+    const compactPlot = compact.nodes.find((node) => node.id === 'artifact_plot')!;
+    expect(plot.width).toBeGreaterThan(compactPlot.width);
+  });
+
+  it('spreads the columns into spare room without overflowing it', async () => {
+    const named = await fitLineageLayout(build, undefined);
+    const room = named.width + 200;
+    const spread = await fitLineageLayout(build, room);
+    expect(spread.width).toBeGreaterThan(named.width);
+    expect(spread.width).toBeLessThanOrEqual(room);
   });
 });
 
