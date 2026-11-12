@@ -120,6 +120,7 @@ export function WorkspaceTranscript({
         }
         streamError={data.streamError}
         transcriptError={messageCount > 0 || damaged ? transcriptError : undefined}
+        onRetry={() => void transcript.refetch()}
         removal={damaged ? { actions: navigationActions, session } : undefined}
       />
       <SessionAttentionTools attention={attention} sessionId={sessionId} />

@@ -77,7 +77,13 @@ export function ToolTerminalResult({
     </div>
   );
   return (
-    <Terminal output={block.text ?? ''} autoScroll={false} isStreaming={running}>
+    <Terminal
+      output={block.text ?? ''}
+      autoScroll={false}
+      isStreaming={running}
+      // The spec's command block sits on the conversation's own surface in either theme.
+      className="[--terminal-accent:var(--accent-foreground)] [--terminal-border:var(--border)] [--terminal-foreground:var(--foreground)] [--terminal-muted:var(--muted-foreground)] [--terminal:var(--background)]"
+    >
       {block.command ? (
         <section aria-label="Input command" data-slot="run-command">
           <TerminalHeader className="min-h-8 border-b-0 px-3 pb-1 pt-1.5 text-xs text-terminal-muted">

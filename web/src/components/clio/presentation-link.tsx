@@ -33,9 +33,14 @@ export function PresentationLink({
     return iconOnly ? null : <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
   // A row names an absolute path by its folder and file; the tooltip keeps the whole path.
+  // Storage holders (fld_…, res_…, workspace hashes) are ids, not names, so they are skipped.
   const shown =
     compact && /^(?:[a-z]:[\\/]|\/)/iu.test(label)
-      ? label.split(/[\\/]/u).filter(Boolean).slice(-2).join('/')
+      ? label
+          .split(/[\\/]/u)
+          .filter((part) => part && !/^(?:(?:fld|res)_)?[0-9a-f]{16,}$/iu.test(part))
+          .slice(-2)
+          .join('/') || label
       : label;
   const filename = compact && block.target === 'file';
   const text = iconOnly ? (
@@ -56,7 +61,8 @@ export function PresentationLink({
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
     : cn(
         'text-sm',
-        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        // Capped by the row's argument slot too, so the label ends in … instead of being cut.
+        compact ? 'min-w-0 max-w-[min(42ch,100%)] shrink truncate' : 'break-words',
         extraClassName,
       );
   const withTooltip = (element: React.ReactElement) =>

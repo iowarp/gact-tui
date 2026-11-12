@@ -1012,29 +1012,11 @@ html[data-clio-motion='reduced'] *::after {
   padding-left: 20px;
 }
 /* The spec's 20px gutter holds a one-digit marker; an outside "11. " or "100. "
-   would overflow it and be clipped by the message frame. Lists that reach two or
-   three digits (by item count, or a `start` that isn't one digit) widen the
-   gutter so every marker shows whole and the item text stays on one edge. */
-[data-slot='message-text'] [data-streamdown='ordered-list']:has(> li:nth-child(10)),
-[data-slot='message-text']
-  [data-streamdown='ordered-list'][start]:not(
-    :where(
-        [start='0'],
-        [start='1'],
-        [start='2'],
-        [start='3'],
-        [start='4'],
-        [start='5'],
-        [start='6'],
-        [start='7'],
-        [start='8'],
-        [start='9']
-      )
-  ) {
-  padding-left: calc(2ch + 0.75em);
-}
-[data-slot='message-text'] [data-streamdown='ordered-list']:has(> li:nth-child(100)) {
-  padding-left: calc(3ch + 0.75em);
+   would overflow it and be clipped by the message frame. MarkdownText marks a
+   list whose widest marker (start + items − 1) has more digits, and the gutter
+   widens to that count so every marker shows whole and item text keeps one edge. */
+[data-slot='message-text'] [data-streamdown='ordered-list'][data-marker-digits] {
+  padding-left: calc(var(--marker-digits, 2) * 1ch + 0.75em);
 }
 [data-slot='message-text'] li::marker {
   font-variant-numeric: tabular-nums;

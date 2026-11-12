@@ -26,6 +26,8 @@ export function injectionPresentation(
   text: string,
   interactions: readonly PendingInteraction[] = [],
 ): InjectionPresentation | null {
+  const plan = planDecision(text);
+  if (plan) return plan;
   const header = /^\[(?:CLIO|Agent session [^;\]\n]+); ([a-z_]+); /u.exec(text);
   if (header?.[1] !== source) return null;
   const boundary = text.indexOf('\n');
@@ -135,6 +137,68 @@ function backgroundNotices(tasks: unknown[]): InjectionPresentation {
         : [],
     ),
   };
+}
+
+/**
+ * The context the agent receives after a plan decision: a constraint-lifting header,
+ * JSON metadata and the approved plan, or the reviewer's feedback. People read the
+ * decision and the plan; the exact text stays in ⓘ.
+ */
+function planDecision(envelope: string): InjectionPresentation | null {
+  // Recorded decisions arrive as `[CLIO; approval; …]` + {text, metadata}; older
+  // records carry the resume text alone.
+  let text = envelope;
+  let meta: Record<string, unknown> | undefined;
+  const boundary = envelope.indexOf('\n');
+  if (/^\[CLIO; approval; /u.test(envelope) && boundary > 0) {
+    try {
+      const body = record(JSON.parse(envelope.slice(boundary + 1)));
+      if (typeof body?.text === 'string') {
+        text = body.text;
+        meta = record(body.metadata) ?? undefined;
+      }
+    } catch {
+      return null;
+    }
+  }
+  const result = meta?.plan_exit_result;
+  const approved =
+    /^\[STATE TRANSITION OVERRIDE\][^\n]*(?:\n\nApproved plan context: [^\n]*)?\n<approved-plan>\n([\s\S]*?)<\/approved-plan>\s*$/u.exec(
+      text,
+    );
+  const savedPlan = record(meta?.approved_plan)?.content;
+  if (approved || result === 'approved')
+    return {
+      label: 'Plan approved',
+      attribution:
+        /prompted to approve each action/u.test(text) || meta?.plan_exit_mode === 'interactive'
+          ? 'You approved the plan. The agent may now change files, asking before each action.'
+          : 'You approved the plan. The agent may now change files to carry it out.',
+      text:
+        approved?.[1]?.trim() ||
+        (typeof savedPlan === 'string' && savedPlan.trim()) ||
+        'No plan text was recorded.',
+      format: 'markdown',
+    };
+  const rejected =
+    /^Your request to exit plan mode was REJECTED[^\n]*\n\nReviewer feedback: ([\s\S]*)$/u.exec(
+      text,
+    );
+  if (!rejected && result === 'rejected')
+    return {
+      label: 'Plan sent back',
+      attribution: 'You asked for changes. The agent stays in plan mode and revises the plan.',
+      text: 'No reviewer feedback was recorded.',
+      format: 'text',
+    };
+  if (rejected)
+    return {
+      label: 'Plan sent back',
+      attribution: 'You asked for changes. The agent stays in plan mode and revises the plan.',
+      text: rejected[1]!.trim(),
+      format: 'text',
+    };
+  return null;
 }
 
 /**

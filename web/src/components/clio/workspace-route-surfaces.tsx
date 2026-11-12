@@ -13,6 +13,7 @@ import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { NamedTooltip } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
+import { TechnicalDetails } from './technical-details';
 import { SessionWorkStatus } from './session-work';
 
 /**
@@ -72,11 +73,14 @@ export function WorkspaceTranscriptAlerts({
   sessionFailed,
   streamError,
   transcriptError,
+  onRetry,
   removal,
 }: {
   sessionFailed?: boolean;
   streamError?: string;
   transcriptError?: string;
+  /** Reads the transcript again after a recoverable failure. */
+  onRetry?: () => void;
   /** Offered when the stored transcript is damaged and no retry can read it again. */
   removal?: { actions: ResourceActions; session: { id: string; title: string } };
 }) {
@@ -92,7 +96,7 @@ export function WorkspaceTranscriptAlerts({
   return (
     <>
       {sessionFailed ? (
-        <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
+        <Alert className="m-3 mb-0 w-auto rounded-lg" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>The response failed</AlertTitle>
           <AlertDescription>
@@ -102,25 +106,46 @@ export function WorkspaceTranscriptAlerts({
         </Alert>
       ) : null}
       {streamError && !updateInFlight ? (
-        <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
+        <Alert className="m-3 mb-0 w-auto rounded-lg" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>Live stream needs reconciliation</AlertTitle>
           <AlertDescription>{streamError}</AlertDescription>
         </Alert>
       ) : null}
-      {transcriptError ? (
-        <Alert className="m-3 mb-0" variant="destructive">
+      {transcriptError && removal ? (
+        <Alert className="m-3 mb-0 w-auto" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>Conversation unavailable</AlertTitle>
           <AlertDescription>{transcriptError}</AlertDescription>
-          {removal ? (
-            <div className="col-start-2 mt-2">
-              <Button onClick={() => setRemoving(true)} size="sm" variant="outline">
-                Remove conversation
-              </Button>
-            </div>
-          ) : null}
+          <div className="col-start-2 mt-2">
+            <Button onClick={() => setRemoving(true)} size="sm" variant="outline">
+              Remove conversation
+            </Button>
+          </div>
         </Alert>
+      ) : transcriptError ? (
+        // The shown messages stay; the failed read is one line with Retry, and the
+        // service's own words stay in Technical details.
+        <div
+          className="mx-3 mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
+          role="alert"
+        >
+          <StateView
+            action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+            className="w-fit"
+            kind="error"
+            size="row"
+            title="The latest messages could not be loaded"
+          />
+          <TechnicalDetails
+            className="min-w-0"
+            contentClassName="pt-1 font-mono text-[11.5px] break-words whitespace-pre-wrap text-muted-foreground"
+            summaryClassName="text-[12px]"
+            title="Technical details"
+          >
+            {transcriptError}
+          </TechnicalDetails>
+        </div>
       ) : null}
       {removal && removing ? (
         <DeleteResourceDialog

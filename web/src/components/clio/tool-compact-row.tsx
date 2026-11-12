@@ -187,7 +187,7 @@ export function ToolCompactRow({
         operation.expandable ? (
           <ActivityDisclosure
             open={expanded}
-            label={`${expanded ? 'Collapse' : 'Expand'} ${action}`}
+            label={`${expanded ? 'Collapse' : 'Expand'} ${denied ? `denied ${action}` : action}`}
             asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
           />
         ) : null

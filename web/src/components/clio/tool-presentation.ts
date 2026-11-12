@@ -343,6 +343,8 @@ export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
   if (terminal?.text?.trim()) return terminal.text.trim();
   if (terminal?.exit_code !== undefined && terminal.exit_code !== null)
     return `Process exited with code ${terminal.exit_code}. No diagnostic output was recorded.`;
+  // A refusal is not a failure: its row already says Denied and who decided.
+  if (getToolStatus(tool) === 'denied') return tool.presentation?.summary?.trim() || undefined;
   return tool.presentation?.summary?.trim() || 'No failure diagnostic was recorded.';
 }
 
