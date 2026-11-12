@@ -282,9 +282,9 @@ export function ClioComposerCommandMenu({
   useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
   useEffect(() => onOpenChange?.(open), [onOpenChange, open]);
 
-  const latest = useRef({ active, choices, onPick, onRun, open, query });
+  const latest = useRef({ active, choices, groups, onPick, onRun, open, query });
   useLayoutEffect(() => {
-    latest.current = { active, choices, onPick, onRun, open, query };
+    latest.current = { active, choices, groups, onPick, onRun, open, query };
   });
 
   // The editor's own key handler sends the message on Enter, so the menu's keys
@@ -312,6 +312,17 @@ export function ClioComposerCommandMenu({
             : (at + step + current.choices.length) % current.choices.length;
         const command = current.choices[next];
         if (command) setHighlight({ key: commandKey(command), query: current.query });
+      } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+        // The first runnable command of the next or previous group.
+        const runnable = current.groups
+          .map((group) => group.rows.filter((command) => command.enabled))
+          .filter((rows) => rows.length);
+        if (!runnable.length) return;
+        take();
+        const at = runnable.findIndex((rows) => current.active && rows.includes(current.active));
+        const step = event.key === 'PageDown' ? 1 : -1;
+        const next = runnable[(Math.max(at, 0) + step + runnable.length) % runnable.length]![0]!;
+        setHighlight({ key: commandKey(next), query: current.query });
       } else if (event.key === 'Tab' && !event.shiftKey && current.choices.length) {
         take();
         current.onPick(current.active ?? current.choices[0]!);

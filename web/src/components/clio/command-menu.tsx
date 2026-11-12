@@ -124,9 +124,14 @@ export function ClioCommandMenu({
           handOffFocus.current = false;
         }}
         onEscapeKeyDown={(event) => {
+          // Back one step, then close: the assistant returns to the list, and a
+          // chosen type returns to All.
           if (aiMode) {
             event.preventDefault();
             setAiMode(false);
+          } else if (scope !== 'all') {
+            event.preventDefault();
+            setScope('all');
           }
         }}
       >
@@ -326,6 +331,19 @@ function CommandMenuBody({
       setScope('all');
       return;
     }
+    if ((event.key === 'PageDown' || event.key === 'PageUp') && !modified) {
+      // The list's own group jump, which it binds to Alt and an arrow.
+      event.preventDefault();
+      event.currentTarget.dispatchEvent(
+        new window.KeyboardEvent('keydown', {
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+          key: event.key === 'PageDown' ? 'ArrowDown' : 'ArrowUp',
+        }),
+      );
+      return;
+    }
     if (modified || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
     const input = event.currentTarget;
     const edge = event.key === 'ArrowRight' ? input.value.length : 0;
@@ -379,7 +397,7 @@ function CommandMenuBody({
           const settingsRoute = settingsResultsRoute(global, counts);
           const openAllResults = allResultsAction(counts, settingsRoute);
           const hints: PickerHint[] = [
-            { label: 'Close', shortcut: 'menu-close', optional: true },
+            { label: scope === 'all' ? 'Close' : 'Back', shortcut: 'menu-close', optional: true },
             activeScope !== 'all' && !searchText
               ? { label: 'All types', shortcut: 'menu-all-types', optional: true }
               : { label: 'Change type', shortcut: 'menu-type', optional: true },
