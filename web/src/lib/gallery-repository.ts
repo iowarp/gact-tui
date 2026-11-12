@@ -1,4 +1,5 @@
 import gallerySampleUrl from '../../tests/fixtures/gallery-sample.png';
+import gallerySampleLightUrl from '../../tests/fixtures/gallery-sample-light.png';
 import guideFindUrl from '../../tests/fixtures/docs-media/docs-message-preview.png';
 import guideMarkUrl from '../../tests/fixtures/docs-media/docs-marked-messages.png';
 import guideExportUrl from '../../tests/fixtures/docs-media/docs-session-export.mp4';
@@ -43,7 +44,12 @@ function rasterSample(query: ArtifactRasterQueryRequest): ArtifactRasterQueryRes
 }
 
 /** Static gallery data for artifact-backed examples, without an agent service. */
-export function createGalleryRepository(base: Repository): Repository {
+export function createGalleryRepository(
+  base: Repository,
+  /** Serve the light variant of the sample plot. */
+  options: { lightPlot?: boolean } = {},
+): Repository {
+  const plotUrl = () => (options.lightPlot ? gallerySampleLightUrl : gallerySampleUrl);
   return new Proxy(base, {
     get(target, property, receiver) {
       if (property === 'artifactTableQuery') {
@@ -130,7 +136,7 @@ export function createGalleryRepository(base: Repository): Repository {
           if (resolution.artifact_id !== 'artifact_plot') {
             return target.readA2uiReferenceBytes(resolution as Parameters<Repository['readA2uiReferenceBytes']>[0], signal);
           }
-          const response = await fetch(gallerySampleUrl, { signal });
+          const response = await fetch(plotUrl(), { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };
@@ -138,7 +144,7 @@ export function createGalleryRepository(base: Repository): Repository {
       if (property === 'readArtifactBytesFor') {
         return async (artifact: Parameters<Repository['readArtifactBytesFor']>[0], signal?: AbortSignal) => {
           if (artifact.id !== 'artifact_plot') return target.readArtifactBytesFor(artifact, signal);
-          const response = await fetch(gallerySampleUrl, { signal });
+          const response = await fetch(plotUrl(), { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };

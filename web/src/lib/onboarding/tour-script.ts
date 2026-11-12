@@ -43,6 +43,13 @@ export interface TourStep {
   /** The tour opens the anchor's menu or picker itself. */
   open?: boolean;
   waitFor?: TourWait;
+  /** Once done, the step stays up so the learner can read what opened, until Next. */
+  stay?: boolean;
+  /**
+   * The part of the anchor the step asks you to use, as a selector inside it.
+   * When the card must overlap the spotlight, it keeps off this part first.
+   */
+  focus?: string;
   /** A short instruction for something to try on the highlighted element. */
   tryIt?: string;
 }
@@ -115,6 +122,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 1 },
     anchor: 'tool-activity',
     waitFor: 'change',
+    stay: true,
     title: 'See each step',
     body: 'Every command, file edit and search gets its own row.',
     tryIt: 'Open the row to see the script and its output.',
@@ -149,6 +157,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 2 },
     anchor: 'interactive-surface',
     waitFor: 'interact',
+    focus: 'canvas',
     title: 'Explore the results',
     body: 'Maps, charts and tables work right in the conversation. Hover for values, scroll to zoom and drag to pan.',
     tryIt: 'Zoom or pan the map.',
@@ -158,6 +167,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 2 },
     anchor: 'interactive-surface',
     waitFor: 'referenced',
+    focus: '[role="grid"], [role="table"], table',
     title: 'Select data',
     body: 'The map and the table share one selection.',
     tryIt: 'Click a table row, Shift+click another, then choose Reference this.',

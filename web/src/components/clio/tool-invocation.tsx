@@ -47,6 +47,7 @@ import {
   withAgentMessagePresentation,
 } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 import { toolOperation } from './tool-operation';
 import { ToolOperationResult } from './tool-operation-result';
 import { withOperationOutcome } from './tool-operation-outcome';
@@ -257,6 +258,7 @@ export function ClioToolInvocation({
     <div
       className="min-w-0 scroll-m-6 rounded-[6px] focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       data-slot="tool-activity"
+      {...(surface === 'evidence' ? {} : tourAnchor('tool-activity'))}
       id={`${surface === 'evidence' ? 'evidence-tool' : 'tool'}-${tool.id}`}
       tabIndex={-1}
     >

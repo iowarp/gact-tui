@@ -89,9 +89,13 @@ const plot: Artifact = {
   name: 'bkl1-vertical.png',
   media_type: 'image/png',
   uri: `artifact://${PLOT_ARTIFACT}`,
-  size: 50870,
   created_at: at(5),
 };
+
+/** The plot, sized for the variant the practice repository serves in each theme. */
+export function practicePlot(light: boolean): Artifact {
+  return { ...plot, size: light ? 53700 : 50870 };
+}
 
 const surface: A2UISurface = {
   id: SURFACE_ID,
@@ -179,7 +183,10 @@ export interface PracticeProgress {
  * one is working, the first shows its script running and the second has no
  * answer yet.
  */
-export function practiceConversation(progress: PracticeProgress): ClioConversationProps {
+export function practiceConversation(
+  progress: PracticeProgress,
+  light = false,
+): ClioConversationProps {
   const { turns, working, sent } = progress;
   const messages: Message[] = [];
   const tools: Record<string, ToolInvocation> = {};
@@ -221,10 +228,7 @@ export function practiceConversation(progress: PracticeProgress): ClioConversati
     tools,
     tasks: {},
     subagents: {},
-    artifacts: turns >= 1 && !(working && turns === 1) ? { [plot.id]: plot } : {},
+    artifacts: turns >= 1 && !(working && turns === 1) ? { [plot.id]: practicePlot(light) } : {},
     surfaces: turns >= 2 ? { [surface.id]: surface } : {},
   };
 }
-
-/** The opened plot, for the practice viewer. */
-export const PRACTICE_PLOT: Artifact = plot;
