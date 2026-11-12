@@ -9,7 +9,17 @@ import ndpDark from '../../../../branding/provider-logos/ndp-dark.png';
 import type { SourceProviderId } from '@clio/core/v3';
 import { FolderIcon, TerminalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SourceProviderGlyph } from './source-form-parts';
+
+/**
+ * Globus and NDP allow only their full horizontal artwork, at least 54 px wide
+ * (Globus logo policy; NDP publishes no smaller mark). A list showing either one
+ * widens its icon column to this width on every row, so names stay aligned.
+ */
+export const SOURCE_WORDMARK_WIDTH = 56;
+
+export function sourceProviderUsesWordmark(provider: SourceProviderId): boolean {
+  return provider === 'globus' || provider === 'ndp';
+}
 
 /** Original provider artwork; protocol-based sources use the shared system glyphs. */
 export function SourceProviderLogo({
@@ -17,7 +27,10 @@ export function SourceProviderLogo({
   size = 'row',
 }: {
   provider: SourceProviderId;
-  /** `icon` fits the 15px glyph slot of an item row, without a frame. */
+  /**
+   * `icon` fits the 15px glyph slot of a list row, without a frame; Globus and
+   * NDP draw their wordmark at `SOURCE_WORDMARK_WIDTH` instead.
+   */
   size?: 'row' | 'detail' | 'icon';
 }) {
   const detail = size === 'detail';
@@ -25,21 +38,22 @@ export function SourceProviderLogo({
   const { mark, wordmark, glyph } = {
     row: { mark: 'size-7', wordmark: 'w-14', glyph: 'size-5' },
     detail: { mark: 'size-14', wordmark: 'w-full', glyph: 'size-10' },
-    icon: { mark: 'size-[15px]', wordmark: 'size-[15px]', glyph: 'size-[15px]' },
+    icon: { mark: 'size-[15px]', wordmark: 'w-14', glyph: 'size-[15px]' },
   }[size];
   return (
     <span
       className={cn(
         'flex shrink-0 items-center justify-center',
-        icon ? 'size-[15px]' : 'rounded-md border bg-muted/20',
+        icon
+          ? sourceProviderUsesWordmark(provider)
+            ? 'w-14'
+            : 'size-[15px]'
+          : 'rounded-md border bg-muted/20',
         detail && 'h-20 w-48 max-w-[40%] p-2',
         size === 'row' && 'h-9 w-16',
       )}
     >
-      {icon && (provider === 'globus' || provider === 'ndp') ? (
-        // Their wordmarks are unreadable at 15px; the spec draws the mono glyph.
-        <SourceProviderGlyph provider={provider} className="size-[15px] text-muted-foreground" />
-      ) : provider === 'google_drive' ? (
+      {provider === 'google_drive' ? (
         <img alt="" src={driveLogo} className={cn('object-contain', mark)} />
       ) : provider === 'globus' ? (
         <>
