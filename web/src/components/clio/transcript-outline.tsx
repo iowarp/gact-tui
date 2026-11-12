@@ -64,7 +64,7 @@ export function ClioTranscriptOutline({
       <PopoverTrigger asChild>
         <Button
           aria-label={`Open ${triggerName.toLowerCase()}`}
-          className="absolute top-2 -left-0.5 z-10 rounded-full"
+          className="absolute top-2 left-1 z-10 rounded-full"
           data-attention={heat ? '' : undefined}
           size="icon-xs"
           title={triggerName}
