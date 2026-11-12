@@ -78,7 +78,7 @@ function AgentLink({
   const navigation = useContext(PresentationNavigation);
   const open = onOpen ?? navigation?.onOpenSubagent;
   const className =
-    'max-w-full truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-[3px]';
+    'max-w-full truncate text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-[3px]';
   if (!subagent?.child_session_id || !open) {
     return (
       <span className={className.replace(/ underline.*$/u, '')} data-slot="delegate-agent">
@@ -151,7 +151,7 @@ function DelegateDetailsDialog({
       }
       className="w-[clamp(360px,56vw,760px)]"
     >
-      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
+      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-menu [overflow-wrap:anywhere]">
         <TechnicalDetailsFacts items={items} />
         {task ? (
           <DetailsSection title="Assignment" copy={task}>
@@ -322,7 +322,7 @@ export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessa
           subagent ? (
             <AgentLink subagent={subagent} label={agentName(subagent)} onOpen={onOpen} />
           ) : (
-            <span className="truncate text-[12.5px] text-foreground/85">{recipient}</span>
+            <span className="truncate text-menu text-foreground/85">{recipient}</span>
           )
         }
         argument={block.message.replace(/\s+/gu, ' ').trim()}
@@ -395,14 +395,14 @@ function SpotterWatcherLine({
         type="button"
         aria-label="Open the SPOTTER review conversation"
         data-slot="delegate-agent"
-        className="truncate rounded-[3px] text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2 focus-visible:outline-[1.5px] focus-visible:outline-ring"
+        className="truncate rounded-[3px] text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2 focus-visible:outline-[1.5px] focus-visible:outline-ring"
         onClick={(event) => onOpen?.(subagent, subagentOpenTarget(event))}
       >
         SPOTTER
       </button>
     </NamedTooltip>
   ) : (
-    <span className="text-[12.5px] font-medium">SPOTTER</span>
+    <span className="text-menu font-medium">SPOTTER</span>
   );
   return (
     <ActivityRow

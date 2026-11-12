@@ -69,7 +69,7 @@ export function ResultDialogContent({
           <div className="mt-1 ml-[26px] flex min-w-0 items-center gap-1">
             <DialogDescription
               className={cn(
-                'text-[12.5px] leading-normal',
+                'text-menu leading-normal',
                 descriptionTitle ? 'truncate' : 'max-w-[92%]',
               )}
               title={descriptionTitle}

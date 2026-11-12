@@ -264,7 +264,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       <ClioAppShell
         navigation={navigation}
         contextBar={
-          <div className="min-w-0 truncate text-sm font-medium">
+          <div className="min-w-0 truncate text-ui font-medium">
             {`${capitalize(vocab.workspace)} unavailable`}
           </div>
         }

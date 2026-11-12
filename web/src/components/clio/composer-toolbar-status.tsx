@@ -21,7 +21,7 @@ export function ComposerToolbarStatus({
     if (!held) return null;
     return (
       <span
-        className="flex shrink-0 items-center gap-1 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
+        className="flex shrink-0 items-center gap-1 px-1 text-meta whitespace-nowrap text-muted-foreground"
         role="status"
         title="Sends when the service is reachable again. Your message stays here."
       >
@@ -52,7 +52,7 @@ export function ComposerToolbarStatus({
     held && connecting ? 'Connecting…' : text === 'Preparing views…' ? 'Preparing…' : undefined;
   return (
     <span
-      className="shrink-0 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
+      className="shrink-0 px-1 text-meta whitespace-nowrap text-muted-foreground"
       role="status"
       title={short ? text : undefined}
     >

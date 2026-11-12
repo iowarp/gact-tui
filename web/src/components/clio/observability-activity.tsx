@@ -643,7 +643,7 @@ function CausalActivityRow({
           ) : null}
         </p>
         {item.detail ? (
-          <p className="line-clamp-2 text-[0.6875rem] leading-4 text-muted-foreground">
+          <p className="line-clamp-2 text-caption leading-4 text-muted-foreground">
             {item.detail}
           </p>
         ) : null}

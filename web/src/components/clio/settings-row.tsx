@@ -106,7 +106,7 @@ export function SettingsRow({
               // Block, not the label's flex, so a long name ends in an ellipsis.
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 truncate text-[0.8125rem] leading-normal font-normal"
+                className="block min-w-0 truncate text-ui leading-normal font-normal"
                 data-slot="settings-label"
                 title={title}
               >
@@ -114,7 +114,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 truncate text-[0.8125rem] font-normal"
+                className="min-w-0 truncate text-ui font-normal"
                 data-slot="settings-label"
                 title={title}
               >
@@ -129,7 +129,7 @@ export function SettingsRow({
           </div>
           {note ? (
             <div
-              className={cn('mt-0.5 truncate text-[0.71875rem] text-faint', NARROW_HIDDEN)}
+              className={cn('mt-0.5 truncate text-label text-faint', NARROW_HIDDEN)}
               data-slot="settings-note"
             >
               {note}
@@ -147,8 +147,8 @@ export function SettingsRow({
             'flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @xs:justify-end max-[1023px]:in-data-window-content:justify-start!',
             // The settings field (.xf): 30 px, 12.5 px text; numbers 12 px mono, right-aligned.
             // Number fields keep their own padding, so an in-field unit never covers the digits.
-            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
-            '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-[0.75rem]',
+            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-menu dark:[&_input:not([aria-hidden])]:bg-sidebar',
+            '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-meta',
             wideControl && 'w-auto max-w-full',
           )}
         >
@@ -180,7 +180,7 @@ export function SettingsGroupLabel({
   return (
     <div
       className={cn(
-        'mt-4 flex h-7 min-w-0 items-center gap-2 text-[0.71875rem] whitespace-nowrap text-faint',
+        'mt-4 flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-faint',
         className,
       )}
       data-slot="settings-group-label"

@@ -216,10 +216,10 @@ const ActivityDetailView = memo(function ActivityDetailView({
               toolName={item.tool?.name}
             />
           )}
-          <h2 className="min-w-0 truncate text-[15px] font-semibold" title={item.name}>
+          <h2 className="min-w-0 truncate text-h3 font-semibold" title={item.name}>
             {item.name}
           </h2>
-          <span className="shrink-0 text-[12px] text-muted-foreground">{fact}</span>
+          <span className="shrink-0 text-meta text-muted-foreground">{fact}</span>
         </div>
         <DetailBody
           item={item}
@@ -299,7 +299,7 @@ function Section({
   return (
     <section aria-label={title} className="grid min-w-0 gap-1.5">
       <div className="flex h-6 min-w-0 items-center gap-2">
-        <h3 className="text-[12px] font-semibold text-muted-foreground">{title}</h3>
+        <h3 className="text-meta font-semibold text-muted-foreground">{title}</h3>
         {aside}
       </div>
       {children}
@@ -313,13 +313,13 @@ function Mono({ text, label }: { text: string; label: string }) {
     <>
       <pre
         aria-label={label}
-        className="max-h-[50vh] min-w-0 overflow-auto rounded-md border border-border bg-muted/40 p-2.5 font-mono text-[12px] leading-5 whitespace-pre"
+        className="max-h-[50vh] min-w-0 overflow-auto rounded-md border border-border bg-muted/40 p-2.5 font-mono text-meta leading-5 whitespace-pre"
         tabIndex={0}
       >
         {shown}
       </pre>
       {shown !== text ? (
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-meta text-muted-foreground">
           Showing the first {SHOWN_CHARACTERS.toLocaleString()} of {text.length.toLocaleString()}{' '}
           characters. Copy takes all of it.
         </p>
@@ -461,7 +461,7 @@ function ToolDetail({
         title="Output"
       >
         {tool.progress_message && running ? (
-          <p className="text-[12.5px] text-muted-foreground">{tool.progress_message}</p>
+          <p className="text-menu text-muted-foreground">{tool.progress_message}</p>
         ) : null}
         {output ? (
           <Mono label="Output" text={output} />
@@ -474,7 +474,7 @@ function ToolDetail({
           />
         )}
         {tool.error ? (
-          <p className="text-[12.5px] text-destructive" role="alert">
+          <p className="text-menu text-destructive" role="alert">
             Failed: {tool.error}
           </p>
         ) : null}
@@ -500,7 +500,7 @@ function TurnDetail({
   const steps = item.steps ?? [];
   return (
     <>
-      {item.run?.summary ? <p className="text-[13px]">{item.run.summary}</p> : null}
+      {item.run?.summary ? <p className="text-ui">{item.run.summary}</p> : null}
       <Section title={`Steps (${steps.length})`}>
         <div aria-label="Steps" className="grid" role="list">
           {steps.map((step) => {
@@ -510,7 +510,7 @@ function TurnDetail({
               <div key={step.id} role="listitem">
                 <ListRow
                   aria-label={`${row.name}, ${row.status}`}
-                  className="cursor-pointer text-[12.5px]"
+                  className="cursor-pointer text-menu"
                   columns={<MetaValue width={64}>{row.trailing}</MetaValue>}
                   onClick={open}
                   onKeyDown={(event) => {
@@ -576,7 +576,7 @@ function TaskDetail({
   return (
     <>
       {process?.description || subagent?.task ? (
-        <p className="text-[13px] whitespace-pre-wrap">{process?.description ?? subagent?.task}</p>
+        <p className="text-ui whitespace-pre-wrap">{process?.description ?? subagent?.task}</p>
       ) : null}
       <KeyValueGrid items={facts} />
       {log ? (
@@ -614,7 +614,7 @@ function InteractionDetail({
   return (
     <>
       {interaction.prompt ? (
-        <p className="text-[13px] whitespace-pre-wrap">{interaction.prompt}</p>
+        <p className="text-ui whitespace-pre-wrap">{interaction.prompt}</p>
       ) : null}
       <KeyValueGrid
         items={[

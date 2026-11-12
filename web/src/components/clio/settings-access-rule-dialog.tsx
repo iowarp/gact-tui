@@ -99,7 +99,7 @@ function RuleSelect({
 const AFTER = 'after';
 
 const fieldClass =
-  'h-[1.875rem] w-full min-w-0 text-[0.78125rem] placeholder:font-sans md:text-[0.78125rem]';
+  'h-[1.875rem] w-full min-w-0 text-menu placeholder:font-sans md:text-menu';
 
 /**
  * New / Edit access rule (F): Setting rows in the dialog frame. Saving a rule

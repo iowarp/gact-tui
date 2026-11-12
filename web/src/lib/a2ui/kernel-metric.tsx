@@ -50,14 +50,14 @@ export function MetricView(props: {
         <span className="contents [@media(hover:none)]:@max-[24rem]/dashboard:invisible [@media(hover:none)]:@max-[24rem]/dashboard:group-focus-within/stat:visible">
           <SurfaceToolbar capabilities={metricCapabilities} />
         </span>
-        <p className="truncate text-[18px] font-semibold leading-tight tabular-nums text-foreground @max-[24rem]/dashboard:shrink-0">
+        <p className="truncate text-welcome font-semibold leading-tight tabular-nums text-foreground @max-[24rem]/dashboard:shrink-0">
           {String(props.value)}
           {unit ? (
-            <span className="ml-1 text-[11px] font-normal text-muted-foreground">{unit}</span>
+            <span className="ml-1 text-caption font-normal text-muted-foreground">{unit}</span>
           ) : null}
         </p>
         {/* A narrow cell wraps the label between words rather than cutting it. */}
-        <p className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+        <p className="line-clamp-2 text-caption leading-snug text-muted-foreground">
           {props.label}
           {note ? <span className="sr-only">, {note}</span> : null}
         </p>

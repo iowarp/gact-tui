@@ -240,7 +240,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           >
             {message.role !== 'assistant' && message.role !== 'user' && !responseContinuation ? (
               <div
-                className="mb-1 flex h-[22px] items-center gap-3 text-[11.5px] font-medium text-muted-foreground"
+                className="mb-1 flex h-[22px] items-center gap-3 text-label font-medium text-muted-foreground"
                 data-slot="conversation-message-sender"
               >
                 <span>{message.role === 'system' ? 'System' : 'Unknown sender'}</span>
@@ -440,7 +440,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   // margin 8 + gap 4 to the next row): it shows beside the bubble's last
                   // line, in the free space, so it never covers the first row's columns.
                   className={cn(
-                    'flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+                    'flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-label text-muted-foreground',
                     !(pendingSteer || executionMode || marked) &&
                       'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-1 sm:mr-2 sm:max-w-none',
                   )}
@@ -521,7 +521,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : message.role === 'assistant' &&
               marked &&
               !completionFooterShown(message, active || awaitingChild || responseContinued) ? (
-              <div className="mb-1.5 flex h-6 items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <div className="mb-1.5 flex h-6 items-center gap-1.5 text-label text-muted-foreground">
                 <BookmarkIcon
                   aria-label="Marked message"
                   className="size-3.5"
@@ -696,6 +696,13 @@ function routedInteractionsEqual(
   const leftRows = relevant(left.interactions);
   const rightRows = relevant(right.interactions);
   return (
-    leftRows.length === rightRows.length && leftRows.every((row, index) => row === rightRows[index])
+    leftRows.length === rightRows.length &&
+    leftRows.every((row, index) => row === rightRows[index]) &&
+    // A plan review opens the artifact its payload names, not one of the message's blocks;
+    // the registry can arrive after the transcript.
+    rightRows.every((row) => {
+      const artifactId = row.payload?.plan_exit?.artifact_ref?.artifact_id;
+      return !artifactId || left.artifacts[artifactId] === right.artifacts[artifactId];
+    })
   );
 }

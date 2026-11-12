@@ -42,7 +42,7 @@ export function SettingsProviderOptions({
             {choices.length > 0 ? (
               <select
                 aria-label={field.label}
-                className="h-[1.875rem] w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-[0.78125rem] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
+                className="h-[1.875rem] w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-menu outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
                 id={id}
                 onChange={(event) => onEdit(field.id, event.target.value)}
                 // An unset choice is the provider's declared default (its placeholder).
@@ -57,7 +57,7 @@ export function SettingsProviderOptions({
             ) : (
               <Input
                 aria-label={field.label}
-                className="h-[1.875rem] text-[0.78125rem]"
+                className="h-[1.875rem] text-menu"
                 id={id}
                 onChange={(event) => onEdit(field.id, event.target.value)}
                 placeholder={field.placeholder}

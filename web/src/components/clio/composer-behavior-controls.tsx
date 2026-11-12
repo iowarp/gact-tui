@@ -45,10 +45,10 @@ const EFFORT_BARS: Record<ReasoningEffort, number> = {
   ultra: 3,
 };
 
-const MENU_LABEL = 'px-2 pt-1.5 pb-1 text-[11px] font-normal text-muted-foreground';
+const MENU_LABEL = 'px-2 pt-1.5 pb-1 text-caption font-normal text-muted-foreground';
 /** One 30px line per row: 12.5px name, 11.5px muted description, 13px accent check. */
 const MENU_ITEM =
-  'min-h-[30px] py-0 text-[12.5px] [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground! [&_[data-slot=menu-row]_span[title]]:text-[11.5px]';
+  'min-h-[30px] py-0 text-menu [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground! [&_[data-slot=menu-row]_span[title]]:text-label';
 
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;
@@ -92,8 +92,8 @@ interface ClioComposerBehaviorControlsProps {
 }
 
 /**
- * The composer row's behavior controls: confirmation policy, reasoning and mode
- * as bare icons on the left, then the model on the right. One menu opens at a
+ * The composer row's behavior controls: confirmation policy and reasoning as bare
+ * icons on the left, then the model and the mode, as words, on the right. One menu opens at a
  * time. Rendered as a fragment so every control sits directly in the composer's
  * single toolbar row.
  */
@@ -319,18 +319,36 @@ export function ClioComposerBehaviorControls({
           type="button"
         />
       ) : null}
+      {spotterModelControl &&
+      behavior.confirmation_policy === 'spotter-ai' &&
+      spotterAvailability?.available
+        ? spotterModelControl
+        : null}
+      {/* A narrow row has no slack to right-align into: the model stays put after
+          the reasoning control while a wait status appears or the route name loads. */}
+      <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
+      {beforeModel}
+      {modelControl}
+      {/* The mode is a word beside the model (spec v10); a fifth-width row keeps its icon. */}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
           <IconButton
             className={cn(
-              'aria-expanded:bg-hover',
+              'h-[26px] w-auto shrink-0 gap-1.5 px-1.5 text-meta font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
               selectedMode &&
                 selectedMode.value !== 'edit' &&
                 'text-accent-foreground hover:text-accent-foreground',
             )}
             data-slot="composer-mode"
             disabled={disabled}
-            icon={<ModeIcon />}
+            icon={
+              <>
+                <ModeIcon />
+                <span className="@max-[300px]/composer:hidden" data-slot="composer-mode-label">
+                  {modeLabel}
+                </span>
+              </>
+            }
             label={`Mode: ${modeLabel}`}
             shortcut="mode"
             shortcutSide="above-icon"
@@ -340,7 +358,7 @@ export function ClioComposerBehaviorControls({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="start"
+          align="end"
           className="w-[21rem]"
           collisionPadding={8}
           onCloseAutoFocus={closeFocus}
@@ -371,16 +389,6 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {spotterModelControl &&
-      behavior.confirmation_policy === 'spotter-ai' &&
-      spotterAvailability?.available
-        ? spotterModelControl
-        : null}
-      {/* A narrow row has no slack to right-align into: the model stays put after
-          the mode while a wait status appears or the route name loads. */}
-      <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
-      {beforeModel}
-      {modelControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
         <AlertDialogContent
           onCloseAutoFocus={(event) => {

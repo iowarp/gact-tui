@@ -59,7 +59,7 @@ function Outcome({ value, className }: { value: ToolOutcome; className?: string 
         className={cn(
           value === 'covered' && 'text-info',
           value === 'unavailable' && 'text-faint',
-          'text-[12px]',
+          'text-meta',
         )}
         label={OUTCOME_TEXT[value]}
         tone={OUTCOME_TONE[value]}
@@ -156,7 +156,7 @@ export const ToolRow = memo(function ToolRow({
       </span>
       <span className="grid min-w-0 gap-0.5">
         <span
-          className="truncate font-mono text-[12.5px] font-medium text-foreground"
+          className="truncate font-mono text-menu font-medium text-foreground"
           title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
         >
           {tool.name}

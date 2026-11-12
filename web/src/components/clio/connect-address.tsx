@@ -178,8 +178,8 @@ export function ConnectErrorLine({
                   />
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] p-3">
-                  <p className="text-[12px] font-medium">Technical details</p>
-                  <pre className="mt-2 max-h-56 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+                  <p className="text-meta font-medium">Technical details</p>
+                  <pre className="mt-2 max-h-56 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                     {JSON.stringify(details, null, 2)}
                   </pre>
                 </PopoverContent>

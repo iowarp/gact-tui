@@ -267,7 +267,7 @@ export const DenseGrid = memo(function DenseGrid({
                   style={{ flex: `${widths[index]} 0 ${widths[index]}px` }}
                 >
                   <button
-                    className="flex h-full w-full min-w-0 cursor-pointer items-center gap-1 px-2 text-left font-sans text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                    className="flex h-full w-full min-w-0 cursor-pointer items-center gap-1 px-2 text-left font-sans text-caption font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
                     onClick={() => toggleSort(column.key)}
                     title={column.label}
                     type="button"

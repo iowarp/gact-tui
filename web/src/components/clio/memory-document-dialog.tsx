@@ -164,7 +164,7 @@ function FactRow({
             {...proseInputProps}
             aria-label="Corrected fact"
             autoFocus
-            className="h-7 text-[13px]"
+            className="h-7 text-ui"
             onChange={(event) => setText(event.target.value)}
             value={text}
           />

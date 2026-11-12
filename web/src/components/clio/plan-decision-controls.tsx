@@ -55,7 +55,7 @@ function PlanReadiness({ plan }: { plan: PlanExit | undefined }) {
   return (
     <span
       className={cn(
-        'mr-1.5 inline-flex shrink-0 items-center gap-[7px] text-[12.5px]',
+        'mr-1.5 inline-flex shrink-0 items-center gap-[7px] text-menu',
         ready ? 'font-medium text-foreground' : 'text-muted-foreground',
       )}
       data-plan-readiness={ready ? 'complete' : (status ?? 'writing')}
@@ -172,10 +172,10 @@ export function PlanDecisionControls({
           >
             <DropdownMenuRadioGroup onValueChange={setMode} value={mode}>
               {modes.map((value) => (
-                <DropdownMenuRadioItem className="text-[12.5px]" key={value} value={value}>
+                <DropdownMenuRadioItem className="text-menu" key={value} value={value}>
                   {planModeLabel(value)}
                   {value === recommended ? (
-                    <span className="text-[11.5px] text-muted-foreground">Recommended</span>
+                    <span className="text-label text-muted-foreground">Recommended</span>
                   ) : null}
                 </DropdownMenuRadioItem>
               ))}
@@ -204,7 +204,7 @@ export function PlanDecisionControls({
         ))}
         {canClear ? (
           <label
-            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-[12px] text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:px-2.5"
+            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-meta text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:px-2.5"
             data-slot="plan-clear-context"
           >
             <Checkbox
@@ -232,7 +232,7 @@ export function PlanDecisionControls({
             </label>
             <Input
               autoComplete="off"
-              className="h-[34px] min-w-0 flex-1 rounded-[7px] px-2.5 text-[12.5px] placeholder:text-faint focus-visible:ring-0 md:text-[12.5px]"
+              className="h-[34px] min-w-0 flex-1 rounded-[7px] px-2.5 text-menu placeholder:text-faint focus-visible:ring-0 md:text-menu"
               disabled={disabled}
               id={inputId}
               onChange={(event) => setFeedback(event.target.value)}

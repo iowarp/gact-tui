@@ -42,7 +42,7 @@ export function TranscriptDivider({
     <div
       aria-label={onOpenChange ? undefined : label}
       className={cn(
-        'flex h-7 min-w-0 items-center gap-2 px-2 text-[12.5px] text-muted-foreground',
+        'flex h-7 min-w-0 items-center gap-2 px-2 text-menu text-muted-foreground',
         className,
       )}
       role={onOpenChange ? undefined : 'separator'}

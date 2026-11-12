@@ -185,7 +185,7 @@ export function useProviderPanel({
     </span>
   ) : updateTo ? (
     <Button
-      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px] font-semibold text-accent-foreground"
+      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground"
       data-slot="provider-update-available"
       disabled={Boolean(providerActions.stage)}
       onClick={componentUpdate.update}
@@ -223,7 +223,7 @@ export function useProviderPanel({
   const useCode =
     preset?.provider === 'codex' ? () => providerActions.authenticate.mutate('device') : undefined;
   const checkLabel = group.health === 'setup' ? 'Check' : 'Check again';
-  const compactButton = 'h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px]';
+  const compactButton = 'h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-caption';
   const manageSetup =
     flow === 'sign_in' ? (
       <ProviderLoginButton

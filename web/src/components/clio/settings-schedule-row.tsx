@@ -120,7 +120,7 @@ export const ScheduleRow = memo(function ScheduleRow({
         confirm={
           <>
             <span
-              className="shrink-0 text-[12.5px] text-destructive"
+              className="shrink-0 text-menu text-destructive"
               role="alert"
               title="Future runs are removed. Completed work stays in the session history."
             >

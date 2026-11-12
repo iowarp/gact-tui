@@ -47,7 +47,7 @@ export function CommentReviewChip({
       <AttachmentHoverCardTrigger asChild>
         <button
           aria-label={`Open ${block.label}${version ? ` ${version}` : ''} with ${commentCount(count)}`}
-          className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] bg-hover px-2 text-[13px] text-foreground outline-none hover:bg-foreground/[0.08] focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+          className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] bg-hover px-2 text-ui text-foreground outline-none hover:bg-foreground/[0.08] focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
           data-reference-revision={block.revision}
           data-slot="comment-review-chip"
           disabled={!onOpenReference}
@@ -58,7 +58,7 @@ export function CommentReviewChip({
           <span className="min-w-0 truncate" data-truncation-hint="off">
             {block.label}
           </span>
-          <span className="flex shrink-0 items-center gap-1 text-[11.5px] text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1 text-label text-muted-foreground">
             <MessageSquareTextIcon aria-hidden="true" className="size-3" />
             {count}
           </span>

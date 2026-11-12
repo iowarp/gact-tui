@@ -77,7 +77,7 @@ export function ProviderComponentStatus({
 
   return (
     <div
-      className="flex h-8 min-w-0 shrink-0 flex-nowrap items-center gap-3 overflow-hidden border-t px-3 text-[11px] whitespace-nowrap text-faint"
+      className="flex h-8 min-w-0 shrink-0 flex-nowrap items-center gap-3 overflow-hidden border-t px-3 text-caption whitespace-nowrap text-faint"
       data-slot="provider-component-status"
     >
       {version || label ? (
@@ -127,12 +127,13 @@ export function ProviderComponentStatus({
           No compatible client update is available yet.
         </span>
       ) : state.checkError || components?.error?.message ? (
+        // A failed check says so in words; the service's reason is its hover detail.
         <span
           className="min-w-0 truncate text-destructive"
           role="alert"
           title={state.checkError || components?.error?.message}
         >
-          {state.checkError || components?.error?.message}
+          Can't check updates
         </span>
       ) : null}
       {restart ? (

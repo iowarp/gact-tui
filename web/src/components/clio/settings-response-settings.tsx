@@ -1,10 +1,12 @@
 import type { AcceptedParameter } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useContext, useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { settingFromHash } from '@/lib/settings-search-rows';
+import { SettingsResultsContext } from '@/lib/settings-search-results';
 import { cn } from '@/lib/utils';
 import {
   INLINE_SETTINGS_LIMIT,
@@ -67,8 +69,15 @@ export function SettingsResponseSettings({
   onEdit,
   leading,
 }: SettingsResponseSettingsProps) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState<boolean>();
   const shown = shownResponseParameters(parameters);
+  // A search match or a search arrival on one of its rows opens the disclosure.
+  const results = useContext(SettingsResultsContext);
+  const arrival = settingFromHash(typeof window === 'undefined' ? '' : window.location.hash);
+  const named = shown.some(
+    (parameter) => results?.labels.has(parameter.label) || arrival === parameter.label,
+  );
+  const open = openState ?? named;
   const unused = unusedResponseSettings(
     settings,
     parameters?.map((parameter) => parameter.name),
@@ -125,7 +134,7 @@ export function SettingsResponseSettings({
       <Collapsible data-slot="response-settings" onOpenChange={setOpen} open={open}>
         <div className="mt-4 flex h-7 items-center" data-slot="settings-group-label">
           <CollapsibleTrigger
-            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[0.71875rem] whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-label whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             type="button"
           >
             <ChevronRightIcon
@@ -269,7 +278,7 @@ function ParameterRow({
         info={info}
         title={parameter.label}
       >
-        <span className="shrink-0 text-[0.71875rem] text-faint" data-slot="response-default">
+        <span className="shrink-0 text-label text-faint" data-slot="response-default">
           {defaultText(parameter)}
         </span>
         <Slider

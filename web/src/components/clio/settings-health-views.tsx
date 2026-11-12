@@ -45,7 +45,7 @@ function metricContext(name: string) {
 function ValueRow({ title, value, note }: { title: string; value: string; note?: string }) {
   return (
     <SettingsRow fullWidth inlineControl note={note} title={title}>
-      <span className="text-[0.8125rem] text-foreground tabular-nums">{value}</span>
+      <span className="text-ui text-foreground tabular-nums">{value}</span>
     </SettingsRow>
   );
 }
@@ -133,7 +133,7 @@ export function StorageGroup({ memory }: { memory: MemoryStatistics }) {
             value={memory.cache.hit_rate * 100}
           />
         ) : null}
-        <span className="text-[0.8125rem] text-foreground tabular-nums">
+        <span className="text-ui text-foreground tabular-nums">
           {cacheSamples ? `${Math.round(memory.cache.hit_rate * 100)}%` : 'Unavailable'}
         </span>
       </SettingsRow>

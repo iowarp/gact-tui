@@ -10,9 +10,9 @@ import type { QuestionReading } from './question-tool-presentation';
 export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) {
   const many = reading.questions.length > 1;
   return (
-    <div className="min-w-0 text-[12.5px]" data-slot="question-answer-reader">
+    <div className="min-w-0 text-menu" data-slot="question-answer-reader">
       {reading.framing ? (
-        <p className="border-b border-border px-2.5 py-1.5 leading-[1.5] text-foreground/85">
+        <p className="border-b border-border px-2.5 py-1.5 leading-normal text-foreground/85">
           {reading.framing}
         </p>
       ) : null}
@@ -24,12 +24,12 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
             className={cn(index > 0 && 'border-t border-border')}
             key={index}
           >
-            <div className="flex h-[30px] items-center gap-2 border-b border-border px-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-              <b className="text-[12px] font-medium text-foreground/85">
+            <div className="flex h-[30px] items-center gap-2 border-b border-border px-2.5 text-label whitespace-nowrap text-muted-foreground">
+              <b className="text-meta font-medium text-foreground/85">
                 {many ? `Question ${index + 1} of ${reading.questions.length}` : 'Question'}
               </b>
             </div>
-            <p className="px-2.5 pt-1.5 pb-1 leading-[1.5] text-foreground">{question.prompt}</p>
+            <p className="px-2.5 pt-1.5 pb-1 leading-normal text-foreground">{question.prompt}</p>
             {question.options.length ? (
               <ul aria-label="Options" className="grid px-1 pb-1">
                 {question.options.map((option) => (
@@ -49,7 +49,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
                     <span className="shrink-0">{option.label}</span>
                     {option.description ? (
                       <span
-                        className="min-w-0 truncate text-[11.5px] text-muted-foreground"
+                        className="min-w-0 truncate text-label text-muted-foreground"
                         title={option.description}
                       >
                         {option.description}
@@ -66,7 +66,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
                   <PencilIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
                 </span>
                 <span className="sr-only">Your answer: </span>
-                <span className="min-w-0 leading-[18px] whitespace-pre-wrap [overflow-wrap:anywhere]">
+                <span className="min-w-0 leading-4.5 whitespace-pre-wrap [overflow-wrap:anywhere]">
                   {reading.written.join('\n')}
                 </span>
               </div>
@@ -75,7 +75,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
         );
       })}
       {reading.reason ? (
-        <p className="border-t border-border px-2.5 py-1.5 text-[11.5px] leading-[1.5] text-muted-foreground">
+        <p className="border-t border-border px-2.5 py-1.5 text-label leading-normal text-muted-foreground">
           <span className="text-foreground/85">Why I’m asking</span> {reading.reason}
         </p>
       ) : null}

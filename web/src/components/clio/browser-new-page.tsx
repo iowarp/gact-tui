@@ -106,8 +106,8 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
         <p
           className={
             error
-              ? 'px-4 py-3 text-[12.5px] text-destructive'
-              : 'px-4 py-3 text-[12.5px] text-muted-foreground'
+              ? 'px-4 py-3 text-menu text-destructive'
+              : 'px-4 py-3 text-menu text-muted-foreground'
           }
           id={error ? 'browser-new-page-error' : undefined}
           role={error ? 'alert' : 'status'}

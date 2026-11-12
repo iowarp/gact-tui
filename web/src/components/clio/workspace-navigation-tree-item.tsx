@@ -119,7 +119,7 @@ export function WorkspaceTreeItem({
         meta={
           // An open workspace shows its conversations; only a folded one counts them.
           sessionTotal > 0 && !expanded ? (
-            <span className="text-[11px] font-normal tabular-nums text-faint">{sessionTotal}</span>
+            <span className="text-caption font-normal tabular-nums text-faint">{sessionTotal}</span>
           ) : null
         }
         status={
@@ -213,7 +213,7 @@ function WorkspaceLabelFields({
     <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
       <span className="truncate">{label.name}</span>
       {label.qualifiers.map((qualifier) => (
-        <span className="shrink-0 text-xs font-normal text-muted-foreground" key={qualifier}>
+        <span className="shrink-0 text-meta font-normal text-muted-foreground" key={qualifier}>
           {qualifier}
         </span>
       ))}

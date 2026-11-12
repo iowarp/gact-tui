@@ -34,8 +34,8 @@ import { StateView } from './primitives/state-view';
 import { scopeLabel } from './settings-prompt-scope';
 import { SettingsRow } from './settings-row';
 
-const FIELD = 'h-[1.875rem] text-[0.78125rem]';
-const SELECT = 'h-[1.875rem]! w-full text-[0.78125rem]';
+const FIELD = 'h-[1.875rem] text-menu';
+const SELECT = 'h-[1.875rem]! w-full text-menu';
 const INVALID = 'Fix the validation errors before saving.';
 
 interface PromptDraft {
@@ -277,7 +277,7 @@ export function PromptEditorDialog({
             </SettingsRow>
             <div className="border-b border-border/70 pt-1.5 pb-2.5">
               <div className="flex h-7 items-center gap-1.5">
-                <Label className="text-[0.8125rem] font-normal" htmlFor={`${ids}-text`}>
+                <Label className="text-ui font-normal" htmlFor={`${ids}-text`}>
                   Instructions
                 </Label>
                 <InfoTip className="text-faint" label="About Instructions">
@@ -335,7 +335,7 @@ export function PromptEditorDialog({
               />
             </SettingsRow>
             {resolved.data ? (
-              <div className="grid gap-0.5 pt-2 text-[0.71875rem] text-faint">
+              <div className="grid gap-0.5 pt-2 text-label text-faint">
                 <p>Effective source: {scopeLabel(resolved.data.scope)}</p>
                 {resolved.data.source_path ? (
                   <p className="truncate font-mono" title={resolved.data.source_path}>
@@ -347,7 +347,7 @@ export function PromptEditorDialog({
           </>
         ) : (
           <div className="grid gap-3 pb-1">
-            <p className="text-[0.71875rem] text-faint">
+            <p className="text-label text-faint">
               The preview uses the connected service’s current agents, tools, commands, memory,
               permissions, provider and active pack.
             </p>

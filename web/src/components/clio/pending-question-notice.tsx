@@ -35,7 +35,7 @@ export function PendingQuestionNotice({
     <TooltipProvider>
       <div
         aria-live="polite"
-        className="pointer-events-auto relative z-10 mx-auto mb-1.5 flex h-[30px] w-full max-w-4xl min-w-0 items-center gap-2 rounded-[7px] border border-border bg-card pr-0.5 pl-2.5 text-[12px]"
+        className="pointer-events-auto relative z-10 mx-auto mb-1.5 flex h-[30px] w-full max-w-4xl min-w-0 items-center gap-2 rounded-[7px] border border-border bg-card pr-0.5 pl-2.5 text-meta"
         data-slot="pending-question-notice"
         role="status"
       >

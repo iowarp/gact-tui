@@ -328,7 +328,7 @@ export function FileBrowser({
       )}
       {filesTruncated && filesNextOffset === undefined ? (
         headed ? (
-          <p className="shrink-0 truncate px-3.5 pt-1.5 text-[11px] text-faint">
+          <p className="shrink-0 truncate px-3.5 pt-1.5 text-caption text-faint">
             Showing part of this workspace; filter to find the rest.
           </p>
         ) : (

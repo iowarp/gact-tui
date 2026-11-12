@@ -52,7 +52,7 @@ export function SessionRailCustomize({
           ))}
         </div>
         <div className="mt-1 flex h-9 items-center gap-2 border-t px-2 pt-1">
-          <label htmlFor={hideEmptyId} className="flex-1 text-[13px]">
+          <label htmlFor={hideEmptyId} className="flex-1 text-ui">
             Hide empty sections
           </label>
           <Switch
@@ -111,7 +111,7 @@ function SectionOrder({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 min-w-0 flex-1 cursor-grab touch-none justify-start gap-2 px-2 text-[13px] font-normal active:cursor-grabbing"
+                className="h-8 min-w-0 flex-1 cursor-grab touch-none justify-start gap-2 px-2 text-ui font-normal active:cursor-grabbing"
                 aria-label={`Drag ${name} in layout`}
                 aria-keyshortcuts={moveKeys?.aria}
                 title={`Drag to reorder, or ${moveKeys?.text ?? ''}`}

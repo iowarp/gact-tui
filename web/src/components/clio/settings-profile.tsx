@@ -11,7 +11,7 @@ import { SettingsSectionHeading } from './settings-section-heading';
 import { type LocalProfile, useLocalProfile } from './settings-profile-store';
 
 const FIELD =
-  'h-[1.875rem] rounded-md px-[9px] text-[0.78125rem] placeholder:text-faint md:text-[0.78125rem]';
+  'h-[1.875rem] rounded-md px-[9px] text-menu placeholder:text-faint md:text-menu';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 /** Name, email and a few words about the person, saved only on this computer. */

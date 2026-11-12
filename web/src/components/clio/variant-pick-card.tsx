@@ -126,14 +126,14 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
       title={`Pick a ${noun}`}
     >
       {pick.prompt ? (
-        <AskSection className="text-[12.5px] text-foreground/85">{pick.prompt}</AskSection>
+        <AskSection className="text-menu text-foreground/85">{pick.prompt}</AskSection>
       ) : null}
       {view.refinable ? (
         <AskSection className="mt-2.5">
           <Input
             {...proseInputProps}
             aria-label={`What should change in ${current.label}`}
-            className="h-[34px] min-w-0 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
+            className="h-[34px] min-w-0 rounded-[7px] border-input text-menu md:text-menu"
             disabled={responding}
             onChange={(event) => setComment(event.target.value)}
             onKeyDown={(event) => {
@@ -219,7 +219,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
       </AskFooter>
       {criteriaOpen && view.rubric ? (
         <AskSection
-          className="text-[12px] whitespace-pre-wrap text-foreground/85"
+          className="text-meta whitespace-pre-wrap text-foreground/85"
           data-slot="variant-criteria"
         >
           {view.rubric}
@@ -233,7 +233,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
 function RowAction({ children, onClick }: { children: string; onClick: () => void }) {
   return (
     <button
-      className="shrink-0 rounded-[5px] px-1 text-[12px] text-muted-foreground outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
+      className="shrink-0 rounded-[5px] px-1 text-meta text-muted-foreground outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
       onClick={onClick}
       type="button"
     >

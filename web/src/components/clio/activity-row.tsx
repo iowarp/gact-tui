@@ -227,7 +227,7 @@ export const ActivityRow = memo(
                   // Every row splits function and input the same way: the name in the
                   // foreground, the input in the spec's argument style, with no separator.
                   // A long path keeps a readable stem before a count recap beside it does.
-                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
+                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-label text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
                 >
                   {argument}
                 </span>
@@ -238,7 +238,7 @@ export const ActivityRow = memo(
                   title={recapTitle}
                   // A count or extent recap keeps its room ahead of the argument, then
                   // ends in …; it never squeezes the name or the outcome words.
-                  className="w-0 min-w-0 max-w-fit grow-[100] truncate text-[11.5px] text-muted-foreground"
+                  className="w-0 min-w-0 max-w-fit grow-[100] truncate text-label text-muted-foreground"
                 >
                   {recap}
                 </span>
@@ -248,7 +248,7 @@ export const ActivityRow = memo(
                   data-slot="activity-outcome"
                   title={outcomeTitle}
                   className={cn(
-                    'flex shrink-0 items-center gap-2 text-[11.5px]',
+                    'flex shrink-0 items-center gap-2 text-label',
                     OUTCOME_TONE[outcomeTone],
                   )}
                 >
@@ -376,7 +376,7 @@ export function ActivityNest({
         <Button
           variant="ghost"
           onClick={onShowAll}
-          className="h-auto rounded-[4px] px-2 py-1 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+          className="h-auto rounded-[4px] px-2 py-1 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
         >
           {showAllLabel ?? `Show all ${hidden}`}
         </Button>
@@ -404,7 +404,7 @@ export function ActivityBody({
       aria-label={label}
       data-slot="activity-body"
       className={cn(
-        'mt-0.5 mb-2 ml-[30px] min-w-0 text-[13px] [overflow-wrap:anywhere]',
+        'mt-0.5 mb-2 ml-[30px] min-w-0 text-ui [overflow-wrap:anywhere]',
         framed && 'overflow-hidden rounded-lg border border-border bg-background',
         className,
       )}

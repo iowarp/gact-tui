@@ -44,7 +44,7 @@ export function MessageCompletionFooter({
   return (
     <div
       className={cn(
-        'mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+        'mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-label text-muted-foreground',
         actionsOnly && 'sm:pointer-events-none sm:-mt-[31px]',
       )}
       data-slot="message-completion-footer"

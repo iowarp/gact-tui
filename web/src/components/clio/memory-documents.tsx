@@ -94,7 +94,7 @@ function MemorySearchField({
         </InputGroupAddon>
         <InputGroupInput
           aria-label="Search memories"
-          className="text-[12.5px] placeholder:text-faint md:text-[12.5px]"
+          className="text-menu placeholder:text-faint md:text-menu"
           // The window's Esc listener runs first; while there is a query, Esc only clears it.
           data-escape-scope={text ? '' : undefined}
           onChange={(event) => setText(event.target.value)}

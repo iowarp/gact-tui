@@ -57,7 +57,7 @@ export function RowConfirm({
       role="group"
     >
       <span
-        className="min-w-0 truncate text-[12.5px] text-destructive"
+        className="min-w-0 truncate text-menu text-destructive"
         role="alert"
         title={question}
       >

@@ -155,7 +155,7 @@ function AboutValue({
             ? 'text-xs text-faint'
             : mono
               ? 'font-mono text-xs text-muted-foreground tabular-nums'
-              : 'text-[0.78125rem] text-muted-foreground',
+              : 'text-menu text-muted-foreground',
         )}
         data-slot="settings-value"
         title={value}
