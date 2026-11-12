@@ -29,18 +29,18 @@ const ICON = 'size-[15px] shrink-0';
  */
 const TOAST_CLASSES = {
   toast:
-    'cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-2 pr-1.5 pl-3 text-[12.5px] text-popover-foreground shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_40%,transparent)] dark:shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_75%,transparent)]',
+    'cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-2 pr-1.5 pl-3 text-menu text-popover-foreground shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_40%,transparent)] dark:shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_75%,transparent)]',
   // Sonner centres its loader absolutely; `relative` keeps it in the icon slot.
   // The text starts 11px down with an 18px first line (42px for one line, as
   // the spec), so the icon sits on the title's first line however many follow.
   icon: 'relative mt-[4.5px] flex size-[15px] shrink-0 items-center justify-center self-start text-primary',
   content: 'flex min-w-0 flex-1 flex-col gap-0.5 py-[3px]',
-  title: 'line-clamp-2 leading-[18px] text-foreground',
-  description: 'line-clamp-2 text-[11.5px] leading-4 !text-muted-foreground',
+  title: 'line-clamp-2 leading-4.5 text-foreground',
+  description: 'line-clamp-2 text-label leading-4 !text-muted-foreground',
   actionButton:
-    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] border border-border px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-foreground/85 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] border border-border px-2 font-medium text-menu leading-none whitespace-nowrap text-foreground/85 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
   cancelButton:
-    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] px-2 font-medium text-menu leading-none whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
   closeButton:
     'order-last grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
   error: '[&_[data-icon]]:text-destructive',

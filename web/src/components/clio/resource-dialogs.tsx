@@ -7,7 +7,7 @@ import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { ClioPathPicker } from './path-picker';
 import { DialogFrame } from './primitives/dialog-frame';
 
-const TEXT_FIELD = 'h-[30px] text-[12.5px] md:text-[12.5px]';
+const TEXT_FIELD = 'h-[30px] text-menu md:text-menu';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -146,7 +146,7 @@ function CreateWorkspaceDialog({
         workspaces={workspaces}
       />
       {error ? (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="mt-2 text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -235,7 +235,7 @@ function StackedField({
       {children}
       {description ? (
         <p
-          className="truncate text-[11.5px] leading-snug text-muted-foreground"
+          className="truncate text-label leading-snug text-muted-foreground"
           title={description}
         >
           {description}
@@ -293,7 +293,7 @@ export function RenameResourceDialog({
           Name
         </Label>
         <Input
-          className="h-[30px] text-[12.5px] md:text-[12.5px]"
+          className="h-[30px] text-menu md:text-menu"
           data-initial-focus=""
           id="rename-resource"
           onChange={(event) => setValue(event.target.value)}
@@ -306,7 +306,7 @@ export function RenameResourceDialog({
         />
       </div>
       {error ? (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="mt-2 text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -366,7 +366,7 @@ export function DeleteResourceDialog({
       title={`${session ? 'Delete' : 'Remove'} ${target.label}?`}
     >
       {error ? (
-        <p className="text-[12.5px] text-destructive" role="alert">
+        <p className="text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}

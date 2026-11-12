@@ -331,7 +331,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
               tooltipSide="bottom"
             />
             <Button
-              className="h-[26px] gap-1.5 px-2 text-[12px]"
+              className="h-[26px] gap-1.5 px-2 text-meta"
               disabled={!picked || add.isPending || add.isSuccess}
               onClick={() => picked && add.mutate(picked)}
               size="sm"
@@ -400,11 +400,11 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         />
       </form>
       {add.error ? (
-        <p className="px-3.5 pb-1 text-[12px] text-destructive" role="alert">
+        <p className="px-3.5 pb-1 text-meta text-destructive" role="alert">
           {add.error.message}
         </p>
       ) : add.isSuccess && pickedResource ? (
-        <p className="px-3.5 pb-1 text-[12px] text-muted-foreground" role="status">
+        <p className="px-3.5 pb-1 text-meta text-muted-foreground" role="status">
           {pickedResource.name} is in this workspace's Sources.
         </p>
       ) : null}

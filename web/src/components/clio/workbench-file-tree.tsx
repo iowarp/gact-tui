@@ -267,7 +267,7 @@ export function WindowedFileTree({
   return (
     <div
       aria-label={label}
-      className="relative min-w-0 font-sans text-[12.5px]"
+      className="relative min-w-0 font-sans text-menu"
       ref={treeRef}
       role="tree"
       style={windowed ? { height: virtualizer.getTotalSize() } : undefined}
@@ -313,7 +313,7 @@ function TreeRowView({
       return (
         <p
           className={cn(
-            'flex h-7 items-center truncate pr-2 text-[11.5px]',
+            'flex h-7 items-center truncate pr-2 text-label',
             row.tone === 'error' ? 'text-destructive' : 'text-faint italic',
           )}
           role={row.tone === 'error' ? 'alert' : undefined}
@@ -386,7 +386,7 @@ function TreeRowView({
             </FileTreeIcon>
             <TreeName name={row.name} />
             {row.meta ? (
-              <span className="ml-auto shrink-0 pl-2 text-[11.5px] font-normal text-faint tabular-nums">
+              <span className="ml-auto shrink-0 pl-2 text-label font-normal text-faint tabular-nums">
                 {row.meta}
               </span>
             ) : null}
@@ -465,7 +465,7 @@ function TreeRowView({
                   ) : (
                     <span
                       className={cn(
-                        'max-w-40 truncate text-[11px] text-faint',
+                        'max-w-40 truncate text-caption text-faint',
                         selected && 'text-accent-foreground',
                       )}
                     >

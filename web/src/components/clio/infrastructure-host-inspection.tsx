@@ -71,8 +71,8 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
             size="row"
             title="Could not inspect this computer. Check its connection, then try again."
           />
-          <TechnicalDetails className="text-[12px]" title="Inspection details">
-            <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+          <TechnicalDetails className="text-meta" title="Inspection details">
+            <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
               {query.error.message}
             </pre>
           </TechnicalDetails>
@@ -81,8 +81,8 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
         <>
           <KeyValueGrid items={items} />
           {runtimeErrors.length ? (
-            <TechnicalDetails className="text-[12px]" title="Runtime details">
-              <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+            <TechnicalDetails className="text-meta" title="Runtime details">
+              <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                 {runtimeErrors
                   .map((line) => `${RUNTIME_NAMES[line.name]}: ${line.detail}`)
                   .join('\n')}

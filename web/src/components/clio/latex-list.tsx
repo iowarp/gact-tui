@@ -14,7 +14,7 @@ function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string
   if (!file && !line) return null;
   return (
     <span
-      className="flex items-baseline text-[12px] text-muted-foreground"
+      className="flex items-baseline text-meta text-muted-foreground"
       data-slot="latex-problem-place"
     >
       {file ? (
@@ -109,7 +109,7 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+          <p className="px-1.5 py-1.5 text-menu text-muted-foreground">
             {filtered ? 'No matching sections.' : 'No sections yet.'}
           </p>
         )}
@@ -150,7 +150,7 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+          <p className="px-1.5 py-1.5 text-menu text-muted-foreground">
             {filtered ? 'No matching problems.' : 'No problems.'}
           </p>
         )}

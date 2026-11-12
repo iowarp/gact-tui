@@ -63,7 +63,7 @@ function StudyViewPanel({
       id={studyViewDomId(view.entry)}
     >
       <header className="space-y-0.5">
-        <h3 className="text-[13px] font-semibold">{view.title || 'Untitled view'}</h3>
+        <h3 className="text-ui font-semibold">{view.title || 'Untitled view'}</h3>
         {view.purpose ? <p className="text-xs text-muted-foreground">{view.purpose}</p> : null}
         <p className="text-xs text-muted-foreground">Attached by {owner}</p>
         {view.read_only ? (

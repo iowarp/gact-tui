@@ -134,7 +134,7 @@ export function SettingsResponseSettings({
       <Collapsible data-slot="response-settings" onOpenChange={setOpen} open={open}>
         <div className="mt-4 flex h-7 items-center" data-slot="settings-group-label">
           <CollapsibleTrigger
-            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[0.71875rem] whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-label whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             type="button"
           >
             <ChevronRightIcon
@@ -278,7 +278,7 @@ function ParameterRow({
         info={info}
         title={parameter.label}
       >
-        <span className="shrink-0 text-[0.71875rem] text-faint" data-slot="response-default">
+        <span className="shrink-0 text-label text-faint" data-slot="response-default">
           {defaultText(parameter)}
         </span>
         <Slider

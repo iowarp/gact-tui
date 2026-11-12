@@ -81,7 +81,7 @@ const ACTION_ICONS: Record<string, ReactNode> = {
 
 // The spec's quiet text link under an opened row's log (.lnk): muted words, no outline.
 const QUIET_ACTION =
-  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-[12px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
+  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-meta text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
 
 /**
  * One operation in the timeline: what ran, where, its state and when. Opening
@@ -155,7 +155,7 @@ export function InfrastructureActivityRow({
       />
     ) : Number.isFinite(row.time) ? (
       <ClioRelativeTime
-        className="text-[11px] text-muted-foreground"
+        className="text-caption text-muted-foreground"
         compact
         label="Updated"
         timestamp={new Date(row.time).toISOString()}
@@ -236,8 +236,8 @@ export function InfrastructureActivityRow({
                 <p
                   className={
                     failed
-                      ? 'flex min-w-0 items-start gap-1.5 text-[12px] text-destructive'
-                      : 'min-w-0 text-[12px] text-muted-foreground'
+                      ? 'flex min-w-0 items-start gap-1.5 text-meta text-destructive'
+                      : 'min-w-0 text-meta text-muted-foreground'
                   }
                 >
                   {failed ? (
@@ -250,7 +250,7 @@ export function InfrastructureActivityRow({
               {inlineLog.some((line) => line.trim()) ? (
                 <pre
                   aria-label={`Log for ${title}`}
-                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7] text-muted-foreground"
+                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-caption leading-[1.7] text-muted-foreground"
                   tabIndex={0}
                 >
                   {/* Spec .c3log: one line each, cut with an ellipsis; the dialog keeps the full text. */}

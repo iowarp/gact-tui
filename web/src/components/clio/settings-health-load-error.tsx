@@ -129,7 +129,7 @@ export function SettingsLoadError({
     );
   return (
     <div
-      className={cn('flex min-h-7 min-w-0 items-center gap-2 py-1 text-[0.71875rem]', className)}
+      className={cn('flex min-h-7 min-w-0 items-center gap-2 py-1 text-label', className)}
       role="alert"
     >
       <span className="flex min-w-0 items-baseline gap-1.5" title={technical}>
@@ -140,7 +140,7 @@ export function SettingsLoadError({
       </span>
       {onRetry ? (
         <Button
-          className="h-auto shrink-0 px-0 text-[0.71875rem]"
+          className="h-auto shrink-0 px-0 text-label"
           disabled={retrying}
           onClick={onRetry}
           size="xs"

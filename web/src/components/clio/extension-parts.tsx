@@ -34,7 +34,7 @@ export function MetaLine({
         <span
           className={cn(
             index ? 'ml-2.5' : undefined,
-            part.mono && 'font-mono text-[0.71875rem]',
+            part.mono && 'font-mono text-label',
             part.mono && index && '@max-sm:hidden',
           )}
           key={`${index}:${part.text}`}
@@ -109,7 +109,7 @@ export function TrustBanner({
       <div className="flex min-w-0 items-center gap-2.5">
         <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
         <p
-          className="line-clamp-2 min-w-0 flex-1 text-[0.8125rem] leading-5"
+          className="line-clamp-2 min-w-0 flex-1 text-ui leading-5"
           title={detail ? `${message} ${detail}` : message}
         >
           {message}

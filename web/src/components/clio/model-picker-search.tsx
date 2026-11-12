@@ -271,7 +271,7 @@ export function ModelPickerSearch({
               {...identifierInputProps}
               id={inputId}
               aria-label={label}
-              className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"
+              className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-menu outline-hidden placeholder:text-faint"
               placeholder={label}
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
@@ -281,7 +281,7 @@ export function ModelPickerSearch({
           ) : (
             <CascaderInput
               aria-label={label}
-              className="px-0 text-[13px] placeholder:text-faint"
+              className="px-0 text-ui placeholder:text-faint"
               onKeyDown={handleKeyDown}
               onPointerDown={() => onFacetsOpenChange(true)}
               placeholder={label}
@@ -294,7 +294,7 @@ export function ModelPickerSearch({
               ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'}${single ? ' match' : ''}`
               : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
           }
-          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+          className="ms-1 shrink-0 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
           {shown}

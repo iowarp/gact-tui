@@ -180,7 +180,7 @@ function ActivityLaneView({
     <Button
       variant="ghost"
       onClick={() => setAll(true)}
-      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
       data-slot="activity-show-all"
     >
       {`Show ${earlier} earlier`}

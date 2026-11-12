@@ -130,7 +130,7 @@ export function KnowledgeVaultFiles({
         )}
       </div>
       {data && paged ? (
-        <div className="flex h-8 shrink-0 items-center gap-1 border-t border-border px-2 text-[11.5px] text-muted-foreground">
+        <div className="flex h-8 shrink-0 items-center gap-1 border-t border-border px-2 text-label text-muted-foreground">
           <span className="min-w-0 flex-1 truncate tabular-nums">
             {offset + 1}–{offset + data.notes.length} of {data.total}
           </span>

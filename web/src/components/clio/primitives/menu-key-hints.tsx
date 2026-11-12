@@ -29,7 +29,7 @@ export const MenuKeyHints = memo(function MenuKeyHints({
       aria-hidden="true"
       data-slot="menu-key-hints"
       className={cn(
-        'flex h-[30px] items-center gap-3 overflow-hidden border-t border-border/70 px-2 text-[11px] whitespace-nowrap text-muted-foreground',
+        'flex h-[30px] items-center gap-3 overflow-hidden border-t border-border/70 px-2 text-caption whitespace-nowrap text-muted-foreground',
         className,
       )}
     >

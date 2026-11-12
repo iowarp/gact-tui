@@ -10,7 +10,7 @@ import { ContentMarkdown } from './content-markdown';
 import { StateView, type StateAction } from './primitives/state-view';
 
 /** The code viewer's type: 11.5 px mono at 1.65. */
-const MONO = 'font-mono text-[11.5px] leading-[1.65]';
+const MONO = 'font-mono text-label leading-[1.65]';
 
 /** Long terminal output scrolls inside its block, as Jupyter's does. */
 const TEXT_BLOCK = cn(
@@ -171,7 +171,7 @@ const NotebookCellView = memo(function NotebookCellView({
               language={language}
               className={cn(
                 'bg-muted/40 [&_pre]:!bg-transparent [&_pre]:px-3 [&_pre]:py-1.5 [&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',
-                '[&_:is(pre,code)]:!text-[11.5px] [&_pre]:leading-[1.65]',
+                '[&_:is(pre,code)]:!text-label [&_pre]:leading-[1.65]',
               )}
             />
             {cell.outputs.map((output, index) => (
@@ -211,7 +211,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
         <div
           className={cn(
             // The cell's gap stops here: the result table sits flush under its code cell.
-            '-mt-1.5 min-w-0 overflow-x-auto pb-1 [&_table]:text-[12px] [&_table]:tabular-nums',
+            '-mt-1.5 min-w-0 overflow-x-auto pb-1 [&_table]:text-meta [&_table]:tabular-nums',
             // One hairline around the result table, flush with the code cell above it.
             '[&_[data-streamdown=table-wrapper]]:!my-0 [&_[data-streamdown=table-wrapper]]:!rounded-none [&_[data-streamdown=table-wrapper]]:!border-0 [&_[data-streamdown=table-wrapper]]:!bg-transparent [&_[data-streamdown=table-wrapper]]:!p-0',
           )}
@@ -219,7 +219,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
           {/* Streamdown sanitizes raw HTML: scripts, styles and handlers are dropped. The
               frame bar owns copy and download, so an output table has no toolbar of its own. */}
           <ContentMarkdown
-            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-[12.5px]')}
+            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-menu')}
             controls={{ table: false }}
           >
             {htmlBlock(output.html)}

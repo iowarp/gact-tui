@@ -154,8 +154,8 @@ export const ItemRow = memo(
             className={cn(
               'min-w-0 truncate text-foreground',
               size === 'line'
-                ? 'max-w-full shrink-0 text-[0.78125rem]'
-                : 'text-[0.8125rem] font-medium',
+                ? 'max-w-full shrink-0 text-menu'
+                : 'text-ui font-medium',
             )}
             data-slot="item-row-title"
           >
@@ -165,7 +165,7 @@ export const ItemRow = memo(
             <span
               className={cn(
                 'min-w-0 truncate text-faint',
-                size === 'line' ? 'shrink-[100] text-[0.71875rem]' : 'text-xs',
+                size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
               data-slot="item-row-meta"
             >

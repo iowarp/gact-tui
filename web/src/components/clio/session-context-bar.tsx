@@ -50,7 +50,7 @@ export function ClioSessionContextBar({
           onClick={() => onReturnToParent(parentSession)}
         />
       ) : null}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-[13px]">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-ui">
         {workspaceLabel ? (
           <>
             {/* Spec narrow order: on phones the top bar drops the workspace crumb, so the title gets the width. */}

@@ -50,7 +50,7 @@ type RunSettingsPatch = {
 export function AgentTabSectionLabel({ id, children }: { id: string; children: string }) {
   return (
     <h3
-      className="truncate px-3.5 pt-3 pb-0.5 text-[11px] font-semibold text-muted-foreground"
+      className="truncate px-3.5 pt-3 pb-0.5 text-caption font-semibold text-muted-foreground"
       id={id}
     >
       {children}

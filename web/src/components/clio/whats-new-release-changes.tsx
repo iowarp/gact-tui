@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import type { WhatsNewTab } from './whats-new-dialog';
 
 const LIST =
-  'text-[12.5px] leading-[1.7] font-normal text-foreground [&_strong]:font-semibold [&_code]:wrap-anywhere [&_code]:font-normal [&_pre]:max-w-full [&_pre]:overflow-x-auto';
+  'text-menu leading-[1.7] font-normal text-foreground [&_strong]:font-semibold [&_code]:wrap-anywhere [&_code]:font-normal [&_pre]:max-w-full [&_pre]:overflow-x-auto';
 
 // The spec's plain bullet list rather than the transcript's spaced prose lists.
 const COMPONENTS = {
@@ -57,7 +57,7 @@ export function ReleaseChanges({
 
 function ReleaseHeading({ entry }: { entry: ChangelogEntry }) {
   return (
-    <div className="mt-1 flex items-baseline gap-2 text-[11.5px] text-muted-foreground">
+    <div className="mt-1 flex items-baseline gap-2 text-label text-muted-foreground">
       <span className="font-medium text-foreground">{entry.version}</span>
       {entry.date ? <time dateTime={entry.date}>{entry.date}</time> : null}
     </div>
@@ -77,7 +77,7 @@ function ReleaseBody({ entry }: { entry: ChangelogEntry }) {
           return (
             <Accordion key={index} type="single" collapsible>
               <AccordionItem value="notes" className="border-0">
-                <AccordionTrigger className="py-1 text-[11.5px] font-normal text-muted-foreground hover:no-underline">
+                <AccordionTrigger className="py-1 text-label font-normal text-muted-foreground hover:no-underline">
                   {section.title}
                 </AccordionTrigger>
                 <AccordionContent className="pb-1">{content}</AccordionContent>
@@ -88,7 +88,7 @@ function ReleaseBody({ entry }: { entry: ChangelogEntry }) {
         return (
           <div key={index}>
             {section.title ? (
-              <h4 className="mt-1 text-[11.5px] font-medium text-muted-foreground">
+              <h4 className="mt-1 text-label font-medium text-muted-foreground">
                 {section.title}
               </h4>
             ) : null}

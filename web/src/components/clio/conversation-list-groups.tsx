@@ -59,10 +59,10 @@ export function ConversationFilterMenu({
 export function NoMatchingConversations({ onShowAll }: { onShowAll: () => void }) {
   return (
     <ListRow
-      className="h-7 pl-2.5 text-[12px] text-muted-foreground"
+      className="h-7 pl-2.5 text-meta text-muted-foreground"
       meta={
         <button
-          className="rounded-[4px] text-[11.5px] text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-1 focus-visible:ring-ring"
+          className="rounded-[4px] text-label text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-1 focus-visible:ring-ring"
           onClick={onShowAll}
           type="button"
         >

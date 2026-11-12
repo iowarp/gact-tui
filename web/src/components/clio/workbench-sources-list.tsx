@@ -173,7 +173,7 @@ export function SourcesList({
           />
         ))}
         {!total && !sources.error && !resourcesError ? (
-          <p className="px-2 pt-2 pb-1 text-[12px] text-muted-foreground" role="listitem">
+          <p className="px-2 pt-2 pb-1 text-meta text-muted-foreground" role="listitem">
             No sources in this workspace yet.
           </p>
         ) : null}
@@ -205,7 +205,7 @@ export function SourcesList({
           <div role="listitem">
             <ListRow
               aria-label="Connect a data source"
-              className="h-[30px] cursor-pointer text-[12.5px] text-accent-foreground [&_[data-slot=list-row-icon]]:text-accent-foreground"
+              className="h-[30px] cursor-pointer text-menu text-accent-foreground [&_[data-slot=list-row-icon]]:text-accent-foreground"
               icon={<AddIcon />}
               onClick={() => openDialog({ kind: 'connect' })}
               onKeyDown={activateOnKey(() => openDialog({ kind: 'connect' }))}
@@ -406,7 +406,7 @@ function SublineParts({
 function SourceStatusColumn({ label, tone }: { label: string; tone: StatusTone }) {
   return (
     <span className="flex w-[104px] shrink-0 overflow-hidden @max-[340px]/sources:w-[72px]">
-      <StatusIndicator className="text-[11px]" label={label} tone={tone} />
+      <StatusIndicator className="text-caption" label={label} tone={tone} />
     </span>
   );
 }

@@ -83,7 +83,7 @@ function ResultBlock({
   const opener = (label: string) => (
     <SettingsRow inlineControl key={label} title={label}>
       <Button
-        className="h-6 gap-1 px-1.5 text-[0.71875rem] font-normal text-faint hover:text-foreground"
+        className="h-6 gap-1 px-1.5 text-label font-normal text-faint hover:text-foreground"
         onClick={onOpen}
         size="sm"
         variant="ghost"

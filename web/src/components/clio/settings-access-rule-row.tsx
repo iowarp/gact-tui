@@ -44,7 +44,7 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
       role="group"
       aria-label="Remove this rule?"
     >
-      <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
+      <span className="min-w-0 truncate text-menu text-destructive" role="alert">
         Remove this rule?
       </span>
       <Button
@@ -138,7 +138,7 @@ export function AccessRuleRow({
     </span>
   );
   const title = (
-    <span className="font-mono text-[0.78125rem] font-normal" title={target}>
+    <span className="font-mono text-menu font-normal" title={target}>
       {target}
     </span>
   );

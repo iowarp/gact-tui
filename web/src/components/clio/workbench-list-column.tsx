@@ -303,7 +303,7 @@ export function WorkbenchListHeader({
     >
       <h2
         className={cn(
-          'min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground',
+          'min-w-0 flex-1 truncate text-meta font-semibold text-muted-foreground',
           titleYieldsWhenNarrow && '@max-[360px]/list-header:sr-only',
         )}
       >
@@ -390,7 +390,7 @@ function FilesList({
               <>
                 <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
                 {/* The spec's exact wording; a narrow column wraps it rather than cutting it off. */}
-                <p className="min-h-7 px-2 py-1.5 text-[11.5px] leading-[1.35] text-faint">
+                <p className="min-h-7 px-2 py-1.5 text-label leading-[1.35] text-faint">
                   <span className="text-changed">Teal</span>: changed in this conversation
                 </p>
               </>
@@ -540,7 +540,7 @@ function ArtifactsList({
           <ListRow
             aria-current={selected || undefined}
             aria-label={`Open ${name}`}
-            className="cursor-pointer text-[12.5px]"
+            className="cursor-pointer text-menu"
             icon={<ArtifactTypeIcon artifact={artifact} className="size-3.5" />}
             meta={
               artifact.version !== undefined ? <MetaValue>v{artifact.version}</MetaValue> : null
@@ -589,7 +589,7 @@ function ArtifactsList({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {body}
         {artifactsTruncated ? (
-          <p className="px-3 py-1 text-[11px] text-warning">
+          <p className="px-3 py-1 text-caption text-warning">
             The service returned a partial artifact registry.
           </p>
         ) : null}
@@ -626,7 +626,7 @@ function TerminalList({
         <div key={tab.id} role="listitem" title={tab.label}>
           <ListRow
             aria-current={tab.id === activeTabId || undefined}
-            className="cursor-pointer text-[12.5px]"
+            className="cursor-pointer text-menu"
             icon={<TerminalSquareIcon />}
             onClick={() => onSelectTab(tab.id)}
             onKeyDown={activateOnKey(() => onSelectTab(tab.id))}
@@ -640,7 +640,7 @@ function TerminalList({
       {onOpenTerminal && !terminals.length ? (
         <div role="listitem">
           <ListRow
-            className="cursor-pointer text-[12.5px] text-muted-foreground"
+            className="cursor-pointer text-menu text-muted-foreground"
             icon={<AddIcon />}
             onClick={onOpenTerminal}
             onKeyDown={activateOnKey(onOpenTerminal)}
@@ -722,7 +722,7 @@ function BrowserList({
             <ListRow
               aria-current={activeTabId === id || undefined}
               badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
-              className="cursor-pointer text-[12.5px]"
+              className="cursor-pointer text-menu"
               description={page.host || 'Blank page'}
               icon={<GlobeIcon />}
               onClick={() => onOpenBrowserPage(page)}

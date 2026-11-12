@@ -38,7 +38,7 @@ export function McpServerPreparationNote({
             </p>
           ) : null}
           {view.detail ? (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-muted/50 p-2 font-mono text-[11px] text-foreground">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-muted/50 p-2 font-mono text-caption text-foreground">
               {view.detail}
             </pre>
           ) : null}

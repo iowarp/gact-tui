@@ -12,7 +12,7 @@ import { folderName, folderPathProblem, samePath } from './settings-folders-mode
 function ValueRow({ title, children }: { title: string; children: ReactNode }) {
   return (
     <SettingsRow fullWidth title={title}>
-      <span className="min-w-0 text-[0.78125rem] text-pretty whitespace-normal text-foreground">
+      <span className="min-w-0 text-menu text-pretty whitespace-normal text-foreground">
         {children}
       </span>
     </SettingsRow>
@@ -50,7 +50,7 @@ function FolderPathField({
           aria-invalid={error ? true : undefined}
           aria-label="Folder"
           autoComplete="off"
-          className="min-w-0 flex-1 font-mono md:text-[0.78125rem]"
+          className="min-w-0 flex-1 font-mono md:text-menu"
           data-initial-focus=""
           disabled={disabled}
           id={id}

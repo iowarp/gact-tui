@@ -304,7 +304,7 @@ function ActivityColumn({
             {history.visible ? (
               <>
                 {history.error ? (
-                  <p className="px-2 text-[12px] text-destructive" role="alert">
+                  <p className="px-2 text-meta text-destructive" role="alert">
                     {history.error}
                   </p>
                 ) : null}
@@ -321,7 +321,7 @@ function ActivityColumn({
           </div>
         ) : null}
         {!source && finishedWorkHidden ? (
-          <p className="flex h-7 items-center truncate px-2 text-[12px] text-muted-foreground">
+          <p className="flex h-7 items-center truncate px-2 text-meta text-muted-foreground">
             Finished child agents are not loaded
           </p>
         ) : null}
@@ -391,7 +391,7 @@ function ActivityRows({
   const render = (entry: Entry) =>
     entry.type === 'group' ? (
       <p
-        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
+        className="flex h-7 items-end px-2 pb-1 text-caption font-semibold text-muted-foreground"
         role="listitem"
       >
         {entry.label}
@@ -443,7 +443,7 @@ const ActivityRow = memo(function ActivityRow({
       <ListRow
         aria-current={selected || undefined}
         aria-label={`${item.name}, ${item.status}`}
-        className="cursor-pointer text-[12.5px]"
+        className="cursor-pointer text-menu"
         columns={<MetaValue width={64}>{item.trailing}</MetaValue>}
         data-kind={item.kind}
         icon={

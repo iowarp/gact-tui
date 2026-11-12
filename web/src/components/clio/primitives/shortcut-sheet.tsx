@@ -115,7 +115,7 @@ function PairKeys({
     <span data-slot="shortcut-keys" className="inline-flex shrink-0 items-center gap-1">
       {chords.map((caps, chordIndex) => (
         <span key={chordIndex} className="inline-flex items-center gap-1">
-          {chordIndex > 0 ? <span className="px-0.5 text-[11px] text-faint">or</span> : null}
+          {chordIndex > 0 ? <span className="px-0.5 text-caption text-faint">or</span> : null}
           {caps.map((cap, capIndex) => (
             <KeyCap key={capIndex}>{cap}</KeyCap>
           ))}
@@ -180,10 +180,10 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
             placeholder="Find a shortcut"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="h-[30px] rounded-[7px] pl-8 text-[12px]"
+            className="h-[30px] rounded-[7px] pl-8 text-meta"
           />
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-4 text-[11.5px] text-faint max-[599px]:contents">
+        <div className="ml-auto flex shrink-0 items-center gap-4 text-label text-faint max-[599px]:contents">
           <span className="flex items-center gap-1.5 whitespace-nowrap max-[599px]:order-4">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
             {WORKS_HERE}
@@ -212,7 +212,7 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
           <div className={cn('columns-1 gap-[30px]', SHEET_COLUMNS[columns])}>
             {groups.map((group) => (
               <section key={group.id} aria-label={group.label} className="mb-3 break-inside-avoid">
-                <h3 className="mb-1 truncate text-[11px] font-normal text-faint">{group.label}</h3>
+                <h3 className="mb-1 truncate text-caption font-normal text-faint">{group.label}</h3>
                 <ul>
                   {group.items.map((row) => {
                     const here = !localGroups.has(group.id) && row.ids.some((id) => active.has(id));
@@ -220,7 +220,7 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                       <li
                         key={row.id}
                         data-slot="shortcut-sheet-row"
-                        className="flex min-h-[30px] min-w-0 items-center gap-2 text-[12.5px] whitespace-nowrap"
+                        className="flex min-h-[30px] min-w-0 items-center gap-2 text-menu whitespace-nowrap"
                       >
                         <span
                           aria-hidden="true"

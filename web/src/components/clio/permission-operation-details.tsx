@@ -85,7 +85,7 @@ function Place({
           {icon}
         </span>
       ) : null}
-      <span className={cn('min-w-0 truncate', mono && 'font-mono text-[12px]')}>{children}</span>
+      <span className={cn('min-w-0 truncate', mono && 'font-mono text-meta')}>{children}</span>
     </span>
   );
 }
@@ -211,12 +211,12 @@ function permissionOperation(
               <span className="grid w-full min-w-0">
                 <span className="flex min-w-0 gap-[7px]">
                   {access.folders.map((entry) => (
-                    <span className="min-w-0 truncate font-mono text-[12px]" key={entry}>
+                    <span className="min-w-0 truncate font-mono text-meta" key={entry}>
                       {entry}
                     </span>
                   ))}
                 </span>
-                <span className="text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
+                <span className="text-label leading-4 whitespace-normal text-muted-foreground">
                   {ACCESS_NOTE}
                 </span>
               </span>
@@ -228,7 +228,7 @@ function permissionOperation(
                     writes to {access.folders.length} folders
                   </span>
                   {/* Consent text: never cut, at any width. */}
-                  <span className="text-[11.5px] leading-4 whitespace-normal text-muted-foreground">
+                  <span className="text-label leading-4 whitespace-normal text-muted-foreground">
                     {ACCESS_NOTE}
                   </span>
                 </span>
@@ -246,7 +246,7 @@ export function PermissionPaths({ paths }: { paths: readonly string[] }) {
   return (
     <div className="grid gap-0.5" data-slot="permission-paths">
       <p className="text-muted-foreground">Files involved</p>
-      <ul className="grid gap-0.5 font-mono text-[11px] text-foreground/85">
+      <ul className="grid gap-0.5 font-mono text-caption text-foreground/85">
         {paths.map((entry) => (
           <li className="break-all" key={entry}>
             {entry}
@@ -296,7 +296,7 @@ export function PermissionOperationDetails({
       {showCommand && command ? <AskCode code={command} label="Command to run" /> : null}
       {pathsInline && paths.length ? (
         <AskSection>
-          <TechnicalDetails className="text-[11.5px] text-muted-foreground" title="Files involved">
+          <TechnicalDetails className="text-label text-muted-foreground" title="Files involved">
             <PermissionPaths paths={paths} />
           </TechnicalDetails>
         </AskSection>

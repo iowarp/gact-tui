@@ -26,12 +26,12 @@ export function ChartHeader({
       {dashboard ? (
         // A narrow pane wraps the title and units to a second line between words.
         <div className="min-w-0 flex-1 @max-[24rem]/dashboard:basis-full">
-          <h3 className="line-clamp-2 text-[13px] font-medium leading-snug" title={heading}>
+          <h3 className="line-clamp-2 text-ui font-medium leading-snug" title={heading}>
             {heading}
           </h3>
           {caption ? (
             <p
-              className="line-clamp-2 text-[11.5px] leading-snug text-muted-foreground"
+              className="line-clamp-2 text-label leading-snug text-muted-foreground"
               title={caption}
             >
               {caption}

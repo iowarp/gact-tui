@@ -43,7 +43,7 @@ export function NavigationFooter({
           <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-caption font-semibold text-accent-foreground">
             {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
           </span>
-          <span className="flex min-w-0 flex-1 flex-col leading-[1.25]">
+          <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate text-ui text-foreground">
               {profileName || 'Your profile'}
             </span>

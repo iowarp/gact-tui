@@ -76,7 +76,7 @@ export function SourceOperationStatus({
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[12px]"
+              className="h-6 px-2 text-meta"
               disabled={cancelling}
               onClick={() => setConfirm(true)}
             >
@@ -96,11 +96,11 @@ export function SourceOperationStatus({
         />
       )}
       {operation.error && (
-        <p className="pl-[22px] text-[11.5px] leading-[1.45] text-destructive">{operation.error}</p>
+        <p className="pl-[22px] text-label leading-[1.45] text-destructive">{operation.error}</p>
       )}
       {operation.native_job_id && (
         <p
-          className="truncate pl-[22px] font-mono text-[11px] text-faint"
+          className="truncate pl-[22px] font-mono text-caption text-faint"
           title={operation.native_job_id}
         >
           Globus task {operation.native_job_id}

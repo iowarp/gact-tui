@@ -55,7 +55,7 @@ function FilterChipsImpl<Value extends string>({
             aria-label={
               option.count === undefined ? option.label : `${option.label}, ${option.count}`
             }
-            className="h-6 w-[46px] min-w-0 shrink-0 justify-center gap-1 rounded-[12px]! border border-border! bg-transparent px-0 text-[11.5px] font-medium text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring aria-checked:border-accent-border! aria-checked:bg-accent aria-checked:text-accent-foreground [&_svg:not([class*=size-])]:size-[13px]"
+            className="h-6 w-[46px] min-w-0 shrink-0 justify-center gap-1 rounded-[12px]! border border-border! bg-transparent px-0 text-label font-medium text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring aria-checked:border-accent-border! aria-checked:bg-accent aria-checked:text-accent-foreground [&_svg:not([class*=size-])]:size-[13px]"
             value={option.value}
           >
             {option.icon}

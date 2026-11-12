@@ -52,7 +52,7 @@ export function ComposerModelButton({
             className={cn(
               shortcut && 'relative',
               text &&
-                'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-[12px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
+                'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-meta font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
               className,
             )}
           >
