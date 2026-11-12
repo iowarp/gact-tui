@@ -18,6 +18,7 @@ import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { SourceProviderLogo } from './source-provider-logo';
+import { SOURCE_WORDMARK_WIDTH, sourceProviderUsesWordmark } from './source-provider-wordmark';
 import type { WorkbenchListColumnProps } from './workbench-list-column';
 import { GroupLabel } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
@@ -101,6 +102,10 @@ export function SourcesList({
   const active = tabs.find((tab) => tab.id === activeTabId);
   const pending = (sources.isPending && Boolean(workspaceId)) || resourcesPending;
 
+  // A Globus or NDP wordmark widens every row's icon column, so names line up.
+  const iconWidth = sources.data?.some((source) => sourceProviderUsesWordmark(source.provider))
+    ? SOURCE_WORDMARK_WIDTH
+    : undefined;
   let body: ReactNode;
   if (pending && !total)
     body = <StateView className="p-4" kind="loading" size="panel" title="Loading sources" />;
@@ -120,6 +125,7 @@ export function SourcesList({
         {connected.map((source) => (
           <ConnectedSourceRow
             key={source.id}
+            iconWidth={iconWidth}
             onEdit={() => openDialog({ kind: 'source', source, edit: true })}
             onBrowse={
               // NDP is a catalog: its row opens the NDP browser tab (spec connect-infrastructure).
@@ -143,6 +149,7 @@ export function SourcesList({
         {uploads.map((resource) => (
           <UploadRow
             key={resource.id}
+            iconWidth={iconWidth}
             onOpen={() => onOpenResource(resource)}
             resource={resource}
             selected={active?.kind === 'resource' && active.resource.id === resource.id}
@@ -262,6 +269,7 @@ function stopRowActivation(event: SyntheticEvent) {
 
 const ConnectedSourceRow = memo(function ConnectedSourceRow({
   source,
+  iconWidth,
   workspaceId,
   onOpen,
   onBrowse,
@@ -270,6 +278,7 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
 }: {
   source: ConnectedSourceState;
   workspaceId: string;
+  iconWidth: number | undefined;
   onOpen: () => void;
   /** Replaces the row's own open: NDP opens its browser tab. */
   onBrowse?: () => void;
@@ -324,6 +333,7 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
         description={<SublineParts parts={parts} />}
         icon={<SourceProviderLogo provider={source.provider} size="icon" />}
+        iconWidth={iconWidth}
         layout="stacked"
         onClick={onBrowse ?? onOpen}
         onKeyDown={activateOnKey(onBrowse ?? onOpen)}
@@ -365,10 +375,12 @@ function sentenceCase(value: string) {
 /** A file uploaded to the workspace: the same row, its size in the sub-line. */
 function UploadRow({
   resource,
+  iconWidth,
   selected,
   onOpen,
 }: {
   resource: WorkspaceResource;
+  iconWidth: number | undefined;
   selected: boolean;
   onOpen: () => void;
 }) {
@@ -395,6 +407,7 @@ function UploadRow({
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
         description={<SublineParts parts={['Upload', size]} />}
         icon={<PaperclipIcon />}
+        iconWidth={iconWidth}
         layout="stacked"
         onClick={onOpen}
         onKeyDown={activateOnKey(onOpen)}

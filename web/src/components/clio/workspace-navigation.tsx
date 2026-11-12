@@ -46,6 +46,8 @@ interface WorkspaceNavigationProps {
   attentions: Readonly<Record<string, SessionAttention>>;
   /** The workspace whose unsent draft is open, shown as a selected row. */
   draftWorkspaceId?: string;
+  /** The conversation that draft already became; the draft row stands for it. */
+  draftSessionId?: string;
   /** Whether the workspace list is still loading or failed, while it lists none. */
   workspacesState?: ListState;
 }
@@ -68,6 +70,7 @@ export function WorkspaceNavigation({
   onAction,
   attentions,
   draftWorkspaceId,
+  draftSessionId,
   workspacesState,
 }: WorkspaceNavigationProps) {
   // An open row menu keeps the lists it opened over; the refresh lands on close.
@@ -157,6 +160,11 @@ export function WorkspaceNavigation({
     () => new Set(pinnedSessions.map((session) => session.id)),
     [pinnedSessions],
   );
+  // Workspace lists leave out pinned rows and the conversation the open draft became.
+  const unlistedSessionIds = useMemo(
+    () => (draftSessionId ? new Set([...pinnedSessionIds, draftSessionId]) : pinnedSessionIds),
+    [pinnedSessionIds, draftSessionId],
+  );
   const workspaceSessionsFor = (workspaceId: string) =>
     sessions.filter(
       (session) =>
@@ -206,7 +214,7 @@ export function WorkspaceNavigation({
         }
         onRename={onRename}
         onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-        excludedSessionIds={pinnedSessionIds}
+        excludedSessionIds={unlistedSessionIds}
         renderSession={renderSession}
         sessionLimitExpanded={expandedSessionsFor === workspace.id}
         sessions={workspaceSessions}
@@ -297,7 +305,7 @@ export function WorkspaceNavigation({
           actions={actions}
           activeWorkspaceId={activeWorkspaceId}
           draft={draftWorkspaceId === DEFAULT_WORKSPACE_ID}
-          excludedSessionIds={pinnedSessionIds}
+          excludedSessionIds={unlistedSessionIds}
           expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}
           label={
             labels.get(DEFAULT_WORKSPACE_ID) ?? {

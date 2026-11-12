@@ -1,9 +1,21 @@
 //! Install the backend's locked tool packages into managed storage, not the app payload.
+//!
+//! The installer must never outlive the desktop that started it. On Windows the
+//! launcher's `--managed-package-command` wrapper ends it with this process. On
+//! macOS and Linux every in-app installer runs in its own process group, and
+//! [`stop_package_installs`] ends those groups when the desktop quits, relaunches
+//! or moves itself to Applications, so a relaunched copy never runs a second
+//! installer alongside an orphaned one.
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+#[cfg(unix)]
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant},
+};
 use std::{
     io::{BufRead, BufReader},
     sync::Mutex,
@@ -142,7 +154,8 @@ fn check_fence(
 /// The full check for a launch that did not wait for it. It installs a first or
 /// changed installation and repairs a damaged one (the Python step reinstalls
 /// whatever no longer matches its receipt); every outcome is a typed boot-log line.
-/// A failure forgets the stamp so the next launch checks again.
+/// A failure, or a check stopped because the desktop quit, forgets the stamp so the
+/// next launch checks again.
 pub(crate) fn check_packages_in_background(
     runtime: PathBuf,
     workspace: PathBuf,
@@ -172,8 +185,13 @@ pub(crate) fn check_packages_in_background(
             }
             Ok(false) => {}
             Err(error) => {
+                let (outcome, reason) = if package_installs_stopped() {
+                    ("stopped", "managed_packages_check_stopped")
+                } else {
+                    ("failed", "managed_packages_check_failed")
+                };
                 boot_log_line(&format!(
-                    "Managed package check failed reason=managed_packages_check_failed: {error}"
+                    "Managed package check {outcome} reason={reason}: {error}"
                 ));
                 if let Err(error) = package_stamp::forget(&user) {
                     boot_log_line(&format!("reason=launch_stamp_not_removed: {error}"));
@@ -281,7 +299,9 @@ pub(crate) fn prepare_packages_for_install(
     workspace: &Path,
     user: &Path,
 ) -> Result<(), String> {
-    run_install(
+    // The `--prepare-runtime` step runs without a window, from a terminal or an
+    // install script: keep it in their process group so Ctrl+C still reaches it.
+    run_foreground_install(
         explicit_install_command(runtime, workspace, user)?,
         &boot_log_line,
     )?;
@@ -303,12 +323,166 @@ fn explicit_install_command(
     Ok(command)
 }
 
-fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
-    let mut child = command
+/// Run an installer the desktop owns: on macOS and Linux [`stop_package_installs`]
+/// ends it on quit.
+#[cfg(unix)]
+fn run_install(command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
+    PACKAGE_INSTALLS.run(command, log)
+}
+
+#[cfg(not(unix))]
+fn run_install(command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
+    run_foreground_install(command, log)
+}
+
+fn run_foreground_install(command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
+    monitor_install(spawn_install(command)?, log)
+}
+
+fn spawn_install(mut command: Command) -> Result<Child, String> {
+    command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| format!("start managed package installation: {error}"))?;
+        .map_err(|error| format!("start managed package installation: {error}"))
+}
+
+/// How long an interrupted installer may take to remove its staging folders and
+/// release its locks before it is terminated.
+#[cfg(unix)]
+const INSTALL_INTERRUPT_GRACE: Duration = Duration::from_secs(8);
+#[cfg(unix)]
+const INSTALL_TERMINATE_GRACE: Duration = Duration::from_secs(2);
+#[cfg(unix)]
+const INSTALL_KILL_GRACE: Duration = Duration::from_secs(1);
+#[cfg(unix)]
+const INSTALL_STOPPED: &str = "managed package installation stopped: the desktop is quitting";
+
+#[cfg(unix)]
+static PACKAGE_INSTALLS: InstallerGroups = InstallerGroups::new();
+
+/// Stop every managed-package installer this desktop started, before it exits.
+///
+/// On macOS and Linux nothing else ends them: an installer left running reparents
+/// to launchd/init, keeps extracting (possibly from an ejectable disk image) and
+/// overlaps the next launch's own check. Installers started after this are refused.
+/// Windows installers end with the desktop through the launcher's
+/// `--managed-package-command` wrapper, so this does nothing there.
+pub(crate) fn stop_package_installs() {
+    #[cfg(unix)]
+    {
+        let started = Instant::now();
+        let stopped = PACKAGE_INSTALLS.stop(INSTALL_INTERRUPT_GRACE);
+        if stopped > 0 {
+            boot_log_line(&format!(
+                "Managed package check stopped reason=desktop_quit installers={stopped} {:.3}s",
+                started.elapsed().as_secs_f64()
+            ));
+        }
+    }
+}
+
+#[cfg(unix)]
+fn package_installs_stopped() -> bool {
+    PACKAGE_INSTALLS.stopped.load(Ordering::SeqCst)
+}
+
+#[cfg(not(unix))]
+fn package_installs_stopped() -> bool {
+    false
+}
+
+/// The process groups of the running installers (each led by the installer itself).
+#[cfg(unix)]
+struct InstallerGroups {
+    running: Mutex<Vec<u32>>,
+    stopped: AtomicBool,
+}
+
+#[cfg(unix)]
+impl InstallerGroups {
+    const fn new() -> Self {
+        Self {
+            running: Mutex::new(Vec::new()),
+            stopped: AtomicBool::new(false),
+        }
+    }
+
+    fn running(&self) -> std::sync::MutexGuard<'_, Vec<u32>> {
+        self.running
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn run(&self, mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+        // Spawn and register under the lock so `stop` either sees this installer
+        // or has already refused it.
+        let child = {
+            let mut running = self.running();
+            if self.stopped.load(Ordering::SeqCst) {
+                return Err(INSTALL_STOPPED.into());
+            }
+            let child = spawn_install(command)?;
+            running.push(child.id());
+            child
+        };
+        let group = child.id();
+        let result = monitor_install(child, log);
+        self.running().retain(|running| *running != group);
+        result
+    }
+
+    /// Interrupt every installer group, then terminate and finally kill what is
+    /// left. Returns how many installers were running.
+    ///
+    /// SIGINT comes first because the Python installer turns it into
+    /// `KeyboardInterrupt`: its temporary staging folders (such as an Office
+    /// extraction) and file locks are cleaned up, and the extraction tools in its
+    /// group stop with it.
+    fn stop(&self, interrupt_grace: Duration) -> usize {
+        use crate::supervisor_shutdown::{terminate_process_group, unix_process_group_is_empty};
+
+        let groups = {
+            let running = self.running();
+            self.stopped.store(true, Ordering::SeqCst);
+            running.clone()
+        };
+        if groups.is_empty() {
+            return 0;
+        }
+        let wait = |grace: Duration| {
+            let deadline = Instant::now() + grace;
+            loop {
+                let remaining: Vec<u32> = groups
+                    .iter()
+                    .copied()
+                    .filter(|group| !unix_process_group_is_empty(*group))
+                    .collect();
+                if remaining.is_empty() || Instant::now() >= deadline {
+                    return remaining;
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        };
+        for group in &groups {
+            terminate_process_group(*group, libc::SIGINT);
+        }
+        for (signal, grace) in [
+            (libc::SIGTERM, interrupt_grace),
+            (libc::SIGKILL, INSTALL_TERMINATE_GRACE),
+        ] {
+            for group in wait(grace) {
+                terminate_process_group(group, signal);
+            }
+        }
+        wait(INSTALL_KILL_GRACE);
+        groups.len()
+    }
+}
+
+fn monitor_install(mut child: Child, log: &(impl Fn(&str) + Sync)) -> Result<(), String> {
     let stdout = child.stdout.take().expect("piped installer stdout");
     let stderr = child.stderr.take().expect("piped installer stderr");
     let tail = Mutex::new(String::new());
@@ -634,5 +808,93 @@ mod tests {
             .get_envs()
             .any(|(key, value)| key == "GACT_BUNDLED_RUNTIME_DIR"
                 && value == Some(runtime.as_os_str())));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod stop_tests {
+    use super::*;
+    use crate::supervisor_shutdown::unix_process_group_is_empty;
+    use std::sync::atomic::AtomicU32;
+
+    fn wait_until(ready: impl Fn() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !ready() {
+            assert!(Instant::now() < deadline, "the fake installer never started");
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn fake_installer(script: &str) -> Command {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", script]);
+        command
+    }
+
+    #[test]
+    fn stopping_ends_the_whole_installer_group_and_refuses_new_installs() {
+        let installs = InstallerGroups::new();
+        let grandchild = AtomicU32::new(0);
+        // The backgrounded `sleep` ignores SIGINT, like a tool that does not
+        // handle it, so stopping has to escalate for the group to empty.
+        let command = fake_installer("sleep 60 & echo \"$!\"; sleep 60; wait");
+        thread::scope(|scope| {
+            let install = scope.spawn(|| {
+                installs.run(command, &|line| {
+                    if let Ok(pid) = line.trim().parse() {
+                        grandchild.store(pid, Ordering::SeqCst);
+                    }
+                })
+            });
+            wait_until(|| grandchild.load(Ordering::SeqCst) != 0);
+            let group = installs.running()[0];
+            let started = Instant::now();
+            assert_eq!(installs.stop(Duration::from_millis(300)), 1);
+            assert!(
+                started.elapsed() < Duration::from_secs(5),
+                "stopping took {:?}",
+                started.elapsed()
+            );
+            assert!(unix_process_group_is_empty(group));
+            let grandchild = grandchild.load(Ordering::SeqCst) as libc::pid_t;
+            assert_ne!(unsafe { libc::kill(grandchild, 0) }, 0);
+            assert!(install.join().unwrap().is_err());
+        });
+        assert!(installs.running().is_empty());
+        assert!(installs.stopped.load(Ordering::SeqCst));
+        assert_eq!(
+            installs.run(fake_installer("exit 0"), &|_| {}),
+            Err(INSTALL_STOPPED.to_string())
+        );
+    }
+
+    #[test]
+    fn stopping_interrupts_the_installer_before_terminating_it() {
+        let installs = InstallerGroups::new();
+        let ready = AtomicBool::new(false);
+        let command = fake_installer("trap 'exit 7' INT; sleep 60 & echo ready; wait");
+        thread::scope(|scope| {
+            let install = scope.spawn(|| {
+                installs.run(command, &|line| {
+                    if line == "ready" {
+                        ready.store(true, Ordering::SeqCst);
+                    }
+                })
+            });
+            wait_until(|| ready.load(Ordering::SeqCst));
+            assert_eq!(installs.stop(Duration::from_millis(500)), 1);
+            let error = install.join().unwrap().unwrap_err();
+            // Exit 7 comes from the SIGINT trap; SIGTERM would end it by signal.
+            assert!(error.contains("exit status: 7"), "{error}");
+        });
+        assert!(installs.running().is_empty());
+    }
+
+    #[test]
+    fn stopping_with_no_installer_running_returns_at_once() {
+        let installs = InstallerGroups::new();
+        let started = Instant::now();
+        assert_eq!(installs.stop(INSTALL_INTERRUPT_GRACE), 0);
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 }

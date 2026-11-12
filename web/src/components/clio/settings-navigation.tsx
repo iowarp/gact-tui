@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { CloseIcon, SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Tag } from '@/components/clio/primitives/tag';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 export type SettingsDestination = ApplicationDestination;
 
@@ -168,6 +169,7 @@ export function SettingsQueryField({
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
+        {...identifierInputProps}
         aria-label="Search settings"
         className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-faint"
         onChange={(event) => {

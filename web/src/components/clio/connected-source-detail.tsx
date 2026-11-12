@@ -49,6 +49,8 @@ type DetailProps = {
   onChanged: () => void;
   manageOnly?: boolean;
   initialFolder?: string;
+  /** The provider's name for `initialFolder`, when that is a portable alias. */
+  initialFolderName?: string;
   initialDownloaded?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
@@ -112,6 +114,7 @@ function SourceManage({
   manageOnly = false,
   onDownloadStarted,
   initialFolder = '',
+  initialFolderName = initialFolder,
   initialDownloaded = false,
   showName = true,
   onOpenKnowledge,
@@ -121,6 +124,7 @@ function SourceManage({
   const tracking = useSourceTrackingSession({ workspaceId, sessionId, sourceLabel: source.label });
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState(initialFolder);
+  const [folderName, setFolderName] = useState(initialFolderName);
   const [search, setSearch] = useState('');
   const [offset, setOffset] = useState(0);
   const [review, setReview] = useState<SourceReview>();
@@ -261,7 +265,7 @@ function SourceManage({
             throw error;
           });
         if (onSelect && operation) {
-          const selection = { path: folder, kind: 'folder' as const, draftId };
+          const selection = { path: folder, name: folderName, kind: 'folder' as const, draftId };
           if (onDownloadStarted) onDownloadStarted(source, operation.id, selection);
           else setAttachAfterDownload({ id: operation.id, selection });
         }
@@ -284,7 +288,13 @@ function SourceManage({
           if (kind === 'link' && onSelect) {
             const operation = linked.indexing_operation;
             if (operation && operation.state !== 'completed') {
-              const selection = { path: folder, kind: 'folder' as const, draftId, linked: true };
+              const selection = {
+                path: folder,
+                name: folderName,
+                kind: 'folder' as const,
+                draftId,
+                linked: true,
+              };
               if (onDownloadStarted) onDownloadStarted(linked, operation.id, selection);
               else setAttachAfterDownload({ id: operation.id, selection });
             } else
@@ -292,6 +302,7 @@ function SourceManage({
                 source: linked,
                 linked: true,
                 path: folder,
+                name: folderName,
                 draftId,
               });
           }
@@ -322,7 +333,7 @@ function SourceManage({
     onError: refresh,
   });
   const download = useMutation({
-    mutationFn: async (path: string) => {
+    mutationFn: async ({ path, name }: { path: string; name?: string }) => {
       const trackingSession = await tracking.resolve();
       const draftId = onSelect
         ? (await repository.beginSourceDraft(workspaceId, source.id)).id
@@ -341,7 +352,7 @@ function SourceManage({
           throw error;
         });
       if (onSelect && operation) {
-        const selection = { path, kind: 'file' as const, draftId };
+        const selection = { path, name, kind: 'file' as const, draftId };
         if (onDownloadStarted) onDownloadStarted(source, operation.id, selection);
         else setAttachAfterDownload({ id: operation.id, selection });
       }
@@ -349,8 +360,9 @@ function SourceManage({
     onSuccess: refresh,
     onError: refresh,
   });
-  const go = (path: string) => {
+  const go = (path: string, name?: string) => {
     setFolder(path);
+    setFolderName(name || path);
     setSearch('');
     setOffset(0);
   };
@@ -678,6 +690,7 @@ function SourceManage({
             go('');
           }}
           folder={folder}
+          folderName={folderName}
           search={search}
           offset={offset}
           onGo={go}
@@ -697,6 +710,7 @@ function SourceManage({
                       source,
                       linked: !browsingCopies && Boolean(source.linked),
                       path: folder,
+                      name: folderName,
                     }),
                 }
               : undefined
@@ -706,10 +720,17 @@ function SourceManage({
               ? {
                   label: 'Add to message',
                   disabled: (!browsingCopies && !source.linked) || fileReference.isPending,
+                  reason:
+                    !browsingCopies && !source.linked
+                      ? linkable
+                        ? `${linkLabel} to add its files to a message.`
+                        : 'Link this source to add its files to a message.'
+                      : undefined,
                   onClick: () =>
                     fileReference.mutate({
                       source,
                       path: entry.path,
+                      name: entry.remote_path,
                       linked: !browsingCopies && Boolean(source.linked),
                     }),
                 }
@@ -717,7 +738,7 @@ function SourceManage({
                 ? {
                     label: 'Download file',
                     disabled: Boolean(active) || download.isPending,
-                    onClick: () => download.mutate(entry.path),
+                    onClick: () => download.mutate({ path: entry.path, name: entry.remote_path }),
                   }
                 : undefined
           }

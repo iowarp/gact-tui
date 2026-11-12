@@ -3,6 +3,7 @@ import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
+import { emptyAgentDelta } from '@clio/core/v3';
 import type {
   ComposerMessagePart,
   MessageBehavior,
@@ -108,6 +109,8 @@ export function useSessionMutations({
   const uploadController = useRef<AbortController | null>(null);
   const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   const draftSession = useRef<Promise<Session> | null>(null);
+  const draftClaimed = useRef(false);
+  const draftAgent = useRef('');
   const draftUploads = useRef(new Map<string, string>());
   useEffect(() => {
     const controller = new AbortController();
@@ -237,6 +240,7 @@ export function useSessionMutations({
     const controller = uploadController.current;
     if (!controller || controller.signal.aborted)
       return Promise.reject(new Error('This draft is no longer open.'));
+    if (!draftSession.current) draftAgent.current = draftAgentKey();
     draftSession.current ??= repository
       .createSession({
         workspace_id: workspaceId,
@@ -253,6 +257,51 @@ export function useSessionMutations({
       });
     return draftSession.current;
   };
+  const draftAgentKey = () =>
+    JSON.stringify([
+      draftAgentRef ?? '',
+      draftAgentDelta?.add ?? [],
+      draftAgentDelta?.remove ?? [],
+    ]);
+
+  // Source work can claim the draft before its first message (the draft owns
+  // that work). The first message, command or page then brings the claimed
+  // conversation up to the draft's current model, behavior and agent.
+  const draftTarget = async (fields: Parameters<typeof materializeDraft>[0]): Promise<Session> => {
+    const claimed = draftClaimed.current;
+    const target = await materializeDraft(fields);
+    if (!claimed) return target;
+    const { provider_id, model_id, mode, routing_mode, approval_mode, spotter_model } = fields;
+    const patch = Object.fromEntries(
+      Object.entries({
+        provider_id,
+        model_id,
+        mode,
+        routing_mode,
+        approval_mode,
+        spotter_model,
+      }).filter(([, value]) => value !== undefined),
+    );
+    const updated = Object.keys(patch).length
+      ? await repository.updateSession(target.id, patch)
+      : target;
+    if (draftAgentKey() !== draftAgent.current) {
+      await repository.updateSessionAgent(target.id, {
+        ...(draftAgentRef ? { ref: draftAgentRef } : {}),
+        delta: draftAgentDelta ?? emptyAgentDelta,
+      });
+      draftAgent.current = draftAgentKey();
+    }
+    return updated;
+  };
+  /** Materializes the draft as the conversation that owns source work started from it. */
+  const claimDraft = useStableCallback(async (): Promise<string> => {
+    const target = await materializeDraft(
+      activeProvider && activeModel ? { provider_id: activeProvider, model_id: activeModel } : {},
+    );
+    draftClaimed.current = true;
+    return target.id;
+  });
 
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
@@ -304,6 +353,28 @@ export function useSessionMutations({
       : {}),
   });
 
+  function openStartedSession(
+    created: Session,
+    controller: AbortController | null,
+    state?: Record<string, unknown>,
+  ) {
+    // The new conversation is its own family and the newest row of its workspace's rail.
+    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
+      created,
+    ]);
+    invalidateQueriesInBackground(queryClient, [
+      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
+    ]);
+    // A submitted turn may finish after navigation. Preserve its real session,
+    // but never pull the person back from Settings or another conversation.
+    if (!controller || controller.signal.aborted) return;
+    rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
+    void navigate(
+      `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
+      { replace: true, ...(state ? { state } : {}) },
+    );
+  }
+
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
       const prepared = await prepareSend(value);
@@ -311,7 +382,7 @@ export function useSessionMutations({
       const controller = uploadController.current;
       let target = session;
       if (!sessionId && createOnSend) {
-        target = await materializeDraft({
+        target = await draftTarget({
           // The created session carries the turn's model, so the open
           // conversation names it before the first turn reports back.
           ...route,
@@ -408,7 +479,7 @@ export function useSessionMutations({
   const runDraftCommand = useMutation({
     mutationFn: async ({ commandId, input }: { commandId: string; input: string }) => {
       const controller = uploadController.current;
-      const target = await materializeDraft({
+      const target = await draftTarget({
         ...(activeProvider && activeModel
           ? { provider_id: activeProvider, model_id: activeModel }
           : {}),
@@ -423,7 +494,7 @@ export function useSessionMutations({
   // (no message needed), opens in it, and shows as its Browser tab there.
   const openDraftBrowserPage = useStableCallback(async (url: string): Promise<void> => {
     const controller = uploadController.current;
-    const target = await materializeDraft({
+    const target = await draftTarget({
       ...(activeProvider && activeModel
         ? { provider_id: activeProvider, model_id: activeModel }
         : {}),
@@ -444,28 +515,6 @@ export function useSessionMutations({
     };
     openStartedSession(target, controller, { browserPage });
   });
-
-  function openStartedSession(
-    created: Session,
-    controller: AbortController | null,
-    state?: Record<string, unknown>,
-  ) {
-    // The new conversation is its own family and the newest row of its workspace's rail.
-    queryClient.setQueryData<Session[]>(queryKeys.sessionFamily(settings.endpoint, created.id), [
-      created,
-    ]);
-    invalidateQueriesInBackground(queryClient, [
-      queryKeys.key('session-pages', settings.endpoint, created.workspace_id),
-    ]);
-    // A submitted turn may finish after navigation. Preserve its real session,
-    // but never pull the person back from Settings or another conversation.
-    if (!controller || controller.signal.aborted) return;
-    rememberWorkspaceRoute(settings.endpoint, workspaceId, created.id);
-    void navigate(
-      `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(created.id)}`,
-      { replace: true, ...(state ? { state } : {}) },
-    );
-  }
 
   const cancelPendingSteer = useMutation({
     mutationFn: (messageId: string) => repository.cancelPendingSteer(sessionId, messageId),
@@ -633,6 +682,7 @@ export function useSessionMutations({
   return {
     actionCard,
     answerQuestion,
+    claimDraft,
     cancel,
     cancelQuestion,
     cancelPendingSteer,

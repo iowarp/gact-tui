@@ -326,6 +326,9 @@ function runSettled(
           !permissionInteractionForTool(interactions, tool) &&
           !splitWaitingQuestion(questionInteractionsForTool(interactions, tool.id)).waiting,
       ) &&
-      item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
+      // A task waiting on the person is not settled: its row stays where they read.
+      item.tasks.every(
+        (task) => !['queued', 'running', 'waiting_permission', 'waiting_user'].includes(task.state),
+      ),
   );
 }

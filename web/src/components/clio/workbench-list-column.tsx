@@ -691,7 +691,7 @@ function BrowserList({
   onOpenBrowserPage,
   onNewBrowserPage,
 }: WorkbenchListColumnProps) {
-  // Mounted only while this list shows, so its poll runs only then.
+  // The workbench keeps this query live (every page has its tab); the list shares it.
   const pages = useBrowserPages(sessionId);
   const rows = (pages.data ?? []).filter((page) => !page.closed);
   const newPage = onNewBrowserPage ? { label: 'New page', onClick: onNewBrowserPage } : undefined;

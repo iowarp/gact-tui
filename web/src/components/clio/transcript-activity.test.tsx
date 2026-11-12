@@ -78,7 +78,7 @@ it('keeps updates visible, expands readable results and retains technical detail
       <ConversationTurn iterations={[iteration]} mode="chain" subagents={{}} />
     </PresentationNavigation.Provider>,
   );
-  expect(screen.getByRole('group', { name: 'Activity: Read files' })).toBeVisible();
+  expect(screen.getByRole('group', { name: 'Activity: Called 1 tool' })).toBeVisible();
   expect(await screen.findByText('The notes are ready for the report.')).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   // The thought reads as its own folded row; its public update stays visible.
@@ -89,6 +89,7 @@ it('keeps updates visible, expands readable results and retains technical detail
   expect(screen.getAllByText(text)).toHaveLength(1);
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool' }));
   const detail = screen.getByRole('button', { name: 'Show result for Read file' });
   // The row names its file as a separate link beside the action, with its count.
   const row = detail.closest('[data-slot="activity-row"]')!;

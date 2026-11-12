@@ -29,8 +29,19 @@ export interface ServiceHealth {
   tool_hooks_installed?: boolean;
   /** Where the agent's context lives; "history" = no clio-core, memory only. */
   context_mode?: 'clio_core' | 'history';
-  /** `starting` until the service can serve every request correctly, then `ready`. */
-  readiness?: 'starting' | 'ready';
+  /**
+   * `starting` until the service can serve every request correctly, then `ready`.
+   * `failed` once its start failed: it will not become ready until it is restarted.
+   */
+  readiness?: 'starting' | 'ready' | 'failed';
   /** What is still coming up while `readiness` is `starting` (task_runtime, marketplace, agent). */
   starting?: string[];
+  /** Why the start failed, while `readiness` is `failed`. */
+  failure?: ServiceStartFailure;
+}
+
+/** A failed start: a typed reason token and the plain message that says what to do. */
+export interface ServiceStartFailure {
+  reason: string;
+  message: string;
 }

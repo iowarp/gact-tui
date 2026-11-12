@@ -41,6 +41,10 @@ func clearResolutionEnv(t *testing.T) {
 	t.Setenv(envDevRepo, "")
 	t.Setenv("PATH", "")
 	t.Setenv("LOCALAPPDATA", "")
+	t.Setenv(envDesktopVersion, "")
+	for _, key := range []string{"CLIO_PREFIX", "CLIO_AGENT_DATA_DIR", "CLIO_AGENT_HOME", "CLIO_USER_DIR"} {
+		t.Setenv(key, "")
+	}
 	// Blank the home-dir sources so the per-OS conventional-prefix
 	// branch produces nothing (os.UserHomeDir reads USERPROFILE on
 	// Windows, HOME elsewhere). This isolates the orderer from the

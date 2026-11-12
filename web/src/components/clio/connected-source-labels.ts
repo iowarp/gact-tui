@@ -1,6 +1,11 @@
 import type { ConnectedSourceState, SourceMode, SourceProviderId } from '@clio/core/v3';
 import type { StatusTone } from './primitives/status-indicator';
 
+/** An entry as the provider names it; `path` may be a portable alias of that name. */
+export function sourceEntryName(entry: { path: string; remote_path?: string }): string {
+  return entry.remote_path || entry.path;
+}
+
 /** A source's configured access, named as the Access choice names it. */
 export const sourceModeNames: Record<SourceMode, string> = {
   read_only: 'Read only',

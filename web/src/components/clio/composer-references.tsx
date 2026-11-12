@@ -42,6 +42,7 @@ import {
   SuggestionDetail,
 } from './composer-suggestion-popup';
 import { useHoveredRow } from './use-hovered-row';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -556,6 +557,7 @@ export function ClioComposerReferenceMenu({
         <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
         {searchInput ? (
           <input
+            {...identifierInputProps}
             aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
             aria-controls={`${popoverId}-listbox`}
