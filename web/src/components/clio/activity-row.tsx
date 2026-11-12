@@ -35,8 +35,8 @@ export interface ActivityRowProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   link?: ReactNode;
   /**
    * A count or extent recap ("1 file matches", "Lines 1-40"): muted, after
-   * the argument. It keeps its room before the argument does, then ends in …;
-   * outcome words never shrink.
+   * the argument. It takes what the argument leaves and drops out of a narrow
+   * row; outcome words never shrink.
    */
   recap?: ReactNode;
   recapTitle?: string;
@@ -226,8 +226,8 @@ export const ActivityRow = memo(
                   title={argumentTitle}
                   // Every row splits function and input the same way: the name in the
                   // foreground, the input in the spec's argument style, with no separator.
-                  // A long path keeps a readable stem before a count recap beside it does.
-                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-label text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
+                  // The target takes the room before a count recap beside it does.
+                  className="w-0 min-w-0 max-w-fit grow-[100] truncate font-mono text-label text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
                 >
                   {argument}
                 </span>
@@ -236,9 +236,9 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-metadata"
                   title={recapTitle}
-                  // A count or extent recap keeps its room ahead of the argument, then
-                  // ends in …; it never squeezes the name or the outcome words.
-                  className="w-0 min-w-0 max-w-fit grow-[100] truncate text-label text-muted-foreground"
+                  // Secondary detail folds first (conversation-states, "When space is
+                  // narrow"): it takes what the target leaves, and a narrow row drops it.
+                  className="w-0 min-w-0 max-w-fit grow truncate text-label text-muted-foreground @max-[480px]/activity:hidden"
                 >
                   {recap}
                 </span>
@@ -263,7 +263,7 @@ export const ActivityRow = memo(
           badge={badge ?? null}
           actions={armed ? (actions ?? null) : null}
           meta={elapsed ?? null}
-          metaYields={hasOutcome || hasRecap}
+          metaYields={hasOutcome}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}
