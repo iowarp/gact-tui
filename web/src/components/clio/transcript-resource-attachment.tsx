@@ -1,6 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { DownloadIcon, FolderIcon } from 'lucide-react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -14,6 +14,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { formatBytes } from '@/lib/format';
 import { FileTypeIcon } from './file-type-icon';
 import {
+  AttachedFolderIcon,
   type HostFolder,
   hostFolderInPlace,
   hostFolderOriginal,
@@ -243,7 +244,7 @@ function TranscriptResourceAttachmentDisplay({
               type="button"
             >
               {folder ? (
-                <FolderIcon
+                <AttachedFolderIcon
                   aria-label="Folder"
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />

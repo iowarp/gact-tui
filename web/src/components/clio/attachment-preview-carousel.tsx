@@ -159,7 +159,7 @@ export function AttachmentPreviewCarousel({
       {items.length > 1 ? (
         <Carousel
           aria-label="Choose an attachment"
-          className="w-full"
+          className="w-full pb-2"
           opts={{ containScroll: 'keepSnaps', dragFree: true, startIndex: selectedIndex }}
           setApi={setThumbnailApi}
         >

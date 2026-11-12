@@ -43,7 +43,7 @@ import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { FileTypeIcon } from './file-type-icon';
-import { hostFolderOf } from './host-folder';
+import { AttachedFolderIcon, hostFolderOf } from './host-folder';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
@@ -77,7 +77,7 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   // A tab that drops its name keeps a format icon that tells it apart (workbench-lineage).
   if (tab.kind === 'workspace-file') return <FileTypeIcon className="size-3.5" name={tab.path} />;
   if (tab.kind === 'resource' && hostFolderOf(tab.resource))
-    return <FolderIcon aria-hidden="true" className="size-3.5" />;
+    return <AttachedFolderIcon aria-hidden="true" className="size-3.5" />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }

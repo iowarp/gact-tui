@@ -1,6 +1,6 @@
 import type { ConnectedSourceState, WorkspaceResource } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderIcon, FolderUpIcon, PaperclipIcon, SearchIcon } from 'lucide-react';
+import { FolderUpIcon, PaperclipIcon, SearchIcon } from 'lucide-react';
 import { memo, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
@@ -14,6 +14,7 @@ import { connectedSourceErrorMessage } from './connected-source-error';
 import { sourceStatus, sourceSublineParts } from './connected-source-labels';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import {
+  AttachedFolderIcon,
   hostFolderInPlace,
   hostFolderOf,
   hostFolderSize,
@@ -347,15 +348,32 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
   );
 });
 
-/** Sub-line parts held apart by a layout gap rather than a separator glyph. */
-function SublineParts({ parts }: { parts: readonly string[] }) {
+/**
+ * Sub-line parts held apart by a layout gap rather than a separator glyph. The line is one
+ * line high and wraps, so a later part that does not fit whole drops out of view instead of
+ * showing as a stub. `narrowLead` replaces the first part when the list is narrow.
+ */
+function SublineParts({ parts, narrowLead }: { parts: readonly string[]; narrowLead?: string }) {
   return (
-    <span className="flex min-w-0 gap-2">
-      {parts.map((part, index) => (
-        <span className={cn('truncate', index === 0 && 'shrink-0')} key={part}>
-          {part}
-        </span>
-      ))}
+    <span className="flex h-[1lh] min-w-0 flex-wrap gap-x-2 overflow-hidden">
+      {parts.map((part, index) =>
+        index === 0 ? (
+          <span className="min-w-0 truncate" key={part}>
+            {narrowLead ? (
+              <>
+                <span className="@max-[340px]/sources:hidden">{part}</span>
+                <span className="hidden @max-[340px]/sources:inline">{narrowLead}</span>
+              </>
+            ) : (
+              part
+            )}
+          </span>
+        ) : (
+          <span className="whitespace-nowrap" key={part}>
+            {part}
+          </span>
+        ),
+      )}
     </span>
   );
 }
@@ -397,6 +415,7 @@ function UploadRow({
   onOpen: () => void;
 }) {
   const name = resourceDisplayName(resource);
+  const folder = hostFolderOf(resource);
   const parts = uploadSublineParts(resource);
   const status =
     resource.state === 'uploading'
@@ -418,8 +437,13 @@ function UploadRow({
         aria-label={`Open ${name}`}
         className="cursor-pointer"
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
-        description={<SublineParts parts={parts} />}
-        icon={hostFolderOf(resource) ? <FolderIcon /> : <PaperclipIcon />}
+        description={
+          <SublineParts
+            narrowLead={folder && hostFolderInPlace(folder) ? 'In place' : undefined}
+            parts={parts}
+          />
+        }
+        icon={folder ? <AttachedFolderIcon /> : <PaperclipIcon />}
         layout="stacked"
         onClick={onOpen}
         onKeyDown={activateOnKey(onOpen)}
