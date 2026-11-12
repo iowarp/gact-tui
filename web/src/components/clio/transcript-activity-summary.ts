@@ -39,7 +39,7 @@ export function transcriptActivitySummary(
     // ask_user that already returned its task handle.
     if (toolWaitsForYou(tool, interactions)) return 'waiting for you';
     const active = ['pending', 'running'].includes(tool.state);
-    if (tool.name === 'ask_user')
+    if (tool.name === 'ask_user' && getToolStatus(tool) !== 'failed')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';
     const category = activityCategory(tool);
     if (category === 'remember') return active ? 'updating memory' : 'updated memory';
@@ -109,7 +109,8 @@ export function transcriptRunSummary(
         const ids = subagentIdsOf(tool);
         ids.forEach((id) => startedBy.add(id));
         delegated += Math.max(1, ids.length);
-      } else if (tool.name === 'ask_user') {
+      } else if (tool.name === 'ask_user' && getToolStatus(tool) !== 'failed') {
+        // A rejected call asked nothing; it counts as a call (and is marked failed).
         questions += 1;
       } else if (activityCategory(tool) === 'edit' && tool.state === 'succeeded') {
         const path = editedPath(tool.input);

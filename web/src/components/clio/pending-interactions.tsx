@@ -13,7 +13,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStableCallback } from '@/hooks/use-stable-callback';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { ATTENTION_REVEAL_EVENT, pendingInteractionDomId } from './interaction-control';
+import {
+  ATTENTION_REVEAL_EVENT,
+  isEmptyComposer,
+  pendingInteractionDomId,
+} from './interaction-control';
 import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
@@ -384,11 +388,6 @@ function announcement(interaction: PendingInteraction, index: number, total: num
   return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
     .filter(Boolean)
     .join('. ');
-}
-
-function isEmptyComposer(element: Element | null): boolean {
-  const editor = element?.closest('[data-slot="clio-composer"] [contenteditable="true"]');
-  return Boolean(editor && !editor.textContent?.trim());
 }
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {

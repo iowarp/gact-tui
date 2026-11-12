@@ -1,5 +1,5 @@
 import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { AskButton, AskCard, AskError, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
-import { pendingInteractionDomId } from './interaction-control';
+import { focusLost, isEmptyComposer, pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { PlanDecision, PlanDecisionControls } from './plan-decision-controls';
 import { planArtifact } from './plan-artifact';
@@ -189,6 +189,17 @@ function PlanPreview({
   );
 }
 
+function planCard(interactionId: string): HTMLElement | null {
+  return (
+    document
+      .getElementById(pendingInteractionDomId(interactionId))
+      ?.closest<HTMLElement>('[data-slot="ask-card"]') ?? null
+  );
+}
+
+/** Plans that have already been offered focus in this page. */
+const focusedPlans = new Set<string>();
+
 export function InlinePlanExitResponse({
   artifacts,
   interaction,
@@ -205,9 +216,35 @@ export function InlinePlanExitResponse({
 }) {
   const [responding, setResponding] = useState(false);
   const [responseError, setResponseError] = useState<Error>();
+  // The control that answered, so a failed answer hands focus back to it once
+  // it is enabled again rather than leaving focus on the page.
+  const answeredFrom = useRef<HTMLElement | null>(null);
   const artifact = planArtifact(interaction, artifacts);
+  const pending = interaction.status === 'pending';
+  useEffect(() => {
+    // Like a docked card, a plan that arrives takes focus when nothing holds it
+    // or the composer is empty; once per plan, so a remount never steals focus.
+    if (!pending || focusedPlans.has(interaction.id)) return;
+    focusedPlans.add(interaction.id);
+    const active = document.activeElement;
+    if (!focusLost(active) && !isEmptyComposer(active)) return;
+    // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
+    planCard(interaction.id)?.focus({ preventScroll: true, focusVisible: false });
+  }, [interaction.id, pending]);
+  useEffect(() => {
+    if (responding || !responseError || !answeredFrom.current) return;
+    const control = answeredFrom.current;
+    answeredFrom.current = null;
+    if (!focusLost()) return;
+    const usable =
+      control.isConnected && !(control instanceof HTMLButtonElement && control.disabled);
+    (usable ? control : planCard(interaction.id))?.focus({ preventScroll: true });
+  }, [interaction.id, responding, responseError]);
   const respond = async (target: PendingInteraction, response: PendingInteractionResponse) => {
     if (!onResponse || responding) return;
+    const active = document.activeElement;
+    answeredFrom.current =
+      active instanceof HTMLElement && planCard(interaction.id)?.contains(active) ? active : null;
     setResponding(true);
     setResponseError(undefined);
     try {
