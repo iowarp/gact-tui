@@ -91,6 +91,28 @@ pub(crate) fn prepare_desktop_user_dir(app_local_data_dir: &Path) -> io::Result<
     Ok(user_dir)
 }
 
+/// The env var that hands the desktop's agent store to CLIO, or `None` when the
+/// operator already exported one (their choice then wins everywhere).
+///
+/// The backend and the upstream installer must both receive it: the installer
+/// places its environment, migrates the store and prepares packages under the
+/// agent home it is given, so without it a lite install prepared the default
+/// home while the desktop ran its agent on this one.
+pub(crate) fn agent_home_env(user_dir: &Path) -> Option<&'static str> {
+    if std::env::var_os(CLIO_AGENT_HOME_ENV).is_some()
+        || std::env::var_os(CLIO_USER_DIR_ENV).is_some()
+    {
+        return None;
+    }
+    // Keep the legacy layout until explicitly migrated. Fresh installs use the
+    // product prefix and separated roles.
+    Some(if user_dir.file_name().is_some_and(|n| n == "clio-user") {
+        CLIO_USER_DIR_ENV
+    } else {
+        CLIO_AGENT_HOME_ENV
+    })
+}
+
 /// Configure one persistent model cache for this OS user and packaged app.
 ///
 /// Tauri's app cache directory is keyed by the bundle identifier, so the cache

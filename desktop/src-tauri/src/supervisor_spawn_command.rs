@@ -9,7 +9,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::sidecar_setup::{BUNDLED_RUNTIME_ENV, CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
+use crate::sidecar_setup::BUNDLED_RUNTIME_ENV;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -55,16 +55,7 @@ pub(crate) fn launcher_spawn_command(
         command.current_dir(dir);
     }
     if let Some(dir) = user_dir {
-        // Keep the legacy layout until explicitly migrated. Fresh installs use
-        // the product prefix and separated roles; operator overrides still win.
-        let key = if dir.file_name().is_some_and(|n| n == "clio-user") {
-            CLIO_USER_DIR_ENV
-        } else {
-            CLIO_AGENT_HOME_ENV
-        };
-        if std::env::var_os(CLIO_AGENT_HOME_ENV).is_none()
-            && std::env::var_os(CLIO_USER_DIR_ENV).is_none()
-        {
+        if let Some(key) = crate::sidecar_setup::agent_home_env(dir) {
             command.env(key, dir);
         }
     }
@@ -112,6 +103,7 @@ pub(crate) fn launcher_spawn_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sidecar_setup::{CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
 
     #[test]
     fn launcher_spawn_command_targets_launcher() {

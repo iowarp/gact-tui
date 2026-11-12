@@ -62,6 +62,11 @@ impl Supervisor {
         self.user_dir = Some(user_dir);
     }
 
+    /// The managed backend's agent store, which the upstream installer must share.
+    pub fn user_dir(&self) -> Option<PathBuf> {
+        self.user_dir.clone()
+    }
+
     /// Sets the read-only bundle resource root and writable per-user data root
     /// used to materialize a compressed runtime pack before backend startup.
     pub fn set_bundled_runtime(&mut self, resource_dir: PathBuf, app_local_data_dir: PathBuf) {
