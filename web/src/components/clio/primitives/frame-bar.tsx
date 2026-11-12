@@ -72,6 +72,14 @@ const FRAME_NAME_MIN = 96;
  */
 const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('zoom') + 1;
 
+/**
+ * Where the modes went at a width holds while the bar's content changes at
+ * that width: switching Preview to Lineage, whose bar has no zoom to fold,
+ * keeps the modes in the … menu instead of moving them back into the bar.
+ * Rules, zoom and the name are fitted afresh.
+ */
+const FRAME_MODES_HOLD = FRAME_FOLDS.indexOf('modes-menu') + 1;
+
 /** Folded facts, read for the location's hover name. */
 const FrameFactsContext = createContext('');
 
@@ -145,11 +153,15 @@ export const FrameBar = memo(function FrameBar({
   const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
   const factsRef = useRef<HTMLDivElement>(null);
-  // Width and content both start the fit again from nothing folded.
+  // Width and content both start the fit again, from what this width already
+  // folded the modes to (`hold`) or else from nothing folded.
   const [fitKey, setFitKey] = useState('');
+  const [hold, setHold] = useState({ width: '', fold: 0 });
+  const fitWidth = fitKey.split('|')[0];
+  const start = hold.width === fitWidth ? hold.fold : 0;
   const [measured, setMeasured] = useState({ key: '', fold: 0 });
-  if (measured.key !== fitKey) setMeasured({ key: fitKey, fold: 0 });
-  const fold = measured.key === fitKey ? measured.fold : 0;
+  if (measured.key !== fitKey) setMeasured({ key: fitKey, fold: start });
+  const fold = measured.key === fitKey ? measured.fold : start;
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -181,7 +193,15 @@ export const FrameBar = memo(function FrameBar({
     // Settled: the facts that went to hover join the location's hover name.
     const text = fold > 0 ? factsText(factsRef.current) : '';
     setFoldedFacts((current) => (current === text ? current : text));
-  }, [fitKey, fold]);
+    const held = Math.min(fold, FRAME_MODES_HOLD);
+    setHold((current) =>
+      current.width !== fitWidth
+        ? { width: fitWidth, fold: held }
+        : current.fold >= held
+          ? current
+          : { width: fitWidth, fold: held },
+    );
+  }, [fitKey, fitWidth, fold]);
   const flags = Object.fromEntries(
     FRAME_FOLDS.map((step, index) => [`data-fold-${step}`, fold > index || undefined]),
   );
