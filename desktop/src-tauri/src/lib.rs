@@ -300,6 +300,7 @@ pub fn run() {
         .setup(move |app| {
             notifications::install(app.handle());
             let version = app.package_info().version.to_string();
+            package_version::remember_app_version(&version);
             let windows =
                 downloads::create_configured_windows(app, &startup_windows, |config, builder| {
                     if config.label == startup_window::STARTUP_WINDOW {
