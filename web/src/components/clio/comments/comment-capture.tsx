@@ -4,6 +4,7 @@ import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSelectionComment } from '@/hooks/use-selection-action-file';
 import { cn } from '@/lib/utils';
+import { anchorPreview } from './comment-model';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
 import { CommentTextLayer } from './comment-text-layer';
@@ -72,14 +73,18 @@ export function CommentCapture({
   const elementMode = Boolean(session?.active && session.mode === 'element' && svg);
   const textMode = session?.active && session.mode === 'text';
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);
-  const captureText = () => {
+  // A triple-click's second click has already marked a word; the third widens that mark to
+  // the paragraph instead of adding another.
+  const doubleClickMark = useRef<string>(undefined);
+  const captureText = (clicks = 0) => {
     if (!textMode || !host.current) return;
     // A viewer that makes its own text marks (the PDF viewer's pdf-quad) owns its selections.
     const anchorNode = window.getSelection()?.anchorNode;
     const at = anchorNode instanceof Element ? anchorNode : anchorNode?.parentElement;
     if (at && host.current.contains(at) && at.closest('[data-comment-text="own"]')) return;
-    const anchor = textQuoteFromSelection(host.current);
-    if (!anchor) return;
+    const quote = textQuoteFromSelection(host.current);
+    if (!quote) return;
+    const anchor = sourcePath ? { ...quote, source_path: sourcePath } : quote;
     const range = window.getSelection()?.rangeCount
       ? window.getSelection()!.getRangeAt(0)
       : undefined;
@@ -87,10 +92,15 @@ export function CommentCapture({
       typeof range?.getBoundingClientRect === 'function'
         ? range.getBoundingClientRect()
         : undefined;
-    session!.addMark(sourcePath ? { ...anchor, source_path: sourcePath } : anchor, {
-      box: selected ? screenBox(selected) : undefined,
-      viewer,
-    });
+    const box = selected ? screenBox(selected) : undefined;
+    const widened = clicks >= 3 ? doubleClickMark.current : undefined;
+    if (widened && session!.marks.some((mark) => mark.label === widened)) {
+      session!.updateMark(widened, { anchor, preview: anchorPreview(anchor), box });
+      session!.setEditing(widened);
+    } else {
+      const label = session!.addMark(anchor, { box, viewer });
+      doubleClickMark.current = clicks === 2 ? label : undefined;
+    }
     window.getSelection()?.removeAllRanges();
   };
   const shown = session?.open
@@ -122,8 +132,11 @@ export function CommentCapture({
       onKeyUp={(event) => {
         if (event.shiftKey) captureText();
       }}
-      onMouseUp={captureText}
-      onTouchEnd={captureText}
+      onMouseDown={(event) => {
+        if (event.detail < 2) doubleClickMark.current = undefined;
+      }}
+      onMouseUp={(event) => captureText(event.detail)}
+      onTouchEnd={() => captureText()}
       ref={(element) => {
         host.current = element;
         setHostElement(element);

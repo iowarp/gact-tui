@@ -389,6 +389,8 @@ export interface FrameTabTriggerProps {
 
 export interface FrameTabProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'onSelect'> {
   label: string;
+  /** A version tag after the name, muted (spec `.t`): tells open versions of one file apart. */
+  version?: string;
   icon?: ReactNode;
   active?: boolean;
   /** Unsaved changes: say so in words for assistive technology. */
@@ -427,6 +429,7 @@ export const FrameTab = memo(
   forwardRef<HTMLDivElement, FrameTabProps>(function FrameTab(
     {
       label,
+      version,
       icon,
       active = false,
       dirty = false,
@@ -457,6 +460,12 @@ export const FrameTab = memo(
         <span data-slot="frame-tab-name" className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>
           {label}
         </span>
+        {version && !iconOnly ? (
+          <span className="shrink-0 text-[11px] text-faint" data-slot="frame-tab-version">
+            <span className="sr-only"> </span>
+            {version}
+          </span>
+        ) : null}
         {changed ? <span className="sr-only">, changed in this conversation</span> : null}
         {dirty ? <span className="sr-only">, unsaved changes</span> : null}
         {pinned ? <span className="sr-only">, pinned</span> : null}

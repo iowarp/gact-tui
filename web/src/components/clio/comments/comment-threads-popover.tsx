@@ -1,30 +1,44 @@
 import type { ReactNode } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { useCommentSession } from './comment-session';
 
 /**
  * A surface's sent threads in a popover. Its open state is the comment session's, so a
- * transcript chip that opens the file can show them.
+ * transcript chip that opens the file can show them. Like the spec's thread card it is
+ * narrow and sits beside its trigger (`beside`, the comment palette at the frame's edge)
+ * rather than over the document, and on a phone it stays short so the marks stay in view.
  */
 export function CommentThreadsPopover({
   trigger,
   align,
+  beside = false,
   className,
   children,
 }: {
   trigger: ReactNode;
   align: 'start' | 'end';
+  beside?: boolean;
   className?: string;
   children: ReactNode;
 }) {
   const session = useCommentSession();
+  const narrow = useMediaQuery('(max-width: 40rem)');
   return (
     <Popover onOpenChange={session?.setThreadsOpen} open={session?.threadsOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
-        align={align}
-        className={cn('max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0', className)}
+        align={beside && !narrow ? 'end' : align}
+        className={cn(
+          'w-[min(18.75rem,calc(100vw-1rem))] overflow-auto p-0',
+          narrow ? 'max-h-[40dvh]' : 'max-h-[min(60dvh,32rem)]',
+          className,
+        )}
+        collisionPadding={8}
+        data-slot="comment-threads-popover"
+        side={beside && !narrow ? 'left' : beside ? 'top' : 'bottom'}
+        sideOffset={8}
       >
         {children}
       </PopoverContent>

@@ -61,6 +61,7 @@ import {
   workbenchTabIcons,
   workbenchTabLabel,
   workbenchTabPath,
+  workbenchTabVersions,
   type TabRowFit,
 } from './workbench-tab-icons';
 import type { WorkbenchTab } from './workbench-shared';
@@ -168,8 +169,9 @@ export function WorkbenchTabRow({
   const pinnedKey = tabs.map((tab) => (pinnedIds.has(tab.id) ? '1' : '0')).join('');
   const tryLabels = useVariantTryTabLabels(tabs);
   const tabLabel = (tab: WorkbenchTab) => tryLabels?.get(tab.id) ?? workbenchTabLabel(tab);
+  const tabVersions = workbenchTabVersions(tabs, tabLabel);
   const fitKey = `${width}|${activeTabId}|${pinnedKey}|${tabs
-    .map((tab) => `${tab.id}:${tabLabel(tab)}`)
+    .map((tab) => `${tab.id}:${tabLabel(tab)}${tabVersions.get(tab.id) ?? ''}`)
     .join('|')}`;
   const [measured, setMeasured] = useState<{
     key: string;
@@ -361,6 +363,7 @@ export function WorkbenchTabRow({
                 {shownTabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = tabLabel(tab);
+                  const version = tabVersions.get(tab.id);
                   const path = workbenchTabPath(tab);
                   return (
                     // dnd-kit's {...attributes} would give this wrapper role="button",
@@ -390,7 +393,8 @@ export function WorkbenchTabRow({
                         pinned={pinnedIds.has(tab.id)}
                         ref={active ? activeTabRef : undefined}
                         style={cappedIds?.has(tab.id) ? { maxWidth: cap } : undefined}
-                        title={path ?? label}
+                        title={[path ?? label, version].filter(Boolean).join(' ')}
+                        version={version}
                         renderTrigger={({ className, children }) => (
                           <SortableItemHandle asChild>
                             <TabsTrigger
@@ -512,7 +516,10 @@ export function WorkbenchTabRow({
           <DropdownMenuContent align="end" className="max-h-80 w-64 overflow-y-auto">
             {hidden.map((tab) => (
               <DropdownMenuItem key={tab.id} onSelect={() => onSelect(tab.id)}>
-                <MenuRow icon={<WorkbenchTabIcon tab={tab} />} label={tabLabel(tab)} />
+                <MenuRow
+                  icon={<WorkbenchTabIcon tab={tab} />}
+                  label={[tabLabel(tab), tabVersions.get(tab.id)].filter(Boolean).join(' ')}
+                />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
