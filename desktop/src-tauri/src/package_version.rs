@@ -1,5 +1,19 @@
 //! Public release tags and Python package versions use different beta spellings.
 
+use std::sync::OnceLock;
+
+static APP_VERSION: OnceLock<String> = OnceLock::new();
+
+/// Record this desktop's app version once at setup, for code without an app handle.
+pub(crate) fn remember_app_version(version: &str) {
+    let _ = APP_VERSION.set(version.to_string());
+}
+
+/// This desktop's app version, once setup has recorded it.
+pub(crate) fn app_version() -> Option<&'static str> {
+    APP_VERSION.get().map(String::as_str)
+}
+
 /// Resolve a release tag to the exact version published in Python metadata.
 pub(crate) fn python_package_version(target: &str) -> Result<String, String> {
     let target = target.trim().trim_start_matches('v');

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,18 +52,27 @@ func candidatePaths() []string {
 		paths = append(paths, env)
 	}
 
-	// Priority 2: clio-agent-gact on PATH.
-	if p, err := exec.LookPath("clio-agent-gact"); err == nil {
-		paths = append(paths, p)
-	}
-
-	// Priority 3: the clio-agent environment the official installers create:
+	// Priority 2: the clio-agent environment the official installers create:
 	// <prefix>/clio-agent/.venv, where the prefix is CLIO_PREFIX, else
 	// <agent data>/app (CLIO_AGENT_DATA_DIR, CLIO_AGENT_HOME/data,
 	// CLIO_USER_DIR/data, else the OS default since 0.9.5), then the pre-0.9.5
-	// prefixes an older install may still use.
+	// prefixes an older install may still use. This is the install the desktop
+	// manages and repairs, so it wins over whatever else is on PATH.
 	for _, prefix := range installPrefixes() {
 		paths = append(paths, filepath.Join(prefix, "clio-agent", ".venv", venvScriptDir(), gactBinName()))
+	}
+
+	// Priority 3: clio-agent-gact on PATH, unless it is older than this
+	// desktop. An old `uv tool`/pip install left on PATH would otherwise
+	// answer /v1/capabilities, pass readiness and serve a UI it cannot
+	// support, and on a fresh lite install it would stop the managed install
+	// from ever running.
+	if p, err := exec.LookPath("clio-agent-gact"); err == nil {
+		if reason := stalePathAgent(p); reason == "" {
+			paths = append(paths, p)
+		} else {
+			fmt.Fprintf(os.Stderr, "sidecar-launcher: skipping clio-agent-gact on PATH (%s): %s\n", p, reason)
+		}
 	}
 
 	// Priority 4: opt-in dev-repo checkout.
