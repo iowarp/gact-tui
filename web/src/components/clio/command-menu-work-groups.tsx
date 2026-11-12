@@ -2,7 +2,7 @@ import { brand } from '@brand';
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { BoxIcon, FileIcon, MessageSquareTextIcon } from 'lucide-react';
 import { CommandGroup, CommandItem } from '@/components/ui/command';
-import { projectText } from '@/lib/attention-text';
+import { messageSnippetText } from '@/lib/message-snippet';
 import { formatCompactBytes } from '@/lib/format';
 import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import {
@@ -58,11 +58,7 @@ export function MessageHitGroup({
               </span>
             </span>
             <span className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">
-              <SearchHighlight
-                text={projectText(hit.text, { source: true }).text}
-                query={query}
-                partial
-              />
+              <SearchHighlight text={messageSnippetText(hit.text)} query={query} partial />
             </span>
             <span className="mt-1 block truncate text-caption text-muted-foreground">
               {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open matching passage

@@ -71,11 +71,11 @@ afterEach(() => {
   for (const mock of Object.values(repository)) mock.mockReset();
 });
 
-async function openPicker(options: ClioModelOption[] = catalog) {
+async function openPicker(options: ClioModelOption[] = catalog, onChange = vi.fn()) {
   const user = userEvent.setup();
   renderPicker(
     <ClioModelPicker
-      onChange={vi.fn()}
+      onChange={onChange}
       options={options}
       provider={options[0]?.providerId}
       trigger={<Button>Change model</Button>}
@@ -101,7 +101,7 @@ const modelNames = () =>
   ].map((name) => name.textContent);
 
 describe('ClioModelPicker model facts', () => {
-  it('filters MAG by context through typing, clicking a context tag and moving its slider', async () => {
+  it('filters MAG by context through typing and moving its slider', async () => {
     const options = [
       ['opus', 1_000_000],
       ['luna', 922_000],
@@ -123,12 +123,6 @@ describe('ClioModelPicker model facts', () => {
     fireEvent.keyDown(slider('Context from')[0]!, { key: 'ArrowLeft' });
     expect(tokens()).toContain('context:>256K');
     await waitFor(() => expect(modelNames()).toEqual(['opus', 'luna', 'scout', 'unknown']));
-    // A context chip adds a minimum-size range, not an exact-label membership filter.
-    await user.keyboard('{Escape}');
-    await user.click(document.querySelector<HTMLElement>('[data-tag="context:1000000"]')!);
-    expect(tokens()).toContain('context:>1000000');
-    expect(tokens()).not.toContain('context:>256K');
-    await waitFor(() => expect(modelNames()).toEqual(['opus', 'scout', 'unknown']));
   }, 20_000);
   it('the demo query: recent, over 32B, image and text in, text out', async () => {
     const user = await openPicker();
@@ -215,15 +209,19 @@ describe('ClioModelPicker model facts', () => {
     expect(recent).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('rows carry Recent and size tags; clicking Recent filters by it', async () => {
-    const user = await openPicker();
+  it('rows carry Recent and size facts for display; clicking one chooses the model', async () => {
+    const onChange = vi.fn();
+    const user = await openPicker(catalog, onChange);
     const deepseek = screen
       .getByText('deepseek-v4')
       .closest<HTMLElement>('[data-slot="cascader-item"]')!;
     expect(within(deepseek).getByRole('img', { name: 'A37B / 671B' })).toBeVisible();
     await user.click(within(deepseek).getByRole('img', { name: 'Recent' }));
-    expect(tokens()).toContain('released:<6mo');
-    expect(modelNames()).not.toContain('llama-3.2-90b-vision');
+    // The facts are display only (pickers-search.html:1383); the facet bar filters by them.
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: expect.stringContaining('deepseek-v4') }),
+    );
+    expect(tokens()).not.toContain('released:<6mo');
   });
 
   it('a router has an info mark whose card says what it is, with its links clickable', async () => {
