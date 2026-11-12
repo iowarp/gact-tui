@@ -33,7 +33,7 @@ export function GraphEdgeFade({ width, height }: { width: number; height: number
 }
 
 /** The fades and chevrons for `edges`, over a positioned pane. */
-export function GraphEdgeCues({ edges }: { edges: GraphEdges | undefined }) {
+function GraphEdgeCues({ edges }: { edges: GraphEdges | undefined }) {
   if (!edges) return null;
   const level = { top: edges.level };
   const across = { left: edges.across };

@@ -134,7 +134,8 @@ export function FileViewerShell({
   lineage?: ReactNode;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
-  const [wrap, setWrap] = useState(false);
+  // Long source lines wrap by default; the reader can turn wrapping off.
+  const [wrap, setWrap] = useState(true);
   const sourceOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
   const identity = fileViewerIdentity(source);
   // The selection menu quotes a passage with its file: the workspace path, else the name.

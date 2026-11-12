@@ -1,7 +1,12 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
-import { layoutArtifactLineage, layoutVersionChain } from './artifact-lineage-layout';
+import {
+  fitLineageLayout,
+  layoutArtifactLineage,
+  layoutVersionChain,
+  type LineageSpread,
+} from './artifact-lineage-layout';
 
 const artifact: Artifact = {
   id: 'artifact_plot',
@@ -33,8 +38,8 @@ const lineage: ArtifactLineage = {
 };
 
 describe('layoutArtifactLineage', () => {
-  it('folds earlier versions into the current node and keeps every other relationship', () => {
-    const graph = layoutArtifactLineage(artifact, lineage, { earlier: 1 });
+  it('folds earlier versions into the current node and keeps every other relationship', async () => {
+    const graph = await layoutArtifactLineage(artifact, lineage, { earlier: 1 });
     expect(graph.nodes.map((node) => node.id)).not.toContain('artifact_plot_v1');
     expect(graph.edges).toHaveLength(4);
     expect(graph.files).toBe(2);
@@ -43,8 +48,8 @@ describe('layoutArtifactLineage', () => {
     expect(self).toMatchObject({ detail: 'v2, 1 earlier', stacked: true, folds: true });
   });
 
-  it('opens actions in Activity and marks failures and custody gaps', () => {
-    const graph = layoutArtifactLineage(artifact, lineage);
+  it('opens actions in Activity and marks failures and custody gaps', async () => {
+    const graph = await layoutArtifactLineage(artifact, lineage);
     const plot = graph.nodes.find((node) => node.id === 'activity:call_plot');
     expect(plot).toMatchObject({ kind: 'action', callId: 'call_plot', detail: 'failed' });
     const gap = graph.nodes.find((node) => node.id === 'artifact_edit');
@@ -53,8 +58,8 @@ describe('layoutArtifactLineage', () => {
     expect(graph.nodes.every((node) => node.x >= 0 && Number.isFinite(node.y))).toBe(true);
   });
 
-  it('says when a file has no recorded source or the graph was cut short', () => {
-    const graph = layoutArtifactLineage(artifact, {
+  it('says when a file has no recorded source or the graph was cut short', async () => {
+    const graph = await layoutArtifactLineage(artifact, {
       root: 'artifact_plot',
       direction: 'both',
       depth: 5,
@@ -73,8 +78,8 @@ describe('layoutArtifactLineage', () => {
     });
   });
 
-  it('draws a cut-short graph as an amber gap into the column where the walk stopped', () => {
-    const graph = layoutArtifactLineage(artifact, {
+  it('draws a cut-short graph as an amber gap into the column where the walk stopped', async () => {
+    const graph = await layoutArtifactLineage(artifact, {
       ...lineage,
       truncated: { reason: 'depth', at_depth: 2 },
     });
@@ -87,8 +92,8 @@ describe('layoutArtifactLineage', () => {
     expect(cut!.x + cut!.width).toBeLessThan(csv.x);
   });
 
-  it('cuts downstream when only the readers reach the reported depth', () => {
-    const graph = layoutArtifactLineage(artifact, {
+  it('cuts downstream when only the readers reach the reported depth', async () => {
+    const graph = await layoutArtifactLineage(artifact, {
       root: 'artifact_csv',
       direction: 'downstream',
       depth: 1,
@@ -102,8 +107,8 @@ describe('layoutArtifactLineage', () => {
     expect(graph.nodes.find((node) => node.id === 'gap:cut-short')?.tip).toContain('Later steps');
   });
 
-  it('puts the producing tool above an outside edit that feeds the same file', () => {
-    const graph = layoutArtifactLineage(artifact, {
+  it('puts the producing tool above an outside edit that feeds the same file', async () => {
+    const graph = await layoutArtifactLineage(artifact, {
       root: 'artifact_plot',
       direction: 'both',
       depth: 5,
@@ -131,12 +136,53 @@ describe('layoutArtifactLineage', () => {
     const edit = graph.nodes.find((node) => node.id === 'artifact_edit')!;
     expect(tool.y).toBeLessThan(edit.y);
     const edge = graph.edges.find((entry) => entry.from === 'activity:call_plot')!;
-    expect(edge.path.startsWith(`M${tool.x + tool.width},${tool.y + 20}`)).toBe(true);
+    // The edge leaves the tool's right side and is routed in right angles.
+    const [, x, y] = /^M([\d.]+),([\d.]+)/u.exec(edge.path)!;
+    expect(Number(x)).toBe(tool.x + tool.width);
+    expect(Number(y)).toBeGreaterThan(tool.y);
+    expect(Number(y)).toBeLessThan(tool.y + 40);
+  });
+});
+
+describe('fitLineageLayout', () => {
+  const build = (spread?: LineageSpread) => layoutArtifactLineage(artifact, lineage, { spread });
+
+  it('re-lays a dragged graph around the positions it is given, keeping their order', async () => {
+    const fitted = await build(undefined);
+    const at = (graph: typeof fitted) =>
+      Object.fromEntries(graph.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+    const same = await layoutArtifactLineage(artifact, lineage, {
+      spread: fitted.spread,
+      hints: at(fitted),
+    });
+    expect(at(same)).toEqual(at(fitted));
+    // Every edge is routed again, from its source's right side to its target's left.
+    for (const edge of same.edges) {
+      const from = same.nodes.find((node) => node.id === edge.from)!;
+      expect(edge.path.startsWith(`M${from.x + from.width},`)).toBe(true);
+    }
+  });
+
+  it('keeps whole names when the pane is narrower than the drawing', async () => {
+    const compact = await build(undefined);
+    const fitted = await fitLineageLayout(build, 200);
+    expect(fitted.width).toBeGreaterThan(compact.width);
+    const plot = fitted.nodes.find((node) => node.id === 'artifact_plot')!;
+    const compactPlot = compact.nodes.find((node) => node.id === 'artifact_plot')!;
+    expect(plot.width).toBeGreaterThan(compactPlot.width);
+  });
+
+  it('spreads the columns into spare room without overflowing it', async () => {
+    const named = await fitLineageLayout(build, undefined);
+    const room = named.width + 200;
+    const spread = await fitLineageLayout(build, room);
+    expect(spread.width).toBeGreaterThan(named.width);
+    expect(spread.width).toBeLessThanOrEqual(room);
   });
 });
 
 describe('layoutVersionChain', () => {
-  it('orders versions oldest first with their age and maker', () => {
+  it('orders versions oldest first with their age and maker', async () => {
     const version = (n: number, extra: Partial<ArtifactVersion> = {}) =>
       ({
         artifact_id: `artifact_v${n}`,
@@ -147,7 +193,7 @@ describe('layoutVersionChain', () => {
         producer: {},
         ...extra,
       }) as ArtifactVersion;
-    const graph = layoutVersionChain(
+    const graph = await layoutVersionChain(
       artifact,
       [
         version(2, { custody_gap: true }),
