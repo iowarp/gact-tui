@@ -242,7 +242,11 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
           />
         </SettingsRow>
       </div>
-      <FastModelRow />
+      <FastModelRow
+        catalogStatus={catalogStatus}
+        onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+        options={options}
+      />
       <ShowDiffusionRow
         disabled={save.isPending}
         marker={marker('diffusion')}
