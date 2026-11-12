@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useWorkTaskFocus } from './work-task-focus';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
+import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { SessionEvidenceActions } from './session-evidence-types';
@@ -55,7 +56,8 @@ export function TaskActivityRow({
     ? `${flowLabel(flow.id)} ${flow.status === 'not_run' ? 'follow-up' : 'run'}`
     : undefined;
   const assignment = task?.description || subagent?.task;
-  const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
+  const counted = useCountedTaskProgress(task?.progress, task?.handle);
+  const progress = taskProgressLabel(counted, kind, task?.error_reason);
   const yielded = status === 'yielded';
   const awaitingAnswer =
     kind === 'Question' && (status === 'input_required' || status === 'waiting_user');

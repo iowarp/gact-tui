@@ -235,6 +235,7 @@ const statusTones = {
 
 /** The spec's `.c3s` status line: a lead icon, one sentence, actions at the right. No box. */
 export function SourceStatusLine({
+  id,
   icon,
   tone = 'default',
   children,
@@ -242,6 +243,7 @@ export function SourceStatusLine({
   role,
   className,
 }: {
+  id?: string;
   icon?: ReactNode;
   tone?: keyof typeof statusTones;
   children: ReactNode;
@@ -251,6 +253,7 @@ export function SourceStatusLine({
 }) {
   return (
     <div
+      id={id}
       role={role}
       className={cn(
         'flex min-h-[26px] min-w-0 items-center gap-2 text-[12px]',
