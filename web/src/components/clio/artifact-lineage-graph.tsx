@@ -32,7 +32,6 @@ import {
   sketchArtifactLineage,
   type LineageGraphLayout,
   type LineageGraphNode,
-  type LineageHints,
   type LineageSpread,
 } from './artifact-lineage-layout';
 import type { LineageActivity } from './artifact-lineage-view';
@@ -41,6 +40,7 @@ import { useFileViewerFacts } from './file-viewer-facts';
 import { ApplyViewport, GraphControls } from './graph-controls';
 import { GraphEdgeFade } from './graph-edge-fade';
 import { flooredFit, focusViewport, fitWidth, usePaneSize } from './graph-fit';
+import { routeLineage, type LineagePins } from './lineage-routes';
 
 /**
  * What the service recorded about one file, drawn as the spec's node graph.
@@ -72,10 +72,10 @@ export function ArtifactLineageGraph({
   );
   const chained = Boolean(unfolded && version && versions?.length);
   const build = useCallback(
-    (spread: LineageSpread, hints?: LineageHints) =>
+    (spread: LineageSpread) =>
       chained && version && versions
-        ? layoutVersionChain(artifact, versions, version, undefined, spread, hints)
-        : layoutArtifactLineage(artifact, lineage, { earlier, spread, hints }),
+        ? layoutVersionChain(artifact, versions, version, undefined, spread)
+        : layoutArtifactLineage(artifact, lineage, { earlier, spread }),
     [artifact, chained, earlier, lineage, version, versions],
   );
   useFileViewerFacts([
@@ -197,7 +197,7 @@ const RELAYOUT_WAIT = 80;
  * waits briefly so the first drawing is the right one.
  */
 function useLineageLayout(
-  build: (spread: LineageSpread, hints?: LineageHints) => Promise<LineageGraphLayout>,
+  build: (spread: LineageSpread) => Promise<LineageGraphLayout>,
   room: number | undefined,
 ) {
   const [state, setState] = useState<{ graph?: LineageGraphLayout; failed?: boolean }>({});
@@ -230,7 +230,7 @@ interface LineageNodeData extends Record<string, unknown> {
 }
 type LineageFlowNode = Node<LineageNodeData, 'lineage'>;
 interface LineageEdgeData extends Record<string, unknown> {
-  /** ELK's route; absent once an end has been dragged away from where ELK placed it. */
+  /** The edge's route; absent while an end is being dragged away from it. */
   path?: string;
   gap: boolean;
 }
@@ -251,7 +251,7 @@ function LineageFlowNodeView({ data }: NodeProps<LineageFlowNode>) {
 const EDGE_STROKE = 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)';
 const GAP_STROKE = 'color-mix(in oklab, var(--warning) 80%, transparent)';
 
-/** ELK's routed edge; while an end is being dragged, a right-angle step between the moved ends. */
+/** The edge's routed path; while an end is being dragged, a right-angle step between the moved ends. */
 function LineageEdgeView({
   id,
   data,
@@ -293,8 +293,8 @@ const edgeTypes = { lineage: LineageEdgeView };
 /**
  * The lineage canvas: a dot grid with ELK's layered drawing over it. It opens at a
  * readable scale with the opened file in view; the reader zooms (wheel, pinch, the
- * zoom row or + ? 0), pans the canvas and drags nodes, and ELK re-lays the drawing
- * around each drop.
+ * zoom row or + ? 0), pans the canvas and drags nodes. A dropped node stays where
+ * it lands and its edges are re-routed around the others.
  */
 function LineageGraph({
   build,
@@ -302,7 +302,7 @@ function LineageGraph({
   label,
   onOpen,
 }: {
-  build: (spread: LineageSpread, hints?: LineageHints) => Promise<LineageGraphLayout>;
+  build: (spread: LineageSpread) => Promise<LineageGraphLayout>;
   self: Artifact;
   label: string;
   onOpen?: (node: LineageGraphNode) => void;
@@ -312,23 +312,31 @@ function LineageGraph({
   const room = pane ? pane.w - 2 * LINEAGE_CANVAS_PADDING : undefined;
   // A roomy pane (a maximized tab) spreads the drawing: whole names, then wider columns.
   const { graph: fitted, failed } = useLineageLayout(build, room);
-  // The reader's drops re-lay the drawing; a new fit for the pane starts from ELK's own.
+  // The reader's drops pin their nodes; a new fit for the pane starts from ELK's own.
   const [relaid, setRelaid] = useState<{
     from: LineageGraphLayout;
     graph: LineageGraphLayout;
   }>();
   const graph = relaid && relaid.from === fitted ? relaid.graph : fitted;
   const turn = useRef(0);
-  const relayout = useCallback(
-    (hints: LineageHints) => {
-      if (!fitted) return;
+  const reroute = useCallback(
+    (pins: LineagePins) => {
+      if (!fitted || !graph) return;
       const mine = ++turn.current;
-      build(fitted.spread, hints).then(
-        (next) => mine === turn.current && setRelaid({ from: fitted, graph: next }),
-        () => undefined,
+      const land = (next: LineageGraphLayout) =>
+        mine === turn.current && setRelaid({ from: fitted, graph: next });
+      routeLineage(graph, pins).then(land, () =>
+        // Without the router the nodes still stay put; their edges step between them.
+        land({
+          ...graph,
+          nodes: graph.nodes.map((node) => ({ ...node, ...pins[node.id] })),
+          edges: graph.edges.map((edge) =>
+            pins[edge.from] || pins[edge.to] ? { ...edge, path: '' } : edge,
+          ),
+        }),
       );
     },
-    [build, fitted],
+    [fitted, graph],
   );
   const viewport = useMemo(() => openingViewport(fitted, pane), [fitted, pane]);
   return (
@@ -348,7 +356,7 @@ function LineageGraph({
           viewport={viewport}
           region={canvas}
           onOpen={onOpen}
-          onRelayout={relayout}
+          onRelayout={reroute}
         />
       ) : failed ? (
         <p className="p-3.5 text-meta text-muted-foreground">
@@ -392,7 +400,7 @@ function LineageFlow({
   viewport: Viewport;
   region: RefObject<HTMLElement | null>;
   onOpen?: (node: LineageGraphNode) => void;
-  onRelayout?: (hints: LineageHints) => void;
+  onRelayout?: (pins: LineagePins) => void;
 }) {
   // Where the reader dragged nodes to, for this layout only: a new layout starts clean.
   const [moved, setMoved] = useState<{
@@ -448,7 +456,7 @@ function LineageFlow({
     },
     [graph],
   );
-  // On drop, ELK re-lays the drawing from where every node now sits.
+  // On drop, the moved nodes stay where they landed and their edges are re-routed.
   const onNodeDragStop = useCallback<OnNodeDrag<LineageFlowNode>>(
     (_event, _node, dropped) => {
       const placed = new Map(graph.nodes.map((node) => [node.id, node]));
@@ -457,10 +465,9 @@ function LineageFlow({
         return !before || before.x !== node.position.x || before.y !== node.position.y;
       });
       if (!shifted.length || !onRelayout) return;
-      const hints: Record<string, XYPosition> = {};
-      for (const node of graph.nodes) hints[node.id] = at?.[node.id] ?? { x: node.x, y: node.y };
-      for (const node of shifted) hints[node.id] = node.position;
-      onRelayout(hints);
+      const pins: Record<string, XYPosition> = { ...at };
+      for (const node of shifted) pins[node.id] = node.position;
+      onRelayout(pins);
     },
     [at, graph, onRelayout],
   );

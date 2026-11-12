@@ -59,9 +59,6 @@ export interface LineageGraphLayout {
   spread: LineageSpread;
 }
 
-/** Where the reader left each node: ELK keeps their columns and order when it re-lays the graph. */
-export type LineageHints = Readonly<Record<string, { x: number; y: number }>>;
-
 export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
 const MAX_WIDTH = 116;
@@ -75,7 +72,8 @@ const RANK_GAP = 22;
 const WIDE_RANK_GAP = 56;
 // Spec row pitch is about 94px: a 40px node plus 54px between stacked nodes.
 const ROW_GAP = 54;
-const MARGIN = 10;
+export const LINEAGE_MARGIN = 10;
+const MARGIN = LINEAGE_MARGIN;
 
 const OK_STATES = new Set(['ok', 'success', 'succeeded', 'completed', 'done']);
 
@@ -132,13 +130,9 @@ export function canOpenLineageNode(node: LineageGraphNode) {
 export function layoutArtifactLineage(
   artifact: Artifact,
   lineage: ArtifactLineage,
-  {
-    earlier = 0,
-    spread,
-    hints,
-  }: { earlier?: number; spread?: LineageSpread; hints?: LineageHints } = {},
+  { earlier = 0, spread }: { earlier?: number; spread?: LineageSpread } = {},
 ): Promise<LineageGraphLayout> {
-  return placeLineage(sketchArtifactLineage(artifact, lineage, { earlier }), spread, hints);
+  return placeLineage(sketchArtifactLineage(artifact, lineage, { earlier }), spread);
 }
 
 /** The nodes and links `layoutArtifactLineage` places. */
@@ -338,9 +332,8 @@ export function layoutVersionChain(
   current: number,
   now = Date.now(),
   spread: LineageSpread = {},
-  hints?: LineageHints,
 ): Promise<LineageGraphLayout> {
-  return placeLineage(sketchVersionChain(artifact, versions, current, now), spread, hints);
+  return placeLineage(sketchVersionChain(artifact, versions, current, now), spread);
 }
 
 /** The nodes and links `layoutVersionChain` places. */
@@ -429,24 +422,13 @@ const ELK_OPTIONS = {
   'elk.padding': `[top=12,left=${MARGIN},bottom=12,right=${MARGIN}]`,
 } as const;
 
-/**
- * With hints, ELK takes each node's column from its x and its place in the column
- * from its y, then places and routes everything again: a dropped node lands in
- * the nearest column and order, and no edge runs through a node.
- */
-const HINTED_OPTIONS = {
-  'elk.layered.layering.strategy': 'INTERACTIVE',
-  'elk.layered.crossingMinimization.strategy': 'INTERACTIVE',
-} as const;
-
 /** The corner radius of a routed edge, as the spec rounds its connectors. */
 const CORNER = 6;
 
-/** Places a sketch's nodes and routes its edges with ELK, from `hints` when the reader moved nodes. */
+/** Places a sketch's nodes and routes its edges with ELK. */
 export async function placeLineage(
   sketch: LineageSketch,
   spread: LineageSpread = {},
-  hints?: LineageHints,
 ): Promise<LineageGraphLayout> {
   // Recorded steps come before gaps, so ELK's model order puts producers first.
   const placed = [...sketch.nodes].sort(
@@ -460,14 +442,12 @@ export async function placeLineage(
     id: 'lineage',
     layoutOptions: {
       ...ELK_OPTIONS,
-      ...(hints ? HINTED_OPTIONS : {}),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(spread.rankGap ?? RANK_GAP),
     },
     children: placed.map((node) => ({
       id: node.id,
       width: widths.get(node.id),
       height: LINEAGE_NODE_HEIGHT,
-      ...hints?.[node.id],
     })),
     edges: known.map(
       (link, index): ElkExtendedEdge => ({
@@ -514,7 +494,13 @@ export async function placeLineage(
 function routedPath(edge: ElkExtendedEdge | undefined): string {
   const section = edge?.sections?.[0];
   if (!section) return '';
-  const points = [section.startPoint, ...(section.bendPoints ?? []), section.endPoint];
+  return roundedPath([section.startPoint, ...(section.bendPoints ?? []), section.endPoint]);
+}
+
+/** A right-angle route through `route`'s points as path data, its corners rounded and its tip on the border. */
+export function roundedPath(route: readonly ElkPoint[]): string {
+  if (route.length < 2) return '';
+  const points = [...route];
   // The arrowhead's tip lands on the node's border, not under it.
   const last = points.length - 1;
   points[last] = pullBack(points[last - 1]!, points[last]!, 1);
