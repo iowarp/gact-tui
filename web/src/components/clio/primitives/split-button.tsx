@@ -106,7 +106,7 @@ export const SplitButton = memo(function SplitButton({
       data-disabled={valued && disabled ? '' : undefined}
       className={cn(
         'group/split inline-flex shrink-0 items-center rounded-[6px]',
-        valued && 'h-7 rounded-[7px] text-[12.5px] font-medium whitespace-nowrap',
+        valued && 'h-7 rounded-[7px] text-menu font-medium whitespace-nowrap',
         valued &&
           (variant === 'default'
             ? 'bg-primary text-primary-foreground data-disabled:bg-muted data-disabled:text-muted-foreground'
@@ -142,7 +142,7 @@ export const SplitButton = memo(function SplitButton({
                 variant === 'default'
                   ? 'bg-foreground/15 group-data-disabled/split:bg-foreground/[0.06] hover:bg-foreground/25 aria-expanded:bg-foreground/25'
                   : 'bg-current/15 hover:bg-current/25 aria-expanded:bg-current/25',
-                'h-[22px] gap-1 rounded-[5px] pr-1 pl-[7px] text-[11.5px] font-normal [&_svg:not([class*=size-])]:size-[11px]',
+                'h-[22px] gap-1 rounded-[5px] pr-1 pl-[7px] text-label font-normal [&_svg:not([class*=size-])]:size-[11px]',
               )}
             >
               <span className="min-w-0 truncate">{menuValue}</span>

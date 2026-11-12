@@ -436,7 +436,7 @@ function SourceManage({
     folderReference.error ||
     operations.error ||
     download.error;
-  const quiet = 'h-6 px-2 text-[12px]';
+  const quiet = 'h-6 px-2 text-meta';
   const details: KeyValueItem[] = [
     {
       label: 'Location',
@@ -512,11 +512,11 @@ function SourceManage({
         />
         <div className="min-w-0 flex-1 leading-[1.3]">
           {showName ? (
-            <h3 className="truncate text-[13px] font-medium" title={source.label}>
+            <h3 className="truncate text-ui font-medium" title={source.label}>
               {source.label}
             </h3>
           ) : null}
-          <p className="flex min-w-0 gap-2.5 truncate text-[11.5px] whitespace-nowrap text-muted-foreground">
+          <p className="flex min-w-0 gap-2.5 truncate text-label whitespace-nowrap text-muted-foreground">
             {sublineParts.map((part) => (
               <span key={part} className="truncate">
                 {part}
@@ -578,7 +578,7 @@ function SourceManage({
               {source.account_url ? (
                 <ExternalLink
                   href={source.account_url}
-                  className="px-1.5 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  className="px-1.5 text-meta text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                   Repository access
                 </ExternalLink>

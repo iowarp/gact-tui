@@ -110,7 +110,7 @@ export function ClioMoreDetailsPanel({
           <div className="mx-4 mt-3 flex min-w-0 items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2">
             <QuoteIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-muted-foreground">Selected text</p>
+              <p className="text-caption font-medium text-muted-foreground">Selected text</p>
               <p className="line-clamp-3 break-words text-xs leading-5">{selection.text}</p>
             </div>
           </div>

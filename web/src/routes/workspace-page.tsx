@@ -317,7 +317,7 @@ export function WorkspacePage() {
         <ClioAppShell
           key="shell"
           navigation={sideNavigation}
-          contextBar={<div className="min-w-0 truncate text-sm font-medium">{contextTitle}</div>}
+          contextBar={<div className="min-w-0 truncate text-ui font-medium">{contextTitle}</div>}
           statusStrip={
             <WorkspaceLiveStatusStrip key={sessionKey} work={work} sessionId={sessionId} />
           }

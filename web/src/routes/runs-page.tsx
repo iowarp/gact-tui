@@ -476,7 +476,7 @@ export function RunsPage() {
     (canIndexMore && filteredRows.length > 0);
 
   const title = (
-    <h1 className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-foreground">
+    <h1 className="flex min-w-0 items-center gap-1.5 text-ui font-semibold whitespace-nowrap text-foreground">
       <ActivityIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       Runs
     </h1>
@@ -514,7 +514,7 @@ export function RunsPage() {
                 currentState.count === undefined ? '' : `, ${currentState.count}`
               }`}
               className={cn(
-                'h-6 w-[46px] shrink-0 gap-1 rounded-[12px] border border-border px-0 text-[11.5px] font-medium text-muted-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-[13px]',
+                'h-6 w-[46px] shrink-0 gap-1 rounded-[12px] border border-border px-0 text-label font-medium text-muted-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-[13px]',
                 stateFilter !== 'all' && 'border-accent-border bg-accent text-accent-foreground',
               )}
               size="sm"
@@ -554,7 +554,7 @@ export function RunsPage() {
         </>
       ) : null}
       <span aria-hidden="true" className="flex-1" />
-      <span className="hidden shrink-0 text-[11.5px] text-faint tabular-nums @[520px]/runbar:inline">
+      <span className="hidden shrink-0 text-label text-faint tabular-nums @[520px]/runbar:inline">
         {filteredRows.length} {filteredRows.length === 1 ? noun.slice(0, -1) : noun}
       </span>
       {searchOpen || search ? (
@@ -566,7 +566,7 @@ export function RunsPage() {
           <Input
             aria-label="Search runs"
             autoFocus
-            className="h-7 pl-7 text-[12px]"
+            className="h-7 pl-7 text-meta"
             onBlur={() => {
               if (!search) setSearchOpen(false);
             }}
@@ -638,7 +638,7 @@ export function RunsPage() {
             key={group}
           >
             <h2
-              className="flex h-6 items-center gap-2 px-2 text-[11px] font-semibold text-muted-foreground"
+              className="flex h-6 items-center gap-2 px-2 text-caption font-semibold text-muted-foreground"
               id={`runs-group-${group}`}
             >
               <span>{RUN_GROUP_LABELS[group]}</span>
@@ -662,7 +662,7 @@ export function RunsPage() {
         ))
       )}
       {showFooter && !(filteredRows.length === 0 && category === 'flows' && !search) ? (
-        <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-label whitespace-nowrap text-muted-foreground">
           {footerNote ? <span className="min-w-0 truncate">{footerNote}</span> : null}
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {filteredRows.length > visibleLimit ? (

@@ -11,9 +11,9 @@ import { PresentationLink } from './presentation-link';
 import { useHighlightedTokens } from './source-highlight';
 import { CopyAction } from './tool-compact-row';
 
-const MONO = 'font-mono text-[11.5px] leading-[18px]';
+const MONO = 'font-mono text-label leading-4.5';
 const BAR =
-  'flex h-[30px] min-w-0 items-center gap-2 border-b border-border pl-2.5 pr-1 text-[11.5px]';
+  'flex h-[30px] min-w-0 items-center gap-2 border-b border-border pl-2.5 pr-1 text-label';
 
 interface DiffLine {
   kind: 'context' | 'added' | 'removed' | 'hunk';
@@ -292,12 +292,12 @@ export function TranscriptTerminalBody({
           <TerminalContent className={cn('max-h-60 border-0 bg-transparent px-3 py-1.5', MONO)} />
         </Terminal>
       ) : (
-        <p className="px-3 py-1.5 text-[11.5px] text-muted-foreground">
+        <p className="px-3 py-1.5 text-label text-muted-foreground">
           {live ? 'Waiting for output' : 'No output'}
         </p>
       )}
       {failure && !failed && stopped ? (
-        <div className="border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]">
+        <div className="border-t border-border px-3 py-1.5 text-label [overflow-wrap:anywhere]">
           <p className="text-xs font-medium text-muted-foreground">Stopped</p>
           <p className="whitespace-pre-wrap text-foreground">
             {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
@@ -307,7 +307,7 @@ export function TranscriptTerminalBody({
         <p
           role={failed ? 'alert' : undefined}
           className={cn(
-            'whitespace-pre-wrap border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]',
+            'whitespace-pre-wrap border-t border-border px-3 py-1.5 text-label [overflow-wrap:anywhere]',
             failed ? 'text-destructive' : 'text-muted-foreground',
           )}
         >

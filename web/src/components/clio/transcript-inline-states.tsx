@@ -36,7 +36,7 @@ export const EarlierMessagesRow = memo(function EarlierMessagesRow({
         />
       ) : (
         <Button
-          className="h-7 gap-2 px-1.5 text-[12.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+          className="h-7 gap-2 px-1.5 text-menu font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
           onClick={earlier.load}
           type="button"
           variant="ghost"
@@ -73,8 +73,8 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
       />
       <TechnicalDetails
         className="flex max-w-md flex-col items-center"
-        contentClassName="pt-1.5 font-mono text-[11.5px] break-words whitespace-pre-wrap text-muted-foreground"
-        summaryClassName="text-[12px]"
+        contentClassName="pt-1.5 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
+        summaryClassName="text-meta"
         title="Technical details"
       >
         {error}

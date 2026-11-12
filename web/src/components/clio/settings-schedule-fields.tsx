@@ -31,7 +31,7 @@ export function ScheduleWords({ schedule }: { schedule: ScheduledTurn }) {
   }
   return (
     <>
-      Custom repeat <span className="font-mono text-[0.71875rem]">{schedule.cron}</span>
+      Custom repeat <span className="font-mono text-label">{schedule.cron}</span>
     </>
   );
 }

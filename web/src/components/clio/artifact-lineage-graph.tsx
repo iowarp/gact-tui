@@ -133,7 +133,7 @@ function LineageNode({
           onClick={() => onOpen?.(node)}
           style={{ width: node.width, height: LINEAGE_NODE_HEIGHT }}
           className={cn(
-            'flex items-center gap-[7px] rounded-lg border border-border bg-background px-[9px] text-left text-[11.5px] outline-none',
+            'flex items-center gap-[7px] rounded-lg border border-border bg-background px-[9px] text-left text-label outline-none',
             'hover:outline-[1.5px] hover:outline-offset-2 hover:outline-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-default',
             node.kind === 'action' && 'border-dashed bg-muted',
             node.kind === 'gap' && 'border-dashed border-warning/70',
@@ -351,7 +351,7 @@ function LineageGraph({
           onRelayout={relayout}
         />
       ) : failed ? (
-        <p className="p-3.5 text-[12px] text-muted-foreground">
+        <p className="p-3.5 text-meta text-muted-foreground">
           Couldn't draw the lineage. Reopen the tab to try again.
         </p>
       ) : null}

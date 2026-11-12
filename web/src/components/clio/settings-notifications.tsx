@@ -29,7 +29,7 @@ import {
 } from '@/providers/notification-preferences-provider';
 
 const SELECT_TRIGGER =
-  'w-[150px] px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-[150px] px-[9px] text-menu data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 /** Sound, desktop alerts, finished work and where the bell's settings icon leads. */
 export function NotificationSettings() {

@@ -91,7 +91,7 @@ export function FileSourceView({
         data-header-row={headerRow ? '' : undefined}
         className={cn(
           // Flush on the page, as the frame spec draws source: no filled panel.
-          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-[11.5px] [&_:is(pre,code)]:leading-[1.65]',
+          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-label [&_:is(pre,code)]:leading-[1.65]',
           wrap
             ? // Wrapped lines hang past the line numbers and the line's own indent, so a
               // number marks only its own line and continuation rows keep the indent. The

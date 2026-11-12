@@ -1,7 +1,6 @@
 import { CheckIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { RegionCoordinateInputs } from '../region-coordinate-inputs';
 
@@ -22,8 +21,8 @@ type Box = { x: number; y: number; width: number; height: number };
 /**
  * The editor beside one mark, first built for A2UI region capture: the mark's label and the
  * surface it is on, its box as numbers (a region), what it points at (a quote, an element),
- * the comment, "Send to agent" where comments become threads, and Delete, Cancel and Done.
- * Enter finishes, Escape cancels. It opens just below the mark, kept on screen.
+ * the comment, and Delete, Cancel and Done. Every comment goes to the agent when the marks
+ * are sent. Enter finishes, Escape cancels. It opens just below the mark, kept on screen.
  */
 /** Whether the heading's title only repeats the quote shown under it. */
 function repeats(title: string, detail?: string): boolean {
@@ -40,7 +39,6 @@ export function CommentEditor({
   detail,
   coordinates,
   comment,
-  sendToAgent,
   onDone,
   onCancel,
   onDelete,
@@ -52,7 +50,6 @@ export function CommentEditor({
   detail?: string;
   coordinates?: { box: Box; onChange: (box: Box) => void };
   comment: string;
-  sendToAgent?: { checked: boolean; onChange: (checked: boolean) => void };
   onDone: (comment: string) => void;
   onCancel: () => void;
   onDelete: () => void;
@@ -99,15 +96,6 @@ export function CommentEditor({
         placeholder="What should the agent notice here?"
         value={text}
       />
-      {sendToAgent ? (
-        <label className="mt-1 flex items-center gap-2 text-xs">
-          <Checkbox
-            checked={sendToAgent.checked}
-            onCheckedChange={(checked) => sendToAgent.onChange(checked === true)}
-          />
-          Send to agent
-        </label>
-      ) : null}
       <div className="mt-2 flex justify-end gap-2">
         <Button
           aria-label={`Delete ${label}`}

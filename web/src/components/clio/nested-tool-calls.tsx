@@ -84,7 +84,7 @@ export function NestedToolCalls({
           <div className="min-w-0" key={tool.id}>
             {renderCall(tool)}
             {repeat ? (
-              <p className="pl-[30px] text-[11.5px] text-muted-foreground">
+              <p className="pl-[30px] text-label text-muted-foreground">
                 {`Called ${repeat.count} times${span ? `, ${span}` : ''}`}
               </p>
             ) : null}

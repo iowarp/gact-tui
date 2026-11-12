@@ -95,7 +95,7 @@ export function TranscriptReasoningPassage({
       <CollapsibleContent>
         <ActivityBody label="Thinking details" framed={false}>
           <div
-            className="max-h-80 overflow-auto overscroll-contain text-[12.5px] leading-[1.6] text-muted-foreground"
+            className="max-h-80 overflow-auto overscroll-contain text-menu leading-[1.6] text-muted-foreground"
             data-slot="transcript-reasoning-text"
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be reachable
             tabIndex={0}

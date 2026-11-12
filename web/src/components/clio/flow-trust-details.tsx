@@ -47,7 +47,7 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
       value: (
         <>
           <span className="min-w-0 truncate">{file}</span>
-          <span className="shrink-0 font-sans text-[12px] text-muted-foreground">
+          <span className="shrink-0 font-sans text-meta text-muted-foreground">
             No review available
           </span>
         </>

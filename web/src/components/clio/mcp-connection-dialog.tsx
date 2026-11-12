@@ -46,7 +46,7 @@ type Authentication = keyof typeof AUTHENTICATION;
 const TRANSPORT = { http: 'Streamable HTTP', sse: 'SSE (legacy)' } as const;
 type Transport = keyof typeof TRANSPORT;
 
-const FIELD = 'h-[1.875rem] text-[0.78125rem]';
+const FIELD = 'h-[1.875rem] text-menu';
 
 const slug = (text: string) =>
   text
@@ -288,7 +288,7 @@ export function McpConnectionDialog({
             >
               <Textarea
                 {...identifierInputProps}
-                className="min-h-[1.875rem] py-1 font-mono text-[0.78125rem]"
+                className="min-h-[1.875rem] py-1 font-mono text-menu"
                 id={`${ids}-args`}
                 onChange={(event) => setArgs(event.target.value)}
                 placeholder={'["ha-mcp"]'}
@@ -302,7 +302,7 @@ export function McpConnectionDialog({
         <button
           aria-controls={`${ids}-advanced`}
           aria-expanded={advanced}
-          className="mt-3 mb-1 flex h-7 items-center gap-1 rounded-sm text-[0.71875rem] text-faint outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          className="mt-3 mb-1 flex h-7 items-center gap-1 rounded-sm text-label text-faint outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
           onClick={() => setAdvanced((open) => !open)}
           type="button"
         >
@@ -380,7 +380,7 @@ export function McpConnectionDialog({
               </>
             ) : (
               <div className="grid gap-2 border-b border-border/70 py-2">
-                <h3 className="text-[0.8125rem]">Environment variables</h3>
+                <h3 className="text-ui">Environment variables</h3>
                 <EnvironmentTable
                   id="mcp-process-settings"
                   onChange={setEnvironment}
@@ -470,7 +470,7 @@ function HeaderRows({
           </div>
         ))}
         <Button
-          className="h-7 w-fit gap-1 px-1.5 text-[0.75rem] text-muted-foreground"
+          className="h-7 w-fit gap-1 px-1.5 text-meta text-muted-foreground"
           onClick={onAdd}
           size="sm"
           type="button"

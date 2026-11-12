@@ -57,7 +57,7 @@ export function VirtualSourceLines({
       {...props}
       ref={scrollRef}
       className={cn(
-        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-[11.5px] leading-[19px] text-foreground',
+        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-label leading-[19px] text-foreground',
         className,
       )}
       data-slot="virtual-source"

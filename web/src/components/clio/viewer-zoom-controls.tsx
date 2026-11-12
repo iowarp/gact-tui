@@ -108,7 +108,7 @@ export function ViewerZoomControls({
         <ToolbarAction
           label="Zoom out"
           shortcut="view-zoom-out"
-          disabled={disabledOut}
+          disabledReason={disabledOut ? 'Smallest zoom' : undefined}
           onClick={onOut}
         >
           <ZoomOutIcon aria-hidden="true" />
@@ -117,7 +117,7 @@ export function ViewerZoomControls({
           // One width, pending and loaded, that holds "999 / 999", so neither zoom-in
           // nor the bar's folds move when the page count arrives.
           <span
-            className="flex min-w-[calc(7.5ch+0.5rem)] shrink-0 items-center justify-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums"
+            className="flex min-w-[calc(7.5ch+0.5rem)] shrink-0 items-center justify-center gap-1.5 px-1 text-caption text-muted-foreground tabular-nums"
             data-slot="viewer-zoom-readout"
           >
             {readout}
@@ -126,7 +126,7 @@ export function ViewerZoomControls({
         <ToolbarAction
           label="Zoom in"
           shortcut="view-zoom-in"
-          disabled={disabledIn}
+          disabledReason={disabledIn ? 'Largest zoom' : undefined}
           onClick={onIn}
         >
           <ZoomInIcon aria-hidden="true" />

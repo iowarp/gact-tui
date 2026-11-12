@@ -21,6 +21,8 @@ import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ContextReferenceLink } from './context-reference-link';
+import { CommentReviewChip } from './comment-review-chip';
+import { commentReview, foldCommentReviews } from '@/lib/comment-review-reference';
 import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inline-references';
 import { SummonChip } from './summon-chip';
 import { sentDataReferences } from '@/lib/sent-data-references';
@@ -395,8 +397,14 @@ function MessageBlockView({
           resources={resources}
         />
       );
-    case 'context_reference':
-      return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
+    case 'context_reference': {
+      const review = commentReview(block);
+      return review ? (
+        <CommentReviewChip block={block} onOpenReference={onOpenReference} review={review} />
+      ) : (
+        <ContextReferenceLink block={block} onOpenReference={onOpenReference} />
+      );
+    }
     case 'summon':
       return <SummonChip block={block} />;
     case 'unknown':
@@ -416,7 +424,7 @@ function MessageBlockView({
 function sentInlineReferences(blocks: readonly MessageBlock[]) {
   const references = blocks.filter(
     (block): block is InlineReferenceBlock =>
-      block.type === 'context_reference' || block.type === 'summon',
+      (block.type === 'context_reference' && !commentReview(block)) || block.type === 'summon',
   );
   const texts = blocks.flatMap((block) =>
     block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
@@ -436,7 +444,7 @@ export function MessageBlockSequence({
   resourcesFirst?: boolean;
 }) {
   const uniqueBlocks = responseArtifactBlocks(
-    [...new Map(blocks.map((block) => [block.id, block] as const)).values()],
+    foldCommentReviews([...new Map(blocks.map((block) => [block.id, block] as const)).values()]),
     props.artifacts,
   );
   const orderedBlocks = resourcesFirst

@@ -201,7 +201,7 @@ export function ModelInventoryRow({
       icon: <ClockIcon />,
       value: (
         <ClioRelativeTime
-          className="text-[12px] text-foreground"
+          className="text-meta text-foreground"
           compact
           label="Last checked"
           timestamp={new Date((model.observed_at ?? model.updated_at) * 1000).toISOString()}
@@ -265,8 +265,8 @@ export function ModelInventoryRow({
                   Model card
                 </Button>
               </div>
-              <TechnicalDetails className="text-[12px]" title="Technical details">
-                <pre className="clio-scrollbar mt-1 max-h-60 overflow-auto font-mono text-[11px] whitespace-pre text-muted-foreground">
+              <TechnicalDetails className="text-meta" title="Technical details">
+                <pre className="clio-scrollbar mt-1 max-h-60 overflow-auto font-mono text-caption whitespace-pre text-muted-foreground">
                   {JSON.stringify(model, null, 2)}
                 </pre>
               </TechnicalDetails>

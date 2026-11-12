@@ -16,6 +16,7 @@ import {
 } from './comments/comment-session';
 import { DocumentRefreshAction } from './document-refresh-action';
 import { CommentThreadList } from './comments/comment-thread-list';
+import { CommentThreadsPopover } from './comments/comment-threads-popover';
 import { useInFrameComments } from './comments/frame-comments-slot';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import { HtmlFileInBrowser } from './html-in-browser';
@@ -24,7 +25,6 @@ import { isScientificDocument } from '@/lib/scientific-document';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -488,39 +488,34 @@ function DocumentCommentThreads({ children }: { children: ReactNode }) {
   const session = useCommentSession();
   if (!session?.open) return null;
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <CommentThreadsPopover
+      align="end"
+      trigger={
         <ToolbarAction label="Comment threads">
           <MessagesSquareIcon aria-hidden="true" />
         </ToolbarAction>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-      >
-        {children}
-      </PopoverContent>
-    </Popover>
+      }
+    >
+      {children}
+    </CommentThreadsPopover>
   );
 }
 
 /** The sent threads inside the frame's comment panel. */
 function EarlierThreads({ children }: { children: ReactNode }) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <CommentThreadsPopover
+      align="start"
+      className="z-[95]"
+      trigger={
         <Button className="mt-2 w-full" size="sm" variant="ghost">
           <MessagesSquareIcon aria-hidden="true" />
           Earlier threads
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="z-[95] max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-      >
-        {children}
-      </PopoverContent>
-    </Popover>
+      }
+    >
+      {children}
+    </CommentThreadsPopover>
   );
 }
 

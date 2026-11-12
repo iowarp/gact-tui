@@ -218,7 +218,7 @@ export function ClioWeather(props: WeatherProps) {
                   key={`${hour.time}-${index}`}
                   title={hour.condition}
                 >
-                  <p className="whitespace-nowrap text-[11px] text-muted-foreground">{day}</p>
+                  <p className="whitespace-nowrap text-caption text-muted-foreground">{day}</p>
                   <p className="mt-0.5 font-medium tabular-nums">{time}</p>
                   <HourIcon aria-hidden="true" className={`mx-auto my-2 size-5 shrink-0 ${conditionColor(hour.condition)}`} />
                   <p className="font-medium tabular-nums">

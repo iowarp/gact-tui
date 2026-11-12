@@ -126,7 +126,7 @@ export function QueuedMessageRow({
         data-queue-live-item=""
         ref={rowRef}
       >
-        <div className="flex h-7 min-w-0 items-center gap-1.5 pr-0.5 text-[13px] whitespace-nowrap">
+        <div className="flex h-7 min-w-0 items-center gap-1.5 pr-0.5 text-ui whitespace-nowrap">
           <SortableItemHandle asChild>
             <IconButton
               className="w-5 shrink-0 text-faint hover:bg-transparent hover:text-foreground"
@@ -140,7 +140,7 @@ export function QueuedMessageRow({
               {...proseInputProps}
               aria-label="Edit queued message"
               autoFocus
-              className="h-6 flex-1 rounded-[5px] px-1.5 py-0 text-[13px] md:text-[13px] dark:bg-transparent"
+              className="h-6 flex-1 rounded-[5px] px-1.5 py-0 text-ui md:text-ui dark:bg-transparent"
               onChange={(event) => onEditChange(event.currentTarget.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
@@ -167,7 +167,7 @@ export function QueuedMessageRow({
             </span>
           )}
           {!isEditing && (contextRefs.length > 0 || resourceRefs.length > 0) ? (
-            <span className="flex max-w-[45%] min-w-0 shrink items-center gap-2 text-[12px] text-muted-foreground">
+            <span className="flex max-w-[45%] min-w-0 shrink items-center gap-2 text-meta text-muted-foreground">
               {contextRefs.length > 0 ? <QueuedReferenceSummary references={contextRefs} /> : null}
               {resourceRefs.length > 0 ? (
                 <QueuedAttachmentSummary
@@ -181,7 +181,7 @@ export function QueuedMessageRow({
           {problem && !isEditing ? (
             <button
               aria-expanded={showProblem}
-              className="flex h-6 shrink-0 items-center gap-1 rounded-[5px] px-1 text-[12px] font-medium text-destructive-text outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-6 shrink-0 items-center gap-1 rounded-[5px] px-1 text-meta font-medium text-destructive-text outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
               onClick={() => setShowProblem((open) => !open)}
               title={problem}
               type="button"
@@ -235,7 +235,7 @@ export function QueuedMessageRow({
           )}
         </div>
         {problem && showProblem && !isEditing ? (
-          <p className="pr-2 pb-1.5 pl-[26px] text-[12px] break-words whitespace-normal text-muted-foreground">
+          <p className="pr-2 pb-1.5 pl-[26px] text-meta break-words whitespace-normal text-muted-foreground">
             {problem}
           </p>
         ) : null}
@@ -352,7 +352,7 @@ function QueuedResourceAttachment({
         <Attachment
           aria-label={openable ? `Open ${filename}` : filename}
           className={cn(
-            'h-6 max-w-36 min-w-0 gap-1 rounded-[5px] border-0 px-1 text-[12px] font-normal text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-hover',
+            'h-6 max-w-36 min-w-0 gap-1 rounded-[5px] border-0 px-1 text-meta font-normal text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-hover',
             !openable && 'cursor-default',
           )}
           data={{ filename, id: resourceRef.resource_id, mediaType, type: 'file', url: '' }}

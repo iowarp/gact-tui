@@ -127,7 +127,7 @@ function CompactModelDetails({
             className="size-4 rounded-none bg-transparent text-muted-foreground [&>span]:size-4"
             provider="huggingface"
           />
-          <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold" title={modelId}>
+          <h3 className="min-w-0 flex-1 truncate text-ui font-semibold" title={modelId}>
             {modelId}
           </h3>
           <IconButton
@@ -147,7 +147,7 @@ function CompactModelDetails({
           </NamedTooltip>
         </div>
         {pending ? (
-          <div role="status" className="flex min-h-[25px] items-center text-[12px]">
+          <div role="status" className="flex min-h-[25px] items-center text-meta">
             <StatusIndicator label="Reading model details…" tone="running" />
           </div>
         ) : null}

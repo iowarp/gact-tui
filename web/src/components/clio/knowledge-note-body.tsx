@@ -149,14 +149,14 @@ export function KnowledgeNoteRead({
             <button
               type="button"
               aria-expanded={expanded}
-              className="h-6 rounded-[6px] px-2 text-[11.5px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-6 rounded-[6px] px-2 text-label text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
               onClick={() => setExpandedFor(expanded ? '' : path)}
             >
               {expanded ? 'Show fewer' : `${hidden} more`}
             </button>
           ) : null}
           {opened.relationships_truncated ? (
-            <p className="px-2 py-1 text-[11.5px] text-muted-foreground">
+            <p className="px-2 py-1 text-label text-muted-foreground">
               More links than shown. Show its linked notes from More actions.
             </p>
           ) : null}

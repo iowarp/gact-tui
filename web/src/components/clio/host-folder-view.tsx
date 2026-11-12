@@ -126,7 +126,7 @@ export function HostFolderView({
         </dl>
         {!inPlace && folder.path ? (
           <TechnicalDetails className="mt-3 text-xs" title="Technical details">
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+            <p className="mt-1 font-mono text-caption text-muted-foreground">
               Copy kept at <PathText path={folder.path} />
             </p>
           </TechnicalDetails>

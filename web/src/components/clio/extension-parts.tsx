@@ -14,7 +14,10 @@ import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator } from './primitives/status-indicator';
 
-/** Meta parts separated by space alone; the whole line is the hover text when it is cut. */
+/**
+ * Meta parts separated by space alone; the whole line is the hover text when it is cut.
+ * A phone-width list drops the addresses and commands after the first part.
+ */
 export function MetaLine({
   parts,
   className,
@@ -29,7 +32,11 @@ export function MetaLine({
     <span className={className} title={rows.map((part) => part.text).join(', ')}>
       {rows.map((part, index) => (
         <span
-          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.71875rem]')}
+          className={cn(
+            index ? 'ml-2.5' : undefined,
+            part.mono && 'font-mono text-label',
+            part.mono && index && '@max-sm:hidden',
+          )}
           key={`${index}:${part.text}`}
         >
           {part.text}
@@ -102,7 +109,7 @@ export function TrustBanner({
       <div className="flex min-w-0 items-center gap-2.5">
         <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
         <p
-          className="line-clamp-2 min-w-0 flex-1 text-[0.8125rem] leading-5"
+          className="line-clamp-2 min-w-0 flex-1 text-ui leading-5"
           title={detail ? `${message} ${detail}` : message}
         >
           {message}

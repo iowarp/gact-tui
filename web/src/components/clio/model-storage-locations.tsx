@@ -45,7 +45,7 @@ export function ModelStorageLocations({
       <ListGroupLabel
         action={
           <Button
-            className="h-6 text-[11.5px] text-link"
+            className="h-6 text-label text-link"
             onClick={() => setEditing(true)}
             size="xs"
             variant="ghost"

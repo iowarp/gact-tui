@@ -97,7 +97,7 @@ function BrowserAddress({
         aria-label="Address"
         autoComplete="off"
         autoFocus={autoFocus}
-        className="h-6 w-full min-w-0 truncate rounded-[5px] border border-transparent bg-transparent px-1.5 font-mono text-[12px] text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground hover:border-border focus:border-ring focus:bg-background aria-invalid:border-destructive read-only:hover:border-transparent"
+        className="h-6 w-full min-w-0 truncate rounded-[5px] border border-transparent bg-transparent px-1.5 font-mono text-meta text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground hover:border-border focus:border-ring focus:bg-background aria-invalid:border-destructive read-only:hover:border-transparent"
         inputMode="url"
         onBlur={() => {
           // A blank page keeps what was typed; a page shows its address again.

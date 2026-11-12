@@ -121,7 +121,7 @@ export function ClioSubagentCanvasView({
     <SubagentFrame
       actions={
         childSessionId === activeSessionId ? (
-          <span className="px-1 text-[11px] text-muted-foreground">In the central column</span>
+          <span className="px-1 text-caption text-muted-foreground">In the central column</span>
         ) : (
           <IconButton
             icon={<ArrowUpLeftIcon />}
@@ -139,7 +139,7 @@ export function ClioSubagentCanvasView({
           </span>
           {subagent.agent_id ? <span>{subagent.agent_id}</span> : null}
           {subagent.model_choice ? (
-            <span className="flex min-w-0 [&_[data-slot=subagent-model]]:border-0 [&_[data-slot=subagent-model]]:p-0 [&_[data-slot=subagent-model]]:text-[11px]">
+            <span className="flex min-w-0 [&_[data-slot=subagent-model]]:border-0 [&_[data-slot=subagent-model]]:p-0 [&_[data-slot=subagent-model]]:text-caption">
               <SubagentModel choice={subagent.model_choice} />
             </span>
           ) : null}

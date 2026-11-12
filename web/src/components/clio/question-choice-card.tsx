@@ -91,7 +91,7 @@ export function QuestionWriteIn({
       >
         <Input
           aria-label={label}
-          className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
+          className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-menu md:text-menu"
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}

@@ -18,7 +18,7 @@ export function MemoryErrorLine({
   const text = `${what} ${reason}`;
   return (
     <p
-      className="flex h-7 min-w-0 items-center gap-2 text-[0.71875rem] whitespace-nowrap text-destructive max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:items-start max-[599px]:py-1 max-[599px]:whitespace-normal"
+      className="flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-destructive max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:items-start max-[599px]:py-1 max-[599px]:whitespace-normal"
       data-slot="memory-error"
       role="alert"
     >

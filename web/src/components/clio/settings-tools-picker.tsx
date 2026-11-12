@@ -367,7 +367,7 @@ export function ToolFilterField({
   return (
     <label
       className={cn(
-        'flex h-[1.875rem] min-w-0 items-center gap-2 rounded-md border border-input bg-input/30 pr-1 pl-2.5 text-[0.78125rem] focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
+        'flex h-[1.875rem] min-w-0 items-center gap-2 rounded-md border border-input bg-input/30 pr-1 pl-2.5 text-menu focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
         className,
       )}
       // With text in the field, the first Esc clears it; the window closes only on the next.

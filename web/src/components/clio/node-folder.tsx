@@ -23,7 +23,7 @@ export function NodeFolder({
 }) {
   return (
     <p
-      className={cn('flex min-w-0 items-baseline gap-1.5 text-[11px] leading-4', className)}
+      className={cn('flex min-w-0 items-baseline gap-1.5 text-caption leading-4', className)}
       data-slot="node-folder"
     >
       <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground">

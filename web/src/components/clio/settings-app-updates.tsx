@@ -157,7 +157,7 @@ export function AppUpdateSettings() {
           data-slot="settings-release-notes"
         >
           <div className="grid gap-1 border-b border-border/70 py-2.5">
-            <div className="flex min-w-0 items-center gap-2 text-[0.8125rem] whitespace-nowrap">
+            <div className="flex min-w-0 items-center gap-2 text-ui whitespace-nowrap">
               <h3 className="truncate font-normal">Release notes</h3>
               {available.date ? (
                 <span className="ml-auto shrink-0 text-xs text-faint">
@@ -166,7 +166,7 @@ export function AppUpdateSettings() {
               ) : null}
             </div>
             {available.body ? (
-              <p className="line-clamp-6 text-xs leading-[1.5] whitespace-pre-line text-muted-foreground">
+              <p className="line-clamp-6 text-xs leading-normal whitespace-pre-line text-muted-foreground">
                 {available.body}
               </p>
             ) : null}

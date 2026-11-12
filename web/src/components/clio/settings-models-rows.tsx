@@ -14,7 +14,7 @@ export const SHOW_DIFFUSION = 'show_diffusion';
 function NotOffered({ children = 'Not offered' }: { children?: ReactNode }) {
   return (
     <span
-      className="shrink-0 text-[0.71875rem] whitespace-nowrap text-faint"
+      className="shrink-0 text-label whitespace-nowrap text-faint"
       data-slot="settings-unavailable"
     >
       {children}
@@ -28,7 +28,7 @@ export function FastModelRow() {
     <SettingsRow
       description="Titles, summaries and other small calls."
       info={`${vocab.agent} doesn't offer a separate fast model yet, so these calls use the default model.`}
-      note="Not offered by this agent; small calls use the default model"
+      note="Not offered by this agent"
       title="Fast model"
     >
       <SettingsSelectField

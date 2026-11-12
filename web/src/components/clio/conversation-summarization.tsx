@@ -133,7 +133,7 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         absentTitle="The agent had not recorded its system prompt when this compaction ran"
       >
         {systemPrompt ? (
-          <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">
+          <pre className="max-h-80 overflow-auto p-3 font-mono text-meta leading-5 whitespace-pre-wrap">
             {systemPrompt}
           </pre>
         ) : null}

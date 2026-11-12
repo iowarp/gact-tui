@@ -103,14 +103,14 @@ export function NavigationAgentMenu({
           </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate font-heading text-[15px] font-semibold">
+              <span className="truncate font-heading text-h3 font-semibold">
                 {brand.wordmark}
               </span>
               <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
             </span>
             <span
               className={cn(
-                'flex min-w-0 items-center gap-1 text-[11.5px] text-muted-foreground',
+                'flex min-w-0 items-center gap-1 text-label text-muted-foreground',
                 line.className,
               )}
               data-truncation-scope=""

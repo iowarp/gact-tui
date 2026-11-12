@@ -76,7 +76,7 @@ export function ClioPathPicker({
           </InputGroupAddon>
           <InputGroupInput
             aria-label={inputId ? undefined : inputLabel}
-            className={cn('h-full', className && 'text-[12.5px] md:text-[12.5px]')}
+            className={cn('h-full', className && 'text-menu md:text-menu')}
             disabled={disabled}
             id={inputId}
             onChange={(event) => onChange(event.target.value)}

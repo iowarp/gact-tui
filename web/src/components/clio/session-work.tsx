@@ -109,7 +109,7 @@ export function SessionWorkSummary({
       onClick={onOpen}
       className={cn(
         'max-w-full min-w-0 justify-start gap-2 px-0 text-left',
-        compact ? 'h-7 px-1.5 text-[12px]' : 'h-7 text-xs',
+        compact ? 'h-7 px-1.5 text-meta' : 'h-7 text-xs',
       )}
       aria-label="Open session Work"
       title={current?.title}
@@ -248,7 +248,7 @@ function WorkSection({
 }) {
   return (
     <section aria-label={title} className="flex min-w-0 shrink-0 flex-col pb-3">
-      <h3 className="flex h-8 min-w-0 items-center gap-2 text-[12.5px]">
+      <h3 className="flex h-8 min-w-0 items-center gap-2 text-menu">
         <span className="font-semibold">{title}</span>
         <span className="ml-auto truncate font-normal text-muted-foreground">{summary}</span>
       </h3>

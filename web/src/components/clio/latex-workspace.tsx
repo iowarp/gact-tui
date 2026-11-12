@@ -402,7 +402,7 @@ export function LatexFileWorkspace({
       {sessionId ? (
         <ViewerToolbarContent>
           <Button
-            className="h-7 px-2 text-[12px]"
+            className="h-7 px-2 text-meta"
             data-frame-tool=""
             disabled={pending}
             onClick={() => register.mutate()}

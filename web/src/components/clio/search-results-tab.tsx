@@ -151,7 +151,7 @@ export function SearchResultsTab({
         }
         where={
           <span
-            className="min-w-0 shrink truncate text-[12.5px] font-semibold text-foreground"
+            className="min-w-0 shrink truncate text-menu font-semibold text-foreground"
             data-frame-fit="name"
             title={query}
           >
@@ -172,7 +172,7 @@ export function SearchResultsTab({
         shouldFilter={false}
         tabIndex={0}
       >
-        <CommandList className="max-h-none flex-1 px-2.5 py-1 **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
+        <CommandList className="max-h-none flex-1 px-2.5 py-1 **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-menu">
           {loading ? (
             <ResourceLoading className="px-2 py-2" label="Searching" variant="line" />
           ) : !counts[scope] ? (

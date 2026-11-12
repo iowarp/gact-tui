@@ -64,7 +64,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
         aria-label={ariaLabel}
         data-slot="key-value-grid"
         data-variant="rows"
-        className={cn('grid min-w-0 text-[12px]', className)}
+        className={cn('grid min-w-0 text-meta', className)}
       >
         {items.map((item) => (
           <div
@@ -81,7 +81,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             <dd
               className={cn(
                 'flex min-w-0 items-center gap-[7px] truncate whitespace-nowrap text-left text-foreground',
-                item.mono && 'font-mono text-[11px] tabular-nums',
+                item.mono && 'font-mono text-caption tabular-nums',
               )}
               title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
             >
@@ -100,10 +100,10 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       data-variant={variant}
       className={cn(
         facts
-          ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-[12.5px]'
+          ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-menu'
           : card
-            ? 'grid items-center gap-x-3 px-2 text-[12px] [&_dd]:leading-[25px] [&_dt]:h-[25px]'
-            : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
+            ? 'grid items-center gap-x-3 px-2 text-meta [&_dd]:leading-[25px] [&_dt]:h-[25px]'
+            : 'grid items-center gap-x-3 gap-y-1 text-meta',
         facts
           ? hasAction
             ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
@@ -131,7 +131,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
               className={cn(
                 'flex min-w-0 items-center whitespace-nowrap',
                 card ? 'gap-2.5 text-foreground/85' : 'gap-2 text-muted-foreground',
-                facts && 'text-[12px]',
+                facts && 'text-meta',
                 wrap && 'h-6 self-start',
                 dropNarrow && '@max-[420px]:hidden',
                 narrowOnly && 'hidden @max-[420px]:flex',
@@ -158,15 +158,15 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             <dd
               className={cn(
                 wrap
-                  ? 'min-w-0 py-[3px] leading-[18px] [overflow-wrap:anywhere]'
+                  ? 'min-w-0 py-[3px] leading-4.5 [overflow-wrap:anywhere]'
                   : 'min-w-0 truncate whitespace-nowrap',
                 facts
                   ? 'flex items-center gap-[7px] text-left text-foreground/90'
                   : card
                     ? 'text-right text-muted-foreground'
                     : 'text-right text-foreground/85',
-                item.mono && 'font-mono text-[11.5px] tabular-nums',
-                facts && item.mono && 'text-[12px]',
+                item.mono && 'font-mono text-label tabular-nums',
+                facts && item.mono && 'text-meta',
                 dropNarrow && '@max-[420px]:hidden',
                 narrowOnly && (wrap ? 'hidden @max-[420px]:block' : 'hidden @max-[420px]:flex'),
               )}

@@ -145,7 +145,7 @@ export function ScheduleDialog({
           title="Instruction"
         >
           <Textarea
-            className="min-h-[1.875rem] resize-none px-2.5 py-1.5 text-[0.78125rem] whitespace-normal md:text-[0.78125rem]"
+            className="min-h-[1.875rem] resize-none px-2.5 py-1.5 text-menu whitespace-normal md:text-menu"
             data-initial-focus=""
             id="schedule-instruction"
             onChange={(event) => update({ question: event.target.value })}
@@ -242,7 +242,7 @@ export function ScheduleDialog({
                 title="Expression"
               >
                 <Input
-                  className="h-[1.875rem] font-mono text-[0.78125rem] md:text-[0.78125rem]"
+                  className="h-[1.875rem] font-mono text-menu md:text-menu"
                   id="schedule-expression"
                   onChange={(event) => update({ customCron: event.target.value })}
                   placeholder="0 9 * * 1-5"
@@ -272,7 +272,7 @@ export function ScheduleDialog({
           }
           title="Time zone"
         >
-          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
+          <span className="min-w-0 truncate text-menu text-muted-foreground">
             {kind === 'once' ? deviceTimezone : (serviceTimezone ?? 'Loading…')}
           </span>
         </SettingsRow>

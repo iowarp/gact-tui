@@ -218,7 +218,7 @@ export function ManagedServiceInventory({
               <>
                 <nav
                   aria-label="Deployment steps"
-                  className="mb-2 flex h-6 items-center gap-2 text-[12px] text-muted-foreground"
+                  className="mb-2 flex h-6 items-center gap-2 text-meta text-muted-foreground"
                 >
                   <DeployStep done={Boolean(current)} on={!current} step={1}>
                     Choose service
@@ -362,7 +362,7 @@ function ServiceChooser({
         const GroupIcon = group.icon ?? ServerIcon;
         return (
           <ItemList key={group.id} label={group.label}>
-            <h3 className="px-2 pt-1 pb-0.5 text-[11.5px] font-medium text-muted-foreground">
+            <h3 className="px-2 pt-1 pb-0.5 text-label font-medium text-muted-foreground">
               {group.label}
             </h3>
             {rows.map((service) => {

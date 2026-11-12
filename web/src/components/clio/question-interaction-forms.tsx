@@ -76,7 +76,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     <QuestionFrame {...props}>
       <AskError error={props.responseError} />
       <AskSection>
-        <FieldGroup className="gap-2.5 text-[12.5px]">
+        <FieldGroup className="gap-2.5 text-menu">
           {fields.map((field) => (
             <SchemaField
               prefix={interaction.id}
@@ -142,7 +142,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
     <QuestionFrame {...props}>
       {interaction.payload?.punycode_warning ? (
         <AskSection
-          className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-warning"
+          className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-warning"
           role="note"
         >
           <AlertTriangleIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -164,7 +164,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         ]}
       />
       {navigationError ? (
-        <AskSection className="mt-2 text-[12px] text-destructive" role="alert">
+        <AskSection className="mt-2 text-meta text-destructive" role="alert">
           {navigationError}
         </AskSection>
       ) : null}
