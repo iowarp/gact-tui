@@ -62,7 +62,7 @@ export function NavigationAgentMenu({
   const place = placeWords(location);
   const line = statusLine(stream, versions.state === 'available', name, place);
   // The line as it reads on screen: its parts apart by spacing, or the faint @.
-  const shown = line.parts ? line.parts.join(line.at ? ' @ ' : '\u2003') : line.text;
+  const shown = line.parts ? line.parts.join(line.at ? ' @ ' : ' ') : line.text;
   const tooltip = `${brand.name}: ${line.text}${streamError ? `. ${streamError}` : ''}`;
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
@@ -117,12 +117,15 @@ export function NavigationAgentMenu({
               <StatusIndicator
                 className="-ml-1 size-3"
                 display="column"
-                hoverName={line.parts?.[0] === line.label ? shown : `${line.label}\u2003${shown}`}
+                hoverName={line.parts?.[0] === line.label ? shown : `${line.label} ${shown}`}
                 label={line.label}
                 tone={line.tone}
               />
               {line.parts ? (
-                <span className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-1.5')}>
+                <span
+                  className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-1.5')}
+                  data-truncation-gap="space"
+                >
                   <span className={cn('shrink-0', line.leadClassName)}>{line.parts[0]}</span>
                   {line.at ? (
                     <span aria-hidden="true" className="shrink-0 text-faint">

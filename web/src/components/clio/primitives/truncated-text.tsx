@@ -34,7 +34,8 @@ interface Hint {
  * row), and only while something is actually cut. A surface opts out with
  * `data-truncation-hint="off"`; a cut element with a different full text
  * (a compact label) names it in `data-full-text`; a line whose parts are one
- * text (a state and a name) is marked `data-truncation-scope` and reads whole.
+ * text (a state and a name) is marked `data-truncation-scope` and reads whole;
+ * parts spaced as one phrase read with plain spaces under `data-truncation-gap="space"`.
  */
 export function TruncationHints() {
   const [hint, setHint] = useState<Hint | null>(null);

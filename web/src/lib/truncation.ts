@@ -136,13 +136,19 @@ export function truncatedTextForFocus(control: HTMLElement): HTMLElement[] {
 /** A wide space, so parts the row sets apart with a gap or margin stay apart. */
 const PART_GAP = '\u2003';
 
+/** A container whose parts read as one phrase ("Agent @ this computer") marks itself so. */
+const gapOf = (element: Element) =>
+  element instanceof HTMLElement && element.dataset.truncationGap === 'space' ? ' ' : PART_GAP;
+
 /**
  * Text as the row reads it. `textContent` glues parts that only a flex gap or a
- * margin separates ("Tool actionOne conversation"); those parts get a gap here.
+ * margin separates ("Tool actionOne conversation"); those parts get a gap here,
+ * or a plain space under `data-truncation-gap="space"`.
  */
 function readableText(element: HTMLElement): string {
   const parts: string[] = [];
-  const walk = (node: Node, gapped: boolean) => {
+  const walk = (node: Element, gapped: boolean) => {
+    const gap = gapOf(node);
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
         parts.push(child.textContent ?? '');
@@ -156,9 +162,9 @@ function readableText(element: HTMLElement): string {
         style.display !== 'inline' ||
         parseFloat(style.marginLeft) > 0 ||
         parseFloat(style.marginRight) > 0;
-      if (apart) parts.push(PART_GAP);
+      if (apart) parts.push(gap);
       walk(child, parseFloat(style.columnGap) > 0);
-      if (apart) parts.push(PART_GAP);
+      if (apart) parts.push(gap);
     }
   };
   walk(element, parseFloat(getComputedStyle(element).columnGap) > 0);
