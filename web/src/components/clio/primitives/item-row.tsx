@@ -16,6 +16,12 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
   /**
+   * Hidden actions take no column: on hover or focus they float over the end of
+   * the row, left of the slot, and the name and meta get the width. Only for rows
+   * without a status; the slot sizes to its content.
+   */
+  floatActions?: boolean;
+  /**
    * The last action is a ⋯ menu that holds every action. On a phone-width list
    * the others fold into it and it stays visible in its own column; on a touch
    * screen with room for the actions column, they stay visible there.
@@ -66,6 +72,7 @@ export const ItemRow = memo(
       status,
       actions,
       actionsVisible = false,
+      floatActions = false,
       foldActions = false,
       slot,
       confirm,
@@ -89,6 +96,8 @@ export const ItemRow = memo(
     // pointer leaves), never over the name or meta; a row without a status
     // keeps their column.
     const overlay = !actionsVisible && status !== undefined;
+    const floats = floatActions && !actionsVisible && status === undefined && !foldActions;
+    const hasSlot = slot !== undefined && slot !== null && slot !== false;
     const columns: CSSProperties = {
       ['--item-icon' as string]: iconWidth === undefined ? '1.25rem' : `${iconWidth}px`,
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
@@ -121,6 +130,8 @@ export const ItemRow = memo(
                 : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
+          // Floating actions: the name, then a slot that is only as wide as its content.
+          floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -185,6 +196,26 @@ export const ItemRow = memo(
             data-slot="item-row-confirm"
           >
             {confirm}
+          </span>
+        ) : floats ? (
+          <span
+            className={cn(
+              'relative flex min-w-0 items-center justify-end gap-2 self-stretch [&_[data-slot=button]]:text-xs',
+              stacks && '@max-sm:row-span-2',
+            )}
+            data-slot="item-row-slot"
+          >
+            <span
+              className={cn(
+                'pointer-events-none absolute inset-y-0 right-full flex items-center justify-end gap-px bg-hover pl-1 opacity-0',
+                'group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100',
+                hasSlot && 'mr-2',
+              )}
+              data-slot="item-row-actions"
+            >
+              {actions}
+            </span>
+            {slot}
           </span>
         ) : (
           <>
