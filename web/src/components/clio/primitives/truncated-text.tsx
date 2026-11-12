@@ -33,7 +33,8 @@ interface Hint {
  * pointer, or inside the control keyboard focus lands on (or that control's
  * row), and only while something is actually cut. A surface opts out with
  * `data-truncation-hint="off"`; a cut element with a different full text
- * (a compact label) names it in `data-full-text`.
+ * (a compact label) names it in `data-full-text`; a line whose parts are one
+ * text (a state and a name) is marked `data-truncation-scope` and reads whole.
  */
 export function TruncationHints() {
   const [hint, setHint] = useState<Hint | null>(null);

@@ -50,6 +50,8 @@ export interface StatusIndicatorProps {
   mark?: 'dot' | 'glyph';
   /** A domain's own 14px glyph for this state (a run's question bubble); replaces the mark. */
   icon?: ReactNode;
+  /** The hover name, when it should say more than the label (the whole line it leads). */
+  hoverName?: string;
   className?: string;
 }
 
@@ -71,6 +73,7 @@ export const StatusIndicator = memo(function StatusIndicator({
   display = 'visible',
   mark: markStyle = 'dot',
   icon,
+  hoverName,
   className,
 }: StatusIndicatorProps) {
   const glyph = icon ?? (markStyle === 'glyph' ? GLYPH[tone] : undefined);
@@ -92,7 +95,7 @@ export const StatusIndicator = memo(function StatusIndicator({
       <span
         role="img"
         aria-label={label}
-        title={label}
+        title={hoverName ?? label}
         data-slot="status-indicator"
         data-tone={tone}
         className={cn('inline-grid size-4 shrink-0 place-items-center', className)}
