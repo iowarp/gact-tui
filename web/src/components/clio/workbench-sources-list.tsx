@@ -366,7 +366,8 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
  * Sub-line parts held apart by a layout gap rather than a separator glyph. The line is one
  * line high and wraps, so a later part that does not fit whole drops out of view instead of
  * showing as a stub. When the list is narrow, `narrow[i]` replaces part i: a shorter word,
- * or null to leave it out so the parts after it keep their room.
+ * or null to leave it out so the parts after it keep their room. A narrow line does not
+ * wrap: the first part truncates so the last (the access word) stays in view.
  */
 function SublineParts({
   parts,
@@ -376,13 +377,13 @@ function SublineParts({
   narrow?: readonly (string | null | undefined)[];
 }) {
   return (
-    <span className="flex h-[1lh] min-w-0 flex-wrap gap-x-2 overflow-hidden">
+    <span className="flex h-[1lh] min-w-0 flex-wrap gap-x-2 overflow-hidden @max-[340px]/sources:flex-nowrap">
       {parts.map((part, index) => {
         const short = narrow[index];
         return (
           <span
             className={cn(
-              index === 0 ? 'min-w-0 truncate' : 'whitespace-nowrap',
+              index === 0 ? 'min-w-0 truncate' : 'shrink-0 whitespace-nowrap',
               short === null && '@max-[340px]/sources:hidden',
             )}
             key={part}
