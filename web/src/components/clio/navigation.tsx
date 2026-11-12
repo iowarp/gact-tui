@@ -26,10 +26,10 @@ import { NavigationHeader } from './navigation-header';
 import { StableInput } from './primitives/stable-input';
 import { holdPreviews } from './row-preview-hold';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
-import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
-import { newConversationRoute } from '@/lib/workspace-route-memory';
+import { newConversationRoute, returnRouteFromState } from '@/lib/workspace-route-memory';
+import { connectionScope } from '@/lib/connection-scope';
 import type { SessionAttention } from '@/lib/session-attention';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
@@ -109,7 +109,6 @@ const ClioNavigationView = memo(function ClioNavigationView({
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const archived = useArchivedSessions(sessions, archivedOpen);
-  const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
   const { isMobile, setOpenMobile } = useSidebar();
   const closeSheet = useCallback(() => {
@@ -148,6 +147,35 @@ const ClioNavigationView = memo(function ClioNavigationView({
   // A new conversation is a draft in place; it becomes a row once it is sent.
   const openNewSession = (workspaceId = activeWorkspaceId) => {
     void navigate(newConversationRoute(workspaceId || 'ws_default'));
+  };
+  // Open folder › In a tab: the Files tab here, or a new conversation in that workspace with it open.
+  const openWorkspaceFilesTab = (workspaceId: string) => {
+    if (workspaceId === activeWorkspaceId && onOpenWorkspaceFiles) {
+      closeSheet();
+      onOpenWorkspaceFiles();
+      return;
+    }
+    void navigate(newConversationRoute(workspaceId), {
+      state: {
+        globalSearchResource: {
+          scope: connectionScope(settings),
+          request: { kind: 'resources', section: 'files' },
+        },
+      },
+    });
+  };
+  // A workspace's settings are its Settings › Folders page (spec), over the page behind.
+  const openWorkspaceSettings = (workspaceId: string) => {
+    closeSheet();
+    void navigate('/settings/folders', {
+      state: {
+        endpoint: settings.endpoint,
+        from: location.pathname.startsWith('/workspaces/')
+          ? location.pathname
+          : returnRouteFromState(location.state, settings.endpoint),
+        workspaceId,
+      },
+    });
   };
   const downloadSession = async (
     sessionId: string,
@@ -239,10 +267,10 @@ const ClioNavigationView = memo(function ClioNavigationView({
                 onCreateSession={openNewSession}
                 onDelete={withSheetClosed(setDeleteTarget)}
                 onDownloadSession={downloadSession}
-                onEditWorkspace={withSheetClosed(setWorkspaceEditorId)}
+                onEditWorkspace={openWorkspaceSettings}
                 onImportSession={importSession}
                 onNewWorkspace={() => withSheetClosed(setCreateWorkspaceOpen)(true)}
-                onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+                onOpenWorkspaceFiles={openWorkspaceFilesTab}
                 onRename={withSheetClosed(setRenameTarget)}
                 sessions={sessions}
                 workspaces={workspaces}
@@ -313,13 +341,6 @@ const ClioNavigationView = memo(function ClioNavigationView({
         state={archived.state}
         workspaces={workspaces}
       />
-      {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (
-        <WorkspaceEditorDialog
-          actions={actions}
-          onClose={() => setWorkspaceEditorId(undefined)}
-          workspace={workspaces.find((workspace) => workspace.id === workspaceEditorId)!}
-        />
-      ) : null}
     </>
   );
 });
