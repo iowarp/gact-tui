@@ -36,6 +36,7 @@ import {
   storeConnectionCredential,
 } from '@/tauri/secure-credentials';
 import { waitForManagedBackend, type ManagedBackendStatus } from '@/tauri/managed-backend';
+import type { RuntimeInstallProgress } from '@/lib/runtime-install-progress';
 import { finishInstallerInfrastructure } from '@/lib/installer-infrastructure';
 import {
   attachInfrastructureSshTransport,
@@ -114,6 +115,8 @@ interface ConnectionContextValue {
   managedConnectionReady: boolean;
   isManagedConnection: boolean;
   managedBackendStatus?: ManagedBackendStatus;
+  /** A first-use install's progress, while the desktop installs its local service. */
+  managedInstallProgress?: RuntimeInstallProgress;
   /**
    * The desktop-managed local service's own endpoint + token, once known --
    * distinct from `settings` (the ACTIVE connection, which can move to a
@@ -235,6 +238,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
   const [managedConnectionReady, setManagedConnectionReady] = useState(false);
   const [managedBackendStatus, setManagedBackendStatus] = useState<ManagedBackendStatus>();
+  const [managedInstallProgress, setManagedInstallProgress] = useState<RuntimeInstallProgress>();
   const [credentialError, setCredentialError] = useState<string>();
   /** The supervisor's address is allocated per launch, so it is never remembered. */
   const [managedEndpoint, setManagedEndpoint] = useState<string>();
@@ -255,7 +259,10 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!inTauri()) return;
     let cancelled = false;
-    void waitForManagedBackend({ onStatus: setManagedBackendStatus })
+    void waitForManagedBackend({
+      onStatus: setManagedBackendStatus,
+      onInstallProgress: setManagedInstallProgress,
+    })
       .then((handle) => {
         if (cancelled) return;
         const endpoint = normalizeEndpoint(handle.url);
@@ -622,6 +629,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       managedConnectionReady,
       isManagedConnection: managedConnectionReady && managedEndpoint === settings.endpoint,
       managedBackendStatus,
+      managedInstallProgress,
       managedConnection,
       managedLabel,
       credentialError,
@@ -640,6 +648,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       managedLabel,
       managedBackendStatus,
       managedEndpoint,
+      managedInstallProgress,
       recents,
       rename,
       resolveConnection,
