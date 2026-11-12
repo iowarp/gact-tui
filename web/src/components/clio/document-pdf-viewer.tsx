@@ -343,8 +343,7 @@ export function ClioDocumentPdfViewer({
       const partway = container.scrollTop > (atTop - 1) * pageStride + 4;
       const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
       const target = Math.min(pageCount, Math.max(1, atTop + step));
-      container.scrollTop = (target - 1) * pageStride;
-      readScroll();
+      jumpTo(container, (target - 1) * pageStride);
     },
     { region: pageRegion, enabled: pageCount > 0 },
   );
