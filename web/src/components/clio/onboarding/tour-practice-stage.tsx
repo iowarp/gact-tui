@@ -60,7 +60,9 @@ function TracksMapWarmup() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none invisible absolute inset-0 overflow-hidden"
+      // MapLibre's open attribution sets `visibility: visible`, escaping `invisible`. The
+      // controls are hidden only here: the pooled instance keeps its attribution for the reply.
+      className="pointer-events-none invisible absolute inset-0 overflow-hidden [&_.maplibregl-control-container]:hidden"
       data-tour-map-warmup=""
       inert
     >
