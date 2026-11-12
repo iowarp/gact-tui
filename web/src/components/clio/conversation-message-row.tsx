@@ -80,10 +80,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
+  // A reply the service failed as recoverable (a timed-out model call: error_info
+  // recoverable, recovery "retry") can be retried even when it streamed something
+  // first; only the person's own cancellation is not offered again.
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
-      message.blocks.some((block) => block.type === 'error' && block.recoverable));
+      message.blocks.some((block) => block.type === 'error' && block.recoverable) ||
+      (message.error_info?.recoverable === true && !emptyResponseWasClientCancelled));
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const onRetryMessage = entities.onRetryMessage;
   const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;
