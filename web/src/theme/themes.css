@@ -156,6 +156,8 @@
   --spin-track: #2f5551;
   --hover: #25231f;
   --menu-highlight: #38342d;
+  /* The spec's `.xni.on`: a step quieter than the menu highlight. */
+  --nav-current: #2e2b26;
   --key: #23211d;
   --key-border: #47423a;
   --accent: #21403d;

@@ -1,10 +1,12 @@
 import type { AcceptedParameter } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useContext, useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { settingFromHash } from '@/lib/settings-search-rows';
+import { SettingsResultsContext } from '@/lib/settings-search-results';
 import { cn } from '@/lib/utils';
 import {
   INLINE_SETTINGS_LIMIT,
@@ -67,8 +69,15 @@ export function SettingsResponseSettings({
   onEdit,
   leading,
 }: SettingsResponseSettingsProps) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState<boolean>();
   const shown = shownResponseParameters(parameters);
+  // A search match or a search arrival on one of its rows opens the disclosure.
+  const results = useContext(SettingsResultsContext);
+  const arrival = settingFromHash(typeof window === 'undefined' ? '' : window.location.hash);
+  const named = shown.some(
+    (parameter) => results?.labels.has(parameter.label) || arrival === parameter.label,
+  );
+  const open = openState ?? named;
   const unused = unusedResponseSettings(
     settings,
     parameters?.map((parameter) => parameter.name),

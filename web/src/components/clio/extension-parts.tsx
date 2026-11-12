@@ -14,7 +14,10 @@ import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator } from './primitives/status-indicator';
 
-/** Meta parts separated by space alone; the whole line is the hover text when it is cut. */
+/**
+ * Meta parts separated by space alone; the whole line is the hover text when it is cut.
+ * A phone-width list drops the addresses and commands after the first part.
+ */
 export function MetaLine({
   parts,
   className,
@@ -29,7 +32,11 @@ export function MetaLine({
     <span className={className} title={rows.map((part) => part.text).join(', ')}>
       {rows.map((part, index) => (
         <span
-          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.71875rem]')}
+          className={cn(
+            index ? 'ml-2.5' : undefined,
+            part.mono && 'font-mono text-[0.71875rem]',
+            part.mono && index && '@max-sm:hidden',
+          )}
           key={`${index}:${part.text}`}
         >
           {part.text}
