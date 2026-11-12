@@ -27,6 +27,10 @@ function FakeSession({ children }: { children: ReactNode }) {
       ]);
       return label;
     },
+    updateMark: (label: string, patch: Partial<DraftMark>) =>
+      setMarks((current) =>
+        current.map((mark) => (mark.label === label ? { ...mark, ...patch } : mark)),
+      ),
   };
   return <Session.Provider value={value}>{children}</Session.Provider>;
 }
@@ -125,4 +129,51 @@ describe('CommentCapture', () => {
     fireEvent.mouseUp(getByTestId('pdf-text'));
     expect(marks).toEqual([]);
   });
+
+  it('widens a double-click’s word mark when the click becomes a triple-click', () => {
+    const { getByTestId } = render(
+      <FakeSession>
+        <CommentCapture>
+          <p data-testid="text">Burst buffers absorb checkpoint writes.</p>
+        </CommentCapture>
+        <Marks />
+      </FakeSession>,
+    );
+    const words = getByTestId('text').firstChild!;
+    const select = (start: number, end: number) => {
+      const range = document.createRange();
+      range.setStart(words, start);
+      range.setEnd(words, end);
+      getSelection()!.removeAllRanges();
+      getSelection()!.addRange(range);
+    };
+    const click = (detail: number) => {
+      fireEvent.mouseDown(getByTestId('text'), { detail });
+      fireEvent.mouseUp(getByTestId('text'), { detail });
+    };
+    getSelection()!.removeAllRanges();
+    click(1);
+    select(6, 13);
+    click(2);
+    select(0, 39);
+    click(3);
+    expect(getByTestId('marks').textContent).toBe(
+      'S1:Burst buffers absorb checkpoint writes.',
+    );
+    // A new click sequence makes a new mark.
+    select(14, 20);
+    click(2);
+    expect(getByTestId('marks').textContent).toBe(
+      'S1:Burst buffers absorb checkpoint writes.|S2:absorb',
+    );
+  });
 });
+
+function Marks() {
+  const session = useContext(Session) as { marks: DraftMark[] };
+  return (
+    <p data-testid="marks">
+      {session.marks.map((mark) => `${mark.label}:${mark.anchor.exact}`).join('|')}
+    </p>
+  );
+}
