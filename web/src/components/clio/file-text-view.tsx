@@ -91,7 +91,8 @@ export function FileTextView({
 }) {
   const shared = useContext(FileViewerInformationHost) !== undefined;
   const inherited = useContext(FileSourceOptions);
-  const [wrap, setWrap] = useState(false);
+  // Long source lines wrap by default; the reader can turn wrapping off.
+  const [wrap, setWrap] = useState(true);
   const localOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
   const options = inherited ?? localOptions;
   const format = explicitFormat ?? textFileFormat(name, mediaType);

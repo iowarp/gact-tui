@@ -1,7 +1,11 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { BundledLanguage, ThemedToken } from 'shiki';
+import { TokenSpan } from '@/components/ai-elements/code-block';
 import { cn } from '@/lib/utils';
+import { indentColumns, leadingWhitespace, splitIndent } from '@/lib/source-indent';
 import { SourceWindowContext } from '@/lib/source-window';
+import { useChunkedHighlight } from './source-highlight';
 
 /** Matches the highlighted source's 11.5px/1.65 lines. Unit: CSS px. */
 const SOURCE_LINE_HEIGHT_PX = 19;
@@ -12,12 +16,15 @@ const END_REACHED_ROWS = 200;
 export function VirtualSourceLines({
   content,
   wrap,
+  language,
   headerRow = false,
   className,
   ...props
 }: {
   content: string;
   wrap: boolean;
+  /** Colours the lines once tokenized; plain text and unknown languages stay plain. */
+  language?: BundledLanguage;
   /** The first line names the columns and reads faint. */
   headerRow?: boolean;
   className?: string;
@@ -26,6 +33,7 @@ export function VirtualSourceLines({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => content.replace(/\r?\n$/u, '').split(/\r?\n/u), [content]);
+  const tokensAt = useChunkedHighlight(lines, language);
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: lines.length,
@@ -77,16 +85,59 @@ export function VirtualSourceLines({
               >
                 {item.index + 1}
               </span>
-              <span
+              <SourceLineContent
+                tokens={tokensAt(item.index)}
+                text={lines[item.index]}
+                wrap={wrap}
                 className={cn('min-w-0', headerRow && item.index === 0 && 'text-faint')}
                 data-source-header={headerRow && item.index === 0 ? '' : undefined}
-              >
-                {lines[item.index]}
-              </span>
+              />
             </div>
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+/** One line's code; a wrapped line's continuation rows hang at its own indent. */
+function SourceLineContent({
+  tokens,
+  text,
+  wrap,
+  className,
+  ...props
+}: {
+  tokens: ThemedToken[] | undefined;
+  text: string;
+  wrap: boolean;
+  className: string;
+  'data-source-header'?: string;
+}) {
+  const lead = tokens ? undefined : leadingWhitespace(text);
+  const split = tokens ? splitIndent(tokens) : undefined;
+  const indent = split?.lead ?? lead ?? '';
+  const columns = split ? split.columns : indentColumns(indent);
+  const hang = wrap && columns > 0;
+  return (
+    <span
+      {...props}
+      className={cn(className, hang && 'relative')}
+      // The indent leaves the inline flow when wrapping, so a row never breaks
+      // before the line's first word and continuation rows keep the indent.
+      style={hang ? { paddingLeft: `${columns}ch` } : undefined}
+    >
+      {indent && (
+        <span className={cn('whitespace-pre', hang && 'absolute left-0')} data-indent="">
+          {indent}
+        </span>
+      )}
+      {split
+        ? split.rest.map((token, index) => (
+            // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+            <TokenSpan key={index} token={token} />
+          ))
+        : text.slice(indent.length)}
+    </span>
   );
 }
