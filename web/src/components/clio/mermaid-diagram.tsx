@@ -35,6 +35,7 @@ import {
   useFileViewerContentsRegistry,
   type FileViewerAction,
 } from './file-viewer-action-context';
+import { useFileViewerFacts } from './file-viewer-facts';
 import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
 import { parseDiagramSource } from './mermaid-security';
 import { PresentationNavigation } from './presentation-navigation';
@@ -310,9 +311,10 @@ export function ClioMermaidDiagram({
             chart={diagram.source}
             className="min-h-0 flex-1"
             config={config}
-            controls={({ zoomIn, zoomOut, centerView, scalePercent }) => (
+            controls={({ zoomIn, zoomOut, centerView, scalePercent, fitted }) => (
               <FramedZoom
                 disabled={!svgOutput}
+                fitted={fitted}
                 onIn={zoomIn}
                 onOut={zoomOut}
                 onReset={centerView}
@@ -453,22 +455,26 @@ export function ClioMermaidDiagram({
 }
 
 /**
- * The framed diagram's Format: zoom out and zoom in, with the zoom between
- * them. Wheel or pinch zooms, dragging pans and 0 fits the diagram.
+ * The framed diagram's Format: zoom out and zoom in. A zoom off the fitted
+ * view is a fact, which folds before any control does. Wheel or pinch zooms,
+ * dragging pans and 0 fits the diagram.
  */
 function FramedZoom({
   percent,
+  fitted,
   onIn,
   onOut,
   onReset,
   disabled,
 }: {
   percent: number;
+  fitted: boolean;
   onIn: () => void;
   onOut: () => void;
   onReset: () => void;
   disabled: boolean;
 }) {
+  useFileViewerFacts(disabled || fitted ? undefined : [`${Math.round(percent)}%`]);
   return (
     <ViewerZoomControls
       label="Diagram zoom"
@@ -477,7 +483,6 @@ function FramedZoom({
       onReset={disabled ? undefined : onReset}
       disabledIn={disabled}
       disabledOut={disabled}
-      readout={disabled ? undefined : `${Math.round(percent)}%`}
     />
   );
 }
