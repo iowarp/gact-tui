@@ -40,7 +40,7 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { useFileViewerFacts } from './file-viewer-facts';
 import { ApplyViewport, GraphControls } from './graph-controls';
 import { GraphEdgeFade } from './graph-edge-fade';
-import { focusViewport, fitWidth, usePaneSize } from './graph-fit';
+import { flooredFit, focusViewport, fitWidth, usePaneSize } from './graph-fit';
 
 /**
  * What the service recorded about one file, drawn as the spec's node graph.
@@ -180,8 +180,9 @@ function LineageNode({
 /** The canvas's inset around the drawing when it opens. Unit: CSS px. */
 const LINEAGE_CANVAS_PADDING = 14;
 /**
- * Fit (the zoom row's frame button) zooms out at most this far: names stay legible,
- * and a lineage still wider than the pane is a pan away.
+ * Fit (the zoom row's frame button) zooms out at most this far: names stay legible.
+ * A lineage still too big for the pane is then centred on the opened file, the
+ * rest a pan away.
  */
 const FIT_FLOOR = 0.6;
 const FIT = { padding: 0.06, minZoom: FIT_FLOOR, maxZoom: 1 };
@@ -463,6 +464,24 @@ function LineageFlow({
     },
     [at, graph, onRelayout],
   );
+  // Fit at the floor centres the opened file, measuring the pane when pressed.
+  const fitTo = () => {
+    const pane = region.current;
+    const boxes = nodes.map((node) => ({
+      ...node.position,
+      width: node.width ?? 0,
+      height: LINEAGE_NODE_HEIGHT,
+    }));
+    const focus = nodes.findIndex((node) => node.data.node.kind === 'self');
+    return flooredFit({
+      pane: pane ? { w: pane.clientWidth, h: pane.clientHeight } : undefined,
+      boxes,
+      focus: boxes[focus],
+      floor: FIT_FLOOR,
+      padding: FIT.padding,
+      margin: LINEAGE_CANVAS_PADDING,
+    });
+  };
   return (
     <ReactFlow<LineageFlowNode, LineageFlowEdge>
       defaultViewport={viewport}
@@ -484,7 +503,7 @@ function LineageFlow({
       <ApplyViewport viewport={viewport} />
       <GraphEdgeFade width={graph.width} height={graph.height} />
       <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
-      <GraphControls label="Lineage graph controls" region={region} fit={FIT} />
+      <GraphControls label="Lineage graph controls" region={region} fit={FIT} fitTo={fitTo} />
     </ReactFlow>
   );
 }

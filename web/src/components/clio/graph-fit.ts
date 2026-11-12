@@ -116,6 +116,53 @@ export function focusViewport({
   };
 }
 
+type Box = { x: number; y: number; width: number; height: number };
+
+/**
+ * Fit for a drawing whose boxes may have been dragged anywhere: undefined when
+ * the whole drawing fits at `floor` or closer (frame it all), otherwise the
+ * drawing at `floor` scrolled to `focus` like `focusViewport`.
+ */
+export function flooredFit({
+  pane,
+  boxes,
+  focus,
+  floor,
+  padding,
+  margin = GRAPH_MARGIN,
+}: {
+  pane: PaneSize | undefined;
+  boxes: readonly Box[];
+  focus: Box | undefined;
+  floor: number;
+  /** Fit's inset, as a share of the pane. */
+  padding: number;
+  margin?: number;
+}) {
+  if (!pane || !boxes.length) return undefined;
+  const left = Math.min(...boxes.map((box) => box.x));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const width = Math.max(...boxes.map((box) => box.x + box.width)) - left;
+  const height = Math.max(...boxes.map((box) => box.y + box.height)) - top;
+  const fits = Math.min(
+    (pane.w * (1 - 2 * padding)) / width,
+    (pane.h * (1 - 2 * padding)) / height,
+  );
+  if (fits >= floor) return undefined;
+  const at = focusViewport({
+    pane,
+    width,
+    height,
+    focus: focus && {
+      x: focus.x - left + focus.width / 2,
+      y: focus.y - top + focus.height / 2,
+    },
+    zoom: floor,
+    margin,
+  });
+  return { x: at.x - left * floor, y: at.y - top * floor, zoom: floor };
+}
+
 /** A pane's size, measured once per frame while it resizes. */
 export function usePaneSize(container: RefObject<HTMLElement | null>) {
   const [size, setSize] = useState<PaneSize>();

@@ -13,16 +13,19 @@ import { eventKey } from '@/lib/shortcuts/keys';
 /**
  * The spec's zoom row for a node graph: zoom in, zoom out and fit, each named on
  * hover, in the pane's bottom-right corner. + − 0 do the same while focus is in
- * `region`. Mount inside a `ReactFlow`.
+ * `region`. Mount inside a `ReactFlow`. `fitTo` may name the fitted viewport
+ * itself; when it returns nothing, Fit frames the whole drawing with `fit`.
  */
 export function GraphControls({
   label,
   region,
   fit,
+  fitTo,
 }: {
   label: string;
   region: RefObject<Element | null>;
   fit?: FitViewOptions;
+  fitTo?: () => Viewport | undefined;
 }) {
   return (
     <>
@@ -35,15 +38,26 @@ export function GraphControls({
         showInteractive={false}
         showZoom={false}
       >
-        <GraphZoomButtons fit={fit} />
+        <GraphZoomButtons fit={fit} fitTo={fitTo} />
       </Controls>
-      <GraphZoomKeys region={region} fit={fit} />
+      <GraphZoomKeys region={region} fit={fit} fitTo={fitTo} />
     </>
   );
 }
 
-function GraphZoomButtons({ fit }: { fit?: FitViewOptions }) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+type FitTarget = { fit?: FitViewOptions; fitTo?: () => Viewport | undefined };
+
+function useFit({ fit, fitTo }: FitTarget) {
+  const { fitView, setViewport } = useReactFlow();
+  return () => {
+    const to = fitTo?.();
+    void (to ? setViewport(to, { duration: fit?.duration }) : fitView(fit));
+  };
+}
+
+function GraphZoomButtons(target: FitTarget) {
+  const { zoomIn, zoomOut } = useReactFlow();
+  const fitView = useFit(target);
   return (
     <>
       <ControlButton aria-label="Zoom in" onClick={() => void zoomIn()} title="Zoom in">
@@ -52,7 +66,7 @@ function GraphZoomButtons({ fit }: { fit?: FitViewOptions }) {
       <ControlButton aria-label="Zoom out" onClick={() => void zoomOut()} title="Zoom out">
         <ZoomOut aria-hidden />
       </ControlButton>
-      <ControlButton aria-label="Fit view" onClick={() => void fitView(fit)} title="Fit view">
+      <ControlButton aria-label="Fit view" onClick={fitView} title="Fit view">
         <Maximize aria-hidden />
       </ControlButton>
     </>
@@ -60,20 +74,13 @@ function GraphZoomButtons({ fit }: { fit?: FitViewOptions }) {
 }
 
 /** + − 0 zoom in, out and fit while focus is in the graph (a node or a control). */
-function GraphZoomKeys({
-  region,
-  fit,
-}: {
-  region: RefObject<Element | null>;
-  fit?: FitViewOptions;
-}) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
-  useShortcut(
-    'graph-zoom',
-    (event) => void (eventKey(event) === '-' ? zoomOut() : zoomIn()),
-    { region },
-  );
-  useShortcut('graph-fit', () => void fitView(fit), { region });
+function GraphZoomKeys({ region, ...target }: FitTarget & { region: RefObject<Element | null> }) {
+  const { zoomIn, zoomOut } = useReactFlow();
+  const fitView = useFit(target);
+  useShortcut('graph-zoom', (event) => void (eventKey(event) === '-' ? zoomOut() : zoomIn()), {
+    region,
+  });
+  useShortcut('graph-fit', fitView, { region });
   return null;
 }
 
