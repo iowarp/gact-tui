@@ -124,6 +124,20 @@ export function withQuestionPresentation(
   interactions: readonly PendingInteraction[] = [],
 ): ToolInvocation {
   const rows = questions(tool);
+  const identity = tool.presentation?.blocks.find(
+    (block) => block.id === tool.presentation?.subject && /^task-\d+-identity$/u.test(block.id),
+  );
+  if (tool.name === 'ask_user' && !rows.length && identity) {
+    // A call with no question has nothing to name; the transport's "Task" is no target.
+    return {
+      ...tool,
+      presentation: {
+        ...tool.presentation!,
+        subject: undefined,
+        blocks: tool.presentation!.blocks.filter((block) => block !== identity),
+      },
+    };
+  }
   if (rows.length && tool.state === 'failed') {
     // A rejected ask names the question it tried, not the transport's "Task".
     const prompt = String(rows[0]!.question);

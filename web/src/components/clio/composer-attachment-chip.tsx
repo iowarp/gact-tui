@@ -20,6 +20,7 @@ export function ComposerAttachmentChip({
   mediaType,
   size,
   progress,
+  removing = false,
   stages,
   onOpen,
   onRemove,
@@ -31,6 +32,8 @@ export function ComposerAttachmentChip({
   mediaType: string;
   size?: number;
   progress?: ResourceUploadProgress;
+  /** The service is discarding this upload; the chip stays until it confirms. */
+  removing?: boolean;
   stages: ResourcePipelineStages;
   onOpen: () => void;
   onRemove: () => void;
@@ -45,7 +48,9 @@ export function ComposerAttachmentChip({
       ? Math.max(0, Math.min(100, Math.round((bytes.loaded / bytes.total) * 100)))
       : undefined;
   const inFlight = uploading || converting;
-  const status = uploading
+  const status = removing
+    ? 'Removing'
+    : uploading
     ? bytes && bytes.loaded < bytes.total
       ? `Uploading ${percentage ?? 0}%`
       : bytes
@@ -60,10 +65,12 @@ export function ComposerAttachmentChip({
     <div
       {...props}
       data-slot="composer-attachment-chip"
-      aria-busy={inFlight}
+      aria-busy={inFlight || removing}
+      data-removing={removing || undefined}
       className={cn(
         'relative inline-flex h-6 max-w-64 min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] bg-muted pr-0.5 pl-2 text-[12.5px] text-foreground',
         failed && 'ring-1 ring-destructive/40 ring-inset',
+        removing && 'text-muted-foreground',
         className,
       )}
     >
@@ -89,7 +96,7 @@ export function ComposerAttachmentChip({
           <span
             className={cn(
               'shrink-0 text-[11px] tabular-nums',
-              failed ? 'text-destructive' : 'text-muted-foreground',
+              failed && !removing ? 'text-destructive' : 'text-muted-foreground',
             )}
           >
             {status}
@@ -100,7 +107,7 @@ export function ComposerAttachmentChip({
           </span>
         ) : null}
       </button>
-      {onRetry ? (
+      {onRetry && !removing ? (
         <button
           type="button"
           aria-label={`Retry upload for ${name}`}
@@ -114,9 +121,16 @@ export function ComposerAttachmentChip({
       <button
         type="button"
         aria-label={`Remove ${name}`}
-        title={inFlight ? 'Cancel upload and remove attachment' : 'Remove attachment'}
+        aria-disabled={removing || undefined}
+        title={
+          removing
+            ? 'Removing attachment'
+            : inFlight
+              ? 'Cancel upload and remove attachment'
+              : 'Remove attachment'
+        }
         onClick={onRemove}
-        className={CHIP_ACTION}
+        className={cn(CHIP_ACTION, removing && 'pointer-events-none opacity-50')}
       >
         <RemoveIcon className="size-3" />
       </button>

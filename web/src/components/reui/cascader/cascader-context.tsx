@@ -133,6 +133,11 @@ export interface CascaderActionsContextValue<T = unknown> {
    */
   virtualized: boolean;
   /**
+   * Bumped as each level swap's empty frame ends. Rows key their ref on it so
+   * they register again in Base UI's list, which that frame truncates.
+   */
+  listGeneration: number;
+  /**
    * The level wants windowing but no renderer has registered yet: the one
    * unpainted commit before the layout-effect flip. A windowing renderer reads
    * it to render no rows there instead of every row unwindowed.
