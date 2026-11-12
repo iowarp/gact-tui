@@ -91,14 +91,23 @@ export function WorkbenchFileTree({
   onSelect,
   changedPaths,
   changeCounts,
+  defaultExpanded,
+  countFolders,
+  label,
 }: {
   nodes: readonly WorkspaceFileNode[];
+  /** Trail each folder row with how many items it holds. */
+  countFolders?: boolean;
   selectedPath?: string;
-  onSelect: (path: string) => void;
+  /** Without it, file rows are listed but cannot be chosen. */
+  onSelect?: (path: string) => void;
   changedPaths?: ReadonlySet<string>;
   changeCounts?: ChangeCounts;
+  /** Folders open on the first render. */
+  defaultExpanded?: readonly string[];
+  label?: string;
 }) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(defaultExpanded));
   const toggle = useCallback((path: string) => {
     setExpanded((current) => {
       const next = new Set(current);
@@ -125,7 +134,15 @@ export function WorkbenchFileTree({
           continue;
         }
         const open = expanded.has(path);
-        result.push({ kind: 'dir', path, name: node.name, depth, open });
+        const count = node.children.size;
+        result.push({
+          kind: 'dir',
+          path,
+          name: node.name,
+          depth,
+          open,
+          meta: countFolders ? `${count} ${count === 1 ? 'item' : 'items'}` : undefined,
+        });
         if (!open) continue;
         if (node.entry.redacted) {
           result.push({
@@ -146,12 +163,13 @@ export function WorkbenchFileTree({
     };
     walk(nodes, 0);
     return result;
-  }, [expanded, nodes, sorted]);
+  }, [countFolders, expanded, nodes, sorted]);
 
   return (
     <WindowedFileTree
       changeCounts={changeCounts}
       changedPaths={changedPaths}
+      label={label}
       onSelect={onSelect}
       onToggle={toggle}
       rows={rows}
@@ -171,13 +189,15 @@ export function WindowedFileTree({
   changeCounts,
   onSelect,
   onToggle,
+  label,
 }: {
   rows: readonly FileTreeRow[];
   selectedPath?: string;
   changedPaths?: ReadonlySet<string>;
   changeCounts?: ChangeCounts;
-  onSelect: (path: string) => void;
+  onSelect?: (path: string) => void;
   onToggle: (path: string) => void;
+  label?: string;
 }) {
   const treeRef = useRef<HTMLDivElement>(null);
   const windowed = rows.length > WINDOW_ABOVE_ROWS;
@@ -215,6 +235,7 @@ export function WindowedFileTree({
 
   return (
     <div
+      aria-label={label}
       className="relative min-w-0 font-sans text-[12.5px]"
       ref={treeRef}
       role="tree"
@@ -250,7 +271,7 @@ function TreeRowView({
   selectedPath?: string;
   changedPaths?: ReadonlySet<string>;
   changeCounts?: ChangeCounts;
-  onSelect: (path: string) => void;
+  onSelect?: (path: string) => void;
   onToggle: (path: string) => void;
 }) {
   const placed = top === undefined ? {} : { position: 'absolute' as const, top, left: 0, right: 0 };
@@ -331,7 +352,7 @@ function TreeRowView({
             <FileTreeIcon className="[&_svg]:text-muted-foreground">
               {row.icon ?? <Icon className="size-3.5" />}
             </FileTreeIcon>
-            <FileTreeName>{row.name}</FileTreeName>
+            <FileTreeName title={row.name}>{row.name}</FileTreeName>
             {row.meta ? (
               <span className="ml-auto shrink-0 pl-2 text-[11.5px] font-normal text-faint tabular-nums">
                 {row.meta}
@@ -361,17 +382,22 @@ function TreeRowView({
           className={cn(
             TREE_ROW_CLASS,
             'group/tree-row',
+            !onSelect && 'cursor-default hover:bg-transparent',
             changed && 'text-changed',
             selected && 'bg-accent text-accent-foreground hover:bg-accent',
           )}
           data-changed={changed || undefined}
-          onClick={() => onSelect(row.path)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') onSelect(row.path);
-          }}
+          onClick={onSelect ? () => onSelect(row.path) : undefined}
+          onKeyDown={
+            onSelect
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') onSelect(row.path);
+                }
+              : undefined
+          }
           role="treeitem"
           style={style}
-          tabIndex={0}
+          tabIndex={onSelect ? 0 : undefined}
           title={detail || undefined}
         >
           {row.alignWithFolders ? <span aria-hidden="true" className="w-3 shrink-0" /> : null}
@@ -386,7 +412,7 @@ function TreeRowView({
           >
             {row.icon ?? <FileIcon className="size-3.5" />}
           </FileTreeIcon>
-          <FileTreeName>{row.name}</FileTreeName>
+          <FileTreeName title={row.name}>{row.name}</FileTreeName>
           {trailing || row.actions || row.pinned ? (
             <span className="ml-auto flex min-w-0 shrink-0 items-center gap-2 pl-2">
               {trailing ? (
