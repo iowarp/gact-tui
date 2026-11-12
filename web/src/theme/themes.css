@@ -67,6 +67,9 @@
   --destructive: #b3261e;
   --destructive-foreground: #8c1d18;
   --destructive-text: var(--destructive);
+  /* The one solid red button (spec `.xb.dz`): its fill and its label. */
+  --destructive-solid: var(--destructive);
+  --destructive-solid-foreground: var(--background);
   --info: #3a6690;
   --info-foreground: #234b70;
   --success: #2f6f6a;
@@ -177,6 +180,8 @@
   --destructive: #e5675c;
   --destructive-foreground: #f2b8b5;
   --destructive-text: #ef9a90;
+  --destructive-solid: #b9473e;
+  --destructive-solid-foreground: #fff4ef;
   --info: #8db4da;
   --info-foreground: #a9c7e6;
   --success: #5fa8a0;

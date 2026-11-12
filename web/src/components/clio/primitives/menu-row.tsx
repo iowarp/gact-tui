@@ -166,13 +166,15 @@ export function jumpLetterIndex(label: string, letter: string): number {
 export function JumpLabel({ label, letter }: { label: string; letter?: string }) {
   const index = letter ? jumpLetterIndex(label, letter) : -1;
   if (index < 0) return label;
-  // One inline box: inside a flex row, bare pieces would each become a spaced item ("R e ad").
+  // One inline box: as loose children of a flex item the letter and its
+  // neighbours become separate boxes, and the accessible name splits ("P review").
   return (
-    <span className="min-w-0">
+    <span data-slot="menu-jump-label" className="min-w-0 truncate">
       {label.slice(0, index)}
       <u
         data-slot="menu-jump-letter"
-        className="no-underline decoration-muted-foreground underline-offset-[3px] [[data-opened-by=keyboard]_&]:underline"
+        // Spec `.mi u`: #bdb5a6 in dark, a step brighter than muted text.
+        className="no-underline decoration-[color-mix(in_srgb,var(--foreground)_40%,var(--muted-foreground))] underline-offset-[3px] [[data-opened-by=keyboard]_&]:underline"
       >
         {label[index]}
       </u>

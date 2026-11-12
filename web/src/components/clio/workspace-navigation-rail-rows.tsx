@@ -1,6 +1,7 @@
-import { LoaderCircleIcon } from 'lucide-react';
+import { CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { isOfflineError } from '@/lib/list-state';
@@ -44,6 +45,31 @@ export function RailState({
         title={shown}
       />
     </div>
+  );
+}
+
+/**
+ * The icon rail hides RailState, so a failed workspace list keeps one cue
+ * there: the alert icon over a visible "Retry", named with the full state.
+ */
+export function RailIconFailure({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const label = isOfflineError(error)
+    ? 'Offline, no workspaces. Retry'
+    : 'Workspaces not listed. Retry';
+  return (
+    <NamedTooltip label={label} side="right">
+      <Button
+        aria-label={label}
+        className="mx-auto hidden h-auto w-11 flex-col gap-[3px] rounded-[6px] px-0 py-1 text-destructive-text hover:bg-hover hover:text-destructive-text group-data-[collapsible=icon]:inline-flex [&_svg:not([class*=size-])]:size-[17px]"
+        onClick={onRetry}
+        variant="ghost"
+      >
+        <CircleAlertIcon aria-hidden="true" />
+        <span aria-hidden="true" className="text-[10px] leading-none font-medium">
+          Retry
+        </span>
+      </Button>
+    </NamedTooltip>
   );
 }
 
