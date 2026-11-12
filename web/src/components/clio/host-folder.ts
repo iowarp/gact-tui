@@ -2,6 +2,13 @@ import type { WorkspaceResource } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 
+/**
+ * The icon for an attached folder wherever it appears as one object (tab, Sources row,
+ * thumbnail, chip). It differs from the plain folder the Files tab uses, so a tab that
+ * drops its name can still be told apart.
+ */
+export { FolderInputIcon as AttachedFolderIcon } from 'lucide-react';
+
 /** A folder on the agent's computer, used in place or copied, recorded on its resource. */
 export type HostFolder = Record<string, string>;
 

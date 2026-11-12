@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BracesIcon,
   EyeIcon,
-  FolderIcon,
   FilesIcon,
   GitBranchIcon,
   FileInputIcon,
@@ -55,7 +54,7 @@ import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
-import { hostFolderOf, resourceDisplayName } from './host-folder';
+import { AttachedFolderIcon, hostFolderOf, resourceDisplayName } from './host-folder';
 import { HostFolderView } from './host-folder-view';
 
 interface WorkspaceResourceViewProps {
@@ -128,10 +127,8 @@ function HostFolderThumbnail({ name }: { name: string }) {
       className="flex aspect-square size-full flex-col items-center justify-center gap-1 overflow-hidden rounded-md bg-muted/50 p-1.5"
       title={name}
     >
-      <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="line-clamp-2 w-full text-center text-[10px] leading-tight [overflow-wrap:anywhere]">
-        {name}
-      </span>
+      <AttachedFolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="w-full truncate text-center text-[10px] leading-tight">{name}</span>
     </div>
   );
 }

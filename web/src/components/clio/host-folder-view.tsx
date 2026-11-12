@@ -10,6 +10,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
+  AttachedFolderIcon,
   type HostFolder,
   hostFolderInPlace,
   hostFolderOriginal,
@@ -84,7 +85,10 @@ export function HostFolderView({
         className={cn('@container mx-auto w-full max-w-3xl p-5', besideControls && 'px-12')}
       >
         <header className="flex items-start gap-3">
-          <FolderIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+          <AttachedFolderIcon
+            aria-hidden="true"
+            className="mt-0.5 size-5 shrink-0 text-muted-foreground"
+          />
           <div className="min-w-0">
             <h2 className="text-base font-medium [overflow-wrap:anywhere]">{name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{hostFolderStatement(folder)}</p>
