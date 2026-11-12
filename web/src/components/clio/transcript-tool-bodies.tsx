@@ -1,8 +1,10 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
-import { PanelRightIcon } from 'lucide-react';
+import { PanelRightIcon, WrapTextIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { NamedTooltip } from './primitives/icon-button';
 import { PresentationLink } from './presentation-link';
 import { CopyAction } from './tool-compact-row';
 
@@ -65,6 +67,7 @@ export function TranscriptDiffBody({
   const segments = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) ? all.slice(-2) : all;
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
+  const [wrap, setWrap] = useState(true);
   return (
     <div data-slot="transcript-diff" className="min-w-0">
       <div className={cn(BAR, 'pl-3.5 text-xs')}>
@@ -91,6 +94,20 @@ export function TranscriptDiffBody({
           <span aria-hidden="true">{`+${added} −${removed}`}</span>
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
+          <NamedTooltip label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}>
+            <Button
+              aria-label="Wrap long lines"
+              aria-pressed={wrap}
+              className={cn(
+                'size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]',
+                wrap && 'bg-hover text-foreground',
+              )}
+              onClick={() => setWrap((value) => !value)}
+              variant="ghost"
+            >
+              <WrapTextIcon aria-hidden="true" className="size-[13px]" />
+            </Button>
+          </NamedTooltip>
           <CopyAction value={text} label="Copy diff" />
           {subject?.type === 'link' && subject.target && subject.target !== 'url' ? (
             <span className="grid size-[22px] place-items-center">
@@ -110,14 +127,25 @@ export function TranscriptDiffBody({
           ) : null}
         </span>
       </div>
-      <div className={cn('max-h-80 overflow-auto py-1', MONO)} role="table" aria-label="Changes">
+      <div
+        className={cn(
+          'max-h-80 overflow-y-auto py-1',
+          wrap ? 'overflow-x-hidden' : 'overflow-x-auto',
+          MONO,
+        )}
+        data-wrap={wrap ? 'true' : 'false'}
+      >
+        {/* Unwrapped, the lines take the longest line's width, so a changed line's fill runs
+            under its text however far it scrolls. */}
+        <div className={cn(!wrap && 'w-max min-w-full')} role="table" aria-label="Changes">
         {lines.map((line, index) => (
           <div
             key={index}
             role="row"
             data-diff-line={line.kind}
             className={cn(
-              'grid grid-cols-[3rem_minmax(0,1fr)]',
+              'grid',
+              wrap ? 'grid-cols-[3rem_minmax(0,1fr)]' : 'grid-cols-[3rem_minmax(max-content,1fr)]',
               line.kind === 'added' && 'bg-success/12',
               line.kind === 'removed' && 'bg-destructive/12',
             )}
@@ -125,7 +153,13 @@ export function TranscriptDiffBody({
             <span role="cell" className="select-none pr-3 text-right text-muted-foreground/70">
               {line.number ?? ''}
             </span>
-            <span role="cell" className="whitespace-pre pr-3 text-foreground/90">
+            <span
+              role="cell"
+              className={cn(
+                'pr-3 text-foreground/90',
+                wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre',
+              )}
+            >
               {line.kind === 'added' ? (
                 <span className="sr-only">Added: </span>
               ) : line.kind === 'removed' ? (
@@ -139,6 +173,7 @@ export function TranscriptDiffBody({
             </span>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
