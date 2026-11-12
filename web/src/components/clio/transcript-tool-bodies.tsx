@@ -1,11 +1,14 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
 import { PanelRightIcon, WrapTextIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { TokenSpan } from '@/components/ai-elements/code-block';
+import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { PresentationLink } from './presentation-link';
+import { useHighlightedTokens } from './source-highlight';
 import { CopyAction } from './tool-compact-row';
 
 const MONO = 'font-mono text-label leading-4.5';
@@ -48,6 +51,39 @@ function numberedDiff(text: string): DiffLine[] {
   return lines;
 }
 
+/**
+ * Syntax tokens for each diff line: the new side (context and additions) and the old side
+ * (context and removals) are each tokenized whole, so strings and docstrings colour as in
+ * the file.
+ */
+function useDiffTokens(lines: DiffLine[], path: string) {
+  const language = languageForPath(path);
+  const sides = useMemo(() => {
+    const after: string[] = [];
+    const before: string[] = [];
+    const at = lines.map((line) => {
+      if (line.kind === 'hunk') return undefined;
+      const side = line.kind === 'removed' ? before : after;
+      side.push(line.text);
+      if (line.kind === 'context') before.push(line.text);
+      return { removed: line.kind === 'removed', index: side.length - 1 };
+    });
+    return {
+      at,
+      after: after.join('\n'),
+      // Only a change with removals needs its old side coloured.
+      before: lines.some((line) => line.kind === 'removed') ? before.join('\n') : '',
+    };
+  }, [lines]);
+  const after = useHighlightedTokens(sides.after, language);
+  const before = useHighlightedTokens(sides.before, language);
+  return (index: number) => {
+    const place = sides.at[index];
+    if (!place) return undefined;
+    return (place.removed ? before : after)?.[place.index];
+  };
+}
+
 /** A file change in the transcript: path breadcrumb, counts, then numbered lines. */
 export function TranscriptDiffBody({
   block,
@@ -60,13 +96,14 @@ export function TranscriptDiffBody({
   onOpen?: () => void;
 }) {
   const text = block.text ?? '';
-  const lines = numberedDiff(text);
+  const lines = useMemo(() => numberedDiff(text), [text]);
   const path = block.path || subject?.uri || subject?.label || '';
   // An absolute path names only its folder and file, as a workspace-relative one would.
   const all = path.split(/[\\/]/u).filter(Boolean);
   const segments = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) ? all.slice(-2) : all;
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
+  const tokensAt = useDiffTokens(lines, path);
   const [wrap, setWrap] = useState(true);
   return (
     <div data-slot="transcript-diff" className="min-w-0">
@@ -138,41 +175,51 @@ export function TranscriptDiffBody({
         {/* Unwrapped, the lines take the longest line's width, so a changed line's fill runs
             under its text however far it scrolls. */}
         <div className={cn(!wrap && 'w-max min-w-full')} role="table" aria-label="Changes">
-        {lines.map((line, index) => (
-          <div
-            key={index}
-            role="row"
-            data-diff-line={line.kind}
-            className={cn(
-              'grid',
-              wrap ? 'grid-cols-[3rem_minmax(0,1fr)]' : 'grid-cols-[3rem_minmax(max-content,1fr)]',
-              line.kind === 'added' && 'bg-success/12',
-              line.kind === 'removed' && 'bg-destructive/12',
-            )}
-          >
-            <span role="cell" className="select-none pr-3 text-right text-muted-foreground/70">
-              {line.number ?? ''}
-            </span>
-            <span
-              role="cell"
-              className={cn(
-                'pr-3 text-foreground/90',
-                wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre',
-              )}
-            >
-              {line.kind === 'added' ? (
-                <span className="sr-only">Added: </span>
-              ) : line.kind === 'removed' ? (
-                <span className="sr-only">Removed: </span>
-              ) : null}
-              {line.kind === 'hunk' ? (
-                <span className="text-muted-foreground">{line.text}</span>
-              ) : (
-                line.text
-              )}
-            </span>
-          </div>
-        ))}
+          {lines.map((line, index) => {
+            const tokens = tokensAt(index);
+            return (
+              <div
+                key={index}
+                role="row"
+                data-diff-line={line.kind}
+                className={cn(
+                  'grid',
+                  wrap
+                    ? 'grid-cols-[3rem_minmax(0,1fr)]'
+                    : 'grid-cols-[3rem_minmax(max-content,1fr)]',
+                  line.kind === 'added' && 'bg-success/12',
+                  line.kind === 'removed' && 'bg-destructive/12',
+                )}
+              >
+                <span role="cell" className="select-none pr-3 text-right text-muted-foreground/70">
+                  {line.number ?? ''}
+                </span>
+                <span
+                  role="cell"
+                  className={cn(
+                    'pr-3 text-foreground/90',
+                    wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre',
+                  )}
+                >
+                  {line.kind === 'added' ? (
+                    <span className="sr-only">Added: </span>
+                  ) : line.kind === 'removed' ? (
+                    <span className="sr-only">Removed: </span>
+                  ) : null}
+                  {line.kind === 'hunk' ? (
+                    <span className="text-muted-foreground">{line.text}</span>
+                  ) : tokens ? (
+                    tokens.map((token, position) => (
+                      // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+                      <TokenSpan key={position} token={token} />
+                    ))
+                  ) : (
+                    line.text
+                  )}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
