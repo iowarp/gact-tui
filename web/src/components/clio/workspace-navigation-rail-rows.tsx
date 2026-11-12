@@ -65,7 +65,7 @@ export function RailIconFailure({ error, onRetry }: { error: unknown; onRetry?: 
         variant="ghost"
       >
         <CircleAlertIcon aria-hidden="true" />
-        <span aria-hidden="true" className="text-[10px] leading-none font-medium">
+        <span aria-hidden="true" className="text-caption leading-none font-medium">
           Retry
         </span>
       </Button>
@@ -83,7 +83,7 @@ export function DraftConversationRow({ topLevel }: { topLevel: boolean }) {
         topLevel ? 'pl-2.5' : 'pl-[34px]',
       )}
       data-draft-row=""
-      meta={<span className="text-[11px] italic text-accent-foreground/80">now</span>}
+      meta={<span className="text-caption italic text-accent-foreground/80">now</span>}
       selected
       title={<span className="truncate italic">New conversation</span>}
     />
@@ -108,7 +108,7 @@ export function ShowMoreRow({
   return (
     <ListRow
       className={cn(
-        'h-[26px] cursor-pointer text-[11.5px] text-muted-foreground hover:text-foreground group-data-[collapsible=icon]:hidden',
+        'h-[26px] cursor-pointer text-label text-muted-foreground hover:text-foreground group-data-[collapsible=icon]:hidden',
         indent ? 'pl-[34px]' : 'pl-2.5',
       )}
       data-rail-item={railKey}
@@ -188,7 +188,7 @@ function RailLoadMoreButton({
   return (
     <Button
       aria-busy={loading || undefined}
-      className="h-7 w-full justify-start gap-1.5 pl-[34px] text-[11.5px] text-muted-foreground"
+      className="h-7 w-full justify-start gap-1.5 pl-[34px] text-label text-muted-foreground"
       disabled={loading}
       onClick={onLoadMore}
       ref={sentinel}

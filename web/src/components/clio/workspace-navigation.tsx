@@ -4,7 +4,11 @@ import { useMemo, useState } from 'react';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useStableEvent } from '@/hooks/use-stable-event';
-import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
+import {
+  hasUnseenActivity,
+  isPrimarySession,
+  sessionInteractionAt,
+} from '@/lib/recent-sessions';
 import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
 import type { SessionAttention } from '@/lib/session-attention';
 import { isSessionRunning } from '@/lib/session-state';
@@ -80,22 +84,18 @@ export function WorkspaceNavigation({
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
   const [workspaceExpansion, setWorkspaceExpansion] = useState<Record<string, boolean>>({});
-  const [sessionObservationStartedAt] = useState(() => new Date().toISOString());
+  const [observationStartedAt] = useState(() => Date.now());
   const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>({});
-  const activeSession = sessions.find((session) => session.id === activeSessionId);
-  const effectiveSeenSessionRevisions = useMemo(
-    () =>
-      Object.fromEntries(
-        sessions.flatMap((session) => {
-          const interactionAt = sessionInteractionAt(session);
-          if (session.id === activeSessionId) return [[session.id, interactionAt]];
-          const seenRevision = seenSessionRevisions[session.id];
-          if (seenRevision !== undefined) return [[session.id, seenRevision]];
-          return interactionAt <= sessionObservationStartedAt ? [[session.id, interactionAt]] : [];
-        }),
-      ),
-    [activeSessionId, seenSessionRevisions, sessionObservationStartedAt, sessions],
-  );
+  // Decided from the row's own session: the default group pages its rows from
+  // the rail list, so they need not be in `sessions`. Activity from before this
+  // page loaded counts as seen; after that, only a visit marks a row seen.
+  const seenRevisionFor = (session: Session) => {
+    const interactionAt = sessionInteractionAt(session);
+    if (session.id === activeSessionId) return interactionAt;
+    const seenRevision = seenSessionRevisions[session.id];
+    if (seenRevision !== undefined) return seenRevision;
+    return Date.parse(interactionAt) <= observationStartedAt ? interactionAt : undefined;
+  };
   const visibleWorkspaces = useMemo(() => {
     // Preserve the server/user-defined order. A workspace moves only after the
     // user explicitly changes its pinned state, never because they opened a
@@ -123,17 +123,18 @@ export function WorkspaceNavigation({
         !running &&
         !needsYou &&
         session.id !== activeSessionId &&
-        effectiveSeenSessionRevisions[session.id] !== sessionInteractionAt(session)
+        hasUnseenActivity(session, seenRevisionFor(session))
       );
     return true;
   };
 
+  // A visit marks everything up to now as read, including activity the row's
+  // copy has not caught up with yet, so a later refresh does not re-mark it.
   const visitSession = useStableEvent((session: Session) => {
-    setSeenSessionRevisions((current) => ({
-      ...current,
-      ...(activeSession ? { [activeSession.id]: sessionInteractionAt(activeSession) } : {}),
-      [session.id]: sessionInteractionAt(session),
-    }));
+    const interactionAt = sessionInteractionAt(session);
+    const now = new Date().toISOString();
+    const seenAt = Date.parse(interactionAt) > Date.parse(now) ? interactionAt : now;
+    setSeenSessionRevisions((current) => ({ ...current, [session.id]: seenAt }));
   });
   // Rows are memoized: hand them callbacks that keep one identity across renders.
   const rowAction = useStableEvent(onAction);
@@ -182,7 +183,7 @@ export function WorkspaceNavigation({
       onDownloadSession={rowDownload}
       onRename={rowRename}
       onVisit={visitSession}
-      seenRevision={effectiveSeenSessionRevisions[session.id]}
+      seenRevision={seenRevisionFor(session)}
       session={session}
       topLevel={topLevel}
       workspaceId={session.workspace_id}

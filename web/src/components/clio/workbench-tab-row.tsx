@@ -313,7 +313,7 @@ export function WorkbenchTabRow({
   return (
     <div
       // A layout boundary: fitting and scrolling the tabs never re-lays out the page.
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
+      className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
       data-slot="canvas-header"
       ref={headerRef}
     >
