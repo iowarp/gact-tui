@@ -150,8 +150,11 @@ function TranscriptResourceAttachmentDisplay({
 }: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
   const repository = useRepository();
   const [downloading, setDownloading] = useState(false);
+  const sourceKind = resource?.connected_source?.kind;
   const folder =
-    resource?.connected_source?.kind === 'folder' ? resource.connected_source : undefined;
+    sourceKind === 'folder' || sourceKind === 'host_folder'
+      ? resource?.connected_source
+      : undefined;
   const filename = folder?.label ?? resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
@@ -268,17 +271,43 @@ function TranscriptResourceAttachmentDisplay({
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="truncate text-sm font-medium">{filename}</p>
         {folder ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
+          <p className="mt-0.5 text-xs break-all text-muted-foreground">
+            {folder.kind === 'host_folder'
+              ? hostFolderSummary(folder)
+              : folder.linked === 'true'
+                ? 'Linked folder'
+                : 'Downloaded folder'}
           </p>
         ) : mediaType ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
         ) : null}
-        <div className="mt-2">
-          <ResourcePipelineStatusLines stages={stages} />
-        </div>
-        <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+        {folder?.kind === 'host_folder' ? (
+          <p className="mt-2 max-w-64 text-xs text-muted-foreground">
+            {folder.placement === 'in_place'
+              ? 'The agent works on the original folder. Its changes affect your files.'
+              : 'The agent works on its own copy. Your originals stay untouched.'}
+          </p>
+        ) : (
+          <>
+            <div className="mt-2">
+              <ResourcePipelineStatusLines stages={stages} />
+            </div>
+            <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+          </>
+        )}
       </AttachmentHoverCardContent>
     </AttachmentHoverCard>
   );
+}
+
+/** "Folder, in place. 677 files, 6.8 GB. D:\data\polaris" */
+function hostFolderSummary(folder: Record<string, string>): string {
+  const way = folder.placement === 'in_place' ? 'Folder, in place' : 'Folder, full copy';
+  const files = Number(folder.file_count);
+  const bytes = Number(folder.total_bytes);
+  const size =
+    Number.isFinite(files) && Number.isFinite(bytes)
+      ? ` ${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}.`
+      : '';
+  return `${way}.${size} ${folder.path ?? ''}`.trim();
 }

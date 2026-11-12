@@ -44,8 +44,7 @@ export function DesktopFolderUpload({
   const upload = useMutation({
     mutationFn: async () => {
       uploadId.current ||= String(Date.now()) + Math.random().toString(36).slice(2);
-      if (!files.length || files.length > 10000)
-        throw new Error('Choose a folder containing between 1 and 10,000 files');
+      if (!files.length) throw new Error('Choose a folder that contains at least one file');
       const abort = new AbortController();
       controller.current = abort;
       const total = files.reduce((sum, file) => sum + file.size, 0);

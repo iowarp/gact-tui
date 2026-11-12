@@ -25,6 +25,7 @@ import { ItemRow } from './primitives/item-row';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
+import { FolderAttachForm } from './folder-attach-form';
 import { connectedSourceErrorMessage } from './connected-source-error';
 import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
@@ -265,6 +266,8 @@ export function ConnectedSourceContents({
           : undefined,
   );
   const [obsidianChoice, setObsidianChoice] = useState(initialObsidianChoice);
+  // Attach: Choose folder offers in place or a full copy, with no size limit.
+  const [folderAttach, setFolderAttach] = useState(false);
   const [accountLogin, setAccountLogin] = useState<SourceProvider>();
   const [editRequest, setEditRequest] = useState(0);
   const sources = useQuery({
@@ -368,6 +371,25 @@ export function ConnectedSourceContents({
           void queryClient.invalidateQueries({ queryKey: ['ndp-catalog', scope] });
           setAccountLogin(undefined);
         }}
+      />
+    );
+  if (folderAttach && onSelect)
+    return (
+      <FolderAttachForm
+        workspaceId={workspaceId}
+        localConnection={localConnection}
+        hostLabel={hostLabel}
+        browseStartPath={host.data?.effective.root}
+        onAttached={(reference) => {
+          setFolderAttach(false);
+          onChanged?.();
+          onSelect(reference);
+        }}
+        onUploaded={(row) => {
+          setFolderAttach(false);
+          connected(row);
+        }}
+        onBack={() => setFolderAttach(false)}
       />
     );
   if (form)
@@ -474,12 +496,15 @@ export function ConnectedSourceContents({
             <Button
               variant="outline"
               onClick={() =>
-                setForm({
-                  choice:
-                    localConnection && providers.data?.providers.some((row) => row.id === 'local')
-                      ? 'local'
-                      : 'upload',
-                })
+                onSelect
+                  ? setFolderAttach(true)
+                  : setForm({
+                      choice:
+                        localConnection &&
+                        providers.data?.providers.some((row) => row.id === 'local')
+                          ? 'local'
+                          : 'upload',
+                    })
               }
             >
               <FolderUpIcon aria-hidden="true" /> Choose folder

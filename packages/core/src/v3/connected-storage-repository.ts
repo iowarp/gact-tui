@@ -622,4 +622,25 @@ export class ConnectedStorageRepository extends A2uiRepository {
       decode: (value) => workspaceResourceSchema.parse(value),
     });
   }
+  /**
+   * Attach a folder already on CLIO's computer, with no size limit: `in_place` opens the
+   * original folder to the agent (read and write), `copy` makes one full copy in the workspace.
+   */
+  public attachHostFolder(
+    workspaceId: string,
+    path: string,
+    placement: 'in_place' | 'copy',
+    label = '',
+    signal?: AbortSignal,
+  ) {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/folder-attachments`,
+      body: { path, placement, ...(label ? { label } : {}) },
+      signal,
+      // A full copy of a large folder finishes server-side before the response.
+      timeoutMs: 60 * 60 * 1000,
+      decode: (value) => workspaceResourceSchema.parse(value),
+    });
+  }
 }
