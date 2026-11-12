@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { copyText } from '@/lib/clipboard';
 import gmailMark from '../../../../branding/provider-logos/gmail.svg';
 import outlookMark from '../../../../branding/provider-logos/outlook.svg';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 const versionSchema = z
   .object({
@@ -205,6 +206,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
             <label className="flex min-w-0 items-center gap-2" key={field}>
               <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
               <input
+                {...(field === 'subject' ? null : identifierInputProps)}
                 aria-label={`${label} for ${draft.label} draft`}
                 className="min-w-0 flex-1 rounded px-1 py-1.5 text-foreground outline-none hover:bg-muted/30 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-primary/60"
                 onChange={(event) => update(field, event.target.value)}

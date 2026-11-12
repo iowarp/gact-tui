@@ -40,6 +40,7 @@ import {
   TYPE_SSH_ADDRESS,
 } from './ssh-jump-host-list';
 import { uniqueProfileName } from './ssh-route-utils';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 /**
  * The one SSH computer configuration dialog. The route's destination and
@@ -453,6 +454,7 @@ export function SshHostDialog({
               <Field className="mt-2">
                 <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
                 <Textarea
+                  {...identifierInputProps}
                   autoComplete="off"
                   className="min-h-28 font-mono text-xs"
                   id="ssh-host-private-key"

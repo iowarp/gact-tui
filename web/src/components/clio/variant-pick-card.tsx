@@ -24,6 +24,7 @@ import {
 import { askKeyAttributes } from './ask-card-keys';
 import { respondFromControl } from './interaction-control';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
+import { proseInputProps } from '@/lib/identifier-input';
 
 export type VariantPick = (candidateId: string, comment: string) => Promise<void>;
 
@@ -130,6 +131,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
       {view.refinable ? (
         <AskSection className="mt-2.5">
           <Input
+            {...proseInputProps}
             aria-label={`What should change in ${current.label}`}
             className="h-[34px] min-w-0 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
             disabled={responding}

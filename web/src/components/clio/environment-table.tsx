@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 type Row = { name: string; value: string };
 
@@ -68,6 +69,7 @@ export function EnvironmentTable({
       </label>
       {raw ? (
         <Textarea
+          {...identifierInputProps}
           aria-label="Process settings"
           className="font-mono text-xs"
           id={id}

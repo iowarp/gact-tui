@@ -20,6 +20,7 @@ import { attempt, type OpenTake, type TakeRow } from './file-viewer-take-hooks';
 import { FrameBar } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { downloadBytes } from './surface-export';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 export interface BrowserNavigation {
   back: () => void;
@@ -89,6 +90,7 @@ function BrowserAddress({
   return (
     <form className="flex min-w-0 flex-1" onSubmit={submit}>
       <input
+        {...identifierInputProps}
         ref={input}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
