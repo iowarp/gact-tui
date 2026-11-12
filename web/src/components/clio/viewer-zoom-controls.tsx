@@ -114,8 +114,10 @@ export function ViewerZoomControls({
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>
         {framed && readout ? (
+          // One width, pending and loaded, that holds "999 / 999", so neither zoom-in
+          // nor the bar's folds move when the page count arrives.
           <span
-            className="flex shrink-0 items-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums"
+            className="flex min-w-[calc(7.5ch+0.5rem)] shrink-0 items-center justify-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums"
             data-slot="viewer-zoom-readout"
           >
             {readout}
