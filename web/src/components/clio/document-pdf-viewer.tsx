@@ -419,7 +419,7 @@ export function ClioDocumentPdfViewer({
           pageCounter || zoomFact ? (
             <>
               {pageCounter}
-              {zoomFact ? <span>{zoomFact}</span> : null}
+              {zoomFact ? <span data-readout-zoom="">{zoomFact}</span> : null}
             </>
           ) : (
             <PendingPageReadout />

@@ -158,12 +158,12 @@ describe('ClioDocumentPdfViewer', () => {
     await userEvent.click(zoomOut);
     // One step is 15% of the width the reader saw, not a jump to the whole page.
     expect(Number(page.dataset.testPdfScale)).toBeCloseTo(0.85);
-    expect(zoomOut).toBeEnabled();
+    expect(zoomOut).not.toHaveAttribute('aria-disabled');
     for (let step = 0; step < 20 && !(zoomOut as HTMLButtonElement).disabled; step += 1)
       await userEvent.click(zoomOut);
     const scale = Number(page.dataset.testPdfScale);
     expect(fitted * scale * pageAspectRatio.value + 26).toBeLessThanOrEqual(600.5);
-    expect(zoomOut).toBeDisabled();
+    expect(zoomOut).toHaveAccessibleDescription('Smallest zoom');
   });
 
   it('captures modifier-wheel zoom inside the PDF and leaves ordinary scrolling alone', async () => {

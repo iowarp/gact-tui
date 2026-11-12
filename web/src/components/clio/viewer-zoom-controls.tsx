@@ -108,7 +108,7 @@ export function ViewerZoomControls({
         <ToolbarAction
           label="Zoom out"
           shortcut="view-zoom-out"
-          disabled={disabledOut}
+          disabledReason={disabledOut ? 'Smallest zoom' : undefined}
           onClick={onOut}
         >
           <ZoomOutIcon aria-hidden="true" />
@@ -126,7 +126,7 @@ export function ViewerZoomControls({
         <ToolbarAction
           label="Zoom in"
           shortcut="view-zoom-in"
-          disabled={disabledIn}
+          disabledReason={disabledIn ? 'Largest zoom' : undefined}
           onClick={onIn}
         >
           <ZoomInIcon aria-hidden="true" />

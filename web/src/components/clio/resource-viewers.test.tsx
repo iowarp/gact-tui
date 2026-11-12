@@ -195,11 +195,11 @@ describe('ArtifactView', () => {
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
     // Ctrl or âŒ˜ with the wheel zooms, so the zoom icons may fold from a narrow frame.
     const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
-    expect(zoomOut).toBeDisabled();
+    expect(zoomOut).toHaveAccessibleDescription('Smallest zoom');
     fireEvent.wheel(imageCanvas, { deltaY: -100 });
-    expect(zoomOut).toBeDisabled();
+    expect(zoomOut).toHaveAccessibleDescription('Smallest zoom');
     fireEvent.wheel(imageCanvas, { ctrlKey: true, deltaY: -100 });
-    expect(zoomOut).toBeEnabled();
+    expect(zoomOut).not.toHaveAttribute('aria-disabled');
   });
 });
 
