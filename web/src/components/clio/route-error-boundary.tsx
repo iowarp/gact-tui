@@ -38,6 +38,10 @@ export function RouteErrorBoundary() {
   const behind = connecting && lastPage && lastPage.pathname !== '/' ? lastPage : null;
   const resetKey = background ?? behind?.key ?? page.key;
   const pathname = background ?? behind?.pathname ?? location.pathname;
+  const conversation = matchPath('/workspaces/:workspaceId/sessions/:sessionId', pathname);
+  // Moving between conversations keeps the app, shell and left bar mounted; the
+  // boundary still clears a failed conversation view through its reset key.
+  const mountKey = conversation ? '/workspaces/conversation' : resetKey;
   return (
     // Outer boundary is UNKEYED: it must stay mounted across navigation, or the
     // PromptInputProvider it wraps would remount on every route change and the composer
@@ -51,12 +55,11 @@ export function RouteErrorBoundary() {
             {/* Global search must survive the route reset, including a shortcut
                 pressed while a lazy destination is still loading. WorkspacePage
                 retains its own search owner with canvas resource callbacks. */}
-            {!matchPath('/workspaces/:workspaceId/sessions/:sessionId', pathname) ? (
-              <ClioCommandMenu />
-            ) : null}
-            {/* Inner boundary is keyed by route: it resets a failed route view without
-                disturbing the composer or global search state held above it. */}
-            <AppErrorBoundary key={resetKey}>
+            {!conversation ? <ClioCommandMenu /> : null}
+            {/* Inner boundary is keyed by route (every conversation shares one key): it
+                resets a failed route view without disturbing the composer or global
+                search state held above it. */}
+            <AppErrorBoundary key={mountKey} resetKey={resetKey}>
               <App />
             </AppErrorBoundary>
           </ComposerDraftSessionBoundary>

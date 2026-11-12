@@ -54,8 +54,33 @@ export function useAttentionMode(
   const { settings } = useConnectionSettings();
   const scope = `${connectionScope(settings)}\0${sessionId}`;
   const [lookupHeat, setLookupHeat] = useState<{ scope: string; data?: AttentionAvailable }>();
-  const [profile, setProfile] = useState<AttentionProfile>();
-  const [view, setView] = useState<AttentionHeatView>(DEFAULT_ATTENTION_HEAT_VIEW);
+  // The chosen profile and heat view belong to this conversation.
+  const [choice, setChoice] = useState<{
+    scope: string;
+    profile?: AttentionProfile;
+    view?: AttentionHeatView;
+  }>();
+  const owned = choice?.scope === scope ? choice : undefined;
+  const profile = owned?.profile;
+  const view = owned?.view ?? DEFAULT_ATTENTION_HEAT_VIEW;
+  const setProfile = useCallback(
+    (next: AttentionProfile) =>
+      setChoice((previous) => ({
+        ...(previous?.scope === scope ? previous : {}),
+        scope,
+        profile: next,
+      })),
+    [scope],
+  );
+  const setView = useCallback(
+    (next: AttentionHeatView) =>
+      setChoice((previous) => ({
+        ...(previous?.scope === scope ? previous : {}),
+        scope,
+        view: next,
+      })),
+    [scope],
+  );
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
