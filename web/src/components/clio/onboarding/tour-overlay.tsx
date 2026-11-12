@@ -104,6 +104,7 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
     let current: Box | undefined | null = null;
     let currentFocus: Box | undefined;
     let scrolledHeight: number | undefined;
+    let focusScrolled = false;
     let measured: HTMLElement | undefined;
     let scroller: HTMLElement | undefined;
     const started = performance.now();
@@ -115,6 +116,7 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
       const height = element?.offsetHeight ?? 0;
       if (element && (scrolledHeight === undefined || height > scrolledHeight + 24)) {
         scrolledHeight = height;
+        focusScrolled = false;
         element.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
       }
       if (element !== measured) {
@@ -153,6 +155,17 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
       // A menu or picker the step opened stays lit with its control.
       const next = anchorBox ? openPopups().reduce(unionBox, anchorBox) : undefined;
       const focusElement = step.focus ? element?.querySelector(step.focus) : undefined;
+      // The part the step asks you to use is scrolled clear of the composer, top first,
+      // since a tall anchor scrolled into view shows only its top.
+      if (focusElement && bounds && scroller && !focusScrolled) {
+        focusScrolled = true;
+        const rect = focusElement.getBoundingClientRect();
+        const above = rect.top - bounds.top;
+        const below = rect.bottom - bounds.bottom;
+        const delta = below > 0 ? Math.min(below, above) : Math.min(above, 0);
+        if (Math.abs(delta) > 1)
+          scroller.scrollBy({ top: delta, behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
       const focus = focusElement
         ? visibleBox(focusElement.getBoundingClientRect(), bounds)
         : undefined;
