@@ -55,7 +55,7 @@ export function InfoTip({ label, children, className, focusable = true }: InfoTi
             </span>
           )}
         </TooltipTrigger>
-        <TooltipContent className="block max-w-xs break-words leading-5" side="top">
+        <TooltipContent className="block max-w-xs px-[9px] py-1.5 break-words leading-5" side="top">
           {children}
         </TooltipContent>
       </Tooltip>

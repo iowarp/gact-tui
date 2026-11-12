@@ -112,7 +112,7 @@ function QueueButton({
         />
       </TooltipTrigger>
       <TooltipContent
-        className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 px-2 py-1 text-[11.5px] font-medium"
+        className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5"
         side="top"
         sideOffset={4}
       >

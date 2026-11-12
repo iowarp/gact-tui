@@ -386,7 +386,7 @@ export function HeldKeyBadge({
           data-side={side}
           style={{ visibility: 'hidden' }}
           className={cn(
-            'pointer-events-none fixed top-0 left-0 z-[61] rounded-[4px] bg-foreground px-[5px] py-[3px] font-mono text-[10.5px] leading-none font-semibold whitespace-nowrap text-background shadow-sm',
+            'pointer-events-none fixed top-0 left-0 z-[61] rounded-[4px] bg-tooltip px-[5px] py-[3px] font-mono text-[10.5px] leading-none font-semibold whitespace-nowrap text-tooltip-foreground shadow-sm',
             className,
           )}
         >

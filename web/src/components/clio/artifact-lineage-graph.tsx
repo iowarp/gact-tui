@@ -143,7 +143,7 @@ function LineageNode({
           </span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" align="start" className="max-w-64 text-[11.5px]">
+      <TooltipContent side="bottom" align="start" className="max-w-64 px-[9px] py-1.5">
         <b className="font-semibold">{node.name}</b>
         <span className="block opacity-75">{node.tip}</span>
       </TooltipContent>
