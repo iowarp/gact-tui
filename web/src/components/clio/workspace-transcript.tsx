@@ -72,7 +72,7 @@ export function WorkspaceTranscript({
   >;
   mutations: Pick<
     SessionMutations,
-    'actionCard' | 'cancelPendingSteer' | 'pendingSteers' | 'retry'
+    'actionCard' | 'cancelPendingSteer' | 'pendingSteers' | 'retry' | 'send'
   >;
   history: Pick<ReturnType<typeof useSessionHistoryActions>, 'fork' | 'rewind'>;
   navigation: Pick<
@@ -182,6 +182,7 @@ export function WorkspaceTranscript({
                 sessionId={sessionId}
                 subagents={data.subagents}
                 sessionState={state}
+                sending={mutations.send.isPending}
                 workspaceId={workspaceId}
               />
             </TranscriptPresenceSurface>

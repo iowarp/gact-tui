@@ -320,23 +320,31 @@ export function ClioAppShell({
     return () => document.body.removeAttribute('data-canvas-sheet');
   }, [workbenchSheetOpen]);
 
-  // The width is a share of the window, so a window resize re-applies it.
+  // The width is a share of the window, so a window resize re-applies it. It
+  // applies once the canvas's group has its new width: applied on the window's
+  // resize event, a narrower window's width would land before the group had
+  // shrunk, and the group then kept the wider pixels.
+  const [workbenchHost, setWorkbenchHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    if (!hasWorkbench) return;
+    const host = workbenchHost;
+    if (!hasWorkbench || !host) return;
     let frame = 0;
-    const scheduleApply = () => {
-      if (frame) return;
+    let lastWidth = currentWindowWidth();
+    const observer = new ResizeObserver(() => {
+      const width = currentWindowWidth();
+      if (frame || width === lastWidth) return;
+      lastWidth = width;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         applyWorkbenchShare();
       });
-    };
-    window.addEventListener('resize', scheduleApply);
+    });
+    observer.observe(host);
     return () => {
-      window.removeEventListener('resize', scheduleApply);
+      observer.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [applyWorkbenchShare, hasWorkbench]);
+  }, [applyWorkbenchShare, hasWorkbench, workbenchHost]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
   useRegionShortcuts();
@@ -424,7 +432,7 @@ export function ClioAppShell({
     >
       {/* The maximized canvas covers this section (the conversation), not the
           left bar; the rail hides while it is maximized. */}
-      <section aria-label="Session workspace" data-workbench-maximize-host="">
+      <section aria-label="Session workspace" data-workbench-maximize-host="" ref={setWorkbenchHost}>
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
