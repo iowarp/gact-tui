@@ -10,6 +10,7 @@ import {
 import { useOfflineArchive } from '@/providers/connection-provider';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
+import * as maplibre from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ import Map, {
   type MapRef,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { LoadingFeedback } from './loading-feedback';
 import { cn } from '@/lib/utils';
 import {
   mapCategoryColors,
@@ -103,6 +105,39 @@ const POINTS_SOURCE_ID = 'clio-map-points';
 const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
 /** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
 const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
+/** Which geometry a (possibly pooled) map instance currently holds. */
+const geometryKeys = new WeakMap<MapLibreMap, string>();
+/** Removes geometry a released view left on its pooled map for a successor. */
+const pendingGeometryTeardowns = new WeakMap<MapLibreMap, () => void>();
+/** How long a released map keeps its geometry for a view that shows the same data. */
+const GEOMETRY_HANDOVER_MS = 1_000;
+
+function geometryKey(geometry: FeatureCollection): string {
+  return `${geometry.features.length}:${geometry.features.map((feature) => String(feature.id)).join(',')}`;
+}
+
+function removeGeometryLayers(map: MapLibreMap) {
+  geometryKeys.delete(map);
+  try {
+    for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
+    if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
+  } catch {
+    /* Pooled map style was already removed. */
+  }
+}
+
+/**
+ * Claim a pooled map for a view. Geometry a previous view left behind stays
+ * only when it is the same data, so the next view draws it on its first frame
+ * instead of parsing it again.
+ */
+function claimMap(map: MapLibreMap, owner: symbol, keepGeometryKey?: string) {
+  pointsLayerOwners.set(map, owner);
+  const teardown = pendingGeometryTeardowns.get(map);
+  if (!teardown) return;
+  pendingGeometryTeardowns.delete(map);
+  if (keepGeometryKey === undefined || geometryKeys.get(map) !== keepGeometryKey) teardown();
+}
 
 interface PointFeatureProperties {
   id: string;
@@ -156,6 +191,10 @@ interface DragBox {
 
 /** Pixels a shift+drag must move before it counts as a zone (not a shift+click). */
 const ZONE_DRAG_THRESHOLD_PX = 4;
+
+/** How long the loading placeholder may cover a map that never settles. */
+const FIRST_DRAW_TIMEOUT_MS = 5_000;
+const LOADING_PLACEHOLDER_DELAY_MS = 150;
 
 /** Get the map instance from the provider, including maps returned from the reuse pool. */
 function MapInstanceReporter({ onMapInstance }: { onMapInstance: (map: MapLibreMap) => void }) {
@@ -229,6 +268,47 @@ export function ClioScientificMapView({
   const lastBoxDragAt = useRef(0);
   const suppressHandledClick = useRef(false);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
+  // The canvas exists well before its data is drawn. Keep the loading placeholder
+  // over it until the style is ready and the map's own data layer has drawn, so it
+  // never shows an empty frame. Basemap tiles may still stream in afterwards.
+  const dataSourceId = geometry ? GEOMETRY_SOURCE_ID : manyPoints ? POINTS_SOURCE_ID : undefined;
+  const [drawn, setDrawn] = useState(false);
+  // A map that draws within this delay (a preloaded, pooled instance) never flashes the placeholder.
+  const [slowDraw, setSlowDraw] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlowDraw(true), LOADING_PLACEHOLDER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!mapInstance) return undefined;
+    const map = mapInstance;
+    const finish = () => {
+      setDrawn(true);
+      map.off('render', check);
+    };
+    const check = () => {
+      if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
+      // A handed-over source keeps drawing its tiles while new data loads.
+      if (
+        dataSourceId &&
+        !(
+          map.getSource(dataSourceId) &&
+          (map.isSourceLoaded(dataSourceId) || map.querySourceFeatures(dataSourceId).length > 0)
+        )
+      )
+        return;
+      finish();
+    };
+    map.on('render', check);
+    map.on('idle', finish);
+    map.triggerRepaint?.();
+    const timer = window.setTimeout(finish, FIRST_DRAW_TIMEOUT_MS);
+    return () => {
+      map.off('render', check);
+      map.off('idle', finish);
+      window.clearTimeout(timer);
+    };
+  }, [dataSourceId, mapInstance]);
   const denseTrajectories = Boolean(geometrySelectionByPoints && points.length > 1_000);
   // Point colors are resolved from the theme, so a theme change recolors them.
   const theme = useThemeKey();
@@ -284,17 +364,19 @@ export function ClioScientificMapView({
     const canvas = map.getCanvas();
     const previousCursor = canvas.style.cursor;
     const owner = Symbol('clio-map-geometry-owner');
+    const key = geometryKey(geometry);
     const ensureGeometryLayers = () => {
       // Raster tile requests can fail while the base style and its layer are
       // already usable. `isStyleLoaded()` remains false in that case and would
       // hide every data overlay even though the map itself is visible.
       if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
-      pointsLayerOwners.set(map, owner);
+      claimMap(map, owner, key);
       if (!map.getSource(GEOMETRY_SOURCE_ID))
         map.addSource(GEOMETRY_SOURCE_ID, {
           type: 'geojson',
           data: styledGeometryRef.current ?? geometry,
         });
+      geometryKeys.set(map, key);
       const color: ExpressionSpecification = [
         'case',
         ['get', 'highlighted'],
@@ -403,12 +485,18 @@ export function ClioScientificMapView({
       canvas.style.cursor = previousCursor;
       if (pointsLayerOwners.get(map) !== owner) return;
       pointsLayerOwners.delete(map);
-      try {
-        for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
-        if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
-      } catch {
-        /* Pooled map style was already removed. */
-      }
+      // With `reuseMaps`, the next view on this instance may show the same
+      // geometry; leave it briefly so that view need not parse it again.
+      const teardown = () => {
+        window.clearTimeout(timer);
+        removeGeometryLayers(map);
+      };
+      const timer = window.setTimeout(() => {
+        if (pendingGeometryTeardowns.get(map) !== teardown) return;
+        pendingGeometryTeardowns.delete(map);
+        removeGeometryLayers(map);
+      }, GEOMETRY_HANDOVER_MS);
+      pendingGeometryTeardowns.set(map, teardown);
     };
   }, [geometry, mapInstance, denseTrajectories]);
   useEffect(() => {
@@ -455,7 +543,7 @@ export function ClioScientificMapView({
     const owner = Symbol('clio-map-points-owner');
     const ensurePointsLayer = () => {
       if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
-      pointsLayerOwners.set(map, owner);
+      claimMap(map, owner);
       if (!map.getSource(POINTS_SOURCE_ID)) {
         map.addSource(POINTS_SOURCE_ID, {
           type: 'geojson',
@@ -692,6 +780,8 @@ export function ClioScientificMapView({
       <Map
         dragPan={!boxSelectMode}
         initialViewState={viewState}
+        // The loaded module, not a dynamic import: a pooled map reattaches in this commit's effects.
+        mapLib={maplibre}
         interactiveLayerIds={
           geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined
         }
@@ -760,6 +850,12 @@ export function ClioScientificMapView({
           </Popup>
         ) : null}
       </Map>
+      {drawn || mapError || !slowDraw ? null : (
+        <LoadingFeedback
+          className="pointer-events-none absolute inset-0 z-[2] justify-center bg-muted"
+          label="Loading map…"
+        />
+      )}
       {boxSelectMode && onZoneSelect ? (
         <div
           aria-label="Drag to select map points"

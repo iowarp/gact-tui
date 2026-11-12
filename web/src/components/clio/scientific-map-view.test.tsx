@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,6 +45,8 @@ const fakeMap = vi.hoisted(() => {
     queryRenderedFeatures: vi.fn((): unknown[] => []),
     unproject: vi.fn((point: [number, number]) => ({ lat: point[1] / 10, lng: point[0] / 10 })),
     isStyleLoaded: vi.fn(() => true),
+    isSourceLoaded: vi.fn(() => true),
+    querySourceFeatures: vi.fn((): unknown[] => []),
     getSource: vi.fn((id: string) => sources.get(id)),
     addSource: vi.fn((id: string, spec: { type: string; data?: unknown }) => {
       const record = {
@@ -174,6 +176,55 @@ describe('ClioScientificMapView zone selection', () => {
     expect(JSON.stringify(capturedMapProps.current?.mapStyle)).toContain(
       'https://tile.openstreetmap.org',
     );
+  });
+  it('hands identical geometry on a pooled map to the next view without parsing it again', () => {
+    const lake = (id: string) => ({
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          id,
+          properties: {},
+          geometry: { type: 'Point' as const, coordinates: [1, 1] },
+        },
+      ],
+    });
+    const first = render(<ClioScientificMapView points={POINTS} geometry={lake('a')} onSelect={vi.fn()} />);
+    first.unmount();
+    expect(fakeMap.__sources.has('clio-map-geometry')).toBe(true);
+
+    const same = render(<ClioScientificMapView points={POINTS} geometry={lake('a')} onSelect={vi.fn()} />);
+    expect(fakeMap.addSource).toHaveBeenCalledTimes(1);
+    expect(fakeMap.removeSource).not.toHaveBeenCalled();
+    same.unmount();
+
+    render(<ClioScientificMapView points={POINTS} geometry={lake('b')} onSelect={vi.fn()} />);
+    expect(fakeMap.removeSource).toHaveBeenCalledWith('clio-map-geometry');
+    expect(fakeMap.__sources.get('clio-map-geometry')?.data).toMatchObject({
+      features: [{ id: 'b' }],
+    });
+  });
+  it('covers the canvas with a loading status when the map is slow to first settle', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<ClioScientificMapView points={POINTS} onSelect={vi.fn()} />);
+      const status = () => within(view.container).queryByRole('status', { name: 'Loading map…' });
+      // A map that draws at once (a preloaded, pooled instance) never flashes it.
+      expect(status()).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+      expect(status()).toHaveAttribute('aria-busy', 'true');
+
+      act(() => {
+        for (const [event, handler] of fakeMap.on.mock.calls)
+          if (event === 'idle') (handler as () => void)();
+      });
+
+      expect(status()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('can hit a rendered trajectory dot or segment when the map hit index is stale', () => {
     const geometry = {
@@ -360,6 +411,30 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       longitude: index * 0.01,
     }));
   }
+
+  it('lifts the loading status once the points layer draws, before basemap tiles settle', () => {
+    vi.useFakeTimers();
+    try {
+      fakeMap.isSourceLoaded.mockReturnValueOnce(false);
+      const view = render(<ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />);
+      const status = () => within(view.container).queryByRole('status', { name: 'Loading map…' });
+      const renderFrame = () =>
+        act(() => {
+          for (const [event, handler] of fakeMap.on.mock.calls)
+            if (event === 'render') (handler as () => void)();
+        });
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      renderFrame();
+      expect(status()).not.toBeNull();
+      renderFrame();
+      expect(status()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('draws a single GeoJSON layer instead of one marker per point once past the threshold', () => {
     const onMapInstance = vi.fn();

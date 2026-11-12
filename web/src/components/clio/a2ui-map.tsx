@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { MapLibreMap } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,10 +49,7 @@ import {
 import type { QueryRow } from './table-query-rows';
 import { useMapCamera, mapCameraSchema, type MapCameraProps } from './map-camera';
 import { downloadInlineRowsAsCsv, downloadInlineRowsAsJson } from './table-export-client';
-
-const ClioScientificMapView = lazy(() =>
-  import('./scientific-map-view').then((module) => ({ default: module.ClioScientificMapView })),
-);
+import { scientificMapView } from './scientific-map-view-loader';
 
 const MAP_LIST_ROW_HEIGHT = 48;
 const MAP_LIST_CHROME_HEIGHT = 64;
@@ -506,6 +503,8 @@ export function ClioScientificMap({
       ) : null}
     </>
   );
+  // Once preloaded, the renderer mounts in this frame instead of after a fallback.
+  const ClioScientificMapView = scientificMapView();
 
   return (
     <div
