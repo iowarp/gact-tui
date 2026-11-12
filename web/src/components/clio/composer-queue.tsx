@@ -12,7 +12,7 @@ import type { SavedDraft } from '@/lib/composer-saved-drafts';
 import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
 import { QueuedMessageRow } from './composer-queue-row';
 import { SavedDraftRow } from './composer-saved-draft-row';
-import { Tag } from './primitives/tag';
+import { StatusIndicator } from './primitives/status-indicator';
 
 /** Queue state and actions passed through the shared composer. */
 export interface ComposerQueueControls {
@@ -193,13 +193,9 @@ export function ClioComposerQueue({
           <span className="truncate font-medium">{countLabel}</span>
           <span aria-live="polite" className="contents">
             {paused ? (
-              <Tag
-                title="New messages wait here until the queue resumes. Send now still works."
-                tone="warning"
-                width="auto"
-              >
-                Paused
-              </Tag>
+              <span title="New messages wait here until the queue resumes. Send now still works.">
+                <StatusIndicator label="Paused" tone="stopped" />
+              </span>
             ) : null}
           </span>
         </span>
