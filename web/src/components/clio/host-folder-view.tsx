@@ -7,6 +7,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
+import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type HostFolder,
@@ -44,10 +45,13 @@ const ACCESS_LABELS: Record<string, string> = {
  * for the agent, so they are read for the listing and never shown as a file.
  */
 export function HostFolderView({
+  besideControls,
   folder,
   resource,
   workspaceId,
 }: {
+  /** Arrows overlay the sides (a carousel of several), so the content keeps out from under them. */
+  besideControls?: boolean;
   folder: HostFolder;
   resource: WorkspaceResource;
   workspaceId: string;
@@ -75,7 +79,10 @@ export function HostFolderView({
 
   return (
     <ScrollArea className="h-full">
-      <section aria-label={`Folder ${name}`} className="@container mx-auto w-full max-w-3xl p-5">
+      <section
+        aria-label={`Folder ${name}`}
+        className={cn('@container mx-auto w-full max-w-3xl p-5', besideControls && 'px-12')}
+      >
         <header className="flex items-start gap-3">
           <FolderIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <div className="min-w-0">

@@ -1,6 +1,6 @@
 import type { ConnectedSourceState, WorkspaceResource } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderUpIcon, PaperclipIcon, SearchIcon } from 'lucide-react';
+import { FolderIcon, FolderUpIcon, PaperclipIcon, SearchIcon } from 'lucide-react';
 import { memo, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
@@ -13,6 +13,12 @@ import { ConnectedSourceActions } from './connected-source-actions';
 import { connectedSourceErrorMessage } from './connected-source-error';
 import { sourceStatus, sourceSublineParts } from './connected-source-labels';
 import { ConnectedSourcePicker } from './connected-source-picker';
+import {
+  hostFolderInPlace,
+  hostFolderOf,
+  hostFolderSize,
+  resourceDisplayName,
+} from './host-folder';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
@@ -86,7 +92,13 @@ export function SourcesList({
     [sources.data, needle],
   );
   const uploads = useMemo(
-    () => resources.filter((row) => !needle || row.name.toLowerCase().includes(needle)),
+    () =>
+      resources.filter(
+        (row) =>
+          !needle ||
+          resourceDisplayName(row).toLowerCase().includes(needle) ||
+          uploadSublineParts(row).join(' ').toLowerCase().includes(needle),
+      ),
     [resources, needle],
   );
   const total = (sources.data?.length ?? 0) + resources.length;
@@ -362,7 +374,19 @@ function sentenceCase(value: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** A file uploaded to the workspace: the same row, its size in the sub-line. */
+/**
+ * A folder's sub-line: how it is attached, then its size; a file's: Upload, then its size.
+ * A folder's own record is never what the person attached, so its size is not shown.
+ */
+function uploadSublineParts(resource: WorkspaceResource): string[] {
+  const folder = hostFolderOf(resource);
+  if (!folder) return ['Upload', formatResourceSize(resource.received_size)];
+  const how = hostFolderInPlace(folder) ? 'Folder, in place' : 'Full copy';
+  const size = hostFolderSize(folder);
+  return size ? [how, size] : [how];
+}
+
+/** A file uploaded to the workspace, or a folder attached from the agent's computer. */
 function UploadRow({
   resource,
   selected,
@@ -372,7 +396,8 @@ function UploadRow({
   selected: boolean;
   onOpen: () => void;
 }) {
-  const size = formatResourceSize(resource.received_size);
+  const name = resourceDisplayName(resource);
+  const parts = uploadSublineParts(resource);
   const status =
     resource.state === 'uploading'
       ? {
@@ -385,23 +410,23 @@ function UploadRow({
         ? { tone: 'success' as const, label: 'Ready' }
         : { tone: 'idle' as const, label: sentenceCase(resource.state) };
   return (
-    <div role="listitem" title={`${resource.name}, ${size}`}>
+    <div role="listitem" title={`${name}, ${parts.join(', ')}`}>
       <ListRow
         actions={null}
         actionsWidth={SOURCE_ACTIONS_WIDTH}
         aria-current={selected || undefined}
-        aria-label={`Open ${resource.name}`}
+        aria-label={`Open ${name}`}
         className="cursor-pointer"
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
-        description={<SublineParts parts={['Upload', size]} />}
-        icon={<PaperclipIcon />}
+        description={<SublineParts parts={parts} />}
+        icon={hostFolderOf(resource) ? <FolderIcon /> : <PaperclipIcon />}
         layout="stacked"
         onClick={onOpen}
         onKeyDown={activateOnKey(onOpen)}
         role="button"
         selected={selected}
         tabIndex={0}
-        title={resource.name}
+        title={name}
       />
     </div>
   );
