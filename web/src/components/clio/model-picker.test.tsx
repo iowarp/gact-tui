@@ -478,7 +478,7 @@ describe('ClioModelPicker', () => {
     // there is nothing to toggle until it is clicked.
     expect(screen.queryByRole('button', { name: /Hide|Show/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Hidden 0' }));
+    await user.click(screen.getByRole('button', { name: 'Hide providers' }));
     // Manage mode: every row -- not just the one about to be hidden -- shows
     // its own eye beside its heartbeat.
     expect(screen.getByRole('button', { name: /Hide Codex/ })).toBeVisible();
@@ -617,7 +617,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: 'Hidden 0' }));
+    await user.click(screen.getByRole('button', { name: 'Hide providers' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
 

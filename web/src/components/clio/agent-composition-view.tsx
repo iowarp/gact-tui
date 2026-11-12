@@ -92,10 +92,13 @@ export function DraftAgentCompositionView({
   onChange,
   library = false,
   embedded = false,
+  naming = false,
 }: {
   library?: boolean;
   /** Inside a pane that already scrolls, such as the Settings agent preview. */
   embedded?: boolean;
+  /** Open with the save dialog up: a new agent starts as a named variation of this one. */
+  naming?: boolean;
   draft: DraftAgent;
   onChange: (next: DraftAgent) => void;
 }) {
@@ -106,6 +109,7 @@ export function DraftAgentCompositionView({
       draft
       embedded={embedded}
       library={library}
+      naming={naming}
       onCompact={() => undefined}
     />
   );
@@ -116,6 +120,7 @@ function AgentComposition({
   draft = false,
   library = false,
   embedded = false,
+  naming = false,
   sessionId,
   onCompact,
 }: {
@@ -123,6 +128,7 @@ function AgentComposition({
   draft?: boolean;
   library?: boolean;
   embedded?: boolean;
+  naming?: boolean;
   sessionId?: string;
   onCompact: () => void;
 }) {
@@ -135,7 +141,7 @@ function AgentComposition({
   const conversationTitle = useLiveStore((state) =>
     sessionId ? state.entities.sessions[sessionId]?.title : undefined,
   );
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(naming);
   const [view, setView] = useState<AgentUseKind>();
   const [packagesView, setPackagesView] = useState<AgentPackagesView>({ category: 'all' });
   const [item, setItem] = useState<PackageItem>();

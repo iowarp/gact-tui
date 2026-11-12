@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { LoadingFeedback } from './loading-feedback';
+import { NamedTooltip } from './primitives/icon-button';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import {
   Cascader,
@@ -421,6 +422,26 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       );
   }
 
+  const visibilityButton = (
+    <Button
+      aria-label={managingVisibility || hiddenProviders.size ? undefined : 'Hide providers'}
+      aria-pressed={managingVisibility}
+      className="shrink-0 text-label font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
+      data-slot="provider-visibility-mode"
+      onClick={() => setManagingVisibility((current) => !current)}
+      size="xs"
+      type="button"
+      variant={managingVisibility ? 'secondary' : 'ghost'}
+    >
+      {managingVisibility ? (
+        <EyeOffIcon data-icon="inline-start" />
+      ) : (
+        <EyeIcon data-icon={hiddenProviders.size ? 'inline-start' : undefined} />
+      )}
+      {managingVisibility ? 'Done' : hiddenProviders.size ? `Hidden ${hiddenProviders.size}` : null}
+    </Button>
+  );
+
   return (
     <Cascader
       closeOnSelect={false}
@@ -661,22 +682,14 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           <PickerFooter
             className="h-9 border-t-0 px-2"
             end={
-              <Button
-                aria-pressed={managingVisibility}
-                className="shrink-0 text-label font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
-                data-slot="provider-visibility-mode"
-                onClick={() => setManagingVisibility((current) => !current)}
-                size="xs"
-                type="button"
-                variant={managingVisibility ? 'secondary' : 'ghost'}
-              >
-                {managingVisibility ? (
-                  <EyeOffIcon data-icon="inline-start" />
-                ) : (
-                  <EyeIcon data-icon="inline-start" />
-                )}
-                {managingVisibility ? 'Done' : `Hidden ${hiddenProviders.size}`}
-              </Button>
+              hiddenProviders.size || managingVisibility ? (
+                visibilityButton
+              ) : (
+                // Nothing hidden: the eye alone, named on hover, still opens the manage mode.
+                <NamedTooltip label="Hide providers" side="top">
+                  {visibilityButton}
+                </NamedTooltip>
+              )
             }
             hints={footerHints(showColumns, searchColumns)}
             hintsAlign={showColumns ? 'end' : 'start'}

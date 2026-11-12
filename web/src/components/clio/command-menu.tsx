@@ -484,9 +484,7 @@ function CommandMenuBody({
                 ) : null}
                 {noMatch ? (
                   <CommandMenuNoMatch
-                    canAsk={canAsk}
                     onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
-                    onAsk={() => setAiMode(true)}
                     query={searchText.trim()}
                     scope={activeScope === 'all' ? undefined : scopeLabel}
                     total={counts.all}

@@ -52,8 +52,9 @@ export function NavigationHeader({
   const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
   const commandKeyHeld = useCommandKeyHeld();
   return (
-    <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
-      <SidebarMenu className="flex-row items-center gap-1 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
+    <SidebarHeader className="gap-2 px-2 pb-1 pt-0 group-data-[collapsible=icon]:pt-2.5">
+      {/* One 48px top row with the top bar: the same rule runs under both. */}
+      <SidebarMenu className="-mx-2 h-12 w-auto shrink-0 flex-row items-center gap-1 border-b px-2 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:mx-0 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:border-b-0 group-data-[collapsible=icon]:px-0">
         <SidebarMenuItem className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
           <NavigationAgentMenu
             activeLabel={activeLabel}

@@ -60,14 +60,11 @@ export function SettingsSectionHeading({
       </div>
       {scope ? (
         <p
-          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-muted-foreground max-[599px]:items-start max-[599px]:whitespace-normal"
+          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-faint"
           data-slot="settings-scope"
         >
-          <SettingsScopeIcon
-            className="size-[0.8125rem] shrink-0 max-[599px]:mt-px"
-            group={scope.group}
-          />
-          <span className="min-w-0 truncate max-[599px]:whitespace-normal">{scope.line}</span>
+          <SettingsScopeIcon className="size-[0.8125rem] shrink-0" group={scope.group} />
+          <span className="min-w-0 truncate">{scope.line}</span>
         </p>
       ) : null}
     </div>

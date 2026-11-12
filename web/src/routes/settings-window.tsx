@@ -273,7 +273,10 @@ export function SettingsWindow() {
       <FrameClioMenu className="top-12 left-3" />
       {/* Not <main>: the window's content region already names this area, and a
           main landmark inside it is not top-level. */}
-      <div className="px-5 pt-4 pb-5 sm:px-7" data-settings-main="">
+      <div
+        className="px-5 pt-4 pb-5 [--settings-gutter:1.25rem] sm:px-7 sm:[--settings-gutter:1.75rem]"
+        data-settings-main=""
+      >
         <AnnounceStates />
         <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>

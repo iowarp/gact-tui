@@ -401,7 +401,7 @@ export function ClioAttentionCenter({
         side="bottom"
       >
         <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
-          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <PopoverTitle className="text-ui font-semibold">Notifications</PopoverTitle>
           <button
             className="ml-auto rounded-[6px] px-1.5 py-0.5 text-label font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
             disabled={!unread}

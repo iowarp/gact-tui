@@ -17,6 +17,8 @@ import type { ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { workspaceFilePath } from '@/lib/workspace-file-path';
+import { useLiveStore } from '@/store/live-store';
 import { AskCode, AskFacts, AskSection, type AskFact } from './ask-card';
 import { TechnicalDetails } from './technical-details';
 import { permissionCommand, permissionOperationLabel } from './permission-operation-labels';
@@ -36,16 +38,38 @@ export interface PermissionOperation {
   paths: readonly string[];
 }
 
+interface WorkspacePlace {
+  name?: string;
+  root?: string;
+}
+
+/**
+ * A location as the person knows it: inside the workspace it starts at the
+ * workspace's name ("opal-sites/data/run.csv"); elsewhere it stays whole.
+ */
+function workspacePlace(path: string, workspace?: WorkspacePlace): string {
+  const root = workspace?.root;
+  if (!root) return path;
+  const trimmed = (value: string) => value.replace(/\\/gu, '/').replace(/\/+$/u, '');
+  const name = workspace.name || trimmed(root).split('/').pop() || root;
+  if (trimmed(path).toLocaleLowerCase() === trimmed(root).toLocaleLowerCase()) return name;
+  const relative = workspaceFilePath(path, root);
+  return relative === path.replace(/\\/gu, '/') ? path : `${name}/${relative}`;
+}
+
 function Place({
   icon,
   mono,
   fixed,
+  title,
   children,
 }: {
   icon?: ReactNode;
   mono?: boolean;
   /** Keeps its width beside a long sibling; it truncates only past 40% of the row. */
   fixed?: boolean;
+  /** The full location when the text is a compacted one. */
+  title?: string;
   children: string;
 }) {
   return (
@@ -54,7 +78,7 @@ function Place({
         'inline-flex min-w-0 items-center gap-1.5',
         fixed && 'max-w-[40%] shrink-0',
       )}
-      title={children}
+      title={title ?? children}
     >
       {icon ? (
         <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-3.5">
@@ -72,8 +96,9 @@ function Place({
  */
 function permissionOperation(
   interaction: PendingInteraction,
-  { title }: { title?: string } = {},
+  { title, workspace }: { title?: string; workspace?: WorkspacePlace } = {},
 ): PermissionOperation {
+  const place = (value: string) => workspacePlace(value, workspace);
   const access = interaction.payload?.access;
   const call = interaction.payload?.tool_call;
   const input =
@@ -144,8 +169,8 @@ function permissionOperation(
                   </Place>
                 ) : null}
                 {folder ? (
-                  <Place icon={<FolderIcon />} mono>
-                    {folder}
+                  <Place icon={<FolderIcon />} mono title={folder}>
+                    {place(folder)}
                   </Place>
                 ) : null}
               </>
@@ -157,8 +182,8 @@ function permissionOperation(
                   <Place fixed mono>
                     {computer}
                   </Place>
-                  <Place icon={<FolderIcon />} mono>
-                    {folder}
+                  <Place icon={<FolderIcon />} mono title={folder}>
+                    {place(folder)}
                   </Place>
                 </>
               ) : undefined,
@@ -170,7 +195,9 @@ function permissionOperation(
       <FolderOutputIcon />,
       name === 'web_fetch' && input.to_file === true ? text('output_dir') || cwd : '',
     ),
-    ...fact('File', <FileIcon />, path, true),
+    ...(path
+      ? [{ label: 'File', icon: <FileIcon />, value: place(path), title: path, mono: true }]
+      : []),
     ...(access?.folders.length
       ? [
           {
@@ -247,7 +274,22 @@ export function PermissionOperationDetails({
   /** Off when the card shows the whole script instead of the command that runs it. */
   showCommand?: boolean;
 }) {
-  const { facts, command, paths } = permissionOperation(interaction, { title });
+  const workspaceId = useLiveStore(
+    (state) =>
+      interaction.payload?.access?.workspace_id ??
+      state.entities.sessions[interaction.owner_session_id]?.workspace_id,
+  );
+  const root = useLiveStore((state) =>
+    workspaceId ? state.entities.workspaces[workspaceId]?.path : undefined,
+  );
+  const name = useLiveStore((state) => {
+    const entry = workspaceId ? state.entities.workspaces[workspaceId] : undefined;
+    return entry?.display_name || entry?.name;
+  });
+  const { facts, command, paths } = permissionOperation(interaction, {
+    title,
+    workspace: { name, root },
+  });
   return (
     <div className="contents" data-slot="permission-operation-details">
       <AskFacts facts={[...facts, ...extraFacts]} />

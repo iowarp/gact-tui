@@ -159,6 +159,15 @@ export function ProviderPanelFooter({
             ) : null}
           </span>
         ) : null}
+        {!manage && !actions?.stage ? (
+          // The dot never stands alone: the bar says the state in words too.
+          <span
+            className={cn('shrink-0 text-label text-muted-foreground', !ready && status.color)}
+            data-slot="provider-bar-word"
+          >
+            {status.label}
+          </span>
+        ) : null}
         {age && !manage && !actions?.stage ? (
           <span
             className="shrink-0 font-mono text-caption text-muted-foreground"

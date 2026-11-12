@@ -696,6 +696,13 @@ function routedInteractionsEqual(
   const leftRows = relevant(left.interactions);
   const rightRows = relevant(right.interactions);
   return (
-    leftRows.length === rightRows.length && leftRows.every((row, index) => row === rightRows[index])
+    leftRows.length === rightRows.length &&
+    leftRows.every((row, index) => row === rightRows[index]) &&
+    // A plan review opens the artifact its payload names, not one of the message's blocks;
+    // the registry can arrive after the transcript.
+    rightRows.every((row) => {
+      const artifactId = row.payload?.plan_exit?.artifact_ref?.artifact_id;
+      return !artifactId || left.artifacts[artifactId] === right.artifacts[artifactId];
+    })
   );
 }

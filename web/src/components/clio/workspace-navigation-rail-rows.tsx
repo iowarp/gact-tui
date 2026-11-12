@@ -82,7 +82,7 @@ export function RailIconFailure({ error, onRetry }: { error: unknown; onRetry?: 
         variant="ghost"
       >
         <CircleAlertIcon aria-hidden="true" />
-        <span aria-hidden="true" className="text-[10px] leading-none font-medium">
+        <span aria-hidden="true" className="text-caption leading-none font-medium">
           Retry
         </span>
       </Button>

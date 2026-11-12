@@ -9,7 +9,6 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
 import { SETTINGS_COLUMN } from '@/lib/settings-fold';
-import { cn } from '@/lib/utils';
 import { ClioModelPicker } from './model-picker';
 import type { ProviderGroup } from './model-picker-model';
 import { ListDetailLayout } from './primitives/detail-pane';
@@ -135,9 +134,9 @@ export function ProvidersSettings() {
   const requestedCloud = cloud.find((preset) => preset.id === requestedProvider);
 
   const list = (
-    // One setting column (spec `.xrw`) for the list and the rows, so their right
-    // edges meet; beside an open details pane the column is the list's whole side.
-    <div className={cn('pb-4', !opened && SETTINGS_COLUMN)}>
+    // Lists fill the pane, as on every list page (spec 1722); beside an open
+    // details pane the column is the list's whole side.
+    <div className="pb-4">
       {/* The list's name is a search result: Ctrl K lands here. */}
       <div data-setting="Model servers">
         <SettingsGroupLabel
@@ -181,12 +180,8 @@ export function ProvidersSettings() {
             ))}
           </ItemList>
         ) : (
-          <StateView
-            action={{ label: 'Add server', onClick: () => setAdding(true) }}
-            kind="empty"
-            size="row"
-            title="No model servers yet"
-          />
+          // The group label's + is the one add (spec 1721).
+          <StateView kind="empty" size="row" title="No model servers yet" />
         )}
       </div>
       {apply.error ? (

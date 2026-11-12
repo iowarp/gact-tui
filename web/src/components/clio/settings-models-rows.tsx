@@ -28,7 +28,7 @@ export function FastModelRow() {
     <SettingsRow
       description="Titles, summaries and other small calls."
       info={`${vocab.agent} doesn't offer a separate fast model yet, so these calls use the default model.`}
-      note="Not offered by this agent; small calls use the default model"
+      note="Not offered by this agent"
       title="Fast model"
     >
       <SettingsSelectField

@@ -19,7 +19,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
-import { NARROW_HIDDEN, SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SpendSummary, UsageSummary } from './fleet-usage';
 import { InfoTip } from './info-tip';
@@ -218,8 +218,9 @@ export function UsageSettings() {
   return (
     <section aria-label="Usage" className="@container flex flex-col gap-2">
       {/* The title-row controls end on the list's right edge, also beside the
-          details pane (ListDetailLayout's list column is the other 58%). */}
-      <div className={cn(opened ? 'w-[58%] @max-[40rem]:w-full' : SETTINGS_COLUMN)}>
+          details pane (ListDetailLayout's list column is the other 58%, plus the
+          page gutter the pane runs into). */}
+      <div className={cn(opened && 'w-[calc(58%+var(--settings-gutter,0px))] @max-[40rem]:w-full')}>
         <SettingsSectionHeading
           actions={
             accounts.length ? (
@@ -254,8 +255,8 @@ export function UsageSettings() {
           }
           list={
             <div className="grid grid-cols-1 gap-2">
-              {/* One setting column (spec `.xrw`) for the lists and the total rows. */}
-              <div className={cn(!opened && SETTINGS_COLUMN)}>
+              {/* Lists fill the pane, as on every list page; Total keeps By model's columns. */}
+              <div>
                 <SettingsGroupLabel
                   actions={
                     <span className="flex items-center gap-1" data-slot="usage-delegation-caption">

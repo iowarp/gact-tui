@@ -1,3 +1,4 @@
+import { RESPONSE_SETTING_LABELS } from '@/components/clio/settings-models-form';
 import { vocab } from './brand-vocabulary';
 import { ONBOARDING_TOUR_ENABLED } from './onboarding/tour-flag';
 
@@ -60,11 +61,19 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
     },
     { label: 'Motion', section: 'appearance', keywords: 'animation reduce', value: 'motion' },
     { label: 'Email', section: 'profile', keywords: 'address contact' },
+    { label: 'Name', section: 'profile', keywords: 'display name your name' },
     { label: 'About you', section: 'profile', keywords: 'personal description' },
+    { label: 'Sound', section: 'notifications', keywords: 'attention chime audio' },
     { label: 'Desktop alerts', section: 'notifications', keywords: 'alerts notify' },
+    {
+      label: 'Finished work',
+      section: 'notifications',
+      keywords: 'done stopped run notify alert',
+    },
     { label: 'Beta updates', section: 'general', keywords: 'channel prerelease update' },
     { label: 'Use account memory', section: 'memory', keywords: 'remember facts account' },
     { label: 'Address', section: 'connections', keywords: 'endpoint url server' },
+    { label: 'Transport', section: 'connections', keywords: 'protocol websocket http' },
     {
       label: 'Default model',
       section: 'models',
@@ -77,9 +86,34 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
       keywords: 'thinking reasoning level',
       value: 'reasoning-effort',
     },
+    { label: 'Fast model', section: 'models', keywords: 'small helper titles summaries model' },
+    {
+      label: 'Show diffusion',
+      section: 'models',
+      keywords: 'diffusion redraw stream reply live',
+    },
+    { label: 'Request timeout', section: 'models', keywords: 'timeout seconds model call' },
+    {
+      label: 'Context size',
+      section: 'models',
+      keywords: 'context window working context tokens length',
+    },
+    // The selected model's response settings, as the Models page names them.
+    ...(Object.entries(RESPONSE_SETTING_LABELS) as [string, string][])
+      .filter(([, label]) => label !== 'Context size')
+      .map(([name, label]) => ({
+        label,
+        section: 'models',
+        keywords: `response sampling ${name.replaceAll('_', ' ')}`,
+      })),
     { label: `${vocab.agent} Search`, section: 'fleet', keywords: 'search helper model' },
     { label: 'SPOTTER review', section: 'fleet', keywords: 'spotter judge review model' },
     { label: 'Suggest Explore while searching', section: 'fleet', keywords: 'explore nudge' },
+    {
+      label: 'Reads before the suggestion',
+      section: 'fleet',
+      keywords: 'explore nudge reads threshold',
+    },
     {
       label: 'Model servers',
       section: 'providers',

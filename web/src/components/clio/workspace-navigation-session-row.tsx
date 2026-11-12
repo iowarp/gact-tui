@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, UNSAFE_NavigationContext } from 'react-router-dom';
-import { memo, useContext, useState } from 'react';
+import { memo, useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -24,7 +24,7 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLeftBarDialog } from '@/hooks/use-left-bar-dialog';
-import { sessionInteractionAt } from '@/lib/recent-sessions';
+import { hasUnseenActivity, sessionInteractionAt } from '@/lib/recent-sessions';
 import { canForkSession, isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
 import { cn } from '@/lib/utils';
@@ -190,8 +190,16 @@ function SessionRow({
     !running &&
     !needsAttention &&
     session.id !== activeSessionId &&
-    seenRevision !== sessionInteractionAt(session);
+    hasUnseenActivity(session, seenRevision);
   const active = session.id === activeSessionId;
+  const interactionAt = sessionInteractionAt(session);
+  // The open conversation is read as it changes, so leaving it keeps it seen.
+  useEffect(() => {
+    if (!active) return;
+    onVisit(session);
+    return () => onVisit(session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- record per revision, not per object
+  }, [active, interactionAt, onVisit]);
   // The router's navigator, not useNavigate(): that one follows the location, so
   // every memoized row would re-render on each conversation switch.
   const { navigator } = useContext(UNSAFE_NavigationContext);
@@ -432,7 +440,7 @@ function SessionRow({
                   <SessionAttentionIndicators attention={attention} showResponseLabel />
                 </div>
               ) : (
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-meta text-muted-foreground">
                   {running ? 'Working now' : sessionStateLabel(session.state)}
                 </p>
               )}
@@ -452,7 +460,7 @@ function SessionRow({
               {session.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
             </Button>
           </div>
-          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
+          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-meta">
             {forkLabel ? (
               <>
                 <span className="text-muted-foreground">Origin</span>

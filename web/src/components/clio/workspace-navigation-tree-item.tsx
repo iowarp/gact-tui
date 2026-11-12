@@ -213,7 +213,7 @@ function WorkspaceLabelFields({
     <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
       <span className="truncate">{label.name}</span>
       {label.qualifiers.map((qualifier) => (
-        <span className="shrink-0 text-xs font-normal text-muted-foreground" key={qualifier}>
+        <span className="shrink-0 text-meta font-normal text-muted-foreground" key={qualifier}>
           {qualifier}
         </span>
       ))}

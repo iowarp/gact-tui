@@ -2,6 +2,7 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
+import { compactModelName } from '@/lib/model-options';
 import { cachedModelFacts } from './model-picker-fact-cache';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cn } from '@/lib/utils';
@@ -199,6 +200,10 @@ export function PickerRowLabel({
     );
   }
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
+  // A model the catalog names only by its id reads as the trigger names it
+  // (claude-sonnet-5-5 → sonnet 5.5); the id stays in its details and search.
+  const name =
+    choice && node.label === choice.id ? compactModelName(choice.id, node.label) : node.label;
   const facts = choice ? cachedModelFacts(choice) : undefined;
   const allTags = facts?.tags ?? [];
   // A router's name does not say what it routes to: its description does.
@@ -219,9 +224,9 @@ export function PickerRowLabel({
         )}
         data-slot="model-row-name"
       >
-        {node.label}
+        {name}
       </span>
-      {description ? <ModelDescriptionHint description={description} name={node.label} /> : null}
+      {description ? <ModelDescriptionHint description={description} name={name} /> : null}
       <ModelRowFacts
         className="ms-auto"
         contextWindow={facts?.facts.contextWindow}
