@@ -391,7 +391,10 @@ export function ClioDataTable({
             )}
           >
             {showLabel ? (
-              <h3 className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+              <h3
+                className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+                title={label}
+              >
                 {label}
               </h3>
             ) : (

@@ -1,5 +1,6 @@
 import {
   AtSignIcon,
+  ChevronLeftIcon,
   ClipboardCopyIcon,
   CopyIcon,
   DownloadIcon,
@@ -7,7 +8,15 @@ import {
   FileTextIcon,
   LoaderCircleIcon,
 } from 'lucide-react';
-import { Fragment, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -244,56 +253,111 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
   );
 }
 
-/** Rows re-lettered so none reuses a letter the menu already gives another row. */
-function relettered(rows: readonly TakeRow[], used: Set<string>): TakeRow[] {
-  return rows.map((row) => {
-    const preferred = row.accelerator?.toLocaleUpperCase();
-    const accelerator =
-      preferred && !used.has(preferred)
-        ? preferred
-        : assignJumpLetters([row.label], used)[0] || undefined;
-    if (accelerator) used.add(accelerator);
-    return { ...row, accelerator };
-  });
+type FoldedTake = 'copy' | 'open';
+
+/** A folded Take's row on a phone: it shows that Take's rows in place of the menu's. */
+function DrillRow({
+  icon,
+  label,
+  accelerator,
+  onDrill,
+}: {
+  icon: ReactNode;
+  label: string;
+  accelerator: string;
+  onDrill: () => void;
+}) {
+  return (
+    <DropdownMenuItem
+      data-accelerator={accelerator}
+      aria-haspopup="menu"
+      onSelect={(event) => {
+        event.preventDefault();
+        onDrill();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        onDrill();
+      }}
+    >
+      <MenuRow icon={icon} label={label} accelerator={accelerator} submenu />
+    </DropdownMenuItem>
+  );
 }
 
 /**
- * Copy and Open in the … menu once the frame is too narrow for their buttons:
- * submenus, or on a phone, where a submenu has no room beside the menu, the
- * rows themselves under a heading. `taken` holds the letters of the menu's other rows.
+ * A folded Take's rows, drilled into on a phone: Back, then the rows the
+ * submenu holds at wider widths, under its name.
+ */
+function DrilledTakeRows({
+  take,
+  copy,
+  open,
+  onBack,
+}: {
+  take: FoldedTake;
+  copy?: CopyTake;
+  open?: OpenTake;
+  onBack: () => void;
+}) {
+  const label = take === 'copy' ? 'Copy' : 'Open';
+  const rows = take === 'copy' ? (copy?.rows ?? []) : otherOpenRows(open?.rows ?? []);
+  return (
+    <>
+      <DropdownMenuItem
+        onSelect={(event) => {
+          event.preventDefault();
+          onBack();
+        }}
+      >
+        <MenuRow icon={<ChevronLeftIcon />} label="Back" />
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup aria-label={label}>
+        <DropdownMenuLabel>{label}</DropdownMenuLabel>
+        <TakeMenuRows rows={rows} />
+      </DropdownMenuGroup>
+    </>
+  );
+}
+
+/**
+ * Copy and Open in the … menu once the frame is too narrow for their buttons,
+ * as rows that open their submenu. On a phone a submenu has no room beside the
+ * menu, so the row drills in instead (`onDrill`): the menu shows that submenu's
+ * rows, with Back.
  */
 export function FoldedTakeRows({
   copy,
   open,
-  taken = '',
+  onDrill,
 }: {
   copy?: CopyTake;
   open?: OpenTake;
-  taken?: string;
+  onDrill?: (take: FoldedTake) => void;
 }) {
-  const inline = useMediaQuery('(max-width: 599px)');
-  if (inline) {
-    const used = new Set([...taken.toLocaleUpperCase()]);
-    const copyRows = copy ? relettered(copy.rows, used) : [];
-    const openRows = open ? relettered(otherOpenRows(open.rows), used) : [];
+  if (onDrill)
     return (
       <>
         {copy ? (
-          <DropdownMenuGroup aria-label="Copy">
-            <DropdownMenuLabel>Copy</DropdownMenuLabel>
-            <TakeMenuRows rows={copyRows} />
-          </DropdownMenuGroup>
+          <DrillRow
+            icon={<ClipboardCopyIcon />}
+            label="Copy"
+            accelerator="C"
+            onDrill={() => onDrill('copy')}
+          />
         ) : null}
-        {copy && open ? <DropdownMenuSeparator /> : null}
         {open ? (
-          <DropdownMenuGroup aria-label="Open">
-            <DropdownMenuLabel>Open</DropdownMenuLabel>
-            <TakeMenuRows rows={openRows} />
-          </DropdownMenuGroup>
+          <DrillRow
+            icon={<ExternalLinkIcon />}
+            label="Open"
+            accelerator="O"
+            onDrill={() => onDrill('open')}
+          />
         ) : null}
       </>
     );
-  }
   return (
     <>
       {copy ? (
@@ -366,6 +430,21 @@ export function FrameTalkTake({
   const copyRef = useRef<HTMLSpanElement>(null);
   const openRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLSpanElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const phone = useMediaQuery('(max-width: 599px)');
+  const [drill, setDrill] = useState<FoldedTake | null>(null);
+  const [moves, setMoves] = useState(0);
+  const drillTo = (take: FoldedTake | null) => {
+    setDrill(take);
+    setMoves((count) => count + 1);
+  };
+  // The drilled rows replace the focused one: focus their first.
+  useLayoutEffect(() => {
+    if (!moves) return;
+    contentRef.current
+      ?.querySelector<HTMLElement>('[role^="menuitem"]:not([data-disabled])')
+      ?.focus();
+  }, [moves]);
   const busy = pending || Boolean(open?.busy);
   const anyFolded = fold.talk || fold.copy || fold.open;
   return (
@@ -396,6 +475,7 @@ export function FrameTalkTake({
       ) : null}
       <DropdownMenu
         onOpenChange={(next) => {
+          setDrill(null);
           if (!next) return;
           const modes = foldedFrameModes(menuRef.current);
           const tools = foldedFrameTools(menuRef.current);
@@ -434,7 +514,23 @@ export function FrameTalkTake({
             </ToolbarAction>
           </DropdownMenuTrigger>
         </span>
-        <DropdownMenuContent align="end" className="w-64" onKeyDown={menuAcceleratorKeyDown}>
+        <DropdownMenuContent
+          ref={contentRef}
+          align="end"
+          className="w-64"
+          onKeyDown={(event) => {
+            if (drill && event.key === 'ArrowLeft') {
+              event.preventDefault();
+              drillTo(null);
+              return;
+            }
+            menuAcceleratorKeyDown(event);
+          }}
+        >
+          {drill ? (
+            <DrilledTakeRows take={drill} copy={copy} open={open} onBack={() => drillTo(null)} />
+          ) : (
+            <>
           {fold.modes.map((group, index) => (
             <Fragment key={`${index}:${group.label}`}>
               {index > 0 ? <DropdownMenuSeparator /> : null}
@@ -522,10 +618,12 @@ export function FrameTalkTake({
           <FoldedTakeRows
             copy={fold.copy ? copy : undefined}
             open={fold.open ? open : undefined}
-            taken={`A${fold.letters.join('')}${menuLetters}`}
+            onDrill={phone ? drillTo : undefined}
           />
           {anyFolded && menu ? <DropdownMenuSeparator /> : null}
           {menu}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>
