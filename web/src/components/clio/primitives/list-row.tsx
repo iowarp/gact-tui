@@ -1,4 +1,11 @@
-import { forwardRef, memo, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  forwardRef,
+  memo,
+  type CSSProperties,
+  type HTMLAttributes,
+  type MouseEventHandler,
+  type ReactNode,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
@@ -413,15 +420,18 @@ export const ListGroupLabel = memo(function ListGroupLabel({
   action,
   className,
   id,
+  onContextMenu,
 }: {
   children: ReactNode;
   action?: ReactNode;
   className?: string;
   id?: string;
+  onContextMenu?: MouseEventHandler<HTMLDivElement>;
 }) {
   return (
     <div
       data-slot="list-group-label"
+      onContextMenu={onContextMenu}
       className={cn(
         'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground',
         className,

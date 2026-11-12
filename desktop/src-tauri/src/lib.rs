@@ -286,6 +286,7 @@ pub fn run() {
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
             workspace_terminal::open_workspace_terminal,
+            workspace_terminal::open_workspace_folder,
             terminal_pty::terminal_open,
             terminal_pty::terminal_write,
             terminal_pty::terminal_resize,

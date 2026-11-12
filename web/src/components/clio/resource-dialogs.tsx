@@ -24,8 +24,6 @@ export interface ResourceActions {
   ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
-  workspaceMemory?: (workspaceId: string) => Promise<{ use_account_memory: boolean }>;
-  setWorkspaceMemory?: (workspaceId: string, useAccountMemory: boolean) => Promise<void>;
   renameSession: (sessionId: string, title: string) => Promise<void>;
   setWorkspacePinned: (workspaceId: string, pinned: boolean) => Promise<void>;
   setSessionPinned: (sessionId: string, pinned: boolean) => Promise<void>;
@@ -42,6 +40,8 @@ export interface ResourceActions {
   shareSession?: (sessionId: string, ttlSeconds: number) => Promise<string>;
   /** Desktop only: opens the OS terminal app at a workspace folder. */
   openSystemTerminal?: (workspacePath: string) => Promise<void>;
+  /** Desktop only: shows a workspace folder in the system file manager. */
+  openSystemFolder?: (workspacePath: string) => Promise<void>;
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
