@@ -1,4 +1,4 @@
-import type { Artifact, CommentMode, DocumentAnchor } from '@clio/core/v3';
+import type { Artifact, CommentMode, CommentTarget, DocumentAnchor } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { MessageSquarePlusIcon, MessagesSquareIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -23,6 +23,19 @@ interface Version {
   sha256: string;
 }
 
+/**
+ * The file's newest known version. Registering answers once; after the agent saves the file
+ * again the target query is read anew, and its newer version wins.
+ */
+function newest(
+  registered: CommentTarget | null | undefined,
+  found: CommentTarget | null | undefined,
+): CommentTarget | null | undefined {
+  if (!registered) return found;
+  if (!found) return registered;
+  return found.version > registered.version ? found : registered;
+}
+
 function Commentable({
   title,
   sessionId,
@@ -31,6 +44,7 @@ function Commentable({
   regionAnchor,
   svg,
   initiallyActive,
+  onOpenVersion,
   children,
 }: {
   title: string;
@@ -40,13 +54,21 @@ function Commentable({
   regionAnchor?: RegionAnchor;
   svg?: Uint8Array;
   initiallyActive?: boolean;
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   const inFrame = useInFrameComments();
-  const list = <CommentThreadList artifactId={version.artifactId} sessionId={sessionId} />;
+  const list = (
+    <CommentThreadList
+      artifactId={version.artifactId}
+      sessionId={sessionId}
+      version={version.version}
+    />
+  );
   return (
     <CommentSessionProvider
       initiallyActive={initiallyActive}
+      onOpenVersion={onOpenVersion}
       surface={{
         title,
         modes,
@@ -57,6 +79,7 @@ function Commentable({
         inFrame ? (
           <CommentThreadsPopover
             align="start"
+            beside
             className="z-[95]"
             trigger={
               <Button className="mt-2 w-full" size="sm" variant="ghost">
@@ -105,17 +128,21 @@ export function ArtifactComments({
   modes,
   regionAnchor,
   svg,
+  onOpenVersion,
   children,
 }: {
   artifact: { id: string; name: string; session_id: string; version: number; sha256: string };
   modes: readonly CommentMode[];
   regionAnchor?: RegionAnchor;
   svg?: Uint8Array;
+  /** Open another version of the file; marking again on the newest version opens it. */
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   return (
     <Commentable
       modes={modes}
+      onOpenVersion={onOpenVersion}
       regionAnchor={regionAnchor}
       svg={svg}
       sessionId={artifact.session_id}
@@ -174,7 +201,7 @@ export function WorkspaceFileComments({
     ) : (
       <>{children}</>
     );
-  const known = register.data ?? target.data;
+  const known = newest(register.data, target.data);
   if (!known) {
     if (inFrame)
       return (
@@ -274,7 +301,7 @@ export function WorkspaceDocumentView({
   const register = useMutation({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
   });
-  const known = register.data ?? target.data;
+  const known = newest(register.data, target.data);
   const { mutate: registerTarget } = register;
   // Open means preview: an unregistered file is registered once, as Preview and comment would.
   const autoRegister = Boolean(sessionId) && target.data === null && register.isIdle;

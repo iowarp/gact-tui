@@ -62,6 +62,8 @@ export function CommentEditor({
       aria-label={`Comment on ${label}`}
       className="fixed z-[90] max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
       data-capture-ui="true"
+      // Escape cancels the comment; inside the pocket sheet it must not close the sheet too.
+      data-escape-owner=""
       data-slot="comment-editor"
       role="dialog"
       style={{
@@ -90,7 +92,7 @@ export function CommentEditor({
           if (event.key === 'Escape') onCancel();
           else if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
-            onDone(text.trim());
+            if (text.trim()) onDone(text.trim());
           }
         }}
         placeholder="What should the agent notice here?"
@@ -109,7 +111,7 @@ export function CommentEditor({
         <Button onClick={onCancel} size="sm" variant="ghost">
           Cancel
         </Button>
-        <Button onClick={() => onDone(text.trim())} size="sm">
+        <Button disabled={!text.trim()} onClick={() => onDone(text.trim())} size="sm">
           <CheckIcon aria-hidden="true" className="size-4" />
           Done
         </Button>

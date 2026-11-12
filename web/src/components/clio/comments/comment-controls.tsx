@@ -60,6 +60,7 @@ export function CommentControls({
   busyLabel = 'Capturing…',
   onClose,
   error,
+  conflict,
   initialPosition,
   children,
 }: {
@@ -84,6 +85,8 @@ export function CommentControls({
   busyLabel?: string;
   onClose: () => void;
   error?: string;
+  /** A send that needs the person's choice, offered in place of the send control. */
+  conflict?: { message: string; actions: readonly { label: string; onClick: () => void }[] };
   initialPosition?: { x: number; y: number };
   children?: ReactNode;
 }) {
@@ -242,7 +245,24 @@ export function CommentControls({
           )}
         </div>
       ) : null}
-      {marks.length && sendLabel && onSend ? (
+      {conflict ? (
+        <div className="mt-2 space-y-1.5 border-t pt-2" data-slot="comment-conflict" role="alert">
+          <p className="text-xs text-muted-foreground">{conflict.message}</p>
+          {conflict.actions.map((action) => (
+            <Button
+              className="w-full"
+              disabled={busy}
+              key={action.label}
+              onClick={action.onClick}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      ) : marks.length && sendLabel && onSend ? (
         <Button
           className="mt-2 w-full"
           disabled={busy || sendDisabled}
