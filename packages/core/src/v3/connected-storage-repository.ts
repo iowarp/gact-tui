@@ -643,4 +643,20 @@ export class ConnectedStorageRepository extends A2uiRepository {
       decode: (value) => workspaceResourceSchema.parse(value),
     });
   }
+
+  /**
+   * Whether this app runs on the agent's computer, decided by the agent from the
+   * connection itself. Rejects on agents that predate the route.
+   */
+  public folderAttachmentLocality(signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/folder-attachments/locality',
+      signal,
+      decode: (value) =>
+        z
+          .object({ same_computer: z.boolean(), reason: z.string(), host: z.string().optional() })
+          .parse(value),
+    });
+  }
 }

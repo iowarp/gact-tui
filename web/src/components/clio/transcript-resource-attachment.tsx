@@ -161,7 +161,10 @@ function TranscriptResourceAttachmentDisplay({
   const stages = resourcePipelineStages(resource, availability);
   // A ready attachment needs no status; anything else says what it is waiting on. Until the
   // workspace resource list resolves, the chip shows only its name.
-  const pending = Boolean(resource) && stages.overall !== 'complete';
+  // A host folder is used in place or copied before the message is sent, so it has no
+  // upload, conversion or workspace-copy stages to wait on.
+  const pending =
+    Boolean(resource) && folder?.kind !== 'host_folder' && stages.overall !== 'complete';
 
   const open = () => {
     if (resource) onOpen?.(resource, relatedResources);
@@ -270,23 +273,24 @@ function TranscriptResourceAttachmentDisplay({
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="truncate text-sm font-medium">{filename}</p>
-        {folder ? (
-          <p className="mt-0.5 text-xs break-all text-muted-foreground">
-            {folder.kind === 'host_folder'
-              ? hostFolderSummary(folder)
-              : folder.linked === 'true'
-                ? 'Linked folder'
-                : 'Downloaded folder'}
+        {folder?.kind === 'host_folder' ? null : folder ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
           </p>
         ) : mediaType ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
         ) : null}
         {folder?.kind === 'host_folder' ? (
-          <p className="mt-2 max-w-64 text-xs text-muted-foreground">
-            {folder.placement === 'in_place'
-              ? 'The agent works on the original folder. Its changes affect your files.'
-              : 'The agent works on its own copy. Your originals stay untouched.'}
-          </p>
+          <>
+            <p className="mt-1 max-w-64 text-xs text-foreground">
+              {folder.placement === 'in_place'
+                ? 'In place. The agent works on your original folder, and its changes affect your files.'
+                : 'Full copy. The agent works on its own copy, and your originals stay untouched.'}
+            </p>
+            <p className="mt-1.5 text-xs break-all text-muted-foreground">
+              {hostFolderDetails(folder)}
+            </p>
+          </>
         ) : (
           <>
             <div className="mt-2">
@@ -300,14 +304,13 @@ function TranscriptResourceAttachmentDisplay({
   );
 }
 
-/** "Folder, in place. 677 files, 6.8 GB. D:\data\polaris" */
-function hostFolderSummary(folder: Record<string, string>): string {
-  const way = folder.placement === 'in_place' ? 'Folder, in place' : 'Folder, full copy';
+/** "677 files, 6.8 GB. D:\data\polaris" */
+function hostFolderDetails(folder: Record<string, string>): string {
   const files = Number(folder.file_count);
   const bytes = Number(folder.total_bytes);
   const size =
     Number.isFinite(files) && Number.isFinite(bytes)
-      ? ` ${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}.`
+      ? `${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}. `
       : '';
-  return `${way}.${size} ${folder.path ?? ''}`.trim();
+  return `${size}${folder.path ?? ''}`.trim();
 }

@@ -1,7 +1,7 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import { openKnowledge } from '@/lib/knowledge-navigation';
-import { connectionIsLocal } from '@/lib/connection';
+import { useAgentOnThisComputer } from '@/hooks/use-agent-on-this-computer';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectedSourceState, SourceProvider, WorkspaceReference } from '@clio/core/v3';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -234,8 +234,8 @@ export function ConnectedSourceContents({
 }) {
   const repository = useRepository();
   const folderReference = useSourceFolderReference(workspaceId, onSelect);
-  const { settings, isManagedConnection } = useConnectionSettings();
-  const localConnection = connectionIsLocal(settings, isManagedConnection);
+  const { settings } = useConnectionSettings();
+  const localConnection = useAgentOnThisComputer();
   const collapsibleSources = !manageOnly && Boolean(onSelect || onUploadFiles);
   const queryClient = useQueryClient();
   const scope = connectionScope(settings);
