@@ -226,7 +226,8 @@ export const ActivityRow = memo(
                   title={argumentTitle}
                   // Every row splits function and input the same way: the name in the
                   // foreground, the input in the spec's argument style, with no separator.
-                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground"
+                  // A long path keeps a readable stem before a count recap beside it does.
+                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
                 >
                   {argument}
                 </span>

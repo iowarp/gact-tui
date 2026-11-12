@@ -33,9 +33,14 @@ export function PresentationLink({
     return iconOnly ? null : <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
   // A row names an absolute path by its folder and file; the tooltip keeps the whole path.
+  // Storage holders (fld_…, res_…, workspace hashes) are ids, not names, so they are skipped.
   const shown =
     compact && /^(?:[a-z]:[\\/]|\/)/iu.test(label)
-      ? label.split(/[\\/]/u).filter(Boolean).slice(-2).join('/')
+      ? label
+          .split(/[\\/]/u)
+          .filter((part) => part && !/^(?:(?:fld|res)_)?[0-9a-f]{16,}$/iu.test(part))
+          .slice(-2)
+          .join('/') || label
       : label;
   const filename = compact && block.target === 'file';
   const text = iconOnly ? (
@@ -44,11 +49,8 @@ export function PresentationLink({
     ) : (
       <PanelRightIcon aria-hidden="true" className="size-3.5" />
     )
-  ) : filename ? (
-    <span className="flex min-w-0">
-      <span className="truncate">{shown.slice(0, -12)}</span>
-      <span className="shrink-0">{shown.slice(-12)}</span>
-    </span>
+  ) : compact && (filename || /[\\/]/u.test(shown)) ? (
+    <CompactPathLabel text={shown} />
   ) : (
     <span className={compact ? 'truncate' : undefined}>{shown}</span>
   );
@@ -56,7 +58,8 @@ export function PresentationLink({
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
     : cn(
         'text-sm',
-        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        // Capped by the row's argument slot too, so the label ends in … instead of being cut.
+        compact ? 'min-w-0 max-w-[min(42ch,100%)] shrink truncate' : 'break-words',
         extraClassName,
       );
   const withTooltip = (element: React.ReactElement) =>
@@ -189,6 +192,26 @@ export function PresentationLink({
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
     </span>,
+  );
+}
+
+/**
+ * A path in a narrow row: its folder gives way first, then the name's end, and the
+ * extension stays, so the name is never cut to a one-letter stub.
+ */
+function CompactPathLabel({ text }: { text: string }) {
+  const slash = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\'));
+  const folder = slash > 0 ? text.slice(0, slash + 1) : '';
+  const leaf = text.slice(slash + 1);
+  const dot = leaf.lastIndexOf('.');
+  const extension = dot > 0 && leaf.length - dot <= 8 ? leaf.slice(dot) : '';
+  const stem = extension ? leaf.slice(0, dot) : leaf;
+  return (
+    <span className="flex min-w-0" data-long-label={leaf.length > 11 ? '' : undefined}>
+      {folder ? <span className="min-w-0 shrink-[1000] truncate">{folder}</span> : null}
+      <span className="min-w-0 truncate">{stem}</span>
+      {extension ? <span className="shrink-0">{extension}</span> : null}
+    </span>
   );
 }
 

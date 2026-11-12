@@ -45,6 +45,8 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const [commentOpen, setCommentOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const touchTap = useRef(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const near = useNearViewport(triggerRef);
   const queryKey = ['response-feedback', connectionScope(settings), sessionId, messageId];
@@ -110,8 +112,20 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
   };
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          asChild
+          // Radix opens on pointerdown; a touch scroll that starts here must not open it.
+          onPointerDown={(event) => {
+            touchTap.current = event.pointerType === 'touch';
+            if (touchTap.current) event.preventDefault();
+          }}
+          onClick={() => {
+            if (!touchTap.current) return;
+            touchTap.current = false;
+            if (!busy) setMenuOpen((open) => !open);
+          }}
+        >
           <IconButton
             ref={triggerRef}
             label={label}

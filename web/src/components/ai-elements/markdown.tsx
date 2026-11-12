@@ -1,5 +1,5 @@
 import { cjk } from '@streamdown/cjk';
-import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from 'react';
 import { defaultRemarkPlugins, Streamdown, type ExtraProps } from 'streamdown';
 import { ExternalLink } from '@/components/ui/external-link';
 import { deferredModule } from '@/lib/deferred-chunk';
@@ -64,7 +64,36 @@ function MarkdownLink({
   );
 }
 
-const streamdownComponents = { a: MarkdownLink };
+const streamdownComponents = { a: MarkdownLink, ol: MarkdownOrderedList };
+
+/**
+ * Streamdown's ordered list, plus the digit count of its widest marker
+ * (`start` + items − 1). An outside "100." needs a wider gutter than "9.",
+ * and CSS can't add a `start` attribute to an item count.
+ */
+function MarkdownOrderedList({
+  className,
+  node,
+  start,
+  style,
+  ...props
+}: ComponentProps<'ol'> & ExtraProps) {
+  const items = node?.children.filter(
+    (child) => child.type === 'element' && child.tagName === 'li',
+  ).length;
+  const first = typeof start === 'number' && Number.isFinite(start) ? start : 1;
+  const digits = String(Math.abs(Math.trunc(Math.max(first, first + (items ?? 1) - 1)))).length;
+  return (
+    <ol
+      {...props}
+      className={cn('list-inside list-decimal whitespace-normal', className)}
+      data-marker-digits={digits > 1 ? digits : undefined}
+      data-streamdown="ordered-list"
+      start={start}
+      style={digits > 1 ? ({ ...style, '--marker-digits': digits } as CSSProperties) : style}
+    />
+  );
+}
 
 export function MarkdownText({
   components,
