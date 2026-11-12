@@ -110,15 +110,31 @@ Status values:
   `data-accelerator` matches.
 - **Right pocket.** `clio/workbench-strip.tsx` is the vertical toolbar
   "Workbench lists": Files, Sources, Artifacts, Activity, Agent, then Science
-  log, Terminal and Browser pages. It is a launcher (iowarp/gact-tui#839, the
-  user's design over the spec's list column): every list, Files included, opens
+  log, Terminal and Browser. It replaces a "+" new-tab button
+  (iowarp/gact-tui#839, the user's design over the spec's list column). Terminal
+  and Browser open a new instance on every press: a new terminal tab, or a New
+  page tab (`newBrowserPageTab`, numbered "New page 2" and on by
+  `openInstance` in `clio/use-workbench-tab-state.ts`). Where terminals can't
+  run, Terminal shows the list that says so. Their open-instance lists
+  (open terminals, browser pages) stay reachable from the icon's context menu
+  (right-click or the context-menu key). Every other list, Files included, opens
   or focuses its own `list:<view>` tab (`listTab` in
   `clio/workbench-tab-storage.ts`), rendered by `clio/workbench-list-column.tsx`;
-  the lit icon again returns to the tab shown before. A pick in a list tab shows
+  the lit icon again returns to the tab shown before. A New page tab is the
+  browser itself (`clio/browser-new-page.tsx`), with no list header: the
+  browser's one frame row (`clio/browser-frame.tsx`) with its address field
+  focused, and when the page opens the same tab becomes it in the same row.
+  The browser row is the `FrameBar` with Back, Forward and Reload as three icons
+  (the user's direction over the frame's two; the load shows in Reload's place),
+  the address as the frame's path, then @, Comments with its count, Downloads
+  (Ctrl+J, desktop), Open ▾ (your browser, a screenshot) and … (copy the
+  address, a titled link or a screenshot). A pick in a list tab shows
   the item in that tab, and the item's `FrameBar` leads with "Back to <list>"
   (`primitives/frame-back.ts`); Shift, or a pinned list tab, opens the item in a
-  tab of its own. Anything opened from the conversation gets its own tab. A
-  sparse list tab narrows the pocket to what its rows need. Activity leads with
+  tab of its own. Anything opened from the conversation gets its own tab. The
+  pocket's width belongs to the person: only their drag, or a window resize
+  (proportionally), changes it; opening or switching tabs never does, and a list
+  tab fills whatever width the pocket has. Activity leads with
   the conversation's causal timeline, then Events and Context, chosen with a
   `SegmentedControl` in its header. There is never an empty pane: closing the
   last tab closes the pocket, and a pocket shown empty opens Files. The lists

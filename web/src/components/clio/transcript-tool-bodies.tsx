@@ -157,6 +157,7 @@ export function TranscriptTerminalBody({
   live,
   failure,
   failed = true,
+  stopped = false,
 }: {
   tool: ToolInvocation;
   block: ToolPresentationBlock;
@@ -165,6 +166,8 @@ export function TranscriptTerminalBody({
   failure?: string;
   /** A stopped command's reason reads muted, not as a failure. */
   failed?: boolean;
+  /** The command was stopped: its outcome reads like every other stopped call's. */
+  stopped?: boolean;
 }) {
   const command = block.command || inputText(tool, 'command') || '';
   const where = [inputText(tool, 'host'), inputText(tool, 'cwd')].filter(Boolean).join(' ');
@@ -184,7 +187,8 @@ export function TranscriptTerminalBody({
               <CopyAction value={command} label="Copy command" />
             </span>
           </div>
-          <pre className={cn('overflow-x-auto border-b border-border px-3 py-1.5', MONO)}>
+          {/* Bounded like the output, so a long script never pushes its result out of view. */}
+          <pre className={cn('max-h-60 overflow-auto border-b border-border px-3 py-1.5', MONO)}>
             <span aria-hidden="true" className="mr-2 text-muted-foreground">
               $
             </span>
@@ -210,7 +214,14 @@ export function TranscriptTerminalBody({
           {live ? 'Waiting for output' : 'No output'}
         </p>
       )}
-      {failure ? (
+      {failure && !failed && stopped ? (
+        <div className="border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]">
+          <p className="text-xs font-medium text-muted-foreground">Stopped</p>
+          <p className="whitespace-pre-wrap text-foreground">
+            {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+          </p>
+        </div>
+      ) : failure ? (
         <p
           role={failed ? 'alert' : undefined}
           className={cn(

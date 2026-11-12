@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from '
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { StateView } from '@/components/clio/primitives/state-view';
+import { AnnounceStates } from '@/components/clio/settings-a11y';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
   SettingsNavigation,
@@ -266,7 +267,10 @@ export function SettingsWindow() {
     >
       {/* Alt Space over Settings: the CLIO menu from the window's top-left (DialogContent is fixed). */}
       <FrameClioMenu className="top-12 left-3" />
-      <main className="px-5 pt-4 pb-5 sm:px-7">
+      {/* Not <main>: the window's content region already names this area, and a
+          main landmark inside it is not top-level. */}
+      <div className="px-5 pt-4 pb-5 sm:px-7" data-settings-main="">
+        <AnnounceStates />
         <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>
             <SettingsWindowCloseContext.Provider value={close}>
@@ -290,7 +294,7 @@ export function SettingsWindow() {
             </SettingsWindowCloseContext.Provider>
           </SettingsScopeContext.Provider>
         </div>
-      </main>
+      </div>
     </WindowShell>
   );
 }

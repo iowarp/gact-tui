@@ -32,6 +32,10 @@ They are UI review evidence, not scientific results from a fresh agent run.
 Dark appearance: [graph](screenshots/science-log-list-graph-dark.jpg).
 Chronological records: [list](screenshots/science-log-list-view-light.jpg).
 
+Release refresh, November 11, 2026: all three were retaken from the develop build
+at `96dbbd2e1` with the same labelled fixture. The view toggle is now named
+**Log** / **Lineage**.
+
 ## Validation
 
 - Focused Vitest run: 17 passed across `study-graph.test.tsx` and the existing

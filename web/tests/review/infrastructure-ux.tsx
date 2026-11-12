@@ -6,6 +6,7 @@ import type { ClioRepository } from '@clio/core/v3';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
 import { RepositoryOverride } from '../../src/providers/repository-override-context';
 import { InfrastructurePage } from '../../src/routes/infrastructure-page';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 import '../../src/index.css';
 
 // Test-only topology and receipts; never connect to real hosts or credentials.
@@ -14,7 +15,7 @@ const target = (id: string, kind: string, label: string) => ({
   kind,
   label,
   transport_state: 'connected',
-  ssh: kind === 'ssh' ? { host: 'ares.example' } : undefined,
+  ssh: kind === 'ssh' ? { host: 'ares.example', jump_hosts: [] } : undefined,
 });
 const tool = {
   id: 'collect',
@@ -136,6 +137,7 @@ createRoot(document.getElementById('root')!).render(
     <ArchiveConnectionProvider>
       <RepositoryOverride.Provider value={repo}>
         <QueryClientProvider client={new QueryClient()}>
+          <TooltipProvider>
           <MemoryRouter initialEntries={[`/infrastructure/${section}`]}>
             <p className="border-b bg-background p-3 text-xs text-muted-foreground">
               Simulated infrastructure data; actual UI components. No live host, model or credential
@@ -147,6 +149,7 @@ createRoot(document.getElementById('root')!).render(
               </Routes>
             </div>
           </MemoryRouter>
+          </TooltipProvider>
         </QueryClientProvider>
       </RepositoryOverride.Provider>
     </ArchiveConnectionProvider>

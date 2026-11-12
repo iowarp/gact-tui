@@ -17,6 +17,7 @@ import { ModelPickerAnchors, ModelPickerFieldTokens } from './model-picker-ancho
 import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-facet-panel';
 import { rangeFilterSections } from './model-picker-filter-ranges';
 import { ModelPickerQuickStrip } from './model-picker-quick-strip';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 interface ModelPickerSearchProps {
   query: string;
@@ -267,6 +268,7 @@ export function ModelPickerSearch({
           ) : null}
           {onSearch ? (
             <input
+              {...identifierInputProps}
               id={inputId}
               aria-label={label}
               className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"

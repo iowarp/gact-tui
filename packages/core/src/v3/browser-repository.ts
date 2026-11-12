@@ -42,6 +42,8 @@ export const browserPageSchema = z.object({
   url: z.string().default(''),
   host: z.string().default(''),
   title: z.string().default(''),
+  /** The page's icon as a `data:` URL, empty when it has none. */
+  favicon: z.string().default(''),
   loading: z.boolean().default(false),
   agent_acting: z.boolean().default(false),
   last_action: z.string().default(''),

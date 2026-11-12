@@ -31,6 +31,7 @@ export type ClioWorkbenchOpenRequest =
       line?: number;
       find?: string;
       locator?: string;
+      page?: number;
     }
   | { kind: 'workspace-folder'; path: string; workspaceId?: string }
   | { kind: 'diff'; diff: SessionDiff }
@@ -50,7 +51,14 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'science-log' }
   | { kind: 'terminal'; cwd: string }
   /** One page of the shared browser, labelled by its session (a subagent's by its task). */
-  | { kind: 'browser'; pageId: string; sessionId?: string; label?: string }
+  | {
+      kind: 'browser';
+      pageId: string;
+      sessionId?: string;
+      label?: string;
+      /** Opened from a New page tab's address: that tab becomes the page. */
+      fromNewPage?: boolean;
+    }
   /** One tool call's Activity detail, in the session that made it. */
   | { kind: 'tool-call'; callId: string; sessionId?: string; label: string }
   /** Ctrl K's results for a query, as a tab (Ctrl Enter on mixed results). */
@@ -109,6 +117,7 @@ export function tabForOpenRequest(
         line: request.line,
         find: request.find,
         locator: request.locator,
+        page: request.page,
       };
     }
     case 'diff':

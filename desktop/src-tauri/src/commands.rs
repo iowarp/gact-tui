@@ -119,6 +119,9 @@ fn update_clio_blocking(
     let runtime = app
         .try_state::<Mutex<Supervisor>>()
         .and_then(|state| lock_recover(&state).managed_runtime_dir());
+    let agent_home = app
+        .try_state::<Mutex<Supervisor>>()
+        .and_then(|state| lock_recover(&state).user_dir());
     if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
         lock_recover(&state).shutdown();
     }
@@ -143,17 +146,26 @@ fn update_clio_blocking(
             (Some(runtime), Some(version)) => {
                 supervisor_installer::update_bundled_clio(app, &runtime, version, after_update)
             }
-            _ => supervisor_installer::install_clio_versioned(app, true, target, after_update),
+            _ => supervisor_installer::install_clio_versioned(
+                app,
+                true,
+                target,
+                agent_home,
+                after_update,
+            ),
         }
     });
 }
 
 fn run_installer(app: tauri::AppHandle, force: bool) -> Result<(), String> {
     let lease = crate::update_lease::UpdateLease::acquire()?;
+    let agent_home = app
+        .try_state::<Mutex<Supervisor>>()
+        .and_then(|state| lock_recover(&state).user_dir());
     std::thread::spawn(move || {
         let _lease = lease;
         let restart_app = app.clone();
-        supervisor_installer::install_clio(app, force, move || {
+        supervisor_installer::install_clio(app, force, agent_home, move || {
             if let Some(state) = restart_app.try_state::<Mutex<Supervisor>>() {
                 lock_recover(&state).restart();
             }

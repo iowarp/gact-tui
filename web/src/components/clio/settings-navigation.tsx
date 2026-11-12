@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { CloseIcon, SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Tag } from '@/components/clio/primitives/tag';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 export type SettingsDestination = ApplicationDestination;
 
@@ -113,7 +114,7 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
       aria-label="Search everywhere"
       ref={button}
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
       )}
       onClick={openGlobalSearch}
@@ -168,6 +169,7 @@ export function SettingsQueryField({
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
+        {...identifierInputProps}
         aria-label="Search settings"
         className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-faint"
         onChange={(event) => {

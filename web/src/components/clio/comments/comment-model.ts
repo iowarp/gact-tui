@@ -26,6 +26,8 @@ export interface DraftMark {
   view?: [number, number, number, number];
   /** The viewer the mark was made on, so it is drawn there and not on a pane beside it. */
   viewer?: string;
+  /** Why the mark is not shown where it was made, such as an anchor the page lost. */
+  note?: string;
 }
 
 /** Where a new mark sits, besides its anchor. */
@@ -88,6 +90,10 @@ export function anchorPreview(anchor: DocumentAnchor): string {
   if (anchor.exact) return `“${anchor.exact.slice(0, 80)}”`;
   if (anchor.profile === 'dom' && anchor.tag === 'zone' && anchor.text_excerpt)
     return anchor.text_excerpt;
+  if (anchor.profile === 'dom' && anchor.src) {
+    const file = anchor.src.split(/[?#]/u)[0]!.split('/').pop();
+    return `Image: ${anchor.text_excerpt || file || anchor.src}`.slice(0, 120);
+  }
   if (anchor.profile === 'dom')
     return `<${anchor.tag || 'element'}> ${anchor.selector ?? ''}`.trim();
   if (anchor.rect?.length === 4) {

@@ -254,16 +254,42 @@ function stoppedDiagnostic(tool: ToolInvocation): boolean {
   ].some((text) => Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim())));
 }
 
+const STOPPED_TEXT = 'Stopped before it finished; no result was returned.';
+// The service's wording when the turn ended before a call's result was recorded.
+const UNRECORDED_OUTCOME = /^execution outcome unavailable\b/iu;
+const UNRECORDED_TEXT =
+  'Stopped before its result was recorded. Check any captured output before running it again.';
+// The service's execution-status block for a stopped task (its id may carry a result prefix),
+// and its generic wording.
+const EXECUTION_STATUS_BLOCK = 'task-execution-status';
+const GENERIC_STOPPED = /^(?:execution )?cancell?ed\.?$/iu;
+
 /**
- * A call older sessions recorded as failed with a cancellation diagnostic reads like one the
- * service now projects as cancelled: one Stopped outcome in place of the raw cancellation error.
+ * Every stopped call reads the same: one Stopped outcome in place of the raw cancellation
+ * error, the service's execution status, or its unrecorded-outcome notice. A specific
+ * reason the service recorded is kept as that outcome's text.
  */
 export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
-  if (tool.state === 'cancelled' || getToolStatus(tool) !== 'cancelled') return tool;
+  if (getToolStatus(tool) !== 'cancelled') return tool;
   const blocks = tool.presentation?.blocks ?? [];
+  if (blocks.some((block) => block.id === 'execution-outcome')) return tool;
   const cancellation = (text?: string) =>
     Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim()));
-  if (!blocks.some((block) => block.severity === 'error' && cancellation(block.text))) return tool;
+  const replaced = (block: ToolPresentationBlock) =>
+    (block.severity === 'error' && cancellation(block.text)) ||
+    (block.id.endsWith(EXECUTION_STATUS_BLOCK) && block.severity !== 'error');
+  const status = blocks.find(
+    (block) => block.id.endsWith(EXECUTION_STATUS_BLOCK) && block.severity !== 'error',
+  )?.text?.trim();
+  const unrecorded = Boolean(tool.error?.trim() && UNRECORDED_OUTCOME.test(tool.error.trim()));
+  const text = unrecorded
+    ? UNRECORDED_TEXT
+    : status && !GENERIC_STOPPED.test(status) && !cancellation(status)
+      ? status
+      : STOPPED_TEXT;
+  // Another declared outcome already says how this call ended.
+  const kept = blocks.filter((block) => !replaced(block));
+  if (kept.some((block) => block.severity && block.text?.trim())) return tool;
   return {
     ...tool,
     presentation: {
@@ -271,14 +297,8 @@ export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
       summary: tool.presentation?.summary ?? '',
       status: 'cancelled',
       blocks: [
-        ...blocks.filter((block) => !(block.severity === 'error' && cancellation(block.text))),
-        {
-          id: 'execution-outcome',
-          type: 'text',
-          label: 'Stopped',
-          severity: 'warning',
-          text: 'Stopped before it finished; no result was returned.',
-        },
+        ...kept,
+        { id: 'execution-outcome', type: 'text', label: 'Stopped', severity: 'warning', text },
       ],
     },
   };

@@ -9,7 +9,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::sidecar_setup::{BUNDLED_RUNTIME_ENV, CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
+use crate::sidecar_setup::BUNDLED_RUNTIME_ENV;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -18,6 +18,8 @@ pub(crate) const LAUNCHER_HOST: &str = "127.0.0.1";
 const ARC_FILE_CAPACITY_ENV: &str = "CLIO_ARC_CTE_FILE_CAPACITY";
 const DESKTOP_MANAGED_ENV: &str = "CLIO_DESKTOP_MANAGED";
 const DESKTOP_PARENT_PID_ENV: &str = "CLIO_DESKTOP_PARENT_PID";
+/// Must match `envDesktopVersion` in `desktop/sidecar-launcher/agent_version.go`.
+pub(crate) const DESKTOP_VERSION_ENV: &str = "GACT_DESKTOP_VERSION";
 // clio-core currently materializes the Windows file-tier backing file at the
 // 1 GiB desktop arena size. Advertising a larger capacity makes the next boot's
 // safety preflight reject that retained file as undersized, so a successful
@@ -38,7 +40,7 @@ pub(crate) fn launcher_spawn_command(
     bundled_runtime: Option<&Path>,
 ) -> Command {
     let mut command = Command::new(launcher);
-    command
+    crate::host_env::for_host(&mut command)
         .arg("--host")
         .arg(LAUNCHER_HOST)
         .arg("--port")
@@ -55,16 +57,7 @@ pub(crate) fn launcher_spawn_command(
         command.current_dir(dir);
     }
     if let Some(dir) = user_dir {
-        // Keep the legacy layout until explicitly migrated. Fresh installs use
-        // the product prefix and separated roles; operator overrides still win.
-        let key = if dir.file_name().is_some_and(|n| n == "clio-user") {
-            CLIO_USER_DIR_ENV
-        } else {
-            CLIO_AGENT_HOME_ENV
-        };
-        if std::env::var_os(CLIO_AGENT_HOME_ENV).is_none()
-            && std::env::var_os(CLIO_USER_DIR_ENV).is_none()
-        {
+        if let Some(key) = crate::sidecar_setup::agent_home_env(dir) {
             command.env(key, dir);
         }
     }
@@ -99,6 +92,11 @@ pub(crate) fn launcher_spawn_command(
     // graceful shutdown callback, the launcher exits and its KILL_ON_JOB_CLOSE
     // Job Object reaps the backend tree instead of orphaning it.
     command.env(DESKTOP_PARENT_PID_ENV, std::process::id().to_string());
+    // The launcher skips a clio-agent-gact on PATH that is older than this
+    // desktop, so a stale `uv tool`/pip install never wins over the managed one.
+    if let Some(version) = crate::package_version::app_version() {
+        command.env(DESKTOP_VERSION_ENV, version);
+    }
     // The server gets its port from --port. Its config env var must not reach it:
     // clio-core reads the same generic `CLIO_PORT` name as its own RPC port (#739 B7).
     if let Some(port_env) = &crate::brand_backend::brand_backend().port_config.env {
@@ -112,6 +110,7 @@ pub(crate) fn launcher_spawn_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sidecar_setup::{CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
 
     #[test]
     fn launcher_spawn_command_targets_launcher() {

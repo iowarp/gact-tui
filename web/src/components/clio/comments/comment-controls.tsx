@@ -20,6 +20,8 @@ function clamp(value: number, min: number, max: number): number {
 export interface ControlsMark {
   label: string;
   comment: string;
+  /** Shown under the mark, such as an anchor the surface could not find again. */
+  note?: string;
 }
 
 /**
@@ -192,6 +194,11 @@ export function CommentControls({
                 type="button"
               >
                 {mark.label}: {mark.comment || 'Add a comment'}
+                {mark.note ? (
+                  <span className="block truncate text-muted-foreground" data-slot="mark-note">
+                    {mark.note}
+                  </span>
+                ) : null}
               </button>
             ))
           ) : (

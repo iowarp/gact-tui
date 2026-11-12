@@ -39,7 +39,14 @@ const requiredImports = {
   ],
   // Chain mode moved to ConversationTurn. RC1 transcript: a step's activity reads as
   // flat activity rows (no fold header), so ChainOfThought is no longer composed here.
+  // The per-iteration activity rows moved to conversation-iteration-detail when
+  // conversation-turn.tsx was split by responsibility; the sourced subagent and
+  // tool components are still composed, just from that file now.
   'web/src/components/clio/conversation-turn.tsx': [
+    './transcript-iteration-text',
+    './conversation-iteration-detail',
+  ],
+  'web/src/components/clio/conversation-iteration-detail.tsx': [
     './transcript-iteration-text',
     './subagent-card',
     './tool-invocation',

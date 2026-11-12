@@ -44,6 +44,9 @@ for (const width of [1280, 390]) {
     await expect(live).toHaveCount(0);
     await expect(read).toHaveAttribute('aria-expanded', 'true');
     await expect(readResult).toBeVisible();
+    // The settled write folds into its own counted row between the two updates.
+    await expect(write).toHaveCount(0);
+    await page.getByRole('button', { name: 'Expand Edited 1 file', exact: true }).click();
     await expect(write).toHaveAttribute('aria-expanded', 'false');
     await write.click();
     await expect(write).toHaveAttribute('aria-expanded', 'true');

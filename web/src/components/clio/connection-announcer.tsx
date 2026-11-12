@@ -2,6 +2,7 @@ import type { StreamState } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { useRefetchFailedReadsOnReconnect } from '@/hooks/use-refetch-failed-reads';
 import { vocab } from '@/lib/brand-vocabulary';
 import { serviceUnreachable } from '@/lib/connection-attempt';
 import { queryKeys } from '@/lib/query-keys';
@@ -34,10 +35,12 @@ const SPOKEN: Readonly<Record<Heard, string>> = {
  * momentary gap is not read out.
  *
  * Without an open stream the line follows a slow probe, so a request that found nothing
- * answering re-checks it at once instead of leaving the line on "connected".
+ * answering re-checks it at once instead of leaving the line on "connected". When the
+ * line returns to live, reads that failed during the outage are asked for again.
  */
 export function ConnectionAnnouncer() {
   const state = useConnectionIndicatorState({ poll: false });
+  useRefetchFailedReadsOnReconnect(state);
   const [message, setMessage] = useState('');
   const heard = useRef<Heard | undefined>(undefined);
   useEffect(() => {

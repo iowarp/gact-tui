@@ -26,6 +26,7 @@ import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
 import { SettingsIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { answerNotificationAsk, useNotificationAsk } from '@/lib/notification-ask';
 import { markAllNotificationsRead, useNotificationReads } from '@/lib/notification-reads';
 import type { SessionAttention } from '@/lib/session-attention';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -49,6 +50,9 @@ interface AttentionProps {
   /** Names the place of a run that ended while away. */
   workspaces?: readonly Workspace[];
 }
+
+const NOTIFICATION_ASK_DETAIL =
+  'A system notice and sound when a conversation needs your answer or approval, or finishes while you are away.';
 
 /** Rows "While you were away" shows before folding the rest into "N earlier". */
 const AWAY_VISIBLE = 5;
@@ -248,6 +252,7 @@ export function ClioAttentionCenter({
   const listRef = useRef<HTMLDivElement>(null);
   const versions = useSystemVersionStatus();
   const reads = useNotificationReads();
+  const askPending = useNotificationAsk((state) => state.pending);
   const entries = useMemo(
     () =>
       sessions
@@ -337,13 +342,16 @@ export function ClioAttentionCenter({
   const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
   const earlier = away.length - shownAway.length;
   const unread = away.some((row) => !row.read);
-  const empty = rows.length === 0 && away.length === 0 && !updateShown && memoryCount === 0;
+  const empty =
+    rows.length === 0 && away.length === 0 && !updateShown && memoryCount === 0 && !askPending;
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
       ? updateReady
         ? 'Notifications: update ready'
-        : 'Notifications'
+        : askPending
+          ? 'Notifications: turn on alerts'
+          : 'Notifications'
       : `${
           entries.length === 1
             ? `${entries[0]!.session.title} needs your response`
@@ -365,7 +373,10 @@ export function ClioAttentionCenter({
       <PopoverTrigger asChild>
         <IconButton
           // Spec `.nfbell`: the bell stays muted; the warning badge carries Needs you.
-          className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
+          className={cn(
+            'shrink-0',
+            responseCount === 0 && (updateReady || askPending) && 'text-info',
+          )}
           count={responseCount || undefined}
           countTone="warning"
           hoverLabel={responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`}
@@ -607,11 +618,65 @@ export function ClioAttentionCenter({
               ))}
             </section>
           ) : null}
-          {updateShown || memoryCount > 0 ? (
+          {updateShown || memoryCount > 0 || askPending ? (
             <section aria-labelledby="attention-agent">
               <h3 className={groupLabel} id="attention-agent">
                 {vocab.agent}
               </h3>
+              {askPending ? (
+                <NoticeFrame
+                  className={cn(rowFrame, 'hover:bg-transparent')}
+                  data-slot="attention-notification-ask"
+                  subject="the notification ask"
+                >
+                  {(expanded) => (
+                    <>
+                      <ListRow
+                        description={NOTIFICATION_ASK_DETAIL}
+                        expanded={expanded}
+                        hoverText={{ description: NOTIFICATION_ASK_DETAIL }}
+                        icon={<BellIcon className="text-info" />}
+                        title={
+                          <span className="font-semibold text-foreground">
+                            Get notified when {vocab.agent} needs you
+                          </span>
+                        }
+                        variant="notice"
+                      />
+                      <div
+                        aria-label="Desktop alerts"
+                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                        role="group"
+                      >
+                        <Button
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                          onClick={() =>
+                            void answerNotificationAsk(true).then((answer) => {
+                              if (answer === 'denied') {
+                                toast('Notifications are off', {
+                                  description:
+                                    'Turn them on in Settings › Notifications at any time.',
+                                });
+                              }
+                            })
+                          }
+                          size="xs"
+                        >
+                          Allow
+                        </Button>
+                        <Button
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                          onClick={() => void answerNotificationAsk(false)}
+                          size="xs"
+                          variant="secondary"
+                        >
+                          Not now
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </NoticeFrame>
+              ) : null}
               <AttentionUpdateRows versions={versions} />
               {memoryCount > 0 ? (
                 <NoticeFrame

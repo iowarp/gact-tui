@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { playAttentionSound } from '@/lib/attention-sound';
-import { vocab } from '@/lib/brand-vocabulary';
 import { markConversationSeen } from '@/lib/notification-reads';
 import { queryKeys } from '@/lib/query-keys';
 import { ATTENTION_NOTICE_THROTTLE_MS, WAITING_SESSIONS_POLL_MS } from '@/lib/runtime-limits';
@@ -14,11 +13,15 @@ import { sessionPath } from './session-path';
 import {
   listenForNotificationOpen,
   notificationPermission,
-  requestNotificationPermission,
   setAttentionBadge,
   showSystemNotice,
   type SystemNoticeResult,
 } from '@/lib/system-notifications';
+import {
+  notificationAskAnswered,
+  rememberNotificationAsk,
+  setNotificationAskPending,
+} from '@/lib/notification-ask';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type AttentionSoundMode,
@@ -246,65 +249,26 @@ function attentionTitle(attention: SessionAttention | undefined): string {
   return 'Response needed';
 }
 
-const ASKED_KEY = 'clio.notifications.asked';
-
 /**
- * Asks once, on first run, whether the person wants system notices. The
- * system's own prompt follows their click, so the browser allows it and the
- * desktop app shows up in the system's notification settings.
+ * Raises the first-run ask, once, whether the person wants system notices. It waits in
+ * the bell (it still needs them), never in a toast over the transcript.
  */
 function useAskForNotifications(wanted: boolean) {
   useEffect(() => {
-    if (!wanted) return;
-    try {
-      if (window.localStorage.getItem(ASKED_KEY)) return;
-    } catch {
-      return;
-    }
-    const remember = () => {
-      try {
-        window.localStorage.setItem(ASKED_KEY, new Date().toISOString());
-      } catch {
-        // Asked again next launch when storage is unavailable.
-      }
-    };
+    if (!wanted || notificationAskAnswered()) return;
     let cancelled = false;
-    let shown = false;
     void notificationPermission().then((permission) => {
       if (cancelled) return;
       if (permission !== 'default') {
-        remember();
+        rememberNotificationAsk();
         return;
       }
-      shown = true;
-      toast(`Get notified when ${vocab.agent} needs you`, {
-        id: 'clio-notification-ask',
-        description:
-          'A system notice and sound when a conversation needs your answer or approval, or finishes while you are away.',
-        duration: Infinity,
-        action: {
-          label: 'Allow',
-          onClick: () => {
-            remember();
-            void requestNotificationPermission().then((answer) => {
-              if (answer === 'denied') {
-                toast('Notifications are off', {
-                  description: 'Turn them on in Settings › Notifications at any time.',
-                });
-              }
-            });
-          },
-        },
-        cancel: { label: 'Not now', onClick: remember },
-        onDismiss: () => {
-          if (!cancelled) remember();
-        },
-      });
+      setNotificationAskPending(true);
     });
     return () => {
       cancelled = true;
       // Withdrawn (the tour started), not answered: ask again afterwards.
-      if (shown) toast.dismiss('clio-notification-ask');
+      setNotificationAskPending(false);
     };
   }, [wanted]);
 }

@@ -22,7 +22,6 @@ import {
 } from './settings-access-rule-model';
 import { AccessRuleRow } from './settings-access-rule-row';
 import { GroupEmptyLine, GroupErrorLine } from './settings-permissions-lines';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { PermissionRequests } from './settings-permissions-requests';
 import { SettingsGroupLabel } from './settings-row';
@@ -193,13 +192,12 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
 export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   return (
     <div className="min-w-0">
-      <AnnounceStates />
       <SettingsSectionHeading
         info="Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions."
         title="Permissions"
       />
       {/* Both lists sit in the setting column (spec `.xrw`). */}
-      <div className={SETTINGS_COLUMN} onKeyDown={rowArrowKeyDown}>
+      <div className={SETTINGS_COLUMN} data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
         <PermissionRequests />
       </div>

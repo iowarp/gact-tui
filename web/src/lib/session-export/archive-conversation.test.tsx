@@ -212,7 +212,7 @@ it('merges captured interactions with authoritative answers at their owning tool
   );
   expect(screen.queryByText('PRIVATE RESUME ENVELOPE')).not.toBeInTheDocument();
   expect(
-    await screen.findByRole('button', { name: 'Expand Asked 2 questions' }),
+    await screen.findByRole('button', { name: 'Expand Asked 2 questions, thought once' }),
   ).toBeInTheDocument();
   openActivityRuns();
   // Each answer folds into its owning call's row; the call opens to the question it asked.

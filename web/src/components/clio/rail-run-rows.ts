@@ -4,6 +4,7 @@ import { conciseReason, type RunRow } from '@/routes/runs-rows';
 import { flowLabel } from './flow-tool-presentation';
 import { runGroup, type RunGroup } from './run-presentation';
 import { taskActivity, type TaskActivity } from './task-activity';
+import { hasRecordedFlowRun, taskFlow } from './task-flow-state';
 
 /** One run of this conversation: the shared run row plus the records its actions need. */
 export interface RailRun {
@@ -40,6 +41,7 @@ export function railRuns(
     const state = cancelRequested ? 'cancellation_requested' : railState(reported);
     const kind = task?.task_kind ?? (task?.kind === 'agent' || child ? 'Subagent' : 'MCP');
     const failure = state === 'failed' ? task?.error_reason || child?.summary : undefined;
+    const flow = taskFlow(task);
     return {
       entry,
       active,
@@ -48,9 +50,7 @@ export function railRuns(
         handleId: entry.key,
         taskId: entry.key,
         taskKind: kind,
-        label: task?.flow
-          ? `${flowLabel(task.flow.id)} run`
-          : task?.title || child?.title || 'Unnamed task',
+        label: task?.title || child?.title || (flow ? `${flowLabel(flow.id)} run` : 'Unnamed task'),
         assignment: task?.description || child?.task,
         progress: task?.progress,
         cancelRequested,
@@ -59,18 +59,14 @@ export function railRuns(
         reportedStatus: task?.raw_status || task?.status || reported,
         statusReason: conciseReason(failure),
         statusDetail: failure,
-        source: task?.flow
-          ? 'flow'
-          : ['Subagent', 'Session'].includes(kind)
-            ? 'agent_task'
-            : 'mcp_task',
+        source: flow ? 'flow' : ['Subagent', 'Session'].includes(kind) ? 'agent_task' : 'mcp_task',
         host: task?.host ?? '',
         placement: task?.placement ?? 'local',
         workspaceLabel: '',
         workspaceLabelFields: { name: '', qualifiers: [] },
         updatedAt: task?.updated_at ?? task?.created_at ?? '',
         elapsedMs: child?.duration_ms,
-        flowHandle: task?.flow ? entry.key : undefined,
+        flowHandle: hasRecordedFlowRun(task) ? entry.key : undefined,
       },
     };
   });

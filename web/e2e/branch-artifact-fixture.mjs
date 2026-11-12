@@ -206,7 +206,16 @@ export function createBranchArtifactFixture({
         );
       } else if (request.method === 'GET' && suffix === '/events') {
         response.writeHead(200, commonHeaders('text/event-stream'));
-        response.write(': branch fixture\n\n');
+        // A real service opens every stream with stream.live; the composer holds sends until it.
+        const live = {
+          protocol_version: '0.3',
+          type: 'stream.live',
+          occurred_at: new Date().toISOString(),
+          scope: { connection_id: 'fixture', workspace_id: workspaceId, session_id: entry.session.id },
+          entity_revision: 1,
+          payload: { service: 'clio-fixture' },
+        };
+        response.write(`id: 1\nevent: stream.live\ndata: ${JSON.stringify(live)}\n\n`);
         const keepAlive = setInterval(() => response.write(': branch fixture\n\n'), 1000);
         request.on('close', () => clearInterval(keepAlive));
       } else if (

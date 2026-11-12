@@ -8,7 +8,7 @@ test('search orders sessions first, highlights snippets, and focuses the actual 
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
   await expect(page.getByText('Review the study protocol.', { exact: true })).toBeAttached();
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await expect(page.getByPlaceholder('Search work, files, artifacts, or actions…')).toBeFocused();
   const input = page.getByPlaceholder('Search work, files, artifacts, or actions…');
   await input.fill('plant');
@@ -55,7 +55,7 @@ test('Tab enters the dedicated assistant, Enter submits, and a scoped citation o
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
   await expect(page.getByText('Review the study protocol.', { exact: true })).toBeAttached();
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await page
     .getByPlaceholder('Search work, files, artifacts, or actions…')
     .fill('Where is the reviewer handoff?');
@@ -77,7 +77,7 @@ test('search switches modes in both directions with its draft and a single compa
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
   await expect(page.getByText('Review the study protocol.', { exact: true })).toBeAttached();
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   const input = page.getByPlaceholder('Search work, files, artifacts, or actions…');
   await expect(input).toBeFocused();
   await page.keyboard.type('Keep my draft');

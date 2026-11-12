@@ -19,7 +19,7 @@ const task = (id: string, status: string, extra: Partial<AsyncProcess> = {}): As
 });
 const exporting = task('Export stations', 'running', { supported_actions: ['cancel'] });
 const broken = task('Merge catalog', 'failed', { supported_actions: ['restart'] });
-const flow = task('Research', 'running', { flow: { id: 'deep-research' } });
+const flow = task('Research', 'running', { flow: { id: 'deep-research', status: 'running' } });
 
 function renderRuns(props: Partial<RailRunsProps> = {}) {
   return render(
@@ -60,8 +60,9 @@ it('opens a flow run as a tab and links to every run', async () => {
   const user = userEvent.setup();
   const onOpenFlow = vi.fn();
   renderRuns({ onOpenFlow });
-  await user.click(screen.getByRole('button', { name: /^Deep research run$/iu }));
-  expect(onOpenFlow).toHaveBeenCalledWith('Research', expect.stringMatching(/ run$/u));
+  // The row and its tab are named by the task; the flow is how it opens.
+  await user.click(screen.getByRole('button', { name: /^Research$/iu }));
+  expect(onOpenFlow).toHaveBeenCalledWith('Research', 'Research');
   expect(screen.getByRole('link', { name: 'All runs' })).toHaveAttribute('href', '/runs');
 });
 

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SaveIcon } from '@/lib/icon-vocabulary';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 /** Keep the editor scrollable while its save and cancel controls stay in view. */
 export function PluginSourceEditor({
@@ -48,6 +49,7 @@ export function PluginSourceEditor({
         Edit {path}
       </Label>
       <Textarea
+        {...identifierInputProps}
         id={`${id}-text`}
         className="clio-scrollbar min-h-0 flex-1 resize-none field-sizing-fixed rounded-none border-0 font-mono text-sm shadow-none focus-visible:ring-inset"
         spellCheck={false}

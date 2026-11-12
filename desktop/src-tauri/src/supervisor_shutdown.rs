@@ -574,7 +574,7 @@ pub(crate) fn terminate_process_group(pid: u32, signal: libc::c_int) {
 /// sends no signal but still validates existence: ESRCH means nothing in
 /// that group answers any more.
 #[cfg(unix)]
-fn unix_process_group_is_empty(pid: u32) -> bool {
+pub(crate) fn unix_process_group_is_empty(pid: u32) -> bool {
     let pgid = pid as libc::pid_t;
     let result = unsafe { libc::kill(-pgid, 0) };
     result == -1 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)

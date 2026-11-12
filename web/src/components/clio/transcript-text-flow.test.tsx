@@ -102,6 +102,7 @@ it('reads the thought before its public text and keeps the calls in their own ac
   expect(
     await within(passage).findByText(/I need to check the environment settings/),
   ).toBeVisible();
+  fireEvent.click(within(lane).getByRole('button', { name: /^Expand Called 1 tool/ }));
   expect(within(lane).getByRole('button', { name: /^Show result for / })).toBeVisible();
   expect(passage).not.toContainElement(publicText);
   fireEvent.click(trigger);

@@ -63,8 +63,8 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   // The script's name (its label, first comment or first statement) is the declared subject.
   run_code: define('Run script'),
   ssh_execute: define('Run on', 'declared', 'ssh_profile'),
-  view_image: define('View', 'declared', 'path'),
-  view_pdf: define('View', 'declared', 'path'),
+  view_image: define('View image', 'declared', 'path'),
+  view_pdf: define('View PDF', 'declared', 'path'),
   prepare_document: define('Render', 'declared', 'path'),
   prepare_execution_runtime: define('Inspect execution environment'),
   prepare_document_runtime: define('Prepare document tools'),

@@ -56,6 +56,7 @@ import {
   agentIdentity,
   type AgentIdentity,
 } from './connection-names';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 interface ClioMenuContentProps {
   endpoint: string;
@@ -292,6 +293,7 @@ export function ClioMenuContent({
         <label className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3.5 text-muted-foreground">
           <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />
           <input
+            {...identifierInputProps}
             aria-label="Search agents"
             className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
             onChange={(event) => setQuery(event.target.value)}

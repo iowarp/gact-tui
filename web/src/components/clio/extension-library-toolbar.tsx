@@ -23,6 +23,7 @@ import {
   type ExtensionType,
 } from '@/lib/extension-library-entries';
 import { AddIcon, CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import type { ExtensionAdd } from './extension-add-dialog';
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
@@ -103,17 +104,22 @@ export function ExtensionToolbar({
       role="toolbar"
       aria-label="Extensions"
     >
-      <TypeTabs onValueChange={onTypeChange} value={type} />
-      <SegmentedControl
-        label="Show"
-        onValueChange={onViewChange}
-        options={[
-          { value: 'yours', label: 'Yours' },
-          { value: 'discover', label: 'Discover' },
-        ]}
-        value={view}
-      />
-      <span className="min-w-0 flex-1" />
+      {/* Where the types fold, an open search takes the row; the filters still apply. */}
+      <div
+        className={cn('flex min-w-0 items-center gap-2', searching && '@max-[35rem]/ext:hidden')}
+      >
+        <TypeTabs onValueChange={onTypeChange} value={type} />
+        <SegmentedControl
+          label="Show"
+          onValueChange={onViewChange}
+          options={[
+            { value: 'yours', label: 'Yours' },
+            { value: 'discover', label: 'Discover' },
+          ]}
+          value={view}
+        />
+      </div>
+      <span className={cn('min-w-0 flex-1', searching && '@max-[35rem]/ext:hidden')} />
       {searching ? (
         <ExtensionSearchField
           onClose={closeSearch}
@@ -191,7 +197,7 @@ function ExtensionSearchField({
   const [draft, setDraft] = useState(search);
   return (
     <form
-      className="flex min-w-0 basis-[30%] items-center"
+      className="flex min-w-0 basis-[30%] items-center @max-[35rem]/ext:grow"
       // Esc closes the search first; the window closes only on the next Esc.
       data-escape-scope=""
       onSubmit={(event) => {

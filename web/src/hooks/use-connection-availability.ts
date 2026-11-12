@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
+import { PROTOCOL_VERSION, TransportError, type ServiceStartFailure } from '@clio/core/v3';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
@@ -32,6 +32,8 @@ export interface ConnectionAvailability {
   reason?: UnavailableReason;
   /** The service answered but is still starting; it is re-checked with a capped backoff. */
   starting?: boolean;
+  /** The service answered, but its start failed: it will not become ready until restarted. */
+  startFailed?: boolean;
   /** When this service was first seen starting (epoch ms), for the re-check backoff. */
   startingSince?: number;
 }
@@ -191,6 +193,7 @@ export async function probeConnection(
 
     try {
       const health = await repository.serviceHealth(controller.signal);
+      if (health.readiness === 'failed') return failedStart(health.failure);
       if (health.readiness === 'starting') {
         return {
           state: 'checking',
@@ -228,6 +231,26 @@ export async function probeConnection(
     globalThis.clearTimeout(timeout);
     signal.removeEventListener('abort', forwardAbort);
   }
+}
+
+/** The service's own words when it gives no reason for a failed start. */
+export const FAILED_START_DETAIL =
+  'The service could not start its conversations and tasks. Restart it; if this repeats, its log has the cause.';
+
+/**
+ * A service whose start failed (`/v1/health` `readiness: failed`). It will not become
+ * ready by itself, so it is not waited on: the person reads the service's own message,
+ * which names the fix; the reason token stays in the technical details.
+ */
+export function failedStart(failure: ServiceStartFailure | undefined): ConnectionAvailability {
+  return {
+    state: 'unavailable',
+    label: "Can't start",
+    detail: failure?.message || FAILED_START_DETAIL,
+    diagnostics: failure?.reason ? JSON.stringify({ reason: failure.reason }, null, 2) : undefined,
+    reason: 'failed',
+    startFailed: true,
+  };
 }
 
 /** The probe gave up waiting: something may be listening, but it did not answer. */

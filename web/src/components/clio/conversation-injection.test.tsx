@@ -175,6 +175,7 @@ describe('ClioConversation harness injection', () => {
       const continued = within(
         container.querySelector<HTMLElement>('[data-message-id="continued"]')!,
       );
+      await user.click(continued.getByRole('button', { name: 'Expand Received 1 update' }));
       await user.click(continued.getByRole('button', { name: /^Injection/u }));
       expect(
         continued.getByText('The report is incomplete. Save the remaining section.'),
@@ -212,6 +213,7 @@ describe('ClioConversation harness injection', () => {
       />,
     );
 
+    await user.click(await screen.findByRole('button', { name: 'Expand Received 1 update' }));
     await waitFor(() => expect(screen.getByText('Path suggestion')).toBeVisible());
     expect(screen.queryByText(/Did you mean/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Injection Path suggestion/u }));
@@ -352,7 +354,7 @@ describe('ClioConversation harness injection', () => {
     expect(within(reminder).getByText('Inspect before executing.')).toBeVisible();
   });
 
-  it('names an unlisted source plainly', () => {
+  it('names an unlisted source plainly', async () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -371,6 +373,7 @@ describe('ClioConversation harness injection', () => {
         tools={{}}
       />,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Received 1 update' }));
     expect(screen.getByText('New fix')).toBeInTheDocument();
   });
 });

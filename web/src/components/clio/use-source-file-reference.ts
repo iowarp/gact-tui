@@ -13,11 +13,14 @@ export function useSourceFileReference(
       source,
       draftId,
       path,
+      name = path,
       linked = false,
     }: {
       source: ConnectedSourceState;
       draftId?: string;
       path: string;
+      /** The provider's name for `path`, shown on the chip. */
+      name?: string;
       linked?: boolean;
     }) => {
       const lease = draftId || (await repository.beginSourceDraft(workspaceId, source.id)).id;
@@ -30,8 +33,9 @@ export function useSourceFileReference(
       onSelect?.({
         kind: 'resource',
         id: resource.id,
-        label: resource.name,
-        detail: `${source.label}: ${path}`,
+        // A portable alias names the stored copy; the chip keeps the provider's name.
+        label: name === path ? resource.name : (name.split('/').at(-1) ?? resource.name),
+        detail: `${source.label}: ${name}`,
         media_type: resource.detected_mime,
         revision: String(resource.revision),
         navigation: {
@@ -40,6 +44,7 @@ export function useSourceFileReference(
           source_draft_id: lease,
           source_provider: source.provider,
           source_path: path,
+          ...(name !== path ? { source_name: name } : {}),
         },
       });
     },

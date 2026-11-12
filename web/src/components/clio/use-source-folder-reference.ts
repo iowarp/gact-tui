@@ -14,11 +14,14 @@ export function useSourceFolderReference(
       draftId,
       linked = false,
       path = '',
+      name = path,
     }: {
       source: ConnectedSourceState;
       draftId?: string;
       linked?: boolean;
       path?: string;
+      /** The provider's name for `path`, shown on the chip. */
+      name?: string;
     }) => {
       const lease = draftId || (await repository.beginSourceDraft(workspaceId, source.id)).id;
       const resource = await repository
@@ -30,7 +33,7 @@ export function useSourceFolderReference(
       onSelect?.({
         kind: 'resource',
         id: resource.id,
-        label: path ? `${source.label} / ${path}` : source.label,
+        label: path ? `${source.label} / ${name}` : source.label,
         detail: linked
           ? 'Linked folder'
           : source.origin === 'desktop_upload'
@@ -45,6 +48,7 @@ export function useSourceFolderReference(
           source_provider: source.provider,
           source_kind: 'folder',
           source_path: path,
+          ...(name !== path ? { source_name: name } : {}),
           source_linked: String(linked),
         },
       });

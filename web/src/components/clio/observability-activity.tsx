@@ -23,16 +23,25 @@ import {
   ShieldIcon,
   SquareTerminalIcon,
   WaypointsIcon,
-  WrenchIcon,
 } from 'lucide-react';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { toolKindIcon } from '@/lib/tool-kind-icons';
+import {
+  createElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { flowLabel } from './flow-tool-presentation';
+import { taskFlow } from './task-flow-state';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -119,7 +128,8 @@ const PROJECTED_COORDINATION_TOOLS = new Set([
 export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
-  if (process.flow) return `${flowLabel(process.flow.id)} run`;
+  const flow = taskFlow(process);
+  if (flow) return `${flowLabel(flow.id)} run`;
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
@@ -690,7 +700,7 @@ export function ActivityGlyph({
       return <SearchIcon {...props} />;
     if (/(?:^|_)(?:bash|shell|command|exec|run_code)(?:$|_)/u.test(name))
       return <SquareTerminalIcon {...props} />;
-    return <WrenchIcon {...props} />;
+    return createElement(toolKindIcon(name), props);
   }
   if (item.kind === 'process') return <BoxesIcon {...props} />;
   if (item.kind === 'artifact') return <FileOutputIcon {...props} />;

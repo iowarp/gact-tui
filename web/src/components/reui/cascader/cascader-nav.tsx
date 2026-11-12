@@ -6,6 +6,7 @@ import { Combobox as ComboboxPrimitive } from '@base-ui/react';
 import { useDirection } from '@base-ui/react/direction-provider';
 import { Slot } from 'radix-ui';
 
+import { identifierInputProps } from '@/lib/identifier-input';
 import { cn } from '@/lib/utils';
 import { ChevronLeftIcon } from 'lucide-react';
 
@@ -302,6 +303,7 @@ function CascaderInput({
     >
       {showBack ? <CascaderBack /> : null}
       <ComboboxPrimitive.Input
+        {...identifierInputProps}
         data-slot="cascader-input"
         placeholder={resolvedPlaceholder}
         onKeyDown={handleKeyDown}

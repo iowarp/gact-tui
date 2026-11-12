@@ -210,10 +210,11 @@ test('session Work is a readable canvas peer with accessible task state', async 
   );
   await openFixture(page, 'text', 'A short readable result.');
   await showWorkbenchList(page, 'Activity');
-  await page
-    .getByRole('region', { name: 'Activity list', exact: true })
-    .getByRole('button', { name: new RegExp(`^Goal: ${goal.title}`, 'u') })
-    .click();
+  const activity = page.getByRole('region', { name: 'Activity list', exact: true });
+  // The goal is one of every event, the Events view; the timeline leads with causes.
+  await activity.getByRole('button', { name: 'Activity views', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Events', exact: true }).click();
+  await activity.getByRole('button', { name: new RegExp(`^Goal: ${goal.title}`, 'u') }).click();
   const panel = page.getByRole('tabpanel', { name: 'Work', exact: true });
   await expect(panel).toBeVisible();
   await expect(panel.getByText(goal.title, { exact: true })).toBeVisible();
@@ -277,8 +278,11 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
         .evaluate((e) => e.scrollWidth - e.clientWidth),
     )
     .toBeGreaterThan(0);
-  await preview.getByRole('button', { name: 'File actions', exact: true }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Wrap long lines', exact: true }).click();
+  // Wrapping is a toggle in the Source toolbar, pressed state included.
+  const wrap = preview.getByRole('button', { name: 'Wrap long lines', exact: true });
+  await expect(wrap).toHaveAttribute('aria-pressed', 'false');
+  await wrap.click();
+  await expect(wrap).toHaveAttribute('aria-pressed', 'true');
   await expect
     .poll(() =>
       preview
@@ -303,7 +307,8 @@ for (const shortTranscript of [false, true]) {
     );
     const log = page.getByRole('log', { name: 'Conversation', exact: true });
     await log.focus();
-    await log.press('Control+Home');
+    // Home and End scroll a focused region on every platform; Ctrl+Home does not on macOS.
+    await log.press('Home');
     // Home may still be settling at 1px; reading the anchor then made the
     // restored position appear to drift by one pixel.
     await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBe(0);
@@ -360,6 +365,18 @@ for (const shortTranscript of [false, true]) {
       },
       { times: 1 },
     );
+    // The resize above can still settle a frame later (seen on macOS as a one-frame
+    // 548px dip and return); measure the position the reader is actually left at.
+    let settledTop = -1;
+    let settledSamples = 0;
+    await expect
+      .poll(async () => {
+        const top = await log.evaluate((e) => e.scrollTop);
+        settledSamples = top === settledTop ? settledSamples + 1 : 0;
+        settledTop = top;
+        return settledSamples;
+      })
+      .toBeGreaterThanOrEqual(3);
     const beforeRefresh = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
     try {
       await expect(syncing).toBeVisible({ timeout: 20_000 });
@@ -425,7 +442,7 @@ for (const size of [
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await body.focus();
     await expect(body).toBeFocused();
-    await body.press('Control+End');
+    await body.press('End');
     await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
     await expect(body.getByRole('heading', { name: 'Result' })).toBeAttached();
     await expect(body).toContainText('Row 49');

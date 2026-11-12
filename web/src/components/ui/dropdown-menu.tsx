@@ -120,6 +120,7 @@ function DropdownMenuContent({
   onKeyDown,
   onCloseAutoFocus,
   onFocusOutside,
+  onPointerDownOutside,
   ref,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
@@ -127,6 +128,16 @@ function DropdownMenuContent({
   const container = useOverlayContainer();
   const modal = React.useContext(DropdownMenuModal);
   const trigger = React.useContext(DropdownMenuTriggerRef);
+  // A press on the trigger is the trigger's own toggle. A menu still fading out
+  // listens for outside presses, so pressing the trigger again during that
+  // fade would reopen the menu and have this closing layer dismiss it at once.
+  const pointerDownOutside = React.useCallback(
+    (event: Parameters<NonNullable<typeof onPointerDownOutside>>[0]) => {
+      onPointerDownOutside?.(event);
+      if (trigger.current?.contains(event.target as Node)) event.preventDefault();
+    },
+    [onPointerDownOutside, trigger],
+  );
   const closeFocus = useShieldFocusReturn(modal, trigger, onCloseAutoFocus);
   const focusOutside = useShieldFocusOutside(modal, onFocusOutside);
   return (
@@ -153,6 +164,7 @@ function DropdownMenuContent({
           }}
           onCloseAutoFocus={closeFocus}
           onFocusOutside={focusOutside}
+          onPointerDownOutside={pointerDownOutside}
           {...props}
         />
       </DropdownMenuPrimitive.Portal>
@@ -164,12 +176,32 @@ function DropdownMenuGroup({ ...props }: React.ComponentProps<typeof DropdownMen
   return <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />;
 }
 
+/**
+ * Radix moves focus to the menu when the pointer leaves an item, even while the menu
+ * fades out. An item that opens a dialog would lose the dialog's focus that way: the
+ * backdrop arrives under the pointer, the closing menu takes focus, then drops it on
+ * the page as it unmounts.
+ */
+function useClosingMenuPointerLeave(
+  onPointerLeave: React.PointerEventHandler<HTMLDivElement> | undefined,
+) {
+  return React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      onPointerLeave?.(event);
+      const menu = event.currentTarget.closest('[role="menu"]');
+      if (menu?.getAttribute('data-state') === 'closed') event.preventDefault();
+    },
+    [onPointerLeave],
+  );
+}
+
 function DropdownMenuItem({
   className,
   inset,
   variant = 'default',
   menuKey,
   children,
+  onPointerLeave,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean;
@@ -177,6 +209,7 @@ function DropdownMenuItem({
   /** The one letter that runs this item while its menu is open. */
   menuKey?: string;
 }) {
+  const pointerLeave = useClosingMenuPointerLeave(onPointerLeave);
   return (
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
@@ -188,6 +221,7 @@ function DropdownMenuItem({
         className,
       )}
       {...props}
+      onPointerLeave={pointerLeave}
     >
       {withMenuKey(children, menuKey, props.asChild)}
     </DropdownMenuPrimitive.Item>
@@ -199,10 +233,12 @@ function DropdownMenuCheckboxItem({
   children,
   checked,
   inset,
+  onPointerLeave,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
   inset?: boolean;
 }) {
+  const pointerLeave = useClosingMenuPointerLeave(onPointerLeave);
   return (
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
@@ -213,6 +249,7 @@ function DropdownMenuCheckboxItem({
       )}
       checked={checked}
       {...props}
+      onPointerLeave={pointerLeave}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
@@ -237,10 +274,12 @@ function DropdownMenuRadioItem({
   className,
   children,
   inset,
+  onPointerLeave,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {
   inset?: boolean;
 }) {
+  const pointerLeave = useClosingMenuPointerLeave(onPointerLeave);
   return (
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
@@ -250,6 +289,7 @@ function DropdownMenuRadioItem({
         className,
       )}
       {...props}
+      onPointerLeave={pointerLeave}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"

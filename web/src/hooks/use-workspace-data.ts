@@ -12,8 +12,6 @@ import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useInstalledAgents } from '@/hooks/use-session-agent';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
-import { buildModelOptions } from '@/lib/model-options';
-import { cachedModelFacts } from '@/components/clio/model-picker-fact-cache';
 import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import {
   ACTIVE_SESSION_POLL_MS,
@@ -51,8 +49,8 @@ import { useLegacyRequestLedgers } from './use-legacy-request-ledgers';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
-import { useProviderCatalog } from './use-provider-catalog';
-import type { ModelCatalogStatus } from './use-model-catalog-status';
+import { useActiveModelOptions } from './use-active-model-options';
+import { useLiveEntities } from './use-live-entities';
 import { OUTSIDE_LIVE_STREAM, useSessionLiveStream } from './use-session-live-stream';
 import { useVariantRunHydration } from './use-variant-run-hydration';
 import { useSessionObservability } from './use-session-observability';
@@ -81,42 +79,7 @@ export function useWorkspaceData({
   useSessionCacheRetention(sessionId);
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
-  const entityContext = useLiveStore((state) => state.entities.context);
-  const entityRuns = useLiveStore((state) => state.entities.runs);
-  const entitySessions = useLiveStore((state) => state.entities.sessions);
-  const entitySurfaces = useLiveStore((state) => state.entities.surfaces);
-  const entityActionLifecycles = useLiveStore((state) => state.entities.a2ui_action_lifecycles);
-  const entitySubagents = useLiveStore((state) => state.entities.subagents);
-  const entityTasks = useLiveStore((state) => state.entities.tasks);
-  const entityTools = useLiveStore((state) => state.entities.tools);
-  const entityWorkspaces = useLiveStore((state) => state.entities.workspaces);
-  const entities = useMemo(
-    () => ({
-      artifacts: entityArtifacts,
-      context: entityContext,
-      runs: entityRuns,
-      sessions: entitySessions,
-      surfaces: entitySurfaces,
-      a2ui_action_lifecycles: entityActionLifecycles,
-      subagents: entitySubagents,
-      tasks: entityTasks,
-      tools: entityTools,
-      workspaces: entityWorkspaces,
-    }),
-    [
-      entityArtifacts,
-      entityContext,
-      entityRuns,
-      entitySessions,
-      entitySurfaces,
-      entityActionLifecycles,
-      entitySubagents,
-      entityTasks,
-      entityTools,
-      entityWorkspaces,
-    ],
-  );
+  const entities = useLiveEntities();
   const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
   const reloadWorkspaces = useMemo(
@@ -648,82 +611,17 @@ export function useWorkspaceData({
     [entities.runs, sessionId],
   );
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
-  // provider_id only -- never modelConfiguration.data?.provider, which is the
-  // wire KIND ("openai") that nine presets share (bedrock, llama_cpp, ...),
-  // not an identity (#1418).
-  const activeProvider =
-    session?.provider_id ??
-    modelConfiguration.data?.provider_id ??
-    capabilities.data?.active_model?.provider_id;
-  const activeModel =
-    session?.model_id ??
-    modelConfiguration.data?.model ??
-    capabilities.data?.active_model?.model_id;
-  // Only a level a person chose for this session is sent with messages; the
-  // configured global level is displayed by the composer and applied server-side.
-  const activeEffort = session?.effort;
-  // Only a level a person configured is named as such; a shipped default is
-  // the model's (the composer labels it from the catalog).
-  const configuredEffort =
-    modelConfiguration.data?.thinking_level_source === 'user'
-      ? modelConfiguration.data.thinking_level
-      : undefined;
+  const {
+    activeEffort,
+    activeModel,
+    activeProvider,
+    configuredEffort,
+    modelCatalogStatus,
+    modelOptions,
+    providerCatalog,
+  } = useActiveModelOptions({ capabilities, modelConfiguration, session });
   const agentLabel = sessionAgentLabel(session, installedAgents.data);
   const contextTargetOptions = buildContextTargets(sessionId, agentLabel, subagents);
-  const activePreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === activeProvider,
-  );
-  const activeCatalogProvider = activePreset?.id ?? activeProvider ?? '';
-  const modelCatalogKey = useMemo(
-    () => queryKeys.key('provider-models', settings.endpoint, activeCatalogProvider),
-    [settings.endpoint, activeCatalogProvider],
-  );
-  const modelCatalog = useQuery({
-    queryKey: modelCatalogKey,
-    queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
-    enabled: Boolean(activeCatalogProvider),
-    notifyOnChangeProps: ['data'],
-  });
-  const providerCatalog = useProviderCatalog();
-  const modelOptions = useMemo(
-    () =>
-      buildModelOptions({
-        activeCatalogProvider,
-        activeModel,
-        activeProvider,
-        catalogModels: modelCatalog.data?.models,
-        providerCatalog: providerCatalog.data,
-        presets: modelConfiguration.data?.presets ?? [],
-      }),
-    [
-      activeCatalogProvider,
-      activeModel,
-      activeProvider,
-      modelCatalog.data?.models,
-      providerCatalog.data,
-      modelConfiguration.data?.presets,
-    ],
-  );
-  useEffect(() => {
-    const selected = modelOptions.filter((option) => option.providerId === activeProvider);
-    const timer = window.setTimeout(() => selected.forEach(cachedModelFacts), 0);
-    return () => clearTimeout(timer);
-  }, [modelOptions, activeProvider]);
-  // Background fetches are added by useModelCatalogStatus in the picker's owner.
-  const settledCatalogStatus =
-    providerCatalog.refreshPending || (providerCatalog.isPending && !providerCatalog.data)
-      ? 'loading'
-      : providerCatalog.isError && !providerCatalog.data
-        ? 'error'
-        : 'ready';
-  const providerCatalogKey = useMemo(
-    () => queryKeys.providerCatalog(settings.endpoint),
-    [settings.endpoint],
-  );
-  const modelCatalogStatus = useMemo<ModelCatalogStatus>(
-    () => ({ settled: settledCatalogStatus, queryKeys: [providerCatalogKey, modelCatalogKey] }),
-    [settledCatalogStatus, providerCatalogKey, modelCatalogKey],
-  );
 
   return {
     agentLabel,

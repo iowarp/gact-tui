@@ -1,4 +1,13 @@
-import { memo, useCallback, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { RegistryModel } from '@clio/core/v3';
 import { CheckIcon, LockIcon } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -271,8 +280,35 @@ export function ModelDownloadSearch({
     event.preventDefault();
     rows[next].focus();
   };
+  // A search that lands after a pick replaces the rows. Keep focus in the chooser (the chosen
+  // row, else the search field) instead of letting it fall to the dialog, outside the form's keys.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const rowFocused = useRef(false);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !rowFocused.current) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && root.contains(active)) return;
+    if (active && active !== document.body && !active.matches('[role="dialog"]')) return;
+    const rows = [...root.querySelectorAll<HTMLButtonElement>('button[data-repository]')];
+    const target =
+      rows.find((row) => row.dataset.repository === selected) ??
+      root.querySelector<HTMLInputElement>('#model-search');
+    rowFocused.current = false;
+    target?.focus();
+  }, [models, visible, selected, searching]);
   return (
     <div
+      ref={rootRef}
+      onFocus={(event) => {
+        rowFocused.current = Boolean((event.target as HTMLElement).dataset.repository);
+      }}
+      onBlur={(event) => {
+        // A removed row blurs with no next target; anywhere else ends the watch.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          rowFocused.current = false;
+        }
+      }}
       className="flex min-h-0 min-w-0 flex-col gap-2.5"
       onKeyDownCapture={(event) => {
         if (event.key === 'Escape' && facetsOpen) {

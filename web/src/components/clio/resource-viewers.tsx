@@ -7,13 +7,24 @@ import {
 } from './comments/file-comments';
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
+import { keepEqualBytes } from '@/lib/keep-equal-bytes';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { CodeIcon, EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
-import { NOTEBOOK_MEDIA_TYPE, textFileFormat } from '@/lib/file-presentation';
+import {
+  fileName,
+  HDF5_MEDIA_TYPE,
+  imageMediaType,
+  inferredWorkspaceMediaType,
+  isDocumentArtifact,
+  isImageArtifact,
+  isMarkdownArtifact,
+  isSvg,
+  isTextArtifact,
+} from './resource-media-types';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
@@ -40,6 +51,7 @@ import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { FileSourceView } from './file-source-view';
 import { ClioPdfPreview } from './pdf-preview';
+import { PendingZoomControls } from './viewer-zoom-controls';
 import {
   ResourceLoading,
   ViewerNoPreview,
@@ -65,6 +77,7 @@ export function WorkspaceFileView({
   initialPage,
   locator,
   embedded = false,
+  identity,
   sessionId,
 }: {
   workspaceId: string;
@@ -76,8 +89,11 @@ export function WorkspaceFileView({
   /** PDF only: the page to open on, when the caller already knows which page
    * matters (e.g. the page range an agent's view_pdf call actually viewed). */
   initialPage?: number;
-  /** The enclosing tool-result card already owns the file identity. */
+  /** Inline in a tool result: the bar carries `identity` instead of the crumbs, a PDF
+   * fills the width and there is no Lineage. */
   embedded?: boolean;
+  /** Embedded only: the type icon and name the bar leads with. */
+  identity?: ReactNode;
   /** The open conversation, whose recorded artifacts give the file its Lineage. */
   sessionId?: string;
 }) {
@@ -119,7 +135,12 @@ export function WorkspaceFileView({
       source={source}
     />
   ) : detected === 'application/pdf' ? (
-    <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+    <WorkspacePdfView
+      fit={embedded ? 'width' : 'page'}
+      initialPage={initialPage}
+      path={path}
+      workspaceId={workspaceId}
+    />
   ) : detected.startsWith('image/') ? (
     <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
   ) : html ? (
@@ -156,7 +177,28 @@ export function WorkspaceFileView({
   ) : officeMediaType(path) ? (
     <WorkspaceDocumentView
       documentView={(artifact) => (
-        <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+        <ClioDocumentWorkspace
+          artifact={artifact}
+          fallbackPreview={
+            <WorkspaceBinaryView
+              mediaType={detected}
+              path={path}
+              size={size}
+              workspaceId={workspaceId}
+            />
+          }
+          unavailablePreview={
+            <WorkspaceBinaryView
+              mediaType={detected}
+              path={path}
+              reason="It can't run here right now."
+              size={size}
+              title="Preview needs the document runtime"
+              workspaceId={workspaceId}
+            />
+          }
+          key={artifact.id}
+        />
       )}
       fallback={
         <WorkspaceBinaryView
@@ -165,6 +207,12 @@ export function WorkspaceFileView({
           size={size}
           workspaceId={workspaceId}
         />
+      }
+      loading={
+        <>
+          <PendingZoomControls label="PDF zoom" />
+          <ResourceLoading label={`Opening ${fileName(path)}`} />
+        </>
       }
       mediaType={officeMediaType(path)!}
       path={path}
@@ -177,6 +225,7 @@ export function WorkspaceFileView({
     <FileViewerShell
       source={source}
       showIdentity={!embedded}
+      identity={embedded ? identity : undefined}
       tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
       lineage={
         embedded ? undefined : (
@@ -187,7 +236,6 @@ export function WorkspaceFileView({
   );
 }
 
-const HDF5_MEDIA_TYPE = 'application/x-hdf5';
 const NAME_DECIDES = new Set([
   'application/octet-stream',
   'application/x-netcdf',
@@ -237,9 +285,7 @@ function WorkspaceNetcdfView({
   });
   if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
   if (magic.isError)
-    return (
-      <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />
-    );
+    return <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />;
   if (isClassicNetcdf(magic.data?.subarray(0, 4)))
     return (
       <ViewerNoPreview
@@ -256,10 +302,12 @@ function WorkspacePdfView({
   workspaceId,
   path,
   initialPage,
+  fit,
 }: {
   workspaceId: string;
   path: string;
   initialPage?: number;
+  fit: 'page' | 'width';
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -267,6 +315,7 @@ function WorkspacePdfView({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
     gcTime: VIEWER_BYTES_GC_TIME_MS,
+    structuralSharing: keepEqualBytes,
   });
   return (
     <WorkspaceFileComments
@@ -279,6 +328,7 @@ function WorkspacePdfView({
         <ClioPdfPreview
           bytes={content.data}
           error={content.error?.message}
+          fit={fit}
           initialPage={initialPage}
           name={fileName(path)}
           onRetry={() => void content.refetch()}
@@ -304,6 +354,7 @@ function WorkspaceImageView({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
     gcTime: VIEWER_BYTES_GC_TIME_MS,
+    structuralSharing: keepEqualBytes,
   });
   return (
     <WorkspaceFileComments
@@ -329,11 +380,17 @@ function WorkspaceBinaryView({
   path,
   mediaType,
   size,
+  reason,
+  title,
 }: {
   workspaceId: string;
   path: string;
   mediaType: string;
   size?: number;
+  /** Why it has no viewer, before what still works. */
+  reason?: string;
+  /** The cause, when its viewer can't run here. */
+  title?: string;
 }) {
   const [asText, setAsText] = useState(false);
   return asText ? (
@@ -341,7 +398,9 @@ function WorkspaceBinaryView({
   ) : (
     <ViewerNoPreview
       onShowText={() => setAsText(true)}
+      reason={reason}
       source={{ kind: 'workspace', workspaceId, path, mediaType, size }}
+      title={title}
     />
   );
 }
@@ -605,149 +664,6 @@ function ArtifactFileView({
       }
     />
   );
-}
-
-function fileName(path: string): string {
-  return (
-    path
-      .split(/[\\/]+/)
-      .filter(Boolean)
-      .at(-1) ?? path
-  );
-}
-
-function isTextArtifact(mediaType: string, name: string): boolean {
-  return (
-    mediaType.startsWith('text/') ||
-    [
-      'application/json',
-      'application/yaml',
-      'application/x-yaml',
-      'application/x-ipynb+json',
-    ].includes(mediaType) ||
-    [
-      'c',
-      'cpp',
-      'css',
-      'csv',
-      'go',
-      'html',
-      'htm',
-      'ipynb',
-      'java',
-      'js',
-      'json',
-      'jsx',
-      'md',
-      'mmd',
-      'mermaid',
-      'py',
-      'rs',
-      'sh',
-      'toml',
-      'ts',
-      'tsx',
-      'txt',
-      'yaml',
-      'yml',
-      // Logs, job output and plain configuration read as text.
-      'log',
-      'out',
-      'err',
-      'tsv',
-      'ini',
-      'cfg',
-      'conf',
-      // LaTeX sources: a paper's .tex opens as the LaTeX workspace; the rest as text.
-      'tex',
-      'ltx',
-      'bib',
-      'bst',
-      'cls',
-      'sty',
-      // Patches read as their changed lines.
-      'patch',
-      'diff',
-    ].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
-  );
-}
-
-function isImageArtifact(mediaType: string, name: string): boolean {
-  return (
-    ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml'].includes(
-      mediaType,
-    ) || isImagePath(name)
-  );
-}
-
-function isImagePath(path: string): boolean {
-  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(
-    path.split('.').at(-1)?.toLowerCase() ?? '',
-  );
-}
-
-function isMarkdownArtifact(mediaType: string, name: string): boolean {
-  return textFileFormat(name, mediaType) === 'markdown';
-}
-
-function isDocumentArtifact(mediaType: string, name: string): boolean {
-  if (
-    [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.oasis.opendocument.text',
-      'application/vnd.oasis.opendocument.spreadsheet',
-      'application/vnd.oasis.opendocument.presentation',
-    ].includes(mediaType)
-  ) {
-    return true;
-  }
-  return [
-    'md',
-    'markdown',
-    'pdf',
-    'tex',
-    'html',
-    'htm',
-    'docx',
-    'xlsx',
-    'pptx',
-    'odt',
-    'ods',
-    'odp',
-  ].includes(name.split('.').at(-1)?.toLowerCase() ?? '');
-}
-
-function imageMediaType(path: string): string {
-  const extension = path.split('.').at(-1)?.toLowerCase();
-  if (extension === 'svg') return 'image/svg+xml';
-  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
-  if (extension === 'gif') return 'image/gif';
-  if (extension === 'webp') return 'image/webp';
-  if (extension === 'avif') return 'image/avif';
-  return 'image/png';
-}
-
-function inferredWorkspaceMediaType(path: string): string {
-  const extension = path.split('.').at(-1)?.toLowerCase();
-  if (extension === 'pdf') return 'application/pdf';
-  if (isImagePath(path)) return imageMediaType(path);
-  if (extension === 'json') return 'application/json';
-  if (extension === 'ipynb') return NOTEBOOK_MEDIA_TYPE;
-  if (extension === 'xml') return 'application/xml';
-  if (extension === 'mmd' || extension === 'mermaid') return 'text/vnd.mermaid';
-  // HDF5 and formats built on it (HDF-EOS5, NeXus, NetCDF-4). `.hdf` is left out: it is
-  // usually HDF4. A classic NetCDF `.nc` is recognised by its first bytes and has no viewer.
-  if (['h5', 'hdf5', 'he5', 'nxs', 'nc', 'nc4'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
-  if (isTextArtifact('', path)) return 'text/plain';
-  return 'application/octet-stream';
-}
-
-/** An image artifact takes region comments when its version is known. */
-function isSvg(mediaType: string): boolean {
-  return mediaType.split(';', 1)[0]?.trim() === 'image/svg+xml';
 }
 
 /** An artifact takes comments when its version is known: text marks, or regions (and SVG elements) on an image. */

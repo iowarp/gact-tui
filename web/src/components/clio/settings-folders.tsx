@@ -28,7 +28,6 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
 import { StateView } from './primitives/state-view';
 import { useFolderGrants } from './sandbox-boundary-grants';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { ColourSwatches, IconSelect } from './settings-folders-appearance';
 import { AllowFolderDialog, ChangePrimaryDialog } from './settings-folders-dialogs';
@@ -100,7 +99,6 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
   return (
     <SettingsScopeContext.Provider value={scope}>
       <div className="min-w-0" data-slot="folders-settings">
-        <AnnounceStates />
         <SettingsSectionHeading
           info="Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
           title="Folders"
@@ -303,7 +301,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
       </SettingsRow>
 
       {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
-      <div className={SETTINGS_COLUMN} data-slot="folders-lists" onKeyDown={rowArrowKeyDown}>
+      <div className={SETTINGS_COLUMN} data-slot="folders-lists" data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>

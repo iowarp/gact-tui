@@ -13,6 +13,7 @@ import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNow } from '@/hooks/use-now';
+import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { formatDuration } from '@/lib/format';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
 
@@ -146,7 +147,8 @@ function RunSummary({
   stateLabel: string;
   stop?: { onStop: () => void; stopping: boolean };
 }) {
-  const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
+  const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
+  const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
   // A lost or failed run's last message is its reported issue, kept once under Details.
   const message =
     typeof row.progress?.message === 'string' &&

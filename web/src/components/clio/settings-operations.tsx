@@ -14,7 +14,6 @@ import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { SettingsLoadError, UnofferedParts } from './settings-health-load-error';
 import { notOffered } from './settings-health-reason';
@@ -359,8 +358,7 @@ export function SystemSettings() {
     </UnofferedParts>
   );
   return (
-    <div className="min-w-0" onKeyDown={rowArrowKeyDown}>
-      <AnnounceStates />
+    <div className="min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown}>
       <SettingsSectionHeading
         info="Review service health, storage, activity and automation hooks. Status comes from your connected service."
         title="Health"

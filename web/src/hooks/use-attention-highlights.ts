@@ -1,5 +1,6 @@
 import type { AttentionAvailable, Message as DomainMessage, ToolInvocation } from '@clio/core/v3';
 import { type RefObject, useLayoutEffect } from 'react';
+import { adoptStyleSheet } from '@/lib/adopted-style-sheet';
 import { buildSegmentHighlightRanges, buildSelectedRange } from '@/lib/attention-highlight-dom';
 import {
   type AttentionHeatView,
@@ -34,22 +35,17 @@ const HIGHLIGHT_RULES = [
   `::highlight(${SELECTED_HIGHLIGHT_NAME}) { background-color: color-mix(in oklch, var(--primary) 22%, transparent); text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--primary) 70%, transparent); text-decoration-thickness: 2px; }`,
 ].join('\n');
 
-let highlightStyle: HTMLStyleElement | undefined;
+let unmountHighlightStyle: (() => void) | undefined;
 let highlightStyleUsers = 0;
 
 function retainHighlightStyle(): () => void {
   highlightStyleUsers += 1;
-  if (!highlightStyle) {
-    highlightStyle = document.createElement('style');
-    highlightStyle.dataset.clioAttentionHighlights = '';
-    highlightStyle.textContent = HIGHLIGHT_RULES;
-    document.head.append(highlightStyle);
-  }
+  unmountHighlightStyle ??= adoptStyleSheet(HIGHLIGHT_RULES, 'clio-attention-highlights');
   return () => {
     highlightStyleUsers -= 1;
     if (highlightStyleUsers > 0) return;
-    highlightStyle?.remove();
-    highlightStyle = undefined;
+    unmountHighlightStyle?.();
+    unmountHighlightStyle = undefined;
   };
 }
 
