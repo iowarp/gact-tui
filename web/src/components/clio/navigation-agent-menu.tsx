@@ -87,7 +87,7 @@ export function NavigationAgentMenu({
         >
           <span className="relative grid shrink-0 place-items-center">
             <BrandIcon className="size-[26px]! shrink-0 text-primary" />
-            {line.tone === 'error' || line.tone === 'warning' || line.tone === 'running' ? (
+            {stream !== 'live' ? (
               // Folded to icons the status line is hidden; its shaped glyph stays on the mark.
               <StatusIndicator
                 className="absolute -right-[3px] -bottom-[3px] hidden size-3 rounded-full bg-sidebar group-data-[collapsible=icon]:inline-grid [&>*]:size-3!"
@@ -118,8 +118,8 @@ export function NavigationAgentMenu({
                 tone={line.tone}
               />
               {line.parts ? (
-                <span className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-2')}>
-                  <span className="shrink-0">{line.parts[0]}</span>
+                <span className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-1.5')}>
+                  <span className={cn('shrink-0', line.leadClassName)}>{line.parts[0]}</span>
                   {line.at ? (
                     <span aria-hidden="true" className="shrink-0 text-faint">
                       @
@@ -152,8 +152,12 @@ export function NavigationAgentMenu({
 
 interface StatusLine {
   text: string;
-  /** Shown as two phrases split by a layout gap instead of a comma. */
+  /**
+   * Two phrases told apart by spacing and style, never a separator glyph. The
+   * first never shrinks; the second truncates.
+   */
   parts?: readonly [string, string];
+  leadClassName?: string;
   /** Joins the parts with a faint @: the agent, then where it runs. */
   at?: boolean;
   label: string;
@@ -187,11 +191,14 @@ function statusLine(
     return { text: `Connecting to ${name}`, label: 'Connecting', tone: 'running' };
   }
   if (updateReady) {
+    // The state leads in amber and the agent follows muted, so a long agent
+    // name truncates before the state does.
     return {
-      text: `${name}, update ready`,
-      parts: [name, 'update ready'],
+      text: `Update ready, ${name}`,
+      parts: ['Update ready', name],
+      leadClassName: 'font-medium text-warning-foreground dark:text-warning',
       label: 'Update ready',
-      tone: 'info',
+      tone: 'warning',
     };
   }
   return {
