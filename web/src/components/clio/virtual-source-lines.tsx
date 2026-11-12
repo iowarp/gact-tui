@@ -118,15 +118,20 @@ function SourceLineContent({
   const split = tokens ? splitIndent(tokens) : undefined;
   const indent = split?.lead ?? lead ?? '';
   const columns = split ? split.columns : indentColumns(indent);
+  const hang = wrap && columns > 0;
   return (
     <span
       {...props}
-      className={className}
-      style={
-        wrap && columns ? { paddingLeft: `${columns}ch`, textIndent: `-${columns}ch` } : undefined
-      }
+      className={cn(className, hang && 'relative')}
+      // The indent leaves the inline flow when wrapping, so a row never breaks
+      // before the line's first word and continuation rows keep the indent.
+      style={hang ? { paddingLeft: `${columns}ch` } : undefined}
     >
-      {indent && <span className="whitespace-pre">{indent}</span>}
+      {indent && (
+        <span className={cn('whitespace-pre', hang && 'absolute left-0')} data-indent="">
+          {indent}
+        </span>
+      )}
       {split
         ? split.rest.map((token, index) => (
             // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.

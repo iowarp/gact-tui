@@ -279,9 +279,7 @@ describe('source mode and file identity edge cases', () => {
 
     expect(source.className).toContain('[&_pre]:whitespace-pre-wrap');
     // Continuation rows hang under the code and its indent, not under the line number.
-    expect(source.className).toContain(
-      '[&_pre_code>span]:[text-indent:calc(-3rem_-_var(--indent,0ch))]',
-    );
+    expect(source.className).toContain('[&_pre_code>span>[data-indent]]:absolute');
     expect(source).toHaveTextContent(row);
     expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
 

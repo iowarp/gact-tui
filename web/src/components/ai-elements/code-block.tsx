@@ -108,7 +108,11 @@ const LineSpan = ({
         '\n'
       ) : (
         <>
-          {lead && <span className="whitespace-pre">{lead}</span>}
+          {lead && (
+            <span className="whitespace-pre" data-indent="">
+              {lead}
+            </span>
+          )}
           {rest.map((token, index) => (
             // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
             <TokenSpan key={`${keyedLine.key}-${index}`} token={token} />
