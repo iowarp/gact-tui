@@ -19,7 +19,11 @@ import { OpenAlexKeyRequest } from './openalex-key-request';
 import { StateView } from './primitives/state-view';
 import { SearchSourceKeyDialog } from './search-source-key-dialog';
 import { SearchSourceRow } from './search-source-row';
+import { SearchContactEmail } from './search-contact-email';
+import { useProfileContactEmail } from './search-contact-email-sync';
 import { SearchTextSetting } from './search-text-setting';
+import { SegmentedControl } from './primitives/segmented-control';
+import { useLocalProfile } from './settings-profile-store';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 
@@ -58,6 +62,13 @@ const reorder = (settings: SearchSettings, order: readonly string[]): SearchSett
   };
 };
 
+type SearchTab = 'web' | 'literature';
+
+const TABS = [
+  { value: 'web', label: 'Web' },
+  { value: 'literature', label: 'Literature' },
+] as const;
+
 /** Saved after a key moved its source to the front, so the person can put it back. */
 interface KeyNotice {
   name: string;
@@ -75,6 +86,8 @@ export function WebSearchSettings() {
   const [keyFor, setKeyFor] = useState<SearchSource>();
   const [notice, setNotice] = useState<KeyNotice>();
   const [keyError, setKeyError] = useState('');
+  const [tab, setTab] = useState<SearchTab>('web');
+  const profileEmail = useLocalProfile().profile.email.trim();
 
   const view = useQuery({
     queryKey: key,
@@ -134,7 +147,25 @@ export function WebSearchSettings() {
       setErrors((current) => ({ ...current, [area]: errorText(error) })),
   });
 
-  const heading = <SettingsSectionHeading info={INFO} title="Web search" />;
+  const tabs = (
+    <SegmentedControl label="Web search pages" onValueChange={setTab} options={TABS} value={tab} />
+  );
+  const saveContact = (value: string) =>
+    update.mutate({
+      change: { contact_email: value },
+      area: 'contact_email',
+      optimistic: view.data ? { ...view.data, contact_email: value } : undefined,
+    });
+  useProfileContactEmail({
+    value: view.data?.contact_email,
+    profileEmail,
+    saving: update.isPending,
+    error: errors.contact_email,
+    onSave: saveContact,
+  });
+  const heading = (
+    <SettingsSectionHeading actions={view.data ? tabs : undefined} info={INFO} title="Web search" />
+  );
   if (view.isPending)
     return (
       <div className="min-w-0">
@@ -226,160 +257,176 @@ export function WebSearchSettings() {
   return (
     <div className="min-w-0">
       {heading}
-      <SettingsRow htmlFor="web-search-enabled" inlineControl title="Web search">
-        <Switch
-          checked={data.enabled}
-          disabled={update.isPending}
-          id="web-search-enabled"
-          onCheckedChange={(on) => patch({ enabled: on }, 'enabled', { ...data, enabled: on })}
-        />
-      </SettingsRow>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Searches are sent to the services below. Each one asks for your approval the first time.
-      </p>
-      <ErrorLine message={errors.enabled} />
-
-      <section aria-label="Web sources" className="min-w-0">
-        <SettingsGroupLabel info="Tried from the top. Drag a source, or use Move up and Move down, to change the order.">
-          Web sources
-        </SettingsGroupLabel>
-        {notice ? (
-          <div
-            className="mb-1 flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-1.5 text-xs"
-            role="status"
-          >
-            <span className="min-w-0 flex-1">
-              {notice.previous ? `${notice.name} is now tried first.` : `${notice.name} key saved.`}
-            </span>
-            {notice.previous ? (
-              <Button
-                className="h-6 px-2 text-xs"
-                disabled={update.isPending}
-                onClick={() => {
-                  if (notice.previous) setOrder(notice.previous);
-                  setNotice(undefined);
-                }}
-                size="sm"
-                variant="outline"
-              >
-                Undo
-              </Button>
-            ) : null}
-            <Button
-              className="h-6 px-2 text-xs"
-              onClick={() => setNotice(undefined)}
-              size="sm"
-              variant="ghost"
-            >
-              Dismiss
-            </Button>
-          </div>
-        ) : null}
-        <ErrorLine message={errors.web} />
-        {data.web.length ? (
+      <div aria-label={tab === 'web' ? 'Web' : 'Literature'} role="region">
+        {tab === 'web' ? (
           <>
-            {service ? (
-              <div aria-label="Your site's search service, always tried first" role="list">
-                {webRow(service, -1)}
-              </div>
-            ) : null}
-            <Sortable
-              aria-label="Web sources, in the order they are tried"
-              getItemValue={(row: WebSearchSource) => row.id}
-              onValueChange={(rows) => setOrder(rows.map((row) => row.id))}
-              role="list"
-              strategy="vertical"
-              value={ordered}
-            >
-              {ordered.map(webRow)}
-            </Sortable>
+            <SettingsRow htmlFor="web-search-enabled" inlineControl title="Web search">
+              <Switch
+                checked={data.enabled}
+                disabled={update.isPending}
+                id="web-search-enabled"
+                onCheckedChange={(on) =>
+                  patch({ enabled: on }, 'enabled', { ...data, enabled: on })
+                }
+              />
+            </SettingsRow>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Searches are sent to the services below. Each one asks for your approval the first
+              time.
+            </p>
+            <ErrorLine message={errors.enabled} />
+
+            <section aria-label="Web sources" className="min-w-0">
+              <SettingsGroupLabel info="Tried from the top. Drag a source, or use Move up and Move down, to change the order.">
+                Web sources
+              </SettingsGroupLabel>
+              {notice ? (
+                <div
+                  className="mb-1 flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-1.5 text-xs"
+                  role="status"
+                >
+                  <span className="min-w-0 flex-1">
+                    {notice.previous
+                      ? `${notice.name} is now tried first.`
+                      : `${notice.name} key saved.`}
+                  </span>
+                  {notice.previous ? (
+                    <Button
+                      className="h-6 px-2 text-xs"
+                      disabled={update.isPending}
+                      onClick={() => {
+                        if (notice.previous) setOrder(notice.previous);
+                        setNotice(undefined);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Undo
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setNotice(undefined)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              ) : null}
+              <ErrorLine message={errors.web} />
+              {data.web.length ? (
+                <>
+                  {service ? (
+                    <div aria-label="Your site's search service, always tried first" role="list">
+                      {webRow(service, -1)}
+                    </div>
+                  ) : null}
+                  <Sortable
+                    aria-label="Web sources, in the order they are tried"
+                    getItemValue={(row: WebSearchSource) => row.id}
+                    onValueChange={(rows) => setOrder(rows.map((row) => row.id))}
+                    role="list"
+                    strategy="vertical"
+                    value={ordered}
+                  >
+                    {ordered.map(webRow)}
+                  </Sortable>
+                </>
+              ) : (
+                <StateView
+                  kind="empty"
+                  size="row"
+                  title="No web sources are available on this service."
+                />
+              )}
+              <SettingsRow
+                htmlFor="web-search-auto-switch"
+                inlineControl
+                title="Switch sources automatically"
+                description="When a source's free allowance runs out, use the next one without asking."
+              >
+                <Switch
+                  checked={data.auto_switch}
+                  disabled={update.isPending}
+                  id="web-search-auto-switch"
+                  onCheckedChange={(on) =>
+                    patch({ auto_switch: on }, 'auto', { ...data, auto_switch: on })
+                  }
+                />
+              </SettingsRow>
+              <ErrorLine message={errors.auto} />
+            </section>
+
+            <section aria-label="Advanced" className="min-w-0">
+              <SettingsGroupLabel>Advanced</SettingsGroupLabel>
+              <SearchTextSetting
+                error={errors.service_url}
+                id="web-search-service-url"
+                onSave={(value) => patch({ service_url: value }, 'service_url')}
+                placeholder="https://search.example.org"
+                saving={update.isPending && update.variables?.area === 'service_url'}
+                title="Search service address"
+                inputMode="url"
+                value={data.service_url}
+              />
+            </section>
           </>
         ) : (
-          <StateView
-            kind="empty"
-            size="row"
-            title="No web sources are available on this service."
-          />
-        )}
-        <SettingsRow
-          htmlFor="web-search-auto-switch"
-          inlineControl
-          title="Switch sources automatically"
-          description="When a source's free allowance runs out, use the next one without asking."
-        >
-          <Switch
-            checked={data.auto_switch}
-            disabled={update.isPending}
-            id="web-search-auto-switch"
-            onCheckedChange={(on) =>
-              patch({ auto_switch: on }, 'auto', { ...data, auto_switch: on })
-            }
-          />
-        </SettingsRow>
-        <ErrorLine message={errors.auto} />
-      </section>
+          <>
+            <section aria-label="Papers & datasets" className="min-w-0">
+              <SettingsGroupLabel>Papers &amp; datasets</SettingsGroupLabel>
+              <p className="mb-1 text-xs text-muted-foreground">
+                Every source that is on is searched together, so there is no order to set.
+              </p>
+              <ErrorLine message={errors.literature} />
+              {data.literature.length ? (
+                <div aria-label="Papers & datasets sources" role="list">
+                  {data.literature.map((row) => (
+                    <SearchSourceRow
+                      busy={busy}
+                      key={row.id}
+                      onAddKey={
+                        row.key_required || row.has_key || row.key_page
+                          ? () => addKey(row)
+                          : undefined
+                      }
+                      onRemoveKey={() => removeKey.mutate({ source: row, area: 'literature' })}
+                      onToggle={(on) => toggleLiterature(row.id, on)}
+                      source={row}
+                      state={searchSourceState(row, data.literature_approved, now)}
+                    >
+                      {row.id === 'openalex' && !row.has_key ? (
+                        <OpenAlexKeyRequest
+                          defaultEmail={profileEmail || data.contact_email}
+                          onRequested={() => void client.invalidateQueries({ queryKey: key })}
+                        />
+                      ) : null}
+                    </SearchSourceRow>
+                  ))}
+                </div>
+              ) : (
+                <StateView
+                  kind="empty"
+                  size="row"
+                  title="No paper or dataset sources are available on this service."
+                />
+              )}
+            </section>
 
-      <section aria-label="Papers & datasets" className="min-w-0">
-        <SettingsGroupLabel>Papers &amp; datasets</SettingsGroupLabel>
-        <p className="mb-1 text-xs text-muted-foreground">
-          Every source that is on is searched together, so there is no order to set.
-        </p>
-        <ErrorLine message={errors.literature} />
-        {data.literature.length ? (
-          <div aria-label="Papers & datasets sources" role="list">
-            {data.literature.map((row) => (
-              <SearchSourceRow
-                busy={busy}
-                key={row.id}
-                onAddKey={
-                  row.key_required || row.has_key || row.key_page ? () => addKey(row) : undefined
-                }
-                onRemoveKey={() => removeKey.mutate({ source: row, area: 'literature' })}
-                onToggle={(on) => toggleLiterature(row.id, on)}
-                source={row}
-                state={searchSourceState(row, data.literature_approved, now)}
-              >
-                {row.id === 'openalex' && !row.has_key ? (
-                  <OpenAlexKeyRequest
-                    defaultEmail={data.contact_email}
-                    onRequested={() => void client.invalidateQueries({ queryKey: key })}
-                  />
-                ) : null}
-              </SearchSourceRow>
-            ))}
-          </div>
-        ) : (
-          <StateView
-            kind="empty"
-            size="row"
-            title="No paper or dataset sources are available on this service."
-          />
+            <section aria-label="Contact email" className="min-w-0">
+              <SettingsGroupLabel>Contact email</SettingsGroupLabel>
+              <SearchContactEmail
+                error={errors.contact_email}
+                onSave={saveContact}
+                profileEmail={profileEmail}
+                saving={update.isPending && update.variables?.area === 'contact_email'}
+                value={data.contact_email}
+              />
+            </section>
+          </>
         )}
-      </section>
-
-      <section aria-label="Advanced" className="min-w-0">
-        <SettingsGroupLabel>Advanced</SettingsGroupLabel>
-        <SearchTextSetting
-          error={errors.service_url}
-          id="web-search-service-url"
-          onSave={(value) => patch({ service_url: value }, 'service_url')}
-          placeholder="https://search.example.org"
-          saving={update.isPending && update.variables?.area === 'service_url'}
-          title="Search service address"
-          inputMode="url"
-          value={data.service_url}
-        />
-        <SearchTextSetting
-          error={errors.contact_email}
-          id="web-search-contact-email"
-          onSave={(value) => patch({ contact_email: value }, 'contact_email')}
-          placeholder="you@example.org"
-          saving={update.isPending && update.variables?.area === 'contact_email'}
-          title="Contact email for Crossref and OpenAlex (optional)"
-          inputMode="email"
-          value={data.contact_email}
-        />
-      </section>
+      </div>
 
       <SearchSourceKeyDialog
         error={keyError}

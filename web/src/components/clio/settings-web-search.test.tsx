@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { PROFILE_STORAGE_KEY } from './settings-profile-store';
 import { WebSearchSettings } from './settings-web-search';
 
 const repository = vi.hoisted(() => ({
@@ -74,10 +75,22 @@ function renderSection() {
   );
 }
 
+/** Profile details live in this browser, like the Profile page saves them. */
+const setProfileEmail = (email: string) =>
+  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ name: 'Ada', email, about: '' }));
+
+async function openTab(name: 'Web' | 'Literature') {
+  const tab = await screen.findByRole('radio', { name });
+  await userEvent.click(tab);
+  expect(tab).toHaveAttribute('aria-checked', 'true');
+  return screen.getByRole('region', { name });
+}
+
 const webList = () =>
   screen.findByRole('list', { name: 'Web sources, in the order they are tried' });
 
 beforeEach(() => {
+  localStorage.clear();
   vi.spyOn(Date, 'now').mockReturnValue(NOW * 1000);
   repository.searchSettings.mockResolvedValue(view());
   repository.updateSearchSettings.mockImplementation(async (change) => {
@@ -116,7 +129,11 @@ it('lists each source with its state, mode, use today and free allowance in word
   expect(within(exa).getByText(/^Allowance used up until /u)).toBeVisible();
   expect(within(exa).queryByText(/Today on this computer/u)).not.toBeInTheDocument();
   expect(within(list).getByRole('listitem', { name: 'You.com' })).toHaveTextContent('Off');
-  const papers = screen.getByRole('list', { name: 'Papers & datasets sources' });
+  expect(screen.getByRole('radio', { name: 'Web' })).toHaveAttribute('aria-checked', 'true');
+  expect(screen.queryByRole('list', { name: 'Papers & datasets sources' })).not.toBeInTheDocument();
+  const literature = await openTab('Literature');
+  expect(within(literature).queryByRole('switch', { name: 'Web search' })).not.toBeInTheDocument();
+  const papers = within(literature).getByRole('list', { name: 'Papers & datasets sources' });
   expect(within(papers).getByRole('listitem', { name: 'OpenAlex' })).toHaveTextContent('Ready');
   expect(within(papers).getByRole('listitem', { name: 'Semantic Scholar' })).toHaveTextContent(
     'Needs your key',
@@ -165,10 +182,6 @@ it('turns sources and the automatic switch on and off', async () => {
   await webList();
   await user.click(screen.getByRole('switch', { name: 'Use You.com' }));
   expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({ web_disabled: [] });
-  await user.click(screen.getByRole('switch', { name: 'Use OpenAlex' }));
-  expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({
-    literature_disabled: ['openalex'],
-  });
   await user.click(
     screen.getByRole('switch', {
       name: 'Switch sources automatically',
@@ -177,6 +190,11 @@ it('turns sources and the automatic switch on and off', async () => {
   expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({ auto_switch: false });
   await user.click(screen.getByRole('switch', { name: 'Web search' }));
   expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({ enabled: false });
+  await openTab('Literature');
+  await user.click(screen.getByRole('switch', { name: 'Use OpenAlex' }));
+  expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({
+    literature_disabled: ['openalex'],
+  });
 });
 
 it('saves a key without showing it again, says the source is tried first, and undoes the move', async () => {
@@ -235,12 +253,15 @@ it('asks OpenAlex for a free key by email and shows its answer', async () => {
     status: 'pending',
     message: 'Check your email and click the activation link',
   });
+  setProfileEmail('ada.lovelace@example.org');
   renderSection();
-  const papers = await screen.findByRole('list', { name: 'Papers & datasets sources' });
+  await webList();
+  await openTab('Literature');
+  const papers = screen.getByRole('list', { name: 'Papers & datasets sources' });
   const openalex = within(papers).getByRole('listitem', { name: 'OpenAlex' });
   await user.click(within(openalex).getByRole('button', { name: 'Get a free OpenAlex key' }));
   const email = within(openalex).getByLabelText(/Your email address/u);
-  expect(email).toHaveValue('ada@example.org');
+  expect(email).toHaveValue('ada.lovelace@example.org');
   await user.clear(email);
   await user.type(email, 'grace@example.org');
   await user.click(within(openalex).getByRole('button', { name: 'Request key' }));
@@ -264,12 +285,81 @@ it('saves the service address and contact email, and shows a refusal beside the 
   expect(await within(addressRow).findByRole('alert')).toHaveTextContent(
     'service_url must be an http(s) address',
   );
-  const email = screen.getByLabelText('Contact email for Crossref and OpenAlex (optional)');
-  await user.clear(email);
-  await user.type(email, 'lab@example.org{Enter}');
+});
+
+it('shares the profile email as the contact when the service holds none', async () => {
+  setProfileEmail('ada@example.org');
+  repository.searchSettings.mockResolvedValue(view({ contact_email: '' }));
+  renderSection();
+  await webList();
+  await waitFor(() =>
+    expect(repository.updateSearchSettings).toHaveBeenCalledWith({
+      contact_email: 'ada@example.org',
+    }),
+  );
+  const literature = await openTab('Literature');
+  expect(
+    within(literature).getByRole('checkbox', { name: 'Use my profile email (ada@example.org)' }),
+  ).toBeChecked();
+  expect(within(literature).queryByRole('textbox', { name: /contact email/iu })).toBeNull();
+});
+
+it('unticks the profile email to share none, then saves a different address', async () => {
+  const user = userEvent.setup();
+  setProfileEmail('ada@example.org');
+  renderSection();
+  await webList();
+  const literature = await openTab('Literature');
+  const box = within(literature).getByRole('checkbox', {
+    name: 'Use my profile email (ada@example.org)',
+  });
+  expect(box).toBeChecked();
+  expect(repository.updateSearchSettings).not.toHaveBeenCalled();
+  await user.click(box);
+  expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({ contact_email: '' });
+  const other = await within(literature).findByLabelText('Another contact email (optional)');
+  expect(other).toHaveValue('');
+  await user.type(other, 'lab@example.org{Enter}');
   expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({
     contact_email: 'lab@example.org',
   });
+  // Reopening keeps the person's choice instead of sharing the profile email again.
+  cleanup();
+  repository.searchSettings.mockResolvedValue(view({ contact_email: '' }));
+  repository.updateSearchSettings.mockClear();
+  renderSection();
+  await webList();
+  await openTab('Literature');
+  expect(screen.getByRole('checkbox', { name: /Use my profile email/u })).not.toBeChecked();
+  expect(repository.updateSearchSettings).not.toHaveBeenCalled();
+});
+
+it('keeps a different saved address unticked, and without a profile email offers the field', async () => {
+  setProfileEmail('ada@example.org');
+  repository.searchSettings.mockResolvedValue(view({ contact_email: 'lab@example.org' }));
+  renderSection();
+  await webList();
+  let literature = await openTab('Literature');
+  expect(
+    within(literature).getByRole('checkbox', { name: /Use my profile email/u }),
+  ).not.toBeChecked();
+  expect(within(literature).getByLabelText('Another contact email (optional)')).toHaveValue(
+    'lab@example.org',
+  );
+  cleanup();
+  localStorage.clear();
+  renderSection();
+  await webList();
+  literature = await openTab('Literature');
+  expect(within(literature).queryByRole('checkbox')).toBeNull();
+  expect(
+    within(literature).getByLabelText('Contact email for Crossref and OpenAlex (optional)'),
+  ).toHaveValue('lab@example.org');
+  expect(within(literature).getByRole('link', { name: 'Add an email in Profile' })).toHaveAttribute(
+    'href',
+    '/settings/profile',
+  );
+  expect(repository.updateSearchSettings).not.toHaveBeenCalled();
 });
 
 it('says when the service has no search settings, and offers a retry on failure', async () => {

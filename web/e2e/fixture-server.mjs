@@ -1263,7 +1263,7 @@ function initialFleetSettings() {
   };
 }
 let fleetSettings = initialFleetSettings();
-// Settings > Web search: two hosted web sources and two scholarly ones.
+// Settings > Web search: every web and scholarly source the backend offers.
 const searchSource = (id, name, fields = {}) => ({
   id,
   name,
@@ -1285,21 +1285,108 @@ const searchSource = (id, name, fields = {}) => ({
   enabled: true,
   ...fields,
 });
-const searchSettings = {
+// Two hours from when the fixture starts, so the resting source reads "until" a clock time.
+const searchRestingUntil = Math.floor(Date.now() / 1000) + 2 * 60 * 60;
+// The backend catalog's text (clio_agent/search/catalog.py), in its default web order.
+let searchSettings = {
   enabled: true,
   auto_switch: true,
   service_url: '',
   contact_email: '',
-  literature_approved: false,
+  literature_approved: true,
   web: [
-    searchSource('keenable', 'Keenable', { position: 0, approved: true }),
-    searchSource('exa', 'Exa', { position: 1, approved: false }),
-  ],
+    searchSource('keenable', 'Keenable', {
+      description: 'Its own web index; filters by date, site and excluded sites.',
+      free_use: '1,000 searches per hour, shared by everyone on your network',
+      key_page: 'https://keenable.ai/signup',
+      key_benefit: 'A private allowance (100,000 requests a month free).',
+      reads_pages: true,
+      approved: true,
+      answered_today: 12,
+      failed_today: 1,
+      last_answered: searchRestingUntil - 3 * 60 * 60,
+    }),
+    searchSource('exa', 'Exa', {
+      description: 'Its own web index; filters by date, site and kind (papers, news, PDF).',
+      key_page: 'https://dashboard.exa.ai/api-keys',
+      key_benefit: 'Your own monthly allowance, and deeper search modes.',
+      reads_pages: true,
+      has_key: true,
+      approved: true,
+      answered_today: 3,
+    }),
+    searchSource('firecrawl', 'Firecrawl', {
+      description: 'Web search with research and PDF categories and full page text.',
+      key_page: 'https://firecrawl.dev',
+      key_benefit: '1,000 credits a month on a free key.',
+      approved: true,
+      limited_until: searchRestingUntil,
+      limited_kind: 'allowance_used',
+      last_failure: searchRestingUntil - 2 * 60 * 60,
+      last_failure_kind: 'allowance_used',
+      failed_today: 2,
+    }),
+    searchSource('you', 'You.com', {
+      description: 'Its own web index; filters by date and excluded sites.',
+      free_use: '100 searches per day, shared by everyone on your network',
+      key_page: 'https://you.com/platform',
+      key_benefit: 'A private allowance and site allowlists.',
+      approved: false,
+    }),
+    searchSource('parallel', 'Parallel', {
+      description: 'Web search for agents; the free tier is its faster, lighter mode.',
+      key_page: 'https://platform.parallel.ai',
+      key_benefit: 'Higher-quality search mode and date and site filters.',
+      reads_pages: true,
+      approved: false,
+      enabled: false,
+    }),
+  ].map((row, position) => ({ ...row, position })),
   literature: [
-    searchSource('openalex', 'OpenAlex'),
-    searchSource('semantic_scholar', 'Semantic Scholar', { key_required: true }),
+    searchSource('openalex', 'OpenAlex', {
+      description: 'Works across every field, with citations and open-access links.',
+      free_use: 'About 100 searches a day per network without a key; single-work lookups are free',
+      key_page: 'https://openalex.org',
+      key_benefit: 'A free key ($1 a day budget); CLIO can request one with your email.',
+      answered_today: 5,
+    }),
+    searchSource('crossref', 'Crossref', {
+      description: 'DOI metadata for journals, preprints and their links.',
+      free_use: 'No daily limit; paced',
+      answered_today: 5,
+    }),
+    searchSource('arxiv', 'arXiv', {
+      description: 'Preprints in physics, computing, mathematics and more.',
+      free_use: 'One request every 3 seconds',
+      answered_today: 4,
+      failed_today: 1,
+    }),
+    searchSource('europepmc', 'Europe PMC', {
+      description: 'Life-science literature and preprints, with full text where open.',
+      free_use: 'No key',
+    }),
+    searchSource('osti', 'OSTI.gov', {
+      description: 'U.S. Department of Energy reports and papers.',
+      free_use: 'No key',
+    }),
+    searchSource('opencitations', 'OpenCitations', {
+      description: 'Open citation links: what a work cites and who cites it.',
+      free_use: 'No key',
+    }),
+    searchSource('datacite', 'DataCite', {
+      description: 'DOIs for datasets and software.',
+      free_use: 'No key',
+    }),
+    searchSource('semantic_scholar', 'Semantic Scholar', {
+      description: 'Papers across fields with citation data.',
+      free_use: 'Needs your key',
+      key_page: 'https://www.semanticscholar.org/product/api#api-key-form',
+      key_benefit: 'Turns the source on.',
+      key_required: true,
+    }),
   ],
 };
+const initialSearchSettings = structuredClone(searchSettings);
 
 // Settings > Usage accounts: none unless a settings scenario asks for them, so
 // the composer baselines keep no usage readout.
@@ -2471,6 +2558,7 @@ const server = createServer(async (request, response) => {
     sessionSummary.reset();
     scienceViews.reset();
     settingsFixture.reset();
+    searchSettings = structuredClone(initialSearchSettings);
     agentFixture.reset();
     branchArtifacts.reset();
     conversationFamily.reset();
