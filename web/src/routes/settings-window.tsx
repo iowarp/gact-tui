@@ -278,7 +278,8 @@ export function SettingsWindow() {
         data-settings-main=""
       >
         <AnnounceStates />
-        <div className="pb-12">
+        {/* Panes stop at the spec's 760 px; an open detail pane takes the window's width. */}
+        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none">
           <SettingsScopeContext.Provider value={scopeLine}>
             <SettingsWindowCloseContext.Provider value={close}>
               <Suspense fallback={<SectionsLoading />}>

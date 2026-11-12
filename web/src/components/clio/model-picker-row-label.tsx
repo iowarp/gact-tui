@@ -4,7 +4,6 @@ import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
 import { compactModelName } from '@/lib/model-options';
 import { cachedModelFacts } from './model-picker-fact-cache';
-import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cn } from '@/lib/utils';
 import { KeyCap } from './primitives/key-chip';
 import { ModelRowFacts } from './model-row-facts';
@@ -33,8 +32,6 @@ interface PickerRowLabelProps {
     /** Two columns: the providers column, "name heartbeat 3 ›" (the cascader's chevron). */
     column?: boolean;
   };
-  /** Clicking a row's tag adds its filter token. */
-  onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
   managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
@@ -66,13 +63,12 @@ function CountLabel({ shown, total, verb }: { shown: number; total: number; verb
  * heartbeat count ›` -- with the eye only while managing visibility; during a
  * search it becomes its results group's header (`name heartbeat 11 / 458 ⌄`).
  * A model row is one line: its name, then its facts (context, price and
- * capability icons, each adding its filter token when clicked) at the end.
+ * capability icons, display only, so a click chooses the model) at the end.
  */
 export function PickerRowLabel({
   eyeAsStaticElement,
   filterCount,
   search,
-  onTagToken,
   hidden,
   managingVisibility,
   node,
@@ -231,7 +227,6 @@ export function PickerRowLabel({
         className="ms-auto"
         contextWindow={facts?.facts.contextWindow}
         inputPrice={facts?.facts.inputPrice}
-        onTagToken={onTagToken}
         tags={displayedTags(allTags)}
       />
       <KeyCap size="row" className="hidden in-data-highlighted:inline-flex">

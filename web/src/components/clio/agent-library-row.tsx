@@ -126,8 +126,8 @@ export function AgentRow({
       onKeyDown={onKeyDown}
       selected={selected}
       slot={slot}
-      // Explore, Delete and More: the column fits them, so a narrow list keeps its words.
-      actionsWidth={86}
+      // Explore, Delete and More float over the row's end, so descriptions get the width.
+      floatActions
       tabIndex={0}
       title={<span title={name}>{name}</span>}
       actions={
