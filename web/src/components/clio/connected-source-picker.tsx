@@ -28,11 +28,8 @@ import { ConnectedSourceForm } from './connected-source-form';
 import { connectedSourceErrorMessage } from './connected-source-error';
 import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
-import {
-  SOURCE_WORDMARK_WIDTH,
-  SourceProviderLogo,
-  sourceProviderUsesWordmark,
-} from './source-provider-logo';
+import { SourceProviderLogo } from './source-provider-logo';
+import { SOURCE_WORDMARK_WIDTH, sourceProviderUsesWordmark } from './source-provider-wordmark';
 import { SourceProviderInfo } from './source-provider-info';
 import type { ObsidianChoice } from './obsidian-source-form';
 import type { SourceChoiceId } from './source-form-parts';

@@ -17,11 +17,8 @@ import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import {
-  SOURCE_WORDMARK_WIDTH,
-  SourceProviderLogo,
-  sourceProviderUsesWordmark,
-} from './source-provider-logo';
+import { SourceProviderLogo } from './source-provider-logo';
+import { SOURCE_WORDMARK_WIDTH, sourceProviderUsesWordmark } from './source-provider-wordmark';
 import type { WorkbenchListColumnProps } from './workbench-list-column';
 import { GroupLabel } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
