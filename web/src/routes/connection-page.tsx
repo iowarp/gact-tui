@@ -41,6 +41,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Button } from '@/components/ui/button';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
+import { FAILED_START_DETAIL } from '@/hooks/use-connection-availability';
 import {
   createRepository,
   defaultEndpoint,
@@ -194,6 +195,15 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
       ]);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions);
+      }
+      if (health?.readiness === 'failed') {
+        // It will not become ready by itself: say why now instead of waiting.
+        throw new TransportError(
+          health.failure?.message || FAILED_START_DETAIL,
+          503,
+          'task_runtime_unavailable',
+          { readiness: 'failed', ...(health.failure ? { reason: health.failure.reason } : {}) },
+        );
       }
       if (health?.readiness === 'starting') {
         // Reading workspaces now only earns a 503; wait for readiness (#739 B1).
