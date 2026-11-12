@@ -150,15 +150,21 @@ function TranscriptResourceAttachmentDisplay({
 }: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
   const repository = useRepository();
   const [downloading, setDownloading] = useState(false);
+  const sourceKind = resource?.connected_source?.kind;
   const folder =
-    resource?.connected_source?.kind === 'folder' ? resource.connected_source : undefined;
+    sourceKind === 'folder' || sourceKind === 'host_folder'
+      ? resource?.connected_source
+      : undefined;
   const filename = folder?.label ?? resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
   const stages = resourcePipelineStages(resource, availability);
   // A ready attachment needs no status; anything else says what it is waiting on. Until the
   // workspace resource list resolves, the chip shows only its name.
-  const pending = Boolean(resource) && stages.overall !== 'complete';
+  // A host folder is used in place or copied before the message is sent, so it has no
+  // upload, conversion or workspace-copy stages to wait on.
+  const pending =
+    Boolean(resource) && folder?.kind !== 'host_folder' && stages.overall !== 'complete';
 
   const open = () => {
     if (resource) onOpen?.(resource, relatedResources);
@@ -267,18 +273,44 @@ function TranscriptResourceAttachmentDisplay({
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="truncate text-sm font-medium">{filename}</p>
-        {folder ? (
+        {folder?.kind === 'host_folder' ? null : folder ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
             {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
           </p>
         ) : mediaType ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
         ) : null}
-        <div className="mt-2">
-          <ResourcePipelineStatusLines stages={stages} />
-        </div>
-        <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+        {folder?.kind === 'host_folder' ? (
+          <>
+            <p className="mt-1 max-w-64 text-xs text-foreground">
+              {folder.placement === 'in_place'
+                ? 'In place. The agent works on your original folder, and its changes affect your files.'
+                : 'Full copy. The agent works on its own copy, and your originals stay untouched.'}
+            </p>
+            <p className="mt-1.5 text-xs break-all text-muted-foreground">
+              {hostFolderDetails(folder)}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="mt-2">
+              <ResourcePipelineStatusLines stages={stages} />
+            </div>
+            <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+          </>
+        )}
       </AttachmentHoverCardContent>
     </AttachmentHoverCard>
   );
+}
+
+/** "677 files, 6.8 GB. D:\data\polaris" */
+function hostFolderDetails(folder: Record<string, string>): string {
+  const files = Number(folder.file_count);
+  const bytes = Number(folder.total_bytes);
+  const size =
+    Number.isFinite(files) && Number.isFinite(bytes)
+      ? `${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}. `
+      : '';
+  return `${size}${folder.path ?? ''}`.trim();
 }

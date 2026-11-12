@@ -31,7 +31,11 @@ export function useSourceFolderReference(
         kind: 'resource',
         id: resource.id,
         label: path ? `${source.label} / ${path}` : source.label,
-        detail: linked ? 'Linked folder' : 'Downloaded folder',
+        detail: linked
+          ? 'Linked folder'
+          : source.origin === 'desktop_upload'
+            ? 'Folder, full copy'
+            : 'Downloaded folder',
         media_type: resource.detected_mime,
         revision: String(resource.revision),
         navigation: {
