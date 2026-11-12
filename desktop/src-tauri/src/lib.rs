@@ -26,6 +26,7 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+mod host_env;
 mod install_log;
 #[cfg(not(windows))]
 mod install_prepare;
@@ -88,6 +89,8 @@ mod supervisor_types;
 mod supervisor_update_verify;
 mod terminal_pty;
 mod terminal_reader;
+#[cfg(target_os = "macos")]
+mod text_substitution;
 mod tray;
 mod update_channel;
 mod update_lease;
@@ -192,6 +195,9 @@ pub fn run() {
     // Before any thread starts: children inherit the adopted PATH.
     #[cfg(target_os = "macos")]
     login_path::adopt_login_shell_path();
+    // Before the first web view: WebKit reads its text substitution defaults once.
+    #[cfg(target_os = "macos")]
+    text_substitution::register_text_substitution_defaults();
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
@@ -299,6 +305,7 @@ pub fn run() {
         .setup(move |app| {
             notifications::install(app.handle());
             let version = app.package_info().version.to_string();
+            package_version::remember_app_version(&version);
             let windows =
                 downloads::create_configured_windows(app, &startup_windows, |config, builder| {
                     if config.label == startup_window::STARTUP_WINDOW {
@@ -327,6 +334,7 @@ pub fn run() {
             let resource_dir = app
                 .path()
                 .resource_dir()
+                .map(sidecar_setup::plain_path)
                 .map_err(|error| format!("resolve desktop resource directory: {error}"))?;
             let managed_storage = if brand_backend::is_managed_install() {
                 sidecar_setup::prepare_managed_storage_root(&resource_dir, &app_data)
@@ -686,8 +694,15 @@ pub(crate) fn request_user_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// server we are about to ask to unwind. Stopping it FIRST closes that
 /// reader before the server sees the shutdown request, so the server never
 /// has to wait out its own connection-close grace on a reader we were going
-/// to kill anyway — cheaper than closing it after.
+/// to kill anyway — cheaper than closing it after. A running managed-package
+/// installer is stopped alongside all of this (see
+/// `execution_install::stop_package_installs`).
 pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // A managed-package installer is independent of the backend: interrupt it
+    // now and let it clean up while the rest stops. Joined before returning, so
+    // a relaunched or moved copy (which waits for this process to exit) never
+    // overlaps it.
+    let package_installs = thread::spawn(execution_install::stop_package_installs);
     if let (Some(state), Some(owner)) = (
         app.try_state::<Mutex<Supervisor>>(),
         app.try_state::<remote_lifecycle::DesktopDeploymentOwner>(),
@@ -721,6 +736,7 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     // independent CLIO clients); this is the second line of defense that
     // stops it when THIS desktop's own client was the last one attached.
     release_idle_clio_core_daemon();
+    let _ = package_installs.join();
 }
 
 /// Stop the machine's shared clio-core daemon if this process's own exit

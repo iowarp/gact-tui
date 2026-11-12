@@ -60,7 +60,7 @@ describe('ConversationTurn activity lane', () => {
     expect(screen.queryByRole('button', { name: /^Activity/u })).not.toBeInTheDocument();
   });
 
-  it('caps a long lane at its latest rows and opens the rest with Show all', () => {
+  it('opens a folded run to every row it counts, with no second fold', () => {
     const entries: ConversationActivity[] = Array.from({ length: 8 }, (_, index) => ({
       kind: 'tool',
       id: `read_${index}`,
@@ -76,12 +76,8 @@ describe('ConversationTurn activity lane', () => {
     );
     expect(rows()).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Expand Called 8 tools' }));
-    // Opened, the run still shows its latest rows first, under its summary row.
-    expect(rows()).toHaveLength(5);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show all 8' }));
 
     expect(rows()).toHaveLength(9);
-    expect(screen.queryByRole('button', { name: /^Show all/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Show \d+ earlier$/u })).not.toBeInTheDocument();
   });
 });

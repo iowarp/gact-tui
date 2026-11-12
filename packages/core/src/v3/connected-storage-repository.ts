@@ -442,6 +442,8 @@ export class ConnectedStorageRepository extends A2uiRepository {
             source_id: z.string(),
             entries: z.array(sourceEntrySchema),
             next_offset: z.number().nullable(),
+            /** Plain words about entries the listing had to skip. */
+            notice: z.string().nullish(),
           })
           .parse(value),
     });

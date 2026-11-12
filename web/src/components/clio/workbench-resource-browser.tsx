@@ -72,7 +72,7 @@ interface FileBrowserProps {
   /** HDF5 only: the object the viewer opens on. */
   locator?: string;
   /** PDF only: the page the viewer opens on. */
-  initialPage?: number;
+  page?: number;
   onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
   /**
@@ -121,7 +121,7 @@ export function FileBrowser({
   selectedPath,
   searchLocation,
   locator,
-  initialPage,
+  page,
   onRefresh,
   onSelectedPathChange,
   mode = 'split',
@@ -418,8 +418,8 @@ export function FileBrowser({
         <Suspense fallback={<ResourceLoading label="Loading file" />}>
           <WorkspaceFileView
             key={previewPath}
+            initialPage={previewPath === selectedPath ? page : undefined}
             locator={previewPath === selectedPath ? locator : undefined}
-            initialPage={previewPath === selectedPath ? initialPage : undefined}
             mediaType={activeFile?.media_type}
             path={previewPath}
             sessionId={sessionId}

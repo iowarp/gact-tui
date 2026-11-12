@@ -46,6 +46,8 @@ export interface ClioNavigationProps {
   attentions: Readonly<Record<string, SessionAttention>>;
   /** The workspace list's loading or failure, while it lists none. */
   workspacesState?: ListState;
+  /** The conversation an unsent draft already became (it owns source work); the draft row stands for it. */
+  draftSessionId?: string;
 }
 
 const NO_ITEMS: readonly never[] = [];
@@ -93,6 +95,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
   onOpenWorkspaceFiles,
   attentions,
   workspacesState,
+  draftSessionId,
 }: ClioNavigationProps) {
   const location = useLocation();
   const {
@@ -224,6 +227,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
                 activeWorkspaceId={activeWorkspaceId}
                 agents={agents}
                 draftWorkspaceId={draftMatch?.params.workspaceId}
+                draftSessionId={draftMatch ? draftSessionId : undefined}
                 onAction={runNavigationAction}
                 onCreateSession={openNewSession}
                 onDelete={withSheetClosed(setDeleteTarget)}

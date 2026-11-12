@@ -7,6 +7,7 @@ import type {
   SourceProvider,
 } from '@clio/core/v3';
 import { useState } from 'react';
+import { normalizeDriveFolder } from '@/lib/drive-folder-link';
 
 type Configuration = NonNullable<CreateSourceInput['configuration']>;
 
@@ -22,6 +23,8 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
   const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();
   const [githubValid, setGithubValid] = useState(provider.id !== 'github');
   const locationLocked = Boolean(source && !source.can_edit_location);
+  const location = () =>
+    provider.id === 'google_drive' ? normalizeDriveFolder(root) : root.trim();
   const fallbackLabel = () =>
     browsedProviders.has(provider.id) && (provider.id !== 'sftp' || inTauri())
       ? root
@@ -33,7 +36,7 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
   const input = (mode: SourceMode): CreateSourceInput => ({
     provider: provider.id,
     label: label.trim() || fallbackLabel(),
-    root: root.trim(),
+    root: location(),
     mode,
     configuration,
     ...(sftpCredentials ? { sftp_credentials: sftpCredentials } : {}),
@@ -42,7 +45,7 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
   const dirty = Boolean(
     source &&
       (label.trim() !== source.label ||
-        root.trim() !== source.root ||
+        location() !== source.root ||
         sftpCredentials ||
         JSON.stringify({ ...source.configuration, ...configuration }) !==
           JSON.stringify(source.configuration)),

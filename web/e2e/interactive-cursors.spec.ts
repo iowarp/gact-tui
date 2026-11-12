@@ -24,21 +24,21 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(newSession.locator('svg')).toHaveCSS('cursor', 'pointer');
     await page.getByRole('button', { name: 'New workspace', exact: true }).click();
 
-    const create = page.getByRole('dialog', { name: 'Create', exact: true });
-    await create.getByRole('radio', { name: 'Session', exact: true }).click();
-    await expect(create.getByRole('radio', { name: 'Workspace', exact: true })).toHaveCSS(
-      'cursor',
-      'pointer',
-    );
-    await expect(create.getByRole('textbox', { name: 'Session name', exact: true })).toHaveCSS(
+    // New workspace is the only create dialog; a new conversation is a draft page.
+    const create = page.getByRole('dialog', { name: 'New workspace', exact: true });
+    await expect(create.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveCSS(
       'cursor',
       'text',
     );
-    await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveCSS(
+    await expect(create.getByRole('textbox', { name: 'Workspace folder', exact: true })).toHaveCSS(
+      'cursor',
+      'text',
+    );
+    await expect(create.getByRole('button', { name: 'Browse', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
     );
-    const disabledCreate = create.getByRole('button', { name: 'Create session', exact: true });
+    const disabledCreate = create.getByRole('button', { name: 'Create workspace', exact: true });
     await expect(disabledCreate).toBeDisabled();
     await expect(disabledCreate).not.toHaveCSS('cursor', 'pointer');
     await create.getByRole('button', { name: 'Cancel', exact: true }).click();

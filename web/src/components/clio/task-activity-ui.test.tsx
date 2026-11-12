@@ -299,7 +299,7 @@ it('identifies missing older assignments explicitly only when details are opened
   expect(screen.getByText('Description unavailable for this older task')).toBeVisible();
 });
 
-it('names a task that runs a flow as that run and opens the run view', async () => {
+it('names a task that runs a flow by its title and opens the run view', async () => {
   const user = userEvent.setup();
   const openFlow = vi.fn();
   const openChild = vi.fn();
@@ -316,7 +316,7 @@ it('names a task that runs a flow as that run and opens the run view', async () 
     supported_actions: ['cancel'],
   };
   render(<AsyncTaskList processes={[flowTask]} onOpenFlow={openFlow} onOpenSubagent={openChild} />);
-  expect(screen.getByText('Workflow run')).toBeVisible();
+  expect(screen.getByText('Field sites workflow')).toBeVisible();
   expect(screen.getByRole('img', { name: 'Flow: running' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Task details: Field sites workflow' }));
   await user.click(
@@ -365,6 +365,7 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
           ...task,
           id: 'flow',
           handle: 'flow',
+          title: 'Station follow-up',
           effective_status: 'completed',
           live_state: 'completed',
           flow: { id: 'deep-research', status: 'not_run', previous_handle: 'old' },
@@ -376,19 +377,19 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
       onControlTask={vi.fn()}
     />,
   );
-  expect(screen.getByText('Deep research follow-up')).toBeVisible();
+  expect(screen.getByText('Station follow-up')).toBeVisible();
   expect(screen.getByText('Flow: No new run')).toBeVisible();
   expect(document.querySelector('[data-work-kind="workflow"]')).toHaveAttribute(
     'data-work-status',
     'not_run',
   );
   expect(document.querySelector('[data-work-kind="agent"]')).not.toBeNull();
-  const row = screen.getByText('Deep research follow-up').closest('button')!;
+  const row = screen.getByText('Station follow-up').closest('button')!;
   await userEvent.click(row);
   await userEvent.click(screen.getByRole('button', { name: 'Open earlier flow attempt' }));
   expect(open).toHaveBeenCalledWith('old', 'Deep research run');
   await userEvent.click(
-    row.parentElement!.querySelector('[aria-label="More actions for Worker #1"]')!,
+    row.parentElement!.querySelector('[aria-label="More actions for Station follow-up"]')!,
   );
   expect(screen.getByRole('menuitem', { name: 'Restart flow' })).toBeVisible();
 });

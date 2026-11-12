@@ -22,6 +22,7 @@ import { formatDateTime } from './settings-schedule-time';
 
 const STATUS_WIDTH = 158;
 const ACTIONS_WIDTH = 104;
+const CONFIRM_BUTTON = 'h-[1.625rem] px-2.5 text-xs';
 
 function scheduleStatus(schedule: ScheduledTurn) {
   if (!schedule.enabled)
@@ -115,27 +116,31 @@ export const ScheduleRow = memo(function ScheduleRow({
   if (confirming)
     return (
       <ItemRow
-        actionsWidth={0}
         aria-label={schedule.question}
-        className="bg-destructive/8 hover:bg-destructive/8"
-        data-escape-scope=""
-        icon={<Clock3Icon />}
-        meta={meta}
-        onKeyDown={onKeyDown}
-        ref={rowRef}
-        role="group"
-        slot={
+        confirm={
           <>
             <span
-              className="min-w-0 truncate text-xs text-faint"
+              className="shrink-0 text-[12.5px] text-destructive"
+              role="alert"
               title="Future runs are removed. Completed work stays in the session history."
             >
               Delete this schedule?
             </span>
-            <Button onClick={keep} ref={keepRef} size="sm" variant="ghost">
-              Keep schedule
+            {/* At phone width the question keeps its words and the button drops "schedule". */}
+            <Button
+              aria-label="Keep schedule"
+              className={CONFIRM_BUTTON}
+              onClick={keep}
+              ref={keepRef}
+              size="sm"
+              variant="ghost"
+            >
+              <span>
+                Keep<span className="@max-sm:hidden">{' schedule'}</span>
+              </span>
             </Button>
             <Button
+              className={CONFIRM_BUTTON}
               disabled={busy}
               onClick={() => onDelete(schedule)}
               size="sm"
@@ -145,7 +150,14 @@ export const ScheduleRow = memo(function ScheduleRow({
             </Button>
           </>
         }
-        slotWidth={STATUS_WIDTH + ACTIONS_WIDTH + 20}
+        data-escape-scope=""
+        icon={<Clock3Icon />}
+        meta={meta}
+        onKeyDown={onKeyDown}
+        ref={rowRef}
+        role="group"
+        // Focusable so Keep can hand focus back to the row before it re-renders.
+        tabIndex={-1}
         title={<span title={schedule.question}>{schedule.question}</span>}
       />
     );

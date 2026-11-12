@@ -125,3 +125,10 @@ online/offline builds. Twelve originals and verified copies are archived in
 ![General in a narrow browser](../screenshots/general-settings/general-web-phone-light.png)
 
 ![Native controls in a labelled browser component fixture](../screenshots/general-settings/fixture-native-general-desktop-light.png)
+
+Release refresh, November 11, 2026: the eight Settings captures above were
+retaken from the develop build at `96dbbd2e1` at their original sizes. All but
+the labelled native-controls fixture were served live by clio-agent develop
+`89194da31`. They show the rebuilt Settings layout. No account, credential or
+configuration was changed while capturing them. The review notes above describe
+the earlier captures.

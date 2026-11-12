@@ -46,7 +46,8 @@ func exeDir() string {
 //     never a silent fall-through: it means the bundle itself is broken
 //     and masking that behind system resolution would hide the defect.
 //  2. Legacy single-binary resolution (the "lite" variant): env
-//     override, PATH, per-OS install prefixes, opt-in dev repo — see
+//     override, per-OS install prefixes, PATH (unless older than this
+//     desktop), opt-in dev repo — see
 //     candidatePaths.
 func resolveRuntime() (*resolvedRuntime, error) {
 	for _, dir := range bundledRuntimeDirs(exeDir()) {

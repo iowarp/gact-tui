@@ -9,6 +9,7 @@ import { AppearanceProvider } from '../../src/providers/appearance-provider';
 import { ConversationDisplayProvider } from '../../src/providers/conversation-display-provider';
 import { ClioConversation } from '../../src/components/clio/conversation';
 import { ClioMotionProvider } from '../../src/components/clio/motion';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 
 interface RecordedExcerpt {
   messages: Message[];
@@ -57,11 +58,13 @@ createRoot(document.getElementById('root')!).render(
         theme={new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'}
       >
         <AppearanceProvider>
-          <ClioMotionProvider>
-            <ConversationDisplayProvider>
-              <Replay />
-            </ConversationDisplayProvider>
-          </ClioMotionProvider>
+          <TooltipProvider delayDuration={450}>
+            <ClioMotionProvider>
+              <ConversationDisplayProvider>
+                <Replay />
+              </ConversationDisplayProvider>
+            </ClioMotionProvider>
+          </TooltipProvider>
         </AppearanceProvider>
       </ForcedTheme>
     </ArchiveConnectionProvider>

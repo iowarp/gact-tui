@@ -87,13 +87,6 @@ export function ToolCompactRow({
           : status === 'unknown' || status === 'degraded'
             ? 'warning'
             : 'error';
-  const codeArgument = operation.subjects.some(
-    (subject) =>
-      subject.id === 'operation-command' ||
-      subject.id === 'question-answer' ||
-      subject.target === 'file' ||
-      /^(fs_|shell_|run_code|ssh_)/u.test(tool.name),
-  );
   const argument = operation.subjects.length ? (
     <>
       {operation.subjects.map((subject, index) => (
@@ -111,7 +104,7 @@ export function ToolCompactRow({
             <PresentationLink
               block={subject}
               compact
-              className={codeArgument ? ARGUMENT_CLASS : 'text-[12.5px] text-foreground/85'}
+              className={ARGUMENT_CLASS}
             />
           ) : subject.id === 'operation-command' ? (
             (subject.text || subject.label || '').split('\n', 1)[0]
@@ -155,15 +148,9 @@ export function ToolCompactRow({
         ? 'stopped'
         : (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
       : undefined;
-  const metadata = operation.metadata ? (
-    <span data-slot="activity-metadata" className="text-muted-foreground">
-      {operation.metadata}
-    </span>
-  ) : null;
   const outcome =
-    waiting || metadata || failureWord || denied ? (
+    waiting || failureWord || denied ? (
       <>
-        {metadata}
         {waiting}
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
@@ -213,7 +200,7 @@ export function ToolCompactRow({
           <button
             type="button"
             disabled={!operation.expandable}
-            aria-label={`Show result for ${action}`}
+            aria-label={`Show result for ${denied ? `denied ${action}` : action}`}
             data-slot="tool-action-text"
             // The chevron is the row's tab stop; the name repeats it for the pointer.
             tabIndex={-1}
@@ -225,8 +212,9 @@ export function ToolCompactRow({
       }
       link={delegateLink}
       argument={delegate ? delegate.assignment : argument}
-      argumentStyle={codeArgument && !delegate ? 'code' : 'text'}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
+      recap={operation.metadata}
+      recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
       outcome={outcome}
       outcomeTone="muted"
       outcomeTitle={failure}

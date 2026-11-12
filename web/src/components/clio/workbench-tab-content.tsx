@@ -95,7 +95,7 @@ export interface WorkbenchTabContentProps {
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
   /** A strip list opened as a tab (Files, Sources, Artifacts, Activity, Terminal, Browser pages). */
-  renderList: (view: WorkbenchTabListView) => ReactNode;
+  renderList: (view: WorkbenchTabListView, newPage?: boolean) => ReactNode;
 }
 
 // Extracted from ClioWorkbench (which still owns tab state and callbacks) so
@@ -260,7 +260,7 @@ export function WorkbenchTabContent({
           selectedPath={tab.path}
           searchLocation={tab.line || tab.find ? { line: tab.line, find: tab.find } : undefined}
           locator={tab.locator}
-          initialPage={tab.page}
+          page={tab.page}
           workspaceId={tab.workspaceId}
         />
       );
@@ -395,7 +395,7 @@ export function WorkbenchTabContent({
         </Suspense>
       );
     case 'list':
-      return renderList(tab.view);
+      return renderList(tab.view, tab.newPage);
     case 'search':
       return (
         <Suspense fallback={<CanvasLoading label="Searching" />}>

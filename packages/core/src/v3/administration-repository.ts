@@ -162,11 +162,15 @@ const serviceHealthSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   readiness: z
-    .enum(['starting', 'ready'])
+    .enum(['starting', 'ready', 'failed'])
     .nullish()
     .transform((value) => value ?? undefined),
   starting: z
     .array(z.string())
+    .nullish()
+    .transform((value) => value ?? undefined),
+  failure: z
+    .object({ reason: z.string(), message: z.string() })
     .nullish()
     .transform((value) => value ?? undefined),
 });

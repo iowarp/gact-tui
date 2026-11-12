@@ -1,8 +1,9 @@
-import { taskFlowState } from './task-flow-state';
+import { hasRecordedFlowRun, taskFlow, taskFlowState } from './task-flow-state';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useWorkTaskFocus } from './work-task-focus';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
+import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { SessionEvidenceActions } from './session-evidence-types';
@@ -45,16 +46,18 @@ export function TaskActivityRow({
   const previewLines = useTranscriptPreviewLines();
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
   const title = task?.title || subagent?.title || 'Task';
-  const kind = task?.flow
+  const flow = taskFlow(task);
+  const kind = flow
     ? 'Flow'
     : (task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP'));
   const flowState = task ? taskFlowState(task, status) : undefined;
-  // A child conversation that runs a flow reads as that flow's run, not as a chat.
-  const flowRun = task?.flow
-    ? `${flowLabel(task.flow.id)} ${task.flow.status === 'not_run' ? 'follow-up' : 'run'}`
+  // The row is named by the task; its flow run is a secondary detail and an action.
+  const flowRun = flow
+    ? `${flowLabel(flow.id)} ${flow.status === 'not_run' ? 'follow-up' : 'run'}`
     : undefined;
   const assignment = task?.description || subagent?.task;
-  const progress = taskProgressLabel(task?.progress, kind, task?.error_reason);
+  const counted = useCountedTaskProgress(task?.progress, task?.handle);
+  const progress = taskProgressLabel(counted, kind, task?.error_reason);
   const yielded = status === 'yielded';
   const awaitingAnswer =
     kind === 'Question' && (status === 'input_required' || status === 'waiting_user');
@@ -95,16 +98,16 @@ export function TaskActivityRow({
             className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
             <WorkKindStatus
-              kind={task?.flow ? 'workflow' : taskWorkKind(kind)}
+              kind={flow ? 'workflow' : taskWorkKind(kind)}
               status={flowState?.value ?? status}
               detail={flowState?.detail}
             />
             <span className={`min-w-0 flex-1 ${compact ? 'flex items-baseline gap-2' : ''}`}>
               {compact ? (
-                <span className="block flex-1 truncate text-sm">{flowRun ?? title}</span>
+                <span className="block flex-1 truncate text-sm">{title}</span>
               ) : (
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{flowRun ?? title}</span>
+                  <span className="truncate text-sm font-medium">{title}</span>
                   {conversation?.model_choice ? (
                     <SubagentModel choice={conversation.model_choice} />
                   ) : null}
@@ -145,14 +148,12 @@ export function TaskActivityRow({
           {flowState?.detail ? (
             <p className="text-sm text-muted-foreground">{flowState.detail}</p>
           ) : null}
-          {task?.flow?.previous_handle && onOpenFlow ? (
+          {flow?.previous_handle && onOpenFlow ? (
             <Button
               variant="link"
               size="sm"
               className="h-8 px-0"
-              onClick={() =>
-                onOpenFlow(task.flow!.previous_handle!, `${flowLabel(task.flow!.id)} run`)
-              }
+              onClick={() => onOpenFlow(flow.previous_handle!, `${flowLabel(flow.id)} run`)}
             >
               Open earlier flow attempt
             </Button>
@@ -193,7 +194,7 @@ export function TaskActivityRow({
               {result}
             </div>
           ) : null}
-          {flowRun && task?.flow?.status !== 'not_run' && onOpenFlow ? (
+          {flowRun && hasRecordedFlowRun(task) && onOpenFlow ? (
             <Button
               variant="link"
               size="sm"

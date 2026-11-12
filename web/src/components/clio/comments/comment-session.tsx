@@ -382,7 +382,11 @@ function CommentSessionControls({
                 }
               : undefined
           }
-          detail={rect ? undefined : editing.preview}
+          detail={
+            rect
+              ? editing.note
+              : [editing.preview, editing.note].filter(Boolean).join(' — ') || undefined
+          }
           key={editing.label}
           label={editing.label}
           near={editing.box}

@@ -30,11 +30,15 @@ fn stamp_path(user: &Path) -> PathBuf {
     user.join(STAMP_FILE)
 }
 
-/// The environment variables the Python check folds into its own receipt.
+/// The environment variables that choose the document tools outright.
+///
+/// PATH is deliberately absent: an installer shell and an Explorer launch spell
+/// it differently for the same tools. The full check that still runs after an
+/// unchanged launch keys its own receipt on where PATH resolves those tools.
 fn relevant_environment() -> Vec<(String, String)> {
     let mut variables: Vec<(String, String)> = std::env::vars_os()
         .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
-        .filter(|(name, _)| name == "PATH" || name.starts_with("CLIO_DOCUMENT_"))
+        .filter(|(name, _)| name.starts_with("CLIO_DOCUMENT_"))
         .collect();
     variables.sort();
     variables
@@ -173,6 +177,16 @@ mod tests {
             fixture.check(),
             LaunchCheck::Required("launch_stamp_changed")
         );
+    }
+
+    #[test]
+    fn path_spelling_alone_keeps_the_stamp() {
+        let fixture = Fixture::new();
+        fixture.record();
+        assert!(relevant_environment()
+            .iter()
+            .all(|(name, _)| name != "PATH"));
+        assert_eq!(fixture.check(), LaunchCheck::Unchanged);
     }
 
     #[test]

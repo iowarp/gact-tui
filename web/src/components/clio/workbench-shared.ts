@@ -42,7 +42,14 @@ type WorkbenchTabKind =
   | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | { id: 'science-log'; kind: 'science-log'; label: 'Science log' }
   /** A strip list (Files, Sources, Artifacts, Activity, Terminal, Browser pages) as a tab. */
-  | { id: `list:${WorkbenchTabListView}`; kind: 'list'; label: string; view: WorkbenchTabListView }
+  | {
+      id: `list:${WorkbenchTabListView}` | `list:browser:new${string}`;
+      kind: 'list';
+      label: string;
+      view: WorkbenchTabListView;
+      /** A new browser page: the Browser list with its address field open, one per press. */
+      newPage?: true;
+    }
   | {
       id: string;
       kind: 'workspace-file';

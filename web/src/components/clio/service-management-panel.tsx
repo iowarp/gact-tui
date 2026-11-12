@@ -1,23 +1,14 @@
-import type {
-  GpuFact,
-  InfrastructureOperation,
-  ManagedServiceDefinition,
-  ServiceActionInput,
-} from '@clio/core/v3';
+import type { GpuFact, InfrastructureOperation, ManagedServiceDefinition } from '@clio/core/v3';
 import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ServiceConfirmSlot, ServiceFooterSlot } from './service-footer-slot';
 import { Link } from 'react-router-dom';
 import {
   ActivityIcon,
-  CpuIcon,
   HardDriveIcon,
-  LayersIcon,
-  LinkIcon,
   PlayIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
-  ShieldIcon,
   SquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
@@ -25,19 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { ConfigureIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
-import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
-import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { StatusIndicator } from './primitives/status-indicator';
 import { TextTabs } from './primitives/text-tabs';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog';
 import { InfoTip } from './info-tip';
 import { InstallExpectation } from './install-expectation';
 import { EffectiveParameters, OwnedResources } from './managed-service-parameters';
@@ -46,84 +26,20 @@ import { ServiceInstallationMethod } from './service-installation-method';
 import { OperationProgress } from './operation-progress';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { engineId } from './managed-service-gpus';
+import { ServiceConfirmDialog } from './service-management-confirm-dialog';
+import { ServiceFacts, ServiceStorageFacts } from './service-management-facts';
+import { portOf, serviceAbout, STATUS_TONE } from './service-management-model';
+import type {
+  ServiceAction,
+  ServiceActionFeedback,
+  ServiceActionOptions,
+} from './service-management-types';
 
-export type ServiceAction = ServiceActionInput['action'];
-export type ServiceActionFeedback = {
-  action: ServiceAction;
-  error?: boolean;
-  text: string;
-  /** The finished operation, whose steps, reuse notes and log stay viewable. */
-  operationId?: string;
-};
-export type ServiceActionOptions = {
-  /** Bypass every reuse check for this install (`install.from_scratch`). */
-  fromScratch?: boolean;
-};
-
-/** The plain sentence behind the ⓘ beside a service's name. */
-function serviceAbout(service: ManagedServiceDefinition, variant: string) {
-  const native = service.variants.some(
-    (row) => row.id === variant && row.install_type === 'native_uv',
-  );
-  return [
-    service.description,
-    engineId(service) === 'llama_cpp'
-      ? 'Install prepares the runtime without loading a model. Start loads the selected model.'
-      : '',
-    native
-      ? 'Install prepares the pinned environment. Start loads the model. Removal retains models and evidence.'
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-}
-
-const STATUS_TONE: Record<ReturnType<typeof managedServiceStatus>['kind'], StatusTone> = {
-  running: 'success',
-  starting: 'running',
-  installing: 'running',
-  stopped: 'stopped',
-  not_installed: 'warning',
-  unavailable: 'idle',
-  not_checked: 'idle',
-};
-
-const ACCESS_WORDS: Record<NonNullable<ManagedServiceDefinition['access']>['mode'], string> = {
-  api_key: 'Protected by a key',
-  shared: 'Shared, no key',
-  unprotected: 'Not protected',
-};
-
-/** A verification fact: plain words, its colour only reinforcing them, and the ⓘ behind it. */
-function Verified({
-  children,
-  ok,
-  okLabel,
-  tip,
-}: {
-  children: ReactNode;
-  ok?: boolean;
-  okLabel: string;
-  tip: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className={ok ? 'text-success' : undefined}>{ok ? okLabel : 'Not verified yet'}</span>
-      <InfoTip className="size-5" label={tip}>
-        {children}
-      </InfoTip>
-    </span>
-  );
-}
-
-function portOf(url?: string) {
-  if (!url) return undefined;
-  try {
-    return new URL(url).port || undefined;
-  } catch {
-    return undefined;
-  }
-}
+export type {
+  ServiceAction,
+  ServiceActionFeedback,
+  ServiceActionOptions,
+} from './service-management-types';
 
 /** Definition-driven setup and resource management with separate lifecycle verbs. */
 export function ManagedServiceCard({
@@ -336,109 +252,6 @@ export function ManagedServiceCard({
   const port = portOf(service.connection_url);
   const statusLabel =
     running && port ? `${serviceStatus.label} on port ${port}` : serviceStatus.label;
-  const variantRow = service.variants.find((row) => row.id === variant);
-  const model =
-    service.configuration.hf_model ||
-    service.configuration.model ||
-    service.configuration.model_path;
-  const revision = service.observation?.configuration_revision;
-  const facts = (
-    [
-      variantRow
-        ? {
-            label: 'Compatibility profile',
-            icon: <ShieldIcon aria-hidden="true" />,
-            value: variantRow.label,
-            title: `${variantRow.label} (${variantRow.id})`,
-          }
-        : undefined,
-      revision
-        ? {
-            label: 'Configuration revision',
-            icon: <LayersIcon aria-hidden="true" />,
-            value: revision.length > 12 ? revision.slice(0, 12) : revision,
-            title: revision,
-            mono: true,
-          }
-        : undefined,
-      model
-        ? {
-            label: 'Model',
-            icon: <CpuIcon aria-hidden="true" />,
-            value: model,
-            mono: true,
-            title: model,
-          }
-        : undefined,
-      service.connection_url && running
-        ? {
-            label: 'Address',
-            icon: <LinkIcon aria-hidden="true" />,
-            value: service.connection_url,
-            mono: true,
-            title: service.connection_url,
-          }
-        : undefined,
-      service.access
-        ? {
-            label: 'Access',
-            icon: <ShieldCheckIcon aria-hidden="true" />,
-            value: (
-              <span
-                className={service.access.mode === 'unprotected' ? 'text-warning' : undefined}
-                data-mode={service.access.mode}
-                data-slot="service-access"
-              >
-                {ACCESS_WORDS[service.access.mode]}
-              </span>
-            ),
-            title: service.access.detail,
-          }
-        : undefined,
-      service.observation?.evidence_directory
-        ? {
-            label: 'Evidence on this host',
-            icon: <ScrollTextIcon aria-hidden="true" />,
-            value: service.observation.evidence_directory,
-            mono: true,
-            title: service.observation.evidence_directory,
-          }
-        : undefined,
-      monitoring
-        ? {
-            label: 'Provenance',
-            icon: <ActivityIcon aria-hidden="true" />,
-            value: (
-              <Verified
-                ok={service.observation?.provenance_ingesting}
-                okLabel="Write/readback verified"
-                tip="About provenance verification"
-              >
-                Verify setup writes a fresh test record and reads it back. CMF also checks input and
-                output artifact lineage. Restarting or changing configuration requires a fresh
-                check.
-              </Verified>
-            ),
-          }
-        : undefined,
-      monitoring || (service.category === 'model_runtime' && service.observation)
-        ? {
-            label: 'Attention',
-            icon: <TriangleAlertIcon aria-hidden="true" />,
-            value: (
-              <Verified
-                ok={service.observation?.attention_verified}
-                okLabel="Verified"
-                tip="About attention verification"
-              >
-                Installing the connector or serving a model does not verify attention. A fresh
-                inference must produce a validated capture and token mapping.
-              </Verified>
-            ),
-          }
-        : undefined,
-    ] as (KeyValueItem | undefined)[]
-  ).filter((item): item is KeyValueItem => Boolean(item));
   const lifecycle = editing ? null : (
     <>
       {running && service.supports_stop ? actIcon('stop', <SquareIcon aria-hidden="true" />) : null}
@@ -551,14 +364,12 @@ export function ManagedServiceCard({
                     ) : null}
                   </>
                 ) : null}
-                {facts.length ? (
-                  <KeyValueGrid
-                    aria-label={`${service.label} details`}
-                    className="-mx-2"
-                    items={facts}
-                    variant="card"
-                  />
-                ) : null}
+                <ServiceFacts
+                  monitoring={monitoring}
+                  running={running}
+                  service={service}
+                  variant={variant}
+                />
                 {connectionStatus}
                 {connectionAction ? (
                   <div className="flex flex-wrap items-center gap-2">
@@ -646,58 +457,7 @@ export function ManagedServiceCard({
               </>
             ) : (
               <>
-                <KeyValueGrid
-                  items={(
-                    [
-                      service.configuration['storage.service_directory']
-                        ? {
-                            label: `Service data on ${hostLabel}`,
-                            icon: <HardDriveIcon aria-hidden="true" />,
-                            value: String(service.configuration['storage.service_directory']),
-                            mono: true,
-                            title: String(service.configuration['storage.service_directory']),
-                          }
-                        : undefined,
-                      service.observation?.evidence_directory
-                        ? {
-                            label: 'Retained evidence',
-                            icon: <ScrollTextIcon aria-hidden="true" />,
-                            value: service.observation.evidence_directory,
-                            mono: true,
-                            title: service.observation.evidence_directory,
-                          }
-                        : undefined,
-                      service.configuration['storage.container_images']
-                        ? {
-                            label: `Container images on ${hostLabel}`,
-                            icon: <LayersIcon aria-hidden="true" />,
-                            value: String(service.configuration['storage.container_images']),
-                            mono: true,
-                            title: String(service.configuration['storage.container_images']),
-                          }
-                        : undefined,
-                      service.configuration['storage.container_downloads']
-                        ? {
-                            label: 'Download scratch space',
-                            icon: <HardDriveIcon aria-hidden="true" />,
-                            value: String(service.configuration['storage.container_downloads']),
-                            mono: true,
-                            title: String(service.configuration['storage.container_downloads']),
-                          }
-                        : undefined,
-                      ...Object.entries(service.observation?.effective_artifacts ?? {}).map(
-                        ([name, digest]) => ({
-                          label: name,
-                          icon: <ShieldIcon aria-hidden="true" />,
-                          value: digest,
-                          mono: true,
-                          title: digest,
-                        }),
-                      ),
-                    ] as (KeyValueItem | undefined)[]
-                  ).filter((item): item is KeyValueItem => Boolean(item))}
-                  variant="card"
-                />
+                <ServiceStorageFacts hostLabel={hostLabel} service={service} />
                 <OwnedResources
                   rows={service.owned_resources ?? []}
                   serviceLabel={service.label}
@@ -775,65 +535,25 @@ export function ManagedServiceCard({
           {result.text}
         </p>
       ) : null}
-      <AlertDialog
-        open={Boolean(confirmation)}
-        onOpenChange={(open) => {
-          if (!open) setConfirmation(undefined);
+      <ServiceConfirmDialog
+        changed={changed}
+        confirmation={confirmation}
+        expectation={expectation}
+        fromScratch={fromScratch}
+        hostLabel={hostLabel}
+        labels={labels}
+        llama={llama}
+        onConfirm={() => {
+          if (confirmation) {
+            onAction(confirmation, fromScratch ? { fromScratch: true } : undefined);
+          }
+          setConfirmation(undefined);
+          setFromScratch(false);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {fromScratch
-                ? `Reinstall ${service.label} from scratch?`
-                : confirmation === 'delete_data'
-                  ? `Delete retained ${service.label} data?`
-                  : confirmation === 'reinstall'
-                    ? changed
-                      ? `Apply ${service.label} configuration?`
-                      : `Reinstall ${service.label}${llama ? ' runtime' : ''}?`
-                    : `Remove ${service.label} runtime?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {fromScratch
-                ? 'This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer.'
-                : confirmation === 'delete_data'
-                  ? 'This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained.'
-                  : confirmation === 'reinstall'
-                    ? 'This stops and reinstalls the runtime on the selected host. Existing verification expires; run Verify setup again afterward.'
-                    : retainsData
-                      ? 'Stop and remove the runtime, retaining its databases, models, logs and evidence.'
-                      : 'Stop and remove this deployment and the resources listed under Storage.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {fromScratch || confirmation === 'reinstall' ? (
-            <InstallExpectation {...expectation} />
-          ) : null}
-          <p className="break-all font-mono text-xs">
-            {hostLabel} {service.configuration['storage.service_directory']}
-          </p>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {confirmation === 'delete_data' ? 'Keep data' : 'Cancel'}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (confirmation) {
-                  onAction(confirmation, fromScratch ? { fromScratch: true } : undefined);
-                }
-                setConfirmation(undefined);
-                setFromScratch(false);
-              }}
-            >
-              {fromScratch
-                ? 'Reinstall from scratch'
-                : confirmation
-                  ? labels[confirmation]
-                  : 'Continue'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onDismiss={() => setConfirmation(undefined)}
+        retainsData={retainsData}
+        service={service}
+      />
     </article>
   );
 }

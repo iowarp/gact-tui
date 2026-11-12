@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import '../../src/index.css';
 import { ScienceLogView } from '../../src/components/clio/science-log-tab';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 import { studyGraphFixture } from '../fixtures/science-log-graph';
 
 // Render the production component without network stubs. This fixture is not
@@ -38,5 +39,9 @@ function Review() {
 }
 
 const root = createRoot(document.getElementById('root')!);
-root.render(<Review />);
+root.render(
+  <TooltipProvider>
+    <Review />
+  </TooltipProvider>,
+);
 if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

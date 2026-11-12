@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
@@ -72,6 +72,17 @@ vi.mock('react-pdf', async () => {
     },
   };
 });
+
+/**
+ * JSDOM lays nothing out, so every element reads as hidden (no client rects, no
+ * size) and the viewer ignores its scroll position, as it does under a
+ * background tab. A test that scrolls gives the viewer a box on screen.
+ */
+function laidOut() {
+  return vi
+    .spyOn(Element.prototype, 'getClientRects')
+    .mockImplementation(() => [new DOMRect(0, 0, 320, 700)] as unknown as DOMRectList);
+}
 
 afterEach(() => {
   cleanup();
@@ -225,6 +236,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       });
 
+    laidOut();
     render(
       <ClioDocumentPdfViewer
         bytes={new Uint8Array([37, 80, 68, 70])}
@@ -235,9 +247,12 @@ describe('ClioDocumentPdfViewer', () => {
 
     // Page 1 renders first (scroll starts at 0) so its real height can be
     // measured; the jump to page 200 follows once that measurement lands.
-    expect(await screen.findByText('PDF page 200')).toBeVisible();
-    expect(screen.queryByText('PDF page 1')).not.toBeInTheDocument();
     const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]');
+    await waitFor(() => expect(scroller?.scrollTop).toBeGreaterThan(0));
+    // The jump lands on page 200: it paints at once, not after a fling settles.
+    expect(screen.getByText('PDF page 200')).toBeVisible();
+    expect(document.querySelector('[data-pdf-unpainted]')).toBeNull();
+    expect(screen.queryByText('PDF page 1')).not.toBeInTheDocument();
     // (200 - 1) pages * (300px measured height + 12px gap).
     expect(scroller?.scrollTop).toBe(199 * 312);
     rect.mockRestore();
@@ -262,6 +277,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       });
 
+    laidOut();
     render(
       <ClioDocumentPdfViewer
         bytes={new Uint8Array([37, 80, 68, 70])}

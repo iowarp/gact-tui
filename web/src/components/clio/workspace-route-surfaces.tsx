@@ -55,7 +55,8 @@ export function WorkspaceActionAlerts({
         ['Retry unavailable', retryError],
       ].map(([title, error]) =>
         error ? (
-          <Alert key={title} className="mx-4 mb-3" variant="destructive">
+          // w-auto: Alert's w-full plus mx-4 is 32px wider than its scroller.
+          <Alert key={title} className="mx-4 mb-3 w-auto" variant="destructive">
             <AlertTriangleIcon aria-hidden="true" />
             <AlertTitle>{title}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>

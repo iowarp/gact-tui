@@ -3205,6 +3205,24 @@ const server = createServer(async (request, response) => {
     sendJson(response, { enabled: true, inbox: 0, documents: 0 });
     return;
   }
+  // Settings probes these to dim sections the service doesn't offer.
+  if (request.method === 'GET' && url.pathname === '/v1/memory/stats') {
+    sendJson(response, {
+      cache: { hits: 0, misses: 0, hit_rate: 0, capacity: 0 },
+      session: null,
+      global: { conversations_total: 1, invocations_total: 0 },
+      metadata: {},
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/storage/providers') {
+    sendJson(response, { clio_id: 'clio_fixture', host_id: 'local', providers: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/settings/runtime') {
+    sendJson(response, { revision: 'runtime_1', config_path: '~/.clio/config.yaml', settings: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provenance/providers') {
     sendJson(response, {
       schema_version: '1.0',

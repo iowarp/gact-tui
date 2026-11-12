@@ -72,7 +72,8 @@ function scopeCut(scope: HTMLElement): boolean {
  * already reads it on hover.
  */
 export function truncatedTextAt(start: EventTarget | null): HTMLElement | null {
-  const from = start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
+  const from =
+    start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
   let node = from;
   for (let depth = 0; node && depth < MAX_DEPTH; depth += 1, node = node.parentElement) {
     if (!(node instanceof HTMLElement) || node === document.body) return null;
@@ -155,6 +156,12 @@ function readableText(element: HTMLElement): string {
         continue;
       }
       if (!(child instanceof Element)) continue;
+      // A drawn separator (a gap read as a comma) says how it reads.
+      const said = child instanceof HTMLElement ? child.dataset.truncationText : undefined;
+      if (said !== undefined) {
+        parts.push(said);
+        continue;
+      }
       const style = getComputedStyle(child);
       if (style.display === 'none') continue;
       const apart =

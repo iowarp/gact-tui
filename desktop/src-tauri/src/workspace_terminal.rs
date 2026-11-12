@@ -85,7 +85,7 @@ pub fn open_workspace_terminal(path: String) -> Result<String, String> {
     let mut failures = Vec::new();
     for candidate in terminal_commands(&workspace) {
         let mut command = Command::new(candidate.program);
-        command
+        crate::host_env::for_host(&mut command)
             .args(&candidate.arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::null())

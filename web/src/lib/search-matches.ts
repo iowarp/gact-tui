@@ -23,7 +23,7 @@ export interface FileSearchLocation {
   find?: string;
   /** HDF5 only: the object to open the viewer on, e.g. `/entry/data`. */
   locator?: string;
-  /** PDF only: the page to open on, e.g. the first page a view_pdf call cited. */
+  /** PDF only: the page to open the viewer on. */
   page?: number;
 }
 

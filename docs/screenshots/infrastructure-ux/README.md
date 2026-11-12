@@ -18,6 +18,12 @@ The four retained captures are byte-identical to the final review outputs.
 | [Tools at 390px](tools-mobile-fixture.png) | Blue list action above Collect, full card section separators |
 | [Models at 960px](models-narrow-fixture.png) | Machine facts, enabled download action and clean storage path |
 
+Release refresh (2026-11-11): all four captures were retaken from the develop
+build at `96dbbd2e1` with the same labelled fixture. The only fixture change adds
+the now-required `jump_hosts: []` to the simulated SSH host, plus the app's
+tooltip provider. The original twelve-view validation below describes the earlier
+review.
+
 Run the isolated review server from the repository root:
 
 ```powershell

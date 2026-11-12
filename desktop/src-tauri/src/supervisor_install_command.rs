@@ -66,10 +66,13 @@ pub(crate) fn build_install_command(
         )
     } else {
         let url = &install.unix_url;
+        // pipefail: a failed download must fail the install, not hand bash an empty
+        // script that "succeeds" (the lite AppImage's first run then waited out its
+        // readiness window instead of showing curl's error).
         let script = if options.is_empty() {
-            format!("curl -fsSL {url} | bash")
+            format!("set -o pipefail; curl -fsSL {url} | bash")
         } else {
-            format!("curl -fsSL {url} | bash -s -- {options}")
+            format!("set -o pipefail; curl -fsSL {url} | bash -s -- {options}")
         };
         ("bash".to_string(), vec!["-c".to_string(), script])
     }
@@ -150,7 +153,10 @@ mod tests {
         } else {
             assert_eq!(program, "bash");
             assert_eq!(args[0], "-c");
-            assert_eq!(args[1], format!("curl -fsSL {} | bash", inst.unix_url));
+            assert_eq!(
+                args[1],
+                format!("set -o pipefail; curl -fsSL {} | bash", inst.unix_url)
+            );
         }
         assert!(!joined.contains("CLIO_REF") && !joined.contains("CLIO_FORCE"));
     }

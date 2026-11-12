@@ -86,8 +86,8 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 
 /**
  * A finished run of calls, counted for its collapsed row: "Called 3 tools,
- * edited 2 files, delegated 1 task". Edits count distinct files; delegates
- * count the agents they started.
+ * edited 2 files, delegated 1 task, thought 2 times". Edits count distinct files;
+ * delegates count the agents they started.
  */
 export function transcriptRunSummary(
   iterations: readonly ConversationIteration[],
@@ -131,12 +131,16 @@ export function transcriptRunSummary(
     }
   }
   const edited = files.size + edits;
+  // Each thought and harness update is a row in the opened run, so the folded row counts it too.
+  const thoughts = iterations.reduce((sum, item) => sum + item.thinking.length, 0);
   const parts = [
     tools ? `called ${plural(tools, 'tool', 'tools')}` : '',
     edited ? `edited ${plural(edited, 'file', 'files')}` : '',
     delegated ? `delegated ${plural(delegated, 'task', 'tasks')}` : '',
     tasks ? `ran ${plural(tasks, 'task', 'tasks')}` : '',
     questions ? `asked ${plural(questions, 'question', 'questions')}` : '',
+    thoughts ? `thought ${thoughts === 1 ? 'once' : `${thoughts} times`}` : '',
+    updates ? `received ${plural(updates, 'update', 'updates')}` : '',
   ].filter(Boolean);
   if (!parts.length) parts.push(`received ${plural(updates, 'update', 'updates')}`);
   const description = parts.join(', ');

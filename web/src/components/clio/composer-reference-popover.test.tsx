@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -21,6 +21,11 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
+
+/** The editor places the caret after a selected token on the next frame; type after it lands. */
+async function caretSettles(): Promise<void> {
+  await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
@@ -364,6 +369,7 @@ describe('composer reference placement', () => {
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
     await screen.findByRole('button', { name: 'Open artifact Displacement plot' });
+    await caretSettles();
 
     await user.type(editor, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));

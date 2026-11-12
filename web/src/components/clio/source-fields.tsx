@@ -182,7 +182,8 @@ export function SourceFields({
           provider.id === 'globus' ? undefined : provider.id === 'google_drive' && !lock ? (
             <InfoTip label="How to choose a Google Drive folder">
               Open your folder in Google Drive, copy the address from your browser, and paste it
-              here. A folder ID works too. The link does not change sharing.
+              here. A folder ID works too, and the My Drive address connects your whole Drive. The
+              link does not change sharing.
             </InfoTip>
           ) : (
             retained

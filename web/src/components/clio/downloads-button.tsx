@@ -1,19 +1,10 @@
 import { DownloadIcon } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TOOLTIP_KEY } from '@/components/clio/primitives/tooltip-key';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { openDownloads } from '@/tauri/downloads';
-
-function showDownloads() {
-  void openDownloads().catch((error: unknown) => {
-    toast.error('Unable to open downloads', {
-      description: error instanceof Error ? error.message : String(error),
-    });
-  });
-}
+import { showDownloads } from './show-downloads';
 
 /** Opens the desktop's Downloads panel on both draft and saved conversations. */
 export function ClioDownloadsButton() {

@@ -1,6 +1,7 @@
 import type { ClioRepository, DocumentManifest } from '@clio/core/v3';
 import { openDocumentWorkingCopy, openFileBytes } from '@/tauri/documents';
 import type { DocumentOpenTarget } from './document-open-menu';
+import { documentPdfFileName } from './document-pdf';
 
 type LaunchRepository = Pick<
   ClioRepository,
@@ -21,7 +22,7 @@ export async function openDocumentTarget(
   const readOnly = isPdf || ['pdf', 'html-static', 'binary'].includes(source.profile);
   if (readOnly) {
     await openFileBytes(
-      source.name.split(/[\\/]/u).at(-1)!,
+      isPdf && manifest ? documentPdfFileName(manifest.name) : source.name.split(/[\\/]/u).at(-1)!,
       await repository.documentContent(source.artifact_id),
       target.application.id,
     );
