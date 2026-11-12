@@ -376,6 +376,7 @@ export function useSessionMutations({
   }
 
   const send = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'send'),
     mutationFn: async (value: SessionSendInput) => {
       const prepared = await prepareSend(value);
       const { identity, parts, route } = prepared;
@@ -477,6 +478,7 @@ export function useSessionMutations({
 
   // A command chosen in a draft runs in the conversation it starts, then opens it.
   const runDraftCommand = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'runDraftCommand'),
     mutationFn: async ({ commandId, input }: { commandId: string; input: string }) => {
       const controller = uploadController.current;
       const target = await draftTarget({
@@ -517,16 +519,19 @@ export function useSessionMutations({
   });
 
   const cancelPendingSteer = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'cancelPendingSteer'),
     mutationFn: (messageId: string) => repository.cancelPendingSteer(sessionId, messageId),
     onSuccess: invalidateComposerState,
   });
 
   const cancel = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'cancel'),
     mutationFn: () => repository.cancelSession(sessionId),
     onSuccess: invalidateComposerState,
   });
 
   const retry = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'retry'),
     mutationFn: (messageId: string) =>
       repository.retryTurn(sessionId, messageId, {
         execute: true,
@@ -546,6 +551,7 @@ export function useSessionMutations({
   });
 
   const updateSessionBehavior = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'updateSessionBehavior'),
     mutationFn: (patch: SessionBehaviorPatch) => repository.updateSession(sessionId, patch),
     onSuccess: async (updated) => {
       replaceSnapshots({
@@ -558,6 +564,7 @@ export function useSessionMutations({
   });
 
   const respondPermission = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'respondPermission'),
     mutationFn: ({
       id,
       action,
@@ -578,6 +585,7 @@ export function useSessionMutations({
   });
 
   const answerQuestion = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'answerQuestion'),
     mutationFn: ({
       id,
       answer,
@@ -601,6 +609,7 @@ export function useSessionMutations({
   });
 
   const cancelQuestion = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'cancelQuestion'),
     mutationFn: (id: string) => repository.cancelQuestion(sessionId, id),
     onSuccess: async () => {
       await Promise.all([
@@ -615,6 +624,7 @@ export function useSessionMutations({
   });
 
   const respondInteraction = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'respondInteraction'),
     mutationFn: ({
       interaction,
       response,

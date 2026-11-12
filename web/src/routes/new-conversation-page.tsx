@@ -365,17 +365,18 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto px-4 py-8 sm:px-8">
         <WorkspaceActionAlerts
           actionError={
-            send.error?.message ??
+            // A failed send is reported once, by the composer's own toast with a
+            // plain reason and Retry; it is not repeated here as raw HTTP text.
             // While the agent is unreachable the left bar already says so; a warm-up
             // that failed for the same reason is not a separate failure. The probe can
             // read live for a while after a drop, and for a frame before the re-run
             // after recovery, so an unreachable failure never shows here.
-            (warmup.error &&
+            warmup.error &&
             !serviceUnreachable(warmup.error) &&
             connection === 'live' &&
             !warmup.isFetching
               ? `Tools could not be prepared in advance: ${warmup.error.message.replace(/\.+$/, '')}. You can still send a message.`
-              : undefined)
+              : undefined
           }
         />
         <NewConversationDraft

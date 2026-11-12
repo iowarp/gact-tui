@@ -27,6 +27,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
   };
 
   const fork = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'fork'),
     mutationFn: (atMessageId?: string) =>
       repository.forkSession(sessionId, atMessageId ? { at_message_id: atMessageId } : {}),
     onSuccess: async (forked) => {
@@ -49,6 +50,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
   });
 
   const compact = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'compact'),
     mutationFn: () => repository.compactSession(sessionId),
     onSuccess: async (result) => {
       await refreshFocusedSession();
@@ -63,6 +65,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
   });
 
   const undo = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'undo'),
     mutationFn: () => repository.undoSession(sessionId),
     onSuccess: async (result) => {
       await refreshFocusedSession();
@@ -77,6 +80,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
   });
 
   const rewind = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'rewind'),
     mutationFn: (messageId: string) => repository.rewindSession(sessionId, messageId),
     onSuccess: async (result) => {
       await refreshFocusedSession();
@@ -91,6 +95,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
   });
 
   const share = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'share'),
     mutationFn: async (ttlSeconds: number) => {
       const result = await repository.shareSession(sessionId, ttlSeconds);
       return { ...result, url: new URL(result.url, settings.endpoint).toString() };

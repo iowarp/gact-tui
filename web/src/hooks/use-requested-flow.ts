@@ -7,6 +7,8 @@ export function useRequestedFlow(
 ) {
   const opened = useRef<string | undefined>(undefined);
   useEffect(() => {
+    // A route without the link (another conversation) lets the next one open again.
+    if (!handle) opened.current = undefined;
     if (!handle || opened.current === handle) return;
     opened.current = handle;
     openFlow(handle);

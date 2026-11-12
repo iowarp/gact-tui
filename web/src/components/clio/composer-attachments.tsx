@@ -95,8 +95,14 @@ export function ClioComposerAttachments({
     const pending = removalFocus.current;
     if (!pending || attachments.files.some((file) => file.id === pending.id)) return;
     removalFocus.current = undefined;
-    const next = attachments.files[pending.index];
-    const chip = next && pending.group.isConnected ? pending.group.children[pending.index] : null;
+    // The chip that took the removed one's place, else the one before it, so
+    // removing the last chip stays among the chips.
+    const index = pending.group.isConnected
+      ? attachments.files[pending.index]
+        ? pending.index
+        : pending.index - 1
+      : -1;
+    const chip = index >= 0 ? pending.group.children[index] : null;
     const button = chip?.querySelector<HTMLElement>('button');
     if (button) button.focus();
     else focusEditorAtOffset(pending.editor);
@@ -198,12 +204,21 @@ export function ClioComposerAttachments({
         ?.querySelector<HTMLDivElement>('[contenteditable="true"]') ?? null;
     preparationControllers.current.get(file.id)?.abort();
     preparationControllers.current.delete(file.id);
-    try {
-      await onDiscardFiles?.([file]);
+    const forget = () => {
       const index = attachments.files.findIndex((candidate) => candidate.id === file.id);
       if (group && index >= 0) removalFocus.current = { editor, group, id: file.id, index };
       attachments.remove(file.id);
+    };
+    try {
+      await onDiscardFiles?.([file]);
+      forget();
     } catch (error) {
+      // An upload that already failed left nothing the person must keep track
+      // of, so it is removed even when the service can't confirm the discard.
+      if (attachmentFailures[file.id]) {
+        forget();
+        return;
+      }
       toast.error('Could not remove attachment', {
         description: composerFailureReason(error, 'The service did not remove it.'),
       });

@@ -115,6 +115,13 @@ const ClioNavigationView = memo(function ClioNavigationView({
   const closeSheet = useCallback(() => {
     if (isMobile) setOpenMobile(false);
   }, [isMobile, setOpenMobile]);
+  // The shell stays mounted across conversations, so leaving a route through the sheet closes it.
+  const sheetRoute = useRef(location.pathname);
+  useEffect(() => {
+    if (sheetRoute.current === location.pathname) return;
+    sheetRoute.current = location.pathname;
+    closeSheet();
+  }, [closeSheet, location.pathname]);
   const withSheetClosed =
     <T,>(open: (value: T) => void) =>
     (value: T) => {
