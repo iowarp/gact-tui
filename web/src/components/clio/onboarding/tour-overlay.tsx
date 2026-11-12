@@ -8,6 +8,10 @@ import { cn } from '@/lib/utils';
 const PAD = 6;
 const GAP = 12;
 const CARD_WIDTH = 352;
+/** Narrowest the card gets to stay beside the spotlight instead of over it. */
+const MIN_CARD_WIDTH = 256;
+/** The spotlight ring's width. */
+const RING = 2;
 /** How long a missing anchor may still be mounting before the step is reported as degraded. */
 const ANCHOR_GRACE_MS = 1500;
 
@@ -33,10 +37,16 @@ function sameBox(a: Box | undefined, b: Box | undefined): boolean {
 }
 
 function visibleBox(rect: DOMRect, bounds: DOMRect | undefined): Box | undefined {
-  const top = Math.max(rect.top - PAD, bounds?.top ?? 0, 0);
-  const left = Math.max(rect.left - PAD, bounds?.left ?? 0, 0);
-  const bottom = Math.min(rect.bottom + PAD, bounds?.bottom ?? Infinity, window.innerHeight);
-  const right = Math.min(rect.right + PAD, bounds?.right ?? Infinity, window.innerWidth);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  // The ring draws outside the box, so it keeps RING px clear of the window's edges.
+  // Something flush with an edge gets an inset ring on every side, not a lopsided one.
+  const edge = Math.min(rect.top, rect.left, vw - rect.right, vh - rect.bottom);
+  const pad = Math.min(PAD, Math.max(-RING, edge - RING));
+  const top = Math.max(rect.top - pad, bounds?.top ?? 0, RING);
+  const left = Math.max(rect.left - pad, bounds?.left ?? 0, RING);
+  const bottom = Math.min(rect.bottom + pad, bounds?.bottom ?? Infinity, vh - RING);
+  const right = Math.min(rect.right + pad, bounds?.right ?? Infinity, vw - RING);
   return bottom - top > PAD && right - left > PAD
     ? { top, left, width: right - left, height: bottom - top }
     : undefined;
@@ -64,22 +74,52 @@ function unionBox(a: Box, b: Box): Box {
   };
 }
 
+/** The nearest ancestor that scrolls `element`, whose edges clip what of it shows. */
+function scrollerOf(element: HTMLElement | undefined): HTMLElement | undefined {
+  for (let node = element?.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll') return node;
+  }
+  return undefined;
+}
+
+function intersect(a: DOMRect | undefined, b: DOMRect | undefined): DOMRect | undefined {
+  if (!a || !b) return a ?? b;
+  const left = Math.max(a.left, b.left);
+  const top = Math.max(a.top, b.top);
+  return new DOMRect(
+    left,
+    top,
+    Math.max(0, Math.min(a.right, b.right) - left),
+    Math.max(0, Math.min(a.bottom, b.bottom) - top),
+  );
+}
+
 /** Follows the step's anchor every frame, so the spotlight tracks layout, scroll and resize. */
 function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, reduceMotion: boolean) {
-  const [box, setBox] = useState<Box>();
+  const [boxes, setBoxes] = useState<{ box?: Box; focus?: Box }>({});
   useLayoutEffect(() => {
     let frame = 0;
     // null until the first frame, so a step without an anchor clears the last step's box.
     let current: Box | undefined | null = null;
-    let scrolled = false;
+    let currentFocus: Box | undefined;
+    let scrolledHeight: number | undefined;
+    let measured: HTMLElement | undefined;
+    let scroller: HTMLElement | undefined;
     const started = performance.now();
     let warned = false;
     const tick = () => {
       const root = step.practice ? (scope.current ?? undefined) : document;
       const element = step.anchor && root ? findTourAnchor(step.anchor, root) : undefined;
-      if (element && !scrolled) {
-        scrolled = true;
+      // Scrolled into view once, and again when it grows (a row opened under it).
+      const height = element?.offsetHeight ?? 0;
+      if (element && (scrolledHeight === undefined || height > scrolledHeight + 24)) {
+        scrolledHeight = height;
         element.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+      if (element !== measured) {
+        measured = element;
+        scroller = scrollerOf(element);
       }
       if (!element && step.anchor && !warned && performance.now() - started > ANCHOR_GRACE_MS) {
         warned = true;
@@ -88,44 +128,99 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
             `Onboarding tour: anchor "${step.anchor}" is not on screen; showing a centred card.`,
           );
       }
-      // A tall anchor inside the practice stage is clipped to what the stage shows.
+      // A tall anchor is clipped to what the practice stage and its scroller show,
+      // and in practice, to the transcript above the composer that floats over it.
+      const composerElement =
+        step.practice && root instanceof HTMLElement ? findTourAnchor('composer', root) : undefined;
+      const composer =
+        composerElement && element && !composerElement.contains(element)
+          ? composerElement.getBoundingClientRect()
+          : undefined;
+      const shown = intersect(
+        root instanceof HTMLElement && root !== element ? root.getBoundingClientRect() : undefined,
+        scroller?.getBoundingClientRect(),
+      );
       const bounds =
-        root instanceof HTMLElement && root !== element ? root.getBoundingClientRect() : undefined;
+        shown &&
+        composer &&
+        composer.top > shown.top &&
+        composer.top < shown.bottom &&
+        composer.left < shown.right &&
+        composer.right > shown.left
+          ? new DOMRect(shown.left, shown.top, shown.width, composer.top - shown.top)
+          : shown;
       const anchorBox = element ? visibleBox(element.getBoundingClientRect(), bounds) : undefined;
       // A menu or picker the step opened stays lit with its control.
       const next = anchorBox ? openPopups().reduce(unionBox, anchorBox) : undefined;
-      if (current === null || !sameBox(current, next)) {
+      const focusElement = step.focus ? element?.querySelector(step.focus) : undefined;
+      const focus = focusElement
+        ? visibleBox(focusElement.getBoundingClientRect(), bounds)
+        : undefined;
+      if (current === null || !sameBox(current, next) || !sameBox(currentFocus, focus)) {
         current = next;
-        setBox(next);
+        currentFocus = focus;
+        setBoxes({ box: next, focus });
       }
       frame = requestAnimationFrame(tick);
     };
     tick();
     return () => cancelAnimationFrame(frame);
   }, [step, scope, reduceMotion]);
-  return box;
+  return boxes;
 }
 
-/** Where the card sits: beside the spotlight when it fits, else over the bottom of it. */
+interface CardPlacement {
+  top: number;
+  left: number;
+  width: number;
+}
+
+/**
+ * Where the card sits: below, above, right or left of the spotlight, narrowing
+ * to fit a side. With no room on any side it goes where it covers the least
+ * of the step's focus, then of the spotlight, so what the step asks you to use
+ * stays reachable.
+ */
 function cardPosition(
   box: Box | undefined,
   cardHeight: number,
-): { top: number; left: number } | undefined {
+  focus?: Box,
+): CardPlacement | undefined {
   if (!box) return undefined;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const width = Math.min(CARD_WIDTH, vw - GAP * 2);
-  const clampLeft = (left: number) => Math.min(Math.max(GAP, left), vw - width - GAP);
+  const full = Math.min(CARD_WIDTH, vw - GAP * 2);
+  const clampLeft = (left: number, width: number) =>
+    Math.min(Math.max(GAP, left), vw - width - GAP);
   const clampTop = (top: number) => Math.min(Math.max(GAP, top), vh - cardHeight - GAP);
-  if (box.top + box.height + GAP + cardHeight <= vh - GAP)
-    return { top: box.top + box.height + GAP, left: clampLeft(box.left) };
+  const right = box.left + box.width;
+  const bottom = box.top + box.height;
+  if (bottom + GAP + cardHeight <= vh - GAP)
+    return { top: bottom + GAP, left: clampLeft(box.left, full), width: full };
   if (box.top - GAP - cardHeight >= GAP)
-    return { top: box.top - GAP - cardHeight, left: clampLeft(box.left) };
-  if (box.left + box.width + GAP + width <= vw - GAP)
-    return { top: clampTop(box.top), left: box.left + box.width + GAP };
-  if (box.left - GAP - width >= GAP)
-    return { top: clampTop(box.top), left: box.left - GAP - width };
-  return { top: vh - cardHeight - GAP, left: clampLeft(box.left + box.width / 2 - width / 2) };
+    return { top: box.top - GAP - cardHeight, left: clampLeft(box.left, full), width: full };
+  const roomRight = vw - GAP - right - GAP;
+  const roomLeft = box.left - GAP - GAP;
+  if (Math.max(roomRight, roomLeft) >= Math.min(MIN_CARD_WIDTH, full)) {
+    const width = Math.min(full, Math.max(roomRight, roomLeft));
+    return roomRight >= roomLeft
+      ? { top: clampTop(box.top), left: right + GAP, width }
+      : { top: clampTop(box.top), left: box.left - GAP - width, width };
+  }
+  const candidates: CardPlacement[] = [
+    { top: clampTop(bottom + GAP), left: clampLeft(box.left, full), width: full },
+    { top: clampTop(box.top - GAP - cardHeight), left: clampLeft(box.left, full), width: full },
+    { top: clampTop(box.top), left: clampLeft(right + GAP, full), width: full },
+    { top: clampTop(box.top), left: clampLeft(box.left - GAP - full, full), width: full },
+  ];
+  const overlap = ({ top, left, width }: CardPlacement, area: Box | undefined) =>
+    area
+      ? Math.max(0, Math.min(left + width, area.left + area.width) - Math.max(left, area.left)) *
+        Math.max(0, Math.min(top + cardHeight, area.top + area.height) - Math.max(top, area.top))
+      : 0;
+  const worse = (a: CardPlacement, b: CardPlacement) =>
+    overlap(a, focus) - overlap(b, focus) || overlap(a, box) - overlap(b, box);
+  return candidates.reduce((best, next) => (worse(next, best) < 0 ? next : best));
 }
 
 export interface TourOverlayProps {
@@ -153,7 +248,7 @@ export function TourOverlay({
   onNext,
   onSkip,
 }: TourOverlayProps) {
-  const box = useAnchorBox(step, stageRef, reduceMotion);
+  const { box, focus } = useAnchorBox(step, stageRef, reduceMotion);
   const card = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(180);
   useLayoutEffect(() => {
@@ -166,7 +261,7 @@ export function TourOverlay({
   useLayoutEffect(() => {
     card.current?.focus({ preventScroll: true });
   }, [step.id]);
-  const position = cardPosition(box, cardHeight);
+  const position = cardPosition(box, cardHeight, focus);
   const last = index === count - 1;
   const titleId = `tour-step-${step.id}-title`;
   const bodyId = `tour-step-${step.id}-body`;
@@ -211,7 +306,7 @@ export function TourOverlay({
         aria-labelledby={titleId}
         aria-modal="false"
         className={cn(
-          'pointer-events-auto fixed z-[120] rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none',
+          'pointer-events-auto fixed z-[120] rounded-[10px] border border-border bg-popover p-4 text-[13px] leading-[1.45] text-popover-foreground shadow-xl outline-none',
           position ? undefined : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
         )}
         data-tour-card=""
@@ -219,10 +314,10 @@ export function TourOverlay({
         data-tour-step={step.id}
         ref={card}
         role="dialog"
-        style={{ width: `min(${CARD_WIDTH}px, calc(100vw - ${GAP * 2}px))`, ...position }}
+        style={position ?? { width: `min(${CARD_WIDTH}px, calc(100vw - ${GAP * 2}px))` }}
         tabIndex={-1}
       >
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
           <span>
             Step {index + 1} of {count}
           </span>
@@ -230,7 +325,7 @@ export function TourOverlay({
             <span className="rounded border border-border px-1.5 py-px text-[11px]">Draft</span>
           ) : null}
         </p>
-        <h2 className="mt-1.5 text-base font-medium" id={titleId}>
+        <h2 className="mt-1 text-[14px] font-medium" id={titleId}>
           {step.title}
         </h2>
         <div id={bodyId}>
@@ -246,7 +341,9 @@ export function TourOverlay({
               <>
                 <CheckIcon aria-hidden="true" className="size-4 text-primary" />
                 <span className="font-medium">
-                  {step.waitFor === 'interact' ? 'Nice. Keep exploring, or press Next.' : 'Done'}
+                  {step.waitFor === 'interact' || step.stay
+                    ? 'Done. Keep exploring, or press Next.'
+                    : 'Done'}
                 </span>
               </>
             ) : null}

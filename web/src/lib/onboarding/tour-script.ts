@@ -3,11 +3,11 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { TourAnchorId } from './tour-anchors';
 
 /**
- * DRAFT step copy. The final wording is written after the RC1 interface
- * freeze; until then the card carries a visible Draft label and the tour stays
- * behind `ONBOARDING_TOUR_ENABLED`. Change text here, not in components.
+ * The tour's step copy. Each step names what is on screen at that moment, so
+ * when a control is renamed or moved, update its step here, not in components.
+ * `draft` puts a visible Draft label on the card while copy is being rewritten.
  */
-export const TOUR_SCRIPT_STATUS: 'draft' | 'final' = 'draft';
+export const TOUR_SCRIPT_STATUS: 'draft' | 'final' = 'final';
 
 /** Something the practice conversation reports when the learner does it. */
 export type TourPracticeEvent = 'sent' | 'artifact-opened' | 'referenced';
@@ -43,6 +43,13 @@ export interface TourStep {
   /** The tour opens the anchor's menu or picker itself. */
   open?: boolean;
   waitFor?: TourWait;
+  /** Once done, the step stays up so the learner can read what opened, until Next. */
+  stay?: boolean;
+  /**
+   * The part of the anchor the step asks you to use, as a selector inside it.
+   * When the card must overlap the spotlight, it keeps off this part first.
+   */
+  focus?: string;
   /** A short instruction for something to try on the highlighted element. */
   tryIt?: string;
 }
@@ -54,14 +61,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'welcome',
     title: `Welcome to ${brand.name}`,
-    body: `A two-minute, hands-on look at working with ${vocab.agent}. Leave any time with Esc or Skip; replay it from Settings.`,
+    body: 'This two-minute tour uses a practice conversation, so nothing you do in it is sent or saved. Press Esc to leave at any time.',
   },
   {
     id: 'practice',
     practice: { turns: 0 },
     anchor: 'practice-conversation',
-    title: 'Conversations show here',
-    body: 'This one is for practice: the replies are scripted, and nothing you do is sent or saved.',
+    title: 'Practice conversation',
+    body: 'Its replies are scripted. Your real conversations open in this same space.',
   },
   {
     id: 'model',
@@ -69,9 +76,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'model-picker',
     open: true,
     waitFor: 'change',
-    title: 'Pick a model',
-    body: 'Models are grouped by provider. Search, compare and choose the one that suits the task.',
-    tryIt: 'Choose a different model.',
+    title: 'Choose a model',
+    body: 'Providers are on the left and their models on the right. Type to search all of them.',
+    tryIt: 'Choose another model.',
   },
   {
     id: 'reasoning',
@@ -79,8 +86,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'reasoning-effort',
     open: true,
     waitFor: 'change',
-    title: 'Thinking level',
-    body: 'Higher levels think longer before answering. Lower ones answer faster.',
+    title: 'Reasoning effort',
+    body: 'Higher effort takes longer and suits harder problems. Lower effort answers sooner.',
     tryIt: 'Pick a level.',
   },
   {
@@ -89,8 +96,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'confirmation-policy',
     open: true,
     waitFor: 'change',
-    title: 'Permissions',
-    body: `Choose what ${vocab.agent} may do without asking: ask first, allow workspace edits, or let a reviewer approve.`,
+    title: 'Confirmation policy',
+    body: `Decide what ${vocab.agent} may do without asking you first. Ask first is the safest choice.`,
     tryIt: 'Pick a policy.',
   },
   {
@@ -98,8 +105,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 0 },
     anchor: 'add-context',
     open: true,
-    title: 'Attach files and data',
-    body: 'Upload files, or bring in data from a connected source such as cloud storage. Type @ to point at a file in the workspace.',
+    title: 'Add files and data',
+    body: 'Upload files from this computer or add data from a connected source. To mention a workspace file, type @ in your message.',
   },
   {
     id: 'send',
@@ -107,7 +114,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'composer',
     waitFor: 'sent',
     title: 'Send a message',
-    body: 'A practice request is ready.',
+    body: 'A practice request is already typed in.',
     tryIt: 'Press Enter or the send button.',
   },
   {
@@ -115,8 +122,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 1 },
     anchor: 'tool-activity',
     waitFor: 'change',
-    title: 'What it did',
-    body: 'Every command, file edit and search is one row.',
+    stay: true,
+    title: 'See each step',
+    body: 'Every command, file edit and search gets its own row.',
     tryIt: 'Open the row to see the script and its output.',
   },
   {
@@ -124,16 +132,16 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 1 },
     anchor: 'artifact-card',
     waitFor: 'artifact-opened',
-    title: 'Files it makes',
-    body: 'Plots, tables and reports appear as cards in the conversation.',
+    title: 'Files it creates',
+    body: 'Plots, tables and reports show up as file cards in the conversation.',
     tryIt: 'Open the plot.',
   },
   {
     id: 'viewer',
     practice: { turns: 1, viewer: true },
     anchor: 'practice-artifact-viewer',
-    title: 'Read it in full',
-    body: 'Files open beside the chat. Download keeps the original, Export to… offers other formats, and More holds the details.',
+    title: 'Files open beside the conversation',
+    body: 'Zoom, comment and download from the toolbar. More has the rest.',
   },
   {
     id: 'ask-data',
@@ -141,16 +149,17 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'composer',
     waitFor: 'sent',
     title: 'Ask for data',
-    body: 'Results can be maps, charts and tables, not only text.',
-    tryIt: 'Send this one too.',
+    body: 'Answers can include maps, charts and tables.',
+    tryIt: 'Send this request too.',
   },
   {
     id: 'explore',
     practice: { turns: 2 },
     anchor: 'interactive-surface',
     waitFor: 'interact',
-    title: 'Charts stay in the chat',
-    body: 'Maps, charts and tables are live right where they appear. Hover for values, scroll to zoom and drag to pan.',
+    focus: 'canvas',
+    title: 'Explore the results',
+    body: 'Maps, charts and tables work right in the conversation. Hover for values, scroll to zoom and drag to pan.',
     tryIt: 'Zoom or pan the map.',
   },
   {
@@ -158,33 +167,34 @@ export const TOUR_STEPS: readonly TourStep[] = [
     practice: { turns: 2 },
     anchor: 'interactive-surface',
     waitFor: 'referenced',
-    title: 'Point at the data',
-    body: 'The map and table share one selection.',
-    tryIt: 'Click a row, Shift+click another, then choose Reference this.',
+    focus: '[role="grid"], [role="table"], table',
+    title: 'Select data',
+    body: 'The map and the table share one selection.',
+    tryIt: 'Click a table row, Shift+click another, then choose Reference this.',
   },
   {
     id: 'referenced',
     practice: { turns: 2 },
     anchor: 'composer',
-    title: 'Attached to your next message',
-    body: `${vocab.agent} receives exactly the data you picked, along with what you ask about it.`,
+    title: 'Ask about your selection',
+    body: `The points you selected go with your next message, so ${vocab.agent} works with exactly those.`,
   },
   {
     id: 'navigation',
     anchor: 'workspace-navigation',
-    title: 'Your conversations',
-    body: 'Your conversations live in the left bar, grouped by workspace. Start a new one or return to an earlier one.',
+    title: 'Workspaces and conversations',
+    body: 'The left bar lists your workspaces and conversations. Start a new conversation or search from the top.',
   },
   {
     id: 'workbench',
     anchor: 'workbench-lists',
-    title: 'Where things live',
-    body: 'Files, artifacts and activity for a conversation open in this side panel, as tabs beside the chat.',
+    title: 'Side panel',
+    body: 'Files, artifacts and activity open as tabs in a panel on the right. The button at the top right shows or hides it.',
   },
   {
     id: 'settings',
     anchor: 'settings',
     title: 'Settings',
-    body: 'Models, connections and appearance, at the foot of the left bar. Replay this tour from Settings, General.',
+    body: 'Models, connections and appearance are in Settings. To take this tour again, open Settings, then General.',
   },
 ];

@@ -19,7 +19,6 @@ import { clioStatusLabel } from './status';
 import { ActivityDisclosure, ActivityRow } from './activity-row';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 const ARGUMENT_CLASS = 'font-mono text-[11.5px] text-muted-foreground no-underline hover:underline';
 const AGENT_LINK_CLASS =
@@ -194,7 +193,6 @@ export function ToolCompactRow({
   );
   return (
     <ActivityRow
-      {...(surface === 'evidence' ? {} : tourAnchor('tool-activity'))}
       className={cn('flex-1', surface === 'evidence' && 'h-8')}
       open={expanded}
       onOpenChange={operation.expandable ? onExpandedChange : undefined}

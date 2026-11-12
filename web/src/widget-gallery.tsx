@@ -236,7 +236,7 @@ function clioDemo(name: ComponentName, variant: string): DemoComponent[] {
     case 'clio.code.v1': return root({ id: 'demo', component: name, title: 'Station summary', language: 'python', code: 'stations = ["Berkeley", "Fresno", "Reno"]\nfor station in stations:\n    print(station)' });
     case 'clio.diff.v1': return root({ id: 'demo', component: name, path: 'analysis.py', diff: '@@ -1,2 +1,3 @@\n stations = load_stations()\n+stations = filter_quality(stations)\n print(len(stations))' });
     case 'clio.mermaid.v1': return root({ id: 'demo', component: name, title: 'From observation to report', source: 'flowchart LR\n  A[Collect] --> B[Review]\n  B --> C[Publish]' });
-    case 'clio.artifact.v1': return root({ id: 'demo', component: name, name: 'vertical-displacement.png', uri: 'artifact://artifact_plot', mediaType: 'image/png', size: 53953 });
+    case 'clio.artifact.v1': return root({ id: 'demo', component: name, name: 'vertical-displacement.png', uri: 'artifact://artifact_plot', mediaType: 'image/png', size: 50870 });
     case 'clio.slider.v1': return root({ id: 'demo', component: name, label: 'Depth interval', min: 0, max: 30, step: 0.5, range: true, value: [2, 12], unit: 'km' });
     default: return root({ id: 'demo', component: 'Text', text: `This view needs a registered artifact in a connected ${vocab.agent} workspace.` });
   }

@@ -356,6 +356,8 @@ type ArtifactViewProps = {
   onOpenActivity?: (activity: LineageActivity) => void;
   /** The open conversation, which holds a stream's watch lease while it is shown. */
   sessionId?: string;
+  /** Whatever frames the viewer already names the file. */
+  showIdentity?: boolean;
 };
 
 /** An artifact in the side panel: a stream reads from clio-core, anything else is a file. */
@@ -374,6 +376,7 @@ function ArtifactFileView({
   onOpenArtifact,
   onOpenWorkspaceFile,
   onOpenActivity,
+  showIdentity,
 }: Omit<ArtifactViewProps, 'sessionId'>) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -539,6 +542,7 @@ function ArtifactFileView({
   return (
     <FileViewerShell
       source={source}
+      showIdentity={showIdentity}
       hasDocumentActions={
         !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
       }

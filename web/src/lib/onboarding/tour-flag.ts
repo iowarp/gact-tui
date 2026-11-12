@@ -1,8 +1,8 @@
 /**
  * Single switch for the onboarding tour: the fresh-install launch and the
- * Settings "Replay tutorial" row. It is on for signed test builds while the step
- * copy in `tour-script.ts` is a draft. Set it to `false` before any public
- * release until the copy is final.
+ * Settings "Replay tutorial" row. The step copy in `tour-script.ts` is final
+ * and every step was checked against the lifted interface, so it ships on.
+ * Set it to `false` only to hold the tour back from a release.
  *
  * `VITE_CLIO_ONBOARDING_TOUR=1` forces it on in a local build when this is off.
  */
