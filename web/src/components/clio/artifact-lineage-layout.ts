@@ -51,7 +51,11 @@ export interface LineageGraphLayout {
 export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
 const MAX_WIDTH = 116;
+/** With room to spare a node grows to show its whole name, up to this. */
+const NAMED_MAX_WIDTH = 240;
 const RANK_GAP = 22;
+/** The widest column gap a roomy pane spreads to: the shared graph gap (`GRAPH_GAP.max`). */
+const WIDE_RANK_GAP = 56;
 // Spec row pitch is about 94px: a 40px node plus 54px between stacked nodes.
 const ROW_GAP = 54;
 const MARGIN = 10;
@@ -71,6 +75,48 @@ export function shortAge(iso: string | undefined, now = Date.now()): string {
 
 type Placed = Omit<LineageGraphNode, 'x' | 'y' | 'width'>;
 
+/** How far a layout spreads into its pane. The default is the compact drawing. */
+export interface LineageSpread {
+  /** Widest a node grows to show its name, in px; the compact `MAX_WIDTH` by default. */
+  nameWidth?: number;
+  /** Gap between columns, in px; the compact `RANK_GAP` by default. */
+  rankGap?: number;
+}
+
+/**
+ * The drawing for a pane `room` px wide. With room to spare, names show whole
+ * and the columns spread toward the shared graph gap; otherwise the compact
+ * drawing, which the canvas scales and scrolls as before.
+ */
+export function fitLineageLayout(
+  build: (spread: LineageSpread) => LineageGraphLayout,
+  room: number | undefined,
+): LineageGraphLayout {
+  const compact = build({});
+  if (!room) return compact;
+  if (compact.width >= room) return compact;
+  const named = build({ nameWidth: NAMED_MAX_WIDTH });
+  if (named.width > room) {
+    // Whole names do not fit: grow the nodes as far as the pane allows.
+    let fits = MAX_WIDTH;
+    let over = NAMED_MAX_WIDTH;
+    while (over - fits > 4) {
+      const mid = Math.floor((fits + over) / 2);
+      if (build({ nameWidth: mid }).width <= room) fits = mid;
+      else over = mid;
+    }
+    return fits > MAX_WIDTH ? build({ nameWidth: fits }) : compact;
+  }
+  const wide = build({ nameWidth: NAMED_MAX_WIDTH, rankGap: WIDE_RANK_GAP });
+  if (wide.width <= room) return wide;
+  // Each column gap adds to the width once per gap, so the width grows linearly with it.
+  const perGap = (wide.width - named.width) / (WIDE_RANK_GAP - RANK_GAP);
+  if (perGap <= 0) return named;
+  const rankGap = Math.floor(RANK_GAP + (room - named.width) / perGap);
+  const spread = build({ nameWidth: NAMED_MAX_WIDTH, rankGap });
+  return spread.width <= room ? spread : named;
+}
+
 /** A node that does something when chosen. */
 export function canOpenLineageNode(node: LineageGraphNode) {
   return node.kind === 'self' ? Boolean(node.folds) : Boolean(node.artifact || node.callId);
@@ -84,7 +130,7 @@ export function canOpenLineageNode(node: LineageGraphNode) {
 export function layoutArtifactLineage(
   artifact: Artifact,
   lineage: ArtifactLineage,
-  { earlier = 0 }: { earlier?: number } = {},
+  { earlier = 0, spread }: { earlier?: number; spread?: LineageSpread } = {},
 ): LineageGraphLayout {
   const byId = new Map(lineage.nodes.map((node) => [node.id, node]));
   const root = byId.get(lineage.root);
@@ -137,7 +183,7 @@ export function layoutArtifactLineage(
     for (const id of frontier.ids)
       edges.push(frontier.upstream ? { from: CUT_SHORT, to: id } : { from: id, to: CUT_SHORT });
   }
-  return layoutNodes(placed, edges);
+  return layoutNodes(placed, edges, spread);
 }
 
 const CUT_SHORT = 'gap:cut-short';
@@ -276,6 +322,7 @@ export function layoutVersionChain(
   versions: readonly ArtifactVersion[],
   current: number,
   now = Date.now(),
+  spread: LineageSpread = {},
 ): LineageGraphLayout {
   const ordered = [...versions].sort((left, right) => left.version - right.version);
   const placed = ordered.map((version): Omit<LineageGraphNode, 'x' | 'y' | 'width'> => {
@@ -313,6 +360,7 @@ export function layoutVersionChain(
       from: ordered[index].artifact_id,
       to: version.artifact_id,
     })),
+    spread,
   );
 }
 
@@ -320,16 +368,17 @@ export function layoutVersionChain(
 export function layoutNodes(
   placed: readonly Omit<LineageGraphNode, 'x' | 'y' | 'width'>[],
   links: readonly { from: string; to: string }[],
+  spread: LineageSpread = {},
 ): LineageGraphLayout {
   const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   graph.setGraph({
     rankdir: 'LR',
     nodesep: ROW_GAP,
-    ranksep: RANK_GAP,
+    ranksep: spread.rankGap ?? RANK_GAP,
     marginx: MARGIN,
     marginy: 12,
   });
-  const widths = new Map(placed.map((node) => [node.id, nodeWidth(node)]));
+  const widths = new Map(placed.map((node) => [node.id, nodeWidth(node, spread.nameWidth)]));
   for (const node of placed)
     graph.setNode(node.id, { width: widths.get(node.id), height: LINEAGE_NODE_HEIGHT });
   const known = links.filter((link) => widths.has(link.from) && widths.has(link.to));
@@ -407,9 +456,9 @@ function producersFirst(
   }
 }
 
-function nodeWidth(node: Placed): number {
+function nodeWidth(node: Placed, cap = MAX_WIDTH): number {
   const text = Math.max(node.name.length * 6.6, node.detail.length * 5.6);
-  return Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, text + 42)));
+  return Math.round(Math.min(cap, Math.max(MIN_WIDTH, text + 42)));
 }
 
 export function artifactFromNode(node: ArtifactLineageNode, fallback: Artifact): Artifact {
