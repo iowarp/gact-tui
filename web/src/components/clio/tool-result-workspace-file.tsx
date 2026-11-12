@@ -172,7 +172,11 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
 
   const identity = (
     <span className="flex min-w-0 items-center gap-1.5">
-      <FileTypeIcon className="size-4" mediaType={mediaType} name={name} />
+      <FileTypeIcon
+        className="size-4 group-data-[fold-icon]/frame:hidden"
+        mediaType={mediaType}
+        name={name}
+      />
       {canOpen ? (
         <button
           aria-label={`Open ${name}`}

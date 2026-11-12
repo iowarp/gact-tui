@@ -40,6 +40,8 @@ import { IconButton, NamedTooltip } from './icon-button';
  * or ⌘ with the wheel still zooms, and the … menu lists them), keeping the
  * position readout between them ("200 / 250"). The name is
  * never cut while any of those still shows. A name cut short of `FRAME_NAME_MIN`
+ * first drops the name's type icon (`icon`, `group-data-[fold-icon]/frame:hidden`) so a page readout
+ * can stay beside a name cut to `FRAME_NAME_BESIDE_READOUT`; one cut shorter
  * then takes the readout's room (`readout`), and last, one still that short goes
  * too (`where`): the tab names it, and "o…" says nothing,
  * so Download and … are never cut. Children hide on the
@@ -57,12 +59,20 @@ const FRAME_FOLDS = [
   'modes-menu',
   'rules',
   'zoom',
+  'icon',
   'readout',
   'where',
 ] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
+
+/**
+ * How narrow the name may truncate, its icon gone, while it keeps a readout beside it
+ * (about a dozen characters): the page you are on outranks the name's last letters.
+ */
+const FRAME_NAME_BESIDE_READOUT = 80;
+const FRAME_ICON_FOLDED = FRAME_FOLDS.indexOf('icon') + 1;
 
 /**
  * The name keeps its full width until everything else that folds has folded:
@@ -105,12 +115,20 @@ function frameOverflows(bar: HTMLElement, fold: number) {
       part.dataset.frameFit === 'name' &&
       fold >= FRAME_NAME_KEEPS_UNTIL &&
       !factShown &&
-      width >= FRAME_NAME_MIN
+      width >=
+        (fold === FRAME_ICON_FOLDED && readoutShown(bar)
+          ? FRAME_NAME_BESIDE_READOUT
+          : FRAME_NAME_MIN)
     )
       continue;
     return true;
   }
   return false;
+}
+
+function readoutShown(bar: HTMLElement) {
+  const readout = bar.querySelector<HTMLElement>('[data-slot=viewer-zoom-readout]');
+  return Boolean(readout && readout.offsetParent !== null);
 }
 
 /** The facts' words, comma separated, for the hover name once they have folded. */
