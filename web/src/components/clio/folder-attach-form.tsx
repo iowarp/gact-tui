@@ -92,7 +92,7 @@ function PlacementChoice({
   inPlaceUnavailable?: string;
 }) {
   const explanation: Record<FolderPlacement, string> = {
-    in_place: `${vocab.agent} reads and works on your original folder. Nothing is copied, so it is ready at once. The agent can change files, and changes affect your originals.`,
+    in_place: `${vocab.agent} reads and changes your original folder. Nothing is copied, so it is ready at once, and every change affects your originals.`,
     copy: `${vocab.agent} makes its own copy to work on. Your originals stay untouched. Copying a large folder takes time and needs as much free disk space as the folder.`,
   };
   return (

@@ -12,7 +12,10 @@ import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { formatBytes } from '@/lib/format';
+import { vocab } from '@/lib/brand-vocabulary';
 import { FileTypeIcon } from './file-type-icon';
+import { PathText } from './path-text';
+import { TechnicalDetails } from './technical-details';
 import { downloadBytes } from './surface-export';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
@@ -241,7 +244,10 @@ function TranscriptResourceAttachmentDisplay({
               ) : (
                 <FileTypeIcon className="size-3.5 shrink-0" mediaType={mediaType} name={filename} />
               )}
-              <span className="min-w-0 truncate">{filename}</span>
+              {/* The hover card shows the whole name, so the truncation hint would cover it. */}
+              <span className="min-w-0 truncate" data-truncation-hint="off">
+                {filename}
+              </span>
               {resource && !folder ? (
                 <span className="shrink-0 text-[11.5px] text-muted-foreground">
                   {formatBytes(resource.received_size)}
@@ -281,16 +287,7 @@ function TranscriptResourceAttachmentDisplay({
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
         ) : null}
         {folder?.kind === 'host_folder' ? (
-          <>
-            <p className="mt-1 max-w-64 text-xs text-foreground">
-              {folder.placement === 'in_place'
-                ? 'In place. The agent works on your original folder, and its changes affect your files.'
-                : 'Full copy. The agent works on its own copy, and your originals stay untouched.'}
-            </p>
-            <p className="mt-1.5 text-xs break-all text-muted-foreground">
-              {hostFolderDetails(folder)}
-            </p>
-          </>
+          <HostFolderSummary folder={folder} />
         ) : (
           <>
             <div className="mt-2">
@@ -304,13 +301,40 @@ function TranscriptResourceAttachmentDisplay({
   );
 }
 
-/** "677 files, 6.8 GB. D:\data\polaris" */
-function hostFolderDetails(folder: Record<string, string>): string {
+/**
+ * A folder from the agent's computer: in place or a full copy, its size, and the user's
+ * original folder. A copy's own location in workspace storage stays in Technical details.
+ */
+function HostFolderSummary({ folder }: { folder: Record<string, string> }) {
+  const inPlace = folder.placement === 'in_place';
+  const original = folder.original_path || (inPlace ? folder.path : '');
   const files = Number(folder.file_count);
   const bytes = Number(folder.total_bytes);
   const size =
-    Number.isFinite(files) && Number.isFinite(bytes)
-      ? `${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}. `
+    folder.file_count && Number.isFinite(files) && Number.isFinite(bytes)
+      ? `${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}`
       : '';
-  return `${size}${folder.path ?? ''}`.trim();
+  return (
+    <>
+      <p className="mt-1 max-w-64 text-xs text-foreground">
+        {inPlace
+          ? `In place. ${vocab.agent} works on your original folder, and its changes affect your files.`
+          : `Full copy. ${vocab.agent} works on its own copy, and your originals stay untouched.`}
+      </p>
+      {size ? <p className="mt-1.5 text-xs text-muted-foreground">{size}</p> : null}
+      {original ? (
+        <p className="mt-0.5 max-w-64 text-xs break-words text-muted-foreground">
+          {inPlace ? null : 'Copied from '}
+          <PathText path={original} />
+        </p>
+      ) : null}
+      {!inPlace && folder.path ? (
+        <TechnicalDetails className="mt-1.5 text-xs" title="Technical details">
+          <p className="mt-1 max-w-64 font-mono text-[11px] break-words text-muted-foreground">
+            Copy kept at <PathText path={folder.path} />
+          </p>
+        </TechnicalDetails>
+      ) : null}
+    </>
+  );
 }

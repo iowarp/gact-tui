@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
-import { vocab } from '@/lib/brand-vocabulary';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
@@ -68,7 +68,7 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
         <SourceProviderLogo provider="globus" />
         <div className="min-w-0 flex-1">
           <h3 className="font-medium">Globus receiving storage</h3>
-          <p className="text-xs text-muted-foreground">{hostLabel}</p>
+          <p className="text-xs text-muted-foreground">{capitalize(hostLabel)}</p>
         </div>
         <InfoTip label="About Globus receiving storage">
           {vocab.agent} detects Globus Connect Personal on this host. Institutional collections can

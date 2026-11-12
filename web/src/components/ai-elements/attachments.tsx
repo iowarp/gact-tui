@@ -443,10 +443,16 @@ export type AttachmentHoverCardContentProps = ComponentProps<typeof HoverCardCon
 
 export const AttachmentHoverCardContent = ({
   align = 'start',
+  collisionPadding = 8,
   className,
   ...props
 }: AttachmentHoverCardContentProps) => (
-  <HoverCardContent align={align} className={cn('w-auto p-2', className)} {...props} />
+  <HoverCardContent
+    align={align}
+    className={cn('w-auto p-2', className)}
+    collisionPadding={collisionPadding}
+    {...props}
+  />
 );
 
 // ============================================================================

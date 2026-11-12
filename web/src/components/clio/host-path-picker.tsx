@@ -17,6 +17,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { displayHostPath } from '@/lib/host-path-display';
 import { toast } from 'sonner';
+import { PathText } from './path-text';
 
 /** A folder browser whose every request carries the selected execution host. */
 export function HostPathPicker({
@@ -157,8 +158,8 @@ export function HostPathPicker({
               >
                 <ArrowUpIcon />
               </Button>
-              <span className="min-w-0 break-all text-sm">
-                {displayHostPath(listing.data.path)}
+              <span className="min-w-0 break-words text-sm">
+                <PathText path={displayHostPath(listing.data.path)} />
               </span>
             </div>
             <div className="max-h-64 overflow-y-auto" aria-label="Folders">

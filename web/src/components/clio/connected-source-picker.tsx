@@ -289,7 +289,8 @@ export function ConnectedSourceContents({
     retry: false,
   });
   // Plain and stable: never the raw machine name, and not swapped once a request lands.
-  const hostLabel = `${vocab.agent}'s computer`;
+  // When the agent confirms it runs here, its computer is this one.
+  const hostLabel = localConnection ? 'this computer' : `${vocab.agent}'s computer`;
   const source = sources.data?.find((row) => row.id === selectedId);
   const providerFor = (row: ConnectedSourceState): SourceProvider =>
     providers.data?.providers.find((item) => item.id === row.provider) ?? {
