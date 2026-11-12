@@ -30,6 +30,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { SegmentedControl } from './primitives/segmented-control';
 import { Tag } from './primitives/tag';
+import { proseInputProps } from '@/lib/identifier-input';
 
 type SessionHref = (sessionId: string) => string | undefined;
 export type MemoryPaneTab = 'facts' | 'history';
@@ -160,6 +161,7 @@ function FactRow({
           }}
         >
           <Input
+            {...proseInputProps}
             aria-label="Corrected fact"
             autoFocus
             className="h-7 text-[13px]"

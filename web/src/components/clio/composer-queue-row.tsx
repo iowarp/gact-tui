@@ -36,6 +36,7 @@ import {
   ResourcePipelineStatusLines,
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
+import { proseInputProps } from '@/lib/identifier-input';
 
 type ResourceRefPart = Extract<ComposerMessagePart, { type: 'resource_ref' }>;
 type ContextRefPart = Extract<ComposerMessagePart, { type: 'context_ref' }>;
@@ -136,6 +137,7 @@ export function QueuedMessageRow({
           </SortableItemHandle>
           {isEditing ? (
             <Input
+              {...proseInputProps}
               aria-label="Edit queued message"
               autoFocus
               className="h-6 flex-1 rounded-[5px] px-1.5 py-0 text-[13px] md:text-[13px] dark:bg-transparent"

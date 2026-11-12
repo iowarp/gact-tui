@@ -10,6 +10,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { NDPActionPicker } from './ndp-action-picker';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 /** Run observed operations with explicit bounded capture and visible remote side effects. */
 export function NDPEndpointOperationView({
@@ -122,6 +123,7 @@ export function NDPEndpointOperationView({
             <div className="space-y-1">
               <Label htmlFor="ndp-operation-body">Request JSON</Label>
               <Textarea
+                {...identifierInputProps}
                 id="ndp-operation-body"
                 required={operation.body_required}
                 value={body}
