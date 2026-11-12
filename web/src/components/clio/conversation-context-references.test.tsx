@@ -152,4 +152,65 @@ describe('context references in a sent message', () => {
       expect.objectContaining({ id: 'data/run.h5::/entry/frames' }),
     );
   });
+
+  it('shows one chip per commented file version that opens it with its threads', async () => {
+    const user = userEvent.setup();
+    const onOpenReference = vi.fn();
+    const reveal = await import('./comments/comment-thread-reveal');
+    const review = (id: string, thread: string, label: string) => ({
+      id,
+      type: 'context_reference' as const,
+      ref_kind: 'artifact' as const,
+      ref_id: 'artifact_v1',
+      label: 'validation.json',
+      revision: 'sha256:abc',
+      media_type: 'application/json',
+      navigation: {
+        workspace_id: 'workspace_1',
+        artifact_version: 1,
+        comment_threads: [thread],
+        comment_labels: [label],
+      },
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_review',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-09-02T00:00:00Z',
+            blocks: [
+              {
+                id: 'text_part',
+                type: 'text',
+                text: 'Comments on validation.json (version 1): S1: tighten. S2: rename.',
+              },
+              review('review_1', 'thread_1', 'S1'),
+              review('review_2', 'thread_2', 'S2'),
+            ],
+          },
+        ]}
+        onOpenReference={onOpenReference}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    const chips = screen.getAllByRole('button', {
+      name: 'Open validation.json version 1 with 2 comments',
+    });
+    expect(chips).toHaveLength(1);
+    expect(screen.queryByText('Artifact Review')).not.toBeInTheDocument();
+
+    await user.click(chips[0]!);
+    expect(onOpenReference).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'artifact', id: 'artifact_v1' }),
+    );
+    expect(reveal.takeCommentThreadReveal(['thread_2'])).toBe(true);
+    expect(reveal.takeCommentThreadReveal(['thread_2'])).toBe(false);
+  });
 });

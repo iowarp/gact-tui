@@ -81,6 +81,17 @@ export function withoutSearchArrival(state: unknown): unknown {
   return rest;
 }
 
+/** The workspace a row's "Workspace settings…" opened Settings for, when it isn't the one behind. */
+export function settingsWorkspaceFromState(state: unknown): string | undefined {
+  return state &&
+    typeof state === 'object' &&
+    'workspaceId' in state &&
+    typeof state.workspaceId === 'string' &&
+    state.workspaceId
+    ? state.workspaceId
+    : undefined;
+}
+
 export function arrivedFromSearch(state: unknown): boolean {
   return Boolean(state && typeof state === 'object' && 'fromSearch' in state && state.fromSearch);
 }

@@ -5,6 +5,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -27,6 +28,7 @@ import {
 } from './comment-model';
 import { CommentControls } from './comment-controls';
 import { CommentEditor } from './comment-editor';
+import { onCommentThreadReveal, takeCommentThreadReveal } from './comment-thread-reveal';
 
 const HINTS: Record<CommentMode, string> = {
   text: 'Select text to mark it.',
@@ -45,6 +47,9 @@ export interface CommentSessionValue {
   marks: readonly DraftMark[];
   /** Sent threads and notes on this surface (drafts are counted as marks). */
   threadCount: number;
+  /** The surface's thread list is showing. */
+  threadsOpen: boolean;
+  setThreadsOpen: (open: boolean) => void;
   editing?: string;
   setEditing: (label?: string) => void;
   start: () => void;
@@ -102,6 +107,7 @@ export function CommentSessionProvider({
   const destination = surface.destination;
   const [open, setOpen] = useState(initiallyActive);
   const [active, setActive] = useState(initiallyActive);
+  const [threadsOpen, setThreadsOpen] = useState(false);
   const [mode, setMode] = useState<CommentMode>(surface.defaultMode);
   const [marks, setMarks] = useState<DraftMark[]>([]);
   const [editing, setEditing] = useState<string>();
@@ -135,7 +141,6 @@ export function CommentSessionProvider({
             mode: anchorMode(row.anchor),
             anchor: row.anchor,
             comment: row.text,
-            sendToAgent: row.send_to_agent ?? true,
             preview: anchorPreview(row.anchor),
           })),
     );
@@ -154,7 +159,6 @@ export function CommentSessionProvider({
         mode: anchorMode(anchor),
         anchor,
         comment: '',
-        sendToAgent: true,
         preview: place.preview ?? anchorPreview(anchor),
         box: place.box,
         view: place.view,
@@ -188,7 +192,7 @@ export function CommentSessionProvider({
           label: mark.label,
           anchor: mark.anchor,
           comment: mark.comment,
-          send_to_agent: mark.sendToAgent,
+          send_to_agent: true,
         })),
       });
       await queryClient.invalidateQueries({
@@ -201,6 +205,7 @@ export function CommentSessionProvider({
   const stop = useCallback(() => {
     setOpen(false);
     setActive(false);
+    setThreadsOpen(false);
     setEditing(undefined);
     if (destination.kind === 'artifact') {
       void saveDrafts(marks).catch((cause: unknown) =>
@@ -228,7 +233,7 @@ export function CommentSessionProvider({
             label: mark.label,
             anchor: mark.anchor,
             comment: mark.comment,
-            send_to_agent: mark.sendToAgent,
+            send_to_agent: true,
           })),
         });
         const failed = sent.threads.find((row) => row.status === 'failed');
@@ -237,9 +242,7 @@ export function CommentSessionProvider({
           queryKey: commentThreadsKey(settings.endpoint, artifactId),
         });
         toast.success(
-          sent.message_id
-            ? `${marks.length} ${marks.length === 1 ? 'comment' : 'comments'} sent to the agent.`
-            : `${marks.length} ${marks.length === 1 ? 'note' : 'notes'} kept.`,
+          `${marks.length} ${marks.length === 1 ? 'comment' : 'comments'} sent to the agent.`,
         );
       } else {
         attachCommentSession({
@@ -278,6 +281,20 @@ export function CommentSessionProvider({
 
   const threadCount =
     threads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
+  // A transcript chip asked for these threads: show the controls and the thread list.
+  const threadIds = threads.data?.threads;
+  const [mountedAt] = useState(() => Date.now());
+  useEffect(() => {
+    if (!threadIds?.length) return undefined;
+    const ids = threadIds.map((row) => row.id);
+    const reveal = (since?: number) => {
+      if (!takeCommentThreadReveal(ids, since)) return;
+      setOpen(true);
+      setThreadsOpen(true);
+    };
+    reveal(mountedAt);
+    return onCommentThreadReveal(() => reveal());
+  }, [mountedAt, threadIds]);
   const value = useMemo<CommentSessionValue>(
     () => ({
       surface,
@@ -287,6 +304,8 @@ export function CommentSessionProvider({
       setMode,
       marks,
       threadCount,
+      threadsOpen,
+      setThreadsOpen,
       editing,
       setEditing,
       start: () => {
@@ -310,6 +329,7 @@ export function CommentSessionProvider({
       mode,
       marks,
       threadCount,
+      threadsOpen,
       editing,
       stop,
       addMark,
@@ -399,15 +419,6 @@ function CommentSessionControls({
             session.updateMark(editing.label, { comment });
             session.setEditing(undefined);
           }}
-          sendToAgent={
-            artifact
-              ? {
-                  checked: editing.sendToAgent,
-                  onChange: (checked) =>
-                    session.updateMark(editing.label, { sendToAgent: checked }),
-                }
-              : undefined
-          }
           // A mark on one of a project's source files (a paper's section) names that file.
           title={editing.anchor.source_path || surface.title}
         />

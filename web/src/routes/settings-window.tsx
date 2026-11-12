@@ -28,6 +28,7 @@ import {
   historyIndex,
   settingsBackgroundRoute,
   settingsCloseStep,
+  settingsWorkspaceFromState,
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
 import { settingFromHash } from '@/lib/settings-search-rows';
@@ -98,8 +99,11 @@ export function SettingsWindow() {
     ? withoutSearchArrival(location.state)
     : { endpoint: settings.endpoint, from: workspaceRoute, detached: true };
   const fromSearch = arrivedFromSearch(location.state);
-  const workspaceId = workspaceIdFromRoute(workspaceRoute);
-  const sessionId = sessionIdFromRoute(workspaceRoute);
+  // A workspace's own "Workspace settings…" names it; otherwise the page behind decides.
+  const routeWorkspaceId = workspaceIdFromRoute(workspaceRoute);
+  const workspaceId = settingsWorkspaceFromState(location.state) ?? routeWorkspaceId;
+  const sessionId =
+    workspaceId === routeWorkspaceId ? sessionIdFromRoute(workspaceRoute) : undefined;
   const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);

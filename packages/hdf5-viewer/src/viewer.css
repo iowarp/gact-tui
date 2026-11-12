@@ -78,12 +78,22 @@ body,
 }
 
 /*
- * h5web marks the focused tree row with a hairline in the border color, which
- * reads as the selected row's tint. Keyboard focus gets the host's accent ring.
+ * h5web tints a hovered or focused tree row like the selected one (the host
+ * maps --primary-light to its selection color). Hover and focus take the
+ * host's hover tint instead, and keyboard focus adds the accent ring; a
+ * focused selected row keeps its selection tint under the ring.
  */
+.viewer-root #h5w-sidebar [role='treeitem']:not([aria-selected='true']):is(:hover, :focus-visible) {
+  background-color: var(--primary-lighter) !important;
+}
+
+.viewer-root #h5w-sidebar li > [role='treeitem'][aria-selected='true'] {
+  background-color: var(--primary) !important;
+}
+
 .viewer-root #h5w-sidebar [role='treeitem']:focus-visible {
-  outline: 2px solid var(--secondary) !important;
-  outline-offset: -2px;
+  outline: 2px solid var(--secondary-dark) !important;
+  outline-offset: -2px !important;
 }
 
 

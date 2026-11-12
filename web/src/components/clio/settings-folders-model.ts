@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import { useCallback, useSyncExternalStore } from 'react';
 
-export { WORKSPACE_COLOURS } from '@/theme/workspace-colours';
+import { WORKSPACE_COLOURS } from '@/theme/workspace-colours';
+
+export { WORKSPACE_COLOURS };
 
 export const WORKSPACE_ICONS: ReadonlyArray<{ id: string; label: string; Icon: LucideIcon }> = [
   { id: 'folder', label: 'Folder', Icon: FolderIcon },
@@ -30,10 +32,33 @@ export interface WorkspaceAppearance {
   icon: string;
 }
 
-export const DEFAULT_APPEARANCE: WorkspaceAppearance = { colour: 'amber', icon: 'folder' };
+function hash(value: string): number {
+  let result = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    result ^= value.charCodeAt(index);
+    result = Math.imul(result, 16777619);
+  }
+  return result >>> 0;
+}
+
+/**
+ * The colour and icon a workspace has until someone picks its own: derived from
+ * its id, so it always looks the same and neighbours differ.
+ */
+export function defaultWorkspaceAppearance(workspaceId: string): WorkspaceAppearance {
+  const value = hash(workspaceId);
+  return {
+    icon: WORKSPACE_ICONS[value % WORKSPACE_ICONS.length]!.id,
+    colour:
+      WORKSPACE_COLOURS[Math.floor(value / WORKSPACE_ICONS.length) % WORKSPACE_COLOURS.length]!.id,
+  };
+}
 
 export const workspaceIcon = (id: string) =>
   WORKSPACE_ICONS.find((icon) => icon.id === id) ?? WORKSPACE_ICONS[0];
+
+export const workspaceColour = (id: string) =>
+  WORKSPACE_COLOURS.find((colour) => colour.id === id) ?? WORKSPACE_COLOURS[1];
 
 const STORAGE_KEY = 'clio.workspace-appearance.v1';
 const listeners = new Set<() => void>();
@@ -82,9 +107,10 @@ const appearanceKey = (endpoint: string, workspaceId: string) => `${endpoint} ${
 export function useWorkspaceAppearance(endpoint: string, workspaceId: string | undefined) {
   const all = useSyncExternalStore(subscribe, readAll, readAll);
   const stored = workspaceId ? all[appearanceKey(endpoint, workspaceId)] : undefined;
+  const fallback = defaultWorkspaceAppearance(workspaceId ?? '');
   const appearance: WorkspaceAppearance = {
-    colour: stored?.colour ?? DEFAULT_APPEARANCE.colour,
-    icon: stored?.icon ?? DEFAULT_APPEARANCE.icon,
+    colour: stored?.colour ?? fallback.colour,
+    icon: stored?.icon ?? fallback.icon,
   };
   const save = useCallback(
     (next: WorkspaceAppearance) => {

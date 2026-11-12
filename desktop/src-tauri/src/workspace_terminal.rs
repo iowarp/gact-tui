@@ -105,6 +105,42 @@ pub fn open_workspace_terminal(path: String) -> Result<String, String> {
     ))
 }
 
+/// Show an existing workspace directory in the OS file manager.
+#[tauri::command]
+pub fn open_workspace_folder(path: String) -> Result<String, String> {
+    let workspace = resolve_workspace_dir(&path)?;
+    let mut command = folder_command(&workspace);
+    // Explorer returns exit code 1 even on success; only a failure to launch counts.
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| workspace.display().to_string())
+        .map_err(|error| format!("The file manager could not be started: {error}"))
+}
+
+fn folder_command(path: &Path) -> Command {
+    #[cfg(windows)]
+    {
+        let mut command = Command::new("explorer");
+        command.arg(crate::file_reveal::shell_path(path));
+        command
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = Command::new("open");
+        command.arg(path);
+        command
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let mut command = Command::new("xdg-open");
+        crate::host_env::for_host(&mut command).arg(path);
+        command
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

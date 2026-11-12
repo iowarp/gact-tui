@@ -17,7 +17,6 @@ export interface DraftMark {
   mode: CommentMode;
   anchor: DocumentAnchor;
   comment: string;
-  sendToAgent: boolean;
   /** A few words the list shows for the mark (its text, or the element it picked). */
   preview: string;
   /** Where the mark was made on screen, so its editor opens beside it. */
