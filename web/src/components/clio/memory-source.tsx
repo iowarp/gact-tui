@@ -31,7 +31,7 @@ export function MemorySourceIcon({
           <Icon aria-hidden="true" className="size-3.5" />
         </span>
       </TooltipTrigger>
-      <TooltipContent className="grid gap-1 text-xs">
+      <TooltipContent className="grid gap-1 px-[9px] py-1.5 text-xs">
         <span className="font-medium">{source.label}</span>
         <span>Recorded {fact.at}</span>
         {sessionHref ? (

@@ -64,7 +64,6 @@ export function NamedTooltip({
       <TooltipContent
         side={side}
         sideOffset={4}
-        className="gap-2 px-2 py-1 text-[11.5px] font-medium"
         data-name-tooltip=""
       >
         <span>{label}</span>

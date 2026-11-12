@@ -51,6 +51,8 @@
   --ring: #2f6f6a;
   --invert: #2b2a26;
   --invert-foreground: #f3efe6;
+  --tooltip: #2b2a26;
+  --tooltip-foreground: #f3efe6;
   --link: #2f6f6a;
   --primary: #2f6f6a;
   --primary-foreground: #fbf8f1;
@@ -164,6 +166,9 @@
   --ring: #5fa8a0;
   --invert: #4a453d;
   --invert-foreground: #f3efe6;
+  /* A hover name: the spec's `.htip`, cream on ink. */
+  --tooltip: #f1ece2;
+  --tooltip-foreground: #1e1c19;
   --link: #74b8b0;
   --primary: #5fa8a0;
   --primary-foreground: #16211f;
@@ -277,6 +282,8 @@
   --ring: oklch(0.63 0.14 205);
   --invert: var(--color-zinc-900);
   --invert-foreground: var(--color-zinc-50);
+  --tooltip: var(--foreground);
+  --tooltip-foreground: var(--background);
   --link: oklch(0.48 0.13 220);
   --primary: oklch(0.63 0.14 205);
   --primary-foreground: oklch(0.12 0.03 225);
@@ -387,6 +394,8 @@
   --ring: oklch(0.77 0.145 198);
   --invert: var(--color-zinc-700);
   --invert-foreground: var(--color-zinc-50);
+  --tooltip: var(--foreground);
+  --tooltip-foreground: var(--background);
   --link: oklch(0.77 0.145 198);
   --primary: oklch(0.77 0.145 198);
   --primary-foreground: oklch(0.13 0 0);
@@ -501,6 +510,8 @@
   --ring: #ff0000;
   --invert: #7a0000;
   --invert-foreground: #ffe8e8;
+  --tooltip: var(--foreground);
+  --tooltip-foreground: var(--background);
   --link: #c00000;
   --primary: #e00000;
   --primary-foreground: #fff0f0;
