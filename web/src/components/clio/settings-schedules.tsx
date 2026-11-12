@@ -15,7 +15,6 @@ import { AddIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { ScheduleDialog } from './settings-schedule-dialog';
 import { ScheduleSelect, type ScheduleSelectOption } from './settings-schedule-fields';
@@ -125,14 +124,29 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     },
     onError: () => toast.error('Scheduled work was not changed'),
   });
+  // After a delete, focus moves to the row that took its place, or the one above it when it was last.
+  const deleted = useRef<{ id: string; index: number } | null>(null);
   const remove = useMutation({
     mutationFn: (schedule: ScheduledTurn) => repository.deleteScheduledTurn(schedule.id),
     onSuccess: async () => {
       await refresh();
       toast.success('Scheduled work deleted');
     },
-    onError: () => toast.error('Scheduled work was not deleted'),
+    onError: () => {
+      deleted.current = null;
+      toast.error('Scheduled work was not deleted');
+    },
   });
+  useEffect(() => {
+    const gone = deleted.current;
+    const rows = scheduledTurns.data?.schedules;
+    if (!gone || !rows || rows.some((row) => row.id === gone.id)) return;
+    deleted.current = null;
+    const root = rootRef.current;
+    const items = root?.querySelectorAll<HTMLElement>('[data-slot="item-row"][role="group"]');
+    const next = items?.[Math.min(gone.index, items.length - 1)];
+    (next ?? root?.querySelector<HTMLElement>('button[aria-label="New scheduled work"]'))?.focus();
+  }, [scheduledTurns.data]);
 
   const canAdd = Boolean(selectedSessionId);
   const openNew = () => {
@@ -170,7 +184,6 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
 
   return (
     <div className="min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
-      <AnnounceStates />
       <SettingsScopeContext.Provider value={scope}>
         <SettingsSectionHeading
           actions={
@@ -235,11 +248,14 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
             title={`Nothing is scheduled in ${selectedSession?.title || 'Untitled session'}`}
           />
         ) : null}
-        {schedules.map((schedule) => (
+        {schedules.map((schedule, index) => (
           <ScheduleRow
             busy={busy}
             key={schedule.id}
-            onDelete={(item) => remove.mutate(item)}
+            onDelete={(item) => {
+              deleted.current = { id: item.id, index };
+              remove.mutate(item);
+            }}
             onEdit={(item) => setDialog({ mode: 'edit', schedule: item })}
             onToggle={(item) => toggle.mutate(item)}
             place={place}

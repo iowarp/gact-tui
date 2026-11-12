@@ -28,7 +28,6 @@ import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { IconButton } from './primitives/icon-button';
 import { ModelSelectField } from './model-select-field';
 import { StateView } from './primitives/state-view';
-import { AnnounceStates } from './settings-a11y';
 import { SettingsRow } from './settings-row';
 import { ReasoningLevelSegmented } from './reasoning-level-segmented';
 import { sessionDefaultsPatch } from './session-defaults-patch';
@@ -48,7 +47,6 @@ const FIELDS =
 function SectionHeading() {
   return (
     <>
-      <AnnounceStates />
       <SettingsSectionHeading
         title="Session defaults"
         description="Choose how new sessions start."
