@@ -30,7 +30,6 @@ interface LooseConversationsProps {
   sessions: readonly Session[];
   excludedSessionIds: ReadonlySet<string>;
   expanded: boolean;
-  activeWorkspaceId: string;
   actions: ResourceActions;
   onExpandedChange: (open: boolean) => void;
   onCreateSession: (workspaceId: string) => void;
@@ -38,7 +37,7 @@ interface LooseConversationsProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
   matchesFilter: (session: Session, filter: ConversationFilter) => boolean;
@@ -52,7 +51,6 @@ export function LooseConversations({
   sessions,
   excludedSessionIds,
   expanded,
-  activeWorkspaceId,
   actions,
   onExpandedChange,
   onCreateSession,
@@ -67,6 +65,7 @@ export function LooseConversations({
   draft,
 }: LooseConversationsProps) {
   const [filter, setFilter] = useState<ConversationFilter>('all');
+  const [menuOpen, setMenuOpen] = useState(false);
   const filtering = filter !== 'all';
   // A filter looks through every loaded row, not only the first eight.
   const { rail, total, visible } = useConversationList(
@@ -89,7 +88,6 @@ export function LooseConversations({
             <ConversationFilterMenu onChange={setFilter} value={filter} />
             {workspace ? (
               <WorkspaceActionsMenu
-                activeWorkspaceId={activeWorkspaceId}
                 actions={actions}
                 label={label}
                 onAction={onAction}
@@ -97,8 +95,10 @@ export function LooseConversations({
                 onImportSession={onImportSession}
                 onDelete={onDelete}
                 onEditWorkspace={onEditWorkspace}
+                onOpenChange={setMenuOpen}
                 onOpenWorkspaceFiles={onOpenWorkspaceFiles}
                 onRename={onRename}
+                open={menuOpen}
                 triggerIcon={<SettingsIcon />}
                 triggerLabel="Conversation settings"
                 workspace={workspace}
@@ -107,6 +107,14 @@ export function LooseConversations({
           </>
         }
         className="mt-2.5 h-[26px] items-center pb-0 pr-1"
+        onContextMenu={
+          workspace
+            ? (event) => {
+                event.preventDefault();
+                setMenuOpen(true);
+              }
+            : undefined
+        }
       >
         Conversations
       </ListGroupLabel>

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   closeEmbeddedTerminalsForSession,
+  openWorkspaceFolder,
   openWorkspaceTerminal,
 } from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
@@ -138,10 +139,6 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await repository.revokeWorkspaceFolder(targetWorkspaceId, path);
         await refreshWorkspaceFolders(targetWorkspaceId);
       },
-      workspaceMemory: (targetWorkspaceId) => repository.workspaceMemory(targetWorkspaceId),
-      setWorkspaceMemory: async (targetWorkspaceId, useAccountMemory) => {
-        await repository.setWorkspaceMemory(targetWorkspaceId, useAccountMemory);
-      },
       renameSession: async (targetSessionId, title) => {
         await updateSessionIdentity(targetSessionId, { title });
         await refreshNavigation();
@@ -231,6 +228,18 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
                   error instanceof Error
                     ? error.message
                     : 'No supported terminal could be started.',
+              });
+            }
+          }
+        : undefined,
+      openSystemFolder: inTauri()
+        ? async (workspacePath) => {
+            try {
+              await openWorkspaceFolder(workspacePath);
+            } catch (error) {
+              toast.error('Could not open the workspace folder', {
+                description:
+                  error instanceof Error ? error.message : 'The file manager could not be started.',
               });
             }
           }

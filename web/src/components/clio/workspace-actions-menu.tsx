@@ -1,5 +1,13 @@
 import type { Workspace } from '@clio/core/v3';
-import { CopyIcon, FolderOpenIcon, PinIcon, PinOffIcon, UploadIcon } from 'lucide-react';
+import {
+  CopyIcon,
+  ExternalLinkIcon,
+  FolderOpenIcon,
+  PanelRightIcon,
+  PinIcon,
+  PinOffIcon,
+  UploadIcon,
+} from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import {
   EditIcon,
@@ -21,33 +29,37 @@ import {
   type WorkspaceDisplayLabel,
 } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { fileManagerName } from '@/tauri/workspace-terminal';
 import { KeyMenuItem } from './menu-key-items';
 import { useHoldRailWhile } from './rail-menu-hold';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import { ResponsiveMenuSub } from './responsive-menu-sub';
+import { selectMenuKey } from './select-menu-key';
 
 export { DEFAULT_WORKSPACE_ID };
 
 interface WorkspaceActionsMenuProps {
   workspace: Workspace;
   label: WorkspaceDisplayLabel;
-  activeWorkspaceId: string;
   actions: ResourceActions;
   onCreateSession: (workspaceId: string) => void;
   onImportSession?: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   /** The trigger's icon and name; a workspace row uses ⋯, the Conversations header sliders. */
   triggerIcon?: ReactElement;
   triggerLabel?: string;
+  /** Controlled by a row that also opens the menu on right-click. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function WorkspaceActionsMenu({
   workspace,
   label,
-  activeWorkspaceId,
   actions,
   onCreateSession,
   onImportSession,
@@ -58,15 +70,22 @@ export function WorkspaceActionsMenu({
   onAction,
   triggerIcon = <MoreIcon />,
   triggerLabel,
+  open: controlledOpen,
+  onOpenChange,
 }: WorkspaceActionsMenuProps) {
   const labelText = workspaceLabelText(label);
   // The default workspace is the fixed Conversations section: never listed under
   // Pinned, never renamed and never removed, so those items are not offered.
   const fixed = workspace.id === DEFAULT_WORKSPACE_ID;
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   useHoldRailWhile(open);
   return (
-    <DropdownMenu onOpenChange={setOpen}>
+    <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenuTrigger asChild>
         <IconButton
           icon={triggerIcon}
@@ -74,7 +93,7 @@ export function WorkspaceActionsMenu({
           size="sm"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[290px]">
+      <DropdownMenuContent align="start" className="w-[290px]" onKeyDown={selectMenuKey}>
         <KeyMenuItem
           icon={NewConversationIcon}
           label="New conversation here"
@@ -117,13 +136,23 @@ export function WorkspaceActionsMenu({
           onSelect={() => onEditWorkspace(workspace.id)}
         />
         <DropdownMenuSeparator />
-        <KeyMenuItem
-          disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
-          icon={FolderOpenIcon}
-          label="Open folder"
-          menuKey="O"
-          onSelect={() => onOpenWorkspaceFiles?.()}
-        />
+        <ResponsiveMenuSub icon={FolderOpenIcon} label="Open folder" menuKey="O" width={220}>
+          <KeyMenuItem
+            disabled={!onOpenWorkspaceFiles}
+            icon={PanelRightIcon}
+            label="In a tab"
+            menuKey="T"
+            onSelect={() => onOpenWorkspaceFiles?.(workspace.id)}
+          />
+          {actions.openSystemFolder ? (
+            <KeyMenuItem
+              icon={ExternalLinkIcon}
+              label={`In ${fileManagerName()}`}
+              menuKey="E"
+              onSelect={() => void actions.openSystemFolder?.(workspace.path)}
+            />
+          ) : null}
+        </ResponsiveMenuSub>
         <KeyMenuItem
           icon={CopyIcon}
           label="Copy folder path"
