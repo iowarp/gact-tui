@@ -5,6 +5,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   /** The fixed 16px status column (a StatusIndicator in `column` display). */
   status?: ReactNode;
   icon?: ReactNode;
+  /** Icon column width in px in the default layouts (16 by default); one value for every row of a list. */
+  iconWidth?: number;
   /** The row's name; one line, ellipsis, full text on hover. */
   title: ReactNode;
   /** Muted words after the title (a path, a model), cut first when narrow. */
@@ -119,6 +121,7 @@ export const ListRow = memo(
     {
       status,
       icon,
+      iconWidth,
       title,
       description,
       columns,
@@ -314,6 +317,7 @@ export const ListRow = memo(
           <span
             aria-hidden="true"
             data-slot="list-row-icon"
+            style={iconWidth === undefined ? undefined : { width: iconWidth }}
             className={cn(
               "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
               selectedTone === 'accent' && 'group-data-selected/list-row:text-accent-foreground',

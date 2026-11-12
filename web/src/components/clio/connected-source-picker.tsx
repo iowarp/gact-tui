@@ -28,7 +28,11 @@ import { ConnectedSourceForm } from './connected-source-form';
 import { connectedSourceErrorMessage } from './connected-source-error';
 import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
-import { SourceProviderLogo } from './source-provider-logo';
+import {
+  SOURCE_WORDMARK_WIDTH,
+  SourceProviderLogo,
+  sourceProviderUsesWordmark,
+} from './source-provider-logo';
 import { SourceProviderInfo } from './source-provider-info';
 import type { ObsidianChoice } from './obsidian-source-form';
 import type { SourceChoiceId } from './source-form-parts';
@@ -437,6 +441,11 @@ export function ConnectedSourceContents({
     );
   // Section labels are the spec's `.zg`: 11px, semibold, muted.
   const sectionLabel = 'text-[11px] font-semibold text-muted-foreground';
+  const providerIconWidth = providers.data?.providers.some((row) =>
+    sourceProviderUsesWordmark(row.id),
+  )
+    ? SOURCE_WORDMARK_WIDTH
+    : undefined;
   return (
     <div className="space-y-4">
       <div className="flex min-h-[26px] items-center gap-1.5 text-[12px] text-muted-foreground">
@@ -500,6 +509,7 @@ export function ConnectedSourceContents({
                   key={row.id}
                   className="border-b-0"
                   icon={<SourceProviderLogo provider={row.id} size="icon" />}
+                  iconWidth={providerIconWidth}
                   title={
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate">
