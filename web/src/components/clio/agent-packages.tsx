@@ -224,23 +224,24 @@ function PackageRow({
         </>
       }
       className="cursor-default"
+      // Open and Remove: the meta keeps the rest of the row.
+      actionsWidth={58}
       data-agent-package={plugin.id}
       icon={<Icon />}
       meta={
-        <span className="block min-w-0 truncate" title={meta}>
-          {meta}
+        // One meta line, as the spec's server rows: where it comes from, then what it brings.
+        <span
+          className="flex min-w-0 gap-3"
+          title={[provenanceDetail(plugin.provenance) || provenance, meta]
+            .filter(Boolean)
+            .join(', ')}
+        >
+          {provenance ? <span className="shrink-0">{provenance}</span> : null}
+          <span className="min-w-0 truncate">{meta}</span>
         </span>
       }
       onClick={click}
       selected={open}
-      status={
-        <span
-          className="min-w-0 truncate text-xs text-muted-foreground"
-          title={provenanceDetail(plugin.provenance)}
-        >
-          {provenance}
-        </span>
-      }
       title={
         <button
           aria-controls={open ? contentsId(plugin.id) : undefined}
@@ -288,7 +289,7 @@ function PackageContents({
       id={contentsId(plugin)}
       role="region"
     >
-      <p className="truncate pb-1 text-[0.71875rem] text-muted-foreground">{heading}</p>
+      <p className="truncate pb-1 text-label text-muted-foreground">{heading}</p>
       {groups.map((group) => {
         const Icon = CATEGORY_ICONS[group];
         const info = PACKAGE_CATEGORY[group];
@@ -299,7 +300,7 @@ function PackageContents({
             label={category === 'all' ? `${plugin} ${info.plural}` : undefined}
           >
             {category === 'all' ? (
-              <p className="truncate pt-1 text-[0.6875rem] text-faint">
+              <p className="truncate pt-1 text-caption text-faint">
                 {countOf(group, items[group].length)}
               </p>
             ) : null}

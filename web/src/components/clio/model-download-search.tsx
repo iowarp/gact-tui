@@ -85,7 +85,7 @@ const ResultRow = memo(function ResultRow({
   return (
     <div
       className={cn(
-        'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-[12.5px] whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
+        'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-menu whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
         chosen ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-hover',
       )}
       title={fullDetail ? `${model.repository}\n${fullDetail}` : model.repository}
@@ -109,7 +109,7 @@ const ResultRow = memo(function ResultRow({
         <span className="truncate">{model.repository}</span>
         {detail ? (
           <small
-            className={cn('truncate text-[11px]', chosen ? 'text-accent-foreground' : 'text-faint')}
+            className={cn('truncate text-caption', chosen ? 'text-accent-foreground' : 'text-faint')}
           >
             {detail}
           </small>
@@ -119,7 +119,7 @@ const ResultRow = memo(function ResultRow({
       <span className="relative ml-auto grid shrink-0 grid-cols-[58px_34px] items-center gap-x-2 pl-2">
         <span
           className={cn(
-            'truncate text-right text-[11px] tabular-nums',
+            'truncate text-right text-caption tabular-nums',
             chosen ? 'text-accent-foreground' : 'text-faint',
           )}
         >
@@ -343,7 +343,7 @@ export function ModelDownloadSearch({
       </Field>
       <div className="-mx-2 flex min-h-0 min-w-0 flex-1 flex-col">
         {heading ? (
-          <div className="flex min-w-0 items-center gap-1.5 px-2 pt-1.5 pb-0.5 text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5 px-2 pt-1.5 pb-0.5 text-caption font-semibold whitespace-nowrap text-muted-foreground">
             <span className="min-w-0 truncate">{heading}</span>
             {headingAction}
           </div>
@@ -391,7 +391,7 @@ export function ModelDownloadSearch({
               <button
                 type="button"
                 disabled={loadMore.loading}
-                className="flex min-h-[30px] w-full shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-accent-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-transparent"
+                className="flex min-h-[30px] w-full shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-menu whitespace-nowrap text-accent-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-transparent"
                 onClick={loadMore.onLoad}
               >
                 <AddIcon aria-hidden="true" className="size-[15px] shrink-0" />

@@ -22,8 +22,8 @@ type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exi
 // One scale: the plan's own title at 15px, section headings 12.5px medium, body 12.5px.
 // `[&>*+*]` would compile to a universal sibling selector that restyles whole lists on any insert.
 const PLAN_MARKDOWN =
-  'min-w-0 text-[12.5px] leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>:where(:not(:first-child))]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-[15px] [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-[15px] [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-[12.5px] [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-[11.5px]';
-const GUIDANCE_HEADING = 'mt-2.5 text-[12.5px] leading-5 font-medium text-foreground';
+  'min-w-0 text-menu leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>:where(:not(:first-child))]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-h3 [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-h3 [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-menu [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-label';
+const GUIDANCE_HEADING = 'mt-2.5 text-menu leading-5 font-medium text-foreground';
 
 /** Where the plan lives, short; the full path is on hover. Storage ids are not names. */
 function planFileName(path: string) {
@@ -43,7 +43,7 @@ function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
   const risks = sections.hasRisks ? undefined : plan?.risk_notes?.trim();
   if (!recommendation && !risks) return null;
   return (
-    <div className="text-[12.5px] leading-[1.6] text-foreground/90" data-slot="plan-guidance">
+    <div className="text-menu leading-[1.6] text-foreground/90" data-slot="plan-guidance">
       {recommendation ? (
         <section>
           <h3 className={GUIDANCE_HEADING}>Execution recommendation</h3>
@@ -142,7 +142,7 @@ function PlanPreview({
           {content ? (
             <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
-            <div className="grid gap-1 text-[12.5px] leading-[1.6]">
+            <div className="grid gap-1 text-menu leading-[1.6]">
               {plan?.summary ? <p className="text-foreground/90">{plan.summary}</p> : null}
               <p className="text-muted-foreground" title={plan?.plan_content_error}>
                 {missingPlanText(plan)}
@@ -154,7 +154,7 @@ function PlanPreview({
       </div>
       {footer || opens || toggles ? (
         <div
-          className="flex h-[34px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-[11.5px] whitespace-nowrap text-muted-foreground"
+          className="flex h-[34px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground"
           data-slot="plan-preview-footer"
         >
           <span className="min-w-0 truncate" title={footer}>
@@ -171,7 +171,7 @@ function PlanPreview({
               {...(keys ? askKeyAttributes(['o']) : {})}
               aria-expanded={opens ? undefined : expanded}
               className={cn(
-                'h-6 px-2 text-[12px]',
+                'h-6 px-2 text-meta',
                 keys || !content ? 'ml-auto' : 'ml-auto pointer-coarse:ml-0 max-sm:ml-0',
               )}
               onClick={() =>
@@ -398,7 +398,7 @@ export function PlanExitResponse({
           onResponse={onResponse}
         />
       ) : (
-        <AskSection className="mt-2.5 text-[12px] text-muted-foreground">
+        <AskSection className="mt-2.5 text-meta text-muted-foreground">
           Plan controls are not available yet.
         </AskSection>
       )}

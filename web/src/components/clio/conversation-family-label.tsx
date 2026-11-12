@@ -22,7 +22,7 @@ export function ConversationFamilyLegend() {
   return (
     <div
       aria-label="Relationship key"
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted-foreground"
     >
       <span className="inline-flex items-center gap-1.5">
         <span className="w-4 border-t border-primary" />

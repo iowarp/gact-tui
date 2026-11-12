@@ -303,7 +303,7 @@ export function ManagedServiceCard({
             </InfoTip>
           </div>
           {installed && changed ? (
-            <div className="flex min-h-[26px] min-w-0 flex-wrap items-center gap-2 text-[12px] text-warning">
+            <div className="flex min-h-[26px] min-w-0 flex-wrap items-center gap-2 text-meta text-warning">
               <TriangleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
               <span className="min-w-0 flex-1 truncate">Unapplied changes</span>
               {onResetConfiguration ? (
@@ -349,7 +349,7 @@ export function ManagedServiceCard({
                   </span>
                 </div>
                 {serviceStatus.reason ? (
-                  <p className="text-[12px] text-warning">{serviceStatus.reason}</p>
+                  <p className="text-meta text-warning">{serviceStatus.reason}</p>
                 ) : null}
                 {llama && installed && !running ? (
                   <>
@@ -426,7 +426,7 @@ export function ManagedServiceCard({
               </>
             ) : activeTab === 'logs' ? (
               <>
-                <div className="flex min-h-[26px] items-center gap-2 text-[12px] text-muted-foreground">
+                <div className="flex min-h-[26px] items-center gap-2 text-meta text-muted-foreground">
                   <span className="min-w-0 flex-1 truncate">Recent logs on {hostLabel}</span>
                   <IconButton
                     disabled={Boolean(activeAction)}

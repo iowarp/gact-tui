@@ -112,14 +112,14 @@ function PlacementChoice({
               disabled={Boolean(reason)}
               className="group flex min-w-0 flex-col gap-1.5 rounded-[8px] border border-input px-2.5 py-2 text-left outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:hover:bg-transparent data-[state=checked]:border-primary"
             >
-              <span className="flex items-center gap-[9px] text-[12.5px] text-foreground group-disabled:text-faint">
+              <span className="flex items-center gap-[9px] text-menu text-foreground group-disabled:text-faint">
                 <span
                   aria-hidden="true"
                   className="size-3 shrink-0 rounded-full shadow-[inset_0_0_0_1.5px_var(--faint)] group-data-[state=checked]:shadow-[inset_0_0_0_4px_var(--primary)]"
                 />
                 {row.title}
               </span>
-              <span className="text-[11px] leading-[1.45] text-faint">
+              <span className="text-caption leading-[1.45] text-faint">
                 {reason ?? explanation[row.value]}
               </span>
             </RadioGroupPrimitive.Item>

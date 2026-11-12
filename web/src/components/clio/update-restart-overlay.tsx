@@ -144,11 +144,11 @@ export function UpdatePage() {
           title="Update details"
           description={version ? `Updating ${brand.wordmark} to ${version}` : undefined}
         >
-          <p className="text-[13px] leading-5 break-words">
+          <p className="text-ui leading-5 break-words">
             {reason || `${vocab.agent} could not be reached after the update.`}
           </p>
           {lines.length ? (
-            <pre className="clio-scrollbar mt-3 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-words text-muted-foreground">
+            <pre className="clio-scrollbar mt-3 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-label whitespace-pre-wrap break-words text-muted-foreground">
               {lines.slice(-40).join('\n')}
             </pre>
           ) : null}

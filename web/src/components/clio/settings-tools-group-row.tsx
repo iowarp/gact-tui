@@ -134,7 +134,7 @@ export const GroupRow = memo(function GroupRow({
       <span
         className={cn('grid min-w-0 gap-0.5', section.notice && '@max-[32rem]/tools:col-span-2')}
       >
-        <h3 className="truncate text-[13px] font-semibold text-foreground" title={section.hint}>
+        <h3 className="truncate text-ui font-semibold text-foreground" title={section.hint}>
           {section.title}
         </h3>
         {section.notice || meta.length || summary ? (
@@ -196,7 +196,7 @@ export const GroupRow = memo(function GroupRow({
           title={section.notice.title}
         >
           <StatusIndicator
-            className={cn('text-[12px]', section.notice.tone === 'idle' && 'text-faint')}
+            className={cn('text-meta', section.notice.tone === 'idle' && 'text-faint')}
             label={section.notice.status}
             tone={section.notice.tone}
           />

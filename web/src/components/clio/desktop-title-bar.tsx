@@ -201,7 +201,7 @@ function SwitchAgentItems() {
     }
   };
   if (!others.length) {
-    return <p className="px-2 py-1.5 text-[12px] text-muted-foreground">No other saved agents</p>;
+    return <p className="px-2 py-1.5 text-meta text-muted-foreground">No other saved agents</p>;
   }
   return others.map((connection) => (
     <SwitchAgentItem

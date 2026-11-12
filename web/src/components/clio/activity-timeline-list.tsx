@@ -350,7 +350,7 @@ function TimelineRows({
   const render = (entry: TimelineEntry) =>
     entry.type === 'group' ? (
       <p
-        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
+        className="flex h-7 items-end px-2 pb-1 text-caption font-semibold text-muted-foreground"
         role="listitem"
       >
         {entry.label}
@@ -444,12 +444,12 @@ const TimelineRow = memo(function TimelineRow({
         }
         actionsWidth={26}
         aria-label={target ? `Open ${item.label}, ${status}` : undefined}
-        className={cn('text-[12.5px]', target ? 'cursor-pointer' : 'hover:bg-transparent')}
+        className={cn('text-menu', target ? 'cursor-pointer' : 'hover:bg-transparent')}
         columns={
           <>
             {attention ? (
               <span
-                className={cn('shrink-0 text-[11px] font-medium', causalAttentionTone(item.state))}
+                className={cn('shrink-0 text-caption font-medium', causalAttentionTone(item.state))}
               >
                 {status}
               </span>

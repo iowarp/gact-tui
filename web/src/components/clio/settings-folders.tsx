@@ -141,7 +141,7 @@ interface Draft {
 
 function FolderTitle({ folder }: { folder: WorkspaceSourceFolder }) {
   return (
-    <span className="font-mono text-[0.78125rem] font-normal" title={folder.path}>
+    <span className="font-mono text-menu font-normal" title={folder.path}>
       {folder.path}
     </span>
   );
@@ -267,7 +267,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
           info="Conversations started outside a project folder. This workspace can’t be renamed."
           title="Name"
         >
-          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
+          <span className="min-w-0 truncate text-menu text-muted-foreground">
             {fixedName}
           </span>
         </SettingsRow>
@@ -275,7 +275,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
           <Input
             aria-invalid={nameDirty && !name.trim() ? true : undefined}
-            className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
+            className="h-[1.875rem] w-full text-menu md:text-menu"
             disabled={save.isPending}
             id="folders-name"
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}

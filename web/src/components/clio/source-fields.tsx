@@ -139,7 +139,7 @@ export function SourceFields({
           >
             <select
               id={`${formId}-sync`}
-              className="h-[30px] w-full rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] dark:bg-input/30"
+              className="h-[30px] w-full rounded-[7px] border border-input bg-transparent px-2 text-menu dark:bg-input/30"
               value={configuration.obsidian_sync_mode ?? 'pull-only'}
               disabled={disabled}
               onChange={(event) =>

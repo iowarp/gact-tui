@@ -27,7 +27,7 @@ export type ExtensionAdd = {
 
 const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
 // The same field size as the other Settings dialogs' setting rows.
-const FIELD = 'h-[1.875rem] text-[0.78125rem]';
+const FIELD = 'h-[1.875rem] text-menu';
 
 const ADD_LABELS = {
   remote: 'MCP server URL',
@@ -381,7 +381,7 @@ function ExtensionSourceDialog({
         {choice.kind === 'skill' ? (
           <SettingsRow htmlFor={`${ids}-instructions`} title="Instructions">
             <Textarea
-              className="min-h-52 text-[0.78125rem]"
+              className="min-h-52 text-menu"
               id={`${ids}-instructions`}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}

@@ -28,7 +28,7 @@ export function ConversationInspector({
       aria-label="Selected conversation"
       className="min-w-0 border-t bg-muted/15 p-4 @min-[48rem]:border-l @min-[48rem]:border-t-0"
     >
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
         <ConversationRoleIcon session={session} className="size-3.5" />
         {conversationRole(session)}
         {isManagedChildSession(session) ? ' (parent owned)' : ''}
@@ -59,7 +59,7 @@ export function ConversationInspector({
           <PreviewMessage key={message.id} message={message} copied />
         ))}
         {history.origin ? (
-          <div className="flex items-center gap-2 text-[11px] text-primary">
+          <div className="flex items-center gap-2 text-caption text-primary">
             <GitBranchIcon className="size-3.5" />
             <span>
               {history.boundaryRetained ? 'Branched here' : 'Saved fork point, history rewound'}
@@ -72,7 +72,7 @@ export function ConversationInspector({
         ))}
       </div>
       <div className="border-t pt-3">
-        <h4 className="text-[11px] text-muted-foreground">Outputs</h4>
+        <h4 className="text-caption text-muted-foreground">Outputs</h4>
         {preview.outputs.map((artifact) => (
           <Button
             key={artifact.id}

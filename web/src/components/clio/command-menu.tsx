@@ -426,7 +426,7 @@ function CommandMenuBody({
                   searching ? (
                     <span
                       aria-live="polite"
-                      className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+                      className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
                     >
                       {fetching && !counts.all ? (
                         <LoaderCircleIcon
@@ -466,7 +466,7 @@ function CommandMenuBody({
                   {credentialError}
                 </p>
               ) : null}
-              <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
+              <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-menu">
                 {failure.length ? (
                   <StateView
                     action={{
@@ -484,9 +484,7 @@ function CommandMenuBody({
                 ) : null}
                 {noMatch ? (
                   <CommandMenuNoMatch
-                    canAsk={canAsk}
                     onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
-                    onAsk={() => setAiMode(true)}
                     query={searchText.trim()}
                     scope={activeScope === 'all' ? undefined : scopeLabel}
                     total={counts.all}

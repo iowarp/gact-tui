@@ -22,7 +22,7 @@ export function ProviderFamilyRow({
       <ProviderLogoMark provider="argonne" />
       <span className="min-w-0 flex-1 truncate text-start">{data.group.name}</span>
       <span
-        className="shrink-0 text-[11px] text-muted-foreground"
+        className="shrink-0 text-caption text-muted-foreground"
         data-slot="provider-row-status"
         title={data.group.detail}
       >

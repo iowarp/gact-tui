@@ -313,7 +313,7 @@ export function WorkbenchTabRow({
   return (
     <div
       // A layout boundary: fitting and scrolling the tabs never re-lays out the page.
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
+      className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
       data-slot="canvas-header"
       ref={headerRef}
     >
@@ -500,7 +500,7 @@ export function WorkbenchTabRow({
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label={`${hidden.length} more tabs`}
-                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-[11.5px] text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
+                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-label text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
                 data-slot="tab-overflow"
                 variant="ghost"
               >

@@ -249,7 +249,7 @@ export function ClioModelPicker({
         avoidCollisions
         className={cn(
           // Its own data-slot skips the global popover layer, so restate it above the backdrop.
-          'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-[12.5px] shadow-lg',
+          'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-menu shadow-lg',
           placement === 'composer'
             ? 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] max-w-[calc(100vw-1rem)]'
             : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(40rem,calc(100vw-1rem))]',

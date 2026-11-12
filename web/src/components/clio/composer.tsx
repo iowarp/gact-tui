@@ -583,7 +583,7 @@ export function ClioComposer({
           attachmentsEnabled={attachments}
           activeOptionId={composerReferences.activeOptionId}
           ariaLabel={`Ask ${brand.name}`}
-          className="min-h-6 p-0 text-[13px] leading-6"
+          className="min-h-6 p-0 text-ui leading-6"
           disabled={disabled}
           expanded={popoverOpen}
           onCaretChange={composerReferences.onCaretChange}

@@ -68,7 +68,7 @@ export function DetailsSection({
 }) {
   return (
     <section aria-label={label} className="min-w-0" data-slot="details-section">
-      <div className="flex h-7 min-w-0 items-center gap-2 text-[12px] whitespace-nowrap text-muted-foreground">
+      <div className="flex h-7 min-w-0 items-center gap-2 text-meta whitespace-nowrap text-muted-foreground">
         <h4 className="font-medium text-foreground/90">{title}</h4>
         {aside ? <span className="min-w-0 truncate">{aside}</span> : null}
         {copy ? (
@@ -93,7 +93,7 @@ function NumberedCode({ text, json }: { text: string; json: boolean }) {
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="details-code"
     >
-      <pre className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90">
+      <pre className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90">
         {shown.map((line, index) => (
           <span className="contents" key={index}>
             <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
@@ -106,11 +106,11 @@ function NumberedCode({ text, json }: { text: string; json: boolean }) {
         ))}
       </pre>
       {hidden > 0 ? (
-        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
           <span className="truncate">{hidden} more lines</span>
           <Button
             variant="ghost"
-            className="ml-auto h-6 px-2 text-[12px]"
+            className="ml-auto h-6 px-2 text-meta"
             onClick={() => setAll(true)}
           >
             Show all
@@ -133,7 +133,7 @@ function TerminalTail({ text }: { text: string }) {
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="details-terminal"
     >
-      <pre className="overflow-x-auto px-3 py-1.5 font-mono text-[11.5px] leading-[1.6] whitespace-pre text-foreground/90">
+      <pre className="overflow-x-auto px-3 py-1.5 font-mono text-label leading-[1.6] whitespace-pre text-foreground/90">
         {earlier ? <span className="block text-faint">{earlier} earlier lines</span> : null}
         {lines.slice(earlier).map((line, index) => (
           <span className={cn('block', /^\s/u.test(line) && 'text-faint')} key={index}>
@@ -204,7 +204,7 @@ function OutcomeSection({
           <button
             type="button"
             aria-expanded={rawOpen}
-            className="mt-1.5 inline-flex h-6 items-center gap-1.5 rounded-[5px] pr-1.5 text-[12px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1.5 inline-flex h-6 items-center gap-1.5 rounded-[5px] pr-1.5 text-meta text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setRawOpen((value) => !value)}
           >
             <ChevronRightIcon
@@ -283,7 +283,7 @@ export function ToolTechnicalDetailsDialog({
             value: boundary.request_roots.length ? (
               <span className="min-w-0 truncate">
                 On, blocked {boundary.kind === 'write_denied' ? 'a write to' : 'access to'}{' '}
-                <span className="font-mono text-[12px]">{boundary.request_roots.join(', ')}</span>
+                <span className="font-mono text-meta">{boundary.request_roots.join(', ')}</span>
               </span>
             ) : (
               boundary.message
@@ -327,7 +327,7 @@ export function ToolTechnicalDetailsDialog({
         role="region"
         aria-label="Scrollable result content"
         tabIndex={0}
-        className="-mr-3 grid max-h-[65dvh] min-w-0 grid-cols-1 gap-2.5 overflow-auto overscroll-contain pr-3 pb-2 text-[12.5px] [overflow-wrap:anywhere]"
+        className="-mr-3 grid max-h-[65dvh] min-w-0 grid-cols-1 gap-2.5 overflow-auto overscroll-contain pr-3 pb-2 text-menu [overflow-wrap:anywhere]"
         data-slot="tool-technical-details"
       >
         <TooltipProvider delayDuration={200}>

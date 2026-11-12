@@ -68,7 +68,7 @@ export function ComposerAttachmentChip({
       aria-busy={inFlight || removing}
       data-removing={removing || undefined}
       className={cn(
-        'relative inline-flex h-6 max-w-64 min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] bg-muted pr-0.5 pl-2 text-[12.5px] text-foreground',
+        'relative inline-flex h-6 max-w-64 min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] bg-muted pr-0.5 pl-2 text-menu text-foreground',
         failed && 'ring-1 ring-destructive/40 ring-inset',
         removing && 'text-muted-foreground',
         className,
@@ -95,14 +95,14 @@ export function ComposerAttachmentChip({
         {status ? (
           <span
             className={cn(
-              'shrink-0 text-[11px] tabular-nums',
+              'shrink-0 text-caption tabular-nums',
               failed && !removing ? 'text-destructive' : 'text-muted-foreground',
             )}
           >
             {status}
           </span>
         ) : size !== undefined ? (
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
             {formatBytes(size)}
           </span>
         ) : null}

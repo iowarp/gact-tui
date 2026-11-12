@@ -167,7 +167,7 @@ function TruncationHintBubble({ hint }: { hint: Hint }) {
 
   return (
     <div
-      className="pointer-events-none fixed w-max max-w-[min(32rem,calc(100vw-16px))] rounded-[6px] bg-tooltip px-[9px] py-1.5 text-[11.5px] leading-normal break-words whitespace-pre-wrap text-tooltip-foreground shadow-md"
+      className="pointer-events-none fixed w-max max-w-[min(32rem,calc(100vw-16px))] rounded-[6px] bg-tooltip px-[9px] py-1.5 text-label leading-normal break-words whitespace-pre-wrap text-tooltip-foreground shadow-md"
       data-slot="truncation-hint"
       ref={ref}
       role="tooltip"

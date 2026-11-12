@@ -255,7 +255,7 @@ export const FrameBar = memo(function FrameBar({
             data-frame-fit=""
             data-slot="frame-facts"
             ref={factsRef}
-            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-caption text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
           </div>
@@ -316,7 +316,7 @@ export const FrameCrumbs = memo(function FrameCrumbs({
       aria-label="Location"
       title={full}
       className={cn(
-        'flex min-w-0 items-center gap-1 text-[12.5px] group-data-[fold-where]/frame:hidden',
+        'flex min-w-0 items-center gap-1 text-menu group-data-[fold-where]/frame:hidden',
         className,
       )}
     >
@@ -486,7 +486,7 @@ export const FrameTab = memo(
             // Spec .tab.on: foreground text over a 2px primary line, no fill. The
             // line is its own layer so the trigger's background never covers it,
             // and the tab fills the row above its border so nothing clips it.
-            'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+            'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-menu whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
             iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
             className,
           )}

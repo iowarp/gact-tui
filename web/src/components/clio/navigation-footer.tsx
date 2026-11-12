@@ -40,14 +40,14 @@ export function NavigationFooter({
           state={returnState}
           to="/settings/profile"
         >
-          <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
+          <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-caption font-semibold text-accent-foreground">
             {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
           </span>
-          <span className="flex min-w-0 flex-1 flex-col leading-[1.25]">
-            <span className="truncate text-[13px] text-foreground">
+          <span className="flex min-w-0 flex-1 flex-col leading-tight">
+            <span className="truncate text-ui text-foreground">
               {profileName || 'Your profile'}
             </span>
-            <span className="truncate text-[11px] text-faint">Local profile</span>
+            <span className="truncate text-caption text-faint">Local profile</span>
           </span>
         </Link>
       </NamedTooltip>

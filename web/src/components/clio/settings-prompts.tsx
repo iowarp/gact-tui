@@ -137,7 +137,7 @@ function CommandDetail({ command, onClose }: { command: CommandDefinition; onClo
   ];
   return (
     <DetailPane icon={<SquareSlashIcon />} onClose={onClose} title={command.title}>
-      <p className="mb-3 text-[0.8125rem] text-muted-foreground">
+      <p className="mb-3 text-ui text-muted-foreground">
         {command.description || 'The service did not provide a description.'}
       </p>
       {!command.enabled && (command.disabled_detail || command.disabled_reason) ? (
@@ -372,7 +372,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <SelectTrigger
             aria-label="Prompt workspace"
             className={cn(
-              'h-[30px]! min-w-0 shrink justify-start gap-2 px-2.5 text-[12.5px] *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
+              'h-[30px]! min-w-0 shrink justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
               tight ? 'order-last w-full' : 'w-44',
             )}
             size="sm"

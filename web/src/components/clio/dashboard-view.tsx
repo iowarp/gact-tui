@@ -186,7 +186,7 @@ export function DashboardView({
             ) : (
               // Without the file frame the page still needs its name and tools.
               <header className="flex min-w-0 items-center gap-2">
-                <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                <h1 className="min-w-0 flex-1 truncate text-h3 font-semibold">
                   {report.title}
                 </h1>
                 {!offline && (

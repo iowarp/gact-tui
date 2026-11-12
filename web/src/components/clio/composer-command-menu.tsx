@@ -168,7 +168,7 @@ const CommandOption = memo(function CommandOption({
     >
       <span
         className={cn(
-          'shrink-0 font-mono text-[12px]',
+          'shrink-0 font-mono text-meta',
           command.enabled ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -176,14 +176,14 @@ const CommandOption = memo(function CommandOption({
       </span>
       {detail ? (
         <span
-          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint"
+          className="min-w-0 flex-1 basis-0 truncate text-label text-faint"
           data-slot={ROW_CUT_SLOT}
         >
           {detail}
         </span>
       ) : null}
       {status || source || active ? (
-        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-caption text-faint">
           {status}
           {source ? <span>{source}</span> : null}
           {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
@@ -221,7 +221,7 @@ function EmptyCommands({
       'No command matches.'
     );
   return (
-    <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-[12.5px] text-muted-foreground">
+    <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-menu text-muted-foreground">
       <SquareSlashIcon aria-hidden="true" className="size-4 shrink-0 text-faint" />
       <span className="min-w-0">{reason}</span>
     </div>
@@ -341,7 +341,7 @@ export function ClioComposerCommandMenu({
           aria-hidden="true"
           className="size-[15px] shrink-0 text-muted-foreground"
         />
-        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
+        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-ui">
           <span className="text-foreground">{query}</span>
           {query === '/' ? <span className="text-faint"> type to search</span> : null}
         </span>

@@ -68,6 +68,13 @@ export const TRANSCRIPT_PAGE_SIZE = 40;
 export const WAITING_SESSIONS_POLL_MS = 10_000;
 
 /**
+ * Refetch cadence for each open rail's newest conversations, the only way the
+ * rail learns of activity in a conversation that is not open: the agent streams
+ * events for the open one alone. Paused in a hidden tab. Unit: milliseconds.
+ */
+export const RAIL_ACTIVITY_POLL_MS = 5_000;
+
+/**
  * Refetch cadence for infrastructure inventories (relays, MCP servers, hosts).
  * Unit: milliseconds. These change on human timescales, so the cadence exists to
  * notice an operator's out-of-band change, not to track live progress.

@@ -138,7 +138,7 @@ export function ImageResourceView({
         >
           {!framed ? (
             <div className="flex h-[34px] shrink-0 items-center gap-px border-b border-border px-1.5">
-              <span className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums">
+              <span className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-caption text-muted-foreground tabular-nums">
                 {dimensions ? <span>{dimensions}</span> : null}
                 {percent ? <span>{percent}</span> : null}
               </span>

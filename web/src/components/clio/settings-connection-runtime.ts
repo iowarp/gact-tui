@@ -14,7 +14,7 @@ import { normalizeEndpoint } from '@/lib/connection';
 import { agentCheckIssue } from './version-check-issue';
 
 export const CONNECTION_FIELD =
-  'h-[1.875rem] w-full rounded-md px-[9px] text-[0.78125rem] placeholder:text-faint md:text-[0.78125rem]';
+  'h-[1.875rem] w-full rounded-md px-[9px] text-menu placeholder:text-faint md:text-menu';
 
 /** The address error in words, or undefined when it can be used. */
 export function endpointError(value: string): string | undefined {

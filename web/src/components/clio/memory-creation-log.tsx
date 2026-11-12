@@ -197,7 +197,7 @@ function Run({
         }
       />
       {expanded ? (
-        <div className="grid min-w-0 gap-3 border-b border-border/70 py-3 pr-2 pl-10 text-[12.5px]">
+        <div className="grid min-w-0 gap-3 border-b border-border/70 py-3 pr-2 pl-10 text-menu">
           {run.reason ? (
             <p className={failed ? 'text-destructive' : 'text-muted-foreground'}>
               {REASONS[run.reason] ?? run.reason}
@@ -287,7 +287,7 @@ export function MemoryCreationLog({
         Background memory
       </SettingsGroupLabel>
       {background ? (
-        <div className="grid gap-1 pb-3 text-[12.5px] text-muted-foreground">
+        <div className="grid gap-1 pb-3 text-menu text-muted-foreground">
           <p>
             {background.off
               ? 'Background memory is off.'

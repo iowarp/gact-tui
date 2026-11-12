@@ -156,7 +156,7 @@ function ConnectionRow({
         showDetails ? (
           <>
             {restartPending ? (
-              <p className="text-[12px]" role="status">
+              <p className="text-meta" role="status">
                 Saved. Restart the connected {vocab.agent} to apply this choice.
               </p>
             ) : null}
@@ -173,7 +173,7 @@ function ConnectionRow({
                 <KeyValueGrid
                   items={[{ label: 'Address', icon: <LinkIcon />, value: row.url, mono: true }]}
                 />
-                <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                <p className="flex items-center gap-1 text-meta text-muted-foreground">
                   This {vocab.agent} connects to the service; the owner keeps its deployment and
                   data.
                   <InfoTip label={`About ${row.label} connection`}>
@@ -187,8 +187,8 @@ function ConnectionRow({
                   </InfoTip>
                 </p>
                 {Object.keys(row.verification).length ? (
-                  <TechnicalDetails className="text-[12px]" title="Verification receipt">
-                    <pre className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap text-muted-foreground">
+                  <TechnicalDetails className="text-meta" title="Verification receipt">
+                    <pre className="mt-1 font-mono text-caption break-all whitespace-pre-wrap text-muted-foreground">
                       {JSON.stringify(row.verification, null, 2)}
                     </pre>
                   </TechnicalDetails>

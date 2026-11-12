@@ -125,7 +125,7 @@ export function DelegateCalls({
         <StateView kind="empty" size="row" title={running ? 'No calls yet' : 'No calls recorded'} />
       )}
       {result ? (
-        <div className="py-1 pl-2 text-[13px]" data-slot="delegate-result">
+        <div className="py-1 pl-2 text-ui" data-slot="delegate-result">
           <BoundedResult lines={lines} title={`${name} returned`}>
             <GroundedMessageResponse mode="static">{result}</GroundedMessageResponse>
           </BoundedResult>

@@ -35,7 +35,7 @@ export function SavedDraftRow({ draft, latest, onDelete, onRestore }: SavedDraft
   );
   return (
     <li
-      className="group/saved-row flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] pr-0.5 pl-1 text-[13px] whitespace-nowrap hover:bg-hover focus-within:bg-hover"
+      className="group/saved-row flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] pr-0.5 pl-1 text-ui whitespace-nowrap hover:bg-hover focus-within:bg-hover"
       data-queue-live-item=""
       data-slot="composer-saved-draft"
       ref={rowRef}

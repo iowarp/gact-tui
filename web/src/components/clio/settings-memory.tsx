@@ -294,7 +294,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         />
       </div>
       {summary.data && !summary.data.enabled ? (
-        <div className="flex min-w-0 items-center gap-2 py-2 text-[12.5px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2 py-2 text-menu text-muted-foreground">
           <StatusIndicator label="Memory is off" tone="stopped" />
           <span className="min-w-0 truncate">
             Saved memories are kept. Turn memory on under Create memories.
