@@ -52,7 +52,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   const routeRef = useRef(location.pathname);
   useLayoutEffect(() => {
     routeRef.current = location.pathname;
-  }, [location.pathname]);
+    // An open request is used once, in the conversation it was made in.
+    requestStore.clearUnless(location.pathname);
+  }, [location.pathname, requestStore]);
 
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {

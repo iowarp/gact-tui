@@ -244,6 +244,13 @@ export function ClioAppShell({
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
+  // A pocket a reference opened stays open across conversations, like one the
+  // canvas button opened. A phone sheet still closes when you leave.
+  const [recordedRevealKey, setRecordedRevealKey] = useState<string>();
+  if (revealRequested && desktopWorkbench && workbenchRevealKey !== recordedRevealKey) {
+    setRecordedRevealKey(workbenchRevealKey);
+    setWorkbenchPreference(true);
+  }
   // A wide viewport makes the canvas available, but it does not imply that the
   // user asked to open it. Explicit resource requests still reveal it, and an
   // open/closed choice survives route changes while this shell stays mounted.
@@ -321,22 +328,26 @@ export function ClioAppShell({
   }, [workbenchSheetOpen]);
 
   // The width is a share of the window, so a window resize re-applies it. It
-  // applies once the canvas's group has its new width: applied on the window's
-  // resize event, a narrower window's width would land before the group had
-  // shrunk, and the group then kept the wider pixels.
+  // applies once the canvas's group has settled at its new width: two frames
+  // after the group's host changes width. Applied any sooner, a single large
+  // shrink (un-maximizing) landed before the group re-laid its panels out, and
+  // the pocket kept a few pixels too many.
   const [workbenchHost, setWorkbenchHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
     const host = workbenchHost;
     if (!hasWorkbench || !host) return;
     let frame = 0;
-    let lastWidth = currentWindowWidth();
+    let hostWidth = Math.round(host.getBoundingClientRect().width);
     const observer = new ResizeObserver(() => {
-      const width = currentWindowWidth();
-      if (frame || width === lastWidth) return;
-      lastWidth = width;
+      const width = Math.round(host.getBoundingClientRect().width);
+      if (width === hostWidth) return;
+      hostWidth = width;
+      window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        applyWorkbenchShare();
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          applyWorkbenchShare();
+        });
       });
     });
     observer.observe(host);
