@@ -46,6 +46,8 @@ export interface ZoomPanProps {
     resetZoom: () => void;
     centerView: () => void;
     scalePercent: number;
+    /** Whether the view is at its fitted scale, so a zoom readout says nothing new. */
+    fitted: boolean;
   }) => React.ReactNode;
   isLoading?: boolean;
   loadingFallback?: React.ReactNode;
@@ -328,16 +330,19 @@ export function ZoomPan({
     updateSmooth();
   }, [getCenterTransform, updateSmooth]);
 
-  const api = React.useMemo(
-    () => ({
+  const api = React.useMemo(() => {
+    const center = getCenterTransform();
+    const fitPercent =
+      center && Number.isFinite(center.scale) ? Math.round(center.scale * 100) : undefined;
+    return {
       zoomIn,
       zoomOut,
       resetZoom,
       centerView,
       scalePercent,
-    }),
-    [zoomIn, zoomOut, resetZoom, centerView, scalePercent],
-  );
+      fitted: fitPercent === undefined || Math.abs(fitPercent - scalePercent) <= 1,
+    };
+  }, [zoomIn, zoomOut, resetZoom, centerView, scalePercent, getCenterTransform]);
 
   // Mouse handlers
   const handleMouseDown = (e: React.MouseEvent) => {
