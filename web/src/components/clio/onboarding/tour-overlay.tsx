@@ -14,6 +14,8 @@ const MIN_CARD_WIDTH = 256;
 const RING = 2;
 /** How long a missing anchor may still be mounting before the step is reported as degraded. */
 const ANCHOR_GRACE_MS = 1500;
+/** Frames the scroller must hold still before a step's focus is scrolled into view. */
+const SETTLED_FRAMES = 6;
 
 interface Box {
   top: number;
@@ -105,6 +107,8 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
     let currentFocus: Box | undefined;
     let scrolledHeight: number | undefined;
     let focusScrolled = false;
+    let stillFrames = 0;
+    let lastScrollTop: number | undefined;
     let measured: HTMLElement | undefined;
     let scroller: HTMLElement | undefined;
     const started = performance.now();
@@ -117,6 +121,7 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
       if (element && (scrolledHeight === undefined || height > scrolledHeight + 24)) {
         scrolledHeight = height;
         focusScrolled = false;
+        stillFrames = 0;
         element.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
       }
       if (element !== measured) {
@@ -155,19 +160,31 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
       // A menu or picker the step opened stays lit with its control.
       const next = anchorBox ? openPopups().reduce(unionBox, anchorBox) : undefined;
       const focusElement = step.focus ? element?.querySelector(step.focus) : undefined;
-      // The part the step asks you to use is scrolled clear of the composer, top first,
-      // since a tall anchor scrolled into view shows only its top.
-      if (focusElement && bounds && scroller && !focusScrolled) {
-        focusScrolled = true;
-        const rect = focusElement.getBoundingClientRect();
-        const above = rect.top - bounds.top;
-        const below = rect.bottom - bounds.bottom;
-        const delta = below > 0 ? Math.min(below, above) : Math.min(above, 0);
-        if (Math.abs(delta) > 1)
-          scroller.scrollBy({ top: delta, behavior: reduceMotion ? 'auto' : 'smooth' });
+      // The transcript's opaque control lane ("Jump to latest") also hides what is under it.
+      const lane = scroller?.querySelector('[data-slot="transcript-control-lane"]');
+      const laneTop = lane?.getBoundingClientRect().top;
+      const focusBounds =
+        bounds && laneTop !== undefined && laneTop > bounds.top && laneTop < bounds.bottom
+          ? new DOMRect(bounds.left, bounds.top, bounds.width, laneTop - bounds.top)
+          : bounds;
+      // The part the step asks you to use is scrolled into view, top first, since a tall
+      // anchor scrolled into view shows only its top. It waits for the anchor's own scroll
+      // to settle, so it measures the final position and doesn't cancel that scroll.
+      if (focusElement && focusBounds && scroller && !focusScrolled) {
+        stillFrames = scroller.scrollTop === lastScrollTop ? stillFrames + 1 : 0;
+        lastScrollTop = scroller.scrollTop;
+        if (stillFrames >= SETTLED_FRAMES) {
+          focusScrolled = true;
+          const rect = focusElement.getBoundingClientRect();
+          const above = rect.top - focusBounds.top;
+          const below = rect.bottom - focusBounds.bottom;
+          const delta = below > 0 ? Math.min(below, above) : Math.min(above, 0);
+          if (Math.abs(delta) > 1)
+            scroller.scrollBy({ top: delta, behavior: reduceMotion ? 'auto' : 'smooth' });
+        }
       }
       const focus = focusElement
-        ? visibleBox(focusElement.getBoundingClientRect(), bounds)
+        ? visibleBox(focusElement.getBoundingClientRect(), focusBounds)
         : undefined;
       if (current === null || !sameBox(current, next) || !sameBox(currentFocus, focus)) {
         current = next;
