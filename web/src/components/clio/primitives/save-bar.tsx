@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { memo, useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,36 @@ export const SaveBar = memo(function SaveBar({
     },
     { enabled: active, allowInTextField: true },
   );
+  const barRef = useRef<HTMLDivElement>(null);
+  const focus = useRef<{ inBar: boolean; outside: HTMLElement | null }>({
+    inBar: false,
+    outside: null,
+  });
+  useEffect(() => {
+    function handleFocusIn(event: FocusEvent) {
+      if (!(event.target instanceof HTMLElement)) return;
+      const inBar = Boolean(barRef.current?.contains(event.target));
+      focus.current.inBar = inBar;
+      if (!inBar && !focusLost(event.target)) focus.current.outside = event.target;
+    }
+    document.addEventListener('focusin', handleFocusIn);
+    return () => document.removeEventListener('focusin', handleFocusIn);
+  }, []);
+  // Save and Discard disable themselves as they are pressed, and a finished
+  // save takes the bar away: focus must not fall back to the window.
+  useEffect(() => {
+    if (saving || !focus.current.inBar) return;
+    const frame = requestAnimationFrame(() => {
+      if (!focusLost(document.activeElement)) return;
+      const inBar = barRef.current?.querySelector<HTMLButtonElement>('button:enabled');
+      const outside = focus.current.outside;
+      const target =
+        inBar ?? (outside?.isConnected && !outside.matches(':disabled') ? outside : null);
+      focus.current.inBar = Boolean(inBar);
+      target?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, saving]);
   if (!active && !error) return null;
   return (
     <div
@@ -50,6 +80,7 @@ export const SaveBar = memo(function SaveBar({
         className,
       )}
       data-slot="save-bar"
+      ref={barRef}
       role="region"
     >
       {active ? (
@@ -78,3 +109,13 @@ export const SaveBar = memo(function SaveBar({
     </div>
   );
 });
+
+/** Focus that has fallen back to the page or the window around the section. */
+function focusLost(element: Element | null): boolean {
+  return (
+    !element ||
+    element === document.body ||
+    element.getAttribute('role') === 'dialog' ||
+    element.getAttribute('data-slot') === 'dialog-content'
+  );
+}
