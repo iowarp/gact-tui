@@ -126,10 +126,13 @@ export const sourceProviderSchema = z.object({
 });
 export type SourceProvider = z.infer<typeof sourceProviderSchema>;
 export const sourceEntrySchema = z.object({
+  /** The portable name CLIO lists, searches and writes; the identifier for every request. */
   path: z.string(),
   kind: z.enum(['file', 'directory']),
   size: z.number(),
   revision: z.string(),
+  /** The provider's own relative path, sent only when `path` is a portable alias of it. */
+  remote_path: z.string().optional(),
 });
 export type SourceEntry = z.infer<typeof sourceEntrySchema>;
 export const sourceOperationSchema = z.object({

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
-import { sourceBytes } from './connected-source-labels';
+import { sourceBytes, sourceEntryName } from './connected-source-labels';
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
@@ -37,6 +37,7 @@ export function SourceFilesBrowser({
   view,
   onView,
   folder,
+  folderName = folder,
   search,
   offset,
   onGo,
@@ -54,15 +55,18 @@ export function SourceFilesBrowser({
   view?: SourceFilesView;
   onView?: (view: SourceFilesView) => void;
   folder: string;
+  /** The open folder as the provider names it, when `folder` is a portable alias. */
+  folderName?: string;
   search: string;
   offset: number;
-  onGo: (folder: string) => void;
+  /** Opens `folder`; `name` is how the provider names it, when that differs. */
+  onGo: (folder: string, name?: string) => void;
   onSearch: (search: string) => void;
   onOffset: (offset: number) => void;
   browse: {
     isPending: boolean;
     error: Error | null;
-    data?: { entries: SourceEntry[]; next_offset?: number | null };
+    data?: { entries: SourceEntry[]; next_offset?: number | null; notice?: string | null };
   };
   /** "Add this folder to message", when attaching. */
   addFolder?: { label: string; disabled: boolean; onClick: () => void };
@@ -73,6 +77,11 @@ export function SourceFilesBrowser({
   const hint = browse.data?.entries
     .map((entry) => (entry.kind === 'file' ? fileAction(entry) : undefined))
     .find((act) => act?.disabled && act.reason)?.reason;
+  const parent = folder.split('/').slice(0, -1).join('/');
+  const nameParts = folderName.split('/');
+  // An alias keeps the provider's folder depth, so the parent's name is one part shorter.
+  const parentName =
+    nameParts.length === folder.split('/').length ? nameParts.slice(0, -1).join('/') : parent;
   return (
     <section aria-label="Source files" className="flex min-w-0 flex-col gap-[5px]">
       <div className="flex min-h-7 min-w-0 items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
@@ -99,7 +108,7 @@ export function SourceFilesBrowser({
           label="Parent source folder"
           size="toolbar"
           disabled={!folder}
-          onClick={() => onGo(folder.split('/').slice(0, -1).join('/'))}
+          onClick={() => onGo(parent, parentName)}
         />
         <div className="relative min-w-0 flex-1">
           <SearchIcon
@@ -121,10 +130,10 @@ export function SourceFilesBrowser({
             <button
               type="button"
               className="min-w-0 truncate text-left font-mono text-[11px] text-muted-foreground hover:text-foreground"
-              title={`Back to the top of the source from ${folder}`}
+              title={`Back to the top of the source from ${folderName}`}
               onClick={() => onGo('')}
             >
-              Source / {folder}
+              Source / {folderName}
             </button>
           ) : null}
           {addFolder ? (
@@ -158,13 +167,17 @@ export function SourceFilesBrowser({
             {hint}
           </SourceStatusLine>
         ) : null}
+        {browse.data?.notice ? (
+          <p className="px-2 py-1 text-[11.5px] leading-[1.45] text-faint">{browse.data.notice}</p>
+        ) : null}
         {browse.data?.entries.length === 0 ? (
           <SourceStatusLine tone="quiet" className="px-2">
             No matching files.
           </SourceStatusLine>
         ) : null}
         {browse.data?.entries.map((entry) => {
-          const name = search ? entry.path : entry.path.split('/').at(-1);
+          const full = sourceEntryName(entry);
+          const name = search ? full : full.split('/').at(-1);
           const act = entry.kind === 'file' ? fileAction(entry) : undefined;
           return (
             <div
@@ -183,13 +196,13 @@ export function SourceFilesBrowser({
                 <button
                   type="button"
                   className="min-w-0 flex-1 truncate text-left hover:underline hover:underline-offset-4"
-                  title={entry.path}
-                  onClick={() => onGo(entry.path)}
+                  title={full}
+                  onClick={() => onGo(entry.path, entry.remote_path)}
                 >
                   {name}
                 </button>
               ) : (
-                <span className="min-w-0 flex-1 truncate" title={entry.path}>
+                <span className="min-w-0 flex-1 truncate" title={full}>
                   {name}
                 </span>
               )}

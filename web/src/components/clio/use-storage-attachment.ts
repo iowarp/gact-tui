@@ -5,6 +5,7 @@ import type { SourceDownloadSelection } from './source-download-selection';
 type AttachmentInput = {
   source: ConnectedSourceState;
   path: string;
+  name?: string;
   draftId?: string;
   linked?: boolean;
 };
@@ -24,8 +25,8 @@ export function useStorageAttachment(
     if (!queued || operation?.state !== 'completed' || attached.current === operation.id) return;
     if (!queued.selection.linked && !downloaded) return;
     attached.current = operation.id;
-    const { path, draftId, linked, kind } = queued.selection;
-    (kind === 'file' ? attachFile : attachFolder)({ source, path, draftId, linked });
+    const { path, name, draftId, linked, kind } = queued.selection;
+    (kind === 'file' ? attachFile : attachFolder)({ source, path, name, draftId, linked });
   }, [queued, operation?.id, operation?.state, downloaded, source, attachFolder, attachFile]);
   return queue;
 }
