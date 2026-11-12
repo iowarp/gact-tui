@@ -400,8 +400,9 @@ function conciseModelName(modelId: string): string {
 }
 
 const GPT_FAMILY = /^gpt-(\d+(?:\.\d+)*)-(luna|sol|terra)$/;
-const CLAUDE_FAMILY = /^claude-(opus|sonnet|haiku)-(\d+)(?:[-.](\d{1,2}))?(?:-\d{8})?$/;
-const CLAUDE_FAMILY_LEGACY = /^claude-(\d+)(?:[-.](\d{1,2}))?-(opus|sonnet|haiku)(?:-\d{8})?$/;
+// Any family word (opus, sonnet, haiku and newer ones such as fable), then the version.
+const CLAUDE_FAMILY = /^claude-([a-z]+)-(\d+)(?:[-.](\d{1,2}))?(?:-\d{8})?$/;
+const CLAUDE_FAMILY_LEGACY = /^claude-(\d+)(?:[-.](\d{1,2}))?-([a-z]+)(?:-\d{8})?$/;
 
 /**
  * The model's family and version (gpt-6.1-luna → luna 6.1, claude-sonnet-5-5 →
