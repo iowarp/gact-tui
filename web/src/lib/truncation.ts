@@ -31,11 +31,26 @@ export function isTextTruncated(element: HTMLElement): boolean {
   if (lineClamp(style) !== 'none') return element.scrollHeight > element.clientHeight + 1;
   if (style.textOverflow !== 'ellipsis') return false;
   if (element.scrollWidth > element.clientWidth) return true;
+  // Parts that clip their own text (a name cut beside a label) overflow only
+  // inside themselves; their container is cut only when its scroll width says so.
+  if (clipsWithin(element)) return false;
   // scrollWidth rounds, so a sub-pixel cut (just the ellipsis) reads as fitting.
   const range = document.createRange();
   range.selectNodeContents(element);
   const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   return range.getBoundingClientRect().width > element.clientWidth - padding + 0.5;
+}
+
+/** Overflow values that hide what does not fit. */
+const CLIPPING = new Set(['hidden', 'clip', 'auto', 'scroll']);
+
+/** Whether an HTML part inside `element` hides its own overflow (icons do not count). */
+function clipsWithin(element: HTMLElement): boolean {
+  const descendants = element.querySelectorAll('*');
+  if (descendants.length > 40) return false;
+  return Array.from(descendants).some(
+    (part) => part instanceof HTMLElement && CLIPPING.has(getComputedStyle(part).overflowX),
+  );
 }
 
 /**

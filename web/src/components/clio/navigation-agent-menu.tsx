@@ -184,7 +184,7 @@ function statusLine(
       text: 'Resuming updates',
       label: 'Reconnecting',
       tone: 'warning',
-      className: 'text-warning-foreground dark:text-warning',
+      className: 'text-warning',
     };
   }
   if (stream === 'connecting') {
@@ -192,11 +192,12 @@ function statusLine(
   }
   if (updateReady) {
     // The state leads in amber and the agent follows muted, so a long agent
-    // name truncates before the state does.
+    // name truncates before the state does. The text takes the dot's amber,
+    // as the StatusIndicator's own warning word does.
     return {
       text: `Update ready, ${name}`,
       parts: ['Update ready', name],
-      leadClassName: 'font-medium text-warning-foreground dark:text-warning',
+      leadClassName: 'font-medium text-warning',
       label: 'Update ready',
       tone: 'warning',
     };
