@@ -1,6 +1,7 @@
 import type { SubagentRun } from '@clio/core/v3';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
+import { forgetRememberedViews, rememberedViewScope } from './remembered-view';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
 import { restoredWorkbenchState, saveWorkbenchState } from './workbench-tab-storage';
@@ -26,6 +27,14 @@ export function useWorkbenchTabState(
     saveWorkbenchState(workspaceId, { activeTabId, tabs, pinnedIds });
   }, [activeTabId, pinnedIds, tabs, workspaceId]);
   useReleaseClosedTabData(tabs);
+  // A closed tab's viewers open on their first view next time.
+  const openIds = useRef<readonly string[]>([]);
+  useEffect(() => {
+    const open = new Set(tabs.map((tab) => tab.id));
+    const closed = openIds.current.filter((id) => !open.has(id));
+    openIds.current = [...open];
+    forgetRememberedViews(closed.map((id) => rememberedViewScope(workspaceId, id)));
+  }, [tabs, workspaceId]);
 
   const shown = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
   const shownActiveTabId = shown.activeTabId;

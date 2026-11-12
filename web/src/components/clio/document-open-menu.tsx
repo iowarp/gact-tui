@@ -32,6 +32,20 @@ export function documentHasPdf(manifest: DocumentManifest | undefined) {
 }
 
 /**
+ * Export to PDF while an Office file's capabilities are still loading: the bar
+ * shows Download ▾ from its first paint, as it will once the file has loaded.
+ */
+export const PREPARING_PDF_EXPORT: FileViewerAction = {
+  kind: 'download',
+  label: 'PDF',
+  icon: FileTextIcon,
+  pending: true,
+  disabled: true,
+  description: 'Preparing the PDF…',
+  onSelect: () => undefined,
+};
+
+/**
  * A document's rows in the frame's Open ▾, so it has one Open like any file:
  * With another app edits its working copy (or shows a desktop copy in its
  * folder), PDF copy opens the rendition in a PDF app, Close working copy ends
@@ -42,6 +56,7 @@ export function documentHasPdf(manifest: DocumentManifest | undefined) {
 export function useDocumentOpenActions({
   artifact,
   manifest,
+  expectPdf = false,
   openPending,
   pdfPending,
   pdfUnavailable,
@@ -55,6 +70,8 @@ export function useDocumentOpenActions({
 }: {
   artifact: Artifact;
   manifest?: DocumentManifest;
+  /** Before its manifest loads, the document is known to have a PDF (an Office file). */
+  expectPdf?: boolean;
   openPending: boolean;
   pdfPending: boolean;
   /** Why no PDF can be made here, which turns Export to PDF off. */
@@ -80,7 +97,7 @@ export function useDocumentOpenActions({
   });
   const busy = openPending || pdfPending || revealPending;
   return useMemo<FileViewerAction[]>(() => {
-    if (!manifest) return [];
+    if (!manifest) return expectPdf ? [PREPARING_PDF_EXPORT] : [];
     const open = (application: DocumentApplication, format: DocumentOpenTarget['format']) =>
       onOpen({ kind: 'native', application, format });
     const rows: FileViewerAction[] = [];
@@ -153,6 +170,7 @@ export function useDocumentOpenActions({
     return rows;
   }, [
     manifest,
+    expectPdf,
     native,
     nativeOpen,
     pdf,

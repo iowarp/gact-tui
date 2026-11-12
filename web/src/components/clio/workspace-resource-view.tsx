@@ -53,6 +53,7 @@ import {
 import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
+import { useRememberedView } from './remembered-view';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 import { AttachedFolderIcon, hostFolderOf, resourceDisplayName } from './host-folder';
 import { HostFolderView } from './host-folder-view';
@@ -193,7 +194,7 @@ function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewPr
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const endpoint = settings.endpoint;
-  const [activeTab, setActiveTab] = useState('preview');
+  const [activeTab, setActiveTab] = useRememberedView(`resource:${resource.id}`, 'preview');
   const selectedTab = activeTab === 'source' ? 'preview' : activeTab;
   const preview = useQuery({
     queryKey: queryKeys.workspaceResourcePreview(

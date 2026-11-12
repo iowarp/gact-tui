@@ -10,7 +10,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { keepEqualBytes } from '@/lib/keep-equal-bytes';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { CodeIcon, EyeIcon } from 'lucide-react';
+import { BookOpenIcon, CodeIcon, EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
@@ -45,13 +45,16 @@ import {
 } from './artifact-custody';
 
 import { ClioDocumentWorkspace } from './document-workspace';
+import { PREPARING_PDF_EXPORT } from './document-open-menu';
+import { useFileViewerActions } from './file-viewer-action-context';
+
 
 import { HtmlFileInBrowser } from './html-in-browser';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { FileSourceView } from './file-source-view';
 import { ClioPdfPreview } from './pdf-preview';
-import { PendingZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, PendingZoomControls } from './viewer-zoom-controls';
 import {
   ResourceLoading,
   ViewerNoPreview,
@@ -68,6 +71,14 @@ import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 import { WorkspaceTextView } from './workspace-text-view';
 export { TextResourceView } from './workspace-text-view';
+
+const PREPARING_PDF_ROWS = [PREPARING_PDF_EXPORT];
+
+/** While an Office file loads, its Download ▾ already holds Export to PDF, off. */
+function PreparingPdfExport() {
+  useFileViewerActions(PREPARING_PDF_ROWS);
+  return null;
+}
 
 export function WorkspaceFileView({
   workspaceId,
@@ -210,7 +221,8 @@ export function WorkspaceFileView({
       }
       loading={
         <>
-          <PendingZoomControls label="PDF zoom" />
+          <PreparingPdfExport />
+          <PendingZoomControls label="PDF zoom" readout={<PendingPageReadout />} />
           <ResourceLoading label={`Opening ${fileName(path)}`} />
         </>
       }
@@ -226,7 +238,12 @@ export function WorkspaceFileView({
       source={source}
       showIdentity={!embedded}
       identity={embedded ? identity : undefined}
-      tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
+      tabs={[
+        // An Office file reads as its document from first paint, as it will once loaded.
+        officeMediaType(path)
+          ? { value: 'preview', label: 'Read document', icon: BookOpenIcon, content: preview }
+          : { value: 'preview', label: 'Preview', icon: EyeIcon, content: preview },
+      ]}
       lineage={
         embedded ? undefined : (
           <WorkspaceFileLineage path={path} sessionId={sessionId} workspaceId={workspaceId} />
