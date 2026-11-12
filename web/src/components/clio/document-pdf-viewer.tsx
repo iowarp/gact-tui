@@ -28,6 +28,17 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.15;
 
+/**
+ * The next zoom on the 100% ± 15% grid in `direction`, stopping at `limit`: from
+ * an off-grid size (a whole-page minimum) the first step lands back on the grid.
+ */
+function zoomStep(scale: number, direction: 1 | -1, limit: number) {
+  const steps = (scale - 1) / ZOOM_STEP;
+  const next =
+    1 + (direction > 0 ? Math.floor(steps + 1e-6) + 1 : Math.ceil(steps - 1e-6) - 1) * ZOOM_STEP;
+  return direction > 0 ? Math.min(limit, next) : Math.max(limit, next);
+}
+
 /** A box to show on one page: 0-based page, and x, y, width, height as fractions of it. */
 export interface PdfHighlight {
   page: number;
@@ -62,20 +73,27 @@ export function ClioDocumentPdfViewer({
   const [pageCount, setPageCount] = useState(0);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
-  // A width-fitted viewer (LaTeX) zooms out to the whole page, where zooming out stops.
-  const [fitOverride, setFitOverride] = useState<'page'>();
-  const fitMode = fitOverride ?? fit;
-  const atFit = scale <= MIN_ZOOM && fitMode === 'page';
-  const zoomIn = useCallback(() => setScale((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP)), []);
-  const zoomOut = useCallback(() => {
-    if (scale > MIN_ZOOM + 1e-6) setScale(Math.max(MIN_ZOOM, scale - ZOOM_STEP));
-    else setFitOverride('page');
-  }, [scale]);
-  const resetZoom = useCallback(() => {
-    setScale(MIN_ZOOM);
-    setFitOverride(undefined);
-  }, []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
+  const fitMode = fit;
+  const readingHeight = scroll.viewport > 0 ? Math.max(1, scroll.viewport - 26) : 0;
+  const pageWidth =
+    fitMode === 'page' ? fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) : hostWidth;
+  // A width-fitted viewer (LaTeX, a transcript card) zooms out in steps from the width
+  // the reader saw to the whole page, where zooming out stops; its % is of that width.
+  const minScale =
+    fitMode === 'width'
+      ? Math.min(
+          MIN_ZOOM,
+          fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) / Math.max(1, hostWidth),
+        )
+      : MIN_ZOOM;
+  const atFit = scale <= minScale + 1e-6;
+  const zoomIn = useCallback(() => setScale((value) => zoomStep(value, 1, MAX_ZOOM)), []);
+  const zoomOut = useCallback(
+    () => setScale((value) => zoomStep(value, -1, minScale)),
+    [minScale],
+  );
+  const resetZoom = useCallback(() => setScale(MIN_ZOOM), []);
   const [flinging, setFlinging] = useState(false);
   const lastScrollRef = useRef({ top: 0, at: 0 });
   const settleRef = useRef<number | undefined>(undefined);
@@ -193,9 +211,6 @@ export function ClioDocumentPdfViewer({
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
   // discarded rather than trusted at the new geometry.
-  const readingHeight = scroll.viewport > 0 ? Math.max(1, scroll.viewport - 26) : 0;
-  const pageWidth =
-    fitMode === 'page' ? fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) : hostWidth;
   const geometry = `${fitMode}:${hostWidth}:${readingHeight}:${scale}`;
   const measurePage = useCallback(
     (element: HTMLDivElement | null) => {
@@ -444,13 +459,15 @@ export function ClioDocumentPdfViewer({
         >
           {/* No transitions on the page boxes: a spacer's height must hold the moment it
               is set, or a return to the reader's place clamps against the old extent
-              (the reduced-motion rule gives every property a 1ms duration). */}
+              (the reduced-motion rule gives every property a 1ms duration). A spacer's
+              pages each carry their gap, and the grid adds one more beside the spacer:
+              it gives that one back, so every page sits at its whole-document place. */}
           <div className="grid gap-3 [&_*]:transition-none">
             <div
               aria-hidden="true"
               data-pdf-spacer="leading"
               style={{
-                height: `${pageWindow.leadingSpacerPx}px`,
+                height: `${Math.max(0, pageWindow.leadingSpacerPx - PDF_PAGE_GAP_PX)}px`,
                 display: pageWindow.leadingSpacerPx > 0 ? undefined : 'none',
               }}
             />
@@ -474,7 +491,7 @@ export function ClioDocumentPdfViewer({
               aria-hidden="true"
               data-pdf-spacer="trailing"
               style={{
-                height: `${pageWindow.trailingSpacerPx}px`,
+                height: `${Math.max(0, pageWindow.trailingSpacerPx - PDF_PAGE_GAP_PX)}px`,
                 display: pageWindow.trailingSpacerPx > 0 ? undefined : 'none',
               }}
             />

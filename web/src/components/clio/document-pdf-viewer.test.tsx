@@ -139,7 +139,7 @@ describe('ClioDocumentPdfViewer', () => {
     },
   );
 
-  it('zooms an explicit width view out to a complete page, where zooming out stops', async () => {
+  it('zooms an explicit width view out in steps to a complete page, where zooming out stops', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
     render(
@@ -150,13 +150,20 @@ describe('ClioDocumentPdfViewer', () => {
       />,
     );
     const page = await screen.findByText('PDF page 1');
-    expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value).toBeGreaterThan(600);
-    // Two zoom icons only: zooming out from the fitted width reaches page fit.
+    const fitted = Number(page.dataset.testPdfWidth);
+    expect(fitted * pageAspectRatio.value).toBeGreaterThan(600);
+    // Two zoom icons only: zooming out from the fitted width steps down to page fit.
     expect(screen.queryByRole('button', { name: /reset|fit/iu })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
-    expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value + 26).toBeLessThanOrEqual(600);
-    expect(Number(page.dataset.testPdfScale)).toBe(1);
-    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
+    const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
+    await userEvent.click(zoomOut);
+    // One step is 15% of the width the reader saw, not a jump to the whole page.
+    expect(Number(page.dataset.testPdfScale)).toBeCloseTo(0.85);
+    expect(zoomOut).toBeEnabled();
+    for (let step = 0; step < 20 && !(zoomOut as HTMLButtonElement).disabled; step += 1)
+      await userEvent.click(zoomOut);
+    const scale = Number(page.dataset.testPdfScale);
+    expect(fitted * scale * pageAspectRatio.value + 26).toBeLessThanOrEqual(600.5);
+    expect(zoomOut).toBeDisabled();
   });
 
   it('captures modifier-wheel zoom inside the PDF and leaves ordinary scrolling alone', async () => {
