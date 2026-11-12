@@ -15,6 +15,7 @@ import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import {
   ATTENTION_REVEAL_EVENT,
+  focusLost,
   isEmptyComposer,
   pendingInteractionDomId,
 } from './interaction-control';
@@ -179,10 +180,29 @@ export function ClioPendingInteractions({
     setSelection({ id: pending[next]!.id, index: next });
   };
   const hasInteractiveSurface = selected?.kind === 'a2ui' || Boolean(selected?.source.surface_id);
+  // The control that answered each card, so a failed answer hands focus back to
+  // it once the card is enabled again rather than leaving focus on the page.
+  const answeredFrom = useRef(new Map<string, HTMLElement>());
+  useEffect(() => {
+    for (const [id, control] of answeredFrom.current) {
+      if (respondingIds.has(id)) continue;
+      answeredFrom.current.delete(id);
+      if (!responseErrors.has(id) || !focusLost()) continue;
+      const usable =
+        control.isConnected && !(control instanceof HTMLButtonElement && control.disabled);
+      const card = document
+        .getElementById(pendingInteractionDomId(id))
+        ?.closest<HTMLElement>('[data-slot="ask-card"]');
+      (usable ? control : card)?.focus({ preventScroll: true });
+    }
+  }, [respondingIds, responseErrors]);
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
       responseInFlight.current.add(interaction.id);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && dockRef.current?.contains(active))
+        answeredFrom.current.set(interaction.id, active);
       setRespondingIds(new Set(responseInFlight.current));
       setResponseErrors((current) => dropEntry(current, interaction.id));
       try {

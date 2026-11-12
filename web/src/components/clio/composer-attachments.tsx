@@ -58,11 +58,14 @@ export interface ResourceUploadFailure {
 export function ClioComposerAttachments({
   onPrepareFiles,
   onDiscardFiles,
+  onRemovingChange,
   resources = [],
   uploadFailure,
   uploadProgress,
 }: {
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
+  /** True while an uploaded attachment's discard is in flight. */
+  onRemovingChange?: (removing: boolean) => void;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -83,6 +86,10 @@ export function ClioComposerAttachments({
     Record<string, ResourceUploadFailure>
   >({});
   const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+  const removingIds = useRef(new Set<string>());
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(() => new Set());
+  const removingAny = removing.size > 0;
+  useEffect(() => onRemovingChange?.(removingAny), [onRemovingChange, removingAny]);
   // A keyboard removal hands focus on once the removed chip has left the DOM.
   const removalFocus = useRef<{
     editor: HTMLDivElement | null;
@@ -191,6 +198,7 @@ export function ClioComposerAttachments({
   };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
+    if (removingIds.current.has(file.id)) return;
     // Removing the chip that holds focus keeps focus in the composer: on the
     // chip that takes its place, or else the editor.
     const focused = document.activeElement;
@@ -209,19 +217,29 @@ export function ClioComposerAttachments({
       if (group && index >= 0) removalFocus.current = { editor, group, id: file.id, index };
       attachments.remove(file.id);
     };
+    if (!preparedResources[file.id]) {
+      // Still uploading, or failed: nothing the person must keep track of. The chip
+      // leaves now, so its upload can't restart, and the service discards whatever
+      // part of it arrived.
+      forget();
+      void onDiscardFiles?.([file]).catch(() => undefined);
+      return;
+    }
+    const setRemovingId = (on: boolean) => {
+      if (on) removingIds.current.add(file.id);
+      else removingIds.current.delete(file.id);
+      setRemoving(new Set(removingIds.current));
+    };
+    setRemovingId(true);
     try {
       await onDiscardFiles?.([file]);
       forget();
     } catch (error) {
-      // An upload that already failed left nothing the person must keep track
-      // of, so it is removed even when the service can't confirm the discard.
-      if (attachmentFailures[file.id]) {
-        forget();
-        return;
-      }
       toast.error('Could not remove attachment', {
         description: composerFailureReason(error, 'The service did not remove it.'),
       });
+    } finally {
+      setRemovingId(false);
     }
   };
 
@@ -284,6 +302,7 @@ export function ClioComposerAttachments({
                       mediaType={file.mediaType || ''}
                       size={(file as UploadableFilePart).file?.size ?? resource?.declared_size}
                       progress={progress}
+                      removing={removing.has(file.id)}
                       stages={stages}
                       onOpen={() => setPreviewId(file.id)}
                       onRemove={() => void removeFile(file)}
@@ -294,7 +313,13 @@ export function ClioComposerAttachments({
                       }
                     />
                   ) : (
-                    <Attachment data={file} onRemove={() => void removeFile(file)}>
+                    <Attachment
+                      aria-busy={removing.has(file.id) || undefined}
+                      className={cn(removing.has(file.id) && 'opacity-60')}
+                      data={file}
+                      onRemove={() => void removeFile(file)}
+                    >
+                      {removing.has(file.id) ? <span className="sr-only">Removing</span> : null}
                       <button
                         aria-label={`Open ${filename}`}
                         className={cn(

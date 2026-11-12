@@ -634,12 +634,16 @@ export function ClioAttentionCenter({
                       <ListRow
                         description={NOTIFICATION_ASK_DETAIL}
                         expanded={expanded}
-                        hoverText={{ description: NOTIFICATION_ASK_DETAIL }}
-                        icon={<BellIcon className="text-info" />}
+                        hoverText={{
+                          title: `Get notified when ${vocab.agent} needs you`,
+                          description: NOTIFICATION_ASK_DETAIL,
+                        }}
+                        icon={<BellIcon />}
                         title={
-                          <span className="font-semibold text-foreground">
-                            Get notified when {vocab.agent} needs you
-                          </span>
+                          <>
+                            <span className="font-semibold text-foreground">Get notified</span> when{' '}
+                            {vocab.agent} needs you
+                          </>
                         }
                         variant="notice"
                       />
@@ -693,13 +697,19 @@ export function ClioAttentionCenter({
                       <ListRow
                         description={memorySources}
                         expanded={expanded}
-                        hoverText={{ description: memorySources }}
+                        hoverText={{
+                          title: `${plural(memoryCount, 'memory', 'memories')} to review`,
+                          description: memorySources,
+                        }}
                         icon={<BrainCircuitIcon />}
                         primaryAction="Review"
                         title={
-                          <span className="font-semibold text-foreground">
-                            {plural(memoryCount, 'memory', 'memories')} to review
-                          </span>
+                          <>
+                            <span className="font-semibold text-foreground">
+                              {plural(memoryCount, 'memory', 'memories')}
+                            </span>{' '}
+                            to review
+                          </>
                         }
                         variant="notice"
                       />
