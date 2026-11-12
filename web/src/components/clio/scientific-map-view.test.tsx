@@ -204,6 +204,44 @@ describe('ClioScientificMapView zone selection', () => {
       features: [{ id: 'b' }],
     });
   });
+  it('redraws handed-over geometry whose trajectory density differs', () => {
+    const track = {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          id: 'track',
+          properties: {},
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: [
+              [0, 0],
+              [1, 1],
+            ],
+          },
+        },
+      ],
+    };
+    const many = Array.from({ length: 1_001 }, (_, index) => ({
+      id: `p${index}`,
+      label: `Point ${index}`,
+      latitude: index % 80,
+      longitude: index % 170,
+    }));
+    const dense = render(
+      <ClioScientificMapView points={many} geometry={track} geometrySelectionByPoints onSelect={vi.fn()} />,
+    );
+    const linePaint = () =>
+      (fakeMap.__layers.get('clio-map-geometry-line')?.paint as Record<string, unknown> | undefined)?.[
+        'line-opacity'
+      ];
+    expect(linePaint()).not.toBe(1);
+    dense.unmount();
+
+    render(<ClioScientificMapView points={POINTS} geometry={track} onSelect={vi.fn()} />);
+    expect(fakeMap.removeSource).toHaveBeenCalledWith('clio-map-geometry');
+    expect(linePaint()).toBe(1);
+  });
   it('covers the canvas with a loading status when the map is slow to first settle', () => {
     vi.useFakeTimers();
     try {

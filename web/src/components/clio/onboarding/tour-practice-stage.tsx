@@ -60,10 +60,13 @@ function TracksMapWarmup() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none invisible absolute inset-x-0 top-0 mx-auto w-full max-w-4xl px-4"
+      className="pointer-events-none invisible absolute inset-0 overflow-hidden"
+      data-tour-map-warmup=""
       inert
     >
-      <ClioMapArtifactSource {...PRACTICE_TRACKS_MAP} setSelection={keepSelection} />
+      <div className="mx-auto w-full max-w-4xl px-4">
+        <ClioMapArtifactSource {...PRACTICE_TRACKS_MAP} setSelection={keepSelection} />
+      </div>
     </div>
   );
 }

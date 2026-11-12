@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { findTourAnchor } from '@/lib/onboarding/tour-anchors';
 import { TOUR_SCRIPT_STATUS, type TourStep } from '@/lib/onboarding/tour-script';
 import { cn } from '@/lib/utils';
+import { clearOfCard } from './tour-spotlight';
 
 const PAD = 6;
 const GAP = 12;
@@ -253,39 +254,6 @@ function cardPosition(
   return candidates.reduce((best, next) => (worse(next, best) < 0 ? next : best));
 }
 
-/** The least of a spotlight left lit beside the card before the card may cover it instead. */
-const MIN_LIT = 48;
-
-/**
- * A card with no room beside the spotlight stacks over one end of it (a phone's
- * full-height practice stage). The lit area then starts past the card, so the card
- * never covers what the spotlight shows.
- */
-function clearOfCard(
-  box: Box | undefined,
-  card: CardPlacement | undefined,
-  cardHeight: number,
-): Box | undefined {
-  if (!box || !card) return box;
-  const bottom = box.top + box.height;
-  const cardBottom = card.top + cardHeight;
-  const covers =
-    card.left < box.left + box.width &&
-    card.left + card.width > box.left &&
-    card.top < bottom &&
-    cardBottom > box.top;
-  if (!covers) return box;
-  if (card.top <= box.top) {
-    const top = cardBottom + GAP;
-    return bottom - top >= MIN_LIT ? { ...box, top, height: bottom - top } : box;
-  }
-  if (cardBottom >= bottom) {
-    const end = card.top - GAP;
-    return end - box.top >= MIN_LIT ? { ...box, height: end - box.top } : box;
-  }
-  return box;
-}
-
 export interface TourOverlayProps {
   step: TourStep;
   /** The learner did what the step asked. */
@@ -325,7 +293,7 @@ export function TourOverlay({
     card.current?.focus({ preventScroll: true });
   }, [step.id]);
   const position = cardPosition(anchorBox, cardHeight, focus);
-  const box = clearOfCard(anchorBox, position, cardHeight);
+  const box = clearOfCard(anchorBox, position, cardHeight, GAP);
   const last = index === count - 1;
   const titleId = `tour-step-${step.id}-title`;
   const bodyId = `tour-step-${step.id}-body`;

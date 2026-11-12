@@ -503,8 +503,9 @@ export function ClioScientificMap({
       ) : null}
     </>
   );
-  // Once preloaded, the renderer mounts in this frame instead of after a fallback.
-  const ClioScientificMapView = scientificMapView();
+  // Picked once per mount: a preloaded renderer mounts in this frame instead of after a
+  // fallback, and the element type never switches under a mounted map (which would remount it).
+  const [ClioScientificMapView] = useState(scientificMapView);
 
   return (
     <div

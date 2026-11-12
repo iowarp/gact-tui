@@ -112,8 +112,9 @@ const pendingGeometryTeardowns = new WeakMap<MapLibreMap, () => void>();
 /** How long a released map keeps its geometry for a view that shows the same data. */
 const GEOMETRY_HANDOVER_MS = 1_000;
 
-function geometryKey(geometry: FeatureCollection): string {
-  return `${geometry.features.length}:${geometry.features.map((feature) => String(feature.id)).join(',')}`;
+/** The features and the layer styling they were drawn with; a handover keeps only an exact match. */
+function geometryKey(geometry: FeatureCollection, denseTrajectories: boolean): string {
+  return `${denseTrajectories ? 'dense' : 'sparse'}:${geometry.features.length}:${geometry.features.map((feature) => String(feature.id)).join(',')}`;
 }
 
 function removeGeometryLayers(map: MapLibreMap) {
@@ -364,7 +365,7 @@ export function ClioScientificMapView({
     const canvas = map.getCanvas();
     const previousCursor = canvas.style.cursor;
     const owner = Symbol('clio-map-geometry-owner');
-    const key = geometryKey(geometry);
+    const key = geometryKey(geometry, denseTrajectories);
     const ensureGeometryLayers = () => {
       // Raster tile requests can fail while the base style and its layer are
       // already usable. `isStyleLoaded()` remains false in that case and would
