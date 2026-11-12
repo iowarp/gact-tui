@@ -83,6 +83,39 @@ export function topLeftViewport(zoom: number) {
   return { x: GRAPH_MARGIN, y: GRAPH_MARGIN, zoom };
 }
 
+/**
+ * The drawing at `zoom`, anchored top-left like `topLeftViewport` when it fits;
+ * along an axis where it doesn't, it scrolls just far enough to centre `focus`
+ * (a point in graph units) without running past the drawing's own edge.
+ */
+export function focusViewport({
+  pane,
+  width,
+  height,
+  focus,
+  zoom,
+  margin = GRAPH_MARGIN,
+}: {
+  pane: PaneSize | undefined;
+  width: number;
+  height: number;
+  focus: { x: number; y: number } | undefined;
+  zoom: number;
+  margin?: number;
+}) {
+  const along = (paneSize: number, size: number, at: number) => {
+    const last = paneSize - margin - size * zoom;
+    if (last >= margin) return margin;
+    return Math.min(margin, Math.max(last, paneSize / 2 - at * zoom));
+  };
+  if (!pane || !focus) return { x: margin, y: margin, zoom };
+  return {
+    x: Math.round(along(pane.w, width, focus.x)),
+    y: Math.round(along(pane.h, height, focus.y)),
+    zoom,
+  };
+}
+
 /** A pane's size, measured once per frame while it resizes. */
 export function usePaneSize(container: RefObject<HTMLElement | null>) {
   const [size, setSize] = useState<PaneSize>();

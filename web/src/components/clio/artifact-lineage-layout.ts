@@ -55,7 +55,12 @@ export interface LineageGraphLayout {
   height: number;
   files: number;
   actions: number;
+  /** The spread it was placed with, so a re-layout keeps the same columns. */
+  spread: LineageSpread;
 }
+
+/** Where the reader left each node: ELK keeps their columns and order when it re-lays the graph. */
+export type LineageHints = Readonly<Record<string, { x: number; y: number }>>;
 
 export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
@@ -127,9 +132,13 @@ export function canOpenLineageNode(node: LineageGraphNode) {
 export function layoutArtifactLineage(
   artifact: Artifact,
   lineage: ArtifactLineage,
-  { earlier = 0, spread }: { earlier?: number; spread?: LineageSpread } = {},
+  {
+    earlier = 0,
+    spread,
+    hints,
+  }: { earlier?: number; spread?: LineageSpread; hints?: LineageHints } = {},
 ): Promise<LineageGraphLayout> {
-  return placeLineage(sketchArtifactLineage(artifact, lineage, { earlier }), spread);
+  return placeLineage(sketchArtifactLineage(artifact, lineage, { earlier }), spread, hints);
 }
 
 /** The nodes and links `layoutArtifactLineage` places. */
@@ -329,8 +338,9 @@ export function layoutVersionChain(
   current: number,
   now = Date.now(),
   spread: LineageSpread = {},
+  hints?: LineageHints,
 ): Promise<LineageGraphLayout> {
-  return placeLineage(sketchVersionChain(artifact, versions, current, now), spread);
+  return placeLineage(sketchVersionChain(artifact, versions, current, now), spread, hints);
 }
 
 /** The nodes and links `layoutVersionChain` places. */
@@ -400,7 +410,8 @@ function loadElk(): Promise<Elk> {
  * ELK's layered layout, left to right: it orders each column to keep edges from
  * crossing and routes every edge in right angles around the nodes. Siblings keep
  * the sketch's order where that costs no crossing, so the producing tool sits
- * above an outside edit that feeds the same file.
+ * above an outside edit that feeds the same file. Edges into or out of one node
+ * share a single port, so a node's inputs arrive as one trunk.
  */
 const ELK_OPTIONS = {
   'elk.algorithm': 'layered',
@@ -409,7 +420,7 @@ const ELK_OPTIONS = {
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
   'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-  'elk.layered.mergeEdges': 'false',
+  'elk.layered.mergeEdges': 'true',
   'elk.spacing.nodeNode': String(ROW_GAP),
   'elk.spacing.edgeNode': '12',
   'elk.spacing.edgeEdge': '8',
@@ -418,13 +429,24 @@ const ELK_OPTIONS = {
   'elk.padding': `[top=12,left=${MARGIN},bottom=12,right=${MARGIN}]`,
 } as const;
 
+/**
+ * With hints, ELK takes each node's column from its x and its place in the column
+ * from its y, then places and routes everything again: a dropped node lands in
+ * the nearest column and order, and no edge runs through a node.
+ */
+const HINTED_OPTIONS = {
+  'elk.layered.layering.strategy': 'INTERACTIVE',
+  'elk.layered.crossingMinimization.strategy': 'INTERACTIVE',
+} as const;
+
 /** The corner radius of a routed edge, as the spec rounds its connectors. */
 const CORNER = 6;
 
-/** Places a sketch's nodes and routes its edges with ELK. */
+/** Places a sketch's nodes and routes its edges with ELK, from `hints` when the reader moved nodes. */
 export async function placeLineage(
   sketch: LineageSketch,
   spread: LineageSpread = {},
+  hints?: LineageHints,
 ): Promise<LineageGraphLayout> {
   // Recorded steps come before gaps, so ELK's model order puts producers first.
   const placed = [...sketch.nodes].sort(
@@ -438,12 +460,14 @@ export async function placeLineage(
     id: 'lineage',
     layoutOptions: {
       ...ELK_OPTIONS,
+      ...(hints ? HINTED_OPTIONS : {}),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(spread.rankGap ?? RANK_GAP),
     },
     children: placed.map((node) => ({
       id: node.id,
       width: widths.get(node.id),
       height: LINEAGE_NODE_HEIGHT,
+      ...hints?.[node.id],
     })),
     edges: known.map(
       (link, index): ElkExtendedEdge => ({
@@ -481,6 +505,7 @@ export async function placeLineage(
     edges,
     width,
     height,
+    spread,
     ...lineageCounts({ nodes, links: known }),
   };
 }

@@ -13,6 +13,8 @@ import {
   type Node,
   type NodeChange,
   type NodeProps,
+  type OnNodeDrag,
+  type Viewport,
   type XYPosition,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -30,6 +32,7 @@ import {
   sketchArtifactLineage,
   type LineageGraphLayout,
   type LineageGraphNode,
+  type LineageHints,
   type LineageSpread,
 } from './artifact-lineage-layout';
 import type { LineageActivity } from './artifact-lineage-view';
@@ -37,7 +40,7 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { useFileViewerFacts } from './file-viewer-facts';
 import { ApplyViewport, GraphControls } from './graph-controls';
 import { GraphEdgeFade } from './graph-edge-fade';
-import { fitWidth, usePaneSize } from './graph-fit';
+import { focusViewport, fitWidth, usePaneSize } from './graph-fit';
 
 /**
  * What the service recorded about one file, drawn as the spec's node graph.
@@ -69,10 +72,10 @@ export function ArtifactLineageGraph({
   );
   const chained = Boolean(unfolded && version && versions?.length);
   const build = useCallback(
-    (spread: LineageSpread) =>
+    (spread: LineageSpread, hints?: LineageHints) =>
       chained && version && versions
-        ? layoutVersionChain(artifact, versions, version, undefined, spread)
-        : layoutArtifactLineage(artifact, lineage, { earlier, spread }),
+        ? layoutVersionChain(artifact, versions, version, undefined, spread, hints)
+        : layoutArtifactLineage(artifact, lineage, { earlier, spread, hints }),
     [artifact, chained, earlier, lineage, version, versions],
   );
   useFileViewerFacts([
@@ -176,9 +179,14 @@ function LineageNode({
 
 /** The canvas's inset around the drawing when it opens. Unit: CSS px. */
 const LINEAGE_CANVAS_PADDING = 14;
-/** Fit (the zoom row's frame button) zooms out this far so the whole lineage is in view. */
-const FIT_FLOOR = 0.15;
+/**
+ * Fit (the zoom row's frame button) zooms out at most this far: names stay legible,
+ * and a lineage still wider than the pane is a pan away.
+ */
+const FIT_FLOOR = 0.6;
 const FIT = { padding: 0.06, minZoom: FIT_FLOOR, maxZoom: 1 };
+/** The wheel and pinch zoom out past Fit to this, for an overview of the drawing's shape. */
+const MIN_ZOOM = 0.4;
 /** While the pane resizes, the layout waits this long for it to settle. Unit: ms. */
 const RELAYOUT_WAIT = 80;
 
@@ -188,7 +196,7 @@ const RELAYOUT_WAIT = 80;
  * waits briefly so the first drawing is the right one.
  */
 function useLineageLayout(
-  build: (spread: LineageSpread) => Promise<LineageGraphLayout>,
+  build: (spread: LineageSpread, hints?: LineageHints) => Promise<LineageGraphLayout>,
   room: number | undefined,
 ) {
   const [state, setState] = useState<{ graph?: LineageGraphLayout; failed?: boolean }>({});
@@ -242,7 +250,7 @@ function LineageFlowNodeView({ data }: NodeProps<LineageFlowNode>) {
 const EDGE_STROKE = 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)';
 const GAP_STROKE = 'color-mix(in oklab, var(--warning) 80%, transparent)';
 
-/** ELK's routed edge; after a drag, a right-angle step between the moved ends. */
+/** ELK's routed edge; while an end is being dragged, a right-angle step between the moved ends. */
 function LineageEdgeView({
   id,
   data,
@@ -282,9 +290,10 @@ const nodeTypes = { lineage: LineageFlowNodeView };
 const edgeTypes = { lineage: LineageEdgeView };
 
 /**
- * The lineage canvas: a dot grid with ELK's layered drawing over it. It opens
- * from the top-left at a readable scale; the reader zooms (wheel, pinch, the
- * zoom row or + ? 0), pans the canvas and drags nodes to untangle a view.
+ * The lineage canvas: a dot grid with ELK's layered drawing over it. It opens at a
+ * readable scale with the opened file in view; the reader zooms (wheel, pinch, the
+ * zoom row or + ? 0), pans the canvas and drags nodes, and ELK re-lays the drawing
+ * around each drop.
  */
 function LineageGraph({
   build,
@@ -292,7 +301,7 @@ function LineageGraph({
   label,
   onOpen,
 }: {
-  build: (spread: LineageSpread) => Promise<LineageGraphLayout>;
+  build: (spread: LineageSpread, hints?: LineageHints) => Promise<LineageGraphLayout>;
   self: Artifact;
   label: string;
   onOpen?: (node: LineageGraphNode) => void;
@@ -301,16 +310,33 @@ function LineageGraph({
   const pane = usePaneSize(canvas);
   const room = pane ? pane.w - 2 * LINEAGE_CANVAS_PADDING : undefined;
   // A roomy pane (a maximized tab) spreads the drawing: whole names, then wider columns.
-  const { graph, failed } = useLineageLayout(build, room);
-  // Fits the pane's width while names stay readable; below that floor the rest is a pan away.
-  const zoom = graph ? fitWidth(pane?.w, graph.width, LINEAGE_CANVAS_PADDING) : 1;
+  const { graph: fitted, failed } = useLineageLayout(build, room);
+  // The reader's drops re-lay the drawing; a new fit for the pane starts from ELK's own.
+  const [relaid, setRelaid] = useState<{
+    from: LineageGraphLayout;
+    graph: LineageGraphLayout;
+  }>();
+  const graph = relaid && relaid.from === fitted ? relaid.graph : fitted;
+  const turn = useRef(0);
+  const relayout = useCallback(
+    (hints: LineageHints) => {
+      if (!fitted) return;
+      const mine = ++turn.current;
+      build(fitted.spread, hints).then(
+        (next) => mine === turn.current && setRelaid({ from: fitted, graph: next }),
+        () => undefined,
+      );
+    },
+    [build, fitted],
+  );
+  const viewport = useMemo(() => openingViewport(fitted, pane), [fitted, pane]);
   return (
     <section
       ref={canvas}
       aria-label={label}
       aria-busy={!graph && !failed ? true : undefined}
       data-slot="lineage-canvas"
-      data-zoom={graph ? zoom.toFixed(2) : undefined}
+      data-zoom={graph ? viewport.zoom.toFixed(2) : undefined}
       className="relative h-full min-h-0 min-w-0 overflow-hidden"
     >
       {graph ? (
@@ -318,9 +344,10 @@ function LineageGraph({
           key={label}
           graph={graph}
           self={self}
-          zoom={zoom}
+          viewport={viewport}
           region={canvas}
           onOpen={onOpen}
+          onRelayout={relayout}
         />
       ) : failed ? (
         <p className="p-3.5 text-[12px] text-muted-foreground">
@@ -331,18 +358,40 @@ function LineageGraph({
   );
 }
 
+/**
+ * Fits the pane's width while names stay readable; past that floor the drawing
+ * scrolls so the opened file sits mid-pane and the rest is a pan away.
+ */
+function openingViewport(
+  graph: LineageGraphLayout | undefined,
+  pane: { w: number; h: number } | undefined,
+): Viewport {
+  if (!graph) return { x: LINEAGE_CANVAS_PADDING, y: LINEAGE_CANVAS_PADDING, zoom: 1 };
+  const self = graph.nodes.find((node) => node.kind === 'self');
+  return focusViewport({
+    pane,
+    width: graph.width,
+    height: graph.height,
+    focus: self && { x: self.x + self.width / 2, y: self.y + LINEAGE_NODE_HEIGHT / 2 },
+    zoom: fitWidth(pane?.w, graph.width, LINEAGE_CANVAS_PADDING),
+    margin: LINEAGE_CANVAS_PADDING,
+  });
+}
+
 function LineageFlow({
   graph,
   self,
-  zoom,
+  viewport,
   region,
   onOpen,
+  onRelayout,
 }: {
   graph: LineageGraphLayout;
   self: Artifact;
-  zoom: number;
+  viewport: Viewport;
   region: RefObject<HTMLElement | null>;
   onOpen?: (node: LineageGraphNode) => void;
+  onRelayout?: (hints: LineageHints) => void;
 }) {
   // Where the reader dragged nodes to, for this layout only: a new layout starts clean.
   const [moved, setMoved] = useState<{
@@ -398,7 +447,22 @@ function LineageFlow({
     },
     [graph],
   );
-  const viewport = { x: LINEAGE_CANVAS_PADDING, y: LINEAGE_CANVAS_PADDING, zoom };
+  // On drop, ELK re-lays the drawing from where every node now sits.
+  const onNodeDragStop = useCallback<OnNodeDrag<LineageFlowNode>>(
+    (_event, _node, dropped) => {
+      const placed = new Map(graph.nodes.map((node) => [node.id, node]));
+      const shifted = dropped.filter((node) => {
+        const before = placed.get(node.id);
+        return !before || before.x !== node.position.x || before.y !== node.position.y;
+      });
+      if (!shifted.length || !onRelayout) return;
+      const hints: Record<string, XYPosition> = {};
+      for (const node of graph.nodes) hints[node.id] = at?.[node.id] ?? { x: node.x, y: node.y };
+      for (const node of shifted) hints[node.id] = node.position;
+      onRelayout(hints);
+    },
+    [at, graph, onRelayout],
+  );
   return (
     <ReactFlow<LineageFlowNode, LineageFlowEdge>
       defaultViewport={viewport}
@@ -407,7 +471,8 @@ function LineageFlow({
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
-      minZoom={FIT_FLOOR}
+      onNodeDragStop={onNodeDragStop}
+      minZoom={MIN_ZOOM}
       maxZoom={2}
       nodesConnectable={false}
       nodesFocusable={false}

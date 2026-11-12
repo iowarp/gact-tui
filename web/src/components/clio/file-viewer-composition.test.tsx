@@ -278,8 +278,10 @@ describe('source mode and file identity edge cases', () => {
     const source = await screen.findByRole('region', { name: 'Source of long-row.py' });
 
     expect(source.className).toContain('[&_pre]:whitespace-pre-wrap');
-    // Continuation rows hang under the code, not under the line number.
-    expect(source.className).toContain('[&_pre_code>span]:-indent-12');
+    // Continuation rows hang under the code and its indent, not under the line number.
+    expect(source.className).toContain(
+      '[&_pre_code>span]:[text-indent:calc(-3rem_-_var(--indent,0ch))]',
+    );
     expect(source).toHaveTextContent(row);
     expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
 

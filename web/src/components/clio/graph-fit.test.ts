@@ -6,6 +6,7 @@ import {
   fitColumns,
   fitHeight,
   fitWidth,
+  focusViewport,
   graphEdges,
 } from './graph-fit';
 
@@ -42,6 +43,25 @@ describe('graph fit', () => {
     expect(fitWidth(390, 400, 14)).toBeCloseTo(362 / 400);
     expect(fitWidth(390, 640, 14)).toBe(GRAPH_MIN_ZOOM);
     expect(fitWidth(undefined, 640, 14)).toBe(1);
+  });
+
+  it('opens a wide drawing on its focus, clamped to the drawing’s edges', () => {
+    const pane = { w: 400, h: 300 };
+    // Fits: anchored top-left like the other graphs.
+    expect(
+      focusViewport({ pane, width: 300, height: 200, focus: { x: 250, y: 50 }, zoom: 1 }),
+    ).toEqual({ x: GRAPH_MARGIN, y: GRAPH_MARGIN, zoom: 1 });
+    // Wider than the pane: the focus is centred across, still top-anchored down.
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 800, y: 50 }, zoom: 1 }),
+    ).toEqual({ x: -600, y: GRAPH_MARGIN, zoom: 1 });
+    // A focus at the far end stops at the drawing's last column, not past it.
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 1590, y: 50 }, zoom: 1 }).x,
+    ).toBe(400 - GRAPH_MARGIN - 1600);
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 10, y: 50 }, zoom: 1 }).x,
+    ).toBe(GRAPH_MARGIN);
   });
 
   it('cues each pane edge the drawing continues past, level with its visible middle', () => {

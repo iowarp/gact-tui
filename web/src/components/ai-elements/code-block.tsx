@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { copyText } from '@/lib/clipboard';
+import { splitIndent } from '@/lib/source-indent';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import type { ComponentProps, CSSProperties, HTMLAttributes } from 'react';
 import {
@@ -83,7 +84,8 @@ const LINE_NUMBER_CLASSES = cn(
   'before:select-none',
 );
 
-// Line rendering component
+// Line rendering component. The indent is unbreakable and exposed as `--indent`
+// so a wrapping view can hang continuation rows at the line's own indent.
 const LineSpan = ({
   keyedLine,
   showLineNumbers,
@@ -92,18 +94,30 @@ const LineSpan = ({
   keyedLine: KeyedLine;
   showLineNumbers: boolean;
   diff: boolean;
-}) => (
-  <span
-    className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
-    data-diff-line={
-      diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
-    }
-  >
-    {keyedLine.tokens.length === 0
-      ? '\n'
-      : keyedLine.tokens.map(({ token, key }) => <TokenSpan key={key} token={token} />)}
-  </span>
-);
+}) => {
+  const { lead, columns, rest } = splitIndent(keyedLine.tokens.map(({ token }) => token));
+  return (
+    <span
+      className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
+      style={columns ? ({ '--indent': `${columns}ch` } as CSSProperties) : undefined}
+      data-diff-line={
+        diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
+      }
+    >
+      {keyedLine.tokens.length === 0 ? (
+        '\n'
+      ) : (
+        <>
+          {lead && <span className="whitespace-pre">{lead}</span>}
+          {rest.map((token, index) => (
+            // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+            <TokenSpan key={`${keyedLine.key}-${index}`} token={token} />
+          ))}
+        </>
+      )}
+    </span>
+  );
+};
 
 /** Classify unified-diff syntax, not tool names or model result keys. */
 function diffLineKind(line: string): string {
@@ -161,18 +175,45 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
 // (web/src/theme/themes.css) without re-tokenizing.
 const createLazyHighlighter = async (language: BundledLanguage) => {
   const { createCssVariablesTheme, createHighlighter } = await import('shiki');
-  return createHighlighter({
-    langs: [language],
-    themes: [
-      createCssVariablesTheme({
-        name: 'clio-syntax',
-        variablePrefix: '--syntax-',
-        variableDefaults: {},
-        fontStyle: true,
-      }),
-    ],
+  const theme = createCssVariablesTheme({
+    name: 'clio-syntax',
+    variablePrefix: '--syntax-',
+    variableDefaults: {},
+    fontStyle: true,
   });
+  theme.tokenColors = [...(theme.tokenColors ?? []), ...MARKDOWN_TOKEN_COLORS];
+  return createHighlighter({ langs: [language], themes: [theme] });
 };
+
+/**
+ * Markdown's structure in the same syntax colours code uses. Shiki's variables
+ * theme leaves headings, list markers and quotes in the text colour.
+ */
+const MARKDOWN_TOKEN_COLORS = [
+  {
+    scope: [
+      'markup.heading',
+      'entity.name.section.markdown',
+      'punctuation.definition.heading.markdown',
+    ],
+    settings: { foreground: 'var(--syntax-token-keyword)' },
+  },
+  {
+    scope: ['punctuation.definition.list.begin.markdown'],
+    settings: { foreground: 'var(--syntax-token-constant)' },
+  },
+  { scope: ['markup.quote'], settings: { foreground: 'var(--syntax-token-comment)' } },
+  {
+    scope: [
+      'punctuation.definition.bold.markdown',
+      'punctuation.definition.italic.markdown',
+      'punctuation.definition.quote.begin.markdown',
+      'punctuation.definition.table.markdown',
+      'meta.separator.markdown',
+    ],
+    settings: { foreground: 'var(--syntax-token-punctuation)' },
+  },
+];
 
 const getHighlighter = (
   language: BundledLanguage,

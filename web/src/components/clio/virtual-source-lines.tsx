@@ -1,8 +1,9 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { BundledLanguage } from 'shiki';
+import type { BundledLanguage, ThemedToken } from 'shiki';
 import { TokenSpan } from '@/components/ai-elements/code-block';
 import { cn } from '@/lib/utils';
+import { indentColumns, leadingWhitespace, splitIndent } from '@/lib/source-indent';
 import { SourceWindowContext } from '@/lib/source-window';
 import { useChunkedHighlight } from './source-highlight';
 
@@ -84,19 +85,54 @@ export function VirtualSourceLines({
               >
                 {item.index + 1}
               </span>
-              <span
+              <SourceLineContent
+                tokens={tokensAt(item.index)}
+                text={lines[item.index]}
+                wrap={wrap}
                 className={cn('min-w-0', headerRow && item.index === 0 && 'text-faint')}
                 data-source-header={headerRow && item.index === 0 ? '' : undefined}
-              >
-                {tokensAt(item.index)?.map((token, index) => (
-                  // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
-                  <TokenSpan key={index} token={token} />
-                )) ?? lines[item.index]}
-              </span>
+              />
             </div>
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+/** One line's code; a wrapped line's continuation rows hang at its own indent. */
+function SourceLineContent({
+  tokens,
+  text,
+  wrap,
+  className,
+  ...props
+}: {
+  tokens: ThemedToken[] | undefined;
+  text: string;
+  wrap: boolean;
+  className: string;
+  'data-source-header'?: string;
+}) {
+  const lead = tokens ? undefined : leadingWhitespace(text);
+  const split = tokens ? splitIndent(tokens) : undefined;
+  const indent = split?.lead ?? lead ?? '';
+  const columns = split ? split.columns : indentColumns(indent);
+  return (
+    <span
+      {...props}
+      className={className}
+      style={
+        wrap && columns ? { paddingLeft: `${columns}ch`, textIndent: `-${columns}ch` } : undefined
+      }
+    >
+      {indent && <span className="whitespace-pre">{indent}</span>}
+      {split
+        ? split.rest.map((token, index) => (
+            // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+            <TokenSpan key={index} token={token} />
+          ))
+        : text.slice(indent.length)}
+    </span>
   );
 }

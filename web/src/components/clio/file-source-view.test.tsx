@@ -45,7 +45,29 @@ it('wraps standalone source by default with continuation rows hung past the numb
   render(<FileSourceView name="main.py" content={'print(1)\n'} />);
   const python = screen.getByRole('region', { name: 'Source of main.py' });
   expect(python.className).toContain('[&_pre]:whitespace-pre-wrap');
-  expect(python.className).toContain('[&_pre_code>span]:pl-12');
+  expect(python.className).toContain(
+    '[&_pre_code>span]:[padding-left:calc(3rem_+_var(--indent,0ch))]',
+  );
+});
+
+it('keeps a wrapped line’s indent: unbreakable, and continuation rows hang at its column', async () => {
+  render(
+    <FileSourceView name="main.py" content={'def main():\n    with open(path) as handle:\n'} />,
+  );
+  const python = screen.getByRole('region', { name: 'Source of main.py' });
+  const indented = await waitFor(() => {
+    const line = python.querySelectorAll<HTMLElement>('code > span')[1];
+    expect(line?.style.getPropertyValue('--indent')).toBe('4ch');
+    return line!;
+  });
+  const lead = indented.firstElementChild as HTMLElement;
+  expect(lead.className).toBe('whitespace-pre');
+  expect(lead.textContent).toBe('    ');
+  // The copied text is the file's own text.
+  expect(indented.textContent).toBe('    with open(path) as handle:');
+  expect(
+    python.querySelectorAll<HTMLElement>('code > span')[0]?.style.getPropertyValue('--indent'),
+  ).toBe('');
 });
 
 it('colours a large code file in chunks while its rows stay windowed, and leaves data plain', async () => {
