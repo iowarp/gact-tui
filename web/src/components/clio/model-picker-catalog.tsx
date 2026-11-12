@@ -1,6 +1,15 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { EyeIcon, EyeOffIcon, LayoutGridIcon } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { LoadingFeedback } from './loading-feedback';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import {
@@ -368,6 +377,45 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     setQuery(nextQuery);
   }
 
+  // The grouped list draws provider headers as fold toggles, but the
+  // cascader's level keys drill (= toggle) any branch. Tree keys instead:
+  // forward on an open group goes to its first model, back folds it.
+  function handleGroupLevelKey(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    const field = event.target;
+    if (
+      facetsOpen ||
+      !(field instanceof HTMLInputElement) ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return;
+    }
+    const rtl = getComputedStyle(field).direction === 'rtl';
+    const forward = event.key === (rtl ? 'ArrowLeft' : 'ArrowRight');
+    const back = event.key === (rtl ? 'ArrowRight' : 'ArrowLeft');
+    if (!forward && !back) return;
+    const end = field.value.length;
+    if (
+      forward
+        ? field.selectionStart !== end || field.selectionEnd !== end
+        : field.selectionEnd !== 0
+    ) {
+      return;
+    }
+    const row = field
+      .closest<HTMLElement>('[data-slot="cascader-panel"]')
+      ?.querySelector<HTMLElement>('[role="option"][data-highlighted]');
+    const header = row?.querySelector('[data-slot="provider-group-header"]');
+    if (!row || !header || header.hasAttribute('data-collapsed')) return;
+    event.preventDefault();
+    if (back) row.click();
+    else
+      field.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+      );
+  }
+
   return (
     <Cascader
       closeOnSelect={false}
@@ -524,7 +572,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         )}
       >
         <CascaderNav className="gap-0 border-border p-0">
-          <div className="flex w-full min-w-0 items-center">
+          <div
+            className="flex w-full min-w-0 items-center"
+            onKeyDownCapture={grouped ? handleGroupLevelKey : undefined}
+          >
             <ModelPickerSearch
               availableTokens={tree.availableTokens}
               onQueryChange={handleQueryChange}

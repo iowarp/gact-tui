@@ -197,7 +197,7 @@ export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
         title="Permissions"
       />
       {/* Both lists sit in the setting column (spec `.xrw`). */}
-      <div className={SETTINGS_COLUMN} onKeyDown={rowArrowKeyDown}>
+      <div className={SETTINGS_COLUMN} data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
         <PermissionRequests />
       </div>

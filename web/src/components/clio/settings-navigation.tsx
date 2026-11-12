@@ -114,7 +114,7 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
       aria-label="Search everywhere"
       ref={button}
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
       )}
       onClick={openGlobalSearch}

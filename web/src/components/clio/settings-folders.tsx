@@ -301,7 +301,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
       </SettingsRow>
 
       {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
-      <div className={SETTINGS_COLUMN} data-slot="folders-lists" onKeyDown={rowArrowKeyDown}>
+      <div className={SETTINGS_COLUMN} data-slot="folders-lists" data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>
