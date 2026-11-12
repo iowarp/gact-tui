@@ -87,8 +87,11 @@ export function ImageResourceView({
   const scale = zoomed ? zoom.scale : fit;
   const dimensions = loaded ? `${image.width} × ${image.height}` : undefined;
   const percent = loaded ? `${Math.round(scale * 100)}%` : undefined;
-  // The frame states the image's size (frame-bar 06); the zoom reads between its icons.
-  useFileViewerFacts(dimensions ? [dimensions] : undefined);
+  // The frame states the image's size (frame-bar 06) and two zoom icons; a zoom off
+  // the fitted size is one more fact, which folds before any control does.
+  useFileViewerFacts(
+    dimensions ? (zoomed && percent ? [dimensions, percent] : [dimensions]) : undefined,
+  );
   const zoomIn = useCallback(() => {
     if (bytes) setZoom({ bytes, scale: Math.min(MAX_SCALE, scale * STEP) });
   }, [bytes, scale]);
@@ -150,7 +153,6 @@ export function ImageResourceView({
               onReset={resetZoom}
               disabledIn={scale >= MAX_SCALE}
               disabledOut={!zoomed}
-              readout={percent}
             />
           ) : null}
           {!framed && localToolbarHost && bytes ? (

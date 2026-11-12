@@ -34,6 +34,7 @@ vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
       zoomOut: () => void;
       centerView: () => void;
       scalePercent: number;
+      fitted: boolean;
     }) => ReactNode;
     onSvgOutputChange: (svg: string) => void;
   }) => {
@@ -41,7 +42,13 @@ vi.mock('@/components/mermaidcn/mermaid-preview', () => ({
       () => onSvgOutputChange('<svg viewBox="0 0 10 10"></svg>'),
       [chart, onSvgOutputChange],
     );
-    const api = { zoomIn: () => {}, zoomOut: () => {}, centerView: () => {}, scalePercent: 100 };
+    const api = {
+      zoomIn: () => {},
+      zoomOut: () => {},
+      centerView: () => {},
+      scalePercent: 100,
+      fitted: true,
+    };
     return <div data-slot="mermaid-preview">{controls(api)}</div>;
   },
 }));
