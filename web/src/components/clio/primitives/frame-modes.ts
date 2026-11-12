@@ -80,7 +80,12 @@ function barEntries<T>(
   const bar = element?.closest('[data-slot="frame-bar"]');
   if (!bar?.hasAttribute('data-fold-modes-menu')) return [];
   return [...(registry.get(bar) ?? [])]
-    .filter(({ anchor }) => anchor.isConnected)
+    // A renderer kept mounted under another view (Lineage) hides its host; its tools don't apply.
+    .filter(
+      ({ anchor }) =>
+        anchor.isConnected &&
+        !anchor.closest('[data-slot="frame-format-host"]')?.classList.contains('hidden'),
+    )
     .sort(({ anchor: a }, { anchor: b }) =>
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
     )
