@@ -23,6 +23,7 @@ export interface MermaidPreviewProps {
     zoomOut: () => void;
     centerView: () => void;
     scalePercent: number;
+    fitted: boolean;
   }) => ReactNode;
   interactiveNodes?: readonly { id: string; label: string }[];
   selectedNodeIds?: readonly string[];

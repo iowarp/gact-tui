@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { restartClio } from '@/tauri/managed-backend';
 import { InfoTip } from './info-tip';
+import { NamedTooltip } from './primitives/icon-button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ProviderGroup } from './model-picker-model';
 import type { ProviderComponentUpdateState } from './provider-component-update';
 
@@ -89,14 +91,24 @@ export function ProviderComponentStatus({
           {version ? `Version ${version}` : label}
         </span>
       ) : null}
-      <StatusLink disabled={busy || Boolean(stage) || state.checking} onClick={state.check}>
-        {state.checking ? (
-          <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
-        ) : (
-          <RefreshIcon aria-hidden="true" />
-        )}
-        {state.checking ? 'Checking updates…' : 'Check updates'}
-      </StatusLink>
+      {/* The spec's provider bar draws its checks as icons with hover names, so
+          the version keeps its words beside "Update to". */}
+      <TooltipProvider disableHoverableContent>
+        <NamedTooltip label={state.checking ? 'Checking updates…' : 'Check updates'} side="top">
+          <StatusLink
+            aria-label={state.checking ? 'Checking updates…' : 'Check updates'}
+            className="size-[22px] justify-center hover:bg-hover"
+            disabled={busy || Boolean(stage) || state.checking}
+            onClick={state.check}
+          >
+            {state.checking ? (
+              <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+            ) : (
+              <RefreshIcon aria-hidden="true" />
+            )}
+          </StatusLink>
+        </NamedTooltip>
+      </TooltipProvider>
       {stage ? (
         <span
           className="inline-flex shrink-0 items-center gap-[5px] text-muted-foreground"
