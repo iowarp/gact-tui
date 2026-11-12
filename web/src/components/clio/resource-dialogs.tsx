@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { sessionDeleteFailure } from '@/lib/session-delete';
 import { ClioPathPicker } from './path-picker';
 import { DialogFrame } from './primitives/dialog-frame';
 
@@ -333,7 +334,7 @@ export function DeleteResourceDialog({
       else await actions.deleteSession(target.id);
       onClose();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(sessionDeleteFailure(reason));
     } finally {
       setPending(false);
     }
