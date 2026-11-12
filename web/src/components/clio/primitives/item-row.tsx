@@ -1,4 +1,5 @@
 import { forwardRef, memo, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { cn } from '@/lib/utils';
 
 export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'slot'> {
@@ -245,6 +246,11 @@ export function ItemList({
     <div
       aria-label={label}
       className={cn('@container min-w-0', className)}
+      onKeyDown={(event) => {
+        // A section that moves between its lists ([data-row-keys]) owns the keys.
+        if (event.currentTarget.parentElement?.closest('[data-row-keys]')) return;
+        rowArrowKeyDown(event);
+      }}
       role={label ? 'group' : undefined}
     >
       {children}

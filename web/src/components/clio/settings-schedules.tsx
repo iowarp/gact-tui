@@ -183,7 +183,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   );
 
   return (
-    <div className="min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+    <div className="min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown} ref={rootRef}>
       <SettingsScopeContext.Provider value={scope}>
         <SettingsSectionHeading
           actions={

@@ -32,7 +32,9 @@ export function SettingsSectionHeading({
   // Pages show labels and state; explanation sits behind the ⓘ beside the title.
   const hint = info && description ? `${description} ${info}` : (info ?? description);
   return (
-    <header className={level === 1 ? 'mb-2' : undefined}>
+    // A div, not <header>: outside a <main> that is a banner landmark, and the
+    // window's content region already holds it.
+    <div className={level === 1 ? 'mb-2' : undefined}>
       {eyebrow ? <p className="mb-2 text-xs font-medium text-muted-foreground">{eyebrow}</p> : null}
       <div className="flex h-[1.875rem] min-w-0 items-center gap-2 whitespace-nowrap">
         {/* The info control sits beside the heading so the heading's name is the title alone. */}
@@ -68,6 +70,6 @@ export function SettingsSectionHeading({
           <span className="min-w-0 truncate max-[599px]:whitespace-normal">{scope.line}</span>
         </p>
       ) : null}
-    </header>
+    </div>
   );
 }

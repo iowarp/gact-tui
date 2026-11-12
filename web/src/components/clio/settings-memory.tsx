@@ -241,7 +241,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     ),
   }[tab];
   return (
-    <div className="grid min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+    <div className="grid min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown} ref={rootRef}>
       <SettingsSectionHeading
         info="Saved facts and preferences the agent can use in later conversations."
         title="Memory and instructions"
