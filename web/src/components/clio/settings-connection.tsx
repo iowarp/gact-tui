@@ -239,7 +239,7 @@ export function ConnectionsSettings() {
         </SettingsRow>
       ) : null}
 
-      <div className={cn('w-full', SETTINGS_COLUMN)} onKeyDown={rowArrowKeyDown}>
+      <div className={cn('w-full', SETTINGS_COLUMN)} data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel
           actions={
             <IconButton

@@ -185,7 +185,7 @@ export function SettingsGroupLabel({
       )}
       data-slot="settings-group-label"
     >
-      <h3 className="min-w-0 truncate font-normal">{children}</h3>
+      <h2 className="min-w-0 truncate font-normal">{children}</h2>
       {info ? (
         <InfoTip
           className={cn('text-faint', NARROW_HIDDEN)}

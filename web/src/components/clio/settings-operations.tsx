@@ -358,7 +358,7 @@ export function SystemSettings() {
     </UnofferedParts>
   );
   return (
-    <div className="min-w-0" onKeyDown={rowArrowKeyDown}>
+    <div className="min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown}>
       <SettingsSectionHeading
         info="Review service health, storage, activity and automation hooks. Status comes from your connected service."
         title="Health"

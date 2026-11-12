@@ -178,7 +178,8 @@ export function ModelAcquisitions({
   const unavailable = inventory.data?.unavailable_reason;
   const models = inventory.data?.models ?? [];
   const startDownload = () => {
-    acquire.reset();
+    // Reopened while a download is still starting: show that one rather than a fresh chooser.
+    if (!acquire.isPending) acquire.reset();
     setOpen(true);
   };
   const downloadDisabled = !inventory.data || Boolean(unavailable);
@@ -280,12 +281,8 @@ export function ModelAcquisitions({
         })}
       </InfraList>
       <ModelStorageLocations hostLabel={hostLabel} targetId={targetId} />
-      <Dialog
-        open={open}
-        onOpenChange={(value) => {
-          if (!acquire.isPending) setOpen(value);
-        }}
-      >
+      {/* Closing never cancels: a pending download keeps starting, and its error shows here. */}
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           showCloseButton={false}
           className={cn(
@@ -320,7 +317,6 @@ export function ModelAcquisitions({
                 size="icon"
                 aria-label="Close"
                 title="Close"
-                disabled={acquire.isPending}
                 className="shrink-0 text-muted-foreground"
               >
                 <CloseIcon aria-hidden="true" />
