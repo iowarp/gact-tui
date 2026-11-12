@@ -353,8 +353,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           onUndoDiff={(sessionId, workspaceId, changeId) =>
             diffActions.undo.mutateAsync({ sessionId, workspaceId, changeId })
           }
-          diffActionError={diffActions.undo.error?.message}
-          diffActionPending={diffActions.undo.isPending}
+          diffActionError={diffActions.undoError?.message}
+          diffActionPending={diffActions.undoPending}
           onOpenSubagent={openSubagent}
           onOpenTerminal={terminalActions.onOpenTerminal}
           onOpenDraftBrowserPage={openDraftBrowserPage}
