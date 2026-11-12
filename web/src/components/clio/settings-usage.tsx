@@ -363,7 +363,7 @@ function EstimatedNote({ count }: { count: number }) {
   const text = `${count} older conversation${count === 1 ? ' is' : 's are'} counted under the model ${count === 1 ? 'it was' : 'they were'} set to: they predate per-model usage.`;
   return (
     <p
-      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"
+      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"
       data-slot="settings-footnote"
       title={text}
     >

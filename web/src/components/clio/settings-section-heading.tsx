@@ -60,7 +60,7 @@ export function SettingsSectionHeading({
       </div>
       {scope ? (
         <p
-          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-faint"
+          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-muted-foreground"
           data-slot="settings-scope"
         >
           <SettingsScopeIcon className="size-[0.8125rem] shrink-0" group={scope.group} />

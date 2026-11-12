@@ -107,7 +107,7 @@ export function ScheduleSelect({
               </span>
               {option.hint ? (
                 // The title keeps priority; the workspace hint truncates first.
-                <span className="max-w-32 min-w-10 shrink-[999] truncate text-xs text-faint">
+                <span className="max-w-32 min-w-10 shrink-[999] truncate text-xs text-muted-foreground">
                   {option.hint}
                 </span>
               ) : null}

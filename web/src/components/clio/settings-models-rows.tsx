@@ -14,7 +14,7 @@ export const SHOW_DIFFUSION = 'show_diffusion';
 function NotOffered({ children = 'Not offered' }: { children?: ReactNode }) {
   return (
     <span
-      className="shrink-0 text-label whitespace-nowrap text-faint"
+      className="shrink-0 text-label whitespace-nowrap text-muted-foreground"
       data-slot="settings-unavailable"
     >
       {children}
