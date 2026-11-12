@@ -50,6 +50,7 @@ export function ClioSearchAssistant({
   const held = useRef<Session | undefined>(undefined);
   const alive = useRef(true);
   const sending = useRef(false);
+  const question = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
@@ -145,6 +146,8 @@ export function ClioSearchAssistant({
           catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
           onRetryCatalog={() => void catalog.refetch()}
           onChange={setModel}
+          // After a pick, typing resumes in the question; Enter must ask, not reopen the picker.
+          returnFocus={() => question.current?.focus()}
           trigger={
             <Button
               variant="ghost"
@@ -175,6 +178,7 @@ export function ClioSearchAssistant({
         }}
       >
         <Input
+          ref={question}
           autoFocus
           aria-label={`Ask ${vocab.agent} Search`}
           placeholder="Ask about conversations, messages, and files…"
