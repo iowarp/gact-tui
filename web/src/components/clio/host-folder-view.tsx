@@ -1,11 +1,9 @@
-import type { WorkspaceResource } from '@clio/core/v3';
+import type { WorkspaceFileEntry, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { FileIcon, FolderIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
-import { formatBytes } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -20,6 +18,8 @@ import {
 import { PathText } from './path-text';
 import { ResourceLoading } from './resource-states';
 import { TechnicalDetails } from './technical-details';
+import { WorkbenchFileTree } from './workbench-file-tree';
+import { buildFileTree, type WorkspaceFileNode } from './workbench-file-tree-model';
 
 /** Rows drawn at most; the record itself already lists only part of a very large folder. */
 const MAX_ROWS = 1000;
@@ -75,14 +75,20 @@ export function HostFolderView({
   const size = hostFolderSize(folder);
   const access = ACCESS_LABELS[folder.access ?? ''];
   const name = folder.label || resource.name;
-  const rows = listing?.entries.slice(0, MAX_ROWS) ?? [];
+  const rows = useMemo(() => listing?.entries.slice(0, MAX_ROWS) ?? [], [listing]);
   const hidden = listing ? listing.entries.length - rows.length : 0;
+  const tree = useMemo(() => folderTree(rows), [rows]);
 
   return (
     <ScrollArea className="h-full">
       <section
         aria-label={`Folder ${name}`}
-        className={cn('@container mx-auto w-full max-w-3xl p-5', besideControls && 'px-12')}
+        className={cn(
+          '@container mx-auto w-full max-w-3xl p-5',
+          // A phone keeps the width for names; the carousel arrows float over the list there.
+          besideControls && 'px-12',
+          'max-sm:px-3',
+        )}
       >
         <header className="flex items-start gap-3">
           <AttachedFolderIcon
@@ -138,36 +144,14 @@ export function HostFolderView({
           <p className="mt-3 text-sm text-muted-foreground">This folder is empty.</p>
         ) : null}
         {rows.length ? (
-          <ul aria-label={`Contents of ${name}`} className="mt-1">
-            {rows.map((entry) => (
-              <li
-                key={entry.path}
-                className="flex items-start gap-2 border-b border-border/60 py-1.5 text-sm"
-              >
-                {entry.kind === 'directory' ? (
-                  <FolderIcon
-                    aria-label="Folder"
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                  />
-                ) : (
-                  <FileIcon
-                    aria-label="File"
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                  />
-                )}
-                <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3">
-                  <span className="min-w-0 max-w-full">
-                    <PathText path={entry.path} />
-                  </span>
-                  {entry.kind === 'file' && entry.size !== undefined ? (
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {formatBytes(entry.size)}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-1">
+            <WorkbenchFileTree
+              countFolders
+              defaultExpanded={tree.folders}
+              label={`Contents of ${name}`}
+              nodes={tree.nodes}
+            />
+          </div>
         ) : null}
         {listing && (listing.truncated || hidden > 0) ? (
           <p className="mt-3 text-xs text-muted-foreground">
@@ -177,6 +161,30 @@ export function HostFolderView({
       </section>
     </ScrollArea>
   );
+}
+
+/** The listing as a tree, every folder open so nothing is hidden on arrival. */
+function folderTree(entries: readonly FolderEntry[]) {
+  const nodes = buildFileTree(
+    entries.map(
+      (entry): WorkspaceFileEntry => ({
+        path: entry.path,
+        type: entry.kind === 'directory' ? 'dir' : 'file',
+        internal: false,
+        size: entry.size,
+      }),
+    ),
+  );
+  const folders: string[] = [];
+  const walk = (level: readonly WorkspaceFileNode[]) => {
+    for (const node of level) {
+      if (node.entry.type !== 'dir') continue;
+      folders.push(node.entry.path);
+      walk([...node.children.values()]);
+    }
+  };
+  walk(nodes);
+  return { nodes, folders };
 }
 
 function parseListing(bytes: Uint8Array | undefined): FolderListing | undefined {

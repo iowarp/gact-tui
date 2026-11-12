@@ -260,16 +260,19 @@ function DrillRow({
   icon,
   label,
   accelerator,
+  take,
   onDrill,
 }: {
   icon: ReactNode;
   label: string;
   accelerator: string;
+  take: FoldedTake;
   onDrill: () => void;
 }) {
   return (
     <DropdownMenuItem
       data-accelerator={accelerator}
+      data-drill={take}
       aria-haspopup="menu"
       onSelect={(event) => {
         event.preventDefault();
@@ -345,6 +348,7 @@ export function FoldedTakeRows({
             icon={<ClipboardCopyIcon />}
             label="Copy"
             accelerator="C"
+            take="copy"
             onDrill={() => onDrill('copy')}
           />
         ) : null}
@@ -353,6 +357,7 @@ export function FoldedTakeRows({
             icon={<ExternalLinkIcon />}
             label="Open"
             accelerator="O"
+            take="open"
             onDrill={() => onDrill('open')}
           />
         ) : null}
@@ -434,17 +439,23 @@ export function FrameTalkTake({
   const phone = useMediaQuery('(max-width: 599px)');
   const [drill, setDrill] = useState<FoldedTake | null>(null);
   const [moves, setMoves] = useState(0);
+  const drilledFrom = useRef<FoldedTake | null>(null);
   const drillTo = (take: FoldedTake | null) => {
+    if (take) drilledFrom.current = take;
     setDrill(take);
     setMoves((count) => count + 1);
   };
-  // The drilled rows replace the focused one: focus their first.
+  // The drilled rows replace the focused one: focus their first. Back returns
+  // focus to the row that was drilled into.
   useLayoutEffect(() => {
     if (!moves) return;
-    contentRef.current
-      ?.querySelector<HTMLElement>('[role^="menuitem"]:not([data-disabled])')
-      ?.focus();
-  }, [moves]);
+    const content = contentRef.current;
+    const from = drill ? null : drilledFrom.current;
+    const row =
+      (from ? content?.querySelector<HTMLElement>(`[data-drill="${from}"]`) : null) ??
+      content?.querySelector<HTMLElement>('[role^="menuitem"]:not([data-disabled])');
+    row?.focus();
+  }, [drill, moves]);
   const busy = pending || Boolean(open?.busy);
   const anyFolded = fold.talk || fold.copy || fold.open;
   return (

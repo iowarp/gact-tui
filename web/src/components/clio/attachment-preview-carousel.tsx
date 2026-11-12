@@ -138,17 +138,18 @@ export function AttachmentPreviewCarousel({
             </CarouselItem>
           ))}
         </CarouselContent>
+        {/* Phones navigate with the thumbnail strip below; floating arrows would cover the preview's rows. */}
         {items.length > 1 ? (
           <>
             <CarouselPrevious
               aria-label="Previous attachment"
-              className="left-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              className="left-3 bg-background/90 shadow-sm backdrop-blur-sm max-sm:hidden"
               disabled={selectedIndex === 0}
               onClick={() => selectIndex(selectedIndex - 1)}
             />
             <CarouselNext
               aria-label="Next attachment"
-              className="right-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              className="right-3 bg-background/90 shadow-sm backdrop-blur-sm max-sm:hidden"
               disabled={selectedIndex === items.length - 1}
               onClick={() => selectIndex(selectedIndex + 1)}
             />
