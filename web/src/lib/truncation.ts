@@ -54,17 +54,39 @@ function clipsWithin(element: HTMLElement): boolean {
 }
 
 /**
- * The nearest element at or above `start` that cuts its text and is cut now.
- * Stops at `data-truncation-hint="off"` and at editable fields. Text under a
- * `title` is left to the native tooltip, which already reads it on hover.
+ * A line read as one text (`data-truncation-scope`): a state and a name set
+ * apart only by spacing. When any part is cut, the whole line is the hint.
+ */
+const SCOPE = '[data-truncation-scope]';
+
+function scopeCut(scope: HTMLElement): boolean {
+  return Array.from(scope.querySelectorAll<HTMLElement>('*')).some(
+    (part) => cutsText(part) && isTextTruncated(part),
+  );
+}
+
+/**
+ * The nearest element at or above `start` that cuts its text and is cut now,
+ * or the line scope holding it. Stops at `data-truncation-hint="off"` and at
+ * editable fields. Text under a `title` is left to the native tooltip, which
+ * already reads it on hover.
  */
 export function truncatedTextAt(start: EventTarget | null): HTMLElement | null {
-  let node = start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
+  const from = start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
+  let node = from;
   for (let depth = 0; node && depth < MAX_DEPTH; depth += 1, node = node.parentElement) {
     if (!(node instanceof HTMLElement) || node === document.body) return null;
     if (node.dataset.truncationHint === 'off' || node.matches(EDITABLE)) return null;
-    if (cutsText(node) && isTextTruncated(node))
-      return node.closest('[title], [data-truncation-hint="off"]') ? null : node;
+    const scope = node.matches(SCOPE) && scopeCut(node);
+    if (scope || (cutsText(node) && isTextTruncated(node))) {
+      const cut = scope ? node : (node.closest<HTMLElement>(SCOPE) ?? node);
+      // A titled part of a line (its status dot) names itself natively.
+      if (cut.matches(SCOPE)) {
+        const titled = from?.closest('[title]');
+        if (titled && cut.contains(titled)) return null;
+      }
+      return cut.closest('[title], [data-truncation-hint="off"]') ? null : cut;
+    }
   }
   return null;
 }
@@ -82,7 +104,10 @@ export function truncatedTextWithin(root: HTMLElement, limit = 60): HTMLElement[
   for (const element of [root, ...Array.from(descendants)]) {
     if (element.closest('[data-truncation-hint="off"]')) continue;
     if (found.some((outer) => outer.contains(element))) continue;
-    if (cutsText(element) && isTextTruncated(element)) found.push(element);
+    if (cutsText(element) && isTextTruncated(element)) {
+      const scope = element.closest<HTMLElement>(SCOPE);
+      found.push(scope && root.contains(scope) ? scope : element);
+    }
   }
   return found;
 }
