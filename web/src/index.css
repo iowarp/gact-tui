@@ -1138,26 +1138,53 @@ html[data-clio-motion='reduced'] *::after {
   font-size: var(--text-label);
   color: var(--faint);
 }
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] {
+  min-width: 0;
+  max-width: 100%;
+}
+/* Only a table whose code columns cannot fit scrolls, and then with a visible bar. */
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  /* Edge shades appear only on a side with hidden columns, so overlay scrollbars still
+     leave a cue. The local covers scroll with the content and hide the fixed shades. */
+  background:
+    linear-gradient(to right, var(--background) 40%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--background) 40%, transparent) right / 24px 100% no-repeat local,
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 14%, transparent), transparent) left / 10px 100%
+      no-repeat scroll,
+    linear-gradient(to left, color-mix(in oklch, var(--foreground) 14%, transparent), transparent) right / 10px 100%
+      no-repeat scroll,
+    var(--background);
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 40%, transparent) transparent;
+  scrollbar-width: thin;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar {
+  height: 8px;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header'] {
   background: transparent;
 }
-/* A table takes its content width up to max(100%, 48em) and scrolls past the column, so a
-   narrow transcript gives long prose cells room instead of a one-word-wide column. */
+/* Spec table.p: the table fills the column, prose cells wrap and only code columns stay
+   on one line (full-picture.html:36-40). */
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table'] {
-  width: max-content;
-  min-width: 100%;
-  max-width: max(100%, 48em);
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header-cell'] {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   font: 500 var(--text-caption) var(--font-sans);
   color: var(--muted-foreground);
+  white-space: normal;
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] {
   min-width: 6em;
@@ -1166,6 +1193,21 @@ html[data-clio-motion='reduced'] *::after {
   font-family: var(--font-sans);
   font-size: var(--text-menu);
   line-height: 1.45;
+  overflow-wrap: break-word;
+}
+/* The trailing prose column carries the sentence; keep a readable measure and let the table scroll instead. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:last-child {
+  min-width: 14em;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:has(> code:only-child) {
+  min-width: 0;
+  white-space: nowrap;
+}
+/* Spec table.p draws an identifier column as plain mono at the cell's scale, not a pill. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] [data-streamdown='inline-code'] {
+  padding: 0;
+  background: transparent;
+  font-size: var(--text-label);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-row'] > :first-child {
   padding-left: 10px;
