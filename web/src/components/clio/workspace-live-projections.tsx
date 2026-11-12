@@ -110,6 +110,8 @@ type LiveConversationProps = Omit<
   sessionId: string;
   subagents: readonly SubagentRun[];
   sessionState?: RunState;
+  /** The person's message is still on its way to the service. */
+  sending?: boolean;
   /** The newest page left older messages unread (the transcript is paged). */
   hasEarlierMessages?: boolean;
 };
@@ -120,6 +122,7 @@ export function WorkspaceLiveConversation({
   sessionId,
   subagents: subagentList,
   sessionState,
+  sending,
   hasEarlierMessages = false,
   ...props
 }: LiveConversationProps) {
@@ -214,7 +217,7 @@ export function WorkspaceLiveConversation({
       messages={messages}
       pendingMessageIds={pendingMessageIds}
       cancellablePendingMessageIds={cancellablePendingMessageIds}
-      preparation={{ activeTurnId, activeTurnResponded, dependencies, sessionState }}
+      preparation={{ activeTurnId, activeTurnResponded, dependencies, sending, sessionState }}
     />
   );
 }
