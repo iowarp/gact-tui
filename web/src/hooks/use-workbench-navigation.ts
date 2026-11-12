@@ -49,12 +49,18 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     allSessionsRef.current = allSessions;
   }, [allSessions]);
 
+  const routeRef = useRef(location.pathname);
+  useLayoutEffect(() => {
+    routeRef.current = location.pathname;
+  }, [location.pathname]);
+
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {
       requestStore.set({
         endpoint: settings.endpoint,
         key: `${request.kind}:${Date.now()}`,
         request,
+        route: routeRef.current,
       });
     },
     [requestStore, settings.endpoint],
@@ -230,10 +236,13 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       subscribe: requestStore.subscribe,
       get: () => {
         const explicit = requestStore.get();
-        return explicit?.endpoint === settings.endpoint ? explicit : searchRequest;
+        // A request belongs to the conversation it was made in; the next one starts clean.
+        return explicit?.endpoint === settings.endpoint && explicit.route === location.pathname
+          ? explicit
+          : searchRequest;
       },
     }),
-    [requestStore, searchRequest, settings.endpoint],
+    [location.pathname, requestStore, searchRequest, settings.endpoint],
   );
 
   const repository = useRepository();

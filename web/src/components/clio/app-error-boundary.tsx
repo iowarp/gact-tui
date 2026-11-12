@@ -6,18 +6,29 @@ import { Button } from '@/components/ui/button';
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
+  /** A new value clears a caught failure without remounting healthy children. */
+  resetKey?: string;
 }
 
 interface AppErrorBoundaryState {
   error?: Error;
+  resetKey?: string;
 }
 
 /** Contains an unexpected render failure without replacing it with a blank page. */
 export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
-  public state: AppErrorBoundaryState = {};
+  public state: AppErrorBoundaryState = { resetKey: this.props.resetKey };
 
-  public static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): Partial<AppErrorBoundaryState> {
     return { error };
+  }
+
+  public static getDerivedStateFromProps(
+    props: AppErrorBoundaryProps,
+    state: AppErrorBoundaryState,
+  ): Partial<AppErrorBoundaryState> | null {
+    if (props.resetKey === state.resetKey) return null;
+    return { error: undefined, resetKey: props.resetKey };
   }
 
   public componentDidCatch(error: Error, info: ErrorInfo): void {
