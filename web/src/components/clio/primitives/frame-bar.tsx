@@ -461,7 +461,7 @@ export const FrameTab = memo(
           {label}
         </span>
         {version && !iconOnly ? (
-          <span className="shrink-0 text-[11px] text-faint" data-slot="frame-tab-version">
+          <span className="shrink-0 text-caption text-faint" data-slot="frame-tab-version">
             <span className="sr-only"> </span>
             {version}
           </span>
