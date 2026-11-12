@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { agentTaskToSubagent } from '@/lib/session-agent-tasks';
 import { attentionEvidenceHash } from '@/lib/attention-evidence-navigation';
 import { connectionScope } from '@/lib/connection-scope';
+import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
 
@@ -30,6 +31,7 @@ export function useActionCard(
     };
   }, [scope]);
   return useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'action-card'),
     mutationFn: async (action: ActionCardAction) => {
       const { behavior } = action;
       if (

@@ -5,6 +5,8 @@ export interface WorkbenchRequest {
   endpoint?: string;
   key: string;
   request: ClioWorkbenchOpenRequest;
+  /** The route the request was made on; a page that stays mounted ignores it elsewhere. */
+  route?: string;
 }
 
 /**
