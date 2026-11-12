@@ -60,6 +60,7 @@ export function IterationDetail({
   showQuestionInteractions = true,
   showText = true,
   compact = false,
+  openFileChanges = true,
   flowCards = true,
   activeMcpAppId,
   hiddenMcpAppIds,
@@ -80,6 +81,8 @@ export function IterationDetail({
   showQuestionInteractions?: boolean;
   showText?: boolean;
   compact?: boolean;
+  /** Whether a file change mounts with its diff open; false while the turn works. */
+  openFileChanges?: boolean;
   flowCards?: boolean;
   activeMcpAppId?: string;
   hiddenMcpAppIds?: readonly string[];
@@ -135,8 +138,12 @@ export function IterationDetail({
                   >
                     <ClioToolInvocation
                       compact={compact}
-                      // A file change reads open, as its reported change did beside it.
-                      defaultOpen={toolOutputDiffKey(entry.tool) ? true : undefined}
+                      // A file change reads open, as its reported change did beside it,
+                      // except where it mounts while the turn works: it would paint
+                      // its whole diff only for the run to fold it a moment later.
+                      defaultOpen={
+                        openFileChanges && toolOutputDiffKey(entry.tool) ? true : undefined
+                      }
                       flowResult={flowCards}
                       attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                       attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
