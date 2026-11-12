@@ -6,7 +6,7 @@ import {
   type ToolInvocation,
   type TransportFrame,
 } from '@clio/core/v3';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -78,11 +78,15 @@ describe('ClioConversation variant runs', () => {
     expect(record).toHaveTextContent('Draft 3 selected');
     expect(within(record).getByRole('img', { name: 'Done' })).toBeInTheDocument();
     // The turn keeps its own injection; the try's advice belongs to the try's tab.
+    for (const run of within(row).getAllByRole('button', { name: /^Expand / }))
+      fireEvent.click(run);
     expect(within(row).getAllByText('Drafting alternatives')).toHaveLength(1);
     expect(within(row).queryByText('Advice for this draft')).toBeNull();
     expect(document.getElementById('message-msg_user_1')).not.toContainElement(record);
     // The advice was injected in the resumed turn: it never lands in that turn's own lane.
     const resumed = document.getElementById('message-msg_assistant_2')!;
+    for (const run of within(resumed).queryAllByRole('button', { name: /^Expand / }))
+      fireEvent.click(run);
     expect(within(resumed).queryByText('Advice for this draft')).toBeNull();
     expect(resumed).toHaveTextContent('Mesh study (0.6M, 1.2M, 2.1M cells)');
   });

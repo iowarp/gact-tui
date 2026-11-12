@@ -16,7 +16,7 @@ test('browser Back closes Settings, Forward reopens it, and × or Esc add no his
   const before = await entry();
   const settings = page.getByRole('dialog', { name: 'Settings' });
 
-  await page.keyboard.press('Control+Comma');
+  await page.keyboard.press('ControlOrMeta+Comma');
   await expect(settings).toBeVisible();
   // Moving between sections stays one history entry.
   await settings
@@ -41,7 +41,7 @@ test('browser Back closes Settings, Forward reopens it, and × or Esc add no his
   await expect(page).toHaveURL(new RegExp(`${sessionPath}$`, 'u'));
   expect(await entry()).toBe(before);
 
-  await page.keyboard.press('Control+Comma');
+  await page.keyboard.press('ControlOrMeta+Comma');
   await expect(settings).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(settings).toBeHidden();

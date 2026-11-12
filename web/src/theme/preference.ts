@@ -56,14 +56,17 @@ export function applyTheme(root: HTMLElement, theme: ResolvedTheme): void {
 /** Switch themes in one frame: color transitions would otherwise stagger the change. */
 export function switchTheme(root: HTMLElement, theme: ResolvedTheme): void {
   if (root.dataset.theme === theme.id && root.classList.contains('dark') === theme.dark) return;
-  const pause = document.createElement('style');
-  pause.textContent = '*, *::before, *::after { transition: none !important; }';
-  document.head.append(pause);
+  // index.css pauses transitions under this attribute; a runtime <style> is blocked by the desktop CSP.
+  root.dataset.themeSwitching = '';
   applyTheme(root, theme);
   void getComputedStyle(root).color;
   // Keep the pause until the new colors have painted; a 1 ms timeout can fire before
   // the frame on WebKit, letting every surface's color transition run visibly.
-  window.requestAnimationFrame(() => window.requestAnimationFrame(() => pause.remove()));
+  window.requestAnimationFrame(() =>
+    window.requestAnimationFrame(() => {
+      delete root.dataset.themeSwitching;
+    }),
+  );
 }
 
 /**

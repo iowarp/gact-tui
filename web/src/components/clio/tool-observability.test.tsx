@@ -242,6 +242,42 @@ describe('readable compact tool results', () => {
     await user.click(screen.getByRole('button', { name: 'Technical details for external_tool' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('payload data');
   });
+
+  it('names the refused action on a denied decision row', () => {
+    render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'write',
+            session_id: 's',
+            name: 'fs_write_file',
+            state: 'denied',
+            input: { path: '/workspace/notes/plan.md', content: 'x' },
+            error: 'Denied by you',
+            presentation: {
+              action: 'Write',
+              subject: 'file-link',
+              summary: '',
+              blocks: [
+                {
+                  id: 'file-link',
+                  type: 'link',
+                  label: 'plan.md',
+                  target: 'file',
+                  uri: '/workspace/notes/plan.md',
+                },
+              ],
+            },
+          }}
+        />
+      </TooltipProvider>,
+    );
+    // The visible decision word stays in the name, and the name keeps the action.
+    const name = screen.getByRole('button', { name: 'Show result for denied Write file' });
+    expect(name).toHaveTextContent('Denied');
+    expect(screen.getByText('you denied it')).toBeInTheDocument();
+  });
 });
 
 describe('recorded failure detail selection', () => {

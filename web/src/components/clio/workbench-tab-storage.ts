@@ -19,6 +19,15 @@ export function listTab(view: WorkbenchTabListView): WorkbenchTab {
   return { id: `list:${view}` as const, kind: 'list', label: WORKBENCH_LIST_TITLES[view], view };
 }
 
+/** What the strip's Browser opens on each press: a page to type an address into. */
+export const newBrowserPageTab: WorkbenchTab = {
+  id: 'list:browser:new',
+  kind: 'list',
+  label: 'New page',
+  view: 'browser',
+  newPage: true,
+};
+
 const WORKBENCH_TABS_STORAGE_PREFIX = 'clio.workbench-tabs.v1';
 const TAB_LIST_VIEWS = new Set<string>([
   'files',

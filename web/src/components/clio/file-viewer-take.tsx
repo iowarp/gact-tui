@@ -165,14 +165,21 @@ export function FrameContentsCopyButton({
   );
 }
 
-/** Open's rows without Download, which the frame shows as its own button. */
+/**
+ * Open's rows without Download and the Export to… rows, which are the variants of the
+ * frame's own Download ▾.
+ */
 function otherOpenRows(rows: readonly TakeRow[]): TakeRow[] {
   const index = rows.findIndex((row) => row.id === 'download');
-  if (index < 0) return [...rows];
+  if (index < 0) return rows.filter((row) => !isExportRow(row));
   const rest = rows.filter((_, position) => position !== index);
   const next = rest[index];
   if (next && rows[index].separatorBefore) rest[index] = { ...next, separatorBefore: true };
-  return rest;
+  return rest.filter((row) => !isExportRow(row));
+}
+
+function isExportRow(row: TakeRow) {
+  return row.id.startsWith('export:');
 }
 
 /** Open ?: the face opens the file; the menu holds the other places and Export to?. */
@@ -192,15 +199,45 @@ export function FrameOpenButton({ take, className }: { take: OpenTake; className
   );
 }
 
-/** The file's one download of its original bytes, beside Open ?. */
+/**
+ * The file's one download of its original bytes, beside Open ▾. A renderer that declares
+ * other formats makes it Download ▾: the face still downloads the original, and the
+ * chevron adds Export to PDF and the like.
+ */
 export function FrameDownloadButton({ take }: { take: OpenTake }) {
   const row = take.rows.find((candidate) => candidate.id === 'download');
   if (!row) return null;
+  const exports = take.rows.filter(isExportRow);
+  const reason = row.reason ?? (take.busy ? 'Working on it' : undefined);
+  if (exports.length)
+    return (
+      <SplitButton
+        label="Download"
+        icon={<DownloadIcon aria-hidden="true" className="size-3.5" />}
+        onClick={() => row.onSelect?.()}
+        menuLabel="Download options"
+        disabled={Boolean(reason)}
+        menuDisabled={take.busy}
+        faceProps={{ title: row.reason }}
+      >
+        <TakeMenuRows
+          rows={[
+            // Its own letter, underlined like Export's, not the download row's D.
+            { ...row, label: 'Original', accelerator: 'O', separatorBefore: false },
+            ...exports.map((entry, index) => ({
+              ...entry,
+              accelerator: entry.accelerator ?? (index === 0 ? 'E' : undefined),
+              separatorBefore: index === 0,
+            })),
+          ]}
+        />
+      </SplitButton>
+    );
   return (
     <IconButton
       label="Download"
       icon={<DownloadIcon aria-hidden="true" />}
-      disabledReason={row.reason ?? (take.busy ? 'Working on it' : undefined)}
+      disabledReason={reason}
       className="[&_svg]:size-3.5"
       onClick={() => row.onSelect?.()}
     />

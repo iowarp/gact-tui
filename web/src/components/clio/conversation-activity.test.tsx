@@ -148,6 +148,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
 
     expect(screen.queryByRole('button', { name: /^Activity:/u })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, thought 2 times' }));
     const activity = screen.getByRole('button', { name: 'Show result for Read file' });
     expect(activity.closest('[data-slot="activity-row"]')).toHaveTextContent(/evidence\.json/u);
     expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
@@ -202,7 +203,9 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
 
     // A finished run folds into one counted row; its calls are one press away.
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, ran 1 task' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand Called 1 tool, ran 1 task, thought once' }),
+    );
     const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
     if (!taskLine) throw new Error('the task activity line was not rendered');
     expect(taskLine).toHaveTextContent('Review station quality');
@@ -215,7 +218,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     expect(screen.getByText('Evidence retained with source identity.')).toBeInTheDocument();
   });
 
-  it('shows the causal timeline as visible rows without a fold', () => {
+  it('keeps the opening thought visible and folds the settled call between updates', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -250,6 +253,10 @@ describe('ClioConversation activity and interactive surfaces', () => {
 
     expect(screen.queryByRole('button', { name: /^Activity:/u })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Thinking:/u })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Technical details for Read file' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool' }));
     expect(
       screen.getByRole('button', { name: 'Technical details for Read file' }),
     ).toBeInTheDocument();

@@ -88,6 +88,7 @@ describe('production operation readers', () => {
         />
       </PresentationNavigation.Provider>,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Delegated 1 task' }));
     const links = screen.getAllByRole('button', { name: 'Independent audit' });
     expect(links).toHaveLength(1);
     await userEvent.click(links[0]);

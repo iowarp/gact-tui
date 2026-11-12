@@ -51,7 +51,7 @@ test('Windows runtime pack stores its zstd pack uncompressed and preserves brand
   assert.deepEqual(merged.bundle.externalBin, ['binaries/clio-agent']);
   assert.equal(merged.bundle.createUpdaterArtifacts, true);
   assert.equal(merged.plugins.updater.pubkey, 'test-public-key');
-  assert.deepEqual(merged.bundle.resources, ['gact-runtime.tar.zst', 'gact-runtime.pack.json']);
+  assert.deepEqual(merged.bundle.resources, ['gact-runtime.pack.json']);
 });
 
 test('an explicit config resolves a temporary branding root, independent of any local override', () => {

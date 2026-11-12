@@ -116,6 +116,7 @@ export function FileViewerShell({
   onValueChange,
   hasDocumentActions = false,
   showIdentity = true,
+  identity: cardIdentity,
   lineage,
 }: {
   source: FileViewerSource;
@@ -126,6 +127,8 @@ export function FileViewerShell({
   hasDocumentActions?: boolean;
   /** An enclosing file card already presents the icon and filename. */
   showIdentity?: boolean;
+  /** Without the crumbs, what the bar names the file with instead (a card's icon and name). */
+  identity?: ReactNode;
   /** The file's recorded history: the frame adds Lineage beside the renderer's modes. */
   lineage?: ReactNode;
 }) {
@@ -322,7 +325,7 @@ export function FileViewerShell({
                                       <FrameCrumbs parts={crumbs} />
                                     </span>
                                   ) : (
-                                    <span className="flex-1" />
+                                    (cardIdentity ?? <span className="flex-1" />)
                                   )
                                 }
                                 what={what.map((fact, index) => (

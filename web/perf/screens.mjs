@@ -1,8 +1,12 @@
 // One-command deterministic screenshot capture of every surface and state.
 //
 //   pnpm screens [--widths 1680,1280] [--themes dark,light]
-//                [--only settings,canvas] [--out test-results/screens]
+//                [--only settings,canvas,!settings--usage] [--out test-results/screens]
 //                [--merge]   update an earlier manifest in --out instead of replacing it
+//                [--probes]  record type scale, wraps, contrast, key glyphs and
+//                            status words per capture (see perf/spec-review.mjs)
+//                [--concurrency N]  capture one state's themes × widths in parallel
+//                [--seed '/__test/x={"k":1};/__test/y']  fixture seeds before every shot
 //
 // Drives the same fixture stack as the perf harness (perf/stack.mjs) with a
 // frozen clock, UTC, reduced motion, disabled animations and a fixture reset
@@ -30,6 +34,22 @@ const merge = args.includes('--merge');
 const outDir = resolve(webRoot, option('out', 'test-results/screens'));
 const portOffset = Number(option('port-offset', '10'));
 const scale = Number(option('scale', '1'));
+// --probes records type scale, wrapped one-line controls, text contrast, key
+// glyphs and status words per capture (manifest `probe`), for design review.
+const probes = args.includes('--probes');
+// Captures of one state run in parallel (themes × widths); seeded states don't.
+const concurrency = Math.max(1, Number(option('concurrency', '1')));
+// --seed '/__test/a={"k":1};/__test/b' POSTs extra fixture seeds before every
+// shot, e.g. a branch's richer Settings data, so reviews see populated sections.
+const globalSeeds = option('seed', '')
+  .split(';')
+  .filter(Boolean)
+  .map((entry) => {
+    const at = entry.indexOf('=');
+    return at < 0
+      ? { path: entry }
+      : { path: entry.slice(0, at), data: JSON.parse(entry.slice(at + 1)) };
+  });
 // The fixture's static records date from 2026-08-22; the fixture processes'
 // own clock sits two minutes before the page clock so relative times read
 // "2 min ago" on every run.
@@ -769,6 +789,92 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'New conversation', { exact: true });
       await page.waitForTimeout(300);
     }),
+    // Decision cards: the fixture starts with a pending permission and a
+    // question; these states isolate each one and the cleared transcript.
+    s('session', 'decision-question-tray', SESSION, null, { fixture: ['/__test/question-tray'] }),
+    s('session', 'decision-permission', SESSION, null, {
+      fixture: [
+        {
+          path: '/v1/sessions/sess_flat_ndp/questions/question_fixture/answer',
+          data: { selected_options: ['table'] },
+        },
+      ],
+    }),
+    s('session', 'decisions-cleared', SESSION, null, {
+      fixture: [
+        '/v1/permissions/perm_fixture',
+        {
+          path: '/v1/sessions/sess_flat_ndp/questions/question_fixture/answer',
+          data: { selected_options: ['table'] },
+        },
+      ],
+    }),
+    s('session', 'streaming', SESSION, (page) => page.waitForTimeout(1200), {
+      fixture: ['/__test/start-stream'],
+      allowLoading: true,
+    }),
+    s('session', 'queued-messages', SESSION, null, { fixture: ['/__test/queue-demo'] }),
+    // Keyboard surfaces, on Windows and (platform: 'mac') with ⌘ glyphs.
+    ...['windows', 'mac'].flatMap((platform) => {
+      const mod = platform === 'mac' ? 'Meta' : 'Control';
+      const prefix = platform === 'mac' ? 'mac-' : '';
+      const keyShot = (state, setup, extra = {}) =>
+        s('keyboard', `${prefix}${state}`, SESSION, setup, { platform, ...extra });
+      return [
+        keyShot('command-palette', async (page) => {
+          await page.keyboard.press(`${mod}+KeyK`);
+          await overlay(page);
+        }),
+        keyShot('command-palette-typed', async (page) => {
+          await page.keyboard.press(`${mod}+KeyK`);
+          await overlay(page);
+          await page.keyboard.type('stat');
+          await page.waitForTimeout(500);
+        }),
+        keyShot('command-palette-no-match', async (page) => {
+          await page.keyboard.press(`${mod}+KeyK`);
+          await overlay(page);
+          await page.keyboard.type('zqxv');
+          await page.waitForTimeout(500);
+        }),
+        keyShot('command-palette-actions', async (page) => {
+          await page.keyboard.press(`${mod}+KeyK`);
+          await overlay(page);
+          await page.keyboard.type('>');
+          await page.waitForTimeout(500);
+        }),
+        keyShot('shortcut-sheet', async (page) => {
+          await page.keyboard.press(`${mod}+Slash`);
+          await overlay(page);
+        }),
+        keyShot('held-keys', async (page) => {
+          await page.locator('main').first().click({ position: { x: 5, y: 5 } }).catch(() => undefined);
+          await page.keyboard.down(mod);
+          await page.waitForTimeout(800);
+        }),
+        keyShot('menu-conversation-actions', async (page) => {
+          await press(page, 'button', /^Actions for /u);
+          await overlay(page);
+        }),
+        keyShot('composer-model-picker', async (page) => {
+          await press(page, 'button', 'Change model');
+          await overlay(page);
+        }),
+        // Develop captures the Windows sheet as keyboard--shortcut-sheet.
+      ].filter((shot) => platform === 'mac' || shot.state !== 'shortcut-sheet');
+    }),
+    s('keyboard', 'settings-window', SESSION, async (page) => {
+      await page.keyboard.press('Control+Comma');
+      await page.waitForTimeout(900);
+    }),
+    s('keyboard', 'notifications', SESSION, async (page) => {
+      await page.keyboard.press('Control+Alt+KeyN');
+      await page.waitForTimeout(700);
+    }),
+    s('keyboard', 'conversation-runs', SESSION, async (page) => {
+      await page.keyboard.press('Control+Period');
+      await page.waitForTimeout(700);
+    }),
     s('session', 'held-keys', SESSION, async (page) => {
       // Holding the command key alone shows each control's shortcut badge.
       await page.keyboard.down('Control');
@@ -1037,6 +1143,27 @@ function catalogue({ settings, infrastructure }) {
       { fixtureDemo: 'conversation-family', settleMs: 1200 },
     ),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
+    s('canvas', 'file-csv-source', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page.keyboard.press('Control+Shift+KeyV');
+      await page.waitForTimeout(600);
+    }),
+    s('canvas', 'file-csv-lineage', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page.keyboard.press('Control+Shift+KeyL');
+      await page.waitForTimeout(600);
+    }),
+    // The right pocket's strip lists, by position (Ctrl Shift 1-7).
+    ...[1, 2, 3, 4, 5, 6, 7].map((position) =>
+      s('canvas', `strip-${position}`, SESSION, async (page) => {
+        await page.keyboard.press(`Control+Shift+Digit${position}`);
+        await page.waitForTimeout(700);
+      }),
+    ),
+    s('canvas', 'terminal', SESSION, async (page) => {
+      await page.keyboard.press('Control+Backquote');
+      await page.waitForTimeout(900);
+    }),
     s('canvas', 'agent-customize', SESSION, async (page) => {
       await press(page, 'button', 'Customize the agent');
       await page.waitForTimeout(800);
@@ -1076,6 +1203,13 @@ function catalogue({ settings, infrastructure }) {
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
+    }),
+    // Settings search opens Ctrl K; settings come back as rows for a query.
+    s('settings', 'search-typed', '/settings/general', async (page) => {
+      await press(page, 'button', 'Search everywhere');
+      await overlay(page);
+      await page.keyboard.type('model');
+      await page.waitForTimeout(700);
     }),
     s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
     s(
@@ -1414,7 +1548,178 @@ function themeGaps(theme) {
     .map(({ what, background, areaPercent }) => ({ what, background, areaPercent }));
 }
 
+// --- Design probe -------------------------------------------------------------------
+
+/**
+ * Facts a design review checks on every capture: the type scale actually used,
+ * one-line controls that wrapped, text below WCAG contrast, which key glyphs
+ * show (Ctrl vs ⌘) and how status words are drawn.
+ */
+function probe() {
+  // Computed colours may be oklch()/oklab(); paint one pixel to get sRGB.
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const cache = new Map();
+  const parse = (color) => {
+    if (cache.has(color)) return cache.get(color);
+    let result = null;
+    if (color && color !== 'transparent' && !/^rgba?\(0, 0, 0, 0\)$/u.test(color)) {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = '#000';
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+      result = a === 0 ? null : { r, g, b, a: a / 255 };
+    }
+    cache.set(color, result);
+    return result;
+  };
+  const luminance = ({ r, g, b }) => {
+    const channel = (value) => {
+      const c = value / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const background = (element) => {
+    const layers = [];
+    for (let node = element; node; node = node.parentElement) {
+      const color = parse(getComputedStyle(node).backgroundColor);
+      if (color && color.a > 0) {
+        layers.push(color);
+        if (color.a >= 0.95) break;
+      }
+    }
+    let base = { r: 255, g: 255, b: 255 };
+    for (const layer of layers.reverse()) {
+      base = {
+        r: layer.r * layer.a + base.r * (1 - layer.a),
+        g: layer.g * layer.a + base.g * (1 - layer.a),
+        b: layer.b * layer.a + base.b * (1 - layer.a),
+      };
+    }
+    return base;
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  const label = (element) => {
+    const name =
+      element.getAttribute('aria-label') ||
+      element.getAttribute('data-slot') ||
+      element.getAttribute('role') ||
+      '';
+    return `${element.tagName.toLowerCase()}${name ? `[${name.slice(0, 40)}]` : ''}`;
+  };
+  const inView = (rect) =>
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.bottom > 0 &&
+    rect.right > 0 &&
+    rect.top < document.documentElement.scrollHeight &&
+    rect.left < window.innerWidth;
+  const scale = new Map();
+  const lowContrast = [];
+  const glyphs = { cmd: 0, ctrl: 0, alt: 0, option: 0 };
+  const status = new Map();
+  const STATUS =
+    /^(running|failed|error|completed|complete|done|queued|waiting|needs you|needs your response|cancelled|canceled|interrupted|connected|connecting|offline|unavailable|degraded|healthy|ready|stopped|paused|pending|working|idle|succeeded|success|warning)$/iu;
+  for (const element of document.body.querySelectorAll('*')) {
+    const own = [...element.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent ?? '')
+      .join('')
+      .trim();
+    if (!own) continue;
+    if (element.closest('svg,[aria-hidden="true"],script,style')) continue;
+    const rect = element.getBoundingClientRect();
+    if (!inView(rect) || rect.width <= 2 || rect.height <= 2) continue;
+    const style = getComputedStyle(element);
+    if (style.visibility === 'hidden' || Number(style.opacity) < 0.3) continue;
+    // Screen-reader-only text (clipped to nothing) is not visible type.
+    if (/rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)|inset\(50%\)/u.test(`${style.clip} ${style.clipPath}`)) continue;
+    const key = `${Math.round(parseFloat(style.fontSize) * 2) / 2}px/${style.fontWeight}`;
+    const entry = scale.get(key) ?? { count: 0, sample: own.slice(0, 40), family: style.fontFamily.split(',')[0] };
+    entry.count += 1;
+    scale.set(key, entry);
+    if (/⌘|⌥|⇧/u.test(own)) glyphs.cmd += 1;
+    if (/\bCtrl\b/u.test(own)) glyphs.ctrl += 1;
+    if (/\bAlt\b/u.test(own)) glyphs.alt += 1;
+    if (/\bOption\b/u.test(own)) glyphs.option += 1;
+    const color = parse(style.color);
+    if (color && color.a > 0.3 && !element.closest('pre,code,[data-theme-exempt]')) {
+      const contrast = ratio(color, background(element));
+      const large = parseFloat(style.fontSize) >= 18.66 || (parseFloat(style.fontSize) >= 14 && Number(style.fontWeight) >= 700);
+      const disabled = element.closest('[disabled],[aria-disabled="true"],[data-disabled]');
+      if (!disabled && contrast < (large ? 3 : 4.5))
+        lowContrast.push({
+          text: own.slice(0, 40),
+          what: label(element),
+          color: style.color,
+          contrast: Math.round(contrast * 100) / 100,
+          fontSize: style.fontSize,
+        });
+    }
+    if (STATUS.test(own)) {
+      const word = own.toLowerCase();
+      const look = `${style.fontSize} ${style.fontWeight} ${style.color} bg:${style.backgroundColor} ${style.textTransform}`;
+      const bucket = status.get(word) ?? new Map();
+      bucket.set(look, (bucket.get(look) ?? 0) + 1);
+      status.set(word, bucket);
+    }
+  }
+  // Controls and rows the spec keeps on one line.
+  const ONE_LINE =
+    'button,a,[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="tab"],[role="treeitem"],[role="radio"],th,label,[data-sidebar="menu-button"],[data-slot="badge"],h1,h2,h3,h4';
+  const wrapped = [];
+  for (const element of document.body.querySelectorAll(ONE_LINE)) {
+    const rect = element.getBoundingClientRect();
+    if (!inView(rect)) continue;
+    const text = (element.textContent ?? '').trim();
+    if (!text || text.length < 3) continue;
+    // A single text run broken over several lines is a wrap; a deliberate
+    // name-plus-detail layout (two runs on two lines) is not.
+    let lines = 1;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const fontSize = parseFloat(getComputedStyle(node.parentElement).fontSize) || 14;
+      const centers = [...range.getClientRects()]
+        .filter((r) => r.width > 2)
+        .map((r) => r.top + r.height / 2)
+        .sort((a, b) => a - b);
+      const count = centers.filter(
+        (center, index) => index === 0 || center - centers[index - 1] > fontSize * 0.9,
+      ).length;
+      lines = Math.max(lines, count);
+    }
+    if (lines > 1 && !element.querySelector('p,ul,ol,pre,table')) {
+      wrapped.push({ what: label(element), text: text.replace(/\s+/gu, ' ').slice(0, 60), lines });
+    }
+  }
+  return {
+    typeScale: [...scale.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([size, { count, sample, family }]) => ({ size, count, family, sample })),
+    lowContrast: lowContrast.sort((a, b) => a.contrast - b.contrast).slice(0, 15),
+    lowContrastCount: lowContrast.length,
+    wrapped: wrapped.slice(0, 20),
+    wrappedCount: wrapped.length,
+    glyphs,
+    status: Object.fromEntries(
+      [...status.entries()].map(([word, looks]) => [word, Object.fromEntries(looks)]),
+    ),
+  };
+}
+
 // --- Capture ---------------------------------------------------------------------
+
+const MAC_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /** Saved agents settle after their availability probes and retries. */
 async function settleSavedAgents(page) {
@@ -1436,6 +1741,7 @@ async function newContext(
 ) {
   const mobile = width < 600;
   const context = await browser.newContext({
+    ...(platform === 'mac' ? { userAgent: MAC_AGENT } : {}),
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
@@ -1630,6 +1936,16 @@ async function capture(browser, stack, shot, { theme, width }) {
     savedAgents: shot.savedAgents ?? false,
   });
   if (shot.initScript) await context.addInitScript(...shot.initScript);
+  // Fixture seeds (`/__test/...` or service POSTs) for states such as the
+  // question tray; the fixture is reset again after the shot.
+  for (const seed of [...globalSeeds, ...(shot.fixture ?? [])]) {
+    const { path, data } = typeof seed === 'string' ? { path: seed } : seed;
+    await fetch(`${stack.fixtureEndpoint}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data ?? {}),
+    });
+  }
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
@@ -1751,7 +2067,7 @@ async function capture(browser, stack, shot, { theme, width }) {
   }
   const result = { surface: shot.surface, state: shot.state, theme, width };
   try {
-    await page.goto(`${stack.baseURL}${shot.url}`);
+    await page.goto(`${stack.baseURL}${shot.url}`, { timeout: 30_000 });
     const ready = shot.ready ?? (shot.url.includes('/sessions/') ? MESSAGE : 'main');
     await page.locator(ready).filter({ visible: true }).first().waitFor({ timeout: 30_000 });
     await page.evaluate(() => document.fonts.ready);
@@ -1790,12 +2106,14 @@ async function capture(browser, stack, shot, { theme, width }) {
       height: document.documentElement.scrollHeight,
     }));
     result.horizontalOverflow = result.dimensions.width > width + 1;
+    if (probes) result.probe = await page.evaluate(probe);
   } catch (error) {
     result.ok = false;
     result.reason = String(error?.message ?? error).split('\n')[0];
   }
   if (errors.length) result.pageErrors = [...new Set(errors)].slice(0, 5);
   await context.close();
+  if (shot.fixture?.length) await applyScenario(stack, shot.scenario ?? {});
   return result;
 }
 
@@ -1903,7 +2221,10 @@ async function main() {
   try {
     log(`stack on ${stack.baseURL} (service ${stack.endpoint})`);
     await applyScenario(stack, {});
-    const filters = only.split(',').filter(Boolean);
+    // `--only a,b,!c`: keep states matching a or b, then drop those matching c.
+    const terms = only.split(',').filter(Boolean);
+    const filters = terms.filter((term) => !term.startsWith('!'));
+    const excludes = terms.filter((term) => term.startsWith('!')).map((term) => term.slice(1));
     const all = catalogue(await discover(browser, stack));
     const catalogueMaxWidth = new Map(
       all
@@ -1912,8 +2233,9 @@ async function main() {
     );
     const shots = all.filter(
       (shot) =>
-        !filters.length ||
-        filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
+        (!filters.length ||
+          filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter))) &&
+        !excludes.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
     );
     log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
@@ -1958,15 +2280,29 @@ async function main() {
         scenarioKey = key;
       }
       if (shot.decision) await showDecisionCard(stack, shot.decision);
-      for (const theme of themes) {
-        for (const width of widths) {
-          if (shot.maxWidth && width > shot.maxWidth) continue;
-          const result = await capture(browser, stack, shot, { theme, width });
-          results.push(result);
-          if (!result.ok)
-            log(`  skipped ${shot.surface}--${shot.state} ${theme} ${width}: ${result.reason}`);
-        }
-      }
+      const jobs = themes.flatMap((theme) =>
+        widths
+          .filter((width) => !(shot.maxWidth && width > shot.maxWidth))
+          .map((width) => ({ theme, width })),
+      );
+      // Seeded shots change fixture state, so they run one at a time.
+      const lanes = shot.fixture?.length || shot.decision || globalSeeds.length ? 1 : concurrency;
+      const queue = [...jobs];
+      await Promise.all(
+        Array.from({ length: Math.min(lanes, jobs.length) }, async () => {
+          for (let job = queue.shift(); job; job = queue.shift()) {
+            let result = await capture(browser, stack, shot, job);
+            // Parallel lanes occasionally starve one page; retry once.
+            if (!result.ok && /Timeout/u.test(result.reason ?? ''))
+              result = await capture(browser, stack, shot, job);
+            results.push(result);
+            if (!result.ok)
+              log(
+                `  skipped ${shot.surface}--${shot.state} ${job.theme} ${job.width}: ${result.reason}`,
+              );
+          }
+        }),
+      );
       if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }

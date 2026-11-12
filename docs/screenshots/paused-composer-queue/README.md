@@ -15,6 +15,9 @@ native Desktop acceptance. No account or user-data writes occur.
 - [Desktop capture](paused-queue-desktop-fixture.png)
 - [Phone capture](paused-queue-mobile-fixture.png)
 
+Release refresh (2026-11-11): both captures were retaken from the develop build
+at `96dbbd2e1` with the same labelled fixture, wrapped in the app's tooltip provider.
+
 The real API regression in core PR1658 verifies old-turn cancellation, two
 accepted feedback messages delivered once and in order without an extra send,
 unchanged message identities, future-queue retention and explicit promotion.

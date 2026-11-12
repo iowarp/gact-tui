@@ -107,11 +107,16 @@ test('compact shell failures expose the recorded reason before a long command', 
   await expect(page.locator('[data-slot="activity-outcome"]')).toHaveAttribute('title', failure);
   await row.click();
   const result = page.getByRole('region', { name: 'Run command: Result' });
-  await expect(result.getByRole('alert')).toHaveText(failure);
-  const alert = (await result.getByRole('alert').boundingBox())!;
+  // The output already names the reason, so it is not repeated as an alert, and the
+  // long script scrolls in its own bounded block instead of pushing the reason away.
+  const reason = result.locator('[data-slot="transcript-terminal"]').getByText(failure);
+  await expect(reason).toBeInViewport();
+  await expect(result.getByRole('alert')).toHaveCount(0);
+  const reasonBox = (await reason.boundingBox())!;
   const bounds = (await result.boundingBox())!;
-  expect(alert.y).toBeLessThan(bounds.y + 60);
-  await expect(result).toContainText('Process exited with code 1.');
+  expect(reasonBox.y).toBeLessThan(bounds.y + 400);
+  await expect(result.locator('pre').first()).toContainText('# authored script line 34');
+  await expect(page.locator('[data-slot="activity-outcome"]')).toContainText('exit 1');
   await page.mouse.move(0, 0);
   await page.screenshot({ path: test.info().outputPath('shell-failure-readable.png') });
   await page.getByRole('button', { name: 'Technical details for Run command' }).click();

@@ -210,7 +210,11 @@ const ActivityDetailView = memo(function ActivityDetailView({
           {item.running ? (
             <StatusIndicator display="column" label="Running" tone="running" />
           ) : (
-            <ActivityKindIcon className="size-4 shrink-0 text-muted-foreground" kind={item.kind} />
+            <ActivityKindIcon
+              className="size-4 shrink-0 text-muted-foreground"
+              kind={item.kind}
+              toolName={item.tool?.name}
+            />
           )}
           <h2 className="min-w-0 truncate text-[15px] font-semibold" title={item.name}>
             {item.name}

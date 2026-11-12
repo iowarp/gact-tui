@@ -39,7 +39,11 @@ export function useComposerSources(
           !(sourceProbe.error instanceof TransportError && sourceProbe.error.status === 404),
       ));
   const lifecycle = useSourceDraftLifecycle(workspaceId);
-  const [location, setLocation] = useState<{ folder: string; downloaded: boolean }>();
+  const [location, setLocation] = useState<{
+    folder: string;
+    folderName?: string;
+    downloaded: boolean;
+  }>();
   const scope = `${connectionScope(settings)}:${workspaceId}:${sessionId ?? 'draft'}`;
   const current = useRef({ scope, onSelect });
   useLayoutEffect(() => {
@@ -113,6 +117,10 @@ export function useComposerSources(
       );
       setLocation({
         folder: String(reference.navigation.source_path ?? ''),
+        folderName:
+          typeof reference.navigation.source_name === 'string'
+            ? reference.navigation.source_name
+            : undefined,
         downloaded: reference.navigation.source_linked === 'false',
       });
       setOpen(true);
@@ -134,6 +142,7 @@ export function useComposerSources(
         }}
         initialFolderFiles={droppedFolder}
         initialFolder={location?.folder}
+        initialFolderName={location?.folderName}
         initialDownloaded={location?.downloaded}
         onDownloadStarted={(source, operationId, selection) => {
           if (current.current.scope !== scope) return;

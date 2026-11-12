@@ -269,7 +269,9 @@ for (const theme of ['dark', 'light'] as const) {
       await page.keyboard.press('Enter');
       await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
       await page.keyboard.press('Escape');
-      await expect(composer.getByRole('button', { name: 'Change model' })).toBeFocused();
+      // Esc dismisses the composer's menus: typing resumes in the editor, draft intact.
+      await expect(page.getByRole('dialog', { name: 'Choose a model' })).toHaveCount(0);
+      await expect(editor).toBeFocused();
       await expect(editor).toContainText('Keep this draft while I review the report.');
       await editor.fill('');
     }

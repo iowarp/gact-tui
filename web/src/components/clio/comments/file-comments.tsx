@@ -1,7 +1,7 @@
 import type { Artifact, CommentMode, DocumentAnchor } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { MessageSquarePlusIcon, MessagesSquareIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -12,11 +12,7 @@ import { CommentCapture, CommentToggle } from './comment-capture';
 import type { Rect } from './comment-region-layer';
 import { CommentSessionProvider } from './comment-session';
 import { CommentThreadList } from './comment-thread-list';
-import {
-  FrameCommentsIcon,
-  FrameCommentsPortal,
-  FrameCommentsUnavailable,
-} from './frame-comments';
+import { FrameCommentsIcon, FrameCommentsPortal, FrameCommentsUnavailable } from './frame-comments';
 import { useInFrameComments } from './frame-comments-slot';
 
 type RegionAnchor = (rect: Rect, host: HTMLElement) => DocumentAnchor | undefined;
@@ -248,21 +244,26 @@ export function officeMediaType(path: string): string | undefined {
 
 /**
  * An Office or OpenDocument file in the workspace (ledger FB22). Its PDF rendition and its
- * comments belong to an artifact version, so a file the agent never registered offers
- * Preview and comment, which registers it; a registered file opens in the same document
- * workspace as any artifact, with its rendition, comments and threads.
+ * comments belong to an artifact version, so in a conversation the file is registered as
+ * one when it opens and shows straight away as its rendered preview, with its comments
+ * and threads. Registering is idempotent: a file already registered keeps its version.
+ * Outside a conversation, or when registering fails, the file reads as `fallback`, and
+ * Preview and comment tries again.
  */
 export function WorkspaceDocumentView({
   workspaceId,
   path,
   mediaType,
   fallback,
+  loading,
   documentView,
 }: {
   workspaceId: string;
   path: string;
   mediaType: string;
   fallback: ReactNode;
+  /** Shown while the file's artifact version is found or registered. */
+  loading: ReactNode;
   documentView: (artifact: Artifact) => ReactNode;
 }) {
   const { sessionId = '' } = useParams();
@@ -279,6 +280,14 @@ export function WorkspaceDocumentView({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
   });
   const known = register.data ?? target.data;
+  const { mutate: registerTarget } = register;
+  // Open means preview: an unregistered file is registered once, as Preview and comment would.
+  const autoRegister = Boolean(sessionId) && target.data === null && register.isIdle;
+  useEffect(() => {
+    if (autoRegister) registerTarget();
+  }, [autoRegister, registerTarget]);
+  if (sessionId && !known && (target.isPending || register.isPending || autoRegister))
+    return loading;
   if (!sessionId || !known) {
     if (inFrame)
       return (

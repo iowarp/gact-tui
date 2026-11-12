@@ -73,7 +73,7 @@ export function NestedToolCalls({
       label={detail ? `${count} (${detail})` : count}
       hidden={all ? 0 : children.length - shown.length}
       onShowAll={() => setAll(true)}
-      showAllLabel={`Show all ${children.length}`}
+      showAllLabel={`Show all ${calls}`}
     >
       {shown.map((tool) => {
         const repeat = repeatOf(tool);

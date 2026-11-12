@@ -32,12 +32,28 @@ use crate::supervisor_update_verify::{bundled_update_verify_steps, run_verify_st
 /// `on_success` runs before the done event so that by the time the frontend
 /// re-polls `get_backend`, the supervisor is already back in `Starting` and
 /// will flip to `Ready` (not loop back to `NeedsInstall`).
-pub fn install_clio<R, F>(app: AppHandle<R>, force: bool, on_success: F)
-where
+///
+/// A beta desktop installs and repairs the agent of its own beta release; with no
+/// options the installer would pick the latest stable release instead.
+///
+/// `agent_home` is the desktop's agent store (the backend's user dir). The
+/// installer receives it so it installs, migrates and prepares that store, the
+/// one the desktop runs its agent on, rather than the default home.
+pub fn install_clio<R, F>(
+    app: AppHandle<R>,
+    force: bool,
+    agent_home: Option<PathBuf>,
+    on_success: F,
+) where
     R: tauri::Runtime,
     F: FnOnce(),
 {
-    install_clio_versioned(app, force, None, on_success);
+    reset_boot_log(if force { "repair" } else { "install" });
+    let own_beta =
+        crate::package_version::beta_release_tag(&app.package_info().version.to_string());
+    let (program, args) = install_command_versioned(force, own_beta.as_deref());
+    let env = installer_store_env(agent_home.as_deref());
+    run_install_command(app, program, args, env, Vec::new(), on_success);
 }
 
 /// Like {@link install_clio} but pins a specific clio-agent release ref (from
@@ -47,6 +63,7 @@ pub fn install_clio_versioned<R, F>(
     app: AppHandle<R>,
     force: bool,
     target_version: Option<String>,
+    agent_home: Option<PathBuf>,
     on_success: F,
 ) where
     R: tauri::Runtime,
@@ -61,7 +78,18 @@ pub fn install_clio_versioned<R, F>(
         "install"
     });
     let (program, args) = install_command_versioned(force, target_version.as_deref());
-    run_install_command(app, program, args, Vec::new(), on_success);
+    let env = installer_store_env(agent_home.as_deref());
+    run_install_command(app, program, args, env, Vec::new(), on_success);
+}
+
+/// The agent-home variable the backend gets for `agent_home`, for the installer.
+fn installer_store_env(agent_home: Option<&Path>) -> Vec<(&'static str, PathBuf)> {
+    agent_home
+        .and_then(|home| {
+            crate::sidecar_setup::agent_home_env(home).map(|key| (key, home.to_path_buf()))
+        })
+        .into_iter()
+        .collect()
 }
 
 /// Upgrade the writable runtime carried by a bundled Windows installation.
@@ -110,7 +138,7 @@ pub fn update_bundled_clio<R, F>(
     let program = uv.to_string_lossy().into_owned();
     let args = bundled_update_args(&python, &version);
     let verify = bundled_update_verify_steps(runtime_dir, &python, &version);
-    run_install_command(app, program, args, verify, on_success);
+    run_install_command(app, program, args, Vec::new(), verify, on_success);
 }
 
 fn bundled_update_args(python: &Path, version: &str) -> Vec<String> {
@@ -145,6 +173,7 @@ fn run_install_command<R, F>(
     app: AppHandle<R>,
     program: String,
     args: Vec<String>,
+    env: Vec<(&'static str, PathBuf)>,
     verify: Vec<VerifyStep>,
     on_success: F,
 ) where
@@ -152,8 +181,9 @@ fn run_install_command<R, F>(
     F: FnOnce(),
 {
     let mut command = Command::new(&program);
-    command
+    crate::host_env::for_host(&mut command)
         .args(&args)
+        .envs(env)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -262,8 +292,27 @@ fn stream_lines<R: tauri::Runtime, B: BufRead>(
 
 #[cfg(test)]
 mod tests {
-    use super::{bundled_update_args, bundled_uv_path};
-    use std::{fs, path::Path};
+    use super::{bundled_update_args, bundled_uv_path, installer_store_env};
+    use crate::sidecar_setup::{CLIO_AGENT_HOME_ENV, CLIO_USER_DIR_ENV};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
+
+    #[test]
+    fn installer_receives_the_store_the_backend_runs_on() {
+        let store = Path::new("desktop-data/clio-agent");
+        assert_eq!(
+            installer_store_env(Some(store)),
+            vec![(CLIO_AGENT_HOME_ENV, PathBuf::from(store))]
+        );
+        let legacy = Path::new("desktop-data/clio-user");
+        assert_eq!(
+            installer_store_env(Some(legacy)),
+            vec![(CLIO_USER_DIR_ENV, PathBuf::from(legacy))]
+        );
+        assert!(installer_store_env(None).is_empty());
+    }
 
     #[test]
     fn bundled_uv_path_prefers_the_packaged_bin_directory() {

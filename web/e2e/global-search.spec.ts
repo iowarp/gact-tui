@@ -57,20 +57,20 @@ test('global search applies themes from Settings and opens settings, hosts and e
   expect(
     await page.evaluate(() => JSON.parse(localStorage.getItem('clio.appearance.v1') ?? '{}').theme),
   ).toBe('dark');
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await input.fill('light mode');
   await page.getByRole('option', { name: 'Switch to light mode', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('html')).not.toHaveClass(/dark/u);
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await input.fill('drive');
   await page.getByRole('option', { name: /^Data sources Settings › /u }).click();
   await expect(page).toHaveURL(/\/settings\/data-sources$/u);
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await input.fill('protected execution');
   await page.getByRole('option', { name: /hosts$/u }).click();
   await expect(page).toHaveURL(/\/infrastructure\/agent$/u);
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await input.fill('search-proof');
   await page.getByRole('option', { name: /Global Search Reviewer/u }).click();
   await expect(page).toHaveURL(/\/settings\/agents#agent-user%2Fglobal-reviewer$/u);
@@ -99,7 +99,7 @@ test('a file found from Settings opens in the remembered workspace canvas', asyn
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
   await expect(page.getByText('Review the study protocol.', { exact: true })).toBeAttached();
   await page.goto('/settings/appearance');
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
   await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(
@@ -119,7 +119,7 @@ test('a file found from a new conversation retains its unsent draft and route', 
   await page.goto(route);
   const composer = page.getByRole('combobox', { name: /^Ask /u });
   await composer.fill('Keep this unsent review draft.');
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+KeyK');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
   await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(new RegExp(`${route}$`, 'u'));

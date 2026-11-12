@@ -63,7 +63,7 @@ for (const width of [1280, 390]) {
         page.locator('[title*="C:\\\\Users\\\\Alice\\\\Downloads"]').first(),
       ).toBeAttached();
     }
-    await expect(page.getByText(/including after restart/)).toBeVisible();
+    await expect(page.getByText(/including after restart/).filter({ visible: true })).toBeVisible();
     const allow = page.getByRole('button', { name: 'Allow for this workspace' });
     const deny = page.getByRole('button', { name: 'Deny', exact: true });
     await expect(allow).toBeInViewport();

@@ -22,7 +22,7 @@ import {
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { FrameBackContext } from './frame-back';
-import { IconButton } from './icon-button';
+import { IconButton, NamedTooltip } from './icon-button';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
@@ -37,9 +37,11 @@ import { IconButton } from './icon-button';
  * so the original bytes are one click away). Modes and icons leave only a bar
  * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
  * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
- * or ⌘ with the wheel still zooms, and the … menu lists them). The name is
- * never cut while any of those still shows. Last, a name still cut short of
- * `FRAME_NAME_MIN` goes too (`where`): the tab names it, and "o…" says nothing,
+ * or ⌘ with the wheel still zooms, and the … menu lists them), keeping the
+ * position readout between them ("200 / 250"). The name is
+ * never cut while any of those still shows. A name cut short of `FRAME_NAME_MIN`
+ * then takes the readout's room (`readout`), and last, one still that short goes
+ * too (`where`): the tab names it, and "o…" says nothing,
  * so Download and … are never cut. Children hide on the
  * bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
@@ -55,6 +57,7 @@ const FRAME_FOLDS = [
   'modes-menu',
   'rules',
   'zoom',
+  'readout',
   'where',
 ] as const;
 
@@ -221,7 +224,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
           {format}
         </div>
@@ -341,7 +344,6 @@ export const FrameCrumbs = memo(function FrameCrumbs({
 
 export interface FrameTabTriggerProps {
   className: string;
-  title: string;
   children: ReactNode;
 }
 
@@ -357,14 +359,14 @@ export interface FrameTabProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
   pinned?: boolean;
   /** Short of room: an inactive tab shows only its icon (the name is on hover). */
   compact?: boolean;
-  /** Hover name; defaults to the label (a path is better when there is one). */
+  /** Hover name, in the shared tooltip; defaults to the label (a path is better when there is one). */
   title?: string;
   onSelect?: () => void;
   onClose?: () => void;
   /**
    * Renders the tab control itself, for a host whose tabs come from a tabs
-   * library (a Radix `TabsTrigger`). It receives the classes, hover name and
-   * contents to put on it. Without it the tab is a plain `role="tab"` button.
+   * library (a Radix `TabsTrigger`). It receives the classes and contents to
+   * put on it. Without it the tab is a plain `role="tab"` button.
    */
   renderTrigger?: (props: FrameTabTriggerProps) => ReactElement;
 }
@@ -427,52 +429,58 @@ export const FrameTab = memo(
       iconOnly ? 'justify-center px-2.5' : closable ? 'pr-[29px] pl-[9px]' : 'px-[9px]',
     );
     const hoverName = title ?? label;
+    // The shared hover name, not a native title: a compacted or shortened tab
+    // is told apart at once, and the tooltip composes with the host's drag
+    // handlers (it wraps the tab, not its trigger). It replaces the global
+    // truncation hint, which would otherwise show the same name a second time.
     return (
-      <div
-        ref={ref}
-        data-slot="frame-tab"
-        data-active={active || undefined}
-        data-changed={changed || undefined}
-        data-pinned={pinned || undefined}
-        className={cn(
-          // Spec .tab.on: foreground text over a 2px primary line, no fill. The
-          // line is its own layer so the trigger's background never covers it,
-          // and the tab fills the row above its border so nothing clips it.
-          'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
-          iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
-          className,
-        )}
-        {...rest}
-      >
-        {renderTrigger ? (
-          renderTrigger({ className: triggerClassName, title: hoverName, children: contents })
-        ) : (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={onSelect}
-            title={hoverName}
-            className={triggerClassName}
-          >
-            {contents}
-          </button>
-        )}
-        {closable && active && !iconOnly ? (
-          <span
-            aria-hidden="true"
-            data-slot="frame-tab-close"
-            title={`Close ${label}`}
-            onClick={(event: MouseEvent) => {
-              event.stopPropagation();
-              onClose?.();
-            }}
-            className="absolute top-1/2 right-[5px] grid size-[21px] -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] text-faint hover:bg-menu-highlight hover:text-foreground"
-          >
-            <CloseIcon aria-hidden="true" className="size-[13px]" />
-          </span>
-        ) : null}
-      </div>
+      <NamedTooltip label={hoverName}>
+        <div
+          ref={ref}
+          data-slot="frame-tab"
+          data-truncation-hint="off"
+          data-active={active || undefined}
+          data-changed={changed || undefined}
+          data-pinned={pinned || undefined}
+          className={cn(
+            // Spec .tab.on: foreground text over a 2px primary line, no fill. The
+            // line is its own layer so the trigger's background never covers it,
+            // and the tab fills the row above its border so nothing clips it.
+            'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+            iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
+            className,
+          )}
+          {...rest}
+        >
+          {renderTrigger ? (
+            renderTrigger({ className: triggerClassName, children: contents })
+          ) : (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={onSelect}
+              className={triggerClassName}
+            >
+              {contents}
+            </button>
+          )}
+          {closable && active && !iconOnly ? (
+            <span
+              aria-hidden="true"
+              data-slot="frame-tab-close"
+              title={`Close ${label}`}
+              onClick={(event: MouseEvent) => {
+                event.stopPropagation();
+                onClose?.();
+              }}
+              className="absolute top-1/2 right-[5px] grid size-[21px] -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] text-faint hover:bg-menu-highlight hover:text-foreground"
+            >
+              <CloseIcon aria-hidden="true" className="size-[13px]" />
+            </span>
+          ) : null}
+        </div>
+      </NamedTooltip>
     );
   }),
 );

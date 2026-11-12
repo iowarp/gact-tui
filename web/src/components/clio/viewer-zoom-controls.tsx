@@ -7,6 +7,17 @@ import { frameKeyRegion } from './file-viewer-modes';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
+const noop = () => {};
+
+/**
+ * A renderer's zoom icons, off, while its content is still on the way, so the
+ * frame shows the loaded bar from first paint (workbench-frame-bar: Loading)
+ * and nothing in it moves or folds differently once the content arrives.
+ */
+export function PendingZoomControls({ label }: { label: string }) {
+  return <ViewerZoomControls disabledIn disabledOut label={label} onIn={noop} onOut={noop} />;
+}
+
 /**
  * A viewer's two zoom icons in the frame's Format: zoom out, zoom in. A
  * renderer hands the bar at most two icons, so readouts (zoom %, "3 / 12")

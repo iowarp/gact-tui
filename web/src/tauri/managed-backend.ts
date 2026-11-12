@@ -6,6 +6,7 @@ import {
   MANAGED_BACKEND_READY_TIMEOUT_MS,
 } from '@/lib/runtime-limits';
 import { vocab } from '@/lib/brand-vocabulary';
+import { readInstallLine, type RuntimeInstallProgress } from '@/lib/runtime-install-progress';
 
 export type ManagedBackendStatus =
   | {
@@ -30,6 +31,8 @@ export interface ManagedBackendHandle {
 
 interface ManagedBackendOptions {
   onStatus?: (status: ManagedBackendStatus) => void;
+  /** What a first-use install is doing, as its installer reports it. */
+  onInstallProgress?: (progress: RuntimeInstallProgress) => void;
   pollIntervalMs?: number;
   timeoutMs?: number;
   prepareTimeoutMs?: number;
@@ -223,10 +226,23 @@ export async function waitForManagedBackend(
       // (a lite build with no bundled runtime used to report only "did not
       // become ready in time", #1412), and a slow but working install is not
       // cut off. The readiness window restarts once the install has settled.
-      await runNativeInstall('install_clio', undefined, (tail) =>
-        tail
-          ? `The ${vocab.agent} service could not be installed: ${tail}`
-          : `The ${vocab.agent} service could not be installed.`,
+      let progress: RuntimeInstallProgress | undefined;
+      await runNativeInstall(
+        'install_clio',
+        undefined,
+        (tail) =>
+          tail
+            ? `The ${vocab.agent} service could not be installed: ${tail}`
+            : `The ${vocab.agent} service could not be installed.`,
+        options.onInstallProgress
+          ? (line) => {
+              const next = readInstallLine(progress, line);
+              if (next && next !== progress) {
+                progress = next;
+                options.onInstallProgress?.(next);
+              }
+            }
+          : undefined,
       );
       deadline = Date.now() + timeoutMs;
       continue;

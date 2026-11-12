@@ -121,6 +121,7 @@ export const COLOR_TOKENS = [
   'syntax-token-link',
   // Overlays and highlights
   'scrim',
+  'held-veil',
   'shadow-color',
   'highlight',
   'highlight-foreground',

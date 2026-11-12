@@ -27,13 +27,19 @@ export interface ActivityRowProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   icon: ReactNode;
   /** What happened, in words: "Run command", "Delegate", "Thought for 6 seconds". */
   name: ReactNode;
-  /** What it happened to: a path or command (mono) or a short phrase (`text`). */
+  /** What it happened to, in the spec's argument style (`.ag`: 11.5px mono, muted). */
   argument?: ReactNode;
-  argumentStyle?: 'code' | 'text';
   /** Full argument on hover when it is cut. */
   argumentTitle?: string;
   /** An agent or entity the row opens (accent, underlined). */
   link?: ReactNode;
+  /**
+   * A count or extent recap ("1 file matches", "Lines 1-40"): muted, after
+   * the argument. It keeps its room before the argument does, then ends in …;
+   * outcome words never shrink.
+   */
+  recap?: ReactNode;
+  recapTitle?: string;
   /** A short result word: "exit 1", "12 hits", "waiting for you". */
   outcome?: ReactNode;
   outcomeTone?: ActivityOutcomeTone;
@@ -80,9 +86,10 @@ export const ActivityRow = memo(
       icon,
       name,
       argument,
-      argumentStyle = 'code',
       argumentTitle,
       link,
+      recap,
+      recapTitle,
       outcome,
       outcomeTone = 'error',
       outcomeTitle,
@@ -99,6 +106,9 @@ export const ActivityRow = memo(
       onClick,
       onPointerEnter,
       onFocus,
+      // The row is no button; its disclosure carries the expanded state. On the
+      // row itself aria-expanded is a critical axe violation (aria-allowed-attr).
+      'aria-expanded': _expanded,
       ...rest
     },
     ref,
@@ -108,6 +118,9 @@ export const ActivityRow = memo(
     // key press, so Ctrl+C and Alt+Enter still find them.
     const [armed, setArmed] = useState(() => !canDeferHoverControls());
     const hasOutcome = outcome !== undefined && outcome !== null && outcome !== '';
+    const hasRecap = recap !== undefined && recap !== null && recap !== '';
+    const hasTarget =
+      Boolean(link) || (argument !== undefined && argument !== null && argument !== '');
     const handlePointerEnter = useCallback(
       (event: PointerEvent<HTMLDivElement>) => {
         onPointerEnter?.(event);
@@ -196,9 +209,8 @@ export const ActivityRow = memo(
           leading={disclosure}
           icon={icon}
           title={name}
-          titleCollapses={
-            Boolean(link) || (argument !== undefined && argument !== null && argument !== '')
-          }
+          titleCollapses={hasTarget}
+          titleHolds={hasTarget}
           description={
             <>
               {link ? (
@@ -212,15 +224,22 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-argument"
                   title={argumentTitle}
-                  className={cn(
-                    // No intrinsic width: it fills what the outcome leaves, up to its own length.
-                    'w-0 min-w-0 max-w-fit grow truncate',
-                    argumentStyle === 'code'
-                      ? 'font-mono text-[11.5px] text-muted-foreground'
-                      : 'text-[12.5px] text-foreground/85',
-                  )}
+                  // Every row splits function and input the same way: the name in the
+                  // foreground, the input in the spec's argument style, with no separator.
+                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground"
                 >
                   {argument}
+                </span>
+              ) : null}
+              {hasRecap ? (
+                <span
+                  data-slot="activity-metadata"
+                  title={recapTitle}
+                  // A count or extent recap keeps its room ahead of the argument, then
+                  // ends in …; it never squeezes the name or the outcome words.
+                  className="w-0 min-w-0 max-w-fit grow-[100] truncate text-[11.5px] text-muted-foreground"
+                >
+                  {recap}
                 </span>
               ) : null}
               {hasOutcome ? (
@@ -243,7 +262,7 @@ export const ActivityRow = memo(
           badge={badge ?? null}
           actions={armed ? (actions ?? null) : null}
           meta={elapsed ?? null}
-          metaYields={hasOutcome}
+          metaYields={hasOutcome || hasRecap}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}

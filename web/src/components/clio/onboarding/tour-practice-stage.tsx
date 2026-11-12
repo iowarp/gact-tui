@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 
 import { useReducedMotionConfig } from 'motion/react';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversation } from '@/components/clio/conversation';
+import { ActivityRunsFold } from '@/components/clio/transcript-disclosure-context';
 import { ArtifactView } from '@/components/clio/resource-viewers';
 import { ADD_COMMENT_SESSION_EVENT } from '@/components/clio/comments/comment-model';
 import { IconButton } from '@/components/clio/primitives/icon-button';
@@ -360,15 +361,17 @@ export function TourPracticeStage({
                       Your conversation with {vocab.agent} appears here.
                     </div>
                   ) : (
-                    <ClioConversation
-                      {...conversation}
-                      agentName={vocab.agent}
-                      bottomInset={composerHeight}
-                      onOpenArtifact={() => {
-                        setViewer(true);
-                        emit.current('artifact-opened');
-                      }}
-                    />
+                    <ActivityRunsFold.Provider value={false}>
+                      <ClioConversation
+                        {...conversation}
+                        agentName={vocab.agent}
+                        bottomInset={composerHeight}
+                        onOpenArtifact={() => {
+                          setViewer(true);
+                          emit.current('artifact-opened');
+                        }}
+                      />
+                    </ActivityRunsFold.Provider>
                   )}
                   <div className="pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end">
                     <ClioComposer

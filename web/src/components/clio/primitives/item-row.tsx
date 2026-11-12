@@ -27,6 +27,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * status, actions and slot with one right-aligned cell across those columns.
    */
   confirm?: ReactNode;
+  /**
+   * Icon column width in px (default 20). Widen it on every row of a list that
+   * shows a provider wordmark, so the names stay aligned.
+   */
+  iconWidth?: number;
   /** Column widths in px; one value for every row of a list. 0 drops the column. */
   statusWidth?: number;
   actionsWidth?: number;
@@ -63,6 +68,7 @@ export const ItemRow = memo(
       foldActions = false,
       slot,
       confirm,
+      iconWidth,
       statusWidth = 158,
       actionsWidth = 104,
       slotWidth = 84,
@@ -83,6 +89,7 @@ export const ItemRow = memo(
     // keeps their column.
     const overlay = !actionsVisible && status !== undefined;
     const columns: CSSProperties = {
+      ['--item-icon' as string]: iconWidth === undefined ? '1.25rem' : `${iconWidth}px`,
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
       ['--item-actions' as string]: `${actions === undefined ? 0 : actionsWidth}px`,
       ['--item-slot' as string]: `${slot === undefined ? 0 : slotWidth}px`,
@@ -96,23 +103,23 @@ export const ItemRow = memo(
         data-selected={selected || undefined}
         style={columns}
         className={cn(
-          'group/item-row relative grid min-w-0 grid-cols-[1.25rem_minmax(0,1fr)_var(--item-status)_var(--item-actions)_var(--item-slot)] items-center gap-x-2.5 border-b border-border/70 px-2 whitespace-nowrap outline-none',
+          'group/item-row relative grid min-w-0 grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-status)_var(--item-actions)_var(--item-slot)] items-center gap-x-2.5 border-b border-border/70 px-2 whitespace-nowrap outline-none',
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
           // A confirm sizes to its question and buttons; the name gives way, not the question.
-          'data-confirm:grid-cols-[1.25rem_minmax(0,1fr)_auto]!',
-          '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
+          'data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
+          '@max-2xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
           overlay &&
-            '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+            '@max-xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
           stacks &&
             (folds
-              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_1.625rem_var(--item-slot)]'
+              ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_1.625rem_var(--item-slot)]'
               : !overlay
-                ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
-                : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
+                ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
+                : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
-          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]!',
+          stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'

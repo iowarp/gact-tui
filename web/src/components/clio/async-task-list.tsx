@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { isSettledTaskActivity, taskActivity, type TaskActivity } from './task-activity';
 import { TaskActivityRow } from './task-activity-row';
+import { taskFlow } from './task-flow-state';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -175,7 +176,7 @@ export function AsyncTaskList({
       (active || cancellable) &&
       (task.cancel_requested || requested.has(handle));
     const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
-    const restartKind = task.flow ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
+    const restartKind = taskFlow(task) ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
     return (
       <TaskActivityRow
         compact={compact}
@@ -220,7 +221,7 @@ export function AsyncTaskList({
                         variant="ghost"
                         size="icon"
                         aria-label={`${action} ${kind}: ${task.title}`}
-                        title={`${action === 'pause' ? 'Pause' : 'Resume'} ${task.flow ? 'flow' : 'agent'}`}
+                        title={`${action === 'pause' ? 'Pause' : 'Resume'} ${taskFlow(task) ? 'flow' : 'agent'}`}
                         disabled={Boolean(
                           controlling[handle] || cancelling || status === 'pause_requested',
                         )}

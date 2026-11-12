@@ -1,7 +1,5 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { WrenchIcon } from 'lucide-react';
-import { Fragment, memo, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { Fragment } from 'react';
 import type {
   Artifact,
   ClioRepository,
@@ -11,44 +9,27 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
-import { ClioStatus } from './status';
-import { TranscriptTaskRow } from './transcript-task-row';
-import { isToolStopped } from './tool-presentation';
-import {
-  ClioAgentMessageLine,
-  ClioSubagentLifecycleLine,
-  type SubagentOpenTarget,
-} from './subagent-card';
-import { subagentsForTool } from './subagent-tool-link';
-import { ClioToolInvocation } from './tool-invocation';
-import { TOOL_OPERATIONS } from './tool-operation-contract';
+import type { SubagentOpenTarget } from './subagent-card';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import {
   isCausalQuestionInteraction,
   permissionInteractionForTool,
   questionInteractionsForTool,
   splitWaitingQuestion,
-  toolWaitsForYou,
-  withPermissionDecision,
 } from './agent-answer-domain';
-import { WaitingForYou } from './agent-answer-activity';
-import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
-import { bucketIntensity } from '@/lib/attention-text';
-import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
-import { transcriptActivitySummary, transcriptRunSummary } from './transcript-activity-summary';
-import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
-import { StatusIndicator } from './primitives/status-indicator';
+import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
+import { transcriptActivitySummary } from './transcript-activity-summary';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
-import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { HarnessInjection } from './conversation-harness-injection';
 import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
-import { TranscriptDiffCard } from './transcript-diff-card';
-import { toolOutputDiffKey } from './declared-diff-key';
-
-type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
+import { ActivityLane } from './conversation-activity-lane';
+import {
+  IterationDetail,
+  McpAppActivity,
+  type McpAppActivityEntry,
+} from './conversation-iteration-detail';
 
 /** The flow a run_flow / run_workflow call started, once its start was accepted. */
 function startedFlow(
@@ -56,18 +37,6 @@ function startedFlow(
 ): (FlowToolDescriptor & { handle: string }) | undefined {
   const flow = flowToolDescriptor(tool);
   return flow?.handle ? (flow as FlowToolDescriptor & { handle: string }) : undefined;
-}
-
-/** This tool's attention-mode badge, or `undefined` when it carried no traced heat. */
-function toolAttentionBadge(
-  tool: ToolInvocation,
-  index: MessageAttentionIndex | undefined,
-): { share: number; bucket: number } | undefined {
-  const entries = index?.toolStepsByToolId.get(tool.id);
-  const share = toolStepShare(entries);
-  return entries && share > 0
-    ? { share, bucket: bucketIntensity(share, index?.maxToolStepShare ?? 0) }
-    : undefined;
 }
 
 interface ConversationTurnProps {
@@ -380,18 +349,47 @@ export function ConversationTurn({
     if (iteration.nextThoughts.length || groups.length === 0) groups.push([iteration]);
     else groups[groups.length - 1].push(iteration);
   }
+  // Everything between two public updates is one block of activity, in the order
+  // it happened. The thought that leads into an update ends the block before it,
+  // so a harness update ahead of the reply folds with that thought. Only an
+  // opening update with nothing before it keeps its thought above it.
+  const blocks = groups.map((group) => {
+    const [lead, ...rest] = group;
+    const said = lead.nextThoughts.length > 0;
+    return {
+      text: { ...lead, thinking: [] as ConversationIteration['thinking'] },
+      steps: [{ ...lead, thinking: said ? [] : lead.thinking }, ...rest],
+    };
+  });
+  groups.forEach(([lead], index) => {
+    if (!lead.thinking.length || !lead.nextThoughts.length) return;
+    if (index === 0) blocks[0].text = lead;
+    else
+      blocks[index - 1].steps.push({
+        ...lead,
+        id: `${lead.id}:thinking`,
+        nextThoughts: [],
+        nextThoughtSources: undefined,
+        activity: [],
+        tools: [],
+        tasks: [],
+        interrupted: false,
+        terminal: false,
+        streaming: lead.thinking.some((thought) => thought.streaming),
+      });
+  });
   return (
     <div
-      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1"
+      // A row run that opens the reply starts 6px down, where reply text starts
+      // (the lane's own first row adds 4px of its 6).
+      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1 [&>[data-slot=transcript-activity-timeline]:first-child]:mt-0.5 [&>[data-slot=transcript-thought-run]:first-child]:mt-1.5"
       data-slot="transcript-entry-sequence"
     >
-      {groups.map((group, index) => {
-        const iteration = group[0];
+      {blocks.map(({ text: iteration, steps: group }, index) => {
         const summary = transcriptActivitySummary(group, interactions);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
-            {/* The step's thought reads first, then its public update, then its calls. */}
             <TranscriptIterationText iteration={iteration} />
             {hasActivity ? (
               <ActivityLane
@@ -439,9 +437,7 @@ export function ConversationTurn({
                 )}
               </ActivityLane>
             ) : (
-              group
-                .slice(1)
-                .map((item) => <IterationReasoningText key={item.id} iteration={item} />)
+              group.map((item) => <IterationReasoningText key={item.id} iteration={item} />)
             )}
             {/* A call the sandbox blocked is said where the person reads, with its Allow
                 control, not only inside the folded activity. */}
@@ -460,527 +456,4 @@ export function ConversationTurn({
   );
 }
 
-/** Rows a step shows before the earlier ones fold behind "Show all N". */
-const LANE_LIMIT = 6;
-const LANE_TAIL = 4;
-
 const NO_ARTIFACTS: Record<string, Artifact> = {};
-
-interface ActivityLaneProps {
-  id: string;
-  group: readonly ConversationIteration[];
-  label: string;
-  live: boolean;
-  turnLive: boolean;
-  subagents: Record<string, SubagentRun>;
-  interactions?: readonly PendingInteraction[];
-  /** Everything `children` reads besides the step, subagents and interactions. */
-  rowInputs: readonly unknown[];
-  children: (item: ConversationIteration) => ReactNode;
-}
-
-function sameItems(a: readonly unknown[], b: readonly unknown[]): boolean {
-  return a.length === b.length && a.every((item, index) => item === b[index]);
-}
-
-function sameFields(a: object, b: object): boolean {
-  if (a === b) return true;
-  const keys = Object.keys(a);
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((key) => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key])
-  );
-}
-
-/**
- * The parts of a step the lane reads. A streamed token rebuilds the step, but
- * its public text is read above the lane and the first step's thinking too.
- */
-function sameLaneSteps(
-  a: readonly ConversationIteration[],
-  b: readonly ConversationIteration[],
-): boolean {
-  return (
-    a.length === b.length &&
-    a.every((step, index) => {
-      const other = b[index];
-      return (
-        step === other ||
-        (step.id === other.id &&
-          step.streaming === other.streaming &&
-          step.interrupted === other.interrupted &&
-          (index === 0 ||
-            (step.thinking.length === other.thinking.length &&
-              step.thinking.every((thought, at) => sameFields(thought, other.thinking[at])))) &&
-          step.activity.length === other.activity.length &&
-          step.activity.every((entry, at) => sameFields(entry, other.activity[at])))
-      );
-    })
-  );
-}
-
-/**
- * A lane renders again only when its own steps or what its rows read change,
- * not for each token streamed elsewhere in the turn. `children` is rebuilt on
- * every parent render, so `rowInputs` stands for it.
- */
-const ActivityLane = memo(
-  ActivityLaneView,
-  // `children` is a fresh render prop each time; its closure is covered by rowInputs.
-  (a, b) =>
-    a.id === b.id &&
-    a.label === b.label &&
-    a.live === b.live &&
-    a.turnLive === b.turnLive &&
-    a.subagents === b.subagents &&
-    a.interactions === b.interactions &&
-    sameLaneSteps(a.group, b.group) &&
-    sameItems(a.rowInputs, b.rowInputs),
-);
-
-function laneRows(item: ConversationIteration): number {
-  return item.thinking.length + item.activity.length;
-}
-
-/** The last `keep` rows of a group, cutting iterations at their row boundaries. */
-function laneTail(group: readonly ConversationIteration[], keep: number): ConversationIteration[] {
-  let drop = group.reduce((total, item) => total + laneRows(item), 0) - keep;
-  return group.flatMap((item) => {
-    if (drop <= 0) return [item];
-    const thinking = Math.min(drop, item.thinking.length);
-    drop -= thinking;
-    const entries = Math.min(drop, item.activity.length);
-    drop -= entries;
-    if (thinking === item.thinking.length && entries === item.activity.length && laneRows(item))
-      return [];
-    const activity = item.activity.slice(entries);
-    return [
-      {
-        ...item,
-        thinking: item.thinking.slice(thinking),
-        activity,
-        tools: activity.flatMap((entry) => (entry.kind === 'tool' ? [entry.tool] : [])),
-        tasks: activity.flatMap((entry) => (entry.kind === 'task' ? [entry.task] : [])),
-      },
-    ];
-  });
-}
-
-/**
- * A step's activity as flat rows in the conversation: thoughts, calls,
- * delegates and tasks, one 28px row each, in the order they happened. A long
- * step shows its latest rows; "Show all N" opens the rest and stays open.
- * Once the run has finished, it folds into one row that counts what it did,
- * "Called 3 tools, edited 2 files, delegated 1 task", and opens to the rows.
- */
-function ActivityLaneView({
-  id,
-  group: steps,
-  label,
-  live,
-  turnLive,
-  subagents,
-  interactions,
-  children,
-}: ActivityLaneProps) {
-  // The first step's thinking is read above the lane, with its public update.
-  const group = [{ ...steps[0], thinking: [] }, ...steps.slice(1)];
-  const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
-  const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
-  const total = group.reduce((sum, item) => sum + laneRows(item), 0);
-  const folded = !all && total > LANE_LIMIT;
-  const shown = folded ? laneTail(group, LANE_TAIL) : group;
-  // Steps after the last call that only think are the agent moving on; they
-  // stay below the run rather than inside it.
-  let headEnd = group.length;
-  while (headEnd > 0 && !group[headEnd - 1].activity.length && !group[headEnd - 1].interrupted)
-    headEnd -= 1;
-  const head = group.slice(0, headEnd);
-  const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
-  // A settled run folds once the agent has moved past it; one call folds into
-  // nothing shorter, and thoughts alone stay as they are.
-  const headCalls = head.reduce(
-    (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
-    0,
-  );
-  const collapses =
-    (!turnLive || afterIds.size > 0) && headCalls > 1 && runSettled(head, interactions);
-  // While a call in a longer run waits on the person, the run's row already shows,
-  // open, with "waiting for you" in place of its outcome. A lone call says it itself.
-  const waiting =
-    !collapses &&
-    headCalls > 1 &&
-    head.some((item) => item.tools.some((tool) => toolWaitsForYou(tool, interactions)));
-  const showAll = folded ? (
-    <Button
-      variant="ghost"
-      onClick={() => setAll(true)}
-      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
-      data-slot="activity-show-all"
-    >
-      {`Show all ${total}`}
-    </Button>
-  ) : null;
-  const run =
-    collapses || waiting
-      ? transcriptRunSummary(
-          head.map((item) => ({
-            ...item,
-            // A call the person refused is counted as denied, not failed.
-            tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
-          })),
-          (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
-        )
-      : undefined;
-  return (
-    <div
-      role="group"
-      aria-label={`Activity: ${collapses && run ? run.label : label}`}
-      aria-busy={live || undefined}
-      // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
-      // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
-      className="-mt-1 min-w-0 [&_[data-slot=activity-row]:not([data-slot=activity-nest]_*):not([data-slot=activity-body]_*)]:mt-1"
-      data-row-run=""
-      data-run-collapsed={collapses && !runOpen ? '' : undefined}
-      data-run-waiting={waiting ? '' : undefined}
-      data-slot="transcript-activity-timeline"
-      // A reader who opens something in a run while it works keeps it open
-      // when the run folds at the end of the turn.
-      onClickCapture={collapses || runOpen ? undefined : () => setRunOpen(true)}
-      onKeyDownCapture={
-        collapses || runOpen
-          ? undefined
-          : (event) => {
-              if (event.key === 'Enter' || event.key === ' ') setRunOpen(true);
-            }
-      }
-    >
-      {run && waiting ? (
-        <ActivityRow
-          data-run-summary=""
-          icon={<WrenchIcon aria-hidden="true" />}
-          name={run.label}
-          outcome={<WaitingForYou />}
-          outcomeTitle="waiting for you"
-          outcomeTone="muted"
-          status={
-            <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
-          }
-        />
-      ) : run ? (
-        <ActivityRow
-          aria-expanded={runOpen}
-          data-run-summary=""
-          disclosure={
-            <ActivityDisclosure
-              label={`${runOpen ? 'Collapse' : 'Expand'} ${run.label}`}
-              open={runOpen}
-              onClick={() => setRunOpen(!runOpen)}
-            />
-          }
-          icon={<WrenchIcon aria-hidden="true" />}
-          name={run.label}
-          onOpenChange={setRunOpen}
-          open={runOpen}
-          outcome={
-            run.failed || run.denied || run.interrupted ? (
-              <span>
-                {[
-                  run.failed ? (
-                    <span key="failed" className="text-destructive">
-                      {run.failed} failed
-                    </span>
-                  ) : null,
-                  run.denied ? (
-                    <span key="denied" className="text-warning">
-                      {run.denied} denied
-                    </span>
-                  ) : null,
-                  run.interrupted ? <span key="stopped">{run.interrupted} stopped</span> : null,
-                ]
-                  .filter(Boolean)
-                  .flatMap((part, index) => (index ? [', ', part] : [part]))}
-              </span>
-            ) : undefined
-          }
-          outcomeTitle={
-            [
-              run.failed ? `${run.failed} failed` : '',
-              run.denied ? `${run.denied} denied` : '',
-              run.interrupted ? `${run.interrupted} stopped` : '',
-            ]
-              .filter(Boolean)
-              .join(', ') || undefined
-          }
-          outcomeTone="muted"
-          status={
-            <StatusIndicator
-              display="column"
-              label={
-                run.failed
-                  ? 'Some calls failed'
-                  : run.denied
-                    ? 'Some calls were denied'
-                    : run.interrupted
-                      ? 'Stopped'
-                      : 'Done'
-              }
-              mark="glyph"
-              tone={
-                run.failed
-                  ? 'error'
-                  : run.denied
-                    ? 'warning'
-                    : run.interrupted
-                      ? 'stopped'
-                      : 'success'
-              }
-            />
-          }
-        />
-      ) : null}
-      {/* One parent in both shapes keeps each row's own state when the run folds. */}
-      {collapses && !runOpen ? null : (
-        <ActivityNest flat={!run} label={`Calls: ${(collapses && run?.label) || label}`}>
-          {showAll}
-          {shown.filter((item) => !afterIds.has(item.id)).map(children)}
-        </ActivityNest>
-      )}
-      {shown.filter((item) => afterIds.has(item.id)).map(children)}
-    </div>
-  );
-}
-
-/** Nothing in the run is still working or waiting, so it can fold. */
-function runSettled(
-  group: readonly ConversationIteration[],
-  interactions: readonly PendingInteraction[] | undefined,
-): boolean {
-  return group.every(
-    (item) =>
-      !item.streaming &&
-      item.thinking.every((thought) => !thought.streaming) &&
-      item.tools.every(
-        (tool) =>
-          !['pending', 'running'].includes(tool.state) &&
-          !permissionInteractionForTool(interactions, tool) &&
-          !splitWaitingQuestion(questionInteractionsForTool(interactions, tool.id)).waiting,
-      ) &&
-      item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
-  );
-}
-
-function IterationDetail({
-  iteration,
-  onOpenSubagent,
-  subagents,
-  interactions,
-  showTasks = true,
-  showSubagents = true,
-  showQuestionInteractions = true,
-  showText = true,
-  compact = false,
-  flowCards = true,
-  activeMcpAppId,
-  hiddenMcpAppIds,
-  mcpAppRepository,
-  messageSessionId,
-  artifacts,
-  onOpenArtifact,
-  onOpenFile,
-  onInteractionResponse,
-  messageAttentionIndex,
-}: {
-  iteration: ConversationIteration;
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  subagents: Record<string, SubagentRun>;
-  interactions?: readonly PendingInteraction[];
-  showTasks?: boolean;
-  showSubagents?: boolean;
-  showQuestionInteractions?: boolean;
-  showText?: boolean;
-  compact?: boolean;
-  flowCards?: boolean;
-  activeMcpAppId?: string;
-  hiddenMcpAppIds?: readonly string[];
-  mcpAppRepository?: ClioRepository;
-  messageSessionId?: string;
-  artifacts: Record<string, Artifact>;
-  onOpenArtifact?: (artifact: Artifact) => void;
-  onOpenFile?: (path: string) => void;
-  messageAttentionIndex?: MessageAttentionIndex;
-  onInteractionResponse?: (
-    interaction: PendingInteraction,
-    response: PendingInteractionResponse,
-  ) => Promise<void>;
-}) {
-  const explicitSubagentIds = new Set(
-    iteration.activity.flatMap((entry) =>
-      entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
-    ),
-  );
-  // An assignment tool already reads as the delegate row; its child's start line would repeat it.
-  const delegatedSubagentIds = new Set(
-    iteration.activity.flatMap((entry) =>
-      entry.kind === 'tool' && TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
-        ? subagentsForTool(entry.tool, subagents).map((subagent) => subagent.id)
-        : [],
-    ),
-  );
-  return (
-    <article>
-      <div className={compact ? 'min-w-0' : 'space-y-2'}>
-        {showText ? <TranscriptIterationText iteration={iteration} /> : null}
-
-        {/*
-          One ordered lane: a Task carries no owning-tool field, so its position
-          beside a tool is the only record of what it belongs to. Rendering all
-          tools and then all tasks would destroy that correlation.
-        */}
-        {iteration.activity.map((entry) =>
-          entry.kind === 'tool' ? (
-            (() => {
-              const { waiting: question, rest } = showQuestionInteractions
-                ? splitWaitingQuestion(
-                    questionInteractionsForTool(interactions, entry.id),
-                    entry.tool.name,
-                  )
-                : { waiting: undefined, rest: [] };
-              const waiting = question ?? permissionInteractionForTool(interactions, entry.tool);
-              return (
-                <Fragment key={`tool:${entry.id}`}>
-                  <div
-                    className={compact ? undefined : 'space-y-1'}
-                    data-turn-activity={`tool:${entry.id}`}
-                  >
-                    <ClioToolInvocation
-                      compact={compact}
-                      // A file change reads open, as its reported change did beside it.
-                      defaultOpen={toolOutputDiffKey(entry.tool) ? true : undefined}
-                      flowResult={flowCards}
-                      attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
-                      attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
-                      sessionId={messageSessionId}
-                      tool={entry.tool}
-                      waitingFor={waiting}
-                    />
-                    {(TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
-                      ? []
-                      : subagentsForTool(entry.tool, subagents)
-                    )
-                      .filter((subagent) => !explicitSubagentIds.has(subagent.id))
-                      .map((subagent) => (
-                        <ClioSubagentLifecycleLine
-                          key={subagent.id}
-                          onOpen={onOpenSubagent}
-                          subagent={subagent}
-                          stage="delegate.started"
-                        />
-                      ))}
-                  </div>
-                  {rest.map((interaction) => (
-                    <ConversationInteractionActivity
-                      artifacts={artifacts}
-                      interaction={interaction}
-                      key={interaction.id}
-                      onOpenArtifact={onOpenArtifact}
-                      onResponse={onInteractionResponse}
-                    />
-                  ))}
-                </Fragment>
-              );
-            })()
-          ) : entry.kind === 'injection' ? (
-            <div
-              data-call-id={entry.block.call_id}
-              data-turn-activity={`injection:${entry.id}`}
-              key={`injection:${entry.id}`}
-            >
-              <HarnessInjection block={entry.block} compact={compact} />
-            </div>
-          ) : entry.kind === 'subagent' ? (
-            showSubagents &&
-            !(
-              entry.block.stage === 'delegate.started' &&
-              delegatedSubagentIds.has(entry.block.subagent_id)
-            ) ? (
-              <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
-                <ClioSubagentLifecycleLine
-                  onOpen={onOpenSubagent}
-                  stage={entry.block.stage ?? 'delegate.unknown'}
-                  subagent={subagents[entry.block.subagent_id]}
-                  task={entry.block.task}
-                />
-              </div>
-            ) : null
-          ) : entry.kind === 'agent_message' ? (
-            <div data-turn-activity={`agent-message:${entry.id}`} key={`agent-message:${entry.id}`}>
-              <ClioAgentMessageLine
-                block={entry.block}
-                onOpen={onOpenSubagent}
-                subagent={subagents[entry.block.subagent_id]}
-              />
-            </div>
-          ) : entry.kind === 'mcp_app' ? (
-            hiddenMcpAppIds?.includes(entry.block.app_instance_id) ? null : (
-              <McpAppActivity
-                activeMcpAppId={activeMcpAppId}
-                entry={entry}
-                key={`mcp-app:${entry.id}`}
-                mcpAppRepository={mcpAppRepository}
-                messageSessionId={messageSessionId}
-              />
-            )
-          ) : entry.kind === 'diff' ? (
-            <div data-turn-activity={`diff:${entry.id}`} key={`diff:${entry.id}`}>
-              <TranscriptDiffCard
-                block={entry.block}
-                className="mt-0.5 mb-2 ml-[30px]"
-                onOpenFile={onOpenFile}
-              />
-            </div>
-          ) : showTasks ? (
-            <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />
-          ) : null,
-        )}
-        {iteration.interrupted && !iteration.tools.some(isToolStopped) ? (
-          <ClioStatus value="interrupted" />
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function McpAppActivity({
-  activeMcpAppId,
-  entry,
-  mcpAppRepository,
-  messageSessionId,
-}: {
-  activeMcpAppId?: string;
-  entry: McpAppActivityEntry;
-  mcpAppRepository?: ClioRepository;
-  messageSessionId?: string;
-}) {
-  return (
-    <div data-turn-activity={`mcp-app:${entry.id}`}>
-      {entry.block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
-        <McpAppSurface
-          appInstanceId={entry.block.app_instance_id}
-          dataRef={entry.block.data_ref}
-          height={entry.block.height}
-          repository={mcpAppRepository}
-          resourceUri={entry.block.resource_uri}
-          sessionId={messageSessionId}
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      ) : (
-        <McpAppHistoryLine
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      )}
-    </div>
-  );
-}

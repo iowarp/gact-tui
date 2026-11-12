@@ -298,7 +298,6 @@ function HumanQuestionActivity({
       <ActivityRow
         {...activity}
         argument={prompt}
-        argumentStyle="text"
         argumentTitle={prompt}
         icon={<MessageCircleQuestionIcon aria-hidden="true" />}
         name={isMcp ? requestLabel : 'Question'}

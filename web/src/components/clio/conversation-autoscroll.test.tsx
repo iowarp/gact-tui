@@ -315,15 +315,17 @@ describe('ClioConversation transcript autoscroll', () => {
     render(conversation('Streaming'));
     const log = screen.getByRole('log', { name: 'Conversation' });
 
-    // A harness or find-in-page navigates with scrollTo; no user input.
+    // A harness or find-in-page navigates with scrollTo; no user input. That
+    // is not intent, but the reader is now away from the end, so the jump is
+    // offered (#1104).
     log.scrollTop = 0;
     fireEvent.scroll(log);
-    expect(scrollButton()).toBeNull();
+    expect(scrollButton()).toBeVisible();
     // Deferred surfaces mount as they near the viewport and grow the content;
     // the view stays where the script put it.
     geometry.grow(400);
     expect(log.scrollTop).toBe(0);
-    expect(scrollButton()).toBeNull();
+    expect(scrollButton()).toBeVisible();
 
     // Once the script scrolls back to the bottom, growth follows again.
     log.scrollTop = geometry.bottom();
@@ -374,7 +376,7 @@ describe('ClioConversation transcript autoscroll', () => {
     fireEvent.scroll(log);
     geometry.grow(400);
     expect(log.scrollTop).toBe(0);
-    expect(scrollButton()).toBeNull();
+    expect(scrollButton()).toBeVisible();
   });
 
   it('does not re-engage when a programmatic scroll lands the reader at the bottom', () => {
