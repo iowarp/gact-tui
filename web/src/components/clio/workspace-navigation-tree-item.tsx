@@ -1,6 +1,6 @@
 import type { Session, Workspace } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -36,7 +36,7 @@ interface WorkspaceTreeItemProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
   draft: boolean;
@@ -74,6 +74,8 @@ export function WorkspaceTreeItem({
     sessionLimitExpanded,
     excludedSessionIds,
   );
+  // Right-click opens the same menu as the ⋯ button, like a conversation row (spec).
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
@@ -81,7 +83,6 @@ export function WorkspaceTreeItem({
         actions={
           <>
             <WorkspaceActionsMenu
-              activeWorkspaceId={activeWorkspaceId}
               actions={actions}
               label={label}
               onAction={onAction}
@@ -89,8 +90,10 @@ export function WorkspaceTreeItem({
               onImportSession={onImportSession}
               onDelete={onDelete}
               onEditWorkspace={onEditWorkspace}
+              onOpenChange={setMenuOpen}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={onRename}
+              open={menuOpen}
               workspace={workspace}
             />
             <IconButton
@@ -109,6 +112,10 @@ export function WorkspaceTreeItem({
         )}
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         data-rail-item={`workspace:${workspace.id}`}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenuOpen(true);
+        }}
         meta={
           // An open workspace shows its conversations; only a folded one counts them.
           sessionTotal > 0 && !expanded ? (
@@ -140,7 +147,7 @@ export function WorkspaceTreeItem({
             renderSession(session, false, depth),
           )}
           {visibleSessions.length === 0 && !draft && !rail.loading && !rail.error ? (
-            <RailState kind="empty" title="No conversations yet" />
+            <RailState indent kind="empty" title="No conversations yet" />
           ) : null}
           <RailListState rail={rail} />
           {sessionLimitExpanded && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (

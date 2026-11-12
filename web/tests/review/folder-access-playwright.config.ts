@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 30_000,
-  outputDir: `${evidence}/workspace-editor-browser-results`,
+  outputDir: `${evidence}/folder-access-browser-results`,
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:5198', viewport: { width: 1280, height: 844 } },
 });

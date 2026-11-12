@@ -94,6 +94,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     if (request?.kind === 'search' && typeof request.query === 'string')
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
+    // A workspace's "Open folder › In a tab" from the left bar, for a workspace not yet open.
+    if (request?.kind === 'resources' && request.section === 'files')
+      return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
   }, [location.key, location.state, scope, workspaceId, settings.endpoint]);
 
   const openSubagent = useCallback(
