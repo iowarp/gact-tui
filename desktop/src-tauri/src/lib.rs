@@ -689,8 +689,15 @@ pub(crate) fn request_user_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// server we are about to ask to unwind. Stopping it FIRST closes that
 /// reader before the server sees the shutdown request, so the server never
 /// has to wait out its own connection-close grace on a reader we were going
-/// to kill anyway — cheaper than closing it after.
+/// to kill anyway — cheaper than closing it after. A running managed-package
+/// installer is stopped alongside all of this (see
+/// `execution_install::stop_package_installs`).
 pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // A managed-package installer is independent of the backend: interrupt it
+    // now and let it clean up while the rest stops. Joined before returning, so
+    // a relaunched or moved copy (which waits for this process to exit) never
+    // overlaps it.
+    let package_installs = thread::spawn(execution_install::stop_package_installs);
     if let (Some(state), Some(owner)) = (
         app.try_state::<Mutex<Supervisor>>(),
         app.try_state::<remote_lifecycle::DesktopDeploymentOwner>(),
@@ -724,6 +731,7 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     // independent CLIO clients); this is the second line of defense that
     // stops it when THIS desktop's own client was the last one attached.
     release_idle_clio_core_daemon();
+    let _ = package_installs.join();
 }
 
 /// Stop the machine's shared clio-core daemon if this process's own exit
