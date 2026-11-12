@@ -135,7 +135,6 @@ export function WorkspaceTranscriptAlerts({
       {sessionFailed ? (
         <TranscriptStateRow
           className="mx-3 mt-2"
-          detail="Retry the failed reply below, or send a new message to continue."
           title={`${vocab.agent} stopped before finishing this turn`}
         />
       ) : null}

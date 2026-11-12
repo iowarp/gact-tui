@@ -1199,7 +1199,7 @@ html[data-clio-motion='reduced'] *::after {
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:last-child {
   min-width: 14em;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:has(> code:only-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'][data-code-only] {
   min-width: 0;
   white-space: nowrap;
 }
