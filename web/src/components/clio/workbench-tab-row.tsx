@@ -43,6 +43,7 @@ import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { FileTypeIcon } from './file-type-icon';
+import { hostFolderOf } from './host-folder';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
@@ -75,6 +76,8 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
     return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
   // A tab that drops its name keeps a format icon that tells it apart (workbench-lineage).
   if (tab.kind === 'workspace-file') return <FileTypeIcon className="size-3.5" name={tab.path} />;
+  if (tab.kind === 'resource' && hostFolderOf(tab.resource))
+    return <FolderIcon aria-hidden="true" className="size-3.5" />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
@@ -170,8 +173,7 @@ export function WorkbenchTabRow({
   }>({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   // Any change starts again from full names; the layout effect below then
   // steps down while the row still overflows, before the browser paints.
-  if (measured.key !== fitKey)
-    setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
+  if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   const fit = measured.key === fitKey ? measured.fit : 'full';
   // Tab ids, the most recently open first: the list at the end takes the least recent.
   const [recency, setRecency] = useState<string[]>([]);

@@ -1,6 +1,9 @@
 import { Fragment } from 'react';
 
-/** A path that wraps only after its separators, never in the middle of a name. */
+/**
+ * A path that wraps only after its separators. Each part is its own box, so a hyphen or
+ * space inside a name is never a break; a part wider than the line still wraps.
+ */
 export function PathText({ path }: { path: string }) {
   const parts = path.split(/(?<=[/\\])/u);
   const keys = parts.map((_, index) => parts.slice(0, index + 1).join(''));
@@ -8,7 +11,7 @@ export function PathText({ path }: { path: string }) {
     <>
       {parts.map((part, index) => (
         <Fragment key={keys[index]}>
-          {part}
+          <span className="inline-block max-w-full [overflow-wrap:anywhere]">{part}</span>
           {index < parts.length - 1 ? <wbr /> : null}
         </Fragment>
       ))}

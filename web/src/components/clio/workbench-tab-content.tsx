@@ -19,6 +19,7 @@ import { WorkbenchActivityDetail } from './workbench-activity-detail';
 import { activityTab } from './workbench-activity-tab';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
+import { resourceDisplayName } from './host-folder';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
@@ -221,7 +222,7 @@ export function WorkbenchTabContent({
             onOpenTab({
               id: `resource:${resource.id}`,
               kind: 'resource',
-              label: resource.name,
+              label: resourceDisplayName(resource),
               relatedResources: resources ?? [resource],
               resource,
               workspaceId: resource.workspace_id || workspaceId,

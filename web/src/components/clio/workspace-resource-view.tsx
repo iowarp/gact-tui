@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BracesIcon,
   EyeIcon,
+  FolderIcon,
   FilesIcon,
   GitBranchIcon,
   FileInputIcon,
@@ -54,6 +55,8 @@ import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
+import { hostFolderOf, resourceDisplayName } from './host-folder';
+import { HostFolderView } from './host-folder-view';
 
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
@@ -86,10 +89,14 @@ export function WorkspaceResourceCarousel({
     () =>
       carouselResources.map((candidate) => ({
         id: candidate.id,
-        label: candidate.name,
+        label: resourceDisplayName(candidate),
         renderPreview: () => (
           <div className="size-full min-h-0 overflow-hidden">
-            <WorkspaceResourceView resource={candidate} workspaceId={workspaceId} />
+            <WorkspaceResourceView
+              besideControls={carouselResources.length > 1}
+              resource={candidate}
+              workspaceId={workspaceId}
+            />
           </div>
         ),
         renderThumbnail: () => (
@@ -110,6 +117,26 @@ export function WorkspaceResourceCarousel({
 }
 
 function WorkspaceResourceThumbnail({ resource, workspaceId }: WorkspaceResourceViewProps) {
+  if (hostFolderOf(resource)) return <HostFolderThumbnail name={resourceDisplayName(resource)} />;
+  return <UploadedResourceThumbnail resource={resource} workspaceId={workspaceId} />;
+}
+
+/** A folder has no picture: its icon and name, so several folders stay apart. */
+function HostFolderThumbnail({ name }: { name: string }) {
+  return (
+    <div
+      className="flex aspect-square size-full flex-col items-center justify-center gap-1 overflow-hidden rounded-md bg-muted/50 p-1.5"
+      title={name}
+    >
+      <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="line-clamp-2 w-full text-center text-[10px] leading-tight [overflow-wrap:anywhere]">
+        {name}
+      </span>
+    </div>
+  );
+}
+
+function UploadedResourceThumbnail({ resource, workspaceId }: WorkspaceResourceViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const mediaType = resource.detected_mime || resource.claimed_mime;
@@ -129,21 +156,43 @@ function WorkspaceResourceThumbnail({ resource, workspaceId }: WorkspaceResource
     <Attachment
       className="size-full"
       data={{
-        filename: resource.name,
+        filename: resourceDisplayName(resource),
         id: resource.id,
         mediaType,
         type: 'file',
         url: previewUrl ?? '',
       }}
-      title={resource.name}
+      title={resourceDisplayName(resource)}
     >
       <AttachmentPreview />
     </Attachment>
   );
 }
 
+/** Renders one workspace resource: an attached folder as a folder, anything else as its upload. */
+export function WorkspaceResourceView({
+  besideControls,
+  resource,
+  workspaceId,
+}: WorkspaceResourceViewProps & {
+  /** The carousel's arrows sit over this view's sides, so a folder's rows keep clear of them. */
+  besideControls?: boolean;
+}) {
+  const folder = hostFolderOf(resource);
+  if (folder)
+    return (
+      <HostFolderView
+        besideControls={besideControls}
+        folder={folder}
+        resource={resource}
+        workspaceId={workspaceId}
+      />
+    );
+  return <UploadedResourceView resource={resource} workspaceId={workspaceId} />;
+}
+
 /** Renders one workspace-owned upload and its structured processing provenance. */
-export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResourceViewProps) {
+function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const endpoint = settings.endpoint;

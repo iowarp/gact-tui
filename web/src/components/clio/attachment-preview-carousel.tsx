@@ -112,7 +112,7 @@ export function AttachmentPreviewCarousel({
   return (
     <div
       className={cn(
-        'grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3',
+        'grid min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-3',
         items.length === 1 && 'grid-rows-[minmax(0,1fr)]',
         className,
       )}
