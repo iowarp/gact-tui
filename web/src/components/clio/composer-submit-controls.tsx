@@ -7,7 +7,8 @@ import { useComposerDelivery } from '@/hooks/use-composer-delivery';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { IconButton } from './primitives/icon-button';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
-import { ClioStatus } from './status';
+import { StatusIndicator } from './primitives/status-indicator';
+import { clioStatusLabel } from './status';
 
 /**
  * The 28px square the row ends with, filled so it reads as the primary action.
@@ -43,7 +44,12 @@ export function ComposerSubmitControls({
   return (
     <>
       {state === 'waiting_permission' || state === 'waiting_user' ? (
-        <ClioStatus className="shrink-0 px-1 whitespace-nowrap" value={state} />
+        // The status word (a dot and a muted 12px word); a narrow row leaves it to the card above.
+        <StatusIndicator
+          className="shrink-0 px-1 @max-[440px]/composer:hidden"
+          label={clioStatusLabel(state)}
+          tone="waiting"
+        />
       ) : null}
       {stoppable && !sendable ? (
         <IconButton
