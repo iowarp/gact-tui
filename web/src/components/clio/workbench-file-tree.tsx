@@ -1,9 +1,11 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FileTreeIcon, FileTreeName } from '@/components/ai-elements/file-tree';
+import { FileTreeIcon } from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
 import { formatBytes, formatCompactBytes } from '@/lib/format';
+import { splitForMiddleTruncation } from '@/lib/middle-truncate';
+import { isTextTruncated } from '@/lib/truncation';
 import { cn } from '@/lib/utils';
 import { MetaValue } from './primitives/tag';
 import { ResourceLoading } from './resource-states';
@@ -19,6 +21,35 @@ import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model
 const REDACTED_REASON_LABEL: Record<string, string> = {
   sandbox_child_cache: 'Sandbox cache — contents not shown',
 };
+
+/** Characters kept at a cut name's end, so dated siblings and extensions stay apart. */
+const NAME_TAIL = 8;
+
+/** A row name cut in the middle (`2026-11-01_ane…tion.csv`); keyboard focus reads it whole. */
+function TreeName({ name }: { name: string }) {
+  const [head, tail] = splitForMiddleTruncation(name, NAME_TAIL);
+  return (
+    <span className="flex min-w-0 flex-1 overflow-hidden whitespace-nowrap" data-tree-name="">
+      <span className="min-w-0 truncate" data-full-text={name}>
+        {head}
+      </span>
+      {tail ? <span className="shrink-0">{tail}</span> : null}
+    </span>
+  );
+}
+
+/**
+ * The row's hover text: its name only while the name is cut, then its detail
+ * ("12 lines added, 1.2 KB"). Measured on hover, so an uncut row adds nothing.
+ */
+function titleRow(row: HTMLElement, name: string, detail?: string) {
+  const head = row.querySelector<HTMLElement>('[data-tree-name] > [data-full-text]');
+  const title = [head && isTextTruncated(head) ? name : undefined, detail]
+    .filter(Boolean)
+    .join('\n');
+  if (title) row.setAttribute('title', title);
+  else row.removeAttribute('title');
+}
 
 /** One flat row of a Files tree; folders and files are keyed by path. */
 export type FileTreeRow =
@@ -341,6 +372,7 @@ function TreeRowView({
               row.depth === 0 && 'font-medium text-foreground',
             )}
             onClick={() => onToggle(row.path)}
+            onPointerEnter={(event) => titleRow(event.currentTarget, row.name)}
             style={{ paddingLeft }}
             type="button"
           >
@@ -352,7 +384,7 @@ function TreeRowView({
             <FileTreeIcon className="[&_svg]:text-muted-foreground">
               {row.icon ?? <Icon className="size-3.5" />}
             </FileTreeIcon>
-            <FileTreeName title={row.name}>{row.name}</FileTreeName>
+            <TreeName name={row.name} />
             {row.meta ? (
               <span className="ml-auto shrink-0 pl-2 text-[11.5px] font-normal text-faint tabular-nums">
                 {row.meta}
@@ -395,6 +427,7 @@ function TreeRowView({
                 }
               : undefined
           }
+          onPointerEnter={(event) => titleRow(event.currentTarget, row.name, detail)}
           role="treeitem"
           style={style}
           tabIndex={onSelect ? 0 : undefined}
@@ -412,7 +445,7 @@ function TreeRowView({
           >
             {row.icon ?? <FileIcon className="size-3.5" />}
           </FileTreeIcon>
-          <FileTreeName title={row.name}>{row.name}</FileTreeName>
+          <TreeName name={row.name} />
           {trailing || row.actions || row.pinned ? (
             <span className="ml-auto flex min-w-0 shrink-0 items-center gap-2 pl-2">
               {trailing ? (

@@ -83,7 +83,12 @@ export function HostFolderView({
     <ScrollArea className="h-full">
       <section
         aria-label={`Folder ${name}`}
-        className={cn('@container mx-auto w-full max-w-3xl p-5', besideControls && 'px-12')}
+        className={cn(
+          '@container mx-auto w-full max-w-3xl p-5',
+          // A phone keeps the width for names; the carousel arrows float over the list there.
+          besideControls && 'px-12',
+          'max-sm:px-3',
+        )}
       >
         <header className="flex items-start gap-3">
           <AttachedFolderIcon

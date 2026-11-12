@@ -51,8 +51,11 @@ export interface LineageGraphLayout {
 export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
 const MAX_WIDTH = 116;
-/** With room to spare a node grows to show its whole name, up to this. */
-const NAMED_MAX_WIDTH = 240;
+/**
+ * With room to spare a node grows to show its whole name (its own estimated
+ * width); this only bounds a pathological name.
+ */
+const NAMED_MAX_WIDTH = 640;
 const RANK_GAP = 22;
 /** The widest column gap a roomy pane spreads to: the shared graph gap (`GRAPH_GAP.max`). */
 const WIDE_RANK_GAP = 56;
