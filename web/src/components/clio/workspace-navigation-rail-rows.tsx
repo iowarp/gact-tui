@@ -20,6 +20,7 @@ export function RailState({
   failed,
   error,
   onRetry,
+  indent = false,
 }: {
   kind: 'loading' | 'error' | 'empty';
   title: string;
@@ -27,6 +28,8 @@ export function RailState({
   failed?: { what: string; verb: 'listed' | 'loaded' };
   error?: unknown;
   onRetry?: () => void;
+  /** Inside a workspace: aligned with its conversations' titles. */
+  indent?: boolean;
 }) {
   const offline = kind === 'error' && isOfflineError(error);
   const what = failed?.what ?? '';
@@ -35,6 +38,20 @@ export function RailState({
     : offline
       ? `Offline, no ${what}`
       : `${what.charAt(0).toUpperCase()}${what.slice(1)} not ${failed.verb}`;
+  if (kind === 'empty')
+    // The spec's quiet .empty line (12px, faint, no icon), its text on the rows' title column.
+    return (
+      <div
+        className={cn(
+          'flex h-[26px] min-w-0 items-center pr-1 text-[12px] whitespace-nowrap text-faint group-data-[collapsible=icon]:hidden',
+          indent ? 'pl-[34px]' : 'pl-2.5',
+        )}
+        data-slot="rail-empty"
+        role="status"
+      >
+        <span className="min-w-0 truncate">{title}</span>
+      </div>
+    );
   return (
     <div className="min-w-0 group-data-[collapsible=icon]:hidden" title={failed ? title : undefined}>
       <StateView

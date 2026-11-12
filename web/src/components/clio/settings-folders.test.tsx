@@ -17,6 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { FoldersSettings } from './settings-folders';
+import { defaultWorkspaceAppearance } from './settings-folders-model';
 
 const primaryPath = 'D:\\science\\campaigns\\flat-NDP';
 const workspace = (extra: string[] = ['D:\\data\\earthscope-raw']) => ({
@@ -87,7 +88,10 @@ describe('folders settings', { timeout: 20_000 }, () => {
       }),
     );
     expect(JSON.parse(window.localStorage.getItem('clio.workspace-appearance.v1')!)).toEqual({
-      'http://127.0.0.1 ws_flat_ndp': { colour: 'blue', icon: 'folder' },
+      'http://127.0.0.1 ws_flat_ndp': {
+        colour: 'blue',
+        icon: defaultWorkspaceAppearance('ws_flat_ndp').icon,
+      },
     });
   });
 
