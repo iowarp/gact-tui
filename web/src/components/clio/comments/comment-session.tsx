@@ -283,16 +283,18 @@ export function CommentSessionProvider({
     threads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
   // A transcript chip asked for these threads: show the controls and the thread list.
   const threadIds = threads.data?.threads;
+  const [mountedAt] = useState(() => Date.now());
   useEffect(() => {
     if (!threadIds?.length) return undefined;
-    const reveal = () => {
-      if (!takeCommentThreadReveal(threadIds.map((row) => row.id))) return;
+    const ids = threadIds.map((row) => row.id);
+    const reveal = (since?: number) => {
+      if (!takeCommentThreadReveal(ids, since)) return;
       setOpen(true);
       setThreadsOpen(true);
     };
-    reveal();
-    return onCommentThreadReveal(reveal);
-  }, [threadIds]);
+    reveal(mountedAt);
+    return onCommentThreadReveal(() => reveal());
+  }, [mountedAt, threadIds]);
   const value = useMemo<CommentSessionValue>(
     () => ({
       surface,
