@@ -215,8 +215,9 @@ export const ActivityRow = memo(
             <>
               {link ? (
                 // The agent name stays whole when it fits; if the row is narrower, it ends in …
-                // It takes the room before the argument does.
-                <span className="flex w-0 min-w-0 max-w-fit grow-[100] items-center [&>*]:min-w-0 [&>*]:max-w-[16rem]">
+                // It takes the room before the argument does, and a long path keeps a
+                // readable stem before a count recap beside it does.
+                <span className="flex w-0 min-w-0 max-w-fit grow-[100] items-center has-[[data-long-label]]:min-w-[min(11ch,50%)] [&>*]:min-w-0 [&>*]:max-w-[16rem]">
                   {link}
                 </span>
               ) : null}

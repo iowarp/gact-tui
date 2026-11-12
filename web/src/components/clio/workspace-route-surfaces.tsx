@@ -126,10 +126,7 @@ export function WorkspaceTranscriptAlerts({
       ) : transcriptError ? (
         // The shown messages stay; the failed read is one line with Retry, and the
         // service's own words stay in Technical details.
-        <div
-          className="mx-3 mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
-          role="alert"
-        >
+        <div className="mx-3 mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <StateView
             action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
             className="w-fit"

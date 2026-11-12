@@ -42,7 +42,7 @@ function useMathPlugins(needed: boolean) {
 }
 
 /**
- * Streamdown's own default anchor is a plain `target="_blank"` `<a>` â€” the
+ * Streamdown's own default anchor is a plain `target="_blank"` `<a>` — the
  * same one the desktop shell's opener plugin fails to intercept correctly
  * once its scope is narrower than the link (see `ExternalLink`). Overriding
  * `a` here routes every markdown link through the one path instead, without
@@ -68,7 +68,7 @@ const streamdownComponents = { a: MarkdownLink, ol: MarkdownOrderedList };
 
 /**
  * Streamdown's ordered list, plus the digit count of its widest marker
- * (`start` + items âˆ’ 1). An outside "100." needs a wider gutter than "9.",
+ * (`start` + items − 1). An outside "100." needs a wider gutter than "9.",
  * and CSS can't add a `start` attribute to an item count.
  */
 function MarkdownOrderedList({

@@ -179,7 +179,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
             ) : (
               <BoundedResult lines={block.source === 'peer' ? previewLines : 8} title={label}>
                 {presentation?.format === 'markdown' ? (
-                  <GroundedMessageResponse mode="static">
+                  <GroundedMessageResponse mode="static" className={ROW_MARKDOWN}>
                     {presentation.text}
                   </GroundedMessageResponse>
                 ) : !presentation && MARKDOWN_SOURCES.has(block.source) ? (

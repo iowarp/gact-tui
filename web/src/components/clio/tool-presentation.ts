@@ -321,6 +321,19 @@ export function getToolInterruptionDetail(tool: ToolInvocation): string | undefi
 
 /** Explain an unsuccessful outcome using recorded diagnostics, never payload-status guesses. */
 export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
+  const detail = failureDetail(tool);
+  // A refusal is not a failure: its row already says Denied and who decided, so a
+  // detail that only restates that is not repeated in the opened body.
+  if (
+    detail &&
+    getToolStatus(tool) === 'denied' &&
+    /^(?:permission\s+)?denied(?:\s+by\s+(?:you|the\s+user|user))?\.?$/iu.test(detail)
+  )
+    return undefined;
+  return detail;
+}
+
+function failureDetail(tool: ToolInvocation): string | undefined {
   if (getToolStatus(tool) === 'unknown') {
     return (
       tool.error?.trim() ||
@@ -343,7 +356,6 @@ export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
   if (terminal?.text?.trim()) return terminal.text.trim();
   if (terminal?.exit_code !== undefined && terminal.exit_code !== null)
     return `Process exited with code ${terminal.exit_code}. No diagnostic output was recorded.`;
-  // A refusal is not a failure: its row already says Denied and who decided.
   if (getToolStatus(tool) === 'denied') return tool.presentation?.summary?.trim() || undefined;
   return tool.presentation?.summary?.trim() || 'No failure diagnostic was recorded.';
 }

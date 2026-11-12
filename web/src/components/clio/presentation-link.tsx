@@ -49,11 +49,8 @@ export function PresentationLink({
     ) : (
       <PanelRightIcon aria-hidden="true" className="size-3.5" />
     )
-  ) : filename ? (
-    <span className="flex min-w-0">
-      <span className="truncate">{shown.slice(0, -12)}</span>
-      <span className="shrink-0">{shown.slice(-12)}</span>
-    </span>
+  ) : compact && (filename || /[\\/]/u.test(shown)) ? (
+    <CompactPathLabel text={shown} />
   ) : (
     <span className={compact ? 'truncate' : undefined}>{shown}</span>
   );
@@ -195,6 +192,26 @@ export function PresentationLink({
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
     </span>,
+  );
+}
+
+/**
+ * A path in a narrow row: its folder gives way first, then the name's end, and the
+ * extension stays, so the name is never cut to a one-letter stub.
+ */
+function CompactPathLabel({ text }: { text: string }) {
+  const slash = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\'));
+  const folder = slash > 0 ? text.slice(0, slash + 1) : '';
+  const leaf = text.slice(slash + 1);
+  const dot = leaf.lastIndexOf('.');
+  const extension = dot > 0 && leaf.length - dot <= 8 ? leaf.slice(dot) : '';
+  const stem = extension ? leaf.slice(0, dot) : leaf;
+  return (
+    <span className="flex min-w-0" data-long-label={leaf.length > 11 ? '' : undefined}>
+      {folder ? <span className="min-w-0 shrink-[1000] truncate">{folder}</span> : null}
+      <span className="min-w-0 truncate">{stem}</span>
+      {extension ? <span className="shrink-0">{extension}</span> : null}
+    </span>
   );
 }
 
