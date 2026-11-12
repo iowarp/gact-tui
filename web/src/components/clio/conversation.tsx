@@ -55,6 +55,8 @@ import {
 
 const VIRTUALIZATION_THRESHOLD = 80;
 const ESTIMATED_ROW_PX = 180;
+/** The spec's `.tr` top padding: the first message never sits against the top bar. */
+const TRANSCRIPT_TOP_INSET_PX = 28;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 import { ConversationMessageRow } from './conversation-message-row';
@@ -293,6 +295,7 @@ function ConversationBody({
     // update instead of trying to flush another render inside that commit.
     useFlushSync: false,
     estimateSize: () => ESTIMATED_ROW_PX,
+    paddingStart: TRANSCRIPT_TOP_INSET_PX,
     getScrollElement: () => scrollRef.current,
     overscan: 7,
     rangeExtractor: useCallback(
@@ -583,7 +586,7 @@ function ConversationBody({
               style={
                 virtualized
                   ? { height: virtualizer.getTotalSize() + virtualizedRowsOverflow }
-                  : undefined
+                  : { paddingTop: TRANSCRIPT_TOP_INSET_PX }
               }
             >
               {(virtualized
