@@ -1,6 +1,5 @@
 import { BrandIcon } from '@/components/clio/brand-icon';
 import { brand } from '@brand';
-import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   GlobeIcon,
@@ -31,17 +30,15 @@ import {
   useConnectionWaiting,
   useServedEndpointProbe,
 } from '@/lib/connection-attempt';
-import { ServiceVersionError } from '@/lib/service-version-error';
+import { assertServiceOpenable } from '@/lib/service-open-gate';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { agentAvailabilityLabel, agentIdentity } from '@/components/clio/connection-names';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
-import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Button } from '@/components/ui/button';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
-import { FAILED_START_DETAIL } from '@/hooks/use-connection-availability';
 import {
   createRepository,
   defaultEndpoint,
@@ -186,32 +183,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
         endpoint: normalizeEndpoint(candidate.endpoint),
       });
       const repository = createRepository(next);
-      const [capabilities, health] = await Promise.all([
-        connectionCapabilities(repository, next.endpoint),
-        // Older services have no readiness field; an unreadable health is not a failure here.
-        Promise.resolve()
-          .then(() => repository.serviceHealth())
-          .catch(() => undefined),
-      ]);
-      if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
-        throw new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions);
-      }
-      if (health?.readiness === 'failed') {
-        // It will not become ready by itself: say why now instead of waiting.
-        throw new TransportError(
-          health.failure?.message || FAILED_START_DETAIL,
-          503,
-          'task_runtime_unavailable',
-          { readiness: 'failed', ...(health.failure ? { reason: health.failure.reason } : {}) },
-        );
-      }
-      if (health?.readiness === 'starting') {
-        // Reading workspaces now only earns a 503; wait for readiness (#739 B1).
-        throw new TransportError('The service is still starting.', 503, 'task_runtime_starting', {
-          readiness: 'starting',
-          ...(health.starting ? { starting: health.starting } : {}),
-        });
-      }
+      const capabilities = await assertServiceOpenable(repository, next.endpoint);
       const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const [workspaces, sessions] = await Promise.all([
         repository.workspaces(),
