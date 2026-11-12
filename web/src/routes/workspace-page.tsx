@@ -92,7 +92,7 @@ export function WorkspacePage() {
   const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
-  const diffActions = useSessionDiffActions();
+  const diffActions = useSessionDiffActions(sessionId);
   const sessionCommands = useSessionCommands(sessionId, workspaceId);
   const data = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const {
