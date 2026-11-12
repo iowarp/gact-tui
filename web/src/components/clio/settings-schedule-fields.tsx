@@ -39,10 +39,9 @@ export function ScheduleWords({ schedule }: { schedule: ScheduledTurn }) {
 /** The 14 px gap between meta facts; read as a comma. */
 export function MetaGap() {
   return (
-    <>
-      <span aria-hidden="true" className="inline-block w-3.5" />
+    <span className="inline-block w-3.5" data-truncation-text=", ">
       <span className="sr-only">, </span>
-    </>
+    </span>
   );
 }
 
