@@ -1,7 +1,9 @@
 import type { SourceEntry } from '@clio/core/v3';
 import { ArrowUpIcon, FileIcon, FolderIcon, SearchIcon } from 'lucide-react';
+import { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { sourceBytes } from './connected-source-labels';
 import { InfoTip } from './info-tip';
@@ -11,7 +13,18 @@ import { SourceStatusLine, sourceInputClass } from './source-form-parts';
 
 export type SourceFilesView = 'source' | 'downloads';
 
-const quietAction = 'h-6 shrink-0 px-2 text-[12px] text-muted-foreground hover:text-foreground';
+// Unavailable reads as unavailable: the faint ink under the shared 50% fade, never the
+// muted ink an available quiet action uses. The reason is said in words beside it.
+const quietAction =
+  'h-6 shrink-0 px-2 text-[12px] text-muted-foreground hover:text-foreground disabled:text-faint';
+
+type SourceFileAction = {
+  label: string;
+  disabled: boolean;
+  /** Why the action is unavailable, said once above the rows. */
+  reason?: string;
+  onClick: () => void;
+};
 
 /**
  * A source's files in the form language: an 11.5px label with the Source /
@@ -54,10 +67,12 @@ export function SourceFilesBrowser({
   /** "Add this folder to message", when attaching. */
   addFolder?: { label: string; disabled: boolean; onClick: () => void };
   /** The one action a file row offers (Add to message, Download file). */
-  fileAction: (
-    entry: SourceEntry,
-  ) => { label: string; disabled: boolean; onClick: () => void } | undefined;
+  fileAction: (entry: SourceEntry) => SourceFileAction | undefined;
 }) {
+  const hintId = useId();
+  const hint = browse.data?.entries
+    .map((entry) => (entry.kind === 'file' ? fileAction(entry) : undefined))
+    .find((act) => act?.disabled && act.reason)?.reason;
   return (
     <section aria-label="Source files" className="flex min-w-0 flex-col gap-[5px]">
       <div className="flex min-h-7 min-w-0 items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
@@ -138,6 +153,11 @@ export function SourceFilesBrowser({
             {browse.error.message}
           </SourceStatusLine>
         ) : null}
+        {hint ? (
+          <SourceStatusLine id={hintId} tone="quiet" icon={<InfoIcon />} className="px-2">
+            {hint}
+          </SourceStatusLine>
+        ) : null}
         {browse.data?.entries.length === 0 ? (
           <SourceStatusLine tone="quiet" className="px-2">
             No matching files.
@@ -179,16 +199,22 @@ export function SourceFilesBrowser({
                 </span>
               ) : null}
               {act ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={quietAction}
-                  disabled={act.disabled}
-                  onClick={act.onClick}
+                <span
+                  className={cn('shrink-0', act.disabled && 'cursor-not-allowed')}
+                  title={act.disabled ? act.reason : undefined}
                 >
-                  {act.label}
-                </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={quietAction}
+                    disabled={act.disabled}
+                    aria-describedby={act.disabled && act.reason === hint ? hintId : undefined}
+                    onClick={act.onClick}
+                  >
+                    {act.label}
+                  </Button>
+                </span>
               ) : null}
             </div>
           );

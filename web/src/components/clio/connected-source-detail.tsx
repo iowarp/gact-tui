@@ -706,6 +706,12 @@ function SourceManage({
               ? {
                   label: 'Add to message',
                   disabled: (!browsingCopies && !source.linked) || fileReference.isPending,
+                  reason:
+                    !browsingCopies && !source.linked
+                      ? linkable
+                        ? `${linkLabel} to add its files to a message.`
+                        : 'Link this source to add its files to a message.'
+                      : undefined,
                   onClick: () =>
                     fileReference.mutate({
                       source,

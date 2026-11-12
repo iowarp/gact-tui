@@ -89,6 +89,8 @@ mod supervisor_types;
 mod supervisor_update_verify;
 mod terminal_pty;
 mod terminal_reader;
+#[cfg(target_os = "macos")]
+mod text_substitution;
 mod tray;
 mod update_channel;
 mod update_lease;
@@ -193,6 +195,9 @@ pub fn run() {
     // Before any thread starts: children inherit the adopted PATH.
     #[cfg(target_os = "macos")]
     login_path::adopt_login_shell_path();
+    // Before the first web view: WebKit reads its text substitution defaults once.
+    #[cfg(target_os = "macos")]
+    text_substitution::register_text_substitution_defaults();
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
