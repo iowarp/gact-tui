@@ -25,10 +25,12 @@ const PLAN_MARKDOWN =
   'min-w-0 text-[12.5px] leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>:where(:not(:first-child))]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-[15px] [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-[15px] [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-[12.5px] [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-[11.5px]';
 const GUIDANCE_HEADING = 'mt-2.5 text-[12.5px] leading-5 font-medium text-foreground';
 
-/** Where the plan lives, short; the full path is on hover. */
+/** Where the plan lives, short; the full path is on hover. Storage ids are not names. */
 function planFileName(path: string) {
-  const parts = path.split(/[\\/]/u).filter(Boolean);
-  return parts.slice(-2).join('/');
+  const parts = path
+    .split(/[\\/]/u)
+    .filter((part) => part && !/^(?:(?:fld|res)_)?[0-9a-f]{16,}$/iu.test(part));
+  return parts.slice(-2).join('/') || path;
 }
 
 /** A plan's own "Steps" heading; the preview drops it (the full plan keeps it). */

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { InfrastructureDependency, Message, RunState } from '@clio/core/v3';
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
@@ -9,6 +10,16 @@ export interface TurnPreparationProps {
   activeTurnId?: string;
   activeTurnResponded?: boolean;
   dependencies?: readonly InfrastructureDependency[];
+  /** The person's message is still on its way to the service; no turn exists yet. */
+  sending?: boolean;
+}
+
+function PreparationRow({ title }: { title: ReactNode }) {
+  return (
+    <div className="py-2" data-slot="turn-preparation">
+      <StateView kind="loading" size="row" title={title} />
+    </div>
+  );
 }
 
 /** Preparation belongs to the current response and ends at its first content. */
@@ -18,7 +29,9 @@ export function ClioTurnPreparation({
   activeTurnId,
   activeTurnResponded,
   dependencies = [],
+  sending,
 }: TurnPreparationProps) {
+  if (sending && sessionState !== 'running') return <PreparationRow title="Sending message" />;
   if (sessionState !== 'queued' && sessionState !== 'running') return null;
   const currentMessages = currentTurnAssistantMessages(messages, activeTurnId);
   const hasContent = currentMessages.some((message) =>
@@ -33,12 +46,8 @@ export function ClioTurnPreparation({
     (message) => message.role === 'assistant' && !currentMessages.includes(message),
   );
   return (
-    <div className="py-2" data-slot="turn-preparation">
-      <StateView
-        kind="loading"
-        size="row"
-        title={<ClioInfrastructurePreparation dependencies={dependencies} followUp={followUp} />}
-      />
-    </div>
+    <PreparationRow
+      title={<ClioInfrastructurePreparation dependencies={dependencies} followUp={followUp} />}
+    />
   );
 }
