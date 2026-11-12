@@ -473,10 +473,15 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.getAllByRole('button', { name: /Hidden|Done/ })).toHaveLength(1);
-    // Normal mode: no eye anywhere -- "Hidden N" IS the manage action, so
+    // Nothing hidden: the footer's one visibility control is the eye, named "Hide providers".
+    expect(screen.getAllByRole('button', { name: /^(Hidden|Done|Hide providers$)/ })).toHaveLength(
+      1,
+    );
+    // Normal mode: no eye on any row -- the footer control IS the manage action, so
     // there is nothing to toggle until it is clicked.
-    expect(screen.queryByRole('button', { name: /Hide|Show/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^(Hide|Show) (?!providers$)/ }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Hide providers' }));
     // Manage mode: every row -- not just the one about to be hidden -- shows
