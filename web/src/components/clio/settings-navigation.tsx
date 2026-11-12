@@ -79,7 +79,7 @@ export function SettingsNavigation({
               className={cn(
                 'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
+                id === current && 'bg-nav-current text-foreground hover:bg-nav-current',
                 unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
                 counts && !counts[id] && 'text-faint hover:text-muted-foreground',
               )}

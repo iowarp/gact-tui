@@ -190,7 +190,7 @@ export const ItemRow = memo(
           <>
             <span
               className={cn(
-                'flex min-w-0 items-center overflow-hidden',
+                'flex min-w-0 items-center overflow-hidden text-xs text-muted-foreground',
                 // Pinned with the actions that float over it, so the slot keeps its column.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1',
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',

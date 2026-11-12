@@ -127,12 +127,13 @@ export function ProviderComponentStatus({
           No compatible client update is available yet.
         </span>
       ) : state.checkError || components?.error?.message ? (
+        // A failed check says so in words; the service's reason is its hover detail.
         <span
           className="min-w-0 truncate text-destructive"
           role="alert"
           title={state.checkError || components?.error?.message}
         >
-          {state.checkError || components?.error?.message}
+          Can't check updates
         </span>
       ) : null}
       {restart ? (

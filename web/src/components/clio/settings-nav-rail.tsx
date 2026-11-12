@@ -127,7 +127,7 @@ export function SettingsNavRail({
                 {items.map(({ id, label: name, icon: Icon }) => (
                   <DropdownMenuItem
                     asChild
-                    className="aria-[current=page]:bg-menu-highlight aria-[current=page]:text-foreground"
+                    className="aria-[current=page]:bg-nav-current aria-[current=page]:text-foreground"
                     key={id}
                   >
                     <Link

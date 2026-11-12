@@ -189,6 +189,8 @@
   --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
+  /* The current place in a navigation list (Settings nav); a theme without one uses the menu highlight. */
+  --color-nav-current: var(--nav-current, var(--menu-highlight));
   --color-key: var(--key);
   --color-key-border: var(--key-border);
   --color-muted: var(--muted);

@@ -1,5 +1,5 @@
 import { LayersIcon } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,21 +21,17 @@ type Filter = PackageCategory | 'all';
 
 const LABEL = 'Show what packages bring';
 const noop = () => undefined;
+// The More button and the 1px gap before it.
+const MORE_WIDTH = 29;
 
-// A 12px label runs about 7px a character; a segment adds 20px of padding,
-// an icon-only one is 27px, and the track 4px. The 8px keeps a margin.
-const segment = (label: string) => 20 + 7 * label.length;
-const fullWidth = (options: readonly SegmentedOption<Filter>[]) =>
-  12 + options.reduce((sum, option) => sum + segment(option.label) + 1, 0);
-const othersWidth = (
-  options: readonly SegmentedOption<Filter>[],
-  current: SegmentedOption<Filter>,
-) => 12 + segment(current.label) + 20 + (options.length - 1) * 28;
+// Until the hidden copy is measured: a 12px label runs about 7px a character,
+// and a segment adds its icon, gap and padding.
+const estimate = (option: SegmentedOption<Filter>) => 40 + 7 * option.label.length;
 
 /**
- * The category filter over an agent's packages. It folds with its width, as
- * the Tools page switch does: every category by name, then the others as
- * icons, then the current category and ⋯ for the rest. ← → move through all.
+ * The category filter over an agent's packages. Every category shows its icon
+ * and name; when the row runs out of room, the current category keeps its
+ * place and the categories that don't fit move into a More menu.
  */
 export function AgentPackageFilter({
   categories,
@@ -48,8 +44,7 @@ export function AgentPackageFilter({
 }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const fullCopy = useRef<HTMLDivElement>(null);
-  const iconsCopy = useRef<HTMLDivElement>(null);
-  const [needs, setNeeds] = useState<{ full: number; icons: number }>();
+  const [widths, setWidths] = useState<readonly number[]>();
   const options: SegmentedOption<Filter>[] = [
     { value: 'all', label: 'All', icon: <LayersIcon /> },
     ...categories.map((info) => {
@@ -58,66 +53,65 @@ export function AgentPackageFilter({
     }),
   ];
   const current = options.find((option) => option.value === value) ?? options[0]!;
-  const named = options.map(({ value: key, label }) => ({ value: key, label }));
-  const shape = `${options.map((option) => option.value).join()}|${current.value}`;
-  // The hidden copies give the real widths; the estimate stands in until then.
+  const shape = options.map((option) => option.value).join();
+  // The hidden copy gives each segment's real width; the estimate stands in until then.
   useLayoutEffect(() => {
-    const full = fullCopy.current?.scrollWidth ?? 0;
-    const icons = iconsCopy.current?.scrollWidth ?? 0;
-    setNeeds(full > 0 && icons > 0 ? { full, icons } : undefined);
+    const track = fullCopy.current?.querySelector('[data-slot=segmented-control]');
+    const measured = track
+      ? Array.from(track.children, (child) => child.getBoundingClientRect().width)
+      : [];
+    setWidths(measured.length && measured.every((size) => size > 0) ? measured : undefined);
   }, [shape]);
-  const fold =
-    width === 0 || (needs?.full ?? fullWidth(options)) <= width
-      ? 'full'
-      : (needs?.icons ?? othersWidth(options, current)) <= width
-        ? 'icons'
-        : 'current';
-  const step = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-    event.preventDefault();
-    const index = options.indexOf(current);
-    const next =
-      options[(index + (event.key === 'ArrowRight' ? 1 : options.length - 1)) % options.length];
-    if (next) onValueChange(next.value);
-  };
+  const sizeOf = (option: SegmentedOption<Filter>) =>
+    widths?.[options.indexOf(option)] ?? estimate(option);
+  const trackWidth = (set: readonly SegmentedOption<Filter>[]) =>
+    4 + set.reduce((sum, option) => sum + sizeOf(option), 0) + Math.max(0, set.length - 1);
+  let shown = options;
+  if (width > 0 && trackWidth(options) > width) {
+    const room = width - MORE_WIDTH;
+    const kept = new Set([current]);
+    for (const option of options) {
+      if (kept.has(option)) continue;
+      const next = options.filter((candidate) => kept.has(candidate) || candidate === option);
+      if (trackWidth(next) <= room) kept.add(option);
+    }
+    shown = options.filter((option) => kept.has(option));
+  }
+  const folded = options.filter((option) => !shown.includes(option));
   return (
-    <div className="relative min-w-0 pt-1 pb-2" data-fold={fold} ref={ref}>
+    <div
+      className="relative min-w-0 pt-1 pb-2"
+      data-fold={folded.length ? 'more' : 'full'}
+      ref={ref}
+    >
       <div
         aria-hidden="true"
-        className="pointer-events-none invisible absolute top-0 left-0 grid w-max"
+        className="pointer-events-none invisible absolute inset-0 overflow-hidden"
         inert
       >
+        {/* The clip keeps the full-width copy out of the pane's scroll width. */}
         <div className="flex w-max" ref={fullCopy}>
-          <SegmentedControl label={LABEL} onValueChange={noop} options={named} value={value} />
-        </div>
-        <div className="flex w-max" ref={iconsCopy}>
-          <SegmentedControl
-            iconOnly="others"
-            label={LABEL}
-            onValueChange={noop}
-            options={options}
-            value={value}
-          />
+          <SegmentedControl label={LABEL} onValueChange={noop} options={options} value={value} />
         </div>
       </div>
-      {fold === 'current' ? (
-        <div className="flex min-w-0 items-center gap-px" onKeyDown={step}>
-          <SegmentedControl
-            label={LABEL}
-            onValueChange={onValueChange}
-            options={[current]}
-            value={value}
-          />
+      <div className="flex min-w-0 items-center gap-px">
+        <SegmentedControl
+          label={LABEL}
+          onValueChange={onValueChange}
+          options={shown}
+          value={value}
+        />
+        {folded.length ? (
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <IconButton icon={<MoreIcon />} label="Other categories" />
+              <IconButton icon={<MoreIcon />} label="More categories" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuRadioGroup
                 onValueChange={(next) => onValueChange(next as Filter)}
                 value={value}
               >
-                {options.map((option) => (
+                {folded.map((option) => (
                   <DropdownMenuRadioItem key={option.value} value={option.value}>
                     {option.icon}
                     {option.label}
@@ -126,16 +120,8 @@ export function AgentPackageFilter({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      ) : (
-        <SegmentedControl
-          iconOnly={fold === 'icons' ? 'others' : false}
-          label={LABEL}
-          onValueChange={onValueChange}
-          options={fold === 'full' ? named : options}
-          value={value}
-        />
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }

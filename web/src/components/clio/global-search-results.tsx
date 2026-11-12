@@ -9,6 +9,8 @@ import { capRows, inCommandMenuScope, type CommandMenuScope } from '@/lib/comman
 import { useAppearancePreferences, useTheme } from '@/providers/appearance-provider';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { compactModelName } from '@/lib/model-options';
+import { providerDisplayName } from '@/lib/provider-presentation';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
 import { THEMES } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
@@ -357,8 +359,13 @@ function useSettingValues(readModel: boolean): (value: SettingsSearchValue) => s
         return conversationWidth === 'wide' ? 'Wide' : 'Focused';
       case 'motion':
         return motion === 'reduced' ? 'Reduce motion' : 'Follow system';
-      case 'default-model':
-        return configuration.data?.model || undefined;
+      case 'default-model': {
+        const data = configuration.data;
+        if (!data?.model) return undefined;
+        // "Claude Code / sonnet 5.5", as the Models select and the picker trigger name it.
+        const provider = providerDisplayName(undefined, data.provider_id ?? data.provider);
+        return `${provider} / ${compactModelName(data.resolved_model_id ?? data.model, data.model)}`;
+      }
     }
   };
 }
