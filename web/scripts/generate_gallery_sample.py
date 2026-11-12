@@ -22,7 +22,7 @@ def main() -> None:
     ax.plot(days, displacement, color="#36c9d0", linewidth=2.4)
     ax.fill_between(days, displacement - 0.35, displacement + 0.35, color="#36c9d0", alpha=0.13)
     ax.scatter([29, 61, 82], displacement[[29, 61, 82]], s=33, color="#f7ad54", zorder=4)
-    ax.set_title("Vertical displacement · station BKL1", loc="left", color="#e8eef4", pad=18, fontsize=15)
+    ax.set_title("Vertical displacement, station BKL1", loc="left", color="#e8eef4", pad=18, fontsize=15)
     ax.set_xlabel("Days since observation began", color="#aab7c4", labelpad=10)
     ax.set_ylabel("Displacement (mm)", color="#aab7c4", labelpad=10)
     ax.tick_params(colors="#aab7c4")

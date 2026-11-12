@@ -64,6 +64,27 @@ function unionBox(a: Box, b: Box): Box {
   };
 }
 
+/** The nearest ancestor that scrolls `element`, whose edges clip what of it shows. */
+function scrollerOf(element: HTMLElement | undefined): HTMLElement | undefined {
+  for (let node = element?.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll') return node;
+  }
+  return undefined;
+}
+
+function intersect(a: DOMRect | undefined, b: DOMRect | undefined): DOMRect | undefined {
+  if (!a || !b) return a ?? b;
+  const left = Math.max(a.left, b.left);
+  const top = Math.max(a.top, b.top);
+  return new DOMRect(
+    left,
+    top,
+    Math.max(0, Math.min(a.right, b.right) - left),
+    Math.max(0, Math.min(a.bottom, b.bottom) - top),
+  );
+}
+
 /** Follows the step's anchor every frame, so the spotlight tracks layout, scroll and resize. */
 function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, reduceMotion: boolean) {
   const [box, setBox] = useState<Box>();
@@ -72,6 +93,8 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
     // null until the first frame, so a step without an anchor clears the last step's box.
     let current: Box | undefined | null = null;
     let scrolled = false;
+    let measured: HTMLElement | undefined;
+    let scroller: HTMLElement | undefined;
     const started = performance.now();
     let warned = false;
     const tick = () => {
@@ -81,6 +104,10 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
         scrolled = true;
         element.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
       }
+      if (element !== measured) {
+        measured = element;
+        scroller = scrollerOf(element);
+      }
       if (!element && step.anchor && !warned && performance.now() - started > ANCHOR_GRACE_MS) {
         warned = true;
         if (import.meta.env.DEV)
@@ -88,9 +115,27 @@ function useAnchorBox(step: TourStep, scope: RefObject<HTMLElement | null>, redu
             `Onboarding tour: anchor "${step.anchor}" is not on screen; showing a centred card.`,
           );
       }
-      // A tall anchor inside the practice stage is clipped to what the stage shows.
+      // A tall anchor is clipped to what the practice stage and its scroller show,
+      // and in practice, to the transcript above the composer that floats over it.
+      const composerElement =
+        step.practice && root instanceof HTMLElement ? findTourAnchor('composer', root) : undefined;
+      const composer =
+        composerElement && element && !composerElement.contains(element)
+          ? composerElement.getBoundingClientRect()
+          : undefined;
+      const shown = intersect(
+        root instanceof HTMLElement && root !== element ? root.getBoundingClientRect() : undefined,
+        scroller?.getBoundingClientRect(),
+      );
       const bounds =
-        root instanceof HTMLElement && root !== element ? root.getBoundingClientRect() : undefined;
+        shown &&
+        composer &&
+        composer.top > shown.top &&
+        composer.top < shown.bottom &&
+        composer.left < shown.right &&
+        composer.right > shown.left
+          ? new DOMRect(shown.left, shown.top, shown.width, composer.top - shown.top)
+          : shown;
       const anchorBox = element ? visibleBox(element.getBoundingClientRect(), bounds) : undefined;
       // A menu or picker the step opened stays lit with its control.
       const next = anchorBox ? openPopups().reduce(unionBox, anchorBox) : undefined;
@@ -246,7 +291,7 @@ export function TourOverlay({
               <>
                 <CheckIcon aria-hidden="true" className="size-4 text-primary" />
                 <span className="font-medium">
-                  {step.waitFor === 'interact' ? 'Nice. Keep exploring, or press Next.' : 'Done'}
+                  {step.waitFor === 'interact' ? 'Done. Keep exploring, or press Next.' : 'Done'}
                 </span>
               </>
             ) : null}

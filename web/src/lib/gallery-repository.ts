@@ -114,7 +114,7 @@ export function createGalleryRepository(base: Repository): Repository {
           if (media) return Promise.resolve({ uri, kind: 'artifact' as const, workspace_id: 'gallery', ...media, artifact_id: id, fetch_path: media.url });
           return uri === 'artifact://artifact_plot'
             ? Promise.resolve({ uri, kind: 'artifact' as const, workspace_id: 'gallery',
-              name: 'gallery-sample.png', media_type: 'image/png', size_bytes: 53953, artifact_id: 'artifact_plot',
+              name: 'gallery-sample.png', media_type: 'image/png', size_bytes: 50870, artifact_id: 'artifact_plot',
               fetch_path: '/v1/artifacts/artifact_plot/bytes' })
             : target.resolveA2uiReference(sessionId, uri, signal);
         };

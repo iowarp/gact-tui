@@ -89,7 +89,7 @@ const plot: Artifact = {
   name: 'bkl1-vertical.png',
   media_type: 'image/png',
   uri: `artifact://${PLOT_ARTIFACT}`,
-  size: 53953,
+  size: 50870,
   created_at: at(5),
 };
 
