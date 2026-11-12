@@ -111,6 +111,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
     managedConnection,
     managedConnectionReady,
     managedBackendStatus,
+    managedInstallProgress,
     credentialError,
     resolveConnection,
     connect,
@@ -285,7 +286,12 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
   };
 
   if (waitingForManagedService) {
-    return <DesktopBoot stage={managedBootStage(managedBackendStatus)} />;
+    return (
+      <DesktopBoot
+        install={managedInstallProgress}
+        stage={managedBootStage(managedBackendStatus)}
+      />
+    );
   }
 
   const bootHold =
