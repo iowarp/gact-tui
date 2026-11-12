@@ -15,7 +15,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
+import type {
+  BundledLanguage,
+  BundledTheme,
+  GrammarState,
+  HighlighterGeneric,
+  ThemedToken,
+} from 'shiki';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -46,7 +52,7 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
   }));
 
 // Token rendering component
-const TokenSpan = ({ token }: { token: ThemedToken }) => (
+export const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
     style={
       {
@@ -259,6 +265,59 @@ export const highlightCode = (
 
   return null;
 };
+
+/** Lines longer than this keep one plain token; minified rows would stall the tokenizer. */
+const CHUNKED_MAX_LINE_LENGTH = 1_000;
+/** Main-thread time spent tokenizing before yielding to input and paint. Unit: ms. */
+const CHUNKED_FRAME_BUDGET_MS = 8;
+const CHUNKED_LINES = 100;
+
+export interface TokenizedChunk {
+  /** Index of the first line in `tokens`. */
+  start: number;
+  tokens: ThemedToken[][];
+  /** The grammar state after the chunk's last line, to resume tokenizing from it. */
+  state?: GrammarState;
+}
+
+/**
+ * Tokenize many lines a chunk at a time, yielding between frame budgets so a large
+ * file stays responsive. Resumes at `from` with the grammar `state` there.
+ */
+export async function tokenizeLines(
+  lines: readonly string[],
+  language: BundledLanguage,
+  // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
+  onChunks: (chunks: TokenizedChunk[]) => void,
+  signal: { cancelled: boolean },
+  from = 0,
+  state?: GrammarState,
+): Promise<void> {
+  const highlighter = await getHighlighter(language);
+  if (signal.cancelled || !highlighter.getLoadedLanguages().includes(language)) return;
+  let grammarState = state;
+  let pending: TokenizedChunk[] = [];
+  let frameStart = performance.now();
+  for (let start = from; start < lines.length; start += CHUNKED_LINES) {
+    if (signal.cancelled) return;
+    const result = highlighter.codeToTokens(lines.slice(start, start + CHUNKED_LINES).join('\n'), {
+      lang: language,
+      theme: 'clio-syntax',
+      grammarState,
+      tokenizeMaxLineLength: CHUNKED_MAX_LINE_LENGTH,
+    });
+    grammarState = result.grammarState;
+    pending.push({ start, tokens: result.tokens, state: grammarState });
+    if (performance.now() - frameStart >= CHUNKED_FRAME_BUDGET_MS) {
+      onChunks(pending);
+      pending = [];
+      // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      frameStart = performance.now();
+    }
+  }
+  if (!signal.cancelled && pending.length) onChunks(pending);
+}
 
 const CodeBlockBody = memo(
   ({

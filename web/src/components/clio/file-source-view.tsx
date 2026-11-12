@@ -49,6 +49,8 @@ export function FileSourceView({
   );
   useFileViewerActions(actions);
   const large = useMemo(() => isLargeSource(content), [content]);
+  // Long lines wrap unless the reader turns it off; a standalone source has no toggle.
+  const wrap = options?.wrap ?? true;
   const wrapToggle =
     options && toolbar ? (
       <ViewerToolbarContent>
@@ -72,7 +74,8 @@ export function FileSourceView({
           className="h-full"
           content={content}
           headerRow={headerRow}
-          wrap={options?.wrap ?? false}
+          language={language}
+          wrap={wrap}
         />
       </>
     );
@@ -89,7 +92,7 @@ export function FileSourceView({
         className={cn(
           // Flush on the page, as the frame spec draws source: no filled panel.
           'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-[11.5px] [&_:is(pre,code)]:leading-[1.65]',
-          options?.wrap
+          wrap
             ? // Wrapped lines hang past the line numbers, so a number marks only its own line.
               '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:pl-12 [&_pre_code>span]:-indent-12 [&_pre_code>span]:before:indent-0'
             : '[&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',

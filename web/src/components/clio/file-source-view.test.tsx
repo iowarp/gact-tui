@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { FileSourceView } from './file-source-view';
 
@@ -40,3 +40,46 @@ it('numbers a data file’s lines like code, small or windowed, so rows keep the
   width.mockRestore();
   rect.mockRestore();
 });
+
+it('wraps standalone source by default with continuation rows hung past the numbers', () => {
+  render(<FileSourceView name="main.py" content={'print(1)\n'} />);
+  const python = screen.getByRole('region', { name: 'Source of main.py' });
+  expect(python.className).toContain('[&_pre]:whitespace-pre-wrap');
+  expect(python.className).toContain('[&_pre_code>span]:pl-12');
+});
+
+it('colours a large code file in chunks while its rows stay windowed, and leaves data plain', async () => {
+  const body = Array.from(
+    { length: 3000 },
+    (_, index) => `def step_${index}():\n    return ${index}`,
+  );
+  const size = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+  const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(600);
+  const rect = vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockReturnValue(DOMRect.fromRect({ width: 600, height: 400 }));
+  try {
+    render(<FileSourceView name="large.py" content={`${body.join('\n')}\n`} />);
+    const large = screen.getByRole('region', { name: 'Source of large.py' });
+    expect(large).toHaveAttribute('data-slot', 'virtual-source');
+    // Plain text first, in the same rows, then the theme's syntax colours.
+    expect(large).toHaveTextContent('def step_0():');
+    await waitFor(
+      () => expect(large.querySelector('span[style*="--syntax-token-keyword"]')).not.toBeNull(),
+      { timeout: 20_000 },
+    );
+    expect(large).toHaveTextContent('def step_0():');
+    expect(large.querySelectorAll('[data-index]').length).toBeLessThan(200);
+    cleanup();
+
+    const rows = Array.from({ length: 6000 }, (_, index) => `${index},${index * 2}`).join('\n');
+    render(<FileSourceView name="large.csv" content={`id,value\n${rows}\n`} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const csv = screen.getByRole('region', { name: 'Source of large.csv' });
+    expect(csv.querySelector('span[style*="--syntax-"]')).toBeNull();
+  } finally {
+    size.mockRestore();
+    width.mockRestore();
+    rect.mockRestore();
+  }
+}, 30_000);
