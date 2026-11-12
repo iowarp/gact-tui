@@ -270,7 +270,15 @@ const ClioNavigationView = memo(function ClioNavigationView({
             .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
             .then(() => toast.success('Session imported'))
             .catch((error: unknown) =>
-              toast.error(error instanceof Error ? error.message : 'Session import failed'),
+              // A file that isn't JSON is the person's choice, not a parser fault.
+              toast.error(`Couldn't import ${file.name}`, {
+                description:
+                  error instanceof SyntaxError
+                    ? "This file isn't a conversation export. Choose a .json file exported from a conversation."
+                    : error instanceof Error && error.message
+                      ? error.message
+                      : 'The session could not be imported.',
+              }),
             );
         }}
         ref={importInputRef}

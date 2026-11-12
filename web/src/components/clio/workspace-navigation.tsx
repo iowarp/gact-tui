@@ -1,5 +1,4 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { CircleAlertIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
@@ -12,14 +11,14 @@ import { isSessionRunning } from '@/lib/session-state';
 import { workspaceLabels } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel } from '@/components/clio/primitives/list-row';
-import { isOfflineError, type ListState } from '@/lib/list-state';
+import type { ListState } from '@/lib/list-state';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { DEFAULT_WORKSPACE_ID } from './workspace-actions-menu';
 import type { ConversationFilter } from './conversation-list-groups';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
 import { useHeldValue, useRailHeld } from './rail-menu-hold';
 import { LooseConversations } from './workspace-navigation-loose-conversations';
-import { RailState, ShowMoreRow } from './workspace-navigation-rail-rows';
+import { RailIconFailure, RailState, ShowMoreRow } from './workspace-navigation-rail-rows';
 import { WorkspaceTreeItem } from './workspace-navigation-tree-item';
 
 interface WorkspaceNavigationProps {
@@ -269,17 +268,7 @@ export function WorkspaceNavigation({
                 title="Workspaces could not be listed"
               />
               {/* The icon rail hides the line above, so a failure keeps one named cue there. */}
-              <IconButton
-                className="mx-auto hidden text-destructive group-data-[collapsible=icon]:inline-flex"
-                icon={<CircleAlertIcon />}
-                label={
-                  isOfflineError(workspacesState.error)
-                    ? 'Retry: offline, no workspaces'
-                    : 'Retry: workspaces not listed'
-                }
-                onClick={workspacesState.retry}
-                tooltipSide="right"
-              />
+              <RailIconFailure error={workspacesState.error} onRetry={workspacesState.retry} />
             </>
           ) : workspacesState?.loading ? (
             <RailState kind="loading" title="Loading workspaces…" />
