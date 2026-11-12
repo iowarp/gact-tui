@@ -958,8 +958,18 @@ function Cascader<T>({
   }
   const swapping = swap.active && swap.key === levelKey;
 
+  /** The empty frame also truncates Base UI's `listRef`, after the new rows
+   * registered in it. Restoring the items only pads it back with holes, and
+   * a row's own registration never reruns, so pointer moves find no index and
+   * hover stops highlighting. Development hides this: StrictMode replays the
+   * list's effects. Bumped as the frame ends, it gives every row a fresh ref
+   * so each one registers again. */
+  const [listGeneration, setListGeneration] = React.useState(0);
+
   React.useLayoutEffect(() => {
-    if (swap.active) setSwap((prev) => ({ ...prev, active: false }));
+    if (!swap.active) return;
+    setSwap((prev) => ({ ...prev, active: false }));
+    setListGeneration((generation) => generation + 1);
   }, [swap.active]);
 
   /* ----------------------------- virtualization ---------------------------- */
@@ -1819,6 +1829,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      listGeneration,
       windowingPending,
       registerVirtualRenderer,
       virtualize,
@@ -1864,6 +1875,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      listGeneration,
       windowingPending,
       registerVirtualRenderer,
       virtualize,
