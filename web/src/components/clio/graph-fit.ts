@@ -83,6 +83,86 @@ export function topLeftViewport(zoom: number) {
   return { x: GRAPH_MARGIN, y: GRAPH_MARGIN, zoom };
 }
 
+/**
+ * The drawing at `zoom`, anchored top-left like `topLeftViewport` when it fits;
+ * along an axis where it doesn't, it scrolls just far enough to centre `focus`
+ * (a point in graph units) without running past the drawing's own edge.
+ */
+export function focusViewport({
+  pane,
+  width,
+  height,
+  focus,
+  zoom,
+  margin = GRAPH_MARGIN,
+}: {
+  pane: PaneSize | undefined;
+  width: number;
+  height: number;
+  focus: { x: number; y: number } | undefined;
+  zoom: number;
+  margin?: number;
+}) {
+  const along = (paneSize: number, size: number, at: number) => {
+    const last = paneSize - margin - size * zoom;
+    if (last >= margin) return margin;
+    return Math.min(margin, Math.max(last, paneSize / 2 - at * zoom));
+  };
+  if (!pane || !focus) return { x: margin, y: margin, zoom };
+  return {
+    x: Math.round(along(pane.w, width, focus.x)),
+    y: Math.round(along(pane.h, height, focus.y)),
+    zoom,
+  };
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+
+/**
+ * Fit for a drawing whose boxes may have been dragged anywhere: undefined when
+ * the whole drawing fits at `floor` or closer (frame it all), otherwise the
+ * drawing at `floor` scrolled to `focus` like `focusViewport`.
+ */
+export function flooredFit({
+  pane,
+  boxes,
+  focus,
+  floor,
+  padding,
+  margin = GRAPH_MARGIN,
+}: {
+  pane: PaneSize | undefined;
+  boxes: readonly Box[];
+  focus: Box | undefined;
+  floor: number;
+  /** Fit's inset, as a share of the pane. */
+  padding: number;
+  margin?: number;
+}) {
+  if (!pane || !boxes.length) return undefined;
+  const left = Math.min(...boxes.map((box) => box.x));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const width = Math.max(...boxes.map((box) => box.x + box.width)) - left;
+  const height = Math.max(...boxes.map((box) => box.y + box.height)) - top;
+  const fits = Math.min(
+    (pane.w * (1 - 2 * padding)) / width,
+    (pane.h * (1 - 2 * padding)) / height,
+  );
+  if (fits >= floor) return undefined;
+  const at = focusViewport({
+    pane,
+    width,
+    height,
+    focus: focus && {
+      x: focus.x - left + focus.width / 2,
+      y: focus.y - top + focus.height / 2,
+    },
+    zoom: floor,
+    margin,
+  });
+  return { x: at.x - left * floor, y: at.y - top * floor, zoom: floor };
+}
+
 /** A pane's size, measured once per frame while it resizes. */
 export function usePaneSize(container: RefObject<HTMLElement | null>) {
   const [size, setSize] = useState<PaneSize>();
@@ -152,57 +232,4 @@ export function graphEdges({
     level: clampCue((Math.max(y, 0) + Math.min(y + height, paneHeight)) / 2, paneHeight),
     across: clampCue((Math.max(x, 0) + Math.min(x + width, paneWidth)) / 2, paneWidth),
   };
-}
-
-const sameEdges = (a: GraphEdges | undefined, b: GraphEdges | undefined) =>
-  a === b ||
-  (!!a &&
-    !!b &&
-    a.left === b.left &&
-    a.right === b.right &&
-    a.top === b.top &&
-    a.bottom === b.bottom &&
-    a.level === b.level &&
-    a.across === b.across);
-
-/**
- * The edges a scrolled drawing continues past, for a pane that scrolls natively. `drawing`
- * is the pane's scrolled content; read once per frame on scroll and resize.
- */
-export function useScrollEdges(
-  pane: RefObject<HTMLElement | null>,
-  drawing: RefObject<HTMLElement | null>,
-) {
-  const [edges, setEdges] = useState<GraphEdges>();
-  useEffect(() => {
-    const element = pane.current;
-    const content = drawing.current;
-    if (!element || !content) return;
-    let frame = 0;
-    const read = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const next = graphEdges({
-          x: content.offsetLeft - element.scrollLeft,
-          y: content.offsetTop - element.scrollTop,
-          width: content.offsetWidth,
-          height: content.offsetHeight,
-          paneWidth: element.clientWidth,
-          paneHeight: element.clientHeight,
-        });
-        setEdges((prev) => (sameEdges(prev, next) ? prev : next));
-      });
-    };
-    read();
-    element.addEventListener('scroll', read, { passive: true });
-    const observer = new ResizeObserver(read);
-    observer.observe(element);
-    observer.observe(content);
-    return () => {
-      element.removeEventListener('scroll', read);
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [pane, drawing]);
-  return edges;
 }
