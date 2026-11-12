@@ -43,7 +43,7 @@ interface WorkspaceNavigationProps {
     title: string,
     mode: import('@clio/core/v3').SessionExportMode,
   ) => Promise<void>;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onNewWorkspace: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   attentions: Readonly<Record<string, SessionAttention>>;
@@ -293,7 +293,6 @@ export function WorkspaceNavigation({
       {defaultWorkspace || workspacesState?.error || workspacesState?.loading ? (
         <LooseConversations
           actions={actions}
-          activeWorkspaceId={activeWorkspaceId}
           draft={draftWorkspaceId === DEFAULT_WORKSPACE_ID}
           excludedSessionIds={unlistedSessionIds}
           expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}

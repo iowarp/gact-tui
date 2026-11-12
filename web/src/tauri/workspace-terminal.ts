@@ -11,6 +11,22 @@ export async function openWorkspaceTerminal(path: string): Promise<string> {
   return invoke<string>('open_workspace_terminal', { path });
 }
 
+/** Show an existing CLIO workspace folder in the system file manager. */
+export async function openWorkspaceFolder(path: string): Promise<string> {
+  if (!inTauri()) {
+    throw new Error('Opening folders is available in the installed desktop app.');
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('open_workspace_folder', { path });
+}
+
+/** What the system file manager is called on this computer. */
+export function fileManagerName(platform = globalThis.navigator?.userAgent ?? ''): string {
+  if (/Mac/i.test(platform)) return 'Finder';
+  if (/Windows/i.test(platform)) return 'File Explorer';
+  return 'file manager';
+}
+
 export const TERMINAL_FONT_FAMILY =
   'ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace';
 
