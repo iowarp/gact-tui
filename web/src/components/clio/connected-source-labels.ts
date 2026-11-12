@@ -39,20 +39,45 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
   ndp: 'NDP endpoint',
 };
 
-/** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */
-export function sourceSublineParts(source: ConnectedSourceState): string[] {
-  const access = source.linked
+/** A source's access word, as its sub-line names it. */
+function sourceAccessName(source: ConnectedSourceState): string {
+  return source.linked
     ? sourceAccessNames[source.link_access ?? 'read_only']
     : source.local_path
       ? source.download_access === 'editable'
         ? 'Editable download'
         : 'Read only'
       : sourceModeNames[source.mode ?? 'read_only'];
+}
+
+/** The access word short enough to sit beside the provider in a narrow list. */
+const narrowAccessNames: Record<string, string> = {
+  'Editable download': 'Editable',
+  'Edit locally, publish later': 'Editable',
+  'Read and write link': 'Read/write',
+  'Update originals on save': 'Read/write',
+};
+
+/** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */
+export function sourceSublineParts(source: ConnectedSourceState): string[] {
   return [
     sourceProviderNames[source.provider] ?? source.provider,
     source.provider === 'github' ? source.configuration.github_ref || undefined : undefined,
-    access,
+    sourceAccessName(source),
   ].filter((part): part is string => Boolean(part));
+}
+
+/**
+ * The same parts for a narrow list, index for index: the revision is left out (null) and
+ * the access word shortened, so what the source may do stays in view.
+ */
+export function sourceNarrowSublineParts(
+  source: ConnectedSourceState,
+): (string | null | undefined)[] {
+  const parts = sourceSublineParts(source);
+  return parts.map((part, index) =>
+    index === parts.length - 1 ? narrowAccessNames[part] : index > 0 ? null : undefined,
+  );
 }
 
 /** A source row's status word: what blocks it first, then work in progress, then edits. */

@@ -11,7 +11,11 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceActions } from './connected-source-actions';
 import { connectedSourceErrorMessage } from './connected-source-error';
-import { sourceStatus, sourceSublineParts } from './connected-source-labels';
+import {
+  sourceNarrowSublineParts,
+  sourceStatus,
+  sourceSublineParts,
+} from './connected-source-labels';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import {
   AttachedFolderIcon,
@@ -344,7 +348,7 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
           status.signIn && '[&>[data-slot=list-row-actions]]:opacity-100',
         )}
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
-        description={<SublineParts parts={parts} />}
+        description={<SublineParts narrow={sourceNarrowSublineParts(source)} parts={parts} />}
         icon={<SourceProviderLogo provider={source.provider} size="icon" />}
         iconWidth={iconWidth}
         layout="stacked"
@@ -361,29 +365,39 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
 /**
  * Sub-line parts held apart by a layout gap rather than a separator glyph. The line is one
  * line high and wraps, so a later part that does not fit whole drops out of view instead of
- * showing as a stub. `narrowLead` replaces the first part when the list is narrow.
+ * showing as a stub. When the list is narrow, `narrow[i]` replaces part i: a shorter word,
+ * or null to leave it out so the parts after it keep their room.
  */
-function SublineParts({ parts, narrowLead }: { parts: readonly string[]; narrowLead?: string }) {
+function SublineParts({
+  parts,
+  narrow = [],
+}: {
+  parts: readonly string[];
+  narrow?: readonly (string | null | undefined)[];
+}) {
   return (
     <span className="flex h-[1lh] min-w-0 flex-wrap gap-x-2 overflow-hidden">
-      {parts.map((part, index) =>
-        index === 0 ? (
-          <span className="min-w-0 truncate" key={part}>
-            {narrowLead ? (
+      {parts.map((part, index) => {
+        const short = narrow[index];
+        return (
+          <span
+            className={cn(
+              index === 0 ? 'min-w-0 truncate' : 'whitespace-nowrap',
+              short === null && '@max-[340px]/sources:hidden',
+            )}
+            key={part}
+          >
+            {short ? (
               <>
                 <span className="@max-[340px]/sources:hidden">{part}</span>
-                <span className="hidden @max-[340px]/sources:inline">{narrowLead}</span>
+                <span className="hidden @max-[340px]/sources:inline">{short}</span>
               </>
             ) : (
               part
             )}
           </span>
-        ) : (
-          <span className="whitespace-nowrap" key={part}>
-            {part}
-          </span>
-        ),
-      )}
+        );
+      })}
     </span>
   );
 }
@@ -451,7 +465,7 @@ function UploadRow({
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
         description={
           <SublineParts
-            narrowLead={folder && hostFolderInPlace(folder) ? 'In place' : undefined}
+            narrow={[folder && hostFolderInPlace(folder) ? 'In place' : undefined]}
             parts={parts}
           />
         }
