@@ -1,6 +1,6 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ManagedServiceCatalog, ModelAcquisition, ModelDownloadInput } from '@clio/core/v3';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckIcon,
@@ -469,15 +469,27 @@ function ModelChooser({
     () => setSubmittedSearch(search.trim()),
     [search, setSubmittedSearch],
   );
+  // A pick from the list lasts while the list shows it. When a finished search no longer does, the
+  // details and Download would name a model the person can't see, so the pick is dropped. A
+  // repository typed under Advanced is the person's own and stays.
+  const pickedFromList = useRef(false);
   const select = useCallback(
-    (model: { repository: string; revision?: string | null }) =>
+    (model: { repository: string; revision?: string | null }) => {
+      pickedFromList.current = true;
       setDraft((old) => ({
         ...old,
         repository: model.repository,
         revision: model.revision || 'main',
-      })),
+      }));
+    },
     [setDraft],
   );
+  useEffect(() => {
+    if (!pickedFromList.current || found.isFetching || !models || !draft.repository) return;
+    if (models.some((model) => model.repository === draft.repository)) return;
+    pickedFromList.current = false;
+    setDraft((old) => ({ ...old, repository: initial.repository, revision: initial.revision }));
+  }, [models, found.isFetching, draft.repository, setDraft]);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = found;
   const loadMore = useMemo(
     () =>
@@ -581,7 +593,10 @@ function ModelChooser({
                     className={cn(sourceInputClass, 'font-mono text-[12px] md:text-[12px]')}
                     value={draft.repository}
                     placeholder="organization/model"
-                    onChange={(event) => setDraft({ ...draft, repository: event.target.value })}
+                    onChange={(event) => {
+                      pickedFromList.current = false;
+                      setDraft({ ...draft, repository: event.target.value });
+                    }}
                   />
                 </div>
                 <div className="flex min-w-0 flex-col gap-[5px]">

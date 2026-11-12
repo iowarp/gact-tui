@@ -39,6 +39,7 @@ export function useSpotterQuarantine(
   const { settings } = useConnectionSettings();
   const quarantine = activeQuarantine(session?.metadata);
   const lift = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, session?.id ?? '', 'lift-quarantine'),
     mutationFn: () => repository.liftSpotterQuarantine(session?.id ?? ''),
     onSuccess: () =>
       invalidateQueriesInBackground(queryClient, [queryKeys.allSessionReads(settings.endpoint)]),

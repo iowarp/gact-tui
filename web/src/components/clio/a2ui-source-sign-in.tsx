@@ -1,4 +1,4 @@
-import { useContext, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -19,12 +19,21 @@ import { vocab } from '@/lib/brand-vocabulary';
 /** Keep private authorization mounted while an accepted surface changes hosts. */
 export function A2uiSourceSignInHost({
   workspaceId,
+  scope,
   children,
 }: {
   workspaceId: string;
+  /** A pending sign-in belongs to this conversation; a new scope drops it. */
+  scope?: string;
   children: ReactNode;
 }) {
-  const [intent, setIntent] = useState<DataSourceIntent>();
+  const [pending, setPending] = useState<{ scope?: string; intent?: DataSourceIntent }>({ scope });
+  if (pending.scope !== scope) setPending({ scope });
+  const intent = pending.scope === scope ? pending.intent : undefined;
+  const setIntent = useCallback(
+    (next: DataSourceIntent | undefined) => setPending((current) => ({ ...current, intent: next })),
+    [],
+  );
   return (
     <SourceSignInContext.Provider value={setIntent}>
       {children}

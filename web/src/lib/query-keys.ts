@@ -143,6 +143,9 @@ export const queryKeys = {
     ['queued-messages', endpoint, sessionId] as const,
   /** Mutation key of a message being added to a session's queue. */
   queueSend: (endpoint: string, sessionId: string) => ['queue-send', endpoint, sessionId] as const,
+  /** Scopes a conversation's mutation state, so it resets when the page opens another one. */
+  sessionAction: (endpoint: string, sessionId: string, action: string) =>
+    ['session-action', endpoint, sessionId, action] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
   executionProvenance: (endpoint: string, sessionId: string, provider: string, limit: number) =>
     ['execution-provenance', endpoint, sessionId, provider, limit] as const,

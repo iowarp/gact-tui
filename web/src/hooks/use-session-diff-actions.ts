@@ -4,8 +4,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { sessionObservabilityQueryKey } from './use-session-observability';
 import { useRepository } from './use-repository';
 
-/** Server-authorized Undo for the file changes the agent made in one session. */
-export function useSessionDiffActions() {
+/**
+ * Server-authorized Undo for the file changes the agent made in one session.
+ * `scope` is the conversation on screen, so its pending and failed state stays with it.
+ */
+export function useSessionDiffActions(scope = '') {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -25,6 +28,7 @@ export function useSessionDiffActions() {
   };
 
   const undo = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, scope, 'undo-diff'),
     mutationFn: (target: { sessionId: string; workspaceId: string; changeId: string }) =>
       repository.revertSessionDiff(target.sessionId, target.changeId),
     onSuccess: async (_result, target) => refresh(target),
