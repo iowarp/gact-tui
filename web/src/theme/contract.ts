@@ -37,6 +37,9 @@ export const COLOR_TOKENS = [
   'ring',
   'invert',
   'invert-foreground',
+  // A hover name (the spec's `.htip`) and the full text of a cut label
+  'tooltip',
+  'tooltip-foreground',
   'link',
   // Primary action and live activity
   'primary',

@@ -250,7 +250,7 @@ const MapNodeView = memo(function MapNodeView({
     >
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent className="flex-col items-start gap-0.5" side="bottom" sideOffset={4}>
+        <TooltipContent className="flex-col items-start gap-0.5 px-[9px] py-1.5" side="bottom" sideOffset={4}>
           <span className="font-semibold">{node.title}</span>
           <span>{action ? `${node.detail}. ${action.hint}` : node.detail}</span>
         </TooltipContent>

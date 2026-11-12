@@ -274,13 +274,16 @@ const ClioNavigationView = memo(function ClioNavigationView({
           void file
             .text()
             .then((text) => JSON.parse(text) as unknown)
-            .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
+            .then((value) => {
+              if (!isConversationExport(value)) throw new NotAnExportError();
+              return actions.importSession(importBlobInto(value, workspaceId));
+            })
             .then(() => toast.success('Session imported'))
             .catch((error: unknown) =>
-              // A file that isn't JSON is the person's choice, not a parser fault.
+              // A file that isn't an export is the person's choice, not a parser fault.
               toast.error(`Couldn't import ${file.name}`, {
                 description:
-                  error instanceof SyntaxError
+                  error instanceof SyntaxError || error instanceof NotAnExportError
                     ? "This file isn't a conversation export. Choose a .json file exported from a conversation."
                     : error instanceof Error && error.message
                       ? error.message
@@ -329,6 +332,21 @@ function stepConversation(step: -1 | 1) {
   const current = links.findIndex((link) => link.dataset.active === 'true');
   const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
   target?.click();
+}
+
+/** Valid JSON that is not a conversation export, such as a package.json. */
+class NotAnExportError extends Error {}
+
+/** A conversation export carries its session and its messages; other JSON does not. */
+function isConversationExport(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const blob = value as Record<string, unknown>;
+  return (
+    typeof blob.session === 'object' &&
+    blob.session !== null &&
+    !Array.isArray(blob.session) &&
+    Array.isArray(blob.messages)
+  );
 }
 
 /** Points an export blob at the chosen workspace, keeping its other fields. */

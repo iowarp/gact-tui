@@ -1,15 +1,17 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
 import { TriangleAlertIcon, WrenchIcon } from 'lucide-react';
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   canOpenLineageNode,
+  fitLineageLayout,
   layoutArtifactLineage,
   layoutVersionChain,
   LINEAGE_NODE_HEIGHT,
   type LineageGraphLayout,
   type LineageGraphNode,
+  type LineageSpread,
 } from './artifact-lineage-layout';
 import type { LineageActivity } from './artifact-lineage-view';
 import { ArtifactTypeIcon } from './artifact-type-icon';
@@ -48,12 +50,13 @@ export function ArtifactLineageGraph({
     () => layoutArtifactLineage(artifact, lineage, { earlier }),
     [artifact, lineage, earlier],
   );
-  const chain = useMemo(
-    () =>
-      unfolded && version && versions?.length
-        ? layoutVersionChain(artifact, versions, version)
-        : undefined,
-    [artifact, unfolded, version, versions],
+  const chained = Boolean(unfolded && version && versions?.length);
+  const build = useCallback(
+    (spread: LineageSpread) =>
+      chained && version && versions
+        ? layoutVersionChain(artifact, versions, version, undefined, spread)
+        : layoutArtifactLineage(artifact, lineage, { earlier, spread }),
+    [artifact, chained, earlier, lineage, version, versions],
   );
   useFileViewerFacts([
     ...(version ? [`v${version}`] : []),
@@ -71,9 +74,9 @@ export function ArtifactLineageGraph({
   };
   return (
     <LineageGraph
-      graph={chain ?? graph}
+      build={build}
       self={artifact}
-      label={chain ? `Versions of ${artifact.name}` : 'Artifact lineage graph'}
+      label={chained ? `Versions of ${artifact.name}` : 'Artifact lineage graph'}
       onOpen={open}
     />
   );
@@ -143,7 +146,7 @@ function LineageNode({
           </span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" align="start" className="max-w-64 text-[11.5px]">
+      <TooltipContent side="bottom" align="start" className="max-w-64 px-[9px] py-1.5">
         <b className="font-semibold">{node.name}</b>
         <span className="block opacity-75">{node.tip}</span>
       </TooltipContent>
@@ -153,13 +156,13 @@ function LineageNode({
 
 /** The drawn graph: dot grid, curved edges with arrows, and the nodes over them. */
 function LineageGraph({
-  graph,
+  build,
   self,
   label,
   onOpen,
   children,
 }: {
-  graph: LineageGraphLayout;
+  build: (spread: LineageSpread) => LineageGraphLayout;
   self: Artifact;
   label: string;
   onOpen?: (node: LineageGraphNode) => void;
@@ -170,6 +173,9 @@ function LineageGraph({
   const canvas = useRef<HTMLDivElement>(null);
   const drawing = useRef<HTMLDivElement>(null);
   const pane = usePaneSize(canvas);
+  const room = pane ? pane.w - 2 * LINEAGE_CANVAS_PADDING : undefined;
+  // A roomy pane (a maximized tab) spreads the drawing: whole names, then wider columns.
+  const graph = useMemo(() => fitLineageLayout(build, room), [build, room]);
   // Fits the pane's width while names stay readable; below that floor the rest scrolls into view.
   const zoom = fitWidth(pane?.w, graph.width, LINEAGE_CANVAS_PADDING);
   const edges = useScrollEdges(canvas, drawing);

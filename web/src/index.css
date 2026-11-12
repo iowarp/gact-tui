@@ -213,6 +213,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --color-invert-foreground: var(--invert-foreground);
   --color-invert: var(--invert);
+  --color-tooltip-foreground: var(--tooltip-foreground);
+  --color-tooltip: var(--tooltip);
   --color-warning-foreground: var(--warning-foreground);
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);

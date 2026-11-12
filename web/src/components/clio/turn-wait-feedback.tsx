@@ -30,8 +30,11 @@ export function ClioTurnWaitFeedback({
   tasks,
   subagents,
   awaitingUser,
+  sending,
 }: TurnWaitFeedbackProps) {
-  if (awaitingUser || (sessionState !== 'running' && sessionState !== 'queued')) return null;
+  // An unsent message has no turn to wait on; the preparation row says it is sending.
+  if (awaitingUser || (sending && sessionState !== 'running')) return null;
+  if (sessionState !== 'running' && sessionState !== 'queued') return null;
   const current = currentTurnAssistantMessages(messages, activeTurnId);
   const hasContent = current.some((message) =>
     message.blocks.some((block) =>
