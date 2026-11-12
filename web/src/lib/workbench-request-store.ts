@@ -20,6 +20,8 @@ export interface WorkbenchRequestSource {
 
 export interface WorkbenchRequestStore extends WorkbenchRequestSource {
   set: (request: WorkbenchRequest) => void;
+  /** Drops a request made on another route, so returning there does not replay it. */
+  clearUnless: (route: string) => void;
 }
 
 export function createWorkbenchRequestStore(): WorkbenchRequestStore {
@@ -29,6 +31,11 @@ export function createWorkbenchRequestStore(): WorkbenchRequestStore {
     get: () => current,
     set: (request) => {
       current = request;
+      for (const listener of listeners) listener();
+    },
+    clearUnless: (route) => {
+      if (!current || current.route === undefined || current.route === route) return;
+      current = undefined;
       for (const listener of listeners) listener();
     },
     subscribe: (listener) => {
