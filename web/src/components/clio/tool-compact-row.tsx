@@ -16,6 +16,7 @@ import {
 import { PresentationLink } from './presentation-link';
 import type { ToolOperation } from './tool-operation';
 import { clioStatusLabel } from './status';
+import { humanFailureText } from './composer-failure';
 import { ActivityDisclosure, ActivityRow } from './activity-row';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
@@ -62,6 +63,12 @@ export function ToolCompactRow({
   const denied = !waiting && status === 'denied';
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
+  // The status mark's name and the outcome's hover read as a sentence; a trace or a
+  // validation dump stays in the expanded call and its technical details.
+  const failureText = failure
+    ? (humanFailureText(failure) ??
+      (/validation errors? for /i.test(failure) ? 'Its arguments were not valid.' : undefined))
+    : undefined;
   const action = operation.action || getToolActionLabel(tool);
   // A question still waiting on the person is work in progress, even when its
   // call has already returned, so the row never shows a done mark beside it.
@@ -73,8 +80,8 @@ export function ToolCompactRow({
         ? failure || clioStatusLabel(status)
         : cancelled
           ? 'Stopped'
-          : failure
-            ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+          : failureText
+            ? `${clioStatusLabel(status)}: ${failureText}`
             : clioStatusLabel(status);
   const tone: StatusTone = waiting
     ? 'running'
@@ -217,7 +224,7 @@ export function ToolCompactRow({
       recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
       outcome={outcome}
       outcomeTone="muted"
-      outcomeTitle={failure}
+      outcomeTitle={failureText}
       marks={attention}
       badge={badge}
       actions={
