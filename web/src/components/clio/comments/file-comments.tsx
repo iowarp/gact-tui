@@ -4,7 +4,6 @@ import { MessageSquarePlusIcon, MessagesSquareIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -12,6 +11,7 @@ import { CommentCapture, CommentToggle } from './comment-capture';
 import type { Rect } from './comment-region-layer';
 import { CommentSessionProvider } from './comment-session';
 import { CommentThreadList } from './comment-thread-list';
+import { CommentThreadsPopover } from './comment-threads-popover';
 import { FrameCommentsIcon, FrameCommentsPortal, FrameCommentsUnavailable } from './frame-comments';
 import { useInFrameComments } from './frame-comments-slot';
 
@@ -55,20 +55,18 @@ function Commentable({
       }}
       threadList={
         inFrame ? (
-          <Popover>
-            <PopoverTrigger asChild>
+          <CommentThreadsPopover
+            align="start"
+            className="z-[95]"
+            trigger={
               <Button className="mt-2 w-full" size="sm" variant="ghost">
                 <MessagesSquareIcon aria-hidden="true" />
                 Earlier threads
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="z-[95] max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-            >
-              {list}
-            </PopoverContent>
-          </Popover>
+            }
+          >
+            {list}
+          </CommentThreadsPopover>
         ) : undefined
       }
     >
@@ -78,19 +76,16 @@ function Commentable({
         ) : (
           <div className="absolute top-2 left-2 z-20 flex gap-1 rounded-md bg-background/90 p-0.5 shadow-sm">
             <CommentToggle />
-            <Popover>
-              <PopoverTrigger asChild>
+            <CommentThreadsPopover
+              align="start"
+              trigger={
                 <Button aria-label="Comment threads" size="sm" variant="ghost">
                   <MessagesSquareIcon aria-hidden="true" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-              >
-                {list}
-              </PopoverContent>
-            </Popover>
+              }
+            >
+              {list}
+            </CommentThreadsPopover>
           </div>
         )}
         <CommentCapture regionAnchor={regionAnchor} sourcePath={title} svg={svg}>

@@ -6,7 +6,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { toast } from 'sonner';
-import { artifactDetailEntity } from './session-artifacts';
+import { artifactDetailEntity, artifactDetailVersionEntity } from './session-artifacts';
 import { referenceKindLabel } from './composer-reference-domain';
 
 interface ComposerReferenceNavigation {
@@ -113,8 +113,19 @@ export async function navigateComposerReference({
     }
     case 'artifact': {
       const existing = artifacts.find((artifact) => artifact.id === reference.id);
+      if (existing) {
+        openArtifact(existing);
+        return OPENED;
+      }
+      const detail = await repository.artifactDetail(reference.id);
+      // A reference names one immutable version; the record's head is the fallback.
+      const exact = detail.artifact.versions.some(
+        (version) => version.artifact_id === reference.id,
+      );
       openArtifact(
-        existing ?? artifactDetailEntity(await repository.artifactDetail(reference.id), sessionId),
+        exact
+          ? artifactDetailVersionEntity(detail, reference.id, sessionId)
+          : artifactDetailEntity(detail, sessionId),
       );
       return OPENED;
     }

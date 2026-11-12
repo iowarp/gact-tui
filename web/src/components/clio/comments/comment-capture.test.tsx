@@ -23,7 +23,7 @@ function FakeSession({ children }: { children: ReactNode }) {
       const label = `S${marks.length + 1}`;
       setMarks((current) => [
         ...current,
-        { label, mode: 'text', anchor, comment: '', sendToAgent: true, preview: '', ...place },
+        { label, mode: 'text', anchor, comment: '', preview: '', ...place },
       ]);
       return label;
     },
