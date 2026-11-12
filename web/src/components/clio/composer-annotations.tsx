@@ -45,7 +45,7 @@ export function ClioComposerAnnotations({
           >
             <div className="flex min-w-0 items-center gap-2">
               <Icon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
-              <p className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-muted-foreground">
+              <p className="min-w-0 flex-1 truncate text-caption font-medium text-muted-foreground">
                 {KIND_LABELS[session.kind]}
                 {session.title ? `: ${session.title}` : ''}
               </p>

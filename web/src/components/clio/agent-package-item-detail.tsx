@@ -27,7 +27,7 @@ export function AgentPackageItemDetail({
   const kind = info.singular.charAt(0).toUpperCase() + info.singular.slice(1);
   return (
     <section aria-label={`${kind} ${item.id}`} className="flex min-w-0 flex-col">
-      <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-[12px] whitespace-nowrap">
+      <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-meta whitespace-nowrap">
         <IconButton
           icon={<ArrowLeftIcon aria-hidden="true" />}
           label="Back to packages"
@@ -67,7 +67,7 @@ export function AgentPackageItemDetail({
         {item.text ? (
           <pre
             aria-label={`${item.id} text`}
-            className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-2.5 font-mono text-[11.5px] leading-5 whitespace-pre-wrap"
+            className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-2.5 font-mono text-label leading-5 whitespace-pre-wrap"
           >
             {item.text}
           </pre>

@@ -55,7 +55,7 @@ export function AttentionModeBanner({
         label="Attention mode"
         where={
           <span
-            className="flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px]"
+            className="flex min-w-0 shrink-0 items-center gap-1.5 text-menu"
             title={`Attention mode: ${quote}`}
           >
             <RadarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />

@@ -149,7 +149,7 @@ export function ModelServerDetails({
         {models.length ? (
           <ul className="grid gap-0.5" aria-label={`Models on ${label}`}>
             {models.map((model) => (
-              <li className="truncate font-mono text-[11.5px]" key={model} title={model}>
+              <li className="truncate font-mono text-label" key={model} title={model}>
                 {model}
               </li>
             ))}

@@ -76,7 +76,7 @@ export const SaveBar = memo(function SaveBar({
     <div
       aria-label="Unsaved changes"
       className={cn(
-        'mt-3.5 flex h-[2.875rem] min-w-0 items-center gap-2.5 border-t border-border text-[0.78125rem] whitespace-nowrap',
+        'mt-3.5 flex h-[2.875rem] min-w-0 items-center gap-2.5 border-t border-border text-menu whitespace-nowrap',
         className,
       )}
       data-slot="save-bar"

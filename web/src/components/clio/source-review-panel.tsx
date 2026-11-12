@@ -30,7 +30,7 @@ export function SourceReviewPanel({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-[5px]" aria-label="Review source changes">
-      <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         Edits to publish
         <InfoTip label="About reviewed updates">
           Update only the files you select. {vocab.agent} checks for changes to the originals first.
@@ -38,12 +38,12 @@ export function SourceReviewPanel({
         </InfoTip>
       </div>
       {review.changes.length === 0 ? (
-        <p className="text-[12px] text-faint">No unpublished edits.</p>
+        <p className="text-meta text-faint">No unpublished edits.</p>
       ) : (
         <div className="-mx-2 max-h-60 overflow-y-auto">
           {review.changes.map((change) => (
             <div key={change.path} className="min-w-0">
-              <label className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[6px] px-2 text-[12.5px] whitespace-nowrap hover:bg-hover">
+              <label className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[6px] px-2 text-menu whitespace-nowrap hover:bg-hover">
                 <input
                   type="checkbox"
                   className="size-3.5 shrink-0 accent-primary"
@@ -57,7 +57,7 @@ export function SourceReviewPanel({
                     )
                   }
                 />
-                <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={change.path}>
+                <span className="min-w-0 flex-1 truncate font-mono text-meta" title={change.path}>
                   {change.path}
                 </span>
                 <Tag
@@ -68,7 +68,7 @@ export function SourceReviewPanel({
                 </Tag>
               </label>
               {change.preview || change.preview_note ? (
-                <details className="group mb-1 ml-[31px] text-[11.5px]">
+                <details className="group mb-1 ml-[31px] text-label">
                   <summary className="flex h-6 cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                     <ChevronRightIcon
                       aria-hidden="true"
@@ -77,7 +77,7 @@ export function SourceReviewPanel({
                     Inspect changes
                   </summary>
                   {change.preview && (
-                    <pre className="mt-1 max-h-52 overflow-auto rounded-[6px] bg-muted/40 p-2 font-mono text-[11px] leading-[1.5]">
+                    <pre className="mt-1 max-h-52 overflow-auto rounded-[6px] bg-muted/40 p-2 font-mono text-caption leading-normal">
                       {change.preview.split('\n').map((line, index) => (
                         <span
                           key={index}
@@ -105,7 +105,7 @@ export function SourceReviewPanel({
   );
 }
 
-const quiet = 'h-6 px-2 text-[12px]';
+const quiet = 'h-6 px-2 text-meta';
 
 /** A publish-later link's edits waiting in the workspace: Discard, or Review and publish. */
 export function SourceUnpublishedEdits({

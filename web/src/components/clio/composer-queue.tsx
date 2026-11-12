@@ -185,7 +185,7 @@ export function ClioComposerQueue({
       // corners sit on the queue's surface instead of leaving notches.
       className="mx-auto -mb-3 flex min-h-0 w-full max-w-4xl shrink flex-col rounded-t-[12px] border border-b-0 border-input bg-composer px-1 pt-0.5 pb-3.5"
     >
-      <div className="flex h-7 min-w-0 items-center gap-2 pr-0.5 pl-2 text-[12px] whitespace-nowrap text-muted-foreground">
+      <div className="flex h-7 min-w-0 items-center gap-2 pr-0.5 pl-2 text-meta whitespace-nowrap text-muted-foreground">
         {/* The composer's run announcer speaks count changes: this strip mounts
             with its first row, too late for a live region of its own. Pausing
             happens while it is shown, so that is announced here. */}
@@ -208,7 +208,7 @@ export function ClioComposerQueue({
             aria-controls={collapsed ? undefined : viewportId}
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
-            className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-hover aria-expanded:hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
+            className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-hover aria-expanded:hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
             onClick={() => setCollapsedPreference((value) => !value)}
             size="xs"
             type="button"
@@ -293,7 +293,7 @@ export function ClioComposerQueue({
       )}
       {!collapsed && below > 0 ? (
         <button
-          className="mx-1 mt-0.5 flex h-[22px] shrink-0 items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+          className="mx-1 mt-0.5 flex h-[22px] shrink-0 items-center gap-1 self-start rounded-[5px] px-1.5 text-label text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
           onClick={() =>
             viewport?.scrollBy({ top: viewport.clientHeight, behavior: smoothScroll() })
           }

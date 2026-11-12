@@ -29,7 +29,7 @@ export function BrandStatusHeader({
         <span className="font-heading text-[14px] font-semibold">{brand.wordmark}</span>
         <span
           className={cn(
-            'flex min-w-0 items-center gap-[5px] text-[11.5px]',
+            'flex min-w-0 items-center gap-[5px] text-label',
             tone === 'error' ? 'text-destructive' : 'text-warning-foreground',
           )}
         >

@@ -238,7 +238,7 @@ export function ModelAcquisitions({
         headingAction={
           capacity.data ? (
             <span
-              className="flex items-center gap-1 text-[11.5px] text-muted-foreground"
+              className="flex items-center gap-1 text-label text-muted-foreground"
               title={`Free space in ${capacity.data.path}`}
             >
               <HardDriveIcon aria-hidden="true" className="size-3.5" />
@@ -323,7 +323,7 @@ export function ModelAcquisitions({
               </Button>
             </DialogClose>
           </div>
-          <DialogDescription className="-mt-1.5 shrink-0 truncate px-4 pb-[13px] text-[11.5px] text-faint">
+          <DialogDescription className="-mt-1.5 shrink-0 truncate px-4 pb-[13px] text-label text-faint">
             {acquire.data
               ? 'Progress continues if you close this window.'
               : `Choose a model to download to ${hostLabel}.`}
@@ -331,7 +331,7 @@ export function ModelAcquisitions({
           {acquire.data ? (
             <>
               <div className="flex min-h-0 flex-col gap-[13px] overflow-y-auto px-4 pb-3.5">
-                <p className="truncate text-[12.5px] font-semibold" title={acquire.data.repository}>
+                <p className="truncate text-menu font-semibold" title={acquire.data.repository}>
                   {acquire.data.repository}
                 </p>
                 <ModelDownloadProgress
@@ -555,7 +555,7 @@ function ModelChooser({
               task={chosen?.task}
             />
           ) : (
-            <p className="py-1.5 text-[12px] text-pretty text-faint">
+            <p className="py-1.5 text-meta text-pretty text-faint">
               Choose a model to see its capabilities and model card.
             </p>
           )}
@@ -572,7 +572,7 @@ function ModelChooser({
             open={advancedOpen}
             onOpenChange={setAdvancedOpen}
           >
-            <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
+            <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-menu whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
               <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
                 <ChevronRightIcon className="size-3 group-data-[state=open]/advanced:rotate-90 motion-safe:transition-transform" />
               </span>
@@ -583,14 +583,14 @@ function ModelChooser({
                 <div className="flex min-w-0 flex-col gap-[5px]">
                   <label
                     htmlFor="model-repository"
-                    className="flex min-h-5 items-center text-[11.5px] whitespace-nowrap text-muted-foreground"
+                    className="flex min-h-5 items-center text-label whitespace-nowrap text-muted-foreground"
                   >
                     Repository
                   </label>
                   <Input
                     id="model-repository"
                     required
-                    className={cn(sourceInputClass, 'font-mono text-[12px] md:text-[12px]')}
+                    className={cn(sourceInputClass, 'font-mono text-meta md:text-meta')}
                     value={draft.repository}
                     placeholder="organization/model"
                     onChange={(event) => {
@@ -603,7 +603,7 @@ function ModelChooser({
                   <div className="flex min-h-5 items-center gap-1.5">
                     <label
                       htmlFor="model-revision"
-                      className="text-[11.5px] whitespace-nowrap text-muted-foreground"
+                      className="text-label whitespace-nowrap text-muted-foreground"
                     >
                       Revision
                     </label>
@@ -615,7 +615,7 @@ function ModelChooser({
                   <Input
                     id="model-revision"
                     required
-                    className={cn(sourceInputClass, 'font-mono text-[12px] md:text-[12px]')}
+                    className={cn(sourceInputClass, 'font-mono text-meta md:text-meta')}
                     value={draft.revision}
                     onChange={(event) => setDraft({ ...draft, revision: event.target.value })}
                   />
@@ -625,7 +625,7 @@ function ModelChooser({
                 <div className="flex min-h-5 min-w-0 items-center gap-1.5">
                   <label
                     htmlFor="model-destination"
-                    className="truncate text-[11.5px] whitespace-nowrap text-muted-foreground"
+                    className="truncate text-label whitespace-nowrap text-muted-foreground"
                   >
                     Destination on {hostLabel}
                   </label>
@@ -640,7 +640,7 @@ function ModelChooser({
                     id="model-destination"
                     className={cn(
                       sourceInputClass,
-                      'min-w-0 flex-1 font-mono text-[12px] md:text-[12px]',
+                      'min-w-0 flex-1 font-mono text-meta md:text-meta',
                     )}
                     value={draft.destination}
                     placeholder={`${modelsFolder || 'Models folder'}/repository--revision`}
@@ -652,7 +652,7 @@ function ModelChooser({
                     label="Model destination"
                     path={draft.destination || modelsFolder}
                     onChoose={(destination) => setDraft({ ...draft, destination })}
-                    triggerClassName="h-[30px] shrink-0 px-2 text-[12px] text-muted-foreground"
+                    triggerClassName="h-[30px] shrink-0 px-2 text-meta text-muted-foreground"
                   />
                 </div>
               </div>
@@ -669,7 +669,7 @@ function ModelChooser({
       <div className="flex shrink-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-4">
         <p
           className={cn(
-            'mr-auto min-w-0 truncate text-[11.5px] whitespace-nowrap text-faint',
+            'mr-auto min-w-0 truncate text-label whitespace-nowrap text-faint',
             // The hint gives way on a phone; a known size always shows.
             !chosen?.size_bytes && 'max-[599px]:invisible',
           )}

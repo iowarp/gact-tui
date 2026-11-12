@@ -215,7 +215,7 @@ export function ModelPickerNoMatch({
   return (
     <div className="flex min-h-0 flex-col p-1" data-slot="model-picker-no-match" ref={rootRef}>
       <p
-        className="flex min-w-0 items-center gap-2 px-2 py-2 text-[12.5px] text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0"
+        className="flex min-w-0 items-center gap-2 px-2 py-2 text-menu text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0"
         role="status"
       >
         <SearchIcon aria-hidden="true" />
@@ -239,7 +239,7 @@ export function ModelPickerNoMatch({
       {ways.map((way, index) => (
         <button
           className={cn(
-            'flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-start text-[13px] text-muted-foreground outline-hidden hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset [&_svg]:size-3.5 [&_svg]:shrink-0',
+            'flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-start text-ui text-muted-foreground outline-hidden hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset [&_svg]:size-3.5 [&_svg]:shrink-0',
             index === highlighted && 'bg-menu-highlight text-foreground',
           )}
           data-highlighted={index === highlighted || undefined}
@@ -251,7 +251,7 @@ export function ModelPickerNoMatch({
         >
           {way.icon}
           <span className="min-w-0 flex-1 truncate">{way.label}</span>
-          <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">
+          <span className="shrink-0 font-mono text-caption text-faint tabular-nums">
             {way.count} {way.count === 1 ? 'model' : 'models'}
           </span>
           <span className={cn('w-5 shrink-0', index !== highlighted && 'invisible')}>

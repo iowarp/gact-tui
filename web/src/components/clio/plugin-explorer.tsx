@@ -320,7 +320,7 @@ export function PluginDetailPane({
           />
         ) : null}
         {savedCopy ? (
-          <div className="mb-3 border-b border-border pb-2.5 text-[0.8125rem]" role="status">
+          <div className="mb-3 border-b border-border pb-2.5 text-ui" role="status">
             <p>
               Saved <span className="font-medium break-all">{savedCopy}</span> in your Private local
               marketplace. Your repository and current conversation are unchanged.

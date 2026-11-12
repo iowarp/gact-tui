@@ -41,7 +41,7 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
   return (
     <span
       className={cn(
-        'flex shrink-0 items-center gap-2.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums [&_svg]:size-3',
+        'flex shrink-0 items-center gap-2.5 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums [&_svg]:size-3',
         className,
       )}
       data-slot="model-row-facts"

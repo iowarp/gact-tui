@@ -233,7 +233,7 @@ function TranscriptResourceAttachmentDisplay({
           </span>
         ) : (
           <span
-            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-[7px] bg-hover pr-1 pl-2 text-[13px] text-foreground"
+            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-[7px] bg-hover pr-1 pl-2 text-ui text-foreground"
             data-file-row
           >
             <button
@@ -256,13 +256,13 @@ function TranscriptResourceAttachmentDisplay({
                 {filename}
               </span>
               {resource && !folder ? (
-                <span className="shrink-0 text-[11.5px] text-muted-foreground">
+                <span className="shrink-0 text-label text-muted-foreground">
                   {formatBytes(resource.received_size)}
                 </span>
               ) : null}
             </button>
             {pending ? (
-              <span className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-1 text-meta text-muted-foreground">
                 <ResourcePipelineSummaryIcon stages={stages} />
                 <span aria-hidden="true">{stages.overallLabel}</span>
               </span>
@@ -328,7 +328,7 @@ function HostFolderSummary({ folder }: { folder: HostFolder }) {
       ) : null}
       {!inPlace && folder.path ? (
         <TechnicalDetails className="mt-1.5 text-xs" title="Technical details">
-          <p className="mt-1 max-w-64 font-mono text-[11px] break-words text-muted-foreground">
+          <p className="mt-1 max-w-64 font-mono text-caption break-words text-muted-foreground">
             Copy kept at <PathText path={folder.path} />
           </p>
         </TechnicalDetails>

@@ -45,10 +45,10 @@ const EFFORT_BARS: Record<ReasoningEffort, number> = {
   ultra: 3,
 };
 
-const MENU_LABEL = 'px-2 pt-1.5 pb-1 text-[11px] font-normal text-muted-foreground';
+const MENU_LABEL = 'px-2 pt-1.5 pb-1 text-caption font-normal text-muted-foreground';
 /** One 30px line per row: 12.5px name, 11.5px muted description, 13px accent check. */
 const MENU_ITEM =
-  'min-h-[30px] py-0 text-[12.5px] [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground! [&_[data-slot=menu-row]_span[title]]:text-[11.5px]';
+  'min-h-[30px] py-0 text-menu [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground! [&_[data-slot=menu-row]_span[title]]:text-label';
 
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;
@@ -334,7 +334,7 @@ export function ClioComposerBehaviorControls({
         <DropdownMenuTrigger asChild>
           <IconButton
             className={cn(
-              'h-[26px] w-auto shrink-0 gap-1.5 px-1.5 text-[12px] font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
+              'h-[26px] w-auto shrink-0 gap-1.5 px-1.5 text-meta font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
               selectedMode &&
                 selectedMode.value !== 'edit' &&
                 'text-accent-foreground hover:text-accent-foreground',

@@ -53,7 +53,7 @@ export const PickerFooter = memo(function PickerFooter({
   return (
     <div
       className={cn(
-        '@container flex h-8 min-w-0 shrink-0 items-center gap-3 overflow-hidden border-t px-3 text-[11.5px] whitespace-nowrap text-muted-foreground',
+        '@container flex h-8 min-w-0 shrink-0 items-center gap-3 overflow-hidden border-t px-3 text-label whitespace-nowrap text-muted-foreground',
         className,
       )}
       data-slot="picker-footer"

@@ -77,7 +77,7 @@ function ProblemsButton({
         <button
           aria-label={label}
           className={cn(
-            'inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11.5px] whitespace-nowrap text-foreground tabular-nums outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring',
+            'inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-label whitespace-nowrap text-foreground tabular-nums outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring',
             besideList && 'group-data-[fold-modes]/frame:hidden',
           )}
           data-frame-tool=""
@@ -127,9 +127,9 @@ function SourceFileMenu({
             const count = problems.filter((problem) => problem.file === name).length;
             return (
               <DropdownMenuRadioItem key={name} value={name}>
-                <span className="font-mono text-[12px]">{name}</span>
+                <span className="font-mono text-meta">{name}</span>
                 {count ? (
-                  <span className="ml-auto pl-3 text-[11.5px] text-muted-foreground">
+                  <span className="ml-auto pl-3 text-label text-muted-foreground">
                     {plural(count, 'problem')}
                   </span>
                 ) : null}
@@ -285,7 +285,7 @@ export function LatexFrame({
   return (
     <ViewerToolbarContent>
       {factInFormat ? (
-        <span className="shrink-0 px-1 text-[11px] text-muted-foreground tabular-nums">{fact}</span>
+        <span className="shrink-0 px-1 text-caption text-muted-foreground tabular-nums">{fact}</span>
       ) : null}
       {format}
     </ViewerToolbarContent>

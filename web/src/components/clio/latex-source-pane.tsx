@@ -56,7 +56,7 @@ export function LatexSourcePane({
         <CommentCapture className="min-h-0 flex-1" sourcePath={file}>
           <div
             aria-label={`Source of ${file}`}
-            className="h-full overflow-auto font-mono text-[12.5px] leading-[19px]"
+            className="h-full overflow-auto font-mono text-menu leading-[19px]"
             ref={scroller}
             role="region"
           >

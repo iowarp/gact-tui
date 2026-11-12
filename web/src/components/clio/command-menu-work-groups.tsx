@@ -53,14 +53,14 @@ export function MessageHitGroup({
               <span className="min-w-0 flex-1 truncate font-medium">
                 <SearchHighlight text={hit.session_title || 'Untitled session'} query={query} />
               </span>
-              <span className="shrink-0 text-[11px] whitespace-nowrap text-faint">
+              <span className="shrink-0 text-caption whitespace-nowrap text-faint">
                 {roleLabel(hit.role)}
               </span>
             </span>
             <span className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">
               <SearchHighlight text={messageSnippetText(hit.text)} query={query} partial />
             </span>
-            <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+            <span className="mt-1 block truncate text-caption text-muted-foreground">
               {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open matching passage
             </span>
           </span>

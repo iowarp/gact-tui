@@ -311,7 +311,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     <Button
       aria-label={managingVisibility || hiddenProviders.size ? undefined : 'Hide providers'}
       aria-pressed={managingVisibility}
-      className="shrink-0 text-[11.5px] font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
+      className="shrink-0 text-label font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
       data-slot="provider-visibility-mode"
       onClick={() => setManagingVisibility((current) => !current)}
       size="xs"
@@ -640,7 +640,7 @@ function footerHints(columns: boolean, searching = false): PickerHint[] {
 function SearchResultsHeader({ data, icon }: { data: SearchHeaderNodeData; icon?: ReactNode }) {
   return (
     <span
-      className="flex h-7 w-full min-w-0 items-center gap-2 px-2 pt-1 text-[11.5px] text-muted-foreground [&_svg]:size-3.5"
+      className="flex h-7 w-full min-w-0 items-center gap-2 px-2 pt-1 text-label text-muted-foreground [&_svg]:size-3.5"
       data-slot="search-results-header"
     >
       {icon ? <span className="grid size-4 shrink-0 place-items-center">{icon}</span> : null}

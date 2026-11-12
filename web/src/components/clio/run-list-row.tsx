@@ -206,7 +206,7 @@ export const RunListRow = memo(function RunListRow({
   return (
     <ListRow
       className={cn(
-        reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]',
+        reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-menu',
         // The name's span truncates and would clip a ring drawn on the name itself.
         'has-[[data-run-title]:focus-visible]:ring-1 has-[[data-run-title]:focus-visible]:ring-ring has-[[data-run-title]:focus-visible]:ring-inset',
         // A narrow list doesn't reserve the hover actions' column: they cover the time instead.
@@ -236,7 +236,7 @@ export const RunListRow = memo(function RunListRow({
       }
       description={
         reason ? (
-          <span className="text-[11.5px] text-destructive" title={reason}>
+          <span className="text-label text-destructive" title={reason}>
             {reason}
           </span>
         ) : undefined
@@ -265,7 +265,7 @@ export const RunListRow = memo(function RunListRow({
           </span>
           <span
             className={cn(
-              'w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums',
+              'w-[64px] shrink-0 truncate text-caption text-muted-foreground tabular-nums',
               rail && 'w-[56px]',
             )}
             data-slot="run-state-word"
@@ -283,7 +283,7 @@ export const RunListRow = memo(function RunListRow({
           )}
           {showWorkspace ? (
             <span
-              className="hidden w-[92px] shrink-0 truncate text-[11px] text-muted-foreground @[680px]/runs:block"
+              className="hidden w-[92px] shrink-0 truncate text-caption text-muted-foreground @[680px]/runs:block"
               title={row.workspaceLabel}
             >
               {row.workspaceLabelFields.name}
@@ -292,7 +292,7 @@ export const RunListRow = memo(function RunListRow({
           {rail && !row.updatedAt ? (
             elapsed === undefined ? null : (
               <span
-                className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
+                className="w-[30px] shrink-0 text-right text-caption text-muted-foreground tabular-nums"
                 title={`Ran for ${formatDuration(elapsed)}`}
               >
                 {formatDuration(elapsed, 'compact')}
@@ -301,7 +301,7 @@ export const RunListRow = memo(function RunListRow({
           ) : (
             <time
               className={cn(
-                'w-[30px] shrink-0 text-right text-[11px] text-muted-foreground',
+                'w-[30px] shrink-0 text-right text-caption text-muted-foreground',
                 !rail && NARROW_TIME_UNDER_ACTIONS,
               )}
               dateTime={row.updatedAt}

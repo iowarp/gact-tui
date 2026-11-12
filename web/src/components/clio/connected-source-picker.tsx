@@ -148,7 +148,7 @@ export function ConnectedSourcePicker({
       className={connect ? 'w-[clamp(340px,37.5vw,480px)]' : undefined}
       titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
     >
-      <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">
+      <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-menu">
         {open && (
           <SourceFrameFooterProvider register={setFooter}>
             <ConnectedSourceContents
@@ -468,7 +468,7 @@ export function ConnectedSourceContents({
       </>
     );
   // Section labels are the spec's `.zg`: 11px, semibold, muted.
-  const sectionLabel = 'text-[11px] font-semibold text-muted-foreground';
+  const sectionLabel = 'text-caption font-semibold text-muted-foreground';
   const providerIconWidth = providers.data?.providers.some((row) =>
     sourceProviderUsesWordmark(row.id),
   )
@@ -476,7 +476,7 @@ export function ConnectedSourceContents({
     : undefined;
   return (
     <div className="space-y-4">
-      <div className="flex min-h-[26px] items-center gap-1.5 text-[12px] text-muted-foreground">
+      <div className="flex min-h-[26px] items-center gap-1.5 text-meta text-muted-foreground">
         <span className="min-w-0 truncate">Files are saved on {hostLabel}</span>
         <InfoTip label="About connected data">
           Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this
@@ -485,7 +485,7 @@ export function ConnectedSourceContents({
       </div>
       {(sources.error || providers.error || folderReference.error) && (
         // The spec's status line (`.c3s`): an icon and a sentence, no box.
-        <p role="alert" className="flex min-h-[26px] items-center gap-2 text-[12px]">
+        <p role="alert" className="flex min-h-[26px] items-center gap-2 text-meta">
           <InfoIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           {connectedSourceErrorMessage(sources.error || providers.error || folderReference.error)}
         </p>
@@ -732,7 +732,7 @@ export function ConnectedSourceContents({
             </p>
           </div>
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">
+          <p className="text-menu text-muted-foreground">
             <span className="font-medium text-foreground">
               {manageOnly ? 'No connected sources.' : 'Nothing connected yet.'}
             </span>{' '}
@@ -763,7 +763,7 @@ function AccountLogin({
     <div className="flex min-w-0 flex-col gap-[13px]">
       <div className="flex min-w-0 items-center gap-2.5">
         <SourceProviderLogo provider={provider.id} />
-        <h3 className="truncate text-[13px] font-medium">Sign in to {provider.name}</h3>
+        <h3 className="truncate text-ui font-medium">Sign in to {provider.name}</h3>
       </div>
       <ConnectedAccountSignIn
         provider={provider.id}

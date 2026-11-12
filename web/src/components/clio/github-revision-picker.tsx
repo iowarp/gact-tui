@@ -72,7 +72,7 @@ export function GitHubRevisionPicker({
   const label = kind === 'branch' ? 'Branch' : kind === 'tag' ? 'Tag' : 'Commit';
   const selection = kind === 'tag' && value.startsWith('refs/tags/') ? value.slice(10) : value;
   const selectClass =
-    'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30';
+    'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-menu disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30';
   return (
     <div className="flex flex-col gap-[5px]">
       <SourceField label="Revision" htmlFor={`${formId}-revision-kind`}>
@@ -150,12 +150,12 @@ export function GitHubRevisionPicker({
         </SourceField>
       )}
       {!repoUrl && (
-        <p className="text-[11px] text-faint">
+        <p className="text-caption text-faint">
           Enter a GitHub repository to choose its branch, tag, or commit.
         </p>
       )}
       {ready && choices.length === 0 && (
-        <p className="text-[11px] text-faint">
+        <p className="text-caption text-faint">
           No {kind === 'branch' ? 'branches' : `${kind}s`} found.
         </p>
       )}
@@ -195,7 +195,7 @@ export function GitHubRevisionPicker({
         </Button>
       )}
       {ready && kind !== 'branch' && (
-        <p className="text-[11px] text-faint">
+        <p className="text-caption text-faint">
           Tags and commits pin a version. Choose a branch to publish edits.
         </p>
       )}

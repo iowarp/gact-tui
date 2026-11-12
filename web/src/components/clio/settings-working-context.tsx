@@ -60,7 +60,7 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
       />
       <Input
         aria-invalid={error ? true : undefined}
-        className="h-[1.875rem] w-28 shrink-0 text-[0.78125rem] tabular-nums"
+        className="h-[1.875rem] w-28 shrink-0 text-menu tabular-nums"
         disabled={saving}
         id="working-context-tokens"
         inputMode="numeric"

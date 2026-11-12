@@ -11,8 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 const FIELD = 'h-[1.875rem] rounded-md';
-const INPUT = 'h-full text-right font-mono text-[0.78125rem] tabular-nums';
-const UNIT = 'pr-2 text-[0.71875rem] text-muted-foreground';
+const INPUT = 'h-full text-right font-mono text-menu tabular-nums';
+const UNIT = 'pr-2 text-label text-muted-foreground';
 const SHORT_UNITS: Record<string, string> = {
   milliseconds: 'ms',
   seconds: 's',
@@ -100,7 +100,7 @@ export function SettingsLimitInput({
   return (
     <span className="flex min-w-0 items-center gap-3">
       <label
-        className="flex shrink-0 items-center gap-1.5 text-[0.75rem] whitespace-nowrap text-muted-foreground"
+        className="flex shrink-0 items-center gap-1.5 text-meta whitespace-nowrap text-muted-foreground"
         htmlFor={`${id}-unlimited`}
       >
         <Switch
@@ -215,7 +215,7 @@ export function SettingsPresetInput({
       >
         <SelectTrigger
           aria-label={`Choose ${label.toLowerCase()} preset`}
-          className={cn(FIELD, 'w-full min-w-0 text-[0.78125rem]', custom && 'w-auto shrink')}
+          className={cn(FIELD, 'w-full min-w-0 text-menu', custom && 'w-auto shrink')}
           id={custom ? undefined : id}
           size="sm"
         >

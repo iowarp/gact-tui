@@ -52,7 +52,7 @@ function ViewCall({
   return (
     <Button
       aria-label={`View call ${callId} in transcript`}
-      className="h-5 px-1.5 text-[11px]"
+      className="h-5 px-1.5 text-caption"
       onClick={() => links.onViewCall!(session, callId)}
       size="xs"
       type="button"
@@ -262,7 +262,7 @@ export function ObservationSources({
   const files = sourceFiles(entry);
   return (
     <details
-      className="min-w-0 text-[11px]"
+      className="min-w-0 text-caption"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
@@ -303,7 +303,7 @@ export function AnalysisCall({
   if (!call.callId) return null;
   return (
     <details
-      className="min-w-0 text-[11px]"
+      className="min-w-0 text-caption"
       data-slot="science-analysis"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >

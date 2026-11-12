@@ -326,7 +326,7 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
           <Metadata label="Owner" value={tool.owner || 'Not reported'} />
           <Metadata label="Visible to" value={tool.visible_to.join(', ') || 'Not restricted'} />
         </dl>
-        <pre className="clio-scrollbar mt-4 max-h-72 overflow-auto rounded-lg bg-muted/40 p-3 text-[11px] leading-5 whitespace-pre-wrap">
+        <pre className="clio-scrollbar mt-4 max-h-72 overflow-auto rounded-lg bg-muted/40 p-3 text-caption leading-5 whitespace-pre-wrap">
           {JSON.stringify(
             { input_schema: tool.input_schema, output_schema: tool.output_schema },
             null,

@@ -139,7 +139,7 @@ export function ClioArchivedSessionsDialog({
                       {session.title}
                     </span>
                     <small
-                      className="min-w-0 truncate text-[11.5px] text-muted-foreground"
+                      className="min-w-0 truncate text-label text-muted-foreground"
                       title={detail}
                     >
                       {detail}
