@@ -66,6 +66,18 @@ body,
 }
 
 /*
+ * A vertical colour bar's bounds sit under its gradient, so the lower one lands
+ * on the plot's x-axis baseline just after the last x label and reads as part
+ * of that axis. Both bounds move into the bar's tick-label column instead,
+ * capping its labels and clear of the x axis.
+ */
+.viewer-root [class*='_colorBar_']:not([data-horizontal]) [class*='_minBound_'],
+.viewer-root [class*='_colorBar_']:not([data-horizontal]) [class*='_maxBound_'] {
+  grid-column: 2;
+  justify-content: flex-start;
+}
+
+/*
  * h5web marks the focused tree row with a hairline in the border color, which
  * reads as the selected row's tint. Keyboard focus gets the host's accent ring.
  */

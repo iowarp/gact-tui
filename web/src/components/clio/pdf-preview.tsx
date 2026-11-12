@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import type { PdfHighlight } from './document-pdf-viewer';
 import { ResourceLoading, ViewerReadError } from './resource-states';
-import { PendingZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, PendingZoomControls } from './viewer-zoom-controls';
 
 const ClioDocumentPdfViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({ default: module.ClioDocumentPdfViewer })),
@@ -46,7 +46,7 @@ export function ClioPdfPreview({
   // The loaded viewer's zoom, off, so the frame bar doesn't change when the pages arrive.
   const loading = (
     <>
-      <PendingZoomControls label="PDF zoom" />
+      <PendingZoomControls label="PDF zoom" readout={<PendingPageReadout />} />
       <ResourceLoading className="p-4" label={`Loading ${name}`} />
     </>
   );

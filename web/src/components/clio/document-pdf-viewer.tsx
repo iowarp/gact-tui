@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ViewerZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, ViewerZoomControls } from './viewer-zoom-controls';
 import { frameKeyRegion } from './file-viewer-modes';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
@@ -406,7 +406,9 @@ export function ClioDocumentPdfViewer({
               {pageCounter}
               {zoomFact ? <span>{zoomFact}</span> : null}
             </>
-          ) : undefined
+          ) : (
+            <PendingPageReadout />
+          )
         }
       >
         <span

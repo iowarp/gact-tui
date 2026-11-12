@@ -33,6 +33,7 @@ import { useFileViewerFacts } from './file-viewer-facts';
 import { FileModeControls, type FileMode } from './file-mode-controls';
 import { FrameContentsCopyButton } from './file-viewer-take';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { useRememberedView } from './remembered-view';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { TextFileCopyAction } from './text-file-copy-action';
@@ -142,7 +143,7 @@ export function FileTextView({
     ...(format === 'csv' || dataset ? [{ value: 'data', label: 'Data', icon: Table2Icon }] : []),
     { value: 'source', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' },
   ];
-  const [chosen, setChosen] = useState(modes[0].value);
+  const [chosen, setChosen] = useRememberedView(`modes:${name}`, modes[0].value);
   const selected = view
     ? view === 'source'
       ? 'source'

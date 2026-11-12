@@ -47,11 +47,12 @@ import { ClioPdfPreview } from './pdf-preview';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { StateView } from './primitives/state-view';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { useRememberedView } from './remembered-view';
 import { downloadBytes } from './surface-export';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
-import { PendingZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, PendingZoomControls } from './viewer-zoom-controls';
 import { officeMediaType } from './comments/file-comments';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
@@ -85,7 +86,7 @@ export function ClioDocumentWorkspace({
   const toolbarHost = ownRow ? localHost : outerHost;
   const previewRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState('');
-  const [documentView, setDocumentView] = useState('preview');
+  const [documentView, setDocumentView] = useRememberedView(`document:${artifact.id}`, 'preview');
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
   const manifest = useQuery({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
@@ -201,6 +202,7 @@ export function ClioDocumentWorkspace({
   const openActions = useDocumentOpenActions({
     artifact,
     manifest: manifest.data,
+    expectPdf: opensAsPdf,
     openPending: createWorkingCopy.isPending,
     pdfPending: rendition.isPending,
     pdfUnavailable: runtimeMissing ? 'Needs the document runtime' : undefined,
@@ -302,7 +304,8 @@ export function ClioDocumentWorkspace({
   const threads = <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />;
   const refresh = (
     <DocumentRefreshAction
-      refreshing={manifest.isFetching || pdfPreview.isFetching || content.isFetching}
+      // Only a refetch is a refresh: the first load and the PDF conversion are the frame's loading.
+      refreshing={manifest.isRefetching || pdfPreview.isRefetching || content.isRefetching}
       onReviews={() =>
         queryClient.invalidateQueries({
           queryKey: commentThreadsKey(settings.endpoint, artifact.id),
@@ -556,7 +559,7 @@ function DocumentPreview({
 }) {
   const loading = (label: string) => (
     <>
-      {opensAsPdf ? <PendingZoomControls label="PDF zoom" /> : null}
+      {opensAsPdf ? <PendingZoomControls label="PDF zoom" readout={<PendingPageReadout />} /> : null}
       <ResourceLoading label={label} />
     </>
   );

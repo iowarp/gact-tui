@@ -10,12 +10,33 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
 const noop = () => {};
 
 /**
+ * A document's page position before its pages are counted: it holds the
+ * "3 / 12" place between the zoom icons so zoom-in doesn't move once it arrives.
+ */
+export function PendingPageReadout() {
+  return (
+    <span aria-hidden="true" className="opacity-60">
+      – / –
+    </span>
+  );
+}
+
+/**
  * A renderer's zoom icons, off, while its content is still on the way, so the
  * frame shows the loaded bar from first paint (workbench-frame-bar: Loading)
  * and nothing in it moves or folds differently once the content arrives.
  */
-export function PendingZoomControls({ label }: { label: string }) {
-  return <ViewerZoomControls disabledIn disabledOut label={label} onIn={noop} onOut={noop} />;
+export function PendingZoomControls({ label, readout }: { label: string; readout?: ReactNode }) {
+  return (
+    <ViewerZoomControls
+      disabledIn
+      disabledOut
+      label={label}
+      onIn={noop}
+      onOut={noop}
+      readout={readout}
+    />
+  );
 }
 
 /**

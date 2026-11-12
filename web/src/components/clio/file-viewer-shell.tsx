@@ -44,6 +44,7 @@ import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
 import { useElementFullscreen } from './use-element-fullscreen';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
+import { useRememberedView } from './remembered-view';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 export interface FileViewerTab {
@@ -135,14 +136,20 @@ export function FileViewerShell({
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const [wrap, setWrap] = useState(false);
   const sourceOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
-  const [internalValue, setInternalValue] = useState('preview');
+  const identity = fileViewerIdentity(source);
+  // The selection menu quotes a passage with its file: the workspace path, else the name.
+  const selectionPath =
+    source.kind === 'workspace'
+      ? source.path
+      : (source.kind === 'artifact' && source.verifiedWorkspacePath) || identity.name;
+  const [internalValue, setInternalValue] = useRememberedView(`frame:${selectionPath}`, 'preview');
   const requested = value ?? internalValue;
   const selectValue = useCallback(
     (next: string) => {
       setInternalValue(next);
       onValueChange?.(next);
     },
-    [onValueChange],
+    [onValueChange, setInternalValue],
   );
   const allTabs: readonly FileViewerTab[] = lineage
     ? [
@@ -161,12 +168,6 @@ export function FileViewerShell({
     ? requested
     : (primaryTabs[0]?.value ?? requested);
   const hostTab = primaryTabs[0];
-  const identity = fileViewerIdentity(source);
-  // The selection menu quotes a passage with its file: the workspace path, else the name.
-  const selectionPath =
-    source.kind === 'workspace'
-      ? source.path
-      : (source.kind === 'artifact' && source.verifiedWorkspacePath) || identity.name;
   const selectionSurface = {
     'data-selection-surface': 'file',
     'data-file-path': selectionPath,
