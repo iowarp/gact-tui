@@ -78,7 +78,7 @@ export const MetaValue = memo(function MetaValue({
     <span
       data-slot="meta-value"
       className={cn(
-        'shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums',
+        'shrink-0 truncate text-right font-mono text-caption text-muted-foreground tabular-nums',
         width === 44 ? 'w-11' : width === 52 ? 'w-[52px]' : 'w-16',
         className,
       )}

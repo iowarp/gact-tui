@@ -398,7 +398,7 @@ export function ClioMermaidDiagram({
                     >
                       <ZoomOutIcon aria-hidden="true" className="size-3.5" />
                     </Button>
-                    <span className="min-w-9 text-center text-[11px] tabular-nums text-muted-foreground">
+                    <span className="min-w-9 text-center text-caption tabular-nums text-muted-foreground">
                       {scalePercent}%
                     </span>
                     <Button

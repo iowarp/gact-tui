@@ -95,7 +95,7 @@ export function SourceSftpTarget({
         >
           <SelectTrigger
             aria-label="SSH connection"
-            className="h-[30px] min-w-0 flex-1 rounded-[7px] text-[12.5px] data-[size=default]:h-[30px]"
+            className="h-[30px] min-w-0 flex-1 rounded-[7px] text-menu data-[size=default]:h-[30px]"
           >
             <SelectValue placeholder="Choose a connection" />
           </SelectTrigger>

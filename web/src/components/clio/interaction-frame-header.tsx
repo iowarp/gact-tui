@@ -76,7 +76,7 @@ export function QuestionCard({
       {body ? (
         <AskSection
           className={cn(
-            'mt-1 text-foreground/85 [&_.text-sm]:text-[12.5px]',
+            'mt-1 text-foreground/85 [&_.text-sm]:text-menu',
             !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pr-1',
             promptClassName,
           )}
@@ -86,7 +86,7 @@ export function QuestionCard({
         </AskSection>
       ) : null}
       {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
-        <AskSection className="mt-1 text-[12px] text-muted-foreground">
+        <AskSection className="mt-1 text-meta text-muted-foreground">
           The specialist could not answer this, so it needs you.
         </AskSection>
       ) : null}

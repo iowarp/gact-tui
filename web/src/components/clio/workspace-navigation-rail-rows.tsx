@@ -43,7 +43,7 @@ export function RailState({
     return (
       <div
         className={cn(
-          'flex h-[26px] min-w-0 items-center pr-1 text-[12px] whitespace-nowrap text-faint group-data-[collapsible=icon]:hidden',
+          'flex h-[26px] min-w-0 items-center pr-1 text-meta whitespace-nowrap text-faint group-data-[collapsible=icon]:hidden',
           indent ? 'pl-[34px]' : 'pl-2.5',
         )}
         data-slot="rail-empty"

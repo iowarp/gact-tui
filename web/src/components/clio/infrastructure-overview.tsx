@@ -111,7 +111,7 @@ export function InfrastructureOverview({
           description={named(research.description)}
           details={
             research.reason ? (
-              <p className="truncate text-[11px] text-muted-foreground" title={research.reason}>
+              <p className="truncate text-caption text-muted-foreground" title={research.reason}>
                 {research.reason}
               </p>
             ) : undefined

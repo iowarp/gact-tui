@@ -49,7 +49,7 @@ export const StepList = memo(function StepList({
         >
           <div
             className={cn(
-              'flex h-7 min-w-0 items-center gap-2.5 text-[12.5px] whitespace-nowrap',
+              'flex h-7 min-w-0 items-center gap-2.5 text-menu whitespace-nowrap',
               step.state === 'todo' ? 'text-muted-foreground' : 'text-foreground/90',
             )}
           >
@@ -69,7 +69,7 @@ export const StepList = memo(function StepList({
               <span className="sr-only">, {STATE_WORDS[step.state]}</span>
             </span>
             {step.meta ? (
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+              <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
                 {step.meta}
               </span>
             ) : null}
@@ -94,7 +94,7 @@ export const StepList = memo(function StepList({
 
 function StepLog({ line }: { line: string }) {
   return (
-    <p title={line} className="mt-1.5 ml-6 truncate font-mono text-[11.5px] text-muted-foreground">
+    <p title={line} className="mt-1.5 ml-6 truncate font-mono text-label text-muted-foreground">
       {line}
     </p>
   );

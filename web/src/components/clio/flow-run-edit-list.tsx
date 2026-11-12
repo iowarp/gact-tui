@@ -55,7 +55,7 @@ export function FlowEdits({
     return handle ? (
       <Button
         aria-label={`Open ${step}, ${label}`}
-        className="h-5 px-1.5 text-[11px]"
+        className="h-5 px-1.5 text-caption"
         onClick={() => onOpenHandle(handle)}
         size="xs"
         type="button"

@@ -377,7 +377,7 @@ export function SshHostDialog({
             <Field>
               <div className="flex items-baseline gap-1.5">
                 <FieldLabel htmlFor="ssh-host-label">Name</FieldLabel>
-                <span className="text-[12px] text-muted-foreground">optional</span>
+                <span className="text-meta text-muted-foreground">optional</span>
               </div>
               <Input
                 autoComplete="off"
@@ -559,7 +559,7 @@ export function SshHostDialog({
         ) : null}
 
         {testSucceeded ? (
-          <p className="flex min-w-0 items-center gap-1.5 text-[12.5px]" role="status">
+          <p className="flex min-w-0 items-center gap-1.5 text-menu" role="status">
             <StatusIndicator label="Connection succeeded" tone="success" />
             <span className="min-w-0 truncate text-foreground">
               {via?.length

@@ -28,6 +28,8 @@ export function AgentSettings() {
   const supported = useAgentPluginsSupported();
   const agents = useInstalledAgents();
   const [previewRef, setPreviewRef] = useState<string>();
+  // Each New agent bumps this: the starter's pane remounts with its save dialog open.
+  const [naming, setNaming] = useState(0);
   const [sourceAgent, setSourceAgent] = useState<AgentEntry>();
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
@@ -89,14 +91,23 @@ export function AgentSettings() {
   const previewing = all.find((agent) => agent.ref === previewRef);
   // A new agent starts as a saved variation of an installed one.
   const starter = installed.find((agent) => agent.ref === defaultRef) ?? installed[0];
-  const newAgent = starter ? () => setPreviewRef(starter.ref) : undefined;
+  const newAgent = starter
+    ? () => {
+        setPreviewRef(starter.ref);
+        setNaming((count) => count + 1);
+      }
+    : undefined;
+  const preview = (ref: string) => {
+    setPreviewRef(ref);
+    setNaming(0);
+  };
   const row = (agent: AgentEntry) => (
     <AgentRow
       agent={agent}
       agents={all}
       key={agent.ref}
       onDelete={agent.kind === 'user' ? () => remove.mutateAsync(agent) : undefined}
-      onPreview={() => setPreviewRef(agent.ref)}
+      onPreview={() => preview(agent.ref)}
       onViewSource={agent.kind === 'user' ? () => setSourceAgent(agent) : undefined}
       selected={agent.ref === previewRef}
       slot={
@@ -160,8 +171,12 @@ export function AgentSettings() {
           previewing ? (
             <AgentPreviewPane
               agent={previewing}
-              key={previewing.ref}
-              onClose={() => setPreviewRef(undefined)}
+              key={`${previewing.ref}:${naming}`}
+              naming={naming > 0}
+              onClose={() => {
+                setPreviewRef(undefined);
+                setNaming(0);
+              }}
             />
           ) : undefined
         }

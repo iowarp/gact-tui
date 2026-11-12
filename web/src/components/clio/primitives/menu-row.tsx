@@ -87,7 +87,7 @@ export const MenuRow = memo(function MenuRow({
           <span className={cn('truncate', muted && 'text-muted-foreground')}>
             <JumpLabel label={label} letter={accelerator} />
           </span>
-          <span title={detail} className="truncate text-[11px] text-muted-foreground">
+          <span title={detail} className="truncate text-caption text-muted-foreground">
             {detail}
           </span>
         </span>
@@ -105,7 +105,7 @@ export const MenuRow = memo(function MenuRow({
             <span
               title={wrapDescription ? undefined : description}
               className={cn(
-                'min-w-0 text-[12px] text-muted-foreground',
+                'min-w-0 text-meta text-muted-foreground',
                 wrapDescription ? 'leading-[1.35] whitespace-normal' : 'truncate',
               )}
             >
@@ -116,12 +116,12 @@ export const MenuRow = memo(function MenuRow({
       )}
       {status ? (
         <span className="mr-[34px] flex min-w-[62px] shrink-0">
-          <StatusIndicator className="text-[11px]" label={status.label} tone={status.tone} />
+          <StatusIndicator className="text-caption" label={status.label} tone={status.tone} />
         </span>
       ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}
       {value !== undefined ? (
-        <span className="w-[52px] shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+        <span className="w-[52px] shrink-0 truncate text-right font-mono text-caption text-muted-foreground tabular-nums">
           {value}
         </span>
       ) : null}
@@ -192,7 +192,7 @@ export function MenuAcceleratorKey({ letter }: { letter: string }) {
     <kbd
       data-slot="menu-accelerator"
       // A jump letter is for the keyboard: a menu opened with the mouse shows only keys.
-      className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
+      className="w-4 shrink-0 pl-2 text-right font-sans text-label text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
     >
       {letter}
     </kbd>

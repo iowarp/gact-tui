@@ -412,7 +412,7 @@ function McpServerDetailPane({
       }
       title={title}
     >
-      <div className="flex min-w-0 items-center gap-3 pb-2 text-[0.75rem] text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-3 pb-2 text-meta text-muted-foreground">
         <StatusIndicator label={status.label} tone={status.tone} />
         <span className="min-w-0 truncate">{serviceOrigin(entry)}</span>
       </div>
@@ -465,7 +465,7 @@ function McpServerDetailPane({
           rows={resourceInventory.data ?? []}
         />
       ) : view === 'prompts' ? (
-        <p className="py-2 text-[0.8125rem] text-muted-foreground">
+        <p className="py-2 text-ui text-muted-foreground">
           This service’s prompts are commands. In a conversation that uses it, type / and look under
           its prompts, or see them on the Prompts settings page.
         </p>
@@ -482,7 +482,7 @@ function McpServerDetailPane({
               <p className="text-xs font-medium text-muted-foreground">Technical details</p>
               {technical.map((text) => (
                 <p
-                  className="mt-1 font-mono text-[0.71875rem] break-words text-muted-foreground"
+                  className="mt-1 font-mono text-label break-words text-muted-foreground"
                   key={text}
                 >
                   {text}

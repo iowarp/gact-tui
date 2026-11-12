@@ -26,7 +26,7 @@ type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 const MARKDOWN_SOURCES = new Set(['memory', 'session_facts']);
 // The row body's text size, headings included, so a "## Memory" title doesn't outsize its row.
 const ROW_MARKDOWN =
-  'text-[13px] leading-[1.55] [&_h1]:text-[13px] [&_h2]:text-[13px] [&_h3]:text-[13px] [&_h4]:text-[13px] [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_h4]:my-1.5 [&_p]:my-1.5 [&_li]:my-0.5';
+  'text-ui leading-[1.55] [&_h1]:text-ui [&_h2]:text-ui [&_h3]:text-ui [&_h4]:text-ui [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_h4]:my-1.5 [&_p]:my-1.5 [&_li]:my-0.5';
 
 /**
  * Backslashes are literal (Windows paths), not markdown escapes. Session facts are
@@ -187,11 +187,11 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                     {rowMarkdown(block.source, block.text)}
                   </GroundedMessageResponse>
                 ) : presentation?.format === 'text' ? (
-                  <div className="whitespace-pre-wrap text-[13px] leading-[1.55] [overflow-wrap:anywhere]">
+                  <div className="whitespace-pre-wrap text-ui leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation.text}
                   </div>
                 ) : (
-                  <pre className="min-w-0 max-w-full whitespace-pre-wrap font-mono !text-[11.5px] !leading-[1.55] [overflow-wrap:anywhere]">
+                  <pre className="min-w-0 max-w-full whitespace-pre-wrap font-mono !text-label !leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation?.text ??
                       (['task_result', 'peer', 'attention', 'question_answer'].includes(
                         block.source,
@@ -227,7 +227,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
           inline={false}
           title={`${label}: Technical details`}
         >
-          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-[11.5px] leading-[1.55] [overflow-wrap:anywhere]">
+          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-label leading-[1.55] [overflow-wrap:anywhere]">
             {block.text}
           </pre>
         </ToolDetailsContent>

@@ -427,7 +427,7 @@ export function ClioDocumentPdfViewer({
         }
       >
         <span
-          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums"
+          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-caption text-muted-foreground tabular-nums"
           data-slot="pdf-page-counter"
         >
           {pageCounter}

@@ -336,7 +336,7 @@ export function TourOverlay({
         aria-labelledby={titleId}
         aria-modal="false"
         className={cn(
-          'pointer-events-auto fixed z-[120] rounded-[10px] border border-border bg-popover p-4 text-[13px] leading-[1.45] text-popover-foreground shadow-xl outline-none',
+          'pointer-events-auto fixed z-[120] rounded-[10px] border border-border bg-popover p-4 text-ui leading-[1.45] text-popover-foreground shadow-xl outline-none',
           position ? undefined : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
         )}
         data-tour-card=""
@@ -347,12 +347,12 @@ export function TourOverlay({
         style={position ?? { width: `min(${CARD_WIDTH}px, calc(100vw - ${GAP * 2}px))` }}
         tabIndex={-1}
       >
-        <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
+        <p className="flex items-center gap-2 text-label text-muted-foreground">
           <span>
             Step {index + 1} of {count}
           </span>
           {TOUR_SCRIPT_STATUS === 'draft' ? (
-            <span className="rounded border border-border px-1.5 py-px text-[11px]">Draft</span>
+            <span className="rounded border border-border px-1.5 py-px text-caption">Draft</span>
           ) : null}
         </p>
         <h2 className="mt-1 text-[14px] font-medium" id={titleId}>

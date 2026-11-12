@@ -100,7 +100,7 @@ function TaskDetailsDialog({
       description="The task the agent tracked, its state, and what it reported."
       className="w-[clamp(360px,56vw,760px)]"
     >
-      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
+      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-menu [overflow-wrap:anywhere]">
         <TechnicalDetailsFacts items={items} />
         {task.detail ? (
           <DetailsSection title="Detail" copy={task.detail}>

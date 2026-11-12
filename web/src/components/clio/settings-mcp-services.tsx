@@ -79,7 +79,7 @@ export function McpServiceMeta({ entry }: { entry: McpServiceEntry }) {
       <span>{origin}</span>
       {total === undefined ? null : <span className="ml-2.5">{countWords(total)}</span>}
       {target ? (
-        <span className="ml-2.5 font-mono text-[0.71875rem] whitespace-nowrap">{target.short}</span>
+        <span className="ml-2.5 font-mono text-label whitespace-nowrap">{target.short}</span>
       ) : null}
     </span>
   );

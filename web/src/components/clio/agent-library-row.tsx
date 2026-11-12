@@ -126,6 +126,8 @@ export function AgentRow({
       onKeyDown={onKeyDown}
       selected={selected}
       slot={slot}
+      // Explore, Delete and More: the column fits them, so a narrow list keeps its words.
+      actionsWidth={86}
       tabIndex={0}
       title={<span title={name}>{name}</span>}
       actions={
@@ -179,11 +181,26 @@ function useAgentDraft(agent: AgentEntry) {
 }
 
 /** An agent's resolved plugins, prompt and provenance, beside the list (detail pane). */
-export function AgentPreviewPane({ agent, onClose }: { agent: AgentEntry; onClose: () => void }) {
+export function AgentPreviewPane({
+  agent,
+  naming = false,
+  onClose,
+}: {
+  agent: AgentEntry;
+  /** Opened by New agent: the save dialog starts open to name the variation. */
+  naming?: boolean;
+  onClose: () => void;
+}) {
   const [draft, setDraft] = useAgentDraft(agent);
   return (
     <DetailPane icon={<BotIcon />} onClose={onClose} title={agent.name || agent.id}>
-      <DraftAgentCompositionView draft={draft} embedded library onChange={setDraft} />
+      <DraftAgentCompositionView
+        draft={draft}
+        embedded
+        library
+        naming={naming}
+        onChange={setDraft}
+      />
     </DetailPane>
   );
 }

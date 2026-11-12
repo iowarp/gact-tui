@@ -109,7 +109,7 @@ export function ClioShareSessionDialog({
           >
             <SelectTrigger
               className={cn(
-                'h-[30px] w-full text-[12.5px]',
+                'h-[30px] w-full text-menu',
                 shareUrl && 'disabled:cursor-default disabled:opacity-100 text-muted-foreground',
               )}
               id="session-share-expiry"
@@ -139,7 +139,7 @@ export function ClioShareSessionDialog({
                 readOnly
                 ref={inputRef}
                 value={shareUrl}
-                className="h-[30px] pr-8 font-mono text-[12px] md:text-[12px]"
+                className="h-[30px] pr-8 font-mono text-meta md:text-meta"
                 onFocus={(event) => event.currentTarget.select()}
               />
               <IconButton

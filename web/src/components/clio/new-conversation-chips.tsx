@@ -22,7 +22,7 @@ import { MenuRow } from './primitives/menu-row';
 import { WorkspaceMark } from './workspace-mark';
 
 const chipClass =
-  'h-7 min-w-0 gap-1.5 rounded-md bg-hover/60 px-2 text-[13px] font-normal text-foreground hover:bg-hover aria-expanded:bg-hover';
+  'h-7 min-w-0 gap-1.5 rounded-md bg-hover/60 px-2 text-ui font-normal text-foreground hover:bg-hover aria-expanded:bg-hover';
 
 /** A compact menu trigger: icon, a truncating name, an optional note and a chevron. */
 function ChipTrigger({
@@ -186,7 +186,7 @@ export function DraftAgentChip({
           label={label}
           note={
             changed ? (
-              <span className="shrink-0 text-[12px] text-primary">{changed}</span>
+              <span className="shrink-0 text-meta text-primary">{changed}</span>
             ) : undefined
           }
           title={agentsError || undefined}
@@ -231,7 +231,7 @@ export function DraftCustomizeChip({
         aria-label={
           changes ? `Customize the agent (${changeCount(changes)})` : 'Customize the agent'
         }
-        className="h-7 gap-1.5 px-1.5 text-[13px] font-normal text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
+        className="h-7 gap-1.5 px-1.5 text-ui font-normal text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
         disabled={disabled}
         onClick={onCustomize}
         size="sm"

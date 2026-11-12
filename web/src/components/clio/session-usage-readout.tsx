@@ -243,14 +243,14 @@ function UsageCardBody({
   });
   return (
     <>
-      <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
+      <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
         This conversation&rsquo;s account
       </p>
       <KeyValueGrid items={setup} variant="card" />
       {delegated.length ? (
         <>
           <div className="my-1 border-t border-border" role="separator" />
-          <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
+          <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
             Spent here, including delegated work
           </p>
           <KeyValueGrid items={delegated} variant="card" />
@@ -258,7 +258,7 @@ function UsageCardBody({
       ) : null}
       <div className="my-1 border-t border-border" role="separator" />
       <Link
-        className="flex h-[25px] items-center gap-2.5 rounded-[5px] px-2 text-[12px] text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover"
+        className="flex h-[25px] items-center gap-2.5 rounded-[5px] px-2 text-meta text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover"
         to="/settings/usage"
       >
         <GaugeIcon aria-hidden="true" className="size-[13px] shrink-0 text-muted-foreground" />

@@ -189,6 +189,8 @@
   --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
+  /* The current place in a navigation list (Settings nav); a theme without one uses the menu highlight. */
+  --color-nav-current: var(--nav-current, var(--menu-highlight));
   --color-key: var(--key);
   --color-key-border: var(--key-border);
   --color-muted: var(--muted);
@@ -892,7 +894,7 @@ html[data-clio-motion='reduced'] *::after {
 }
 /* An edit's change reads at the transcript's code size, like a prose code block. */
 [data-slot='transcript-diff-card'] .tool-presentation-body :is(pre, code) {
-  font-size: 11.5px;
+  font-size: var(--text-label);
   line-height: 1.65;
 }
 
@@ -920,7 +922,7 @@ html[data-clio-motion='reduced'] *::after {
   background: transparent;
 }
 [data-slot='activity-body'] [data-slot='tool-result-panel'] :is(pre, code) {
-  font-size: 11.5px;
+  font-size: var(--text-label);
   line-height: 1.65;
 }
 [data-slot='activity-body'] [data-slot='tool-result-panel'] pre {
@@ -990,16 +992,16 @@ html[data-clio-motion='reduced'] *::after {
 }
 /* The spec's largest transcript heading is `.md h3` at 17px; h1 stops there. */
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) h1[data-streamdown] {
-  font-size: 17px;
+  font-size: var(--text-title);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) h2[data-streamdown] {
-  font-size: 17px;
+  font-size: var(--text-title);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) h3[data-streamdown] {
-  font-size: 15px;
+  font-size: var(--text-h3);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h4, h5, h6)[data-streamdown] {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
@@ -1052,14 +1054,14 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0 4px 0 10px;
   border-bottom: 1px solid var(--border);
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: var(--text-label);
   color: var(--muted-foreground);
   white-space: nowrap;
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
@@ -1072,7 +1074,7 @@ html[data-clio-motion='reduced'] *::after {
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child::before {
   content: 'Table';
   margin-right: auto;
-  font-size: 12px;
+  font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
@@ -1119,7 +1121,7 @@ html[data-clio-motion='reduced'] *::after {
   background: transparent;
   padding: 6px 10px 6px 0;
   overflow-x: auto;
-  font: 11.5px/1.65 var(--font-mono);
+  font: var(--text-label)/1.65 var(--font-mono);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] :is(pre, code) {
   font: inherit;
@@ -1133,7 +1135,7 @@ html[data-clio-motion='reduced'] *::after {
   width: 34px;
   margin: 0 0 0 -34px;
   padding-right: 12px;
-  font-size: 11.5px;
+  font-size: var(--text-label);
   color: var(--faint);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child {
@@ -1154,7 +1156,7 @@ html[data-clio-motion='reduced'] *::after {
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header-cell'] {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  font: 500 11px var(--font-sans);
+  font: 500 var(--text-caption) var(--font-sans);
   color: var(--muted-foreground);
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] {
@@ -1162,7 +1164,7 @@ html[data-clio-motion='reduced'] *::after {
   padding: 6px 8px;
   vertical-align: top;
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: var(--text-menu);
   line-height: 1.45;
 }
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-row'] > :first-child {

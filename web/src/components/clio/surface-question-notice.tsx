@@ -81,7 +81,7 @@ export function SurfaceQuestionNotice({
       showOwner={showOwner}
     >
       {!available ? (
-        <AskSubject className="text-[12px]">
+        <AskSubject className="text-meta">
           {!id
             ? 'This response has no linked view.'
             : surface && surface.session_id !== interaction.owner_session_id

@@ -174,7 +174,7 @@ export function WebSearchSetup({
             Service address
           </FieldLabel>
           <Input
-            className="h-[30px] font-mono text-[12.5px] md:text-[12.5px]"
+            className="h-[30px] font-mono text-menu md:text-menu"
             data-initial-focus=""
             id="existing-web-search-url"
             onChange={(event) => setUrl(event.target.value)}
@@ -188,7 +188,7 @@ export function WebSearchSetup({
             Credential reference
           </FieldLabel>
           <Input
-            className="h-[30px] text-[12.5px] md:text-[12.5px]"
+            className="h-[30px] text-menu md:text-menu"
             id="existing-web-search-credential"
             onChange={(event) => setCredentialRef(event.target.value)}
             placeholder="Optional, e.g. infrastructure:nsf-search"

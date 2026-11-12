@@ -37,7 +37,7 @@ export function SourceDetailAccess({
         disabled={disabled}
       />
       {confirm ? (
-        <label className="flex items-start gap-[9px] text-[12px] leading-[1.45] text-warning">
+        <label className="flex items-start gap-[9px] text-meta leading-[1.45] text-warning">
           <input
             type="checkbox"
             aria-label="Allow changes to original files"
@@ -49,12 +49,12 @@ export function SourceDetailAccess({
         </label>
       ) : null}
       {reason ? (
-        <p className="flex items-start gap-2 text-[11px] leading-[1.45] text-faint">
+        <p className="flex items-start gap-2 text-caption leading-[1.45] text-faint">
           <ShieldCheckIcon aria-hidden="true" className="mt-px size-3.5 shrink-0" />
           {reason}
         </p>
       ) : (
-        <p className="text-[11px] leading-[1.45] text-faint">
+        <p className="text-caption leading-[1.45] text-faint">
           A link reads the originals when {vocab.agent} needs them. A download saves a copy in this
           workspace.
         </p>

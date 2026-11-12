@@ -77,7 +77,7 @@ export function HostStorageSettings({
 
 /** A path field quiet as a key-value value (`.c3kv .v`) until pointed at or focused. */
 const overrideInputClass =
-  'h-[25px] min-w-0 rounded-[5px] border-transparent bg-transparent px-1.5 text-right font-mono text-[11.5px] text-foreground/85 shadow-none placeholder:text-faint hover:border-input md:text-[11.5px] dark:bg-transparent';
+  'h-[25px] min-w-0 rounded-[5px] border-transparent bg-transparent px-1.5 text-right font-mono text-label text-foreground/85 shadow-none placeholder:text-faint hover:border-input md:text-label dark:bg-transparent';
 
 function StorageForm({
   data,
@@ -146,14 +146,14 @@ function StorageForm({
   const failure = check.error?.message || save.error?.message;
   return (
     <section
-      className="flex min-w-0 flex-col gap-[13px] text-[12.5px]"
+      className="flex min-w-0 flex-col gap-[13px] text-menu"
       aria-label={`Storage on ${data.host_label}`}
     >
       <div className="flex min-w-0 flex-col gap-[5px]">
         <div className="flex items-center gap-1.5">
           <label
             htmlFor="storage-root"
-            className="text-[11.5px] whitespace-nowrap text-muted-foreground"
+            className="text-label whitespace-nowrap text-muted-foreground"
           >
             {labels.root}
           </label>
@@ -166,23 +166,23 @@ function StorageForm({
         <div className="flex min-w-0 items-center gap-1.5">
           <Input
             id="storage-root"
-            className={cn(sourceInputClass, 'min-w-0 flex-1 font-mono text-[12px] md:text-[12px]')}
+            className={cn(sourceInputClass, 'min-w-0 flex-1 font-mono text-meta md:text-meta')}
             value={draft.root || ''}
             placeholder={inherited.root}
             disabled={save.isPending}
             onChange={(event) => change('root', event.target.value)}
           />
-          {picker('root', 'h-[30px] shrink-0 px-2 text-[12px] text-muted-foreground')}
+          {picker('root', 'h-[30px] shrink-0 px-2 text-meta text-muted-foreground')}
         </div>
       </div>
       <Collapsible className="group/override -mx-2 flex min-w-0 flex-col">
-        <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
+        <CollapsibleTrigger className="flex min-h-[30px] w-full cursor-pointer items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-menu whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50">
           <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
             <ChevronRightIcon className="size-3 group-data-[state=open]/override:rotate-90 motion-safe:transition-transform" />
           </span>
           Override individual folders
         </CollapsibleTrigger>
-        <CollapsibleContent className="grid grid-cols-[40%_minmax(0,1fr)_auto] items-center gap-x-2.5 px-2 pt-1 text-[12px]">
+        <CollapsibleContent className="grid grid-cols-[40%_minmax(0,1fr)_auto] items-center gap-x-2.5 px-2 pt-1 text-meta">
           {(['models', 'service_data', 'captures', 'temporary'] as const).map((name) => (
             <div className="contents" key={name}>
               <label
@@ -202,16 +202,16 @@ function StorageForm({
                 disabled={save.isPending}
                 onChange={(event) => change(name, event.target.value)}
               />
-              {picker(name, 'h-[22px] shrink-0 px-1.5 text-[11.5px] text-muted-foreground')}
+              {picker(name, 'h-[22px] shrink-0 px-1.5 text-label text-muted-foreground')}
             </div>
           ))}
         </CollapsibleContent>
       </Collapsible>
       <div className="flex min-w-0 flex-col gap-[5px]">
-        <h4 className="text-[11.5px] font-normal text-muted-foreground">
+        <h4 className="text-label font-normal text-muted-foreground">
           Folder capacity and permissions
         </h4>
-        <div className="flex min-h-[26px] min-w-0 items-center text-[12px]">
+        <div className="flex min-h-[26px] min-w-0 items-center text-meta">
           {check.isFetching ? (
             <StatusIndicator label="Checking folder…" tone="running" />
           ) : check.data ? (

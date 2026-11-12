@@ -146,7 +146,7 @@ export function FilterCheck({
 /** The trailing column every row shares: a count, then the ↵ of the highlighted row. */
 function RowTail({ count, enter }: { count?: ReactNode; enter: boolean }) {
   return (
-    <span className="flex w-[76px] shrink-0 items-center justify-end gap-[11px] text-[11px] text-faint tabular-nums">
+    <span className="flex w-[76px] shrink-0 items-center justify-end gap-[11px] text-caption text-faint tabular-nums">
       {count}
       <span className={cn('inline-flex', !enter && 'invisible')}>
         <ShortcutKeys id="menu-pick" variant="row" />
@@ -164,7 +164,7 @@ export function ChipIcon({ chip }: { chip: FacetChip }) {
   return createElement(tagIcon(chip.icon.tag), { className: 'size-[15px]' });
 }
 
-const ROW_CLASS = 'h-[30px] gap-[9px] rounded-[7px] px-2 text-[13px]';
+const ROW_CLASS = 'h-[30px] gap-[9px] rounded-[7px] px-2 text-ui';
 
 /**
  * The model picker's Filters, as the spec draws them: every filter as a row
@@ -242,7 +242,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
         const total = groups.reduce((sum, group) => sum + group.chips.length, 0);
         if (total > COLLAPSED_ROWS) {
           before = (
-            <label className="mx-2 my-1 flex h-7 items-center gap-2 rounded-[6px] border px-2 text-[12.5px]">
+            <label className="mx-2 my-1 flex h-7 items-center gap-2 rounded-[6px] border px-2 text-menu">
               <SearchIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
               <input
                 {...identifierInputProps}
@@ -431,7 +431,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
       if (row.kind === 'label') {
         return (
           <div
-            className="flex h-6 items-end px-2 pb-0.5 text-[11px] text-faint"
+            className="flex h-6 items-end px-2 pb-0.5 text-caption text-faint"
             data-row-key={row.key}
             key={row.key}
           >
@@ -485,7 +485,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
             />
             <span className="shrink-0 text-foreground">{slider.stops[last]}</span>
             <span
-              className="w-[76px] shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground"
+              className="w-[76px] shrink-0 truncate text-right font-mono text-caption text-muted-foreground"
               data-slot="facet-range-token"
               title={slider.token}
             >
@@ -665,7 +665,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
               ),
             )
           ) : (
-            <p className="px-2 py-3 text-[12.5px] text-muted-foreground">
+            <p className="px-2 py-3 text-menu text-muted-foreground">
               No model matches this search.
             </p>
           )}

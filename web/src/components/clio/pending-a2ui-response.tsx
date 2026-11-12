@@ -350,7 +350,7 @@ function A2UISurfaceBody({
 }) {
   if (!interaction.source.surface_id) {
     return (
-      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-menu text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
         This response has no {PROTOCOL.a2ui} surface to open.
       </p>
@@ -358,7 +358,7 @@ function A2UISurfaceBody({
   }
   if (rawSurface && rawSurface.session_id !== interaction.owner_session_id) {
     return (
-      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-menu text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
         This {PROTOCOL.a2ui} surface was rejected: it was addressed to a different session.
       </p>
@@ -366,7 +366,7 @@ function A2UISurfaceBody({
   }
   if (!rawSurface) {
     return (
-      <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-menu text-muted-foreground">
         <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
         <span className="flex-1">{PROTOCOL.a2ui} surface is loading.</span>
         {onRefetchSurface ? (

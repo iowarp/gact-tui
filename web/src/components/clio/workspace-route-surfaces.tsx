@@ -136,8 +136,8 @@ export function WorkspaceTranscriptAlerts({
           />
           <TechnicalDetails
             className="min-w-0"
-            contentClassName="pt-1 font-mono text-[11.5px] break-words whitespace-pre-wrap text-muted-foreground"
-            summaryClassName="text-[12px]"
+            contentClassName="pt-1 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
+            summaryClassName="text-meta"
             title="Technical details"
           >
             {transcriptError}
@@ -278,7 +278,7 @@ export function WorkspaceStatusStrip({
     : 'No recovery checkpoint was reported';
   return (
     <div
-      className="flex shrink-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground"
+      className="flex shrink-0 items-center gap-1 text-meta whitespace-nowrap text-muted-foreground"
       data-slot="top-bar-status"
     >
       {recoveryLabel ? (
@@ -300,7 +300,7 @@ export function WorkspaceStatusStrip({
         <NamedTooltip label={activeWorkLabel}>
           <Button
             aria-label="Inspect unresolved tasks"
-            className="h-7 gap-1.5 px-1.5 text-[12px] text-warning-foreground hover:bg-hover"
+            className="h-7 gap-1.5 px-1.5 text-meta text-warning-foreground hover:bg-hover"
             onClick={onInspectTasks}
             type="button"
             variant="ghost"

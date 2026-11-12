@@ -211,9 +211,9 @@ const MapNodeView = memo(function MapNodeView({
       >
         {node.icon}
       </span>
-      <span className="flex min-w-0 flex-col leading-[1.25]">
-        <span className="truncate text-[12px] font-semibold text-foreground">{node.title}</span>
-        <span className="truncate text-[11px] text-muted-foreground">
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-meta font-semibold text-foreground">{node.title}</span>
+        <span className="truncate text-caption text-muted-foreground">
           {node.brief ?? node.detail}
         </span>
       </span>

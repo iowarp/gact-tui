@@ -57,7 +57,7 @@ export function AgentDrillIn({
   useEffect(() => focusQuietly(back.current), []);
   return (
     <section aria-label={title} className="flex min-w-0 flex-col">
-      <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-[12px] whitespace-nowrap">
+      <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-meta whitespace-nowrap">
         <IconButton
           icon={<ArrowLeftIcon aria-hidden="true" />}
           label="Back to the agent"

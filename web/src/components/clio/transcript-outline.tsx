@@ -238,7 +238,7 @@ function TranscriptOutlineItem({
         <ListRow
           aria-current={active ? 'location' : undefined}
           aria-label={`Jump to ${message.role} message ${index + 1}${marked ? ', marked' : ''}${share ? `, ${share}` : ''}`}
-          className="absolute top-0 right-1 left-0 cursor-pointer text-[12.5px] text-foreground"
+          className="absolute top-0 right-1 left-0 cursor-pointer text-menu text-foreground"
           data-heat={heat?.heated ? heat.bucket : undefined}
           data-index={position}
           data-slot="transcript-outline-row"
@@ -253,7 +253,7 @@ function TranscriptOutlineItem({
             ) : undefined
           }
           meta={
-            <span className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+            <span className="flex items-center gap-2 text-caption text-muted-foreground tabular-nums">
               {active ? <span>Here</span> : null}
               {heat ? (
                 <span

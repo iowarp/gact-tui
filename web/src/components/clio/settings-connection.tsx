@@ -55,7 +55,7 @@ import {
 } from './settings-connection-runtime';
 
 const SELECT_TRIGGER =
-  'w-[150px] min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-[150px] min-w-0 px-[9px] text-menu data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 const TRANSPORTS = [
   { value: 'Direct', detail: 'A browser talks to the agent over HTTP.' },
@@ -169,7 +169,7 @@ export function ConnectionsSettings() {
         </Select>
       </SettingsRow>
       <SettingsRow title="Interface">
-        <span className="font-mono text-[0.78125rem] font-medium">
+        <span className="font-mono text-menu font-medium">
           {interfaceVersion() ? `v${interfaceVersion()}` : 'Unknown'}
         </span>
       </SettingsRow>
@@ -181,7 +181,7 @@ export function ConnectionsSettings() {
           <StatusIndicator label={runtime.status.label} tone={runtime.status.tone} />
         </span>
         {runtime.version ? (
-          <span className="mr-1 ml-0.5 font-mono text-[0.78125rem] font-medium">
+          <span className="mr-1 ml-0.5 font-mono text-menu font-medium">
             v{runtime.version}
           </span>
         ) : null}

@@ -330,7 +330,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
                           <ClioStatus className="ml-auto shrink-0 py-0.5" value={agent.state} />
                         </div>
                         <p
-                          className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                          className="mt-0.5 truncate text-caption text-muted-foreground"
                           title={assignment.detail ?? assignment.label}
                         >
                           {assignment.label}
@@ -429,7 +429,7 @@ function RailButton({
           <span
             aria-hidden="true"
             className={cn(
-              'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
+              'w-3.5 shrink-0 text-center text-caption tabular-nums',
               current.kind === 'idle' && 'max-sm:hidden',
               current.kind === 'waiting' && 'text-warning',
               current.kind === 'failed' && 'text-destructive-text',

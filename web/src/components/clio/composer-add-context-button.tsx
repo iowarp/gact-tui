@@ -11,7 +11,7 @@ import { AddIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 
-const MENU_ITEM = 'min-h-[30px] py-0 text-[12.5px]';
+const MENU_ITEM = 'min-h-[30px] py-0 text-menu';
 
 /**
  * The first two controls of the composer row: `+` attaches files and `@`

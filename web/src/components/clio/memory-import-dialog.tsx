@@ -129,7 +129,7 @@ export function MemoryImportDialog({
           >
             <div className="flex w-full min-w-0 items-center gap-2">
               <span
-                className="flex h-[1.875rem] min-w-0 flex-1 items-center truncate rounded-md border border-input bg-input/30 px-2.5 font-mono text-[12px] text-foreground"
+                className="flex h-[1.875rem] min-w-0 flex-1 items-center truncate rounded-md border border-input bg-input/30 px-2.5 font-mono text-meta text-foreground"
                 title={file?.name}
               >
                 {file ? (
@@ -216,11 +216,11 @@ export function MemoryImportDialog({
         </SettingsRow>
         {source === 'assistant' ? (
           <div className="grid gap-1.5 py-2">
-            <label className="text-[12.5px] font-medium" htmlFor="memory-assistant-text">
+            <label className="text-menu font-medium" htmlFor="memory-assistant-text">
               Their answer
             </label>
             <Textarea
-              className="max-h-48 min-h-24 text-[13px]"
+              className="max-h-48 min-h-24 text-ui"
               disabled={busy}
               id="memory-assistant-text"
               onChange={(event) => setText(event.target.value)}

@@ -113,7 +113,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
     [...new Set([integration.summary, integration.detail].filter(Boolean))].join('\n') ||
     JSON.stringify(integration, null, 2);
   const actionLink = action ? (
-    <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">
+    <Button asChild className="px-[9px] text-label" size="xs" variant="outline">
       <Link to={action.to}>
         <AdjustIcon aria-hidden="true" />
         {action.label}
@@ -128,21 +128,21 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
         expanded ? (
           <>
             {nextStep ? (
-              <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
+              <p className="text-meta whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
             <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {technical ? (
               <TechnicalDetails
                 beside={actionLink}
-                className="text-[12px]"
+                className="text-meta"
                 summaryClassName={buttonVariants({
-                  className: 'px-[9px] text-[11.5px] text-foreground',
+                  className: 'px-[9px] text-label text-foreground',
                   size: 'xs',
                   variant: 'ghost',
                 })}
                 title="Technical details"
               >
-                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                   {technical}
                 </pre>
               </TechnicalDetails>

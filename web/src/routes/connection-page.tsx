@@ -649,7 +649,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                   })}
                   <SavedHostsCheck />
                   <button
-                    className="flex min-h-[30px] items-center gap-2.5 rounded-[6px] px-2 text-left text-[12.5px] text-accent-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+                    className="flex min-h-[30px] items-center gap-2.5 rounded-[6px] px-2 text-left text-menu text-accent-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
                     onClick={() => {
                       attemptGeneration.current += 1;
                       setManualModeRequested(true);
@@ -757,7 +757,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
   return (
     <main className="relative h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex min-h-full w-full max-w-[492px] flex-col justify-center gap-4 px-4 py-14">
-        <p className="flex items-center gap-2 font-heading text-[15px] font-semibold">
+        <p className="flex items-center gap-2 font-heading text-h3 font-semibold">
           <BrandIcon className="size-[22px] shrink-0 text-primary" />
           {brand.name}
         </p>
@@ -782,5 +782,5 @@ export function ConnectionDialog({ background }: { background: string }) {
   return <ConnectionPage dialog={{ onClose: close }} />;
 }
 
-const buttonClass = 'h-[30px] rounded-[6px] px-3 text-[12.5px] font-medium';
+const buttonClass = 'h-[30px] rounded-[6px] px-3 text-menu font-medium';
 const SUBMIT_KEYS = ['Ctrl+Enter'] as const;

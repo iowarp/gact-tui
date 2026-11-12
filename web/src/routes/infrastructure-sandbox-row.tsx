@@ -236,15 +236,15 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
       details={
         expanded ? (
           <>
-            <p className="text-[12px] whitespace-normal text-muted-foreground">{summary}</p>
+            <p className="text-meta whitespace-normal text-muted-foreground">{summary}</p>
             {row?.next_action ? (
-              <p className="text-[12px] whitespace-normal text-muted-foreground">
+              <p className="text-meta whitespace-normal text-muted-foreground">
                 {row.next_action}
               </p>
             ) : null}
             <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {setupOutcome ? (
-              <p className="text-[12px] whitespace-normal text-foreground" role="status">
+              <p className="text-meta whitespace-normal text-foreground" role="status">
                 {setupOutcome}
               </p>
             ) : null}
@@ -252,7 +252,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {setupOffered ? (
                   <Button
-                    className="px-[9px] text-[11.5px]"
+                    className="px-[9px] text-label"
                     disabled={working}
                     onClick={startSetup}
                     size="xs"
@@ -268,7 +268,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                 ) : null}
                 {pendingRestart && desktop ? (
                   <Button
-                    className="px-[9px] text-[11.5px]"
+                    className="px-[9px] text-label"
                     disabled={restarting}
                     onClick={() => void restart()}
                     size="xs"
@@ -284,7 +284,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               </div>
             ) : null}
             {working ? (
-              <div className="text-[12px] whitespace-normal text-muted-foreground" role="status">
+              <div className="text-meta whitespace-normal text-muted-foreground" role="status">
                 <p>{row?.setup_progress?.detail || 'Starting setup…'}</p>
                 <p>
                   {row?.setup_progress
@@ -308,14 +308,14 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               />
             ) : null}
             {pendingRestart && !desktop ? (
-              <p className="text-[12px] whitespace-normal text-foreground">
+              <p className="text-meta whitespace-normal text-foreground">
                 Restart {vocab.agent} to activate protected execution for background tool processes
                 already running.
               </p>
             ) : null}
             {integration.summary || integration.detail ? (
-              <TechnicalDetails className="text-[12px]" title="Technical details">
-                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+              <TechnicalDetails className="text-meta" title="Technical details">
+                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                   {[integration.summary, integration.detail].filter(Boolean).join('\n')}
                 </pre>
               </TechnicalDetails>

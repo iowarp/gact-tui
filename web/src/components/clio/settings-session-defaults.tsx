@@ -42,7 +42,7 @@ const serviceDefaultAgent = '__default__';
 
 /** Every select trigger in the panel, the shared reasoning field included, takes the field shape (C). */
 const FIELDS =
-  '[&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-trigger]]:px-[9px] [&_[data-slot=select-trigger]]:text-[0.78125rem] [&_[data-slot=select-trigger][data-size=default]]:h-[1.875rem] [&_[data-slot=select-trigger][data-size=default]]:rounded-md';
+  '[&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-trigger]]:px-[9px] [&_[data-slot=select-trigger]]:text-menu [&_[data-slot=select-trigger][data-size=default]]:h-[1.875rem] [&_[data-slot=select-trigger][data-size=default]]:rounded-md';
 
 function SectionHeading() {
   return (

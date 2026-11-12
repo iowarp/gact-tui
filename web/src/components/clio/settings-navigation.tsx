@@ -77,9 +77,9 @@ export function SettingsNavigation({
             <Link
               aria-current={id === current ? 'page' : undefined}
               className={cn(
-                'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
+                'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-menu whitespace-nowrap text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
+                id === current && 'bg-nav-current text-foreground hover:bg-nav-current',
                 unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
                 counts && !counts[id] && 'text-faint hover:text-muted-foreground',
               )}
@@ -114,7 +114,7 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
       aria-label="Search everywhere"
       ref={button}
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground outline-none',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-menu whitespace-nowrap text-muted-foreground outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
       )}
       onClick={openGlobalSearch}
@@ -162,7 +162,7 @@ export function SettingsQueryField({
   return (
     <div
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-menu whitespace-nowrap',
         'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
       )}
       data-escape-scope
@@ -189,7 +189,7 @@ export function SettingsQueryField({
         value={value}
       />
       <Tag
-        className="h-5 gap-1 rounded-[5px] border-transparent bg-accent text-[0.6875rem] font-normal text-accent-foreground max-[599px]:hidden"
+        className="h-5 gap-1 rounded-[5px] border-transparent bg-accent text-caption font-normal text-accent-foreground max-[599px]:hidden"
         title="Searching settings"
         width="auto"
       >
@@ -198,7 +198,7 @@ export function SettingsQueryField({
       </Tag>
       {/* A phone's title row keeps its width for the query; the count stays announced. */}
       <span
-        className="shrink-0 font-mono text-[0.6875rem] text-faint tabular-nums max-[599px]:sr-only"
+        className="shrink-0 font-mono text-caption text-faint tabular-nums max-[599px]:sr-only"
         role="status"
       >
         {count === 1 ? '1 row' : `${count} rows`}
@@ -242,7 +242,7 @@ export function SettingsSectionPicker({
         <button
           aria-label="Choose settings section"
           className={cn(
-            'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
+            'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-ui font-medium whitespace-nowrap text-foreground outline-none',
             'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
           )}
           title={

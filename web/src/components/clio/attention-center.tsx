@@ -604,7 +604,7 @@ export function ClioAttentionCenter({
                       {row.action === 'Retry' ? (
                         <button
                           aria-label={`Retry ${row.session.title}`}
-                          className="absolute right-2 bottom-1.5 text-label leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
+                          className="absolute right-2 bottom-1.5 text-label leading-4.5 font-semibold text-accent-foreground hover:underline disabled:opacity-50"
                           disabled={retry.isPending && retry.variables?.id === row.session.id}
                           onClick={() => retry.mutate(row.session)}
                           type="button"

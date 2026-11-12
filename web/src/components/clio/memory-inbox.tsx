@@ -216,19 +216,19 @@ function ProposalRow({
         }
       />
       {expanded ? (
-        <div className="grid min-w-0 gap-2 border-b border-border/70 py-3 pr-2 pl-10 text-[13px]">
+        <div className="grid min-w-0 gap-2 border-b border-border/70 py-3 pr-2 pl-10 text-ui">
           {proposal.rationale ? (
             <p className="text-muted-foreground">{proposal.rationale}</p>
           ) : null}
           <ReviewMarker sources={proposal.sources} />
           {editable ? (
             <div className="grid gap-1.5">
-              <label className="text-[12.5px]" htmlFor={`facts-${proposal.id}`}>
+              <label className="text-menu" htmlFor={`facts-${proposal.id}`}>
                 Facts to apply, one per line
               </label>
               <Textarea
                 autoFocus={focusFacts}
-                className="min-h-16 text-[13px]"
+                className="min-h-16 text-ui"
                 disabled={busy}
                 id={`facts-${proposal.id}`}
                 onChange={(event) => setFacts(event.target.value)}
@@ -255,7 +255,7 @@ function ProposalRow({
           </div>
         </div>
       ) : error ? (
-        <p className="py-1 pl-10 text-[12.5px] text-destructive" role="alert">
+        <p className="py-1 pl-10 text-menu text-destructive" role="alert">
           {memoryErrorText(error)}
         </p>
       ) : null}
