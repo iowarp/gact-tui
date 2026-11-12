@@ -8,6 +8,7 @@ import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
+import { resourceDisplayName } from './host-folder';
 import type { ObservabilityView } from './observability-view-storage';
 import { activityTab } from './workbench-activity-tab';
 import { fileName, type WorkbenchTab } from './workbench-shared';
@@ -131,7 +132,7 @@ export function tabForOpenRequest(
       return {
         id: `resource:${request.resource.id}`,
         kind: 'resource',
-        label: request.resource.name,
+        label: resourceDisplayName(request.resource),
         relatedResources: request.relatedResources ?? [request.resource],
         resource: request.resource,
         workspaceId: request.resource.workspace_id || workspaceId,

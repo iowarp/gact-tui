@@ -12,8 +12,14 @@ import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { formatBytes } from '@/lib/format';
-import { vocab } from '@/lib/brand-vocabulary';
 import { FileTypeIcon } from './file-type-icon';
+import {
+  type HostFolder,
+  hostFolderInPlace,
+  hostFolderOriginal,
+  hostFolderSize,
+  hostFolderStatement,
+} from './host-folder';
 import { PathText } from './path-text';
 import { TechnicalDetails } from './technical-details';
 import { downloadBytes } from './surface-export';
@@ -278,7 +284,7 @@ function TranscriptResourceAttachmentDisplay({
         )}
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
-        <p className="truncate text-sm font-medium">{filename}</p>
+        <p className="text-sm font-medium [overflow-wrap:anywhere]">{filename}</p>
         {folder?.kind === 'host_folder' ? null : folder ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
             {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
@@ -305,22 +311,13 @@ function TranscriptResourceAttachmentDisplay({
  * A folder from the agent's computer: in place or a full copy, its size, and the user's
  * original folder. A copy's own location in workspace storage stays in Technical details.
  */
-function HostFolderSummary({ folder }: { folder: Record<string, string> }) {
-  const inPlace = folder.placement === 'in_place';
-  const original = folder.original_path || (inPlace ? folder.path : '');
-  const files = Number(folder.file_count);
-  const bytes = Number(folder.total_bytes);
-  const size =
-    folder.file_count && Number.isFinite(files) && Number.isFinite(bytes)
-      ? `${files} ${files === 1 ? 'file' : 'files'}, ${formatBytes(bytes)}`
-      : '';
+function HostFolderSummary({ folder }: { folder: HostFolder }) {
+  const inPlace = hostFolderInPlace(folder);
+  const original = hostFolderOriginal(folder);
+  const size = hostFolderSize(folder);
   return (
     <>
-      <p className="mt-1 max-w-64 text-xs text-foreground">
-        {inPlace
-          ? `In place. ${vocab.agent} works on your original folder, and its changes affect your files.`
-          : `Full copy. ${vocab.agent} works on its own copy, and your originals stay untouched.`}
-      </p>
+      <p className="mt-1 max-w-64 text-xs text-foreground">{hostFolderStatement(folder)}</p>
       {size ? <p className="mt-1.5 text-xs text-muted-foreground">{size}</p> : null}
       {original ? (
         <p className="mt-0.5 max-w-64 text-xs break-words text-muted-foreground">

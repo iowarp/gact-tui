@@ -54,6 +54,8 @@ import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
+import { hostFolderOf, resourceDisplayName } from './host-folder';
+import { HostFolderView } from './host-folder-view';
 
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
@@ -86,7 +88,7 @@ export function WorkspaceResourceCarousel({
     () =>
       carouselResources.map((candidate) => ({
         id: candidate.id,
-        label: candidate.name,
+        label: resourceDisplayName(candidate),
         renderPreview: () => (
           <div className="size-full min-h-0 overflow-hidden">
             <WorkspaceResourceView resource={candidate} workspaceId={workspaceId} />
@@ -129,21 +131,29 @@ function WorkspaceResourceThumbnail({ resource, workspaceId }: WorkspaceResource
     <Attachment
       className="size-full"
       data={{
-        filename: resource.name,
+        filename: resourceDisplayName(resource),
         id: resource.id,
         mediaType,
         type: 'file',
         url: previewUrl ?? '',
       }}
-      title={resource.name}
+      title={resourceDisplayName(resource)}
     >
       <AttachmentPreview />
     </Attachment>
   );
 }
 
-/** Renders one workspace-owned upload and its structured processing provenance. */
+/** Renders one workspace resource: an attached folder as a folder, anything else as its upload. */
 export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResourceViewProps) {
+  const folder = hostFolderOf(resource);
+  if (folder)
+    return <HostFolderView folder={folder} resource={resource} workspaceId={workspaceId} />;
+  return <UploadedResourceView resource={resource} workspaceId={workspaceId} />;
+}
+
+/** Renders one workspace-owned upload and its structured processing provenance. */
+function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const endpoint = settings.endpoint;
