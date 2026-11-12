@@ -23,6 +23,8 @@ export interface FileSearchLocation {
   find?: string;
   /** HDF5 only: the object to open the viewer on, e.g. `/entry/data`. */
   locator?: string;
+  /** PDF only: the page to open the viewer on. */
+  page?: number;
 }
 
 /** Keep the destination's source identities and search text in the message hash. */

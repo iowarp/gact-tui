@@ -4,6 +4,7 @@ import { ForcedTheme } from '../../src/theme/forced-theme';
 import type { QueuedMessage } from '@clio/core/v3';
 import '../../src/index.css';
 import { ClioComposerQueue } from '../../src/components/clio/composer-queue';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 import { AppearanceProvider } from '../../src/providers/appearance-provider';
 import { ClioMotionProvider } from '../../src/components/clio/motion';
 
@@ -82,7 +83,9 @@ createRoot(document.getElementById('root')!).render(
   <ForcedTheme theme="dark">
     <AppearanceProvider>
       <ClioMotionProvider>
-        <Review />
+        <TooltipProvider>
+          <Review />
+        </TooltipProvider>
       </ClioMotionProvider>
     </AppearanceProvider>
   </ForcedTheme>,

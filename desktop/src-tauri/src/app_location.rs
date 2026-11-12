@@ -6,8 +6,9 @@
 //! from its disk image runs from the read-only DMG volume. Both work for one
 //! launch but break updates, Dock pinning and login items, and the
 //! translocated path changes on every launch. When either is detected the
-//! desktop offers one-click "Move to Applications", then relaunches the
-//! moved copy.
+//! desktop offers one-click "Move to Applications", then quits through the
+//! normal teardown (which also stops a running managed-package check) and
+//! relaunches the moved copy once this process has exited.
 //!
 //! The manual fix, documented in `DESKTOP-AUTOUPDATE.md`, is to drag the app
 //! into Applications, or to run `xattr -dr com.apple.quarantine` on it.

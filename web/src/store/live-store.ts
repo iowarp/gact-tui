@@ -190,11 +190,26 @@ function markNonTerminalA2uiLifecyclesUnknown(
   );
 }
 
+/**
+ * The store before any stream has run. Nothing has failed yet, so the stream reads
+ * "Connecting" rather than the core reducer's neutral "offline".
+ */
+function unconnectedEntities(): EntityState {
+  return { ...createEntityState(), stream: 'connecting' };
+}
+
 export const useLiveStore = create<LiveStore>((set) => ({
-  entities: createEntityState(),
+  entities: unconnectedEntities(),
   frameGaps: [],
   streamOwners: 0,
-  claimStream: () => set((state) => ({ streamOwners: state.streamOwners + 1 })),
+  // The first claim starts the stream at "Connecting" in the same write, so no reader
+  // ever sees an open stream with a state that no attempt of its own produced.
+  claimStream: () =>
+    set((state) =>
+      state.streamOwners === 0
+        ? { streamOwners: 1, entities: { ...state.entities, stream: 'connecting' } }
+        : { streamOwners: state.streamOwners + 1 },
+    ),
   releaseStream: () => set((state) => ({ streamOwners: Math.max(0, state.streamOwners - 1) })),
   setStreamState: (stream) => set((state) => ({ entities: { ...state.entities, stream } })),
   setStreamError: (error) =>
@@ -241,5 +256,5 @@ export const useLiveStore = create<LiveStore>((set) => ({
     })),
   dropSessionData: (sessionId) =>
     set((state) => ({ entities: withoutSessionData(state.entities, sessionId) })),
-  reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),
+  reset: () => set({ entities: unconnectedEntities(), frameGaps: [], error: undefined }),
 }));

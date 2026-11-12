@@ -24,6 +24,7 @@ import { modeLabel } from './plugin-tool-settings-text';
 import { KeyCap } from './primitives/key-chip';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -374,6 +375,7 @@ export function ToolFilterField({
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
+        {...identifierInputProps}
         aria-label="Filter tools"
         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint [&::-webkit-search-cancel-button]:appearance-none"
         onChange={(event) => onChange(event.target.value)}

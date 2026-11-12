@@ -168,8 +168,14 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   for (const name of ['Zoom in', 'Zoom out', 'Open options', 'File actions']) {
     await expect(canvas.getByRole('button', { name, exact: true })).toBeVisible();
   }
-  await canvas.getByRole('button', { name: 'Zoom in', exact: true }).focus();
-  await expect(page.getByRole('tooltip', { name: 'Zoom in', exact: true })).toBeVisible();
+  // A name rises when focus arrives by keyboard, not when focus is set by script;
+  // Zoom out is disabled at the fitted size, so Tab along the bar to Zoom in.
+  const zoomIn = canvas.getByRole('button', { name: 'Zoom in', exact: true });
+  for (let step = 0; step < 20 && !(await zoomIn.evaluate((e) => e === document.activeElement)); step++)
+    await page.keyboard.press('Tab');
+  await expect(zoomIn).toBeFocused();
+  // The name carries its key alongside, so it reads "Zoom in" and then the shortcut.
+  await expect(page.getByRole('tooltip', { name: /^Zoom in\b/ })).toBeVisible();
   await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'View file fullscreen', exact: true }).click();
   await expect

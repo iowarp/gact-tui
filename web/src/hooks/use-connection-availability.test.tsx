@@ -122,4 +122,25 @@ describe('connection availability probing', () => {
       detail: HISTORY_MODE_DETAIL,
     });
   });
+
+  it('reports a failed start with the service message instead of waiting on it', async () => {
+    mocks.repository.serviceHealth.mockResolvedValue({
+      healthy: false,
+      overall_status: 'unavailable',
+      readiness: 'failed',
+      starting: [],
+      failure: { reason: 'arc_store_format_old', message: 'Run clio reset-store.' },
+    });
+
+    await expect(
+      probeConnection({ endpoint: 'http://127.0.0.1:8788' }, new AbortController().signal),
+    ).resolves.toEqual({
+      state: 'unavailable',
+      label: "Can't start",
+      detail: 'Run clio reset-store.',
+      diagnostics: JSON.stringify({ reason: 'arc_store_format_old' }, null, 2),
+      reason: 'failed',
+      startFailed: true,
+    });
+  });
 });

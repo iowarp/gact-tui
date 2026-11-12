@@ -94,9 +94,11 @@ for (const theme of ['dark', 'light'] as const) {
       const panel = page.locator('[data-slot="session-defaults-panel"]');
       const model = page.getByRole('button', { name: 'Change default model' });
       await expect(model).toHaveText(/OpenAI Codex\s*\/\s*luna \d/);
-      await expect(page.getByRole('combobox', { name: 'Reasoning effort' })).toHaveText(
-        'Default (Medium)',
-      );
+      // Effort is a segmented control led by the model's own default, which inherits here.
+      const effort = page.getByRole('radiogroup', { name: 'Reasoning effort' });
+      const modelDefault = effort.getByRole('radio', { name: 'Default', exact: true });
+      await expect(modelDefault).toBeChecked();
+      await expect(modelDefault).toHaveAttribute('title', "The model's own default (Medium)");
       await expect(panel.getByText('Models default', { exact: true })).toHaveCount(0);
       await expect(panel.getByText(/^Model default/)).toHaveCount(0);
       for (const row of await panel.locator('[data-slot="settings-row"]').all())

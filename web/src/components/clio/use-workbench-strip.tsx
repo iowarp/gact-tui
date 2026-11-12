@@ -15,7 +15,7 @@ import { scienceLogTab } from './science-log-tab-state';
 import type { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchListView, WorkbenchStripItem } from './workbench-strip';
-import { agentTab, listTab } from './workbench-tab-storage';
+import { agentTab, listTab, newBrowserPageTab } from './workbench-tab-storage';
 import {
   OPEN_TERMINAL_EVENT,
   useWorkspaceCanvasControl,
@@ -26,13 +26,16 @@ const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'reco
 
 /**
  * The strip's launchers and their chords: which item is pressed, what a click
- * or its Ctrl+Shift+number does (open, or back to the tab before), and Terminal's chord.
+ * or its Ctrl+Shift+number does, and Terminal's chord. A list item opens or
+ * focuses its tab (on the shown tab, back to the tab before); Terminal and
+ * Browser open one more terminal or new page on every press.
  */
 export function useWorkbenchStrip({
   activeTabId,
   closeTabOrCanvas,
   inStudy,
   onOpenTerminal,
+  openInstance,
   openTab,
   previousTab,
   setActiveTabId,
@@ -43,6 +46,7 @@ export function useWorkbenchStrip({
   closeTabOrCanvas: (tabId: string) => void;
   inStudy?: boolean;
   onOpenTerminal?: () => void;
+  openInstance: (tab: WorkbenchTab) => void;
   openTab: (tab: WorkbenchTab) => void;
   previousTab?: WorkbenchTab;
   setActiveTabId: (tabId: string) => void;
@@ -53,7 +57,14 @@ export function useWorkbenchStrip({
   const canvasControl = useWorkspaceCanvasControl();
 
   const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
-  const listIsPressed = (id: WorkbenchListView) => activeTabId === listTab(id).id;
+  const listIsPressed = (id: WorkbenchListView) => {
+    if (activeTabId === listTab(id).id) return true;
+    // Terminal and Browser light for any of their own tabs.
+    if (id === 'terminal') return activeTabId.startsWith('terminal:');
+    if (id === 'browser')
+      return activeTabId.startsWith(newBrowserPageTab.id) || activeTabId.startsWith('browser:');
+    return false;
+  };
   const stripItems: WorkbenchStripItem[] = [];
   const listItem = (id: WorkbenchListView, label: string, icon: ReactNode, count?: number) =>
     stripItems.push({
@@ -84,7 +95,7 @@ export function useWorkbenchStrip({
     });
   // Always on the strip: where terminals can't run, its list says so.
   listItem('terminal', 'Terminal', <TerminalSquareIcon />);
-  listItem('browser', 'Browser pages', <GlobeIcon />);
+  listItem('browser', 'Browser', <GlobeIcon />);
 
   /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */
   const toggleTab = (tab: WorkbenchTab) => {
@@ -94,8 +105,23 @@ export function useWorkbenchStrip({
     } else if (previousTab) setActiveTabId(previousTab.id);
     else closeTabOrCanvas(tab.id);
   };
+  // Where no terminal can run, Terminal lands on its list, which says so.
+  const openTerminal = () => {
+    if (!canvasVisible) canvasControl?.show();
+    if (onOpenTerminal) void onOpenTerminal();
+    else openTab(listTab('terminal'));
+  };
 
   const selectStripItem = (id: WorkbenchStripItem['id']) => {
+    if (id === 'terminal') {
+      openTerminal();
+      return;
+    }
+    if (id === 'browser') {
+      if (!canvasVisible) canvasControl?.show();
+      openInstance(newBrowserPageTab);
+      return;
+    }
     if (id === 'agent') {
       toggleTab(agentTab);
       return;
@@ -131,12 +157,6 @@ export function useWorkbenchStrip({
     );
     // Opening the pocket is the whole of the chord when its item is already shown.
     if (item && !item.pressed) selectStripItem(item.id);
-  };
-  // Where no terminal can run, the chord still lands on Terminal's list, which says so.
-  const openTerminal = () => {
-    if (!canvasVisible) canvasControl?.show();
-    if (onOpenTerminal) void onOpenTerminal();
-    else openTab(listTab('terminal'));
   };
   useShortcut('terminal', openTerminal);
   useShortcut('new-terminal', openTerminal, { enabled: Boolean(onOpenTerminal) });

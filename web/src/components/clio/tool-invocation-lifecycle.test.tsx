@@ -49,6 +49,8 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     const command = body?.querySelector('pre');
     expect(command).toHaveTextContent('print(0)');
     expect(command).not.toHaveTextContent('Done');
+    // A long script scrolls inside its own bound instead of pushing its output away.
+    expect(command).toHaveClass('max-h-60', 'overflow-auto');
     const output = body?.lastElementChild;
     expect(output).toHaveTextContent('Done');
     expect(output).not.toHaveTextContent('print(0)');

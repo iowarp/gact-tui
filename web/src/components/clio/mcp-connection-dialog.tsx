@@ -32,6 +32,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsRow } from './settings-row';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 export type McpConnectionKind = 'remote' | 'local';
 
@@ -286,6 +287,7 @@ export function McpConnectionDialog({
               title="Arguments"
             >
               <Textarea
+                {...identifierInputProps}
                 className="min-h-[1.875rem] py-1 font-mono text-[0.78125rem]"
                 id={`${ids}-args`}
                 onChange={(event) => setArgs(event.target.value)}

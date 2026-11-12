@@ -64,11 +64,15 @@ export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<v
     return;
   }
   await toolbar.getByRole('button', { name: /^(File actions|More actions)$/u }).click();
-  await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+  // Folded with the rest of the bar, Open's rows are a group in the menu itself.
+  const submenu = page.getByRole('menuitem', { name: 'Open', exact: true });
+  const group = page.getByRole('menu').getByRole('group', { name: 'Open', exact: true });
+  await expect(submenu.or(group).first()).toBeVisible();
+  if (await submenu.isVisible()) await submenu.click();
 }
 
 /** Wait until the frame bar's fold step reads the same twice, 200ms apart. */
-async function frameSettled(toolbar: Locator): Promise<void> {
+export async function frameSettled(toolbar: Locator): Promise<void> {
   if (!(await toolbar.count())) return;
   let last: string | undefined;
   await expect
@@ -85,6 +89,13 @@ async function frameSettled(toolbar: Locator): Promise<void> {
 }
 
 /** Download the original bytes with the frame's Download, which never folds. */
+/** Download ▾, which holds the original plus the renderer's Export to… rows; it never folds. */
+export async function openFrameDownloadMenu(page: Page, toolbar: Locator): Promise<void> {
+  await frameSettled(toolbar);
+  await toolbar.getByRole('button', { name: 'Download options', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: /^Original/u })).toBeVisible();
+}
+
 export async function downloadFromFrame(page: Page, toolbar: Locator): Promise<Download> {
   const download = page.waitForEvent('download');
   // The frame bar comes before any state body that repeats the download.

@@ -1,6 +1,7 @@
 import type { ConnectedSourceState, WorkspaceReference } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { useCountUp } from '@/hooks/use-count-up';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
@@ -55,13 +56,15 @@ export function SourceDownloadAttachment({
   const attempted = useRef(false);
   const attach = isFile ? file.mutate : folder.mutate;
   const path = selection?.path ?? '';
+  const name = selection?.name ?? path;
   const linked = selection?.linked ?? false;
   useEffect(() => {
     if (operation?.state === 'completed' && !attempted.current) {
       attempted.current = true;
-      attach({ source, path, draftId: selection?.draftId, linked });
+      attach({ source, path, name, draftId: selection?.draftId, linked });
     }
-  }, [operation?.state, attach, source, path, selection?.draftId, linked]);
+  }, [operation?.state, attach, source, path, name, selection?.draftId, linked]);
+  const entries = useCountUp(operation?.entries_done ?? 0, operation?.id);
   const problem = receipt.error?.message || operations.error?.message || operation?.error;
   const stopped = operation && ['failed', 'cancelled', 'interrupted'].includes(operation.state);
   const detail =
@@ -71,14 +74,14 @@ export function SourceDownloadAttachment({
       : operation?.state === 'completed'
         ? 'Preparing attachment…'
         : linked
-          ? `Indexing folder… ${operation?.entries_done ?? 0} entries`
+          ? `Indexing folder… ${entries} entries`
           : isFile
             ? 'Downloading file…'
             : 'Downloading folder…');
   return (
     <SourceAttachmentCard
       id={operationId}
-      label={path ? `${source.label} / ${path}` : source.label}
+      label={path ? `${source.label} / ${name}` : source.label}
       detail={detail}
       folder={!isFile}
       onRemove={onRemove}
@@ -87,7 +90,7 @@ export function SourceDownloadAttachment({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => attach({ source, path, draftId: selection?.draftId, linked })}
+          onClick={() => attach({ source, path, name, draftId: selection?.draftId, linked })}
         >
           Retry attachment
         </Button>

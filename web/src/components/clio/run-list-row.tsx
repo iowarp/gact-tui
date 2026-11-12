@@ -7,6 +7,7 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { cn } from '@/lib/utils';
 import { formatDuration } from '@/lib/format';
 import { CloseIcon, HelpIcon } from '@/lib/icon-vocabulary';
@@ -183,7 +184,8 @@ export const RunListRow = memo(function RunListRow({
   const look = runLook(row);
   const stateLabel = runStateLabel(row, cancelRequested);
   const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
-  const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
+  const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
+  const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
   const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
   const percent = look.tone === 'running' ? progressPercent(row.progress) : undefined;
   const elapsed =

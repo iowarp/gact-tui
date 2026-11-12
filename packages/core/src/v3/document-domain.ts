@@ -47,6 +47,8 @@ export interface DocumentAnchor {
   tag?: string;
   text_excerpt?: string;
   html_excerpt?: string;
+  /** A picked image's source (its `currentSrc`), beside its selector. */
+  src?: string;
   viewport_width?: number;
   source?: Record<string, unknown>;
 }

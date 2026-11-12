@@ -140,7 +140,7 @@ async function chooseApp(name: string) {
 }
 
 async function exportPdf(user: User) {
-  await user.click(await screen.findByRole('button', { name: 'Open options' }));
+  await user.click(await screen.findByRole('button', { name: 'Download options' }));
   await user.click(await screen.findByRole('menuitem', { name: /^Export to PDF/u }));
 }
 
@@ -240,7 +240,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       expect(downloadBytes).toHaveBeenCalledWith(
         new TextEncoder().encode('%PDF-preview'),
         'application/pdf',
-        'preview.pdf',
+        'evidence.pdf',
       ),
     );
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
@@ -472,7 +472,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
       const user = userEvent.setup();
       await user.keyboard('{Escape}');
-      await user.click(screen.getByRole('button', { name: 'Open options' }));
+      await user.click(screen.getByRole('button', { name: 'Download options' }));
       expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
     },
   );

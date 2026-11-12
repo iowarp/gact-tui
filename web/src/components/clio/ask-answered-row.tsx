@@ -18,7 +18,6 @@ export function AskAnsweredRow({
   icon: Icon,
   verb,
   detail,
-  mono,
   outcome,
   tone = 'ok',
   title,
@@ -31,7 +30,6 @@ export function AskAnsweredRow({
   icon: LucideIcon;
   verb: string;
   detail?: ReactNode;
-  mono?: boolean;
   /** Who decided, beside the detail ("you denied it"); warning-toned when denied. */
   outcome?: string;
   tone?: 'ok' | 'denied' | 'neutral';
@@ -61,7 +59,6 @@ export function AskAnsweredRow({
       icon={<Icon aria-hidden="true" />}
       name={verb}
       argument={detail}
-      argumentStyle={mono ? 'code' : 'text'}
       argumentTitle={title}
       outcome={outcome}
       outcomeTone={tone === 'denied' ? 'warning' : 'muted'}

@@ -132,7 +132,16 @@ test.describe('file tools take path: recorded request and result showcase', () =
     test(`${id} names the declared file before any result`, async ({ page }) => {
       await open(page, tool(id));
       await atWidths(page, id, async () => {
-        await expect(page.locator('[data-slot="activity-row"]')).toContainText('Write');
+        // A refused call folds into the decision row, "Denied · plan.md · you denied it",
+        // and its name still says which action was refused.
+        const denied = id === 'write-denied';
+        await expect(page.locator('[data-slot="activity-row"]')).toContainText(
+          denied ? 'Denied' : 'Write',
+        );
+        await expect(page.locator('[data-slot="tool-action-text"]')).toHaveAttribute(
+          'aria-label',
+          denied ? /^Show result for denied Write/ : /^Show result for Write/,
+        );
         await expect(page.getByRole('button', { name })).toBeVisible();
       });
     });

@@ -291,7 +291,7 @@ describe('ConversationTurn correlated work placement', () => {
     );
   });
 
-  it('keeps replaced MCP Apps as visible history without remounting them', () => {
+  it('keeps replaced MCP Apps as history in the run without remounting them', () => {
     const replaced: ConversationActivity = {
       kind: 'mcp_app',
       id: 'app_block_1',
@@ -332,6 +332,7 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /^Expand / }));
     expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
     expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');

@@ -44,6 +44,7 @@ export function useDocumentOpenActions({
   manifest,
   openPending,
   pdfPending,
+  pdfUnavailable,
   revealPending,
   workingCopyActive,
   closePending,
@@ -56,6 +57,8 @@ export function useDocumentOpenActions({
   manifest?: DocumentManifest;
   openPending: boolean;
   pdfPending: boolean;
+  /** Why no PDF can be made here, which turns Export to PDF off. */
+  pdfUnavailable?: string;
   revealPending: boolean;
   workingCopyActive: boolean;
   closePending: boolean;
@@ -143,6 +146,8 @@ export function useDocumentOpenActions({
         label: 'PDF',
         icon: FileTextIcon,
         pending: pdfPending,
+        disabled: Boolean(pdfUnavailable),
+        description: pdfUnavailable,
         onSelect: onPdf,
       });
     return rows;
@@ -154,6 +159,7 @@ export function useDocumentOpenActions({
     busy,
     openPending,
     pdfPending,
+    pdfUnavailable,
     workingCopyActive,
     closePending,
     onOpen,

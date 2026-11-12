@@ -41,6 +41,7 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useVariantTryTabLabels } from '@/lib/variant-try-tabs';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
+import { BrowserPageIcon } from './browser-page-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { FileTypeIcon } from './file-type-icon';
 import { AttachedFolderIcon, hostFolderOf } from './host-folder';
@@ -53,6 +54,8 @@ import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
   overflowTabs,
+  sharedTabCap,
+  TAB_NAME_MIN_PX,
   tabChanged,
   workbenchListTabIcons,
   workbenchTabIcons,
@@ -66,8 +69,8 @@ import type { WorkbenchTab } from './workbench-shared';
 const TAB_GAP_PX = 2;
 /** The "N more tabs" button (px-1.5, count and chevron) and the header gap before it. */
 const OVERFLOW_BUTTON_PX = 44;
-/** An icon-only tab (px-2 and a 14px icon), to estimate what compacting one saves. */
-const COMPACT_TAB_PX = 30;
+/** An icon-only tab (FrameTab's `w-[34px]`), to estimate what compacting one saves. */
+const COMPACT_TAB_PX = 34;
 
 export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'artifact' && tab.artifact)
@@ -78,6 +81,8 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'workspace-file') return <FileTypeIcon className="size-3.5" name={tab.path} />;
   if (tab.kind === 'resource' && hostFolderOf(tab.resource))
     return <AttachedFolderIcon aria-hidden="true" className="size-3.5" />;
+  if (tab.kind === 'browser')
+    return <BrowserPageIcon pageId={tab.pageId} sessionId={tab.sessionId} />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
@@ -124,7 +129,8 @@ export interface WorkbenchTabRowProps {
  * The frame's tab row: drag to reorder, middle-click or the close-tab key
  * (Delete, ⌘⌫ on a Mac) to close, a
  * right-click menu with letter keys, pinned tabs first as icons. When the row
- * is short, inactive tabs shrink to icons, then the rest go behind a menu.
+ * is short, inactive names shorten with an ellipsis, then inactive tabs shrink
+ * to icons, then the rest go behind a menu.
  */
 export function WorkbenchTabRow({
   tabs,
@@ -170,11 +176,14 @@ export function WorkbenchTabRow({
     fit: TabRowFit;
     shown: number;
     compacted: number;
+    /** The widest an inactive named tab may be (`shorten`, `compact`); its name ends in an ellipsis. */
+    cap?: number;
   }>({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   // Any change starts again from full names; the layout effect below then
   // steps down while the row still overflows, before the browser paints.
   if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   const fit = measured.key === fitKey ? measured.fit : 'full';
+  const cap = measured.key === fitKey && fit !== 'overflow' ? measured.cap : undefined;
   // Tab ids, the most recently open first: the list at the end takes the least recent.
   const [recency, setRecency] = useState<string[]>([]);
   if (activeTabId && recency[0] !== activeTabId)
@@ -194,6 +203,11 @@ export function WorkbenchTabRow({
     fit === 'compact'
       ? new Set(compactOrder.slice(0, measured.compacted).map((tab) => tab.id))
       : undefined;
+  // The inactive named tabs the cap shortens: the rest of `compactOrder`.
+  const cappedIds =
+    cap !== undefined
+      ? new Set(compactOrder.slice(fit === 'compact' ? measured.compacted : 0).map((tab) => tab.id))
+      : undefined;
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host || host.scrollWidth <= host.clientWidth + 1) return;
@@ -201,16 +215,45 @@ export function WorkbenchTabRow({
     setMeasured((current) => {
       if (current.key !== fitKey) return current;
       if (current.fit === 'full') {
-        // Estimate how many icons it takes; the next pass adds one more if short.
-        let saved = 0;
-        let compacted = 0;
-        for (const tab of compactOrder) {
-          if (saved >= excess) break;
-          const node = host.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(tab.id)}"]`);
-          saved += Math.max(0, (node?.offsetWidth ?? 0) - COMPACT_TAB_PX);
-          compacted += 1;
+        // Shorten the inactive names alike before any becomes an icon; when
+        // they would go under TAB_NAME_MIN_PX, the least recently used become
+        // icons and the rest share the room that frees.
+        const widths = compactOrder.map(
+          (tab) =>
+            host.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(tab.id)}"]`)?.offsetWidth ??
+            0,
+        );
+        const named = widths.reduce((sum, width) => sum + width + TAB_GAP_PX, 0);
+        const fixed = host.scrollWidth - named;
+        for (let compacted = 0; compacted <= compactOrder.length; compacted += 1) {
+          const rest = widths.slice(compacted);
+          const room =
+            host.clientWidth -
+            fixed -
+            compacted * (COMPACT_TAB_PX + TAB_GAP_PX) -
+            rest.length * TAB_GAP_PX;
+          const shared = sharedTabCap(rest, room);
+          if (shared < TAB_NAME_MIN_PX) continue;
+          if (!rest.length && compacted === 0) break;
+          return {
+            key: fitKey,
+            fit: compacted ? 'compact' : 'shorten',
+            shown: 0,
+            compacted,
+            cap: Number.isFinite(shared) ? shared : undefined,
+          };
         }
-        return { key: fitKey, fit: 'compact', shown: 0, compacted: Math.max(1, compacted) };
+        return { key: fitKey, fit: 'compact', shown: 0, compacted: compactOrder.length };
+      }
+      if (current.fit !== 'overflow' && current.cap !== undefined) {
+        // A pixel or two short of the estimate: shorten a little more, or
+        // make the next tab an icon.
+        const capped = compactOrder.length - (current.fit === 'compact' ? current.compacted : 0);
+        const next = current.cap - Math.ceil(excess / Math.max(1, capped)) - 1;
+        if (capped > 0 && next >= TAB_NAME_MIN_PX) return { ...current, cap: next };
+        if (current.compacted < compactOrder.length)
+          return { ...current, fit: 'compact', compacted: current.compacted + 1 };
+        return { ...current, fit: 'compact', cap: undefined };
       }
       if (current.fit === 'compact' && current.compacted < compactOrder.length)
         return { ...current, compacted: current.compacted + 1 };
@@ -346,8 +389,9 @@ export function WorkbenchTabRow({
                         onClose={() => onClose(tab.id)}
                         pinned={pinnedIds.has(tab.id)}
                         ref={active ? activeTabRef : undefined}
+                        style={cappedIds?.has(tab.id) ? { maxWidth: cap } : undefined}
                         title={path ?? label}
-                        renderTrigger={({ className, title, children }) => (
+                        renderTrigger={({ className, children }) => (
                           <SortableItemHandle asChild>
                             <TabsTrigger
                               aria-keyshortcuts={closeTabKeys}
@@ -358,7 +402,6 @@ export function WorkbenchTabRow({
                                 event.stopPropagation();
                                 onClose(tab.id);
                               }}
-                              title={title}
                               value={tab.id}
                             >
                               {children}

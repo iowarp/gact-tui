@@ -1,5 +1,5 @@
 import type { Message } from '@clio/core/v3';
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
@@ -366,6 +366,7 @@ describe('conversation message projections', () => {
       </AppearanceProvider>,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Edited 1 file' }));
     const [changes, ...repeated] = screen.getAllByRole('table', { name: 'Changes' });
     expect(repeated).toHaveLength(0);
     expect(

@@ -27,6 +27,7 @@ import { steppedRange, type RangeSection, type RangeSliderRow } from './model-pi
 import { ShortcutKeys } from './primitives/key-chip';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
+import { identifierInputProps } from '@/lib/identifier-input';
 
 /** A group with more rows than this shows its leading ones and "Show all". */
 const COLLAPSED_ROWS = 6;
@@ -244,6 +245,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
             <label className="mx-2 my-1 flex h-7 items-center gap-2 rounded-[6px] border px-2 text-[12.5px]">
               <SearchIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
               <input
+                {...identifierInputProps}
                 aria-label={`Filter ${cluster.label} by name`}
                 className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint"
                 onChange={(event) => setNameFilter(event.target.value)}

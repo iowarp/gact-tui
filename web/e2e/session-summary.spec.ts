@@ -42,7 +42,7 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   await expect(sources.getByRole('heading', { name: 'Sensor repository' })).toBeVisible();
   await expect(sources.getByText('sensor.csv', { exact: true })).toBeVisible();
   await expect(sources.getByRole('button', { name: 'Link folder' })).toBeEnabled();
-  await sources.getByRole('button', { name: 'Close and keep setup' }).click();
+  await sources.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();
   await panel
@@ -57,8 +57,12 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Expand Context', exact: true }).click();
   await panel.getByRole('button', { name: 'Open full context view', exact: true }).click();
-  const view = page.getByRole('tablist', { name: 'Observability view' });
-  await expect(view.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
+  // The context window is one of Activity's views, chosen from its header menu.
+  const activity = page.getByRole('region', { name: 'Activity list', exact: true });
+  await expect(activity.getByRole('heading', { name: 'Context', level: 2 })).toBeVisible();
+  await activity.getByRole('button', { name: 'Activity views', exact: true }).click();
+  await expect(page.getByRole('menuitemradio', { name: 'Context', exact: true })).toBeChecked();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Expand Todos', exact: true }).click();

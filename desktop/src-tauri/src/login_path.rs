@@ -88,7 +88,7 @@ fn login_shell_path() -> Result<String, String> {
         .filter(|shell| shell.starts_with('/'))
         .unwrap_or_else(|| "/bin/zsh".to_string());
     let script = format!("printf '{MARKER}%s{MARKER}' \"$PATH\"");
-    let mut child = Command::new(&shell)
+    let mut child = crate::host_env::for_host(&mut Command::new(&shell))
         .args(["-i", "-l", "-c", &script])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

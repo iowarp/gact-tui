@@ -674,6 +674,9 @@ describe('ClioConversation transcript viewport', () => {
       />,
     );
     const column = view.container.querySelector('[data-slot="transcript-column"]');
+    // The first reading comes from the observer's initial report, after layout.
+    viewport.observe(800);
+    // The final row is 53px taller than its 180px estimate.
     expect(column).toHaveStyle({ height: '14453px' });
     finalHeight = 260;
     viewport.resizeTo(800);
@@ -762,8 +765,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Called 1 tool, thought once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Called 1 tool, thought once' }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });

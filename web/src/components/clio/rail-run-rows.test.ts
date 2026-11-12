@@ -27,14 +27,18 @@ it('orders needs-you, running and earlier runs and keeps only the actions each c
   expect(done!.row.cancellable).toBe(false);
 });
 
-it('names flow runs, marks requested stops and never guesses an unknown state', () => {
-  const [flow, stopping, odd] = railRuns([
-    task('flow', 'running', { flow: { id: 'deep-research' } }),
+it('names flow runs by their task, marks requested stops and never guesses an unknown state', () => {
+  const [flow, untitled, loop, stopping, odd] = railRuns([
+    task('flow', 'running', { flow: { id: 'deep-research', status: 'running' } }),
+    task('untitled', 'running', { title: '', flow: { id: 'deep-research', status: 'running' } }),
+    task('loop', 'running', { kind: 'agent', flow: { id: 'react', status: 'unknown' } }),
     task('stopping', 'running', { cancel_requested: true, supported_actions: ['cancel'] }),
     task('odd', 'mystery'),
   ]);
-  expect(flow!.row).toMatchObject({ source: 'flow', flowHandle: 'flow' });
-  expect(flow!.row.label).toMatch(/ run$/u);
+  expect(flow!.row).toMatchObject({ source: 'flow', flowHandle: 'flow', label: 'flow' });
+  expect(untitled!.row.label).toBe('Deep research run');
+  // The agent loop is not a recorded flow run: the row opens its conversation.
+  expect(loop!.row).toMatchObject({ source: 'agent_task', flowHandle: undefined });
   expect(stopping!.row).toMatchObject({ state: 'cancellation_requested', cancelRequested: true });
   expect(odd!.row.state).toBe('unknown');
   expect(odd!.active).toBe(true);

@@ -4,12 +4,9 @@ import { useQueryFetching } from '@/lib/query-notify';
 import { useContext } from 'react';
 import { useInRouterContext, useLocation } from 'react-router-dom';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
-import { highlightSearchPassage } from '@/lib/search-passage';
-import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
-import type { McpAppIdentity } from '@clio/core/v3';
 import { GitBranchIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import {
   EarlierMessagesRow,
@@ -46,6 +43,10 @@ import { PresentationNavigation, usePresentationNavigation } from './presentatio
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import { useConversationColumn } from './use-conversation-column';
+import { useActiveMcpAppId } from './use-active-mcp-app';
+import { useTranscriptJumpLane } from './use-transcript-jump-lane';
+import { useTranscriptSearchFocus } from './use-transcript-search-focus';
+import { useVirtualizedRowsOverflow } from './use-virtualized-rows-overflow';
 import {
   useTranscriptReadingPosition,
   useTranscriptWidth,
@@ -55,11 +56,6 @@ import {
 const VIRTUALIZATION_THRESHOLD = 80;
 const ESTIMATED_ROW_PX = 180;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
-
-interface ActiveMcpApp {
-  id: string;
-  identity: McpAppIdentity;
-}
 
 import { ConversationMessageRow } from './conversation-message-row';
 import { placeDeliveredFeedback } from './conversation-feedback';
@@ -249,32 +245,7 @@ function ConversationBody({
       injectionPlacement.before,
     ],
   );
-  const activeMcpApp = useMemo<ActiveMcpApp | undefined>(() => {
-    for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-      const message = messages[messageIndex];
-      const block = message?.blocks.findLast((candidate) => candidate.type === 'mcp_app');
-      if (block?.type === 'mcp_app' && message) {
-        return {
-          id: block.app_instance_id,
-          identity: {
-            appInstanceId: block.app_instance_id,
-            dataRef: block.data_ref,
-            sessionId: message.session_id,
-          },
-        };
-      }
-    }
-    return undefined;
-  }, [messages]);
-  const activeMcpAppId = activeMcpApp?.id;
-  const previousActiveMcpApp = useRef(activeMcpApp);
-  useEffect(() => {
-    if (!activeMcpApp) return;
-    const previous = previousActiveMcpApp.current;
-    previousActiveMcpApp.current = activeMcpApp;
-    if (!previous || previous.id === activeMcpApp.id || !entities.mcpAppRepository) return;
-    void entities.mcpAppRepository.closeMcpApp(previous.identity).catch(() => undefined);
-  }, [activeMcpApp, entities.mcpAppRepository]);
+  const activeMcpAppId = useActiveMcpAppId(messages, entities.mcpAppRepository);
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)
@@ -350,44 +321,12 @@ function ConversationBody({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
-  // The virtualizer can retain an underestimated final row height. Account
-  // for its actual bottom in the list height so neither the composer nor
-  // following surfaces cover the row, even without detached surfaces.
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [virtualizedRowsOverflow, setVirtualizedRowsOverflow] = useState(0);
-  useLayoutEffect(() => {
-    if (!virtualized) {
-      setVirtualizedRowsOverflow(0);
-      return undefined;
-    }
-    const container = messagesContainerRef.current;
-    if (!container) return undefined;
-    const recompute = () => {
-      const lastChild = container.lastElementChild;
-      const lastIndex = messages.length - 1;
-      const item = virtualizer.getVirtualItems().find((row) => row.index === lastIndex);
-      if (!lastChild || !item || Number(lastChild.getAttribute('data-index')) !== lastIndex) {
-        setVirtualizedRowsOverflow(0);
-        return;
-      }
-      // Compare sizes, not positions: a measurement can shrink the total
-      // before the rows move, and a transform-only move is never observed,
-      // so a position reading would keep a stale gap below the newest turn.
-      const underestimate = lastChild.getBoundingClientRect().height - item.size;
-      setVirtualizedRowsOverflow(underestimate > 1 ? Math.ceil(underestimate) : 0);
-    };
-    // The observer reports each target once after the next layout, so the
-    // first reading needs no forced layout inside the commit; a streaming row
-    // changes the range key with every chunk.
-    if (typeof ResizeObserver === 'undefined') {
-      recompute();
-      return undefined;
-    }
-    const observer = new ResizeObserver(recompute);
-    observer.observe(container);
-    if (container.lastElementChild) observer.observe(container.lastElementChild);
-    return () => observer.disconnect();
-  }, [messages.length, virtualRangeKey, virtualized, virtualizer]);
+  const { messagesContainerRef, virtualizedRowsOverflow } = useVirtualizedRowsOverflow({
+    messageCount: messages.length,
+    virtualized,
+    virtualizer,
+    virtualRangeKey,
+  });
 
   const { scrollIntentVersionRef, captureReadingAnchor, markUserScrollIntent } =
     useTranscriptReadingPosition({
@@ -480,67 +419,17 @@ function ConversationBody({
     } else scrollToBottom('instant');
   }, [messages.length, scrollToBottom, virtualized, virtualizer]);
 
-  useEffect(() => {
-    let frame = 0;
-    let clearSearch: (() => void) | undefined;
-    const focusSearchResult = () => {
-      clearSearch?.();
-      clearSearch = undefined;
-      if (!window.location.hash.startsWith('#message-')) return;
-      const [target, query] = window.location.hash.slice('#message-'.length).split('?', 2);
-      const [encodedMessageId, encodedActivityId] = target.split('/activity-', 2);
-      const messageId = decodeURIComponent(encodedMessageId);
-      const activityId = encodedActivityId ? decodeURIComponent(encodedActivityId) : undefined;
-      const parameters = new URLSearchParams(query);
-      const find = parameters.get('find');
-      const part = parameters.get('part');
-      const index = messages.findIndex((message) => message.id === messageId);
-      if (index < 0) return;
-      if (find) {
-        setTurnDisplayMode(messageId, 'full');
-        if (part) {
-          const message = messages[index];
-          for (const field of ['text', 'thought'])
-            revealDisclosure?.(
-              `thinking:${message.session_id}:${messageId}:${part}:${field}`,
-              true,
-            );
-        }
-        if (scrollRef.current)
-          clearSearch = highlightSearchPassage(scrollRef.current, messageId, part, find);
-      }
-      markUserScrollIntent();
-      disengage();
-      virtualizer.scrollToIndex(index, { align: 'center' });
-      frame = window.requestAnimationFrame(() => {
-        frame = window.requestAnimationFrame(() => {
-          if (focusAttentionEvidence(messageId, new URLSearchParams(query))) return;
-          // A tool call's activity row is the landmark for its deep link.
-          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
-          if (activity) {
-            activity.scrollIntoView({ block: 'center' });
-            activity.focus({ preventScroll: true });
-          } else document.getElementById(`message-${messageId}`)?.focus({ preventScroll: true });
-        });
-      });
-    };
-    focusSearchResult();
-    window.addEventListener('hashchange', focusSearchResult);
-    return () => {
-      clearSearch?.();
-      window.removeEventListener('hashchange', focusSearchResult);
-      window.cancelAnimationFrame(frame);
-    };
-  }, [
+  useTranscriptSearchFocus({
     messages,
     virtualizer,
+    scrollRef,
     markUserScrollIntent,
     disengage,
     revealDisclosure,
     searchHash,
     searchKey,
     setTurnDisplayMode,
-  ]);
+  });
 
   // Streamed deltas and a changed composer inset follow before paint while
   // engaged; the autoscroll hook's ResizeObserver catches later layout growth.
@@ -548,44 +437,14 @@ function ConversationBody({
     if (followingRef.current && messages.length > 0) scrollToBottom('instant');
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
-  // Pressing a disclosure disengages on pointerdown. Mounting the jump lane
-  // right then would slide it over a control in the last 40px, and the
-  // pointerup and click would land on the lane. Hold it until the press ends.
-  const [pressHold, setPressHold] = useState(false);
-  const pressedRef = useRef<Element | null>(null);
-  useEffect(() => {
-    if (!pressHold) return undefined;
-    let timer = 0;
-    // A task later than pointerup, so the click has been dispatched.
-    const release = () => {
-      timer = window.setTimeout(() => setPressHold(false), 0);
-    };
-    window.addEventListener('pointerup', release, { once: true });
-    window.addEventListener('pointercancel', release, { once: true });
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', release);
-    };
-  }, [pressHold]);
-
-  const jumpVisible =
-    !autoscroll.engaged && autoscroll.scrollable && messages.length > 0 && !pressHold;
-
-  // When the lane appears under the control the reader just pressed, lift the
-  // view by the overlap so that control stays visible and clickable.
-  useLayoutEffect(() => {
-    if (!jumpVisible) return;
-    const pressed = pressedRef.current;
-    pressedRef.current = null;
-    const element = scrollRef.current;
-    const lane = element?.querySelector('[data-slot="transcript-control-lane"]');
-    if (!pressed?.isConnected || !element || !lane) return;
-    const overlap = pressed.getBoundingClientRect().bottom - lane.getBoundingClientRect().top;
-    if (overlap <= 0) return;
-    element.scrollTop += overlap;
-    captureReadingAnchor(pressed);
-  }, [jumpVisible, captureReadingAnchor]);
+  const { jumpVisible, holdPress } = useTranscriptJumpLane({
+    engaged: autoscroll.engaged,
+    adrift: autoscroll.adrift,
+    scrollable: autoscroll.scrollable,
+    hasMessages: messages.length > 0,
+    scrollRef,
+    captureReadingAnchor,
+  });
 
   // An empty list is only "no messages" once the transcript actually arrived.
   // A load error outranks everything, including a running turn's preparation.
@@ -655,8 +514,7 @@ function ConversationBody({
             event.target instanceof Element ? event.target.closest('button[aria-expanded]') : null;
           if (disclosure) {
             if (autoscroll.engaged) {
-              pressedRef.current = disclosure;
-              setPressHold(true);
+              holdPress(disclosure);
             }
             markUserScrollIntent();
             disengage();

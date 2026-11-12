@@ -6,6 +6,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
 import { serviceUnreachable } from '@/lib/connection-attempt';
 import { ConnectedSourcePicker } from '@/components/clio/connected-source-picker';
+import { SourceWorkOwnerContext } from '@/components/clio/source-work-owner';
 import type { ObsidianChoice } from '@/components/clio/obsidian-source-form';
 import { DraftAgentCompositionView } from '@/components/clio/agent-composition-view';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -135,15 +136,27 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   // Plugin changes made to the agent before the first message (the Agent tab).
   const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
   const draftChanges = draftDelta.add.length + draftDelta.remove.length;
-  const { send, runDraftCommand, prepareFiles, discardFiles } = useSessionMutations({
-    activeProvider: provider,
-    activeModel: model,
-    sessionId: '',
-    workspaceId,
-    createOnSend: true,
-    draftAgentRef: agentChoice || undefined,
-    draftAgentDelta: draftDelta,
-  });
+  const { send, runDraftCommand, prepareFiles, discardFiles, openDraftBrowserPage, claimDraft } =
+    useSessionMutations({
+      activeProvider: provider,
+      activeModel: model,
+      sessionId: '',
+      workspaceId,
+      createOnSend: true,
+      draftAgentRef: agentChoice || undefined,
+      draftAgentDelta: draftDelta,
+    });
+  // Source work started here claims the draft as its conversation. Until the first
+  // message it is still this draft, so the left bar keeps the one draft row for it.
+  const [claimedId, setClaimedId] = useState('');
+  const claimForSources = useMemo(
+    () => async () => {
+      const id = await claimDraft();
+      setClaimedId(id);
+      return id;
+    },
+    [claimDraft],
+  );
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const commands = useSessionCommands('', workspaceId);
   const sessions = useMemo(
@@ -240,6 +253,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       endpoint={settings.endpoint}
       onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
       sessions={sessions}
+      draftSessionId={claimedId || undefined}
       workspaces={data.workspaces.data ?? []}
       workspacesState={listState(data.workspaces)}
     />
@@ -274,7 +288,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       </ClioAppShell>
     );
   }
-  return (
+  const page = (
     <ClioAppShell
       navigation={navigation}
       contextBar={
@@ -343,6 +357,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           diffActionPending={diffActions.undo.isPending}
           onOpenSubagent={openSubagent}
           onOpenTerminal={terminalActions.onOpenTerminal}
+          onOpenDraftBrowserPage={openDraftBrowserPage}
           requests={requests}
         />
       }
@@ -456,4 +471,5 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       )}
     </ClioAppShell>
   );
+  return <SourceWorkOwnerContext value={claimForSources}>{page}</SourceWorkOwnerContext>;
 }

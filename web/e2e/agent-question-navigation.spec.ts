@@ -10,7 +10,7 @@ test.afterEach(async ({ page }) => {
 });
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`${theme}: an open question is answered once, in the ask card above the composer`, async ({
+  test(`${theme}: an open question is asked once, above the composer that answers it`, async ({
     page,
   }, testInfo) => {
     expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -54,6 +54,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     const draft = 'Use the documented category labels.';
     const dock = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
+    const composer = page.getByRole('combobox', { name: /^Ask / });
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       // One ask card above the composer; no floating question pill.
@@ -62,14 +63,16 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(card).toContainText(prompt);
       const title = card.locator('[data-slot="pending-interaction-title"]');
       expect(await title.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      // A written answer goes in the composer; the card keeps no second field.
+      await expect(card.getByRole('textbox')).toHaveCount(0);
       if (width === 1280) {
-        await expect(card.getByRole('textbox')).toHaveValue('');
-        await expect(card.getByRole('button', { name: 'Send response' })).toBeDisabled();
-        await card.getByRole('textbox').fill(draft);
-      } else {
-        await expect(card.getByRole('textbox')).toHaveValue(draft);
+        await expect(composer).toHaveText('');
+        await card.getByRole('button', { name: 'Type your answer below' }).click();
+        await expect(composer).toBeFocused();
+        await composer.fill(draft);
       }
-      await expect(card.getByRole('button', { name: 'Send response' })).toBeEnabled();
+      await expect(card.getByText('Type your answer in the message box below')).toBeVisible();
+      await expect(composer).toHaveText(draft);
       await page.screenshot({ path: testInfo.outputPath(`question-answer-${theme}-${width}.png`) });
       // The transcript keeps only the activity row, which leads to the card.
       const activity = page.getByRole('button', { name: `Answer below: ${prompt}`, exact: true });
@@ -78,7 +81,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator('[data-inline-question]')).toHaveCount(0);
       await activity.click();
       await expect(card).toBeInViewport();
-      await expect(card.getByRole('textbox')).toHaveValue(draft);
+      await expect(composer).toHaveText(draft);
     }
     expect(submittedAnswers).toEqual([]);
   });

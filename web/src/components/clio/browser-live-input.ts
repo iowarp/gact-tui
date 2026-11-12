@@ -61,6 +61,32 @@ export function frameRect(
   return [x, y, width, height];
 }
 
+/**
+ * A rectangle of the page's view, in its CSS pixels, as a rectangle of the view drawn in
+ * `box` (normalized to it, as `frameRect` takes), clipped to the shown frame, or `null` when
+ * it is out of sight. The inverse of `frameRect`, for drawing a mark the page found.
+ */
+export function viewRect(
+  rect: readonly [number, number, number, number],
+  box: { width: number; height: number },
+  viewport: Viewport,
+): [number, number, number, number] | null {
+  if (!viewport.width || !viewport.height || !box.width || !box.height) return null;
+  const scale = Math.min(box.width / viewport.width, box.height / viewport.height);
+  const left = (box.width - viewport.width * scale) / 2;
+  const top = (box.height - viewport.height * scale) / 2;
+  const toX = (value: number) =>
+    (left + Math.min(viewport.width, Math.max(0, value)) * scale) / box.width;
+  const toY = (value: number) =>
+    (top + Math.min(viewport.height, Math.max(0, value)) * scale) / box.height;
+  const x = toX(rect[0]);
+  const y = toY(rect[1]);
+  const width = toX(rect[0] + rect[2]) - x;
+  const height = toY(rect[1] + rect[3]) - y;
+  if (width * box.width < 2 || height * box.height < 2) return null;
+  return [x, y, width, height];
+}
+
 export const BUTTONS = ['left', 'middle', 'right'] as const;
 
 /** What a key press sends: printable characters as text, everything else as a key. */

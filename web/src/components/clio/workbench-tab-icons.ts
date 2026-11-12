@@ -66,14 +66,34 @@ export function workbenchTabPath(tab: WorkbenchTab): string | undefined {
 
 /**
  * How the tab row fits (workbench-lineage "The tab row, as it narrows"): every
- * name, then inactive tabs as icons, the least recently used first and one at
- * a time, then the least recently used go into a list at the end. Measured,
- * one step at a time, from `full`.
+ * name, then the inactive names shortened alike (an ellipsis, not under
+ * `TAB_NAME_MIN_PX`), then inactive tabs as icons, the least recently used
+ * first, the rest sharing the room their names take, then the least recently
+ * used go into a list at the end. Measured, one step at a time, from `full`.
  */
-export type TabRowFit = 'full' | 'compact' | 'overflow';
+export type TabRowFit = 'full' | 'shorten' | 'compact' | 'overflow';
 
 export function nextTabRowFit(fit: TabRowFit): TabRowFit {
-  return fit === 'full' ? 'compact' : 'overflow';
+  return fit === 'full' ? 'shorten' : fit === 'shorten' ? 'compact' : 'overflow';
+}
+
+/** A named tab's narrowest (FrameTab's `min-w-[6rem]`): shorter, the name says nothing. */
+export const TAB_NAME_MIN_PX = 96;
+
+/**
+ * The widest every tab in `widths` may be so that together they take no more
+ * than `room`: the narrow ones keep their width and the rest share what is left
+ * (water-filling). Infinity when all fit as they are; below 0 when none can.
+ */
+export function sharedTabCap(widths: readonly number[], room: number): number {
+  const sorted = [...widths].sort((a, b) => a - b);
+  let used = 0;
+  for (const [index, width] of sorted.entries()) {
+    const cap = (room - used) / (sorted.length - index);
+    if (cap <= width) return Math.floor(cap);
+    used += width;
+  }
+  return room >= used ? Infinity : -1;
 }
 
 /**

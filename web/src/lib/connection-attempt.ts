@@ -269,7 +269,8 @@ export function useServedEndpointProbe(endpoint: string | undefined): {
     queryFn: async ({ signal }) => {
       try {
         const availability = await probeConnection({ endpoint: endpoint ?? '' }, signal);
-        return availability.state !== 'unavailable';
+        // A service whose start failed did answer: connecting to it shows why.
+        return availability.state !== 'unavailable' || Boolean(availability.startFailed);
       } catch (error) {
         return serviceStillStarting(error as Error);
       }

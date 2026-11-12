@@ -1,5 +1,6 @@
 import type { SourceOperation } from '@clio/core/v3';
 import { useState } from 'react';
+import { useCountUp } from '@/hooks/use-count-up';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -38,8 +39,10 @@ export function SourceOperationStatus({
   const cancelling =
     active && (operation.cancel_requested || pending || requestedId === operation.id);
   const failed = operation.state === 'failed' || Boolean(operation.error);
+  // Listing reports a page at a time; the count rises between reports instead of jumping.
+  const entries = useCountUp(operation.entries_done, operation.id);
   const amount = indexing
-    ? `${operation.entries_done} ${operation.entries_done === 1 ? 'entry' : 'entries'} indexed`
+    ? `${entries} ${entries === 1 ? 'entry' : 'entries'} indexed`
     : `${sourceBytes(operation.bytes_done)}${operation.bytes_total ? ` of ${sourceBytes(operation.bytes_total)}` : ''}`;
   const sentence = cancelling
     ? `Cancelling, ${amount}`
