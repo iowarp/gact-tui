@@ -94,6 +94,7 @@ export function NavigationAgentMenu({
               <StatusIndicator
                 className="absolute -right-[3px] -bottom-[3px] hidden size-3 rounded-full bg-sidebar group-data-[collapsible=icon]:inline-grid [&>*]:size-3!"
                 display="column"
+                hoverName={false}
                 label={line.text}
                 mark="glyph"
                 tone={line.tone}

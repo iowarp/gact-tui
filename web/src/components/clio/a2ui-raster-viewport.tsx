@@ -353,7 +353,9 @@ export function ClioRasterViewport({
       style={weight ? { flex: weight } : undefined}
     >
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
+        <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={heading}>
+          {heading}
+        </h3>
         {controls(false)}
       </div>
       <SurfaceFullScreenHost

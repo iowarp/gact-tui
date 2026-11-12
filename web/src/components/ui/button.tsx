@@ -21,7 +21,7 @@ const buttonVariants = cva(
           'bg-destructive/10 text-destructive-text hover:bg-destructive/20 focus-visible:border-destructive focus-visible:ring-destructive dark:bg-destructive/20 dark:hover:bg-destructive/30',
         // A confirm that deletes for good: the one solid red button (spec `.xb.dz`).
         danger:
-          'border-destructive bg-destructive text-background hover:border-destructive/90 hover:bg-destructive/90 focus-visible:border-ring focus-visible:ring-foreground',
+          'border-destructive-solid bg-destructive-solid text-destructive-solid-foreground hover:border-destructive-solid/90 hover:bg-destructive-solid/90 focus-visible:border-ring focus-visible:ring-foreground',
         link: 'text-link underline-offset-4 hover:underline',
       },
       size: {
