@@ -631,7 +631,7 @@ export function ClioComposerReferenceMenu({
                 />
               ) : null}
               <span className="min-w-0 truncate">{section.label}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
+              <span className="ml-auto shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums">
                 {section.count}
               </span>
             </>

@@ -69,7 +69,7 @@ const ROW_THEME_CLASS =
  */
 const ROW_GAP_CLASS = 'gap-2';
 
-const ROW_TEXT_CLASS = 'text-[12.5px]';
+const ROW_TEXT_CLASS = 'text-[length:var(--text-menu)]';
 
 const ROW_SHELL_CLASS = `${ROW_THEME_CLASS} relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 ${ROW_INSET_CLASS}`;
 

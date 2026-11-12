@@ -2,6 +2,7 @@ import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { useEffect, useRef, useState } from 'react';
 import { TERMINAL_FONT_FAMILY, loadXterm } from '@/tauri/workspace-terminal';
+import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import type { OperationLogEntry } from './operation-progress-model';
 
 /** Lines the service itself wrote (reuse notes, step changes) stand apart from command output. */
@@ -39,7 +40,7 @@ export function OperationLogTerminal({
           cursorBlink: false,
           disableStdin: true,
           fontFamily: TERMINAL_FONT_FAMILY,
-          fontSize: 12,
+          fontSize: 12 * interfaceScale(),
           scrollback: 10_000,
         });
         const fit = new FitAddonCtor();
@@ -75,6 +76,15 @@ export function OperationLogTerminal({
       written.current = entry.id;
     }
   }, [lines, ready]);
+
+  // xterm draws in px; follow Interface size like the rem-sized text around it.
+  const scale = useInterfaceScale();
+  useEffect(() => {
+    const current = terminal.current;
+    if (!ready || !current || current.term.options.fontSize === 12 * scale) return;
+    current.term.options.fontSize = 12 * scale;
+    current.fit.fit();
+  }, [ready, scale]);
 
   useEffect(() => {
     const container = containerRef.current;

@@ -443,7 +443,7 @@ function DeployStep({
       <span
         aria-hidden="true"
         className={cn(
-          'grid size-4 place-items-center rounded-full border text-[10px] tabular-nums',
+          'grid size-4 place-items-center rounded-full border text-[0.625rem] tabular-nums',
           on ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
           done && 'border-primary/60 text-primary',
         )}

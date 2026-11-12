@@ -102,7 +102,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
         facts
           ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-menu'
           : card
-            ? 'grid items-center gap-x-3 px-2 text-meta [&_dd]:leading-[25px] [&_dt]:h-[25px]'
+            ? 'grid items-center gap-x-3 px-2 text-meta [&_dd]:leading-[1.5625rem] [&_dt]:h-[1.5625rem]'
             : 'grid items-center gap-x-3 gap-y-1 text-meta',
         facts
           ? hasAction

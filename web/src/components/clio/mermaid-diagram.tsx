@@ -9,7 +9,14 @@ import {
   ZoomOutIcon,
 } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
-import { isDarkTheme, readThemeColor, readThemeFont, useThemeKey } from '@/theme/runtime';
+import {
+  interfaceScale,
+  isDarkTheme,
+  readThemeColor,
+  readThemeFont,
+  useInterfaceScale,
+  useThemeKey,
+} from '@/theme/runtime';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { RetryIcon } from '@/lib/icon-vocabulary';
@@ -57,7 +64,7 @@ function themedMermaidConfig(): MermaidConfig {
     darkMode: isDarkTheme(),
     htmlLabels: false,
     fontFamily: readThemeFont('typeface-ui'),
-    fontSize: 16,
+    fontSize: 16 * interfaceScale(),
     flowchart: { curve: 'linear', htmlLabels: false, padding: 14 },
     themeVariables: {
       background: 'transparent',
@@ -134,8 +141,9 @@ export function ClioMermaidDiagram({
   referenceOverride?: () => DataZoneReference;
 }) {
   const theme = useThemeKey();
-  // oxlint-disable-next-line react-hooks/exhaustive-deps -- the theme key is the input the resolved colors depend on
-  const config = useMemo(() => themedMermaidConfig(), [theme]);
+  const scale = useInterfaceScale();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- the theme key and interface scale are the inputs the resolved config depends on
+  const config = useMemo(() => themedMermaidConfig(), [theme, scale]);
   const [view, setView] = useState<MermaidView>('render');
   const [renderedSvg, setRenderedSvg] = useState('');
   const [renderedSource, setRenderedSource] = useState(source);

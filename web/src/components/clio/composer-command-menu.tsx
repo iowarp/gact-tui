@@ -32,7 +32,7 @@ function StatusNote({ label, detail }: { label: string; detail: string }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="shrink-0 rounded-[4px] bg-muted px-[5px] py-px text-[10.5px] font-medium text-muted-foreground">
+          <span className="shrink-0 rounded-[4px] bg-muted px-[5px] py-px text-[0.65625rem] font-medium text-muted-foreground">
             {label}
           </span>
         </TooltipTrigger>
@@ -360,7 +360,7 @@ export function ClioComposerCommandMenu({
           <div aria-label={group.heading} key={group.heading} role="group">
             <div className={COMPOSER_GROUP_HEADING}>
               <span className="min-w-0 truncate">{group.heading}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
+              <span className="ml-auto shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums">
                 {group.rows.length}
               </span>
             </div>

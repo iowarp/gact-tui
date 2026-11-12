@@ -1,8 +1,8 @@
-import { readThemeFont } from '@/theme/runtime';
+import { interfaceScale, readThemeFont } from '@/theme/runtime';
 import { sanitizeMermaidSvg } from './mermaid-security';
 
 export interface PeleRenderOptions {
-  /** Unit: CSS pixels. Default 15. */
+  /** Unit: CSS pixels at the default interface size; scaled by Interface size. Default 15. */
   fontSize?: number;
   /** Let Pele turn a left-to-right graph top-down when `maxWidth` is narrow. */
   autoDirection?: boolean;
@@ -32,7 +32,7 @@ export async function renderPeleDiagram(
         links: false,
         images: false,
         fontFamily: readThemeFont('typeface-ui'),
-        fontSize: options.fontSize ?? 15,
+        fontSize: (options.fontSize ?? 15) * interfaceScale(),
         ...(options.autoDirection ? { autoDirection: true } : {}),
       })
     ).svg;
