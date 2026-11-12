@@ -156,6 +156,7 @@ export function ClioComposer({
   const spotter = useSpotterModelSelection(spotterModel, onSpotterModelChange);
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
+  const [removingAttachment, setRemovingAttachment] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
   );
@@ -436,6 +437,7 @@ export function ClioComposer({
         onSubmit={async ({ files, text }) => {
           if (connectedSources.pending)
             throw new Error('Wait for the folder attachment or remove it before sending.');
+          if (removingAttachment) throw new Error('Wait for the attachment to be removed.');
           const trimmed = text.trim();
           if (trimmed || files.length > 0 || selectedReferences.length > 0 || annotations.length) {
             if (trimmed.startsWith('/')) {
@@ -551,6 +553,7 @@ export function ClioComposer({
         <ClioComposerAttachments
           onPrepareFiles={onPrepareFiles}
           onDiscardFiles={onDiscardFiles}
+          onRemovingChange={setRemovingAttachment}
           resources={resources}
           uploadFailure={uploadFailure}
           uploadProgress={uploadProgress}
@@ -664,7 +667,8 @@ export function ClioComposer({
                 offline ||
                 streamOpening ||
                 (catalogPreparing && state !== 'running') ||
-                connectedSources.pending
+                connectedSources.pending ||
+                removingAttachment
               }
               onSubmit={(event) => {
                 nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
