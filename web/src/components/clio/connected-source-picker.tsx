@@ -57,6 +57,7 @@ export function ConnectedSourcePicker({
   onUploadFiles,
   initialFolderFiles,
   initialFolder,
+  initialFolderName,
   initialDownloaded,
   initialSourceId,
   initialProviderId,
@@ -76,6 +77,8 @@ export function ConnectedSourcePicker({
   onUploadFiles?: () => void;
   initialFolderFiles?: File[];
   initialFolder?: string;
+  /** The provider's name for `initialFolder`, when that is a portable alias. */
+  initialFolderName?: string;
   initialDownloaded?: boolean;
   initialSourceId?: string;
   initialProviderId?: string;
@@ -158,6 +161,7 @@ export function ConnectedSourcePicker({
               onUploadFiles={onUploadFiles}
               initialFolderFiles={initialFolderFiles}
               initialFolder={initialFolder}
+              initialFolderName={initialFolderName}
               initialDownloaded={initialDownloaded}
               initialSourceId={initialSourceId}
               initialProviderId={initialProviderId}
@@ -196,6 +200,7 @@ export function ConnectedSourceContents({
   onUploadFiles,
   initialFolderFiles,
   initialFolder,
+  initialFolderName,
   initialDownloaded,
   initialSourceId,
   initialProviderId,
@@ -222,6 +227,8 @@ export function ConnectedSourceContents({
   onUploadFiles?: () => void;
   initialFolderFiles?: File[];
   initialFolder?: string;
+  /** The provider's name for `initialFolder`, when that is a portable alias. */
+  initialFolderName?: string;
   initialDownloaded?: boolean;
   initialSourceId?: string;
   initialProviderId?: string;
@@ -410,6 +417,7 @@ export function ConnectedSourceContents({
           editRequest={editRequest}
           showName={frameTitle !== source.label}
           initialFolder={source.id === initialFolderSourceId ? initialFolder : undefined}
+          initialFolderName={source.id === initialFolderSourceId ? initialFolderName : undefined}
           initialDownloaded={source.id === initialFolderSourceId ? initialDownloaded : undefined}
           manageOnly={manageOnly}
           onDownloadStarted={onDownloadStarted}
