@@ -128,8 +128,14 @@ export function ChoiceRows<T extends string>({
   unavailable?: Partial<Record<T, string>>;
   disabled?: boolean;
 }) {
+  // One reason that covers every row it disables is said once, under the group.
+  const reasons = (Object.values(unavailable) as Array<string | undefined>).filter(
+    (reason): reason is string => Boolean(reason),
+  );
+  const shared =
+    reasons.length > 1 && reasons.every((reason) => reason === reasons[0]) ? reasons[0] : undefined;
   return (
-    <SourceField label={label}>
+    <SourceField label={label} hint={shared}>
       <RadioGroupPrimitive.Root
         aria-label={label}
         value={value}
@@ -139,6 +145,7 @@ export function ChoiceRows<T extends string>({
       >
         {rows.map((row) => {
           const reason = unavailable[row.value];
+          const second = shared ? row.detail : (reason ?? row.detail);
           return (
             <RadioGroupPrimitive.Item
               key={row.value}
@@ -153,9 +160,9 @@ export function ChoiceRows<T extends string>({
               />
               <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-[1.3]">
                 <span className="truncate">{row.label}</span>
-                {row.detail || reason ? (
+                {second ? (
                   <small className="line-clamp-2 text-[11px] whitespace-normal text-faint [overflow-wrap:anywhere]">
-                    {reason ?? row.detail}
+                    {second}
                   </small>
                 ) : null}
               </span>
