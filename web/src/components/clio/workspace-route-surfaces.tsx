@@ -3,7 +3,6 @@ import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
 import { forwardRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import { isOfflineError } from '@/lib/list-state';
@@ -41,6 +40,48 @@ export const TranscriptPresenceSurface = forwardRef<
   );
 });
 
+/**
+ * The spec's inline state (conversation-states: "Inline, in the transcript"):
+ * one 28px line with the failure in product words and at most one action. The
+ * service's own words stay in Technical details beside it.
+ */
+function TranscriptStateRow({
+  title,
+  detail,
+  action,
+  className,
+}: {
+  title: string;
+  detail?: string;
+  action?: { label: string; onClick: () => void };
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', className)}
+      data-slot="transcript-state-row"
+    >
+      <StateView
+        action={action ? { ...action, icon: action.label === 'Retry' ? undefined : null } : undefined}
+        className="w-fit max-w-full"
+        kind="error"
+        size="row"
+        title={title}
+      />
+      {detail && detail !== title ? (
+        <TechnicalDetails
+          className="min-w-0"
+          contentClassName="pt-1 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
+          summaryClassName="text-meta"
+          title="Technical details"
+        >
+          {detail}
+        </TechnicalDetails>
+      ) : null}
+    </div>
+  );
+}
+
 /** Surface failed user actions alongside the composer, independently of stream health. */
 export function WorkspaceActionAlerts({
   actionError,
@@ -52,16 +93,11 @@ export function WorkspaceActionAlerts({
   return (
     <>
       {[
-        ['Action unavailable', actionError],
-        ['Retry unavailable', retryError],
+        ['That action didn’t run', actionError],
+        ['The reply couldn’t be retried', retryError],
       ].map(([title, error]) =>
         error ? (
-          // w-auto: Alert's w-full plus mx-4 is 32px wider than its scroller.
-          <Alert key={title} className="mx-4 mb-3 w-auto" variant="destructive">
-            <AlertTriangleIcon aria-hidden="true" />
-            <AlertTitle>{title}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <TranscriptStateRow key={title} className="mx-4 mb-1" detail={error} title={title!} />
         ) : null,
       )}
     </>
@@ -93,56 +129,39 @@ export function WorkspaceTranscriptAlerts({
   // alone: reading the transcript can still fail during the outage for
   // reasons the update itself does not explain.
   const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
+  const retry = onRetry ? { label: 'Retry', onClick: onRetry } : undefined;
   return (
     <>
       {sessionFailed ? (
-        <Alert className="m-3 mb-0 w-auto rounded-lg" variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>The response failed</AlertTitle>
-          <AlertDescription>
-            The agent stopped before completing this turn. Retry the failed response below, or send
-            a new message to continue.
-          </AlertDescription>
-        </Alert>
+        <TranscriptStateRow
+          className="mx-3 mt-2"
+          title={`${vocab.agent} stopped before finishing this turn`}
+        />
       ) : null}
       {streamError && !updateInFlight ? (
-        <Alert className="m-3 mb-0 w-auto rounded-lg" variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>Live stream needs reconciliation</AlertTitle>
-          <AlertDescription>{streamError}</AlertDescription>
-        </Alert>
+        // The live stream lost its place and could not catch up; reading again restores it.
+        <TranscriptStateRow
+          action={retry}
+          className="mx-3 mt-2"
+          detail={streamError}
+          title="Some updates may be missing"
+        />
       ) : null}
       {transcriptError && removal ? (
-        <Alert className="m-3 mb-0 w-auto" variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>Conversation unavailable</AlertTitle>
-          <AlertDescription>{transcriptError}</AlertDescription>
-          <div className="col-start-2 mt-2">
-            <Button onClick={() => setRemoving(true)} size="sm" variant="outline">
-              Remove conversation
-            </Button>
-          </div>
-        </Alert>
+        <TranscriptStateRow
+          action={{ label: 'Remove conversation', onClick: () => setRemoving(true) }}
+          className="mx-3 mt-2"
+          detail={transcriptError}
+          title="This conversation can’t be read"
+        />
       ) : transcriptError ? (
-        // The shown messages stay; the failed read is one line with Retry, and the
-        // service's own words stay in Technical details.
-        <div className="mx-3 mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <StateView
-            action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
-            className="w-fit"
-            kind="error"
-            size="row"
-            title="The latest messages could not be loaded"
-          />
-          <TechnicalDetails
-            className="min-w-0"
-            contentClassName="pt-1 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
-            summaryClassName="text-meta"
-            title="Technical details"
-          >
-            {transcriptError}
-          </TechnicalDetails>
-        </div>
+        // The shown messages stay; the failed read is one line with Retry.
+        <TranscriptStateRow
+          action={retry}
+          className="mx-3 mt-2"
+          detail={transcriptError}
+          title="The latest messages could not be loaded"
+        />
       ) : null}
       {removal && removing ? (
         <DeleteResourceDialog
@@ -154,7 +173,6 @@ export function WorkspaceTranscriptAlerts({
     </>
   );
 }
-
 /**
  * The spec's page-level Error state (conversation-states: states) for a
  * conversation or workspace that did not open: plain words for what happened,
