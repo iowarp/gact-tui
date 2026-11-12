@@ -190,6 +190,23 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Press the file's Zoom in, from the frame bar or, when folded, its … menu. */
+async function zoomIn(page) {
+  const bar = page.getByRole('toolbar', { name: 'File' }).filter({ visible: true }).first();
+  const button = bar.getByRole('button', { name: 'Zoom in', exact: true });
+  if (await button.isVisible().catch(() => false)) {
+    await button.click();
+  } else {
+    await bar.getByRole('button', { name: 'File actions' }).first().click();
+    await page.getByRole('menuitem', { name: 'Zoom in' }).first().click();
+    // The menu closes on its own; an Escape after it would close the pocket.
+    await page.waitForTimeout(400);
+    const menu = page.getByRole('menu').filter({ visible: true }).first();
+    if (await menu.isVisible().catch(() => false)) await page.keyboard.press('Escape');
+  }
+  await page.waitForTimeout(400);
+}
+
 /** Wait until a visible element shows `text` (body content, not a toolbar). */
 async function showsText(page, text, timeout = 15000) {
   await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout });
@@ -1362,6 +1379,45 @@ function catalogue({ settings, infrastructure }) {
       },
       { scenario: { specFiles: true } },
     ),
+    // Zoomed off the fitted view, the zoom % is one more fact: in the bar when it
+    // fits (maximized), in the location's hover name when the facts fold.
+    ...Object.entries({
+      'image-zoomed': ['figures/baseline_plot.png', false],
+      'mermaid-zoomed': ['diagrams/pipeline.mmd', false],
+      'image-zoomed-max': ['figures/baseline_plot.png', true],
+      'mermaid-zoomed-max': ['diagrams/pipeline.mmd', true],
+    }).map(([state, [path, maximize]]) =>
+      s(
+        'viewer',
+        state,
+        SESSION,
+        async (page) => {
+          await openFile(page, path);
+          await page.waitForTimeout(1200);
+          if (maximize) {
+            await press(page, 'button', 'Maximize canvas');
+            await page.waitForTimeout(800);
+          }
+          await zoomIn(page);
+          await zoomIn(page);
+          await page.mouse.move(2, 2);
+          await page.waitForTimeout(600);
+          const bar = page.locator('[data-slot="frame-bar"]').filter({ visible: true }).first();
+          const facts = await bar
+            .locator('[data-slot="frame-facts"]')
+            .first()
+            .evaluate((node) => (node.checkVisibility() ? node.textContent : '(folded)'))
+            .catch(() => '(none)');
+          const hover = await bar
+            .getByRole('navigation', { name: 'Location' })
+            .first()
+            .getAttribute('title')
+            .catch(() => null);
+          log(`  ${state}: facts=${JSON.stringify(facts)} hover=${JSON.stringify(hover)}`);
+        },
+        { scenario: { specFiles: true } },
+      ),
+    ),
     s(
       'viewer',
       'state-loading',
@@ -1388,6 +1444,11 @@ function catalogue({ settings, infrastructure }) {
           }),
         );
         await openFile(page, 'ndp/soil_sites.csv');
+        // Reads retry a failure with backoff before giving up; capture the settled error.
+        await page
+          .locator('[data-slot="state-view"][data-kind="error"]')
+          .first()
+          .waitFor({ timeout: 45_000 });
       },
       { scenario: { specFiles: true } },
     ),
