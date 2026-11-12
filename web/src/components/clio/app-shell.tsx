@@ -293,22 +293,32 @@ export function ClioAppShell({
     [setWorkbenchOpen, workbenchOpen],
   );
   // A drag on the separator ends here: remember the new width as a share of the
-  // window, or follow a drag that collapsed the panel.
+  // window, or follow a drag that collapsed the panel. The size is read two
+  // frames after the release, once the group has applied the drag's last move;
+  // read on pointerup, a quick release saved the width from one move earlier.
+  const synchronizeFrameRef = useRef(0);
   const synchronizeWorkbenchPanel = useCallback(() => {
-    const panel = workbenchPanelRef.current;
-    if (!panel) return;
-    const collapsed = panel.isCollapsed();
-    const pixels = panel.getSize().inPixels;
-    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
-      const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
-      if (share !== workbenchShareRef.current) {
-        workbenchShareRef.current = share;
-        window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
-        setConversationCrowded(conversationNeedsFoldedNavigation(share, window.innerWidth));
-      }
-    }
-    setWorkbenchOpen(!collapsed);
+    window.cancelAnimationFrame(synchronizeFrameRef.current);
+    synchronizeFrameRef.current = window.requestAnimationFrame(() => {
+      synchronizeFrameRef.current = window.requestAnimationFrame(() => {
+        synchronizeFrameRef.current = 0;
+        const panel = workbenchPanelRef.current;
+        if (!panel) return;
+        const collapsed = panel.isCollapsed();
+        const pixels = panel.getSize().inPixels;
+        if (!collapsed && window.innerWidth) {
+          const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
+          if (share !== workbenchShareRef.current) {
+            workbenchShareRef.current = share;
+            window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
+            setConversationCrowded(conversationNeedsFoldedNavigation(share, window.innerWidth));
+          }
+        }
+        setWorkbenchOpen(!collapsed);
+      });
+    });
   }, [setWorkbenchOpen]);
+  useEffect(() => () => window.cancelAnimationFrame(synchronizeFrameRef.current), []);
 
   useEffect(() => {
     if (!desktopWorkbench) return;

@@ -8,8 +8,8 @@ import {
   PinOffIcon,
 } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { Link, useNavigate } from 'react-router-dom';
-import { memo, useState } from 'react';
+import { Link, UNSAFE_NavigationContext } from 'react-router-dom';
+import { memo, useContext, useState } from 'react';
 import { toast } from 'sonner';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -192,7 +192,9 @@ function SessionRow({
     session.id !== activeSessionId &&
     seenRevision !== sessionInteractionAt(session);
   const active = session.id === activeSessionId;
-  const navigate = useNavigate();
+  // The router's navigator, not useNavigate(): that one follows the location, so
+  // every memoized row would re-render on each conversation switch.
+  const { navigator } = useContext(UNSAFE_NavigationContext);
   // Share and history confirmations open outside the phone sheet, which closes first.
   const [dialog, presentDialog] = useLeftBarDialog();
   const closeDialog = () => presentDialog(null);
@@ -277,7 +279,7 @@ function SessionRow({
                     menuKey="Enter"
                     onSelect={() => {
                       onVisit(session);
-                      navigate(href);
+                      navigator.push(href);
                     }}
                   />
                   <SessionOrganizeMenuItems
