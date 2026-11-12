@@ -1,39 +1,26 @@
-import type { McpUserConfiguration, ProvenanceConnectionInput } from '@clio/core/v3';
-import { ActivityIcon, ArrowRightIcon, CpuIcon, GlobeIcon, LinkIcon } from 'lucide-react';
+import type { ProvenanceConnectionInput } from '@clio/core/v3';
+import { ActivityIcon, ArrowRightIcon, CpuIcon, LinkIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
-import { EditIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraList, InfraRow } from './infrastructure-row';
 import { ManagedServices } from './managed-services';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { ProvenanceConnections } from './provenance-connections';
-import { WebSearchSetup } from './web-search-setup';
 import { t, ph } from '@lingui/core/macro';
-
-export interface ServicesWebSearch {
-  connection?: McpUserConfiguration;
-  connected: boolean;
-  configured: boolean;
-  connecting: boolean;
-  disconnecting: boolean;
-  onConnect: (remoteUrl: string) => void;
-  onDisconnect: () => void;
-}
 
 /**
  * The Services tab: services CLIO runs on the chosen computer, provenance
  * connections, and the dialog that attaches a service run elsewhere.
  */
-export function InfrastructureServicesSection({ webSearch }: { webSearch: ServicesWebSearch }) {
+export function InfrastructureServicesSection() {
   const { settings } = useConnectionSettings();
   const [connectServiceOpen, setConnectServiceOpen] = useState(false);
   const [returnToChooser, setReturnToChooser] = useState(false);
-  const [webSearchOpen, setWebSearchOpen] = useState(false);
   const provenanceScope = connectionScope(settings);
   const [connectProvenance, setConnectProvenance] = useState<{
     scope: string;
@@ -54,16 +41,6 @@ export function InfrastructureServicesSection({ webSearch }: { webSearch: Servic
           setReturnToChooser(false);
           openProvenance(input);
         }}
-        onManageWebSearch={() => {
-          setReturnToChooser(false);
-          setWebSearchOpen(true);
-        }}
-        onConnectWebSearch={webSearch.onConnect}
-        onDisconnectWebSearch={webSearch.onDisconnect}
-        webSearchConnected={webSearch.connected}
-        webSearchConnection={webSearch.connection}
-        webSearchConnecting={webSearch.connecting}
-        webSearchDisconnecting={webSearch.disconnecting}
       />
       <ProvenanceConnections
         onBack={
@@ -89,24 +66,6 @@ export function InfrastructureServicesSection({ webSearch }: { webSearch: Servic
           setConnectServiceOpen(false);
           openProvenance(input);
         }}
-        onWebSearch={() => {
-          setConnectServiceOpen(false);
-          setWebSearchOpen(true);
-        }}
-        webSearchConfigured={webSearch.configured}
-        webSearchConnected={webSearch.connected}
-      />
-      <WebSearchSetup
-        onOpenChange={setWebSearchOpen}
-        open={webSearchOpen}
-        onBack={
-          returnToChooser
-            ? () => {
-                setWebSearchOpen(false);
-                setConnectServiceOpen(true);
-              }
-            : undefined
-        }
       />
     </>
   );
@@ -125,23 +84,12 @@ function ConnectExistingServiceDialog({
   open,
   onOpenChange,
   onProvenance,
-  onWebSearch,
-  webSearchConfigured,
-  webSearchConnected,
 }: {
   agentLabel: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProvenance: (input: ProvenanceConnectionInput) => void;
-  onWebSearch: () => void;
-  webSearchConfigured: boolean;
-  webSearchConnected: boolean;
 }) {
-  const webSearchStatus: InfraStatus = webSearchConnected
-    ? { tone: 'success', label: t`Connected` }
-    : webSearchConfigured
-      ? { tone: 'warning', label: t`Needs attention` }
-      : { tone: 'idle', label: t`Not connected` };
   return (
     <DialogFrame
       description={t`Attach a service to ${agentLabel}. Its deployment remains under your control.`}
@@ -170,24 +118,6 @@ function ConnectExistingServiceDialog({
             title={service.title}
           />
         ))}
-        <InfraRow
-          description={t`Search and read sources through CLIO Web Search.`}
-          icon={<GlobeIcon />}
-          primaryAction={
-            <IconButton
-              icon={webSearchConfigured ? <EditIcon /> : <LinkIcon />}
-              label={
-                webSearchConfigured
-                  ? t`Edit connection CLIO Web Search`
-                  : t`Connect CLIO Web Search`
-              }
-              onClick={onWebSearch}
-              size="sm"
-            />
-          }
-          status={webSearchStatus}
-          title={t`CLIO Web Search`}
-        />
         <InfraRow
           description={t`A hosted or self-run model API.`}
           icon={<CpuIcon />}

@@ -15,7 +15,6 @@ import { ServiceAccessChoice } from './managed-service-access';
 import { ManagedServiceContextControl } from './managed-service-context';
 import { ServerParametersForm } from './managed-service-parameters';
 import { MonitoringImageStorage } from './monitoring-image-storage';
-import { SearchEnginePicker } from './search-engine-picker';
 import { ServiceInstallationMethod } from './service-installation-method';
 import { t, ph } from '@lingui/core/macro';
 
@@ -72,10 +71,7 @@ export function ManagedServiceForm({
       ) ||
       (field.required && !['container_runtime', 'port'].includes(field.id)),
   );
-  const advanced = fields.filter(
-    (field) =>
-      !basic.includes(field) && !['engines', 'opt_in_engines', 'image_storage'].includes(field.id),
-  );
+  const advanced = fields.filter((field) => !basic.includes(field) && field.id !== 'image_storage');
   const renderField = (field: (typeof fields)[number]) => (
     <Field key={field.id}>
       <div className="flex items-center gap-2">
@@ -209,15 +205,6 @@ export function ManagedServiceForm({
           <details className="border-t pt-4">
             <summary className="cursor-pointer text-sm font-medium">{t`Advanced settings`}</summary>
             <div className="mt-4 space-y-5">
-              {fields.some((field) => field.id === 'engines') ? (
-                <SearchEnginePicker
-                  value={configuration.engines || ''}
-                  defaults={fields.find((field) => field.id === 'engines')?.placeholder || ''}
-                  optIn={configuration.opt_in_engines || ''}
-                  onChange={(value) => onConfiguration('engines', value)}
-                  onOptIn={(value) => onConfiguration('opt_in_engines', value)}
-                />
-              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 {advanced.map(renderField)}
                 {fields.some((field) => field.id === 'image_storage') ? (

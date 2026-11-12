@@ -1263,6 +1263,44 @@ function initialFleetSettings() {
   };
 }
 let fleetSettings = initialFleetSettings();
+// Settings > Web search: two hosted web sources and two scholarly ones.
+const searchSource = (id, name, fields = {}) => ({
+  id,
+  name,
+  description: `${name} search.`,
+  free_use: '',
+  key_page: '',
+  key_benefit: '',
+  reads_pages: false,
+  key_required: false,
+  has_key: false,
+  declined: false,
+  limited_until: null,
+  limited_kind: null,
+  last_answered: null,
+  last_failure: null,
+  last_failure_kind: null,
+  answered_today: 0,
+  failed_today: 0,
+  enabled: true,
+  ...fields,
+});
+const searchSettings = {
+  enabled: true,
+  auto_switch: true,
+  service_url: '',
+  contact_email: '',
+  literature_approved: false,
+  web: [
+    searchSource('keenable', 'Keenable', { position: 0, approved: true }),
+    searchSource('exa', 'Exa', { position: 1, approved: false }),
+  ],
+  literature: [
+    searchSource('openalex', 'OpenAlex'),
+    searchSource('semantic_scholar', 'Semantic Scholar', { key_required: true }),
+  ],
+};
+
 // Settings > Usage accounts: none unless a settings scenario asks for them, so
 // the composer baselines keep no usage readout.
 let fleetAccounts = [];
@@ -1490,44 +1528,13 @@ const settingsFixture = createSettingsFixture({
 const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
-// Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
+// Docker Desktop, serving llama.cpp, with LM Studio saved.
 // The service catalog is the production catalog captured for review.
 const observedEpoch = Date.parse(observedAt) / 1000;
 const localHome = 'C:\\Users\\researcher';
 const modelsRoot = `${localHome}\\.clio\\models`;
-const webSearchUrl = 'http://127.0.0.1:8089';
 const llamaCppUrl = 'http://127.0.0.1:8088';
-const webSearchSpec = {
-  name: 'CLIO Web Search',
-  command: 'clio-kit',
-  args: ['mcp-server', 'web', '--remote-url', webSearchUrl],
-  env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
-  always_load: true,
-};
-const webSearchTools = [
-  { name: 'web_search', description: 'Search the web and return ranked results with snippets.' },
-  { name: 'web_fetch', description: 'Fetch a page and return its readable text and links.' },
-];
-const webSearchConfiguration = {
-  name: 'web',
-  configured: true,
-  scope: 'user',
-  status: 'ready',
-  transport: 'stdio',
-  tools_count: webSearchTools.length,
-  tools: webSearchTools.map((tool) => tool.name),
-  tool_details: webSearchTools,
-  spec: webSearchSpec,
-  retryable: false,
-};
 const savedMcpServices = [
-  {
-    name: 'web',
-    label: 'CLIO Web Search',
-    transport: 'stdio',
-    always_load: true,
-    spec: webSearchSpec,
-  },
   {
     name: 'earthscope',
     label: 'EarthScope GNSS',
@@ -2159,6 +2166,22 @@ const builtinTools = [
     { query: stringField('What to look for.') },
   ],
   [
+    'web_search',
+    'Web search',
+    'web',
+    'Search the web and return ranked results with snippets.',
+    { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } },
+  ],
+  [
+    'web_fetch',
+    'Fetch page',
+    'web',
+    'Fetch a page and return its readable text and links.',
+    {
+      url: stringField('Page address.'),
+    },
+  ],
+  [
     'log_entry',
     'Log entry',
     'science',
@@ -2180,29 +2203,7 @@ const builtinTools = [
   output_schema: {},
   domain,
 }));
-const liveTools = [
-  ...builtinTools.filter((tool) => tool.name !== 'log_entry'),
-  ...webSearchTools.map(({ name, description }) => ({
-    id: `mcp_web:${name}`,
-    name,
-    title: name === 'web_search' ? 'Web search' : 'Fetch page',
-    description,
-    server_id: 'mcp_web',
-    source: 'mcp',
-    status: 'available',
-    enabled: true,
-    owner: 'web',
-    tags: ['web'],
-    visible_to: [],
-    input_schema: objectSchema(
-      name === 'web_search'
-        ? { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } }
-        : { url: stringField('Page address.') },
-      [name === 'web_search' ? 'query' : 'url'],
-    ),
-    output_schema: {},
-  })),
-];
+const liveTools = [...builtinTools.filter((tool) => tool.name !== 'log_entry')];
 const localTargetFacts = {
   target_id: 'local',
   label: 'This computer',
@@ -2257,18 +2258,6 @@ const runningServices = {
       detail: 'Protected by the key this agent made for it.',
       verified: true,
     },
-  },
-  web_search: {
-    state: 'running',
-    connection_url: webSearchUrl,
-    connection_strategy: 'loopback',
-    owned_resources: [
-      {
-        kind: 'directory',
-        ref: `${localHome}\\.clio\\services\\web_search`,
-        created_at: '2026-08-18T09:40:00.000Z',
-      },
-    ],
   },
   ollama: { state: 'stopped' },
 };
@@ -2451,7 +2440,7 @@ const infrastructure = createInfrastructureFixture({
   localCatalog: managedServiceCatalog,
   localModels: { root: modelsRoot, home: localHome, inventory: localModelInventory },
   catalogFor: (label) => reviewCatalog.find((scenario) => scenario.label === label).services,
-  serviceUrls: { llamaCpp: llamaCppUrl, webSearch: webSearchUrl },
+  serviceUrls: { llamaCpp: llamaCppUrl },
 });
 const provenanceConnections = [
   {
@@ -3141,12 +3130,13 @@ const server = createServer(async (request, response) => {
   const mcpConfiguration = /^\/v1\/mcp\/configuration\/([^/]+)$/u.exec(url.pathname);
   if (request.method === 'GET' && mcpConfiguration) {
     const name = decodeURIComponent(mcpConfiguration[1]);
-    sendJson(
-      response,
-      name === 'web'
-        ? webSearchConfiguration
-        : { name, configured: false, scope: 'user', status: 'local_fallback', retryable: false },
-    );
+    sendJson(response, {
+      name,
+      configured: false,
+      scope: 'user',
+      status: 'local_fallback',
+      retryable: false,
+    });
     return;
   }
   if (await handleModelSettings(request, response, url)) return;
@@ -3555,6 +3545,53 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && resources.has(resourcePath(url.pathname))) {
     sendJson(response, resources.get(resourcePath(url.pathname)).record);
+    return;
+  }
+  // Settings > Web search: the sources searches go to, their order and keys.
+  if (url.pathname === '/v1/search/providers' && ['GET', 'PATCH'].includes(request.method)) {
+    if (request.method === 'PATCH') {
+      const patch = await readJson(request);
+      if (Array.isArray(patch.web_order))
+        searchSettings.web = patch.web_order
+          .map((id) => searchSettings.web.find((row) => row.id === id))
+          .filter(Boolean)
+          .map((row, position) => ({ ...row, position }));
+      if (Array.isArray(patch.web_disabled))
+        searchSettings.web = searchSettings.web.map((row) => ({
+          ...row,
+          enabled: !patch.web_disabled.includes(row.id),
+        }));
+      if (Array.isArray(patch.literature_disabled))
+        searchSettings.literature = searchSettings.literature.map((row) => ({
+          ...row,
+          enabled: !patch.literature_disabled.includes(row.id),
+        }));
+      for (const key of ['enabled', 'auto_switch', 'service_url', 'contact_email'])
+        if (key in patch) searchSettings[key] = patch[key];
+    }
+    sendJson(response, searchSettings);
+    return;
+  }
+  const searchKey = /^\/v1\/search\/providers\/([^/]+)\/key$/u.exec(url.pathname);
+  if (searchKey && ['PUT', 'DELETE'].includes(request.method)) {
+    const id = decodeURIComponent(searchKey[1]);
+    const saved = request.method === 'PUT';
+    if (saved) await readJson(request);
+    for (const list of [searchSettings.web, searchSettings.literature])
+      for (const row of list) if (row.id === id) row.has_key = saved;
+    sendJson(
+      response,
+      saved ? { source: id, saved: true, settings: searchSettings } : { source: id, removed: true },
+    );
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/v1/search/openalex-key') {
+    await readJson(request);
+    sendJson(response, {
+      saved: true,
+      status: 'pending',
+      message: 'Check your email and click the activation link.',
+    });
     return;
   }
   // Helper models: search on Codex, the judges inheriting the conversation model.

@@ -216,4 +216,6 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     'target',
     'url',
   ),
+  literature_search: search(t`Search literature`),
+  literature_lookup: define(t`Look up`, 'declared', 'id'),
 };

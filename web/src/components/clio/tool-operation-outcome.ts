@@ -13,7 +13,9 @@ export function withOperationOutcome(tool: ToolInvocation): ToolInvocation {
     return tool;
   const result = toolResultRecord(tool.output);
   if (!result || result.truncated === true) return tool;
-  const web = ['web_search', 'web_fetch'].includes(tool.name) && result.ok === false;
+  const web =
+    ['web_search', 'web_fetch', 'literature_search', 'literature_lookup'].includes(tool.name) &&
+    result.ok === false;
   const command =
     ['shell_bash', 'ssh_execute'].includes(tool.name) &&
     typeof result.exit_code === 'number' &&
@@ -45,9 +47,13 @@ export function withOperationOutcome(tool: ToolInvocation): ToolInvocation {
         );
       }));
   if (!web && !command && !refused && !wait) return tool;
-  const error = [result.detail, result.error, result.stderr, asRecord(result.reason)?.message].find(
-    (value): value is string => typeof value === 'string' && Boolean(value),
-  );
+  const error = [
+    result.detail,
+    result.error,
+    asRecord(result.error)?.message,
+    result.stderr,
+    asRecord(result.reason)?.message,
+  ].find((value): value is string => typeof value === 'string' && Boolean(value));
   return {
     ...tool,
     presentation: {

@@ -1296,7 +1296,7 @@ function catalogue({ settings, infrastructure }) {
       'activity-failure',
       '/infrastructure/activity',
       async (page) => {
-        await page.getByRole('button', { name: 'Start SearXNG details' }).click();
+        await page.getByRole('button', { name: 'Start Flowcept details' }).click();
         await page.waitForTimeout(300);
       },
       { ready: 'h1', settleMs: 1200 },
