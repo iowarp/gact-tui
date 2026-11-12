@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
@@ -29,9 +29,16 @@ export function CommentThreadsPopover({
   const region = useCommentRegion();
   const narrow = useMediaQuery('(max-width: 40rem)');
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Radix's trigger also registers itself as the anchor, and a StrictMode ref replay leaves
+  // that button (soon replaced, so measuring 0x0) in place after the palette anchor. A fresh
+  // virtual element once mounted makes Radix take the palette again.
+  const [anchorEpoch, setAnchorEpoch] = useState(0);
+  // oxlint-disable-next-line react/set-state-in-effect -- re-registers Radix's anchor after its ref replay.
+  useEffect(() => setAnchorEpoch(1), []);
   const palette = useMemo(
     () => ({
       current: {
+        anchorEpoch,
         getBoundingClientRect: () => {
           const button = triggerRef.current;
           const panel = button?.closest('[data-slot="comment-controls"]') ?? button;
@@ -39,7 +46,7 @@ export function CommentThreadsPopover({
         },
       },
     }),
-    [],
+    [anchorEpoch],
   );
   return (
     <Popover onOpenChange={session?.setThreadsOpen} open={session?.threadsOpen}>
