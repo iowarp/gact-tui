@@ -1388,6 +1388,11 @@ function catalogue({ settings, infrastructure }) {
           }),
         );
         await openFile(page, 'ndp/soil_sites.csv');
+        // Reads retry a failure with backoff before giving up; capture the settled error.
+        await page
+          .locator('[data-slot="state-view"][data-kind="error"]')
+          .first()
+          .waitFor({ timeout: 45_000 });
       },
       { scenario: { specFiles: true } },
     ),
