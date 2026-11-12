@@ -113,6 +113,9 @@ export function useComposerReferenceController({
   // has to be remembered rather than read back at selection time.
   const caretRef = useRef<number>(undefined);
   const pickerCaretRef = useRef<number>(undefined);
+  // The mention whose suggestions the person has arrowed through. A bare `@`
+  // only picks its highlighted row with Enter after that explicit choice.
+  const navigatedMentionRef = useRef<string>(undefined);
   const [caret, setCaret] = useState<number>();
 
   const mention = referenceMentionAt(input, caret);
@@ -244,6 +247,21 @@ export function useComposerReferenceController({
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         if (!menu.move(event.key === 'ArrowDown' ? 1 : -1)) return false;
         event.preventDefault();
+        navigatedMentionRef.current = mentionIdentity;
+        return true;
+      }
+      if (
+        event.key === 'Enter' &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing &&
+        !pickerOpen &&
+        mention?.query === '' &&
+        navigatedMentionRef.current !== mentionIdentity
+      ) {
+        // A bare `@` names nothing yet. Enter closes the suggestions and keeps
+        // the literal `@`; the next Enter sends it.
+        event.preventDefault();
+        dismiss();
         return true;
       }
       if (
@@ -264,7 +282,7 @@ export function useComposerReferenceController({
       }
       return false;
     },
-    [dismiss, drill, open, select],
+    [dismiss, drill, mention?.query, mentionIdentity, open, pickerOpen, select],
   );
 
   const onCaretChange = useCallback((offset: number | undefined) => {

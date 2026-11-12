@@ -34,6 +34,7 @@ import {
 } from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
+import { composerFailureReason } from './composer-failure';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -767,6 +768,7 @@ export function AskCode({
 /** One quiet line when this card's own answer failed; assertive, never color alone. */
 export function AskError({ error, className }: { error?: Error; className?: string }) {
   if (!error) return null;
+  const reason = composerFailureReason(error, 'The service did not record your answer.');
   return (
     <AskSection
       className={cn(
@@ -777,8 +779,8 @@ export function AskError({ error, className }: { error?: Error; className?: stri
       role="alert"
     >
       <span className="shrink-0 font-medium">Response unavailable</span>
-      <span className="min-w-0 truncate text-destructive/85" title={error.message}>
-        {error.message}
+      <span className="min-w-0 truncate text-destructive/85" title={reason}>
+        {reason}
       </span>
     </AskSection>
   );
