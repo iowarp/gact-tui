@@ -31,9 +31,10 @@ function sentences(lines: string[]): string {
 const REPEAT_MS = 10_000;
 
 /**
- * Mirrors the section's state lines (Loading access rules…, No sessions to
- * schedule work in yet) into the shared polite region as they appear. Render
- * it once anywhere in a section; it watches that section's body.
+ * Mirrors the window's state lines (Loading access rules…, No sessions to
+ * schedule work in yet) into the shared polite region as they appear. The
+ * Settings window renders it once in its main region, so every section and
+ * search result is covered without a copy per section.
  */
 export function AnnounceStates() {
   const ref = useRef<HTMLSpanElement>(null);
