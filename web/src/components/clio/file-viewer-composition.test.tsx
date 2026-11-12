@@ -266,7 +266,7 @@ describe('source mode and file identity edge cases', () => {
     expect(copyText).toHaveBeenCalledWith(content);
   });
 
-  it('keeps long logical source rows unwrapped by default', async () => {
+  it('wraps long logical source rows by default and unwraps them on request', async () => {
     const row = `value = "${'x'.repeat(4_000)}"`;
     const content = `${row}\n`;
     const { container } = renderComposition(
@@ -277,9 +277,21 @@ describe('source mode and file identity edge cases', () => {
     );
     const source = await screen.findByRole('region', { name: 'Source of long-row.py' });
 
-    expect(source.className).toContain('[&_pre]:whitespace-pre');
-    expect(source.className).toContain('[&_pre]:[overflow-wrap:normal]');
+    expect(source.className).toContain('[&_pre]:whitespace-pre-wrap');
+    // Continuation rows hang under the code and its indent, not under the line number.
+    expect(source.className).toContain('[&_pre_code>span>[data-indent]]:absolute');
     expect(source).toHaveTextContent(row);
     expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
+
+    const wrap = screen.getByRole('button', { name: 'Wrap long lines' });
+    expect(wrap).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(wrap);
+    const unwrapped = screen.getByRole('region', { name: 'Source of long-row.py' });
+    expect(unwrapped.className).toContain('[&_pre]:[overflow-wrap:normal]');
+    expect(unwrapped.className).not.toContain('whitespace-pre-wrap');
+    expect(screen.getByRole('button', { name: 'Wrap long lines' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 });
