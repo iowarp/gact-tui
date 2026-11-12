@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ArtifactLineageView } from './artifact-lineage-view';
@@ -46,6 +47,36 @@ const repository = vi.hoisted(() => ({
     edges: [{ from: 'activity:call_2', to: 'artifact_2', type: 'generated' }],
   }),
   executionProvenance: vi.fn(),
+}));
+vi.mock('@xyflow/react', () => ({
+  Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
+  BackgroundVariant: { Dots: 'dots' },
+  MarkerType: { ArrowClosed: 'closed' },
+  useReactFlow: () => ({ setViewport: () => Promise.resolve(true) }),
+  useStore: (select: (state: unknown) => unknown) =>
+    select({ transform: [14, 14, 1], width: 600, height: 600 }),
+  getSmoothStepPath: () => ['M0,0'],
+  BaseEdge: () => null,
+  Handle: () => null,
+  Background: () => null,
+  Controls: () => null,
+  ControlButton: () => null,
+  ReactFlow: ({
+    nodes,
+    nodeTypes,
+    children,
+  }: {
+    nodes: { id: string; data: Record<string, unknown> }[];
+    nodeTypes: Record<string, (props: { data: Record<string, unknown> }) => ReactNode>;
+    children: ReactNode;
+  }) => (
+    <div data-slot="lineage-flow">
+      {nodes.map((node) => (
+        <div key={node.id}>{nodeTypes['lineage']!({ data: node.data })}</div>
+      ))}
+      {children}
+    </div>
+  ),
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -94,9 +125,6 @@ it('draws the recorded lineage and opens the producing action in Activity', asyn
   expect(action.querySelector('b')).not.toHaveClass('font-mono');
   const canvas = screen.getByRole('region', { name: 'Artifact lineage graph' });
   expect(canvas).toBeVisible();
-  // The graph is laid out from the canvas's top-left, not centred in it.
-  expect(canvas).toHaveClass('items-start');
-  expect(canvas.querySelector('[data-slot="lineage-layout"]')).not.toHaveClass('m-auto');
   expect(document.body).not.toHaveTextContent('"nodes"');
   expect(repository.executionProvenance).not.toHaveBeenCalled();
   expect(repository.artifactLineage).toHaveBeenCalledWith(
@@ -125,7 +153,8 @@ it('unfolds the earlier versions from the current file', async () => {
   expect(self).toHaveAttribute('aria-expanded', 'false');
   await userEvent.click(self);
   expect(await screen.findByRole('region', { name: 'Versions of result.csv' })).toBeVisible();
-  await userEvent.click(screen.getByRole('button', { name: /^v1/u }));
+  // The version chain is placed asynchronously, like the lineage it replaces.
+  await userEvent.click(await findNode(/^v1/u));
   expect(onOpenArtifact).toHaveBeenCalledWith(expect.objectContaining({ id: 'artifact_1' }));
 });
 
@@ -170,18 +199,13 @@ it.each([
     mount();
     await findNode(/Build report/u);
     const canvas = screen.getByRole('region', { name: 'Artifact lineage graph' });
-    const layout = canvas.querySelector<HTMLElement>('[data-slot="lineage-layout"]')!;
-    const drawn = canvas.querySelector<HTMLElement>('[data-slot="lineage-fit"]')!;
-    const room = pane - 2 * 14;
-    // The drawing is wider than the pane at 1:1, so it scales.
-    expect(parseFloat(layout.style.width)).toBeGreaterThan(room);
-    await waitFor(() => expect(layout).toHaveAttribute('data-zoom'));
-    if (fits) expect(parseFloat(drawn.style.width)).toBeLessThanOrEqual(room + 0.01);
-    else {
-      // Below the readable floor the drawing keeps 0.85 and the rest scrolls into view.
-      expect(layout).toHaveAttribute('data-zoom', '0.85');
-      expect(parseFloat(drawn.style.width)).toBeGreaterThan(room);
-    }
+    await waitFor(() => expect(canvas).toHaveAttribute('data-zoom'));
+    const zoom = Number(canvas.getAttribute('data-zoom'));
+    // The drawing is wider than the pane at 1:1, so it opens scaled down.
+    expect(zoom).toBeLessThan(1);
+    // Below the readable floor the drawing keeps 0.85 and the rest is a pan away.
+    if (fits) expect(zoom).toBeGreaterThan(0.85);
+    else expect(zoom).toBe(0.85);
     vi.unstubAllGlobals();
     for (const spy of spies) spy.mockRestore();
   },
