@@ -1,5 +1,5 @@
 import { WrenchIcon } from 'lucide-react';
-import { memo, type ReactNode } from 'react';
+import { memo, useContext, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PendingInteraction, SubagentRun } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
@@ -15,11 +15,12 @@ import { WaitingForYou } from './agent-answer-activity';
 import { transcriptRunSummary } from './transcript-activity-summary';
 import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
-import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { ActivityRunsFold, useTranscriptDisclosure } from './transcript-disclosure-context';
 
 /** Rows a live step shows before the earlier ones fold behind "Show N earlier". */
 const LANE_LIMIT = 6;
 const LANE_TAIL = 4;
+
 interface ActivityLaneProps {
   id: string;
   group: readonly ConversationIteration[];
@@ -139,6 +140,7 @@ function ActivityLaneView({
 }: ActivityLaneProps) {
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
+  const runsFold = useContext(ActivityRunsFold);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
   // While the turn works, steps after the last call that only think are the
   // agent moving on; they stay below the run. Once it has settled, the whole
@@ -160,7 +162,10 @@ function ActivityLaneView({
     0,
   );
   const collapses =
-    (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
+    runsFold &&
+    (!turnLive || afterIds.size > 0) &&
+    headCalls > 0 &&
+    runSettled(head, interactions);
   // A folded run already counts its rows, so opening it shows every one of them.
   const folded = !all && !collapses && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
