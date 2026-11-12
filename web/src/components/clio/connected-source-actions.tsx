@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useRepository } from '@/hooks/use-repository';
 import { IconButton } from './primitives/icon-button';
+import { JumpLabel, menuAcceleratorKeyDown } from './primitives/menu-row';
 
 /** Source management removes the connection, never the user's files or evidence. */
 export function ConnectedSourceActions({
@@ -97,14 +98,14 @@ export function ConnectedSourceActions({
               </Button>
             )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}>
+          <DropdownMenuContent align="end" onKeyDown={menuAcceleratorKeyDown}>
+            <DropdownMenuItem data-accelerator="E" onSelect={onEdit}>
               <EditIcon aria-hidden="true" />
-              Edit source
+              <JumpLabel label="Edit source" letter="E" />
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={requestRemove}>
+            <DropdownMenuItem data-accelerator="R" onSelect={requestRemove}>
               <DeleteIcon aria-hidden="true" />
-              Remove source
+              <JumpLabel label="Remove source" letter="R" />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
