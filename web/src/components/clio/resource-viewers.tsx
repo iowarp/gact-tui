@@ -8,10 +8,12 @@ import {
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import { keepEqualBytes } from '@/lib/keep-equal-bytes';
-import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
+import type { Artifact, CommentTarget, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { BookOpenIcon, CodeIcon, EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
 
 import { FileTextView } from './file-text-view';
 import {
@@ -457,6 +459,24 @@ function ArtifactFileView({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [asText, setAsText] = useState(false);
+  // This view shows one fixed version; marking again on a newer one opens that version.
+  const openVersion = useMemo(
+    () =>
+      onOpenArtifact
+        ? (target: CommentTarget) =>
+            void repository
+              .artifactDetail(target.artifact_id)
+              .then((detail) =>
+                onOpenArtifact(
+                  artifactDetailVersionEntity(detail, target.artifact_id, artifact.session_id),
+                ),
+              )
+              .catch((cause: unknown) =>
+                toast.error(cause instanceof Error ? cause.message : String(cause)),
+              )
+        : undefined,
+    [artifact.session_id, onOpenArtifact, repository],
+  );
   const canPreviewText = asText || isTextArtifact(artifact.media_type, artifact.name);
   // A dashboard's frame draws Render, Definition (its JSON) and Lineage.
   const isDashboard =
@@ -572,7 +592,7 @@ function ArtifactFileView({
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
-        <ArtifactVersionComments artifact={artifact} text>
+        <ArtifactVersionComments artifact={artifact} onOpenVersion={openVersion} text>
           <FileTextView
             name={artifact.name}
             content={text.data.content}
@@ -596,6 +616,7 @@ function ArtifactFileView({
     canLoadInline ? (
       <ArtifactVersionComments
         artifact={artifact}
+        onOpenVersion={openVersion}
         svg={
           isSvg(artifact.media_type || imageMediaType(artifact.name))
             ? image.data?.bytes
@@ -646,6 +667,7 @@ function ArtifactFileView({
                   fallbackPreview={preview}
                   fallbackSource={text.data?.content}
                   key={artifact.id}
+                  onOpenVersion={openVersion}
                 />
               ) : (
                 <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -688,12 +710,14 @@ function ArtifactVersionComments({
   artifact,
   svg,
   text = false,
+  onOpenVersion,
   children,
 }: {
   artifact: Artifact;
   /** An SVG's bytes, so element marks can pick its elements. */
   svg?: Uint8Array;
   text?: boolean;
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   if (!artifact.sha256 || !artifact.version) return <>{children}</>;
@@ -701,6 +725,7 @@ function ArtifactVersionComments({
     <ArtifactComments
       artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
       modes={text ? ['text'] : svg ? ['region', 'element'] : ['region']}
+      onOpenVersion={onOpenVersion}
       regionAnchor={text ? undefined : imageRegionAnchor}
       svg={svg}
     >

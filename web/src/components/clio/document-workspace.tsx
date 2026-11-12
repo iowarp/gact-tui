@@ -1,7 +1,12 @@
 import { queryKeys } from '@/lib/query-keys';
 import { VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
-import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
+import type {
+  Artifact,
+  CommentTarget,
+  DocumentManifest,
+  DocumentWorkingCopy,
+} from '@clio/core/v3';
 import { TransportError } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquareIcon } from 'lucide-react';
@@ -68,12 +73,18 @@ export function ClioDocumentWorkspace({
   fallbackPreview,
   fallbackSource,
   unavailablePreview,
+  onOpenVersion,
 }: {
   artifact: Artifact;
   fallbackPreview: ReactNode;
   fallbackSource?: string;
   /** Shown instead of the PDF preview when the server has no document runtime to make it. */
   unavailablePreview?: ReactNode;
+  /**
+   * The document is one fixed version: marking again on the newest version opens that one.
+   * Without it the document follows the file, and the marks move to its newest version.
+   */
+  onOpenVersion?: (target: CommentTarget) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -301,7 +312,13 @@ export function ClioDocumentWorkspace({
         onChange={setDocumentView}
       />
     );
-  const threads = <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />;
+  const threads = (
+    <CommentThreadList
+      artifactId={artifact.id}
+      sessionId={artifact.session_id}
+      version={artifact.version}
+    />
+  );
   const refresh = (
     <DocumentRefreshAction
       // Only a refetch is a refresh: the first load and the PDF conversion are the frame's loading.
@@ -459,6 +476,7 @@ export function ClioDocumentWorkspace({
         </Tabs>
       </ViewerToolbarHost.Provider>
     </section>,
+    onOpenVersion,
   );
 }
 
@@ -506,6 +524,7 @@ function EarlierThreads({ children }: { children: ReactNode }) {
   return (
     <CommentThreadsPopover
       align="start"
+      beside
       className="z-[95]"
       trigger={
         <Button className="mt-2 w-full" size="sm" variant="ghost">
@@ -685,9 +704,14 @@ function documentCommentSurface(
   };
 }
 
-function withComments(surface: CommentSurface, threadList: ReactNode, node: ReactNode) {
+function withComments(
+  surface: CommentSurface,
+  threadList: ReactNode,
+  node: ReactNode,
+  onOpenVersion?: (target: CommentTarget) => void,
+) {
   return (
-    <CommentSessionProvider surface={surface} threadList={threadList}>
+    <CommentSessionProvider onOpenVersion={onOpenVersion} surface={surface} threadList={threadList}>
       {node}
     </CommentSessionProvider>
   );
