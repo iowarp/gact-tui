@@ -25,7 +25,8 @@ import {
   questionInteractionsForTool,
   splitWaitingQuestion,
 } from './agent-answer-domain';
-import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
+import { McpAppCard } from './mcp-app-reopen';
+import { McpAppHistoryLine } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { TranscriptIterationText } from './transcript-iteration-text';
@@ -244,11 +245,12 @@ export function McpAppActivity({
 }) {
   return (
     <div data-turn-activity={`mcp-app:${entry.id}`}>
-      {entry.block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
-        <McpAppSurface
+      {mcpAppRepository && messageSessionId ? (
+        <McpAppCard
           appInstanceId={entry.block.app_instance_id}
           dataRef={entry.block.data_ref}
           height={entry.block.height}
+          live={entry.block.app_instance_id === activeMcpAppId}
           repository={mcpAppRepository}
           resourceUri={entry.block.resource_uri}
           sessionId={messageSessionId}

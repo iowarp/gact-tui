@@ -5,6 +5,7 @@ import type {
   McpAppMessageAcknowledgement,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
+import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
 
 const descriptorSchema = z.object({
   protocol_version: z.string(),
@@ -99,6 +100,31 @@ export class McpAppRepository extends InteractionRepository {
       path: appPath(identity, '/messages'),
       body: message,
       decode: (value) => acknowledgementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Whether CLIO still holds the view; a closed view is `false`, not an error. */
+  public mcpAppLive(identity: McpAppIdentity, signal?: AbortSignal): Promise<boolean> {
+    return this.transport.request({
+      method: 'GET',
+      path: appPath(identity, '/live'),
+      decode: (value) => z.object({ live: z.boolean() }).parse(value).live,
+      signal,
+    });
+  }
+
+  /** Replay a view's saved opening call; a failed replay is a result, not a throw. */
+  public reopenMcpApp(
+    sessionId: string,
+    appInstanceId: string,
+    signal?: AbortSignal,
+  ): Promise<McpAppReopenResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
+      body: { app_instance_id: appInstanceId },
+      decode: decodeMcpAppReopen,
       signal,
     });
   }
