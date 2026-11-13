@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { findTourAnchor } from '@/lib/onboarding/tour-anchors';
 import { TOUR_SCRIPT_STATUS, type TourStep } from '@/lib/onboarding/tour-script';
 import { cn } from '@/lib/utils';
+import { clearOfCard } from './tour-spotlight';
 
 const PAD = 6;
 const GAP = 12;
@@ -278,7 +279,7 @@ export function TourOverlay({
   onNext,
   onSkip,
 }: TourOverlayProps) {
-  const { box, focus } = useAnchorBox(step, stageRef, reduceMotion);
+  const { box: anchorBox, focus } = useAnchorBox(step, stageRef, reduceMotion);
   const card = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(180);
   useLayoutEffect(() => {
@@ -291,7 +292,8 @@ export function TourOverlay({
   useLayoutEffect(() => {
     card.current?.focus({ preventScroll: true });
   }, [step.id]);
-  const position = cardPosition(box, cardHeight, focus);
+  const position = cardPosition(anchorBox, cardHeight, focus);
+  const box = clearOfCard(anchorBox, position, cardHeight, GAP);
   const last = index === count - 1;
   const titleId = `tour-step-${step.id}-title`;
   const bodyId = `tour-step-${step.id}-body`;
