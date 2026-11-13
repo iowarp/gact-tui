@@ -9952,7 +9952,7 @@ msgstr "Σύνδεση {label}"
 msgid "Connect {name}"
 msgstr "Σύνδεση {name}"
 
-#: src/components/clio/permission-response.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Connect {source}"
 msgstr "Σύνδεση {source}"
 
@@ -10050,7 +10050,6 @@ msgid "Connect over SSH…"
 msgstr "Σύνδεση μέσω SSH…"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Connect source"
 msgstr "Σύνδεση πηγής"
 
@@ -13081,7 +13080,6 @@ msgid "Download selected files"
 msgstr "Λήψη επιλεγμένων αρχείων"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Download source"
 msgstr "Λήψη πηγής"
 
@@ -38274,6 +38272,14 @@ msgstr "χρησιμοποιεί εργαλεία"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Utah cluster"
 msgstr "Συστοιχία Utah"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} available"
+msgstr "Η v{version} είναι διαθέσιμη"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} ready"
+msgstr "Η v{version} είναι έτοιμη"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"

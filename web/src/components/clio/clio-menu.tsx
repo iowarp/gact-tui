@@ -579,7 +579,9 @@ function UpdateFact({ update }: { update: UpdateStatus }) {
   const installable = update.state === 'available' && update.install;
   const label =
     update.state === 'available' && update.targetVersion
-      ? `v${update.targetVersion} ${update.install ? 'ready' : 'available'}`
+      ? update.install
+        ? t`v${ph({ version: update.targetVersion })} ready`
+        : t`v${ph({ version: update.targetVersion })} available`
       : UPDATE_LABEL[update.state];
   const action = installable
     ? t`Install`

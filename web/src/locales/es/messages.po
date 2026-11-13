@@ -9952,7 +9952,7 @@ msgstr "Conectar {label}"
 msgid "Connect {name}"
 msgstr "Conectar {name}"
 
-#: src/components/clio/permission-response.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Connect {source}"
 msgstr "Conectar {source}"
 
@@ -10050,7 +10050,6 @@ msgid "Connect over SSH…"
 msgstr "Conectar por SSH…"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Connect source"
 msgstr "Conectar fuente"
 
@@ -13081,7 +13080,6 @@ msgid "Download selected files"
 msgstr "Descargar los archivos seleccionados"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Download source"
 msgstr "Descargar fuente"
 
@@ -38274,6 +38272,14 @@ msgstr "usando herramientas"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Utah cluster"
 msgstr "Clúster de Utah"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} available"
+msgstr "v{version} disponible"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} ready"
+msgstr "v{version} lista"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"
