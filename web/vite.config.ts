@@ -48,6 +48,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  optimizeDeps: {
+    // The Lingui macros compile to @lingui/react imports after the startup scan. Discovered
+    // later, it re-optimizes and reloads the page, which can land mid-check on the dev server.
+    include: ['@lingui/react'],
+  },
   build: {
     rollupOptions: {
       input: galleryOnly
