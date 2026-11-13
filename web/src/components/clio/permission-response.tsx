@@ -20,6 +20,7 @@ import { PermissionOperationDetails, PermissionPaths } from './permission-operat
 import { permissionTitle } from './permission-operation-labels';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { t, ph, plural } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 const SCOPES = [
   { action: 'allow', label: t`Allow once`, name: t`Allow once` },
@@ -139,7 +140,12 @@ function spokenToolCall(
     const values = Object.entries(args)
       .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
       .map(([key, value]) => `${key} ${String(value).replace(/\s+/gu, ' ')}`);
-    if (values.length) return clip(`${toolName}: ${values.join(', ')}`);
+    if (values.length) {
+      const list = formatList(values);
+      return clip(
+        t({ message: `${toolName}: ${list}`, comment: 'Spoken tool call: tool name, then its arguments' }),
+      );
+    }
   }
   return toolName;
 }
