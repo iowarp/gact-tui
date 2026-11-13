@@ -156,8 +156,9 @@ export function PlanDecisionControls({
             faceProps={{
               ...askKeyAttributes([String(executeNumber), 'Enter']),
               'aria-label': exitOnly ? t`Leave Plan mode` : t`Execute plan`,
-              // Stacked, the label fills; the mode chip and ↵ sit at the right edge.
-              className: '@max-[420px]/ask:flex-1 @max-[420px]/ask:justify-start',
+              // Stacked, the label takes the first line; when the mode chip and ↵
+              // don't fit beside it they wrap to the right of a second line.
+              className: '@max-[420px]/ask:flex-auto @max-[420px]/ask:justify-start',
               title: canExecute
                 ? undefined
                 : t`Execution needs the complete plan. Request changes, or choose Exit Plan mode only.`,
@@ -170,6 +171,7 @@ export function PlanDecisionControls({
             onClick={() => respond(false)}
             trailing={<AskKeyChip askKey="Enter" />}
             variant="default"
+            wrap
           >
             <DropdownMenuRadioGroup onValueChange={setMode} value={mode}>
               {modes.map((value) => (
@@ -205,7 +207,7 @@ export function PlanDecisionControls({
         ))}
         {canClear ? (
           <label
-            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-meta text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:px-2.5"
+            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-meta text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:px-2.5 @max-[420px]/ask:whitespace-normal"
             data-slot="plan-clear-context"
           >
             <Checkbox

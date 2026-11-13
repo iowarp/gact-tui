@@ -245,10 +245,11 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation's height; a visual answer gets more.
+          // The card stops at 45% of the conversation's height, but never below 20rem (its
+          // options grow with the interface size) nor past 75%. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[calc(var(--conversation-h,100dvh)*0.45)]',
+            : 'max-h-[min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -276,7 +277,8 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface &&
+                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
