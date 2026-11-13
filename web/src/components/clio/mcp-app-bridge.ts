@@ -25,6 +25,8 @@ export type McpAppClient = Pick<
   | 'postMcpAppMessage'
   | 'saveMcpAppDownload'
   | 'openBrowserPage'
+  | 'updateMcpAppTools'
+  | 'postMcpAppToolResult'
 >;
 
 export interface JsonRpcMessage {

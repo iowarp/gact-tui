@@ -50,6 +50,8 @@ function repository() {
     })),
     pinMcpApp: vi.fn(async () => ({ display_mode: 'inline' as const, pinned: true })),
     closeMcpApp: vi.fn(async () => undefined),
+    updateMcpAppTools: vi.fn(async () => ({ offered: [] })),
+    postMcpAppToolResult: vi.fn(async () => ({})),
   };
 }
 

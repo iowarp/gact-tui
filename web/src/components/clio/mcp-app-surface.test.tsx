@@ -42,6 +42,8 @@ function repository() {
         ({ id: 'page_1', title: 'Example', host: 'example.org' }) as unknown as BrowserPage,
     ),
     closeMcpApp: vi.fn(async () => undefined),
+    updateMcpAppTools: vi.fn(async () => ({ offered: [] })),
+    postMcpAppToolResult: vi.fn(async () => ({})),
   };
 }
 
