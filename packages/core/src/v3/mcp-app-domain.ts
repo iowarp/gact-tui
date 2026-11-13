@@ -1,3 +1,5 @@
+import type { McpAppReopenResult } from './mcp-app-reopen.js';
+
 /** Where an App's one frame is: the card (`inline`) or a workbench tab (`fullscreen`). */
 export type McpAppDisplayMode = 'inline' | 'fullscreen';
 
@@ -53,3 +55,13 @@ export interface McpAppMessageAcknowledgement {
   delivery: string;
   state: string;
 }
+
+/** A call that opens an MCP App: a server, one of its tools and the arguments. */
+export interface McpAppCall {
+  server: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+}
+
+/** A view opened from a call (the reopen answer), with the server tools the view may call. */
+export type McpAppOpenFromCallResult = McpAppReopenResult & { serverTools: string[] };

@@ -89,4 +89,41 @@ describe('ClioRepository MCP App adapter', () => {
       ],
     ]);
   });
+
+  it('opens a view from a call and decodes a typed failure with the call to retry', async () => {
+    const part = {
+      id: 'p1',
+      type: 'mcp_app',
+      app_instance_id: 'app_1',
+      data_ref: 'ref_1',
+      resource_uri: 'ui://clock/view',
+      source_server: 'clock',
+      tool_name: 'clock_open',
+      metadata: {},
+    };
+    const call = { server: 'clock', tool: 'open', arguments: { time: 3 } };
+    const transport = new RecordingTransport([
+      { part, saved_call: call, server_tools: ['open', 'set_time'] },
+      { error: { reason: 'tool_unavailable', detail: 'not connected' }, saved_call: call },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toMatchObject({
+      ok: true,
+      view: { appInstanceId: 'app_1', dataRef: 'ref_1', sourceServer: 'clock' },
+      savedCall: { server: 'clock', tool: 'open', arguments: { time: 3 } },
+      serverTools: ['open', 'set_time'],
+    });
+    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toMatchObject({
+      ok: false,
+      reason: 'tool_unavailable',
+      detail: 'not connected',
+      serverTools: [],
+    });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'POST',
+      path: '/v1/sessions/s%201/mcp-apps/open',
+      body: call,
+    });
+  });
 });

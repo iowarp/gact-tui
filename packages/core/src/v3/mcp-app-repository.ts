@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import type {
+  McpAppCall,
   McpAppDescriptor,
   McpAppDisplayMode,
   McpAppIdentity,
   McpAppMessageAcknowledgement,
   McpAppPlacementState,
   McpAppSavedDownload,
+  McpAppOpenFromCallResult,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
@@ -52,6 +54,8 @@ const acknowledgementSchema = z.object({
   delivery: z.string(),
   state: z.string(),
 });
+
+const serverToolsSchema = z.array(z.string()).default([]);
 
 function appPath(identity: McpAppIdentity, suffix = ''): string {
   const session = encodeURIComponent(identity.sessionId);
@@ -166,6 +170,29 @@ export class McpAppRepository extends InteractionRepository {
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
       body: { app_instance_id: appInstanceId },
       decode: decodeMcpAppReopen,
+      signal,
+    });
+  }
+
+  /**
+   * Make a call that opens a view, for an A2UI surface (MA20). The answer is the
+   * reopen answer plus the server's tools the view may call.
+   */
+  public openMcpAppFromCall(
+    sessionId: string,
+    call: McpAppCall,
+    signal?: AbortSignal,
+  ): Promise<McpAppOpenFromCallResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/open`,
+      body: call,
+      decode: (value) => ({
+        ...decodeMcpAppReopen(value),
+        serverTools: serverToolsSchema.parse(
+          (value as { server_tools?: unknown } | null)?.server_tools,
+        ),
+      }),
       signal,
     });
   }
