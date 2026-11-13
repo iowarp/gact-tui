@@ -9,14 +9,15 @@ function box(element: Element, left: number, top: number, width: number, height:
 }
 
 function fakeContext() {
-  return {
+  const calls = {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
-  } as unknown as CanvasRenderingContext2D & Record<string, ReturnType<typeof vi.fn>>;
+  };
+  return { calls, context: calls as unknown as CanvasRenderingContext2D };
 }
 
 afterEach(() => {
@@ -61,14 +62,14 @@ describe('paintAppFrames', () => {
     registerViewSnapshot(c!, () =>
       Promise.resolve({ error: { reason: 'view_not_readable', message: 'another origin' } }),
     );
-    const context = fakeContext();
+    const { calls, context } = fakeContext();
 
     await paintAppFrames(context, target, 2, 2);
 
     expect(snapshot).toHaveBeenCalledWith({ scale: 2, maxSide: 4096 });
-    expect(context.drawImage).toHaveBeenCalledTimes(1);
-    expect(context.drawImage.mock.calls[0]!.slice(1)).toEqual([40, 20, 800, 600]);
-    const texts = context.fillText.mock.calls.map((call) => call[0] as string);
+    expect(calls.drawImage).toHaveBeenCalledTimes(1);
+    expect(calls.drawImage.mock.calls[0]!.slice(1)).toEqual([40, 20, 800, 600]);
+    const texts = calls.fillText.mock.calls.map((call: unknown[]) => call[0] as string);
     expect(texts).toEqual([
       'Not in this picture: frame_cross_origin',
       'View not captured: the view has not finished loading (view_not_ready).',
