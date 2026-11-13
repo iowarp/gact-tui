@@ -43,7 +43,7 @@ import {
 } from './composer-suggestion-popup';
 import { useHoveredRow } from './use-hovered-row';
 import { identifierInputProps } from '@/lib/identifier-input';
-import { t, ph } from '@lingui/core/macro';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** The local-file group: its list loads only while the group is open. */
 const WORKSPACE_FILES = t`Workspace files`;
@@ -375,6 +375,7 @@ export function ClioComposerReferenceMenu({
     summons,
     trimmedQuery,
   ]);
+  const unsupported = listing.unsupported;
 
   // Rows the contract refused are reported through the shared degradation
   // catalog rather than returned, so the menu counts them while it is open.
@@ -731,16 +732,18 @@ export function ClioComposerReferenceMenu({
         >
           {unreadable > 0 ? (
             <span>
-              {unreadable === 1
-                ? '1 reference could not be read from this workspace.'
-                : `${unreadable} references could not be read from this workspace.`}
+              {plural(unreadable, {
+                one: '# reference could not be read from this workspace.',
+                other: '# references could not be read from this workspace.',
+              })}
             </span>
           ) : null}
           {listing.unsupported > 0 ? (
             <span>
-              {listing.unsupported === 1
-                ? '1 reference needs a newer version of this app.'
-                : `${listing.unsupported} references need a newer version of this app.`}
+              {plural(unsupported, {
+                one: '# reference needs a newer version of this app.',
+                other: '# references need a newer version of this app.',
+              })}
             </span>
           ) : null}
         </div>

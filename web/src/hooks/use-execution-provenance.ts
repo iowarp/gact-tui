@@ -149,7 +149,7 @@ export function executionProvenanceDegradation({
   if (executionError) {
     return unavailable(
       'execution_provenance_unavailable',
-      executionError.message || `${provider} execution provenance is unavailable.`,
+      executionError.message || t`${provider} execution provenance is unavailable.`,
       provider,
     );
   }

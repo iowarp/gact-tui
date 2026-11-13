@@ -1208,6 +1208,10 @@ msgstr "{agent} may use this account"
 msgid "{agent} may use this account for delegated work"
 msgstr "{agent} may use this account for delegated work"
 
+#: src/components/clio/agent-question-dialog.tsx
+msgid "{agent} needs your answer to continue."
+msgstr "{agent} needs your answer to continue."
+
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} no longer has this SSH host saved. Choose the host again, then deploy."
 msgstr "{agent} no longer has this SSH host saved. Choose the host again, then deploy."
@@ -1261,6 +1265,14 @@ msgstr "{agent} tries"
 #: src/tauri/managed-backend.ts
 msgid "{agent} update failed."
 msgstr "{agent} update failed."
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the app is {installed}, expected {target}."
+msgstr "{agent} update is incomplete: the app is {installed}, expected {target}."
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the runtime is {runtime}, expected {target}."
+msgstr "{agent} update is incomplete: the runtime is {runtime}, expected {target}."
 
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
@@ -2244,6 +2256,10 @@ msgstr "{label} is installed but not running. {hint}"
 msgid "{label} is installed but your account is not allowed to use it."
 msgstr "{label} is installed but your account is not allowed to use it."
 
+#: src/lib/html-in-browser.ts
+msgid "{label} is no longer on disk."
+msgstr "{label} is no longer on disk."
+
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{label} is not available"
 msgstr "{label} is not available"
@@ -2251,6 +2267,10 @@ msgstr "{label} is not available"
 #: src/lib/connection.ts
 msgid "{label} is not known on this computer. Remove it and deploy it again to reconnect."
 msgstr "{label} is not known on this computer. Remove it and deploy it again to reconnect."
+
+#: src/lib/html-in-browser.ts
+msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
+msgstr "{label} is outside the folders this conversation may read, so the browser can't open it."
 
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
@@ -3025,6 +3045,10 @@ msgstr "{profiles, plural, one {# profile} other {# profiles}}"
 msgid "{protocol} surface"
 msgstr "{protocol} surface"
 
+#: src/hooks/use-execution-provenance.ts
+msgid "{provider} execution provenance is unavailable."
+msgstr "{provider} execution provenance is unavailable."
+
 #: src/components/ai-elements/model-selector.tsx
 msgid "{provider} logo"
 msgstr "{provider} logo"
@@ -3209,6 +3233,14 @@ msgstr "{running} running"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{runningAtQuit, plural, one {# conversation is still running. Quitting stops it and {product}'s local services.} other {# conversations are still running. Quitting stops them and {product}'s local services.}}"
 msgstr "{runningAtQuit, plural, one {# conversation is still running. Quitting stops it and {product}'s local services.} other {# conversations are still running. Quitting stops them and {product}'s local services.}}"
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is not installed."
+msgstr "{runtime} is not installed."
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is ready."
+msgstr "{runtime} is ready."
 
 #: src/components/clio/composer-queue.tsx
 msgid "{saved, plural, one {# saved draft} other {# saved drafts}}"
@@ -3813,6 +3845,10 @@ msgstr "{unknown, plural, one {# unrecognized request} other {# unrecognized req
 msgid "{unknownCount, plural, =1 {Unrecognized request} other {# unrecognized requests}}"
 msgstr "{unknownCount, plural, =1 {Unrecognized request} other {# unrecognized requests}}"
 
+#: src/components/clio/composer-references.tsx
+msgid "{unreadable, plural, one {# reference could not be read from this workspace.} other {# references could not be read from this workspace.}}"
+msgstr "{unreadable, plural, one {# reference could not be read from this workspace.} other {# references could not be read from this workspace.}}"
+
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount, plural, one {# task needs inspection} other {# tasks need inspection}}"
 msgstr "{unresolvedWorkCount, plural, one {# task needs inspection} other {# tasks need inspection}}"
@@ -3820,6 +3856,10 @@ msgstr "{unresolvedWorkCount, plural, one {# task needs inspection} other {# tas
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount} to inspect"
 msgstr "{unresolvedWorkCount} to inspect"
+
+#: src/components/clio/composer-references.tsx
+msgid "{unsupported, plural, one {# reference needs a newer version of this app.} other {# references need a newer version of this app.}}"
+msgstr "{unsupported, plural, one {# reference needs a newer version of this app.} other {# references need a newer version of this app.}}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{updates, plural, one {received # update} other {received # updates}}"
@@ -17400,6 +17440,14 @@ msgstr "Interactive Mermaid diagram"
 msgid "Interactive question"
 msgstr "Interactive question"
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH testing requires {product}."
+msgstr "Interactive SSH testing requires {product}."
+
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH transport requires {product}."
+msgstr "Interactive SSH transport requires {product}."
+
 #: src/components/clio/surface-toolbar.tsx
 msgid "Interactive surface"
 msgstr "Interactive surface"
@@ -18224,6 +18272,14 @@ msgstr "Link folder"
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link selected files"
 msgstr "Link selected files"
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link the selected files to add them to a message."
+msgstr "Link the selected files to add them to a message."
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link this folder to add its files to a message."
+msgstr "Link this folder to add its files to a message."
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link this source to add its files to a message."
@@ -23649,6 +23705,10 @@ msgstr "Opening"
 msgid "Opening {name}"
 msgstr "Opening {name}"
 
+#: src/tauri/documents.ts
+msgid "Opening a folder requires the desktop application."
+msgstr "Opening a folder requires the desktop application."
+
 #: src/components/clio/more-details-panel.tsx
 msgid "Opening a side conversation…"
 msgstr "Opening a side conversation…"
@@ -23661,6 +23721,14 @@ msgstr "Opening another view needs a live workspace."
 #: src/routes/workspace-page.tsx
 msgid "Opening conversation"
 msgstr "Opening conversation"
+
+#: src/tauri/documents.ts
+msgid "Opening desktop apps requires the desktop application."
+msgstr "Opening desktop apps requires the desktop application."
+
+#: src/tauri/workspace-terminal.ts
+msgid "Opening folders is available in the installed desktop app."
+msgstr "Opening folders is available in the installed desktop app."
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Opening GitHub…"
@@ -29989,6 +30057,10 @@ msgstr "Section"
 msgid "Sections"
 msgstr "Sections"
 
+#: src/tauri/secure-credentials.ts
+msgid "Secure credential storage is unavailable."
+msgstr "Secure credential storage is unavailable."
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
 msgstr "See all"
@@ -32125,6 +32197,14 @@ msgstr "SSH password"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "SSH private key file"
 msgstr "SSH private key file"
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH profiles can be saved only in {product}."
+msgstr "SSH profiles can be saved only in {product}."
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH routes can be saved only in {product}."
+msgstr "SSH routes can be saved only in {product}."
 
 #: src/components/clio/connected-ssh-host-picker.tsx
 msgid "SSH starts on the connected {agent}. Add hops to reach the computer hosting the API."
@@ -34286,6 +34366,10 @@ msgstr "The linked view is unavailable."
 msgid "The live view ended."
 msgstr "The live view ended."
 
+#: src/tauri/clio-update-verification.ts
+msgid "The local {agent} service did not report its running version."
+msgstr "The local {agent} service did not report its running version."
+
 #: src/tauri/desktop-updater.ts
 msgid "The local installation needs repair"
 msgstr "The local installation needs repair"
@@ -35066,6 +35150,10 @@ msgstr "The side conversation is not open."
 msgid "The side conversation was not closed"
 msgstr "The side conversation was not closed"
 
+#: src/tauri/oauth.ts
+msgid "The sign-in service did not return a sign-in state."
+msgstr "The sign-in service did not return a sign-in state."
+
 #: src/components/clio/agent-item-details.tsx
 msgid "The skill couldn’t be read"
 msgstr "The skill couldn’t be read"
@@ -35154,6 +35242,10 @@ msgstr "the table has no column named in the query."
 msgid "the table is larger than this server will query."
 msgstr "the table is larger than this server will query."
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "The target is not an SSH host."
+msgstr "The target is not an SSH host."
+
 #: src/components/clio/task-flow-state.ts
 msgid "The task {execution}, but the checkpoint still says running."
 msgstr "The task {execution}, but the checkpoint still says running."
@@ -35206,9 +35298,25 @@ msgstr "The update channel changed. Check for updates again."
 msgid "The update service did not respond."
 msgstr "The update service did not respond."
 
+#: src/tauri/clio-update-verification.ts
+msgid "The update target was not retained. Check {agent} versions before retrying."
+msgstr "The update target was not retained. Check {agent} versions before retrying."
+
 #: src/components/clio/version-check-issue.ts
 msgid "The update was rejected: its signature did not match."
 msgstr "The update was rejected: its signature did not match."
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local {agent} service is not ready."
+msgstr "The updated local {agent} service is not ready."
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service could not start: {detail}"
+msgstr "The updated local service could not start: {detail}"
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service did not become ready in time."
+msgstr "The updated local service did not become ready in time."
 
 #: src/components/clio/composer-attachments.tsx
 msgid "The upload failed."
@@ -37292,6 +37400,7 @@ msgstr "units {unit}"
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr "unknown"
 
@@ -39401,6 +39510,10 @@ msgstr "Workspace settings…"
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Workspace sources"
 msgstr "Workspace sources"
+
+#: src/tauri/workspace-terminal.ts
+msgid "Workspace terminals are available in the installed desktop app."
+msgstr "Workspace terminals are available in the installed desktop app."
 
 #: src/components/clio/archived-sessions-dialog.tsx
 #: src/components/clio/command-menu-result-groups.tsx

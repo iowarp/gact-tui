@@ -17,7 +17,8 @@
 //     words starting with a capital, or ending a sentence, or a single
 //     capitalized word assigned to a copy-shaped property (`label: 'Save'`).
 // Class lists, comparisons, object keys, imports, types, console output and
-// thrown errors are not copy.
+// thrown errors are not copy, except in web/src/tauri/: the desktop bridge's
+// errors are shown to the person (update reasons, toasts, status lines).
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -163,6 +164,12 @@ const EXCLUDED_PREFIXES = [
   'web/src/theme/',
 ];
 
+/** Files whose thrown error messages are shown to the person, so they are copy. */
+const SHOWN_ERROR_FILES = /(?:^|\/)web\/src\/tauri\//u;
+
+/** Set while scanning a file in SHOWN_ERROR_FILES. */
+let thrownErrorsAreCopy = false;
+
 const EXCLUDED_FILES = new Set([
   // Language names are written in their own language and never translated.
   'web/src/i18n/locales.ts',
@@ -272,6 +279,7 @@ function nonCopyContext(node) {
       return 'property name';
     }
     if (ts.isNewExpression(parent) && calleeName(parent.expression)?.endsWith('Error')) {
+      if (thrownErrorsAreCopy) return undefined;
       return 'thrown error';
     }
     if (ts.isCallExpression(parent) && parent.expression !== child) {
@@ -470,6 +478,13 @@ function templateReadsAsCopy(node) {
   const fixed = parts.join('');
   // One capitalized word and a value: `Removed ${name}`, `Version ${version}`.
   if (/^\s*\p{Lu}\p{Ll}{2,}[,:]?\s*$/u.test(fixed)) return true;
+  // A sentence led by a value: `${agent} update is incomplete: the app is ${v}.`
+  if (
+    node.head.text === '' &&
+    /^ \p{Ll}{2,} \p{Ll}{2,}\b/u.test(parts[1] ?? '') &&
+    /[.?!]\s*$/u.test(fixed)
+  )
+    return true;
   if (!/\b\p{L}{3,}\b/u.test(parts.join(' '))) return false;
   if (/[/=?&#:.[\]{}<>@_\\]|--|\bvar\(|\b(?:px|rem|em|deg|ms)\b/u.test(fixed)) return false;
   // Joined identifiers (`clio-${id}`) and class lists (`text-sm ${tone}`).
@@ -638,6 +653,8 @@ export function findUnlocalizedCopy(source, fileName = 'file.tsx') {
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, kind);
   const ignored = ignoredLines(source);
   const found = [];
+  const previous = thrownErrorsAreCopy;
+  thrownErrorsAreCopy = SHOWN_ERROR_FILES.test(fileName.replaceAll('\\', '/'));
   const report = (node, text) => {
     const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
     if (ignored.has(line)) return;
@@ -659,7 +676,11 @@ export function findUnlocalizedCopy(source, fileName = 'file.tsx') {
     }
     ts.forEachChild(node, visit);
   };
-  visit(sourceFile);
+  try {
+    visit(sourceFile);
+  } finally {
+    thrownErrorsAreCopy = previous;
+  }
   return found;
 }
 

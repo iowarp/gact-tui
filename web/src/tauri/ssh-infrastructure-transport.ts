@@ -1,9 +1,12 @@
+import { t } from '@lingui/core/macro';
 import type { InfrastructureTarget, SshRoute } from '@clio/core/v3';
 import type { ClioRepository } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { trackInfrastructureRecovery } from './ssh-recovery-progress';
 import { infrastructureSocket, waitForAttachment } from './ssh-transport-attachment';
+
+const { product } = vocab;
 
 let core: Promise<typeof import('@tauri-apps/api/core')> | undefined;
 
@@ -94,7 +97,7 @@ const attachments = new Map<string, Promise<SshTransportStatus>>();
 
 /** Open the same interactive OpenSSH PTY used by deployment, without attaching it to CLIO. */
 export async function openSshConnectionTest(route: SshRoute): Promise<SshConnectionTest> {
-  if (!inTauri()) throw new Error(`Interactive SSH testing requires ${vocab.product}.`);
+  if (!inTauri()) throw new Error(t`Interactive SSH testing requires ${product}.`);
   const targetId = `ssh-test-${crypto.randomUUID()}`;
   const { invoke } = await tauriCore();
   const status = await invoke<SshTransportStatus>('ssh_transport_open', {
@@ -140,8 +143,8 @@ async function attachTransport(
   target: InfrastructureTarget,
   options: { interactive?: boolean },
 ): Promise<SshTransportStatus> {
-  if (!inTauri()) throw new Error(`Interactive SSH transport requires ${vocab.product}.`);
-  if (target.kind !== 'ssh' || !target.ssh) throw new Error('The target is not an SSH host.');
+  if (!inTauri()) throw new Error(t`Interactive SSH transport requires ${product}.`);
+  if (target.kind !== 'ssh' || !target.ssh) throw new Error(t`The target is not an SSH host.`);
   const routeKey = JSON.stringify(target.ssh);
   const controllerKey = JSON.stringify([new URL(endpoint).href, token ?? '']);
   const existing = bridges.get(target.id);

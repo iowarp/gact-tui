@@ -25,8 +25,8 @@ export type BrowserFileTarget = { path: string } | { artifact_id: string };
 export function browserFileFailure(message: string, label: string): string {
   const [, code = '', rest = message] = /^([a-z][a-z0-9_]*):\s*(.*)$/su.exec(message) ?? [];
   if (code === 'browser_file_outside_roots')
-    return `${label} is outside the folders this conversation may read, so the browser can't open it.`;
-  if (code === 'browser_file_missing') return `${label} is no longer on disk.`;
+    return t`${label} is outside the folders this conversation may read, so the browser can't open it.`;
+  if (code === 'browser_file_missing') return t`${label} is no longer on disk.`;
   if (code === 'browser_file_artifact_unknown') return t`No file is recorded for ${label}.`;
   const sentence = rest.trim() || t`Could not open the file in the browser.`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);

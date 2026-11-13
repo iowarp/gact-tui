@@ -1208,6 +1208,10 @@ msgstr "Ο {agent} μπορεί να χρησιμοποιεί αυτόν τον 
 msgid "{agent} may use this account for delegated work"
 msgstr "Ο {agent} μπορεί να χρησιμοποιεί αυτόν τον λογαριασμό για ανατεθειμένη εργασία"
 
+#: src/components/clio/agent-question-dialog.tsx
+msgid "{agent} needs your answer to continue."
+msgstr "{agent}: απαιτείται η απάντησή σας για να συνεχιστεί η εργασία."
+
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} no longer has this SSH host saved. Choose the host again, then deploy."
 msgstr "Ο {agent} δεν έχει πλέον αποθηκευμένο αυτόν τον κεντρικό υπολογιστή SSH. Επιλέξτε ξανά τον κεντρικό υπολογιστή και, στη συνέχεια, κάντε ανάπτυξη."
@@ -1261,6 +1265,14 @@ msgstr "Προσπάθειες του {agent}"
 #: src/tauri/managed-backend.ts
 msgid "{agent} update failed."
 msgstr "Η ενημέρωση του {agent} απέτυχε."
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the app is {installed}, expected {target}."
+msgstr "{agent}: η ενημέρωση δεν ολοκληρώθηκε. Η εφαρμογή είναι στην έκδοση {installed}, ενώ αναμενόταν η {target}."
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the runtime is {runtime}, expected {target}."
+msgstr "{agent}: η ενημέρωση δεν ολοκληρώθηκε. Το περιβάλλον εκτέλεσης είναι στην έκδοση {runtime}, ενώ αναμενόταν η {target}."
 
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
@@ -2244,6 +2256,10 @@ msgstr "Το {label} είναι εγκατεστημένο αλλά δεν εκ�
 msgid "{label} is installed but your account is not allowed to use it."
 msgstr "Το {label} είναι εγκατεστημένο, αλλά ο λογαριασμός σας δεν επιτρέπεται να το χρησιμοποιήσει."
 
+#: src/lib/html-in-browser.ts
+msgid "{label} is no longer on disk."
+msgstr "{label}: δεν υπάρχει πλέον στον δίσκο."
+
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{label} is not available"
 msgstr "Το {label} δεν είναι διαθέσιμο"
@@ -2251,6 +2267,10 @@ msgstr "Το {label} δεν είναι διαθέσιμο"
 #: src/lib/connection.ts
 msgid "{label} is not known on this computer. Remove it and deploy it again to reconnect."
 msgstr "Το {label} δεν είναι γνωστό σε αυτόν τον υπολογιστή. Αφαιρέστε το και αναπτύξτε το ξανά για επανασύνδεση."
+
+#: src/lib/html-in-browser.ts
+msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
+msgstr "{label}: βρίσκεται εκτός των φακέλων που μπορεί να διαβάσει αυτή η συνομιλία, οπότε το πρόγραμμα περιήγησης δεν μπορεί να το ανοίξει."
 
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
@@ -3025,6 +3045,10 @@ msgstr "{profiles, plural, one {# προφίλ} other {# προφίλ}}"
 msgid "{protocol} surface"
 msgstr "Επιφάνεια {protocol}"
 
+#: src/hooks/use-execution-provenance.ts
+msgid "{provider} execution provenance is unavailable."
+msgstr "{provider}: η προέλευση εκτέλεσης δεν είναι διαθέσιμη."
+
 #: src/components/ai-elements/model-selector.tsx
 msgid "{provider} logo"
 msgstr "Λογότυπο {provider}"
@@ -3209,6 +3233,14 @@ msgstr "{running} σε εκτέλεση"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{runningAtQuit, plural, one {# conversation is still running. Quitting stops it and {product}'s local services.} other {# conversations are still running. Quitting stops them and {product}'s local services.}}"
 msgstr "{runningAtQuit, plural, one {# συνομιλία εκτελείται ακόμη. Η έξοδος τη σταματά μαζί με τις τοπικές υπηρεσίες του {product}.} other {# συνομιλίες εκτελούνται ακόμη. Η έξοδος τις σταματά μαζί με τις τοπικές υπηρεσίες του {product}.}}"
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is not installed."
+msgstr "{runtime}: δεν είναι εγκατεστημένο."
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is ready."
+msgstr "{runtime}: έτοιμο."
 
 #: src/components/clio/composer-queue.tsx
 msgid "{saved, plural, one {# saved draft} other {# saved drafts}}"
@@ -3813,6 +3845,10 @@ msgstr "{unknown, plural, one {# μη αναγνωρισμένο αίτημα} o
 msgid "{unknownCount, plural, =1 {Unrecognized request} other {# unrecognized requests}}"
 msgstr "{unknownCount, plural, =1 {Μη αναγνωρισμένο αίτημα} other {# μη αναγνωρισμένα αιτήματα}}"
 
+#: src/components/clio/composer-references.tsx
+msgid "{unreadable, plural, one {# reference could not be read from this workspace.} other {# references could not be read from this workspace.}}"
+msgstr "{unreadable, plural, one {Δεν ήταν δυνατή η ανάγνωση # αναφοράς από αυτόν τον χώρο εργασίας.} other {Δεν ήταν δυνατή η ανάγνωση # αναφορών από αυτόν τον χώρο εργασίας.}}"
+
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount, plural, one {# task needs inspection} other {# tasks need inspection}}"
 msgstr "{unresolvedWorkCount, plural, one {# εργασία χρειάζεται έλεγχο} other {# εργασίες χρειάζονται έλεγχο}}"
@@ -3820,6 +3856,10 @@ msgstr "{unresolvedWorkCount, plural, one {# εργασία χρειάζεται
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount} to inspect"
 msgstr "{unresolvedWorkCount} για έλεγχο"
+
+#: src/components/clio/composer-references.tsx
+msgid "{unsupported, plural, one {# reference needs a newer version of this app.} other {# references need a newer version of this app.}}"
+msgstr "{unsupported, plural, one {# αναφορά χρειάζεται νεότερη έκδοση της εφαρμογής.} other {# αναφορές χρειάζονται νεότερη έκδοση της εφαρμογής.}}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{updates, plural, one {received # update} other {received # updates}}"
@@ -17400,6 +17440,14 @@ msgstr "Διαδραστικό διάγραμμα Mermaid"
 msgid "Interactive question"
 msgstr "Διαδραστική ερώτηση"
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH testing requires {product}."
+msgstr "Η διαδραστική δοκιμή SSH απαιτεί την εφαρμογή {product}."
+
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH transport requires {product}."
+msgstr "Η διαδραστική μεταφορά SSH απαιτεί την εφαρμογή {product}."
+
 #: src/components/clio/surface-toolbar.tsx
 msgid "Interactive surface"
 msgstr "Διαδραστική επιφάνεια"
@@ -18224,6 +18272,14 @@ msgstr "Διασύνδεση φακέλου"
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link selected files"
 msgstr "Διασύνδεση επιλεγμένων αρχείων"
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link the selected files to add them to a message."
+msgstr "Διασυνδέστε τα επιλεγμένα αρχεία για να τα προσθέσετε σε ένα μήνυμα."
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link this folder to add its files to a message."
+msgstr "Διασυνδέστε αυτόν τον φάκελο για να προσθέσετε τα αρχεία του σε ένα μήνυμα."
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link this source to add its files to a message."
@@ -23649,6 +23705,10 @@ msgstr "Άνοιγμα"
 msgid "Opening {name}"
 msgstr "Άνοιγμα {name}"
 
+#: src/tauri/documents.ts
+msgid "Opening a folder requires the desktop application."
+msgstr "Για το άνοιγμα φακέλου απαιτείται η εφαρμογή υπολογιστή."
+
 #: src/components/clio/more-details-panel.tsx
 msgid "Opening a side conversation…"
 msgstr "Άνοιγμα παράλληλης συνομιλίας…"
@@ -23661,6 +23721,14 @@ msgstr "Το άνοιγμα άλλης προβολής απαιτεί ενερ�
 #: src/routes/workspace-page.tsx
 msgid "Opening conversation"
 msgstr "Άνοιγμα συνομιλίας"
+
+#: src/tauri/documents.ts
+msgid "Opening desktop apps requires the desktop application."
+msgstr "Για το άνοιγμα σε άλλες εφαρμογές απαιτείται η εφαρμογή υπολογιστή."
+
+#: src/tauri/workspace-terminal.ts
+msgid "Opening folders is available in the installed desktop app."
+msgstr "Το άνοιγμα φακέλων είναι διαθέσιμο μόνο στην εγκατεστημένη εφαρμογή υπολογιστή."
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Opening GitHub…"
@@ -29989,6 +30057,10 @@ msgstr "Ενότητα"
 msgid "Sections"
 msgstr "Ενότητες"
 
+#: src/tauri/secure-credentials.ts
+msgid "Secure credential storage is unavailable."
+msgstr "Ο ασφαλής χώρος αποθήκευσης διαπιστευτηρίων δεν είναι διαθέσιμος."
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
 msgstr "Προβολή όλων"
@@ -32125,6 +32197,14 @@ msgstr "Κωδικός πρόσβασης SSH"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "SSH private key file"
 msgstr "Αρχείο ιδιωτικού κλειδιού SSH"
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH profiles can be saved only in {product}."
+msgstr "Τα προφίλ SSH αποθηκεύονται μόνο στην εφαρμογή {product}."
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH routes can be saved only in {product}."
+msgstr "Οι διαδρομές SSH αποθηκεύονται μόνο στην εφαρμογή {product}."
 
 #: src/components/clio/connected-ssh-host-picker.tsx
 msgid "SSH starts on the connected {agent}. Add hops to reach the computer hosting the API."
@@ -34286,6 +34366,10 @@ msgstr "Η συνδεδεμένη προβολή δεν είναι διαθέσ�
 msgid "The live view ended."
 msgstr "Η ζωντανή προβολή τελείωσε."
 
+#: src/tauri/clio-update-verification.ts
+msgid "The local {agent} service did not report its running version."
+msgstr "Η τοπική υπηρεσία {agent} δεν ανέφερε την έκδοση που εκτελεί."
+
 #: src/tauri/desktop-updater.ts
 msgid "The local installation needs repair"
 msgstr "Η τοπική εγκατάσταση χρειάζεται επισκευή"
@@ -35066,6 +35150,10 @@ msgstr "Η παράπλευρη συνομιλία δεν είναι ανοιχ�
 msgid "The side conversation was not closed"
 msgstr "Η πλευρική συνομιλία δεν έκλεισε"
 
+#: src/tauri/oauth.ts
+msgid "The sign-in service did not return a sign-in state."
+msgstr "Η υπηρεσία σύνδεσης δεν επέστρεψε κατάσταση σύνδεσης."
+
 #: src/components/clio/agent-item-details.tsx
 msgid "The skill couldn’t be read"
 msgstr "Δεν ήταν δυνατή η ανάγνωση της δεξιότητας"
@@ -35154,6 +35242,10 @@ msgstr "ο πίνακας δεν έχει καμία στήλη από όσες 
 msgid "the table is larger than this server will query."
 msgstr "ο πίνακας είναι μεγαλύτερος από όσο μπορεί να αναζητήσει αυτός ο διακομιστής."
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "The target is not an SSH host."
+msgstr "Ο προορισμός δεν είναι κεντρικός υπολογιστής SSH."
+
 #: src/components/clio/task-flow-state.ts
 msgid "The task {execution}, but the checkpoint still says running."
 msgstr "Η εργασία {execution}, αλλά το σημείο ελέγχου εξακολουθεί να δείχνει σε εκτέλεση."
@@ -35206,9 +35298,25 @@ msgstr "Το κανάλι ενημερώσεων άλλαξε. Ελέγξτε ξ
 msgid "The update service did not respond."
 msgstr "Η υπηρεσία ενημερώσεων δεν απάντησε."
 
+#: src/tauri/clio-update-verification.ts
+msgid "The update target was not retained. Check {agent} versions before retrying."
+msgstr "Η έκδοση-στόχος της ενημέρωσης δεν διατηρήθηκε. Ελέγξτε τις εκδόσεις της υπηρεσίας {agent} πριν δοκιμάσετε ξανά."
+
 #: src/components/clio/version-check-issue.ts
 msgid "The update was rejected: its signature did not match."
 msgstr "Η ενημέρωση απορρίφθηκε: η υπογραφή της δεν ταίριαζε."
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local {agent} service is not ready."
+msgstr "Η ενημερωμένη τοπική υπηρεσία {agent} δεν είναι έτοιμη."
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service could not start: {detail}"
+msgstr "Η ενημερωμένη τοπική υπηρεσία δεν μπόρεσε να ξεκινήσει: {detail}"
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service did not become ready in time."
+msgstr "Η ενημερωμένη τοπική υπηρεσία δεν έγινε έτοιμη εγκαίρως."
 
 #: src/components/clio/composer-attachments.tsx
 msgid "The upload failed."
@@ -37292,6 +37400,7 @@ msgstr "μονάδες {unit}"
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr "άγνωστο"
 
@@ -39401,6 +39510,10 @@ msgstr "Ρυθμίσεις χώρου εργασίας…"
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Workspace sources"
 msgstr "Πηγές χώρου εργασίας"
+
+#: src/tauri/workspace-terminal.ts
+msgid "Workspace terminals are available in the installed desktop app."
+msgstr "Τα τερματικά χώρου εργασίας είναι διαθέσιμα μόνο στην εγκατεστημένη εφαρμογή υπολογιστή."
 
 #: src/components/clio/archived-sessions-dialog.tsx
 #: src/components/clio/command-menu-result-groups.tsx

@@ -91,7 +91,7 @@ function QuestionDialogBody({
           ? t`Answer when ready. ${ph({ agent: vocab.agent })} can continue working and will receive your answer automatically.`
           : interaction.payload?.response_mode === 'async'
             ? t`Answer when ready. ${ph({ agent: vocab.agent })} can continue working; your answer enters the message queue.`
-            : `${vocab.agent} needs your answer to continue.`}
+            : t`${ph({ agent: vocab.agent })} needs your answer to continue.`}
       </p>
       <QuestionResponse
         interaction={interaction}

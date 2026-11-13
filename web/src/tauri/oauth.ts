@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { invoke } from '@tauri-apps/api/core';
 import { openExternalUrl } from './external-url';
 
@@ -21,7 +22,7 @@ export async function receiveBrowserSignIn<T extends { authorization_url: string
     options.signal.throwIfAborted();
     if (!flow.authorization_url) return;
     const state = new URL(flow.authorization_url).searchParams.get('state');
-    if (!state) throw new Error('The sign-in service did not return a state');
+    if (!state) throw new Error(t`The sign-in service did not return a sign-in state.`);
     await openExternalUrl(flow.authorization_url);
     const callback = await invoke<string>('storage_oauth_receive', {
       id: receiver.id,
