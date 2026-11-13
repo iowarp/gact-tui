@@ -29,6 +29,9 @@ import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 const BrowserSurface = lazy(() =>
   import('./browser-surface').then((module) => ({ default: module.BrowserSurface })),
 );
+const McpAppTabPanel = lazy(() =>
+  import('./mcp-app-reopen').then((module) => ({ default: module.McpAppRestoringTab })),
+);
 const SearchResultsTab = lazy(() =>
   import('./search-results-tab').then((module) => ({ default: module.SearchResultsTab })),
 );
@@ -409,6 +412,12 @@ export function WorkbenchTabContent({
       );
     case 'variant-try':
       return <WorkbenchVariantTryTab tab={tab} />;
+    case 'mcp-app':
+      return (
+        <Suspense fallback={<CanvasLoading label="Opening the view" />}>
+          <McpAppTabPanel onReplaceTab={onReplaceTab} target={tab} />
+        </Suspense>
+      );
     default:
       return assertNever(tab);
   }

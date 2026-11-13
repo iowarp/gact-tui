@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import type {
   McpAppDescriptor,
+  McpAppDisplayMode,
   McpAppIdentity,
   McpAppMessageAcknowledgement,
+  McpAppPlacementState,
+  McpAppSavedDownload,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
@@ -19,6 +22,24 @@ const descriptorSchema = z.object({
   tool_input: z.record(z.string(), z.unknown()).default({}),
   tool_result: z.record(z.string(), z.unknown()).default({}),
   sandbox_url: z.string().url(),
+  display_mode: z.enum(['inline', 'fullscreen']).default('inline'),
+  pinned: z.boolean().default(false),
+});
+
+const placementSchema = z.object({
+  display_mode: z.enum(['inline', 'fullscreen']),
+  pinned: z.boolean(),
+});
+
+const downloadSchema = z.object({
+  files: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      artifact_id: z.string(),
+      artifact_skipped: z.string().optional(),
+    }),
+  ),
 });
 
 const acknowledgementSchema = z.object({
@@ -114,6 +135,21 @@ export class McpAppRepository extends InteractionRepository {
     });
   }
 
+  /** Record where the App's one frame is (MA4); `fullscreen` pins the record (MA6). */
+  public setMcpAppDisplayMode(
+    identity: McpAppIdentity,
+    mode: McpAppDisplayMode,
+    signal?: AbortSignal,
+  ): Promise<McpAppPlacementState> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/display-mode'),
+      body: { mode },
+      decode: (value) => placementSchema.parse(value),
+      signal,
+    });
+  }
+
   /** Replay a view's saved opening call; a failed replay is a result, not a throw. */
   public reopenMcpApp(
     sessionId: string,
@@ -125,6 +161,36 @@ export class McpAppRepository extends InteractionRepository {
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
       body: { app_instance_id: appInstanceId },
       decode: decodeMcpAppReopen,
+      signal,
+    });
+  }
+
+  /** Pin or unpin an App mounted in an A2UI surface (MA5/MA6). */
+  public pinMcpApp(
+    identity: McpAppIdentity,
+    pinned: boolean,
+    signal?: AbortSignal,
+  ): Promise<McpAppPlacementState> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/pin'),
+      body: { pinned },
+      decode: (value) => placementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Save a view's `ui/download-file` contents into the session's workspace (MA16). */
+  public saveMcpAppDownload(
+    identity: McpAppIdentity,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<{ files: McpAppSavedDownload[] }> {
+    return this.transport.request({
+      method: 'POST',
+      path: appPath(identity, '/downloads'),
+      body: params,
+      decode: (value) => downloadSchema.parse(value),
       signal,
     });
   }

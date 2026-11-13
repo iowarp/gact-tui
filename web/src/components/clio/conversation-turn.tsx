@@ -24,6 +24,7 @@ import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
+import { useShownMcpAppIds } from './mcp-app-live-set';
 import { ActivityLane } from './conversation-activity-lane';
 import {
   IterationDetail,
@@ -59,7 +60,6 @@ interface ConversationTurnProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
-  activeMcpAppId?: string;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
   artifacts?: Record<string, Artifact>;
@@ -165,7 +165,6 @@ export function ConversationTurn({
   onOpenSubagent,
   subagents,
   interactions,
-  activeMcpAppId,
   mcpAppRepository,
   messageSessionId,
   artifacts = NO_ARTIFACTS,
@@ -175,6 +174,8 @@ export function ConversationTurn({
   messageAttentionIndex,
   flowCards = true,
 }: ConversationTurnProps) {
+  // Apps whose card shows something live stand apart from the folded activity.
+  const shownMcpApps = useShownMcpAppIds();
   const iterations = withWaitingCalls(
     withoutRestatedAnswers(recordedIterations, interactions),
     holdsWaitingCalls ? interactions : undefined,
@@ -215,7 +216,7 @@ export function ConversationTurn({
   );
   const hasActiveApp = iterations.some((iteration) =>
     iteration.activity.some(
-      (entry) => entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
+      (entry) => entry.kind === 'mcp_app' && shownMcpApps.has(entry.block.app_instance_id),
     ),
   );
   if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0)) {
@@ -241,7 +242,7 @@ export function ConversationTurn({
         });
       };
       iteration.activity.forEach((entry, index) => {
-        if (entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId) {
+        if (entry.kind === 'mcp_app' && shownMcpApps.has(entry.block.app_instance_id)) {
           appendSegment(index);
           sections.push({ kind: 'activity', iterations: group }, { kind: 'app', entry });
           group = [];
@@ -284,7 +285,6 @@ export function ConversationTurn({
             <McpAppActivity
               key={section.entry.id}
               entry={section.entry}
-              activeMcpAppId={activeMcpAppId}
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
             />
@@ -299,7 +299,6 @@ export function ConversationTurn({
               subagents={subagents}
               interactions={activityInteractions}
               onOpenSubagent={onOpenSubagent}
-              activeMcpAppId={activeMcpAppId}
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
               artifacts={artifacts}
@@ -327,7 +326,6 @@ export function ConversationTurn({
               showTasks
               subagents={subagents}
               interactions={interactions}
-              activeMcpAppId={activeMcpAppId}
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
               artifacts={artifacts}
@@ -403,7 +401,7 @@ export function ConversationTurn({
                 rowInputs={[
                   flowCards,
                   onOpenSubagent,
-                  activeMcpAppId,
+                  shownMcpApps,
                   mcpAppRepository,
                   messageSessionId,
                   artifacts,
@@ -424,7 +422,6 @@ export function ConversationTurn({
                       onOpenSubagent={onOpenSubagent}
                       subagents={subagents}
                       interactions={interactions}
-                      activeMcpAppId={activeMcpAppId}
                       mcpAppRepository={mcpAppRepository}
                       messageSessionId={messageSessionId}
                       artifacts={artifacts}

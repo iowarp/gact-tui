@@ -52,4 +52,39 @@ describe('ClioRepository MCP App adapter', () => {
     ]);
     expect(JSON.stringify(transport.requests)).not.toContain('<main>viewer</main>');
   });
+
+  it('moves, pins and saves downloads through the same capability', async () => {
+    const transport = new RecordingTransport([
+      { display_mode: 'fullscreen', pinned: true },
+      { display_mode: 'inline', pinned: true },
+      { files: [{ name: 'plot.svg', path: 'plot.svg', artifact_id: 'art_1' }] },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.setMcpAppDisplayMode(identity, 'fullscreen')).resolves.toEqual({
+      display_mode: 'fullscreen',
+      pinned: true,
+    });
+    await repository.pinMcpApp(identity, true);
+    const saved = await repository.saveMcpAppDownload(identity, { contents: [] });
+
+    expect(saved.files[0]?.path).toBe('plot.svg');
+    expect(transport.requests.map((request) => [request.method, request.path, request.body])).toEqual([
+      [
+        'PUT',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/display-mode?data_ref=opaque%20capability',
+        { mode: 'fullscreen' },
+      ],
+      [
+        'PUT',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/pin?data_ref=opaque%20capability',
+        { pinned: true },
+      ],
+      [
+        'POST',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/downloads?data_ref=opaque%20capability',
+        { contents: [] },
+      ],
+    ]);
+  });
 });

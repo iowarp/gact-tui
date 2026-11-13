@@ -1,8 +1,33 @@
 import { TransportError, type ClioRepository, type McpAppReopenResult } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatArguments, McpAppCard, McpAppReopenLine } from './mcp-app-reopen';
-import { setReopenedMcpApp } from './mcp-app-reopen-store';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  OPEN_MCP_APP_TAB_EVENT,
+  resetMcpAppLiveSet,
+  useMcpAppLiveSetStore,
+} from './mcp-app-live-set';
+import { McpAppReopenableCard, McpAppReopenLine, McpAppRestoringTab } from './mcp-app-reopen';
+import { formatArguments, setReopenedMcpApp } from './mcp-app-reopen-store';
+
+const restoringRepository = vi.hoisted(() => ({ current: undefined as unknown }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => restoringRepository.current }));
+
+class ManualResizeObserver {
+  constructor(private readonly callback: () => void) {
+    resizeObservers.add(this);
+  }
+  fire() {
+    this.callback();
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {
+    resizeObservers.delete(this);
+  }
+}
+const resizeObservers = new Set<ManualResizeObserver>();
+vi.stubGlobal('ResizeObserver', ManualResizeObserver);
 
 const savedCall = {
   server: 'boards',
@@ -29,7 +54,9 @@ const fresh: McpAppReopenResult = {
 function repository(results: McpAppReopenResult[]) {
   return {
     reopenMcpApp: vi.fn(async () => results.shift() as McpAppReopenResult),
-    mcpAppLive: vi.fn(async (identity: { appInstanceId: string }) => identity.appInstanceId !== 'app_1'),
+    mcpAppLive: vi.fn(
+      async (identity: { appInstanceId: string }) => identity.appInstanceId !== 'app_1',
+    ),
     mcpAppDescriptor: vi.fn(async (identity: { appInstanceId: string }) => {
       if (identity.appInstanceId === 'app_1') {
         throw new TransportError('MCP App instance not found', 404, 'not_found');
@@ -40,7 +67,9 @@ function repository(results: McpAppReopenResult[]) {
     readMcpAppResource: vi.fn(),
     updateMcpAppModelContext: vi.fn(),
     postMcpAppMessage: vi.fn(),
-    closeMcpApp: vi.fn(),
+    closeMcpApp: vi.fn(async () => undefined),
+    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'fullscreen', pinned: true })),
+    pinMcpApp: vi.fn(),
   };
 }
 
@@ -55,6 +84,7 @@ afterEach(() => {
   cleanup();
   setReopenedMcpApp('sess_1', 'app_1', undefined);
   window.localStorage.clear();
+  resetMcpAppLiveSet();
 });
 
 describe('McpAppReopenLine', () => {
@@ -110,40 +140,130 @@ describe('McpAppReopenLine', () => {
   });
 });
 
-describe('McpAppCard', () => {
+describe('McpAppReopenableCard', () => {
+  const block = {
+    app_instance_id: 'app_1',
+    data_ref: 'ref_1',
+    resource_uri: 'ui://boards/view',
+    source_server: 'boards',
+    tool_name: 'boards_open_board',
+  };
+
   it('offers reopen when CLIO no longer holds the view, then mounts the fresh one', async () => {
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'app_1' } });
     const repo = repository([fresh]);
     const { container } = render(
-      <McpAppCard
-        {...line}
-        dataRef="ref_1"
-        live
-        repository={repo as unknown as ClioRepository}
-        resourceUri="ui://boards/view"
-      />,
+      <TooltipProvider>
+        <McpAppReopenableCard
+          block={block}
+          repository={repo as unknown as ClioRepository}
+          sessionId="sess_1"
+        />
+      </TooltipProvider>,
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Reopen' }));
 
     await waitFor(() => expect(container.querySelector('[data-mcp-app="app_2"]')).toBeTruthy());
-    expect(repo.mcpAppLive).toHaveBeenCalledTimes(2);
+    expect(repo.mcpAppDescriptor).not.toHaveBeenCalledWith(
+      expect.objectContaining({ appInstanceId: 'app_1' }),
+      expect.anything(),
+    );
     expect(repo.mcpAppDescriptor).toHaveBeenLastCalledWith(
       { sessionId: 'sess_1', appInstanceId: 'app_2', dataRef: 'ref_2' },
       expect.anything(),
     );
   });
 
-  it('shows the reopen line for a card the transcript does not keep live', () => {
+  it('reopens a view saved in a tab into its tab', async () => {
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'app_9' } });
+    const opened = vi.fn();
+    window.addEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+    const repo = repository([{ ...fresh, view: { ...fresh.view, displayMode: 'fullscreen' } }]);
     render(
-      <McpAppCard
-        {...line}
-        dataRef="ref_1"
-        live={false}
-        repository={repository([]) as unknown as ClioRepository}
-        resourceUri="ui://boards/view"
+      <McpAppReopenableCard
+        block={block}
+        repository={repo as unknown as ClioRepository}
+        sessionId="sess_1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1));
+    expect((opened.mock.calls[0]![0] as CustomEvent).detail).toMatchObject({
+      appInstanceId: 'app_2',
+      dataRef: 'ref_2',
+    });
+    expect(await screen.findByText('Open in a tab')).toBeTruthy();
+    expect(repo.setMcpAppDisplayMode).toHaveBeenCalledWith(
+      { sessionId: 'sess_1', appInstanceId: 'app_2', dataRef: 'ref_2' },
+      'fullscreen',
+    );
+    window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+  });
+
+  it('shows the reopen line for an older card the live set closed', () => {
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'app_9' } });
+    const repo = repository([]);
+    render(
+      <McpAppReopenableCard
+        block={block}
+        repository={repo as unknown as ClioRepository}
+        sessionId="sess_1"
       />,
     );
     expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(repo.mcpAppLive).not.toHaveBeenCalled();
+  });
+});
+
+describe('McpAppRestoringTab', () => {
+  const target = {
+    label: 'Open a board',
+    appInstanceId: 'app_1',
+    dataRef: 'ref_1',
+    sessionId: 'sess_1',
+    resourceUri: 'ui://boards/view',
+    sourceServer: 'boards',
+    toolName: 'boards_open_board',
+  };
+
+  it("replays a restored tab when it is first shown and becomes the fresh view's tab", async () => {
+    const repo = repository([fresh]);
+    restoringRepository.current = repo;
+    const onReplaceTab = vi.fn();
+    const sizes = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(0);
+    render(<McpAppRestoringTab onReplaceTab={onReplaceTab} target={target} />);
+
+    await screen.findByRole('button', { name: 'Reopen' });
+    expect(repo.reopenMcpApp).not.toHaveBeenCalled(); // hidden: not replayed yet
+
+    sizes.mockReturnValue(800);
+    for (const observer of resizeObservers) observer.fire();
+
+    await waitFor(() => expect(onReplaceTab).toHaveBeenCalledTimes(1));
+    expect(repo.reopenMcpApp).toHaveBeenCalledWith('sess_1', 'app_1');
+    expect(onReplaceTab.mock.calls[0]).toEqual([
+      'mcp-app:app_1',
+      expect.objectContaining({ id: 'mcp-app:app_2', kind: 'mcp-app', label: 'Open a board' }),
+    ]);
+    expect(useMcpAppLiveSetStore.getState().apps.app_2?.placement).toBe('tab');
+    sizes.mockRestore();
+  });
+
+  it('keeps a failed replay in the tab with the reason and Retry', async () => {
+    const repo = repository([
+      { ok: false, reason: 'tool_error', detail: 'The board service is down.', savedCall },
+    ]);
+    restoringRepository.current = repo;
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800);
+    render(<McpAppRestoringTab onReplaceTab={vi.fn()} target={target} />);
+    for (const observer of resizeObservers) observer.fire();
+
+    expect(await screen.findByText('The board service is down.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });
 

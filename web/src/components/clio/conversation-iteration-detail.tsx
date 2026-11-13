@@ -25,8 +25,7 @@ import {
   questionInteractionsForTool,
   splitWaitingQuestion,
 } from './agent-answer-domain';
-import { McpAppCard } from './mcp-app-reopen';
-import { McpAppHistoryLine } from './mcp-app-surface';
+import { McpAppReopenableCard } from './mcp-app-reopen';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { TranscriptIterationText } from './transcript-iteration-text';
@@ -62,7 +61,6 @@ export function IterationDetail({
   showText = true,
   compact = false,
   flowCards = true,
-  activeMcpAppId,
   hiddenMcpAppIds,
   mcpAppRepository,
   messageSessionId,
@@ -82,7 +80,6 @@ export function IterationDetail({
   showText?: boolean;
   compact?: boolean;
   flowCards?: boolean;
-  activeMcpAppId?: string;
   hiddenMcpAppIds?: readonly string[];
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
@@ -205,7 +202,6 @@ export function IterationDetail({
           ) : entry.kind === 'mcp_app' ? (
             hiddenMcpAppIds?.includes(entry.block.app_instance_id) ? null : (
               <McpAppActivity
-                activeMcpAppId={activeMcpAppId}
                 entry={entry}
                 key={`mcp-app:${entry.id}`}
                 mcpAppRepository={mcpAppRepository}
@@ -233,36 +229,21 @@ export function IterationDetail({
 }
 
 export function McpAppActivity({
-  activeMcpAppId,
   entry,
   mcpAppRepository,
   messageSessionId,
 }: {
-  activeMcpAppId?: string;
   entry: McpAppActivityEntry;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
 }) {
   return (
     <div data-turn-activity={`mcp-app:${entry.id}`}>
-      {mcpAppRepository && messageSessionId ? (
-        <McpAppCard
-          appInstanceId={entry.block.app_instance_id}
-          dataRef={entry.block.data_ref}
-          height={entry.block.height}
-          live={entry.block.app_instance_id === activeMcpAppId}
-          repository={mcpAppRepository}
-          resourceUri={entry.block.resource_uri}
-          sessionId={messageSessionId}
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      ) : (
-        <McpAppHistoryLine
-          sourceServer={entry.block.source_server}
-          toolName={entry.block.tool_name}
-        />
-      )}
+      <McpAppReopenableCard
+        block={entry.block}
+        repository={mcpAppRepository}
+        sessionId={messageSessionId}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ConversationDisplayProvider } from '@/providers/conversation-display-pr
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
 import { ConversationMessageRow } from './conversation-message-row';
+import { resetMcpAppLiveSet } from './mcp-app-live-set';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
@@ -710,11 +711,12 @@ describe('ClioConversation recovery actions', () => {
   });
 
   it('closes only an app superseded inside the session, not the active app on navigation', async () => {
+    resetMcpAppLiveSet();
     const closeMcpApp = vi.fn(async () => undefined);
     const repository = {
       closeMcpApp,
       mcpAppDescriptor: vi.fn(() => new Promise(() => undefined)),
-      mcpAppLive: vi.fn(async () => true),
+      mcpAppLive: vi.fn(() => new Promise(() => undefined)),
     } as unknown as ClioRepository;
     const appMessage = (id: string, appInstanceId: string, createdAt: string): DomainMessage => ({
       id,
