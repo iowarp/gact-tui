@@ -34,6 +34,8 @@ import { ShortcutKeys } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
 import { RowConfirm } from './primitives/row-confirm';
 import { StatusIndicator } from './primitives/status-indicator';
+import { useConnector } from '@/hooks/use-connectors';
+import { ConnectorLogo } from './connector-need-rows';
 import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
 
@@ -45,7 +47,14 @@ const KIND_ICONS: Record<McpServiceKind, LucideIcon> = {
   local: TerminalIcon,
 };
 
-export function McpServiceIcon({ entry }: { entry: Pick<McpServiceEntry, 'server' | 'saved'> }) {
+export function McpServiceIcon({
+  entry,
+}: {
+  entry: Pick<McpServiceEntry, 'server' | 'saved'> & { name?: string };
+}) {
+  // A service a connector starts carries that connector's logo (its id is the service name).
+  const { connector } = useConnector(entry.name);
+  if (connector) return <ConnectorLogo className="size-4 text-[8px]" connector={connector} />;
   const Icon = KIND_ICONS[serviceKind(entry)];
   return <Icon aria-hidden="true" />;
 }

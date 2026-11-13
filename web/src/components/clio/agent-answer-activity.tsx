@@ -62,7 +62,12 @@ export function WaitingForYou({ interaction }: { interaction?: PendingInteractio
       </span>
     );
   const label = interaction.prompt ?? interaction.title;
-  const verb = interaction.kind === 'permission' ? 'Review below' : 'Answer below';
+  const verb =
+    interaction.kind === 'permission'
+      ? 'Review below'
+      : interaction.kind === 'connector_setup'
+        ? 'Set up below'
+        : 'Answer below';
   return (
     <button
       aria-label={`${verb}: ${label}`}

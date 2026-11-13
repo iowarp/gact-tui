@@ -48,6 +48,14 @@ export const pluginEntrySchema = z.object({
   fragments: strings,
   trusted: z.boolean().default(false),
   pending_trust: z.boolean().default(false),
+  /**
+   * The connector this plugin follows (CN9): it joins and leaves with that
+   * connector and is never offered in a plugin picker. Empty when it follows none.
+   */
+  follows: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? ''),
   diagnostics,
 });
 

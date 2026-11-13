@@ -14,6 +14,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
+import { offeredPlugins } from '@/lib/connector-presentation';
 import { ScrollTextIcon } from 'lucide-react';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
@@ -342,7 +343,7 @@ function AgentComposition({
           onRemove={remove}
           onViewChange={setPackagesView}
           pending={update.isPending}
-          plugins={catalog.data?.plugins}
+          plugins={offeredPlugins(catalog.data?.plugins)}
           pluginsError={catalog.error?.message}
           readOnly={readOnly}
           resolution={resolution}
@@ -401,7 +402,7 @@ function AgentComposition({
             onCompact={onCompact}
             onRemove={remove}
             pending={update.isPending}
-            plugins={catalog.data?.plugins}
+            plugins={offeredPlugins(catalog.data?.plugins)}
             pluginsError={catalog.error?.message}
             readOnly={readOnly}
             resolution={resolution}
