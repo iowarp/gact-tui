@@ -1,11 +1,13 @@
-import type { McpServerDefinition, PluginMarketplace, SavedMcpService } from '@clio/core/v3';
+import type { McpServerDefinition, SavedMcpService } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxIcon, CopyIcon, GlobeIcon, KeyRoundIcon, PlugIcon, SparklesIcon } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { useConnectors, useInvalidateConnectors } from '@/hooks/use-connectors';
 import { useRepository } from '@/hooks/use-repository';
+import { useWindowContentHeight } from '@/hooks/use-window-content-height';
 import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import {
   useExtensionsSupported,
@@ -21,6 +23,7 @@ import {
   EXTENSION_TYPE_LABELS,
   extensionEntries,
   LOCAL_MARKETPLACE,
+  LOCAL_PLACEHOLDER,
   type ExtensionEntry,
   type ExtensionType,
 } from '@/lib/extension-library-entries';
@@ -29,6 +32,8 @@ import { serviceTarget } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { newItemKey } from '@/lib/settings-row-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ConnectorLogo } from './connector-need-rows';
+import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
@@ -52,48 +57,19 @@ import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { downloadBytes } from './surface-export';
 
 type Detail =
+  | { kind: 'connector'; id: string }
   | { kind: 'plugin'; ref: string; pending: boolean; skill?: string }
   | { kind: 'marketplace'; name: string }
   | { kind: 'mcp'; name: string }
   | { kind: 'discover'; key: string };
 
-/** The private local marketplace before anything is saved to it. */
-const LOCAL_PLACEHOLDER: PluginMarketplace = {
-  name: LOCAL_MARKETPLACE,
-  source: '',
-  commit: '',
-  format: '',
-  trusted: true,
-  trust_reason: 'local',
-  default: false,
-  parent: '',
-  installed_at: '',
-  diagnostics: [],
-};
-
-/** Plugins, marketplaces, MCP connections and skills: one list, one pane beside it. */
+/** Connectors, plugins, marketplaces and skills: one list, one pane beside it. */
 export function ExtensionLibrary(props: {
   initialWorkspaceId?: string;
   initialSessionId?: string;
 }) {
   const { settings } = useConnectionSettings();
   return <ExtensionLibraryContents key={connectionScope(settings)} {...props} />;
-}
-
-/** The settings window's scrolling height, so the pane can fill it beside a long list. */
-function useWindowContentHeight() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>();
-  useLayoutEffect(() => {
-    const scroller = ref.current?.closest<HTMLElement>('[data-window-content]');
-    if (!scroller || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setHeight(scroller.clientHeight || undefined);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(scroller);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, height] as const;
 }
 
 function ExtensionLibraryContents({
@@ -111,6 +87,8 @@ function ExtensionLibraryContents({
   const supported = useExtensionsSupported();
   const agents = useInstalledAgents();
   const saved = useSavedMcpServices();
+  const connectorList = useConnectors(supported !== false);
+  const invalidateConnectors = useInvalidateConnectors();
   const manager = useMarketplaceManager();
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, initialWorkspaceId || 'global'),
@@ -140,6 +118,7 @@ function ExtensionLibraryContents({
   const plugins = catalog.data?.plugins ?? [];
   const installed = marketplaces.data ?? [];
   const services = saved.data ?? [];
+  const connectors = connectorList.data ?? [];
   const serverRows = servers.data ?? [];
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const hasLocalItems = Boolean(
@@ -160,10 +139,15 @@ function ExtensionLibraryContents({
         : listed.filter((row) => row !== LOCAL_PLACEHOLDER),
     saved: services,
     servers: serverRows,
+    connectors,
     term,
   });
   const nothingInstalled =
-    !plugins.length && !installed.length && !services.length && !hasLocalItems;
+    !connectors.length &&
+    !plugins.length &&
+    !installed.length &&
+    !services.length &&
+    !hasLocalItems;
   const loadError = catalog.error ?? marketplaces.error;
   const loading = supported !== false && (catalog.isPending || marketplaces.isPending);
 
@@ -171,6 +155,7 @@ function ExtensionLibraryContents({
     Promise.all(
       (
         [
+          'connectors',
           'plugins',
           'plugin-marketplaces',
           'agents',
@@ -242,6 +227,18 @@ function ExtensionLibraryContents({
 
   const pane = (() => {
     if (!detail) return null;
+    if (detail.kind === 'connector') {
+      const connector = connectors.find((row) => row.id === detail.id);
+      return connector ? (
+        <ConnectorPane
+          className={paneClass}
+          connector={connector}
+          key={connector.id}
+          onClose={close}
+          onSignIn={(row) => setSigning(row.id)}
+        />
+      ) : null;
+    }
     if (detail.kind === 'plugin') {
       const plugin = plugins.find((row) => row.ref === detail.ref);
       const marketplace = marketplaceFor(plugin?.marketplace ?? detail.ref.split('/')[0]!);
@@ -330,6 +327,21 @@ function ExtensionLibraryContents({
   })();
 
   const row = (entry: ExtensionEntry) => {
+    if (entry.kind === 'connector') {
+      const target: Detail = { kind: 'connector', id: entry.connector.id };
+      return (
+        <ExtensionRow
+          icon={<ConnectorLogo className="size-5 text-[9px]" connector={entry.connector} />}
+          key={entry.key}
+          meta={entry.meta}
+          name={entry.title}
+          onExplore={() => open(target)}
+          selected={isOpen(target)}
+          aligned
+          status={entry.status}
+        />
+      );
+    }
     if (entry.kind === 'plugin') {
       const { plugin } = entry;
       const marketplace = marketplaceFor(plugin.marketplace);
@@ -678,7 +690,7 @@ function ExtensionLibraryContents({
       )}
     >
       <SettingsSectionHeading
-        description="Plugins, marketplaces, MCP connections and skills for your agents."
+        description="Connectors, plugins, marketplaces and skills for your agents."
         title="Extensions"
       />
       <ExtensionToolbar
@@ -748,7 +760,11 @@ function ExtensionLibraryContents({
           key={`${scope}:${signing}`}
           name={signing}
           onClose={() => setSigning(undefined)}
-          title={services.find((row) => row.name === signing)?.label}
+          onConnected={() => void invalidateConnectors()}
+          title={
+            connectors.find((row) => row.id === signing)?.name ??
+            services.find((row) => row.name === signing)?.label
+          }
         />
       ) : null}
       <RemoveSavedMcpDialog
