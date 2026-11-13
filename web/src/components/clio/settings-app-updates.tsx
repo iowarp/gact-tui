@@ -160,7 +160,7 @@ export function AppUpdateSettings() {
             <div className="flex min-w-0 items-center gap-2 text-ui whitespace-nowrap">
               <h3 className="truncate font-normal">Release notes</h3>
               {available.date ? (
-                <span className="ml-auto shrink-0 text-xs text-faint">
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                   Released {formatReleaseDate(available.date)}
                 </span>
               ) : null}

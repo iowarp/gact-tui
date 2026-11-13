@@ -38,6 +38,8 @@ function anchorState(thread: ArtifactReview, headVersion: number): string {
   if (thread.anchor.profile === 'region')
     return `Made on version ${thread.artifact_version}; shown beside the newest`;
   if (thread.anchor_state === 'moved') return `Moved to version ${headVersion}`;
+  if (thread.anchor_state === 'outdated' && thread.anchor_error)
+    return `Outdated: version ${thread.artifact_version} is no longer available`;
   if (thread.anchor_state === 'outdated')
     return `Outdated: version ${headVersion} changed this part`;
   return `Made on version ${thread.artifact_version}`;
@@ -136,9 +138,7 @@ export function CommentThreadList({
     );
   const head = threads.data.head;
   const sent = threads.data.threads.filter((row) => row.status !== 'draft');
-  const onScreen = version
-    ? sent.filter((row) => row.artifact_version === version)
-    : sent;
+  const onScreen = version ? sent.filter((row) => row.artifact_version === version) : sent;
   const others = sent.length - onScreen.length;
   const rows = showOthers ? sent : onScreen;
   if (!sent.length)
@@ -198,7 +198,9 @@ function Reply({ text }: { text: string }) {
       <blockquote
         className={cn(
           'border-l-2 pl-2 text-muted-foreground',
-          long && !whole && 'max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]',
+          long &&
+            !whole &&
+            'max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]',
         )}
         data-slot="comment-reply"
       >

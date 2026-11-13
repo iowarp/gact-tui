@@ -108,7 +108,8 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     icon: BotIcon,
     group: 'Agent',
     host: 'models',
-    keywords: 'fleet search judge goals best of n refinement automode permissions model',
+    keywords:
+      'fleet search judge goals best of n refinement automode permissions fast model delegation delegate accounts',
   },
   {
     id: 'providers',

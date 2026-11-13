@@ -93,7 +93,7 @@ export function MarketplaceDetailPane({
         </>
       }
     >
-      <MetaLine className="block truncate text-xs text-faint" parts={entry.meta.slice(1)} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={entry.meta.slice(1)} />
       <div className="mt-3">
         {!marketplace.trusted || pendingUpdates ? (
           <TrustBanner
@@ -151,7 +151,7 @@ export function MarketplaceDetailPane({
                   }
                   key={`${row.code}:${index}`}
                 >
-                  {row.message} <span className="font-mono text-faint">{row.code}</span>
+                  {row.message} <span className="font-mono text-muted-foreground">{row.code}</span>
                 </li>
               ))}
             </ul>

@@ -95,6 +95,8 @@ export interface ArtifactReview {
   reply_version_artifact_id?: string;
   reply_error?: string;
   anchor_state?: 'current' | 'moved' | 'outdated';
+  /** Why the thread's own version could not be read when it was re-anchored (it is then outdated). */
+  anchor_error?: string;
   current_artifact_id?: string;
   current_anchor?: DocumentAnchor;
   updated_at?: string;
