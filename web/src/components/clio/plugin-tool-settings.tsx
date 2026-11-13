@@ -147,7 +147,7 @@ export function ToolSettingsBody({
       <OutcomeModeField modes={data.approval_modes} onChange={setMode} value={shown} />
       {unknownFlags ? (
         <p
-          className="truncate text-xs text-faint"
+          className="truncate text-xs text-muted-foreground"
           title="A tool's read-only flag and its own I/O default are known once a conversation has used it. Until then it is listed as a write tool."
         >
           Some tools are listed as write tools until a conversation loads them.

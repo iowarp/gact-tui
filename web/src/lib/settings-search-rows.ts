@@ -86,7 +86,11 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
       keywords: 'thinking reasoning level',
       value: 'reasoning-effort',
     },
-    { label: 'Fast model', section: 'models', keywords: 'small helper titles summaries model' },
+    {
+      label: 'Fast model',
+      section: 'models',
+      keywords: 'small helper titles summaries cheap quick haiku trivial model',
+    },
     {
       label: 'Show diffusion',
       section: 'models',
@@ -113,6 +117,11 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
       label: 'Reads before the suggestion',
       section: 'fleet',
       keywords: 'explore nudge reads threshold',
+    },
+    {
+      label: 'Delegation',
+      section: 'fleet',
+      keywords: 'delegate delegated work accounts providers allowed spending',
     },
     {
       label: 'Model servers',
