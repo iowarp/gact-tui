@@ -18,7 +18,7 @@ type WorkbenchTabKind =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
   /** The NDP catalog, browsed as a Files tree. */
   | { id: string; kind: 'ndp'; label: string; workspaceId: string }
-  | { id: 'work'; kind: 'work'; label: 'Work' }
+  | { id: 'work'; kind: 'work'; label: string }
   /** One Activity row's detail: a tool call, a task, a question, a source. */
   | {
       id: string;
@@ -32,15 +32,15 @@ type WorkbenchTabKind =
   | {
       id: string;
       kind: 'files';
-      label: 'Files';
+      label: string;
       path?: string;
       directory?: string;
       workspaceId?: string;
     }
-  | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
-  | { id: 'agent'; kind: 'agent'; label: 'Agent' }
-  | { id: 'resources'; kind: 'resources'; label: 'Resources' }
-  | { id: 'science-log'; kind: 'science-log'; label: 'Science log' }
+  | { id: 'artifacts'; kind: 'artifacts'; label: string }
+  | { id: 'agent'; kind: 'agent'; label: string }
+  | { id: 'resources'; kind: 'resources'; label: string }
+  | { id: 'science-log'; kind: 'science-log'; label: string }
   /** A strip list (Files, Sources, Artifacts, Activity, Terminal, Browser pages) as a tab. */
   | {
       id: `list:${WorkbenchTabListView}` | `list:browser:new${string}`;

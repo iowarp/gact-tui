@@ -5,6 +5,7 @@ import { findTourAnchor } from '@/lib/onboarding/tour-anchors';
 import { TOUR_SCRIPT_STATUS, type TourStep } from '@/lib/onboarding/tour-script';
 import { cn } from '@/lib/utils';
 import { clearOfCard } from './tour-spotlight';
+import { ph, t } from '@lingui/core/macro';
 
 const PAD = 6;
 const GAP = 12;
@@ -350,11 +351,9 @@ export function TourOverlay({
         tabIndex={-1}
       >
         <p className="flex items-center gap-2 text-label text-muted-foreground">
-          <span>
-            Step {index + 1} of {count}
-          </span>
+          <span>{t`Step ${ph({ step: index + 1 })} of ${count}`}</span>
           {TOUR_SCRIPT_STATUS === 'draft' ? (
-            <span className="rounded border border-border px-1.5 py-px text-caption">Draft</span>
+            <span className="rounded border border-border px-1.5 py-px text-caption">{t`Draft`}</span>
           ) : null}
         </p>
         <h2 className="mt-1 text-[0.875rem] font-medium" id={titleId}>
@@ -364,7 +363,7 @@ export function TourOverlay({
           <p className="mt-1 text-muted-foreground">{step.body}</p>
           {step.tryIt && !done ? (
             <p className="mt-2">
-              <span className="font-medium">Try it: </span>
+              <span className="font-medium">{t`Try it:`} </span>
               {step.tryIt}
             </p>
           ) : null}
@@ -374,8 +373,8 @@ export function TourOverlay({
                 <CheckIcon aria-hidden="true" className="size-4 text-primary" />
                 <span className="font-medium">
                   {step.waitFor === 'interact' || step.stay
-                    ? 'Done. Keep exploring, or press Next.'
-                    : 'Done'}
+                    ? t`Done. Keep exploring, or press Next.`
+                    : t`Done`}
                 </span>
               </>
             ) : null}
@@ -386,17 +385,17 @@ export function TourOverlay({
             <span />
           ) : (
             <Button onClick={onSkip} size="sm" variant="ghost">
-              Skip tour
+              {t`Skip tour`}
             </Button>
           )}
           <div className="flex gap-2">
             {index > 0 ? (
               <Button onClick={onBack} size="sm" variant="outline">
-                Back
+                {t`Back`}
               </Button>
             ) : null}
             <Button onClick={onNext} size="sm">
-              {last ? 'Done' : 'Next'}
+              {last ? t`Done` : t`Next`}
             </Button>
           </div>
         </div>

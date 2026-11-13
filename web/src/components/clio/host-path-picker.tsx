@@ -18,6 +18,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { displayHostPath } from '@/lib/host-path-display';
 import { toast } from 'sonner';
 import { PathText } from './path-text';
+import { ph, t } from '@lingui/core/macro';
 
 /** A folder browser whose every request carries the selected execution host. */
 export function HostPathPicker({
@@ -28,7 +29,7 @@ export function HostPathPicker({
   onChoose,
   disabled,
   startPath,
-  triggerLabel = 'Browse…',
+  triggerLabel = t`Browse…`,
   triggerClassName,
   browse,
 }: {
@@ -83,7 +84,7 @@ export function HostPathPicker({
         variant={triggerClassName ? 'ghost' : 'outline'}
         size={triggerClassName ? 'sm' : undefined}
         className={triggerClassName}
-        aria-label={`Browse ${label.toLowerCase()} on ${hostLabel}`}
+        aria-label={t`Browse ${ph({ folder: label.toLowerCase() })} on ${hostLabel}`}
         onClick={async () => {
           if (inTauri() && isManagedConnection && targetId === 'local' && !browse) {
             setNativePending(true);
@@ -96,7 +97,7 @@ export function HostPathPicker({
               });
               if (typeof selected === 'string') onChoose(selected);
             } catch (error) {
-              toast.error('Could not open the folder picker', {
+              toast.error(t`Could not open the folder picker`, {
                 description: error instanceof Error ? error.message : String(error),
               });
             } finally {
@@ -113,8 +114,8 @@ export function HostPathPicker({
       </Button>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Choose a folder</DialogTitle>
-          <DialogDescription>Browsing {hostLabel}</DialogDescription>
+          <DialogTitle>{t`Choose a folder`}</DialogTitle>
+          <DialogDescription>{t`Browsing ${hostLabel}`}</DialogDescription>
         </DialogHeader>
         <form
           className="flex gap-2"
@@ -125,12 +126,12 @@ export function HostPathPicker({
           }}
         >
           <Input
-            aria-label={`Folder path on ${hostLabel}`}
+            aria-label={t`Folder path on ${hostLabel}`}
             value={displayHostPath(entered)}
             onChange={(event) => setEntered(event.target.value)}
           />
           <Button type="submit" variant="outline">
-            Go
+            {t`Go`}
           </Button>
         </form>
         {listing.error ? (
@@ -140,7 +141,7 @@ export function HostPathPicker({
         ) : null}
         {listing.isFetching ? (
           <p role="status" className="text-sm text-muted-foreground">
-            Loading folders…
+            {t`Loading folders…`}
           </p>
         ) : null}
         {listing.data ? (
@@ -149,7 +150,7 @@ export function HostPathPicker({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Parent folder"
+                aria-label={t`Parent folder`}
                 disabled={listing.data.parent === listing.data.path}
                 onClick={() => {
                   setFolder(listing.data.parent);
@@ -162,7 +163,7 @@ export function HostPathPicker({
                 <PathText path={displayHostPath(listing.data.path)} />
               </span>
             </div>
-            <div className="max-h-64 overflow-y-auto" aria-label="Folders">
+            <div className="max-h-64 overflow-y-auto" aria-label={t`Folders`}>
               {listing.data.entries.map((entry) => (
                 <Button
                   key={entry.path}
@@ -178,19 +179,19 @@ export function HostPathPicker({
                 </Button>
               ))}
               {!listing.data.entries.length ? (
-                <p className="py-4 text-sm text-muted-foreground">No subfolders</p>
+                <p className="py-4 text-sm text-muted-foreground">{t`No subfolders`}</p>
               ) : null}
             </div>
             {listing.data.truncated ? (
               <p className="text-sm text-muted-foreground">
-                Showing the first 200 folders. Enter a path to open another folder.
+                {t`Showing the first 200 folders. Enter a path to open another folder.`}
               </p>
             ) : null}
           </>
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            {t`Cancel`}
           </Button>
           <Button
             disabled={!listing.data || listing.isFetching || Boolean(listing.error)}
@@ -201,7 +202,7 @@ export function HostPathPicker({
               }
             }}
           >
-            Choose folder
+            {t`Choose folder`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,7 @@
 import type { DocumentAnchor } from '@clio/core/v3';
 import { useEffect, useState } from 'react';
 import { textQuoteRange, textRangeRects } from './text-anchor';
+import { t, ph } from '@lingui/core/macro';
 
 export interface TextLayerMark {
   label: string;
@@ -94,7 +95,7 @@ export function CommentTextLayer({
           ))}
           {onOpenMark ? (
             <button
-              aria-label={`Edit ${mark.label}`}
+              aria-label={t`Edit ${ph({ label: mark.label })}`}
               className="pointer-events-auto absolute -translate-y-full rounded-t bg-primary px-1.5 text-xs font-bold text-primary-foreground"
               onClick={() => onOpenMark(mark.label)}
               style={{ left: mark.boxes[0]!.left, top: mark.boxes[0]!.top }}

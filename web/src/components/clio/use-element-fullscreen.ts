@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
+import { t } from '@lingui/core/macro';
 
 /**
  * Native fullscreen for one element: the element while it is fullscreen (the
@@ -37,7 +38,7 @@ export function useElementFullscreen(host: RefObject<HTMLElement | null>) {
       if (document.fullscreenElement === host.current) await document.exitFullscreen();
       else await host.current?.requestFullscreen();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not open fullscreen.');
+      toast.error(error instanceof Error ? error.message : t`Could not open fullscreen.`);
     }
   }, [host]);
   return { fullscreenHost, fullscreen, toggle };

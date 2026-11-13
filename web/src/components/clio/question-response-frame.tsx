@@ -10,6 +10,7 @@ import { canDismissQuestion } from './question-card-model';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { IconButton } from './primitives/icon-button';
 import { ResponseViewportContext } from './response-viewport-context';
+import { t } from '@lingui/core/macro';
 
 export type QuestionFrameCard = Omit<
   QuestionCardProps,
@@ -89,13 +90,13 @@ export function QuestionResponseFrame({
       headerActions={
         pager || dismiss ? (
           <>
-            {pager ? <AskPagerControls label="Questions" noun="question" pager={pager} /> : null}
+            {pager ? <AskPagerControls label={t`Questions`} noun="question" pager={pager} /> : null}
             {dismiss ? (
               <TooltipProvider>
                 <IconButton
                   disabled={disabled}
                   icon={<CloseIcon aria-hidden="true" />}
-                  label="Close question"
+                  label={t`Close question`}
                   onClick={dismiss}
                   size="sm"
                 />

@@ -12,6 +12,7 @@ import { ConnectedDataSetupLink } from './connected-data-setup-link';
 import { ArtifactImagePreview } from './artifact-image-preview';
 import { showTaskInWork } from './work-task-focus';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 /** Resolve declared result links through the conversation's existing workbench. */
 export function PresentationLink({
@@ -69,7 +70,7 @@ export function PresentationLink({
           <TooltipTrigger asChild>{element}</TooltipTrigger>
           <TooltipContent className="max-w-sm text-sm">
             <span className="min-w-0 [overflow-wrap:anywhere]">
-              {iconOnly ? `Open ${label}` : block.target === 'surface' ? label : uri || label}
+              {iconOnly ? t`Open ${label}` : block.target === 'surface' ? label : uri || label}
             </span>
           </TooltipContent>
         </Tooltip>
@@ -148,8 +149,8 @@ export function PresentationLink({
           !compact && 'whitespace-normal',
         )}
         onClick={open}
-        aria-label={iconOnly ? `Open ${label}` : label}
-        title={iconOnly ? `Open ${label}` : block.target === 'surface' ? label : uri}
+        aria-label={iconOnly ? t`Open ${label}` : label}
+        title={iconOnly ? t`Open ${label}` : block.target === 'surface' ? label : uri}
       >
         {text}
       </Button>,
@@ -159,7 +160,7 @@ export function PresentationLink({
       <ExternalLink
         className={cn('underline', className)}
         href={uri}
-        aria-label={iconOnly ? `Open ${label}` : undefined}
+        aria-label={iconOnly ? t`Open ${label}` : undefined}
       >
         {text}
       </ExternalLink>,
@@ -171,7 +172,7 @@ export function PresentationLink({
       <Link
         className={cn('underline', className)}
         relative="path"
-        aria-label={iconOnly ? `Open ${label}` : undefined}
+        aria-label={iconOnly ? t`Open ${label}` : undefined}
         to={`../${encodeURIComponent(uri)}`}
       >
         {text}
@@ -181,7 +182,7 @@ export function PresentationLink({
     return withTooltip(
       <Link
         className={cn('underline', className)}
-        aria-label={iconOnly ? `Open ${label} in memory` : undefined}
+        aria-label={iconOnly ? t`Open ${label} in memory` : undefined}
         to={`/settings/memory?${memoryLinkParams(uri)}`}
       >
         {text}

@@ -144,6 +144,7 @@ function cascaderVirtualRowStyle(
     top: 0,
     insetInlineStart: gutter.inline,
     insetInlineEnd: gutter.inline,
+    // i18n-ignore: CSS transform, not copy
     transform: `translateY(${start + gutter.block}px)`,
   };
 }

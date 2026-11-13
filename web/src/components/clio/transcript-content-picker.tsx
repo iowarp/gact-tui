@@ -19,6 +19,7 @@ import type { SelectionTarget } from '@/lib/selection-actions';
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { useAttentionAvailable } from '@/lib/attention-availability';
+import { t, ph } from '@lingui/core/macro';
 
 /** Select exact stored parts even when tool cards or media are collapsed. */
 export function TranscriptContentPicker(props: { sessionId: string; messageId: string }) {
@@ -59,16 +60,16 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
       <DialogTrigger asChild>
         <IconButton
           icon={<LayersIcon aria-hidden="true" />}
-          label="Select content for attention"
+          label={t`Select content for attention`}
           size="sm"
           type="button"
         />
       </DialogTrigger>
       <DialogContent className="max-h-[85dvh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Select content</DialogTitle>
+          <DialogTitle>{t`Select content`}</DialogTitle>
           <DialogDescription>
-            Add whole blocks to the attention set, including collapsed activity.
+            {t`Add whole blocks to the attention set, including collapsed activity.`}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea
@@ -102,11 +103,11 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{row.label}</p>
                     <p className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                      {row.preview || 'Recorded content reference'}
+                      {row.preview || t`Recorded content reference`}
                     </p>
                   </div>
                   {row.explanation ? (
-                    <InfoTip label={`Mapping availability for ${row.label}`}>
+                    <InfoTip label={t`Mapping availability for ${ph({ label: row.label })}`}>
                       {row.explanation}
                     </InfoTip>
                   ) : null}
@@ -119,14 +120,14 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
                         setAdded((previous) => new Set([...previous, key]));
                     }}
                   >
-                    {added.has(key) ? 'Added' : 'Add'}
+                    {added.has(key) ? t`Added` : t`Add`}
                   </Button>
                 </div>
               );
             })}
             {content.isPending ? (
               <p role="status" className="text-sm">
-                Loading content…
+                {t`Loading content…`}
               </p>
             ) : null}
             {content.error ? (
@@ -135,7 +136,7 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
               </p>
             ) : null}
             {!content.isPending && !content.error && !rows.length ? (
-              <p className="text-sm">No completed content is available.</p>
+              <p className="text-sm">{t`No completed content is available.`}</p>
             ) : null}
           </div>
         </ScrollArea>
@@ -146,12 +147,12 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
               disabled={content.isFetchingNextPage}
               onClick={() => void content.fetchNextPage()}
             >
-              More content
+              {t`More content`}
             </Button>
           ) : (
             <span />
           )}
-          <Button onClick={() => setOpen(false)}>Done</Button>
+          <Button onClick={() => setOpen(false)}>{t`Done`}</Button>
         </div>
       </DialogContent>
     </Dialog>

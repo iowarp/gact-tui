@@ -4,6 +4,7 @@ import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { cn } from '@/lib/utils';
 import { MessageReplyCard } from './message-reply-card';
 import { replyDuration, replyModelIcon, replyTokens } from './message-reply-facts';
+import { t } from '@lingui/core/macro';
 
 /**
  * The 24px line under a finished answer: the model, its tokens and time on the
@@ -67,7 +68,7 @@ export function MessageCompletionFooter({
                   failed ? 'text-destructive' : 'text-muted-foreground',
                 )}
               >
-                {failed ? 'Failed' : 'Stopped'}
+                {failed ? t`Failed` : t`Stopped`}
               </span>
             ) : null}
             {message.model ? (
@@ -81,7 +82,7 @@ export function MessageCompletionFooter({
             ) : null}
             {tokens ? <span className="truncate">{tokens}</span> : null}
             {duration ? <span className="shrink-0">{duration}</span> : null}
-            {!word && !facts ? <span className="truncate">Reply details</span> : null}
+            {!word && !facts ? <span className="truncate">{t`Reply details`}</span> : null}
           </button>
         </MessageReplyCard>
       ) : null}

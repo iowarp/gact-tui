@@ -6,6 +6,7 @@ import type { ClioStatusValue } from './status';
 import { questionToolSummary } from './question-tool-presentation';
 import { taskWaitInterruptionDetail } from './task-wait-presentation';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ToolPresentation {
   title: string;
@@ -43,26 +44,26 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
 }
 
 const TASK_OPERATIONS: Record<string, string> = {
-  run_flow: 'Start flow',
-  run_workflow: 'Start workflow',
-  spawn_agent_task: 'Delegate',
-  observe_tasks: 'Check task status',
-  task_result: 'Read task result',
-  get_task_result: 'Read task result',
-  query_tasks: 'Find tasks',
-  restart_agent: 'Restart agent',
-  pause_agent: 'Pause agent',
-  resume_agent: 'Resume agent',
-  list_tasks: 'List tasks',
-  cancel_tasks: 'Cancel tasks',
+  run_flow: t`Start flow`,
+  run_workflow: t`Start workflow`,
+  spawn_agent_task: t`Delegate`,
+  observe_tasks: t`Check task status`,
+  task_result: t`Read task result`,
+  get_task_result: t`Read task result`,
+  query_tasks: t`Find tasks`,
+  restart_agent: t`Restart agent`,
+  pause_agent: t`Pause agent`,
+  resume_agent: t`Resume agent`,
+  list_tasks: t`List tasks`,
+  cancel_tasks: t`Cancel tasks`,
 };
 
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user')
-    return tool.presentation?.action === 'Answered' ? 'Answered' : 'Ask you';
+    return tool.presentation?.action === 'Answered' ? t`Answered` : t`Ask you`;
   if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
-  if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
+  if (isA2uiCatalogLookup(tool)) return t`Inspect widget catalog`;
   let action = tool.presentation?.action || tool.title || tool.name;
   const title = tool.title?.trim();
   // A family presenter must not replace a named operation (Restart agent,
@@ -75,7 +76,7 @@ export function getToolActionLabel(tool: ToolInvocation): string {
       action = title;
   }
   if (tool.name === 'prepare_execution_runtime' && action === 'Prepare execution runtime')
-    return 'Get execution environment';
+    return t`Get execution environment`;
   if (
     [
       'create_a2ui_surface',
@@ -86,10 +87,10 @@ export function getToolActionLabel(tool: ToolInvocation): string {
     ].includes(tool.name)
   ) {
     const legacy: Record<string, string> = {
-      'Generate UI element': 'Generate widget',
-      'Update UI element': 'Update widget',
-      'Delete UI element': 'Delete widget',
-      'Inspect UI element': 'Inspect widget',
+      'Generate UI element': t`Generate widget`,
+      'Update UI element': t`Update widget`,
+      'Delete UI element': t`Delete widget`,
+      'Inspect UI element': t`Inspect widget`,
     };
     return legacy[action] ?? action;
   }
@@ -124,9 +125,9 @@ export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | un
   );
   const names = paths.map((path) => {
     const component = path.split('#/components/')[1];
-    return component ? component.replaceAll('~1', '/').replaceAll('~0', '~') : 'General';
+    return component ? component.replaceAll('~1', '/').replaceAll('~0', '~') : t`General`;
   });
-  const label = [...new Set(names)].join(', ') || 'General';
+  const label = [...new Set(names)].join(', ') || t`General`;
   return { id: subject?.id ?? 'catalog-section', type: 'text', text: label, label };
 }
 
@@ -134,9 +135,9 @@ export function getToolSummary(tool: ToolInvocation): string | undefined {
   if (tool.name === 'ask_user') return questionToolSummary(tool);
   const captured = toolResultRecord(tool.output);
   if (['run_flow', 'run_workflow'].includes(tool.name) && captured?.accepted === true)
-    return 'Request accepted';
+    return t`Request accepted`;
   if (tool.name === 'restart_agent' && captured?.restart_requested === true)
-    return 'Restart requested';
+    return t`Restart requested`;
   const summary = tool.presentation?.summary?.trim();
   if (!summary) return undefined;
   const normalize = (value: string) =>
@@ -212,7 +213,7 @@ export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined 
         ? (tool.input as Record<string, unknown>)
         : undefined;
     const query = typeof input?.query === 'string' ? input.query.trim() : '';
-    if (query) return `for “${query}”`;
+    if (query) return t`for “${query}”`;
   }
   return subject?.target === 'file' && /^\d[\d,]*\s+bytes?$/iu.test(summary) ? summary : undefined;
 }
@@ -254,11 +255,10 @@ function stoppedDiagnostic(tool: ToolInvocation): boolean {
   ].some((text) => Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim())));
 }
 
-const STOPPED_TEXT = 'Stopped before it finished; no result was returned.';
+const STOPPED_TEXT = t`Stopped before it finished; no result was returned.`;
 // The service's wording when the turn ended before a call's result was recorded.
 const UNRECORDED_OUTCOME = /^execution outcome unavailable\b/iu;
-const UNRECORDED_TEXT =
-  'Stopped before its result was recorded. Check any captured output before running it again.';
+const UNRECORDED_TEXT = t`Stopped before its result was recorded. Check any captured output before running it again.`;
 // The service's execution-status block for a stopped task (its id may carry a result prefix),
 // and its generic wording.
 const EXECUTION_STATUS_BLOCK = 'task-execution-status';
@@ -278,9 +278,9 @@ export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
   const replaced = (block: ToolPresentationBlock) =>
     (block.severity === 'error' && cancellation(block.text)) ||
     (block.id.endsWith(EXECUTION_STATUS_BLOCK) && block.severity !== 'error');
-  const status = blocks.find(
-    (block) => block.id.endsWith(EXECUTION_STATUS_BLOCK) && block.severity !== 'error',
-  )?.text?.trim();
+  const status = blocks
+    .find((block) => block.id.endsWith(EXECUTION_STATUS_BLOCK) && block.severity !== 'error')
+    ?.text?.trim();
   const unrecorded = Boolean(tool.error?.trim() && UNRECORDED_OUTCOME.test(tool.error.trim()));
   const text = unrecorded
     ? UNRECORDED_TEXT
@@ -298,7 +298,7 @@ export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
       status: 'cancelled',
       blocks: [
         ...kept,
-        { id: 'execution-outcome', type: 'text', label: 'Stopped', severity: 'warning', text },
+        { id: 'execution-outcome', type: 'text', label: t`Stopped`, severity: 'warning', text },
       ],
     },
   };
@@ -316,7 +316,7 @@ export function getToolInterruptionDetail(tool: ToolInvocation): string | undefi
   if (declared && tool.presentation?.diagnostic?.trim()) return tool.presentation.diagnostic.trim();
   const receipt = taskWaitInterruptionDetail(tool);
   if (receipt) return receipt;
-  return declared ? 'Interrupted' : undefined;
+  return declared ? t`Interrupted` : undefined;
 }
 
 /** Explain an unsuccessful outcome using recorded diagnostics, never payload-status guesses. */
@@ -337,7 +337,7 @@ function failureDetail(tool: ToolInvocation): string | undefined {
   if (getToolStatus(tool) === 'unknown') {
     return (
       tool.error?.trim() ||
-      'No completion was recorded. Inspect the captured output before running this action again.'
+      t`No completion was recorded. Inspect the captured output before running this action again.`
     );
   }
   if (!['failed', 'denied', 'cancelled', 'degraded'].includes(getToolStatus(tool)))
@@ -352,12 +352,12 @@ function failureDetail(tool: ToolInvocation): string | undefined {
   if (tool.presentation?.diagnostic?.trim()) return tool.presentation.diagnostic.trim();
   const terminal = blocks.find((block) => block.type === 'terminal');
   if (terminal?.timed_out)
-    return ['Process timed out.', terminal.text?.trim()].filter(Boolean).join('\n');
+    return [t`Process timed out.`, terminal.text?.trim()].filter(Boolean).join('\n');
   if (terminal?.text?.trim()) return terminal.text.trim();
   if (terminal?.exit_code !== undefined && terminal.exit_code !== null)
-    return `Process exited with code ${terminal.exit_code}. No diagnostic output was recorded.`;
+    return t`Process exited with code ${ph({ exit_code: terminal.exit_code })}. No diagnostic output was recorded.`;
   if (getToolStatus(tool) === 'denied') return tool.presentation?.summary?.trim() || undefined;
-  return tool.presentation?.summary?.trim() || 'No failure diagnostic was recorded.';
+  return tool.presentation?.summary?.trim() || t`No failure diagnostic was recorded.`;
 }
 
 /** Compact operation label with the same qualifying subject used by the transcript row. */
@@ -380,9 +380,9 @@ export function toolOperationLabel(name: string): string {
   if (TASK_OPERATIONS[name]) return TASK_OPERATIONS[name]!;
   const operation = TOOL_OPERATIONS[name];
   if (!operation) return name;
-  if (operation.family === 'wait') return 'Wait for tasks';
-  // "Read result of" or "Run on" need their subject; without it the verb stands alone.
-  return operation.action.replace(/\s+(?:for|of|to|on)$/u, '');
+  if (operation.family === 'wait') return t`Wait for tasks`;
+  // "Read result of" or "Run on" need their subject; alone they read as declared.
+  return operation.standalone ?? operation.action;
 }
 
 /** An undeclared tool keeps its actual identifier as the fallback label. */

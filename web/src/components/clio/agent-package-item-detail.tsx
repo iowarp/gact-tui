@@ -6,6 +6,7 @@ import { subagentFacts, subagentRow } from './agent-subagent-facts';
 import { CATEGORY_ICONS, PACKAGE_CATEGORY, type PackageItem } from './agent-package-items';
 import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid, KeyValueRowButton } from './primitives/key-value-grid';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * One thing a package brings (a subagent, a tool, a skill, a prompt part),
@@ -16,7 +17,7 @@ import { KeyValueGrid, KeyValueRowButton } from './primitives/key-value-grid';
 export function AgentPackageItemDetail({
   item,
   resolution,
-  backLabel = 'Back to packages',
+  backLabel = t`Back to packages`,
   onBack,
   onExplore,
 }: {
@@ -31,12 +32,12 @@ export function AgentPackageItemDetail({
   const Icon = CATEGORY_ICONS[item.category];
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus(), []);
-  const kind = info.singular.charAt(0).toUpperCase() + info.singular.slice(1);
+  const kind = info.kind;
   const plugin = resolution.plugins.find((entry) => entry.id === item.plugin);
   const reference = plugin?.marketplace ? `${plugin.marketplace}/${plugin.id}` : undefined;
   const subagent = item.category === 'subagents' ? subagentRow(resolution, item) : undefined;
   return (
-    <section aria-label={`${kind} ${item.id}`} className="flex min-w-0 flex-col">
+    <section aria-label={t`${kind} ${ph({ id: item.id })}`} className="flex min-w-0 flex-col">
       <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-meta whitespace-nowrap">
         <IconButton
           icon={<ArrowLeftIcon aria-hidden="true" />}
@@ -57,23 +58,23 @@ export function AgentPackageItemDetail({
       </div>
       <div className="grid min-w-0 gap-3 p-3.5">
         <KeyValueGrid
-          aria-label={`${item.id} details`}
+          aria-label={t`${ph({ id: item.id })} details`}
           items={[
             ...(item.description
               ? [
                   {
-                    label: item.category === 'prompts' ? 'Section' : 'Description',
+                    label: item.category === 'prompts' ? t`Section` : t`Description`,
                     value: item.description,
                     wrap: true,
                   },
                 ]
               : []),
             {
-              label: 'Package',
-              title: `Open ${item.plugin}`,
+              label: t`Package`,
+              title: t`Open ${ph({ plugin: item.plugin })}`,
               value: plugin ? (
                 <KeyValueRowButton
-                  aria-label={`Package: ${item.plugin}, open it`}
+                  aria-label={t`Package: ${ph({ plugin: item.plugin })}, open it`}
                   chevron="right"
                   data-item-package
                   onClick={() => onExplore(item)}
@@ -85,7 +86,7 @@ export function AgentPackageItemDetail({
               ),
               mono: !plugin,
             },
-            ...(item.note ? [{ label: 'Loading', value: item.note }] : []),
+            ...(item.note ? [{ label: t`Loading`, value: item.note }] : []),
             ...(subagent ? subagentFacts(subagent) : []),
           ]}
           variant="rows"
@@ -96,7 +97,7 @@ export function AgentPackageItemDetail({
         ) : null}
         {item.text ? (
           <pre
-            aria-label={`${item.id} text`}
+            aria-label={t`${ph({ id: item.id })} text`}
             className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-2.5 font-mono text-label leading-5 whitespace-pre-wrap"
           >
             {item.text}

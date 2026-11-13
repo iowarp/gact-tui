@@ -12,6 +12,7 @@ import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { useLocalProfile } from './settings-profile-store';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t } from '@lingui/core/macro';
 
 const FOOTER_LINK =
   'relative grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring';
@@ -34,7 +35,7 @@ export function NavigationFooter({
   const returnState = { endpoint, from };
   return (
     <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
-      <NamedTooltip label="Your profile" side="top">
+      <NamedTooltip label={t`Your profile`} side="top">
         <Link
           className="flex h-9 min-w-0 flex-1 items-center gap-[9px] rounded-[8px] px-1.5 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring group-data-[collapsible=icon]:hidden"
           state={returnState}
@@ -45,15 +46,15 @@ export function NavigationFooter({
           </span>
           <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate text-ui text-foreground">
-              {profileName || 'Your profile'}
+              {profileName || t`Your profile`}
             </span>
-            <span className="truncate text-caption text-faint">Local profile</span>
+            <span className="truncate text-caption text-faint">{t`Local profile`}</span>
           </span>
         </Link>
       </NamedTooltip>
       <IconButton
         icon={<ArchiveIcon />}
-        label="Archived conversations"
+        label={t`Archived conversations`}
         onClick={onOpenArchived}
         tooltipSide="top"
       />
@@ -62,9 +63,9 @@ export function NavigationFooter({
         returnState={returnState}
         serviceNeedsYou={serviceNeedsYou(availability)}
       />
-      <NamedTooltip label="Settings" shortcut="settings" side="top">
+      <NamedTooltip label={t`Settings`} shortcut="settings" side="top">
         <Link
-          aria-label="Settings"
+          aria-label={t`Settings`}
           className={FOOTER_LINK}
           {...tourAnchor('settings')}
           state={returnState}
@@ -104,12 +105,12 @@ function InfrastructureLink({
       host.transport_state === 'reauthentication_required' ||
       host.transport_state === 'disconnected',
   );
-  const reason = serviceNeedsYou
-    ? 'a service needs attention'
+  const label = serviceNeedsYou
+    ? t`Infrastructure: a service needs attention`
     : signIn
-      ? 'a computer needs sign-in'
-      : undefined;
-  const label = reason ? `Infrastructure: ${reason}` : 'Infrastructure';
+      ? t`Infrastructure: a computer needs sign-in`
+      : t`Infrastructure`;
+  const reason = serviceNeedsYou || signIn;
   return (
     <NamedTooltip label={label} shortcut="infrastructure" side="top">
       <Link

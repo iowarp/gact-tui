@@ -8,6 +8,7 @@ import { formatPricePer1m, type ModelFactSummary } from '@/lib/model-facts';
 import { cn } from '@/lib/utils';
 import { createElement } from 'react';
 import { tagIcon } from './model-capability-tag-icons';
+import { t, ph } from '@lingui/core/macro';
 
 /** Capability icons a row draws before folding the rest into "+n". */
 const MAX_ICONS = 4;
@@ -50,7 +51,7 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
         <span
           className="inline-flex items-center gap-1"
           data-tag={contextTag ? `context:${contextTag.value}` : undefined}
-          title={contextTag ? tagTitle(contextTag) : 'Context window'}
+          title={contextTag ? tagTitle(contextTag) : t`Context window`}
         >
           {contextTag ? createElement(tagIcon(contextTag), { 'aria-hidden': true }) : null}
           {formatContextSize(contextWindow)}
@@ -65,10 +66,10 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
           title={tagTitle(freeTag)}
         >
           {createElement(tagIcon(freeTag), { 'aria-hidden': true })}
-          free
+          {t`free`}
         </span>
       ) : inputPrice?.kind === 'usd' ? (
-        <span title="Input price per 1M tokens">{formatPricePer1m(inputPrice.per1m)}</span>
+        <span title={t`Input price per 1M tokens`}>{formatPricePer1m(inputPrice.per1m)}</span>
       ) : null}
       {shown.length ? (
         <span className="inline-flex items-center gap-1.5">
@@ -90,7 +91,7 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
           })}
           {folded.length ? (
             <span
-              aria-label={`${folded.length} more: ${folded.map(modelCapabilityTagLabel).join(', ')}`}
+              aria-label={t`${ph({ count: folded.length })} more: ${ph({ tags: folded.map(modelCapabilityTagLabel).join(', ') })}`}
               role="img"
               title={folded.map(modelCapabilityTagLabel).join(', ')}
             >

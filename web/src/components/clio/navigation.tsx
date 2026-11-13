@@ -32,6 +32,7 @@ import { newConversationRoute, returnRouteFromState } from '@/lib/workspace-rout
 import { connectionScope } from '@/lib/connection-scope';
 import type { SessionAttention } from '@/lib/session-attention';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ClioNavigationProps {
   endpoint: string;
@@ -225,7 +226,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
       <LeftBarDialogContext.Provider value={presentRowDialog}>
         <Sidebar collapsible="icon" contained>
           <nav
-            aria-label="Workspace navigation"
+            aria-label={t`Workspace navigation`}
             data-keyboard-region=""
             // Wheeling moves rows under a still pointer; their previews wait for it to move.
             onWheel={(event) => holdPreviews(event.clientX, event.clientY)}
@@ -290,7 +291,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
       {rowDialog}
       <StableInput
         accept="application/json,.json"
-        aria-label="Import session file"
+        aria-label={t`Import session file`}
         tabIndex={-1}
         className="sr-only"
         onChange={(event) => {
@@ -306,16 +307,16 @@ const ClioNavigationView = memo(function ClioNavigationView({
               if (!isConversationExport(value)) throw new NotAnExportError();
               return actions.importSession(importBlobInto(value, workspaceId));
             })
-            .then(() => toast.success('Session imported'))
+            .then(() => toast.success(t`Session imported`))
             .catch((error: unknown) =>
               // A file that isn't an export is the person's choice, not a parser fault.
-              toast.error(`Couldn't import ${file.name}`, {
+              toast.error(t`Couldn't import ${ph({ name: file.name })}`, {
                 description:
                   error instanceof SyntaxError || error instanceof NotAnExportError
-                    ? "This file isn't a conversation export. Choose a .json file exported from a conversation."
+                    ? t`This file isn't a conversation export. Choose a .json file exported from a conversation.`
                     : error instanceof Error && error.message
                       ? error.message
-                      : 'The session could not be imported.',
+                      : t`The session could not be imported.`,
               }),
             );
         }}

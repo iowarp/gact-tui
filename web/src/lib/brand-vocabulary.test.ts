@@ -1,14 +1,7 @@
 import { brand } from '@brand';
 import { describe, expect, it } from 'vitest';
 
-import { PROTOCOL, capitalize, vocab, withArticle } from './brand-vocabulary';
-
-describe('withArticle', () => {
-  it('picks A or An from the noun', () => {
-    expect(withArticle('CLIO')).toBe('A CLIO');
-    expect(withArticle('Agent')).toBe('An Agent');
-  });
-});
+import { PROTOCOL, capitalize, vocab } from './brand-vocabulary';
 
 describe('vocab', () => {
   it('reads product/agent/workspace nouns straight from the resolved brand', () => {

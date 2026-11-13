@@ -1,6 +1,7 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { Input } from '@/components/ui/input';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
 
 type ConfigurationField = NonNullable<LanguageModelPreset['configuration_fields']>[number];
 
@@ -26,8 +27,8 @@ export function SettingsProviderOptions({
   onEdit,
 }: SettingsProviderOptionsProps) {
   return (
-    <section aria-label="Provider options" data-slot="provider-options">
-      <SettingsGroupLabel>Provider options</SettingsGroupLabel>
+    <section aria-label={t`Provider options`} data-slot="provider-options">
+      <SettingsGroupLabel>{t`Provider options`}</SettingsGroupLabel>
       {fields.map((field) => {
         const choices = field.options ?? [];
         const id = `provider-option-${field.id}`;

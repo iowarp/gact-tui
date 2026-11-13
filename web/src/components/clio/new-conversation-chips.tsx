@@ -20,6 +20,7 @@ import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { ListGroupLabel } from './primitives/list-row';
 import { MenuRow } from './primitives/menu-row';
 import { WorkspaceMark } from './workspace-mark';
+import { ph, plural, t } from '@lingui/core/macro';
 
 const chipClass =
   'h-7 min-w-0 gap-1.5 rounded-md bg-hover/60 px-2 text-ui font-normal text-foreground hover:bg-hover aria-expanded:bg-hover';
@@ -77,7 +78,7 @@ export function DraftWorkspaceChip({
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <ChipTrigger
-          aria-label={`Conversation workspace: ${label}`}
+          aria-label={t`Conversation workspace: ${label}`}
           className="max-w-44 shrink"
           disabled={disabled}
           icon={draftWorkspaceIcon(workspaceId)}
@@ -87,7 +88,7 @@ export function DraftWorkspaceChip({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuGroup aria-labelledby={groupId}>
-          <ListGroupLabel id={groupId}>Workspaces</ListGroupLabel>
+          <ListGroupLabel id={groupId}>{t`Workspaces`}</ListGroupLabel>
           <DropdownMenuRadioGroup
             value={workspaceId}
             onValueChange={(id) => {
@@ -107,7 +108,7 @@ export function DraftWorkspaceChip({
 }
 
 function changeCount(changes: number) {
-  return `${changes} ${changes === 1 ? 'change' : 'changes'}`;
+  return plural(changes, { one: '# change', other: '# changes' });
 }
 
 function AgentGroup({
@@ -130,7 +131,7 @@ function AgentGroup({
             icon={<BotIcon />}
             label={agent.name || agent.id}
             description={agent.description || undefined}
-            tag={agent.ref === defaultRef ? { text: 'Default' } : undefined}
+            tag={agent.ref === defaultRef ? { text: t`Default` } : undefined}
           />
         </DropdownMenuRadioItem>
       ))}
@@ -168,17 +169,19 @@ export function DraftAgentChip({
   const label = agentRef
     ? agentDisplayName(agentRef, agents)
     : pending
-      ? 'Loading agents…'
+      ? t`Loading agents…`
       : agentsError
-        ? 'Agents unavailable'
-        : 'Default agent';
+        ? t`Agents unavailable`
+        : t`Default agent`;
   const unavailable = pending || Boolean(agentsError && !agents?.length);
   const changed = changes > 0 ? changeCount(changes) : undefined;
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <ChipTrigger
-          aria-label={`Conversation agent: ${label}${changed ? `, ${changed}` : ''}`}
+          aria-label={
+            changed ? t`Conversation agent: ${label}, ${changed}` : t`Conversation agent: ${label}`
+          }
           // On a narrow row the agent's name truncates before anything else.
           className="max-w-56 shrink-[100]"
           disabled={disabled || unavailable}
@@ -199,13 +202,13 @@ export function DraftAgentChip({
             if (ref !== agentRef) onSelect(ref);
           }}
         >
-          <AgentGroup title="Installed agents" agents={installed} defaultRef={defaultRef} />
+          <AgentGroup title={t`Installed agents`} agents={installed} defaultRef={defaultRef} />
           {installed.length && own.length ? <DropdownMenuSeparator /> : null}
-          <AgentGroup title="Your agents" agents={own} defaultRef={defaultRef} />
+          <AgentGroup title={t`Your agents`} agents={own} defaultRef={defaultRef} />
         </DropdownMenuRadioGroup>
         {installed.length || own.length ? <DropdownMenuSeparator /> : null}
         <DropdownMenuItem onSelect={onManageAgents}>
-          <MenuRow label="Manage agents…" />
+          <MenuRow label={t`Manage agents…`} />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -226,10 +229,12 @@ export function DraftCustomizeChip({
   onCustomize: () => void;
 }) {
   return (
-    <NamedTooltip label="Customize the agent">
+    <NamedTooltip label={t`Customize the agent`}>
       <Button
         aria-label={
-          changes ? `Customize the agent (${changeCount(changes)})` : 'Customize the agent'
+          changes
+            ? t`Customize the agent (${ph({ changes: changeCount(changes) })})`
+            : t`Customize the agent`
         }
         className="h-7 gap-1.5 px-1.5 text-ui font-normal text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
         disabled={disabled}
@@ -238,7 +243,7 @@ export function DraftCustomizeChip({
         variant="ghost"
       >
         <ConfigureIcon aria-hidden="true" />
-        <span className="hidden @min-[30rem]/draft:inline">Customize</span>
+        <span className="hidden @min-[30rem]/draft:inline">{t`Customize`}</span>
       </Button>
     </NamedTooltip>
   );

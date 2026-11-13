@@ -11,10 +11,21 @@ import { NestedToolDetail } from './settings-tool-detail';
 import { useToolSettingsEditor } from './settings-tools-editor';
 import { OutcomeModeField, ToolTableFooter } from './settings-tools-picker';
 import { ToolSettingsTable, type ToolTableSection } from './settings-tools-table';
+import { t, ph } from '@lingui/core/macro';
 
 const GROUPS = [
-  { id: 'read', title: 'Read-only tools' },
-  { id: 'write', title: 'Write and delete tools' },
+  {
+    id: 'read',
+    title: t`Read-only tools`,
+    bulkLabel: t`All read-only tools`,
+    bulkPhrase: t`all read-only tools`,
+  },
+  {
+    id: 'write',
+    title: t`Write and delete tools`,
+    bulkLabel: t`All write and delete tools`,
+    bulkPhrase: t`all write and delete tools`,
+  },
 ] as const;
 
 /** A plugin's tools: permission and I/O per tool, grouped by read-only flags. */
@@ -25,27 +36,30 @@ export function PluginToolSettings({ reference }: { reference: string }) {
     queryKey: ['tool-settings', connectionScope(settings), reference],
     queryFn: ({ signal }) => repository.toolSettings(reference, signal),
   });
-  if (view.isPending) return <StateView kind="loading" size="row" title="Loading tool settings…" />;
+  if (view.isPending)
+    return <StateView kind="loading" size="row" title={t`Loading tool settings…`} />;
   if (view.error) {
     return (
       <div title={view.error.message}>
         <StateView
-          action={{ label: 'Retry', onClick: () => void view.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void view.refetch() }}
           kind="error"
           size="row"
-          title="Tool settings couldn’t be loaded."
+          title={t`Tool settings couldn’t be loaded.`}
         />
       </div>
     );
   }
   return (
     <ToolSettingsBody
-      backLabel="All tools"
+      backLabel={t`All tools`}
       data={view.data}
-      emptyTitle="This plugin has no tools"
-      label={`Tools of ${view.data.plugin}`}
+      emptyTitle={t`This plugin has no tools`}
+      label={t`Tools of ${ph({ plugin: view.data.plugin })}`}
       origin={(tool) =>
-        tool.server ? `${tool.server} server, from ${view.data.plugin}` : view.data.plugin
+        tool.server
+          ? t`${ph({ server: tool.server })} server, from ${ph({ plugin: view.data.plugin })}`
+          : view.data.plugin
       }
     />
   );
@@ -123,7 +137,8 @@ export function ToolSettingsBody({
       title: group.title,
       count: tools.length,
       hint: groupModeText(group.id, shown, data.covering_modes),
-      bulkLabel: `All ${group.title.toLowerCase()}`,
+      bulkLabel: group.bulkLabel,
+      bulkPhrase: group.bulkPhrase,
       tools,
     };
   }).filter((group) => group.tools.length);
@@ -132,11 +147,12 @@ export function ToolSettingsBody({
       id: 'not-loaded',
       title: data.servers_not_loaded.join(', '),
       bulkLabel: '',
+      bulkPhrase: '',
       tools: [],
       notice: {
-        text: 'Tools appear once a conversation connects its server',
-        title: `Tools of ${data.servers_not_loaded.join(', ')} appear here once a conversation has connected the server.`,
-        status: 'Not loaded yet',
+        text: t`Tools appear once a conversation connects its server`,
+        title: t`Tools of ${ph({ servers: data.servers_not_loaded.join(', ') })} appear here once a conversation has connected the server.`,
+        status: t`Not loaded yet`,
         tone: 'idle',
       },
     });
@@ -148,9 +164,9 @@ export function ToolSettingsBody({
       {unknownFlags ? (
         <p
           className="truncate text-xs text-muted-foreground"
-          title="A tool's read-only flag and its own I/O default are known once a conversation has used it. Until then it is listed as a write tool."
+          title={t`A tool's read-only flag and its own I/O default are known once a conversation has used it. Until then it is listed as a write tool.`}
         >
-          Some tools are listed as write tools until a conversation loads them.
+          {t`Some tools are listed as write tools until a conversation loads them.`}
         </p>
       ) : null}
       {sections.length ? (

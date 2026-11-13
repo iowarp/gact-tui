@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SftpAuthenticationFields } from './sftp-authentication-fields';
+import { t } from '@lingui/core/macro';
 
 /** Re-authenticate after restart without recreating a source or losing its snapshots. */
+const { agent } = vocab;
+
 export function SftpSourceLogin({
   workspaceId,
   source,
@@ -37,12 +40,12 @@ export function SftpSourceLogin({
       }}
     >
       <SftpAuthenticationFields
-        hostLabel={`the connected ${vocab.agent}`}
+        hostLabel={t`the connected ${agent}`}
         value={credentials}
         onChange={setCredentials}
       />
       <Button type="submit" disabled={login.isPending}>
-        {login.isPending ? 'Connecting…' : 'Connect'}
+        {login.isPending ? t`Connecting…` : t({ message: 'Connect', context: 'verb' })}
       </Button>
       {login.error && (
         <p role="alert" className="text-sm text-destructive">

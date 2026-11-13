@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import type { ComponentProps } from 'react';
+import { t } from '@lingui/core/macro';
 
 export type ConversationEmptyStateProps = ComponentProps<'div'> & {
   title?: string;
@@ -11,8 +12,8 @@ export type ConversationEmptyStateProps = ComponentProps<'div'> & {
 
 export const ConversationEmptyState = ({
   className,
-  title = 'No messages yet',
-  description = 'Start a conversation to see messages here',
+  title = t`No messages yet`,
+  description = t`Start a conversation to see messages here`,
   icon,
   children,
   ...props

@@ -16,6 +16,7 @@ import {
 } from '@/lib/extension-library-entries';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ExtensionAdd } from './extension-add-dialog';
+import { t } from '@lingui/core/macro';
 
 const HA_SKILLS = 'https://github.com/homeassistant-ai/skills';
 const HA_MCP = 'https://github.com/homeassistant-ai/ha-mcp';
@@ -33,7 +34,8 @@ export interface DiscoverItem {
   /** Suggested in Yours while it is not installed. */
   suggested?: boolean;
   installed?: boolean;
-  action: { label: string; run: () => void };
+  /** `opensOnly` actions only show what is installed, so they work without plugin support. */
+  action: { label: string; run: () => void; opensOnly?: boolean };
 }
 
 export function registryChoice(server: McpRegistryPage['servers'][number]['server']): ExtensionAdd {
@@ -105,66 +107,68 @@ export function useDiscoverItems({
   const curated: DiscoverItem[] = [
     {
       key: 'home-assistant-skills',
-      title: 'Home Assistant skills',
+      title: t`Home Assistant skills`,
       icon: <LayersIcon />,
       meta: [
-        { text: 'Plugin' },
-        { text: 'Agent Skills' },
+        { text: t`Plugin` },
+        { text: t`Agent Skills` },
         { text: shortSource(HA_SKILLS), mono: true },
       ],
-      description:
-        'Best practices, dashboards, automations and reference files from homeassistant-ai.',
+      description: t`Best practices, dashboards, automations and reference files from homeassistant-ai.`,
       source: HA_SKILLS,
       types: ['all', 'plugins', 'skills'],
       suggested: true,
       installed: Boolean(haSkill),
       action: haSkill
-        ? { label: 'View', run: () => onViewSkill(haSkill, 'home-assistant-best-practices') }
+        ? {
+            label: t`View`,
+            opensOnly: true,
+            run: () => onViewSkill(haSkill, 'home-assistant-best-practices'),
+          }
         : {
-            label: 'Install',
+            label: t`Install`,
             run: () => onAdd({ kind: 'import', category: 'skills', source: HA_SKILLS }),
           },
     },
     {
       key: 'home-assistant-mcp',
-      title: 'Home Assistant MCP',
+      title: t`Home Assistant MCP`,
       icon: <GlobeIcon />,
-      meta: [{ text: 'MCP connection' }, { text: shortSource(HA_MCP), mono: true }],
-      description:
-        'Connect your Home Assistant deployment, or run the ha-mcp package on the agent host.',
+      meta: [{ text: t`MCP connection` }, { text: shortSource(HA_MCP), mono: true }],
+      description: t`Connect your Home Assistant deployment, or run the ha-mcp package on the agent host.`,
       source: HA_MCP,
       types: ['all', 'mcp'],
       suggested: true,
       installed: haConnected,
-      action: { label: 'Install', run: () => onAdd({ kind: 'remote', title: 'Home Assistant' }) },
+      // i18n-ignore: product name for the new connection
+      action: { label: t`Install`, run: () => onAdd({ kind: 'remote', title: 'Home Assistant' }) },
     },
     {
       key: 'own-plugin',
-      title: 'Bring your own plugin',
+      title: t`Bring your own plugin`,
       icon: <LayersIcon />,
-      meta: [{ text: 'Plugin' }, { text: 'Repository, folder or ZIP' }],
-      description: 'Import Agent Plugins or Claude Code plugins, or compose your own capabilities.',
+      meta: [{ text: t`Plugin` }, { text: t`Repository, folder or ZIP` }],
+      description: t`Import Agent Plugins or Claude Code plugins, or compose your own capabilities.`,
       types: ['all', 'plugins'],
-      action: { label: 'Add', run: () => onAdd({ kind: 'import', category: 'plugins' }) },
+      action: { label: t`Add`, run: () => onAdd({ kind: 'import', category: 'plugins' }) },
     },
     {
       key: 'own-skills',
-      title: 'Bring your own skills',
+      title: t`Bring your own skills`,
       icon: <SparklesIcon />,
-      meta: [{ text: 'Skills' }, { text: 'Repository, folder or ZIP' }],
-      description: 'Import a repository of Agent Skills, or upload one skill folder as a ZIP.',
+      meta: [{ text: t`Skills` }, { text: t`Repository, folder or ZIP` }],
+      description: t`Import a repository of Agent Skills, or upload one skill folder as a ZIP.`,
       types: ['all', 'skills'],
-      action: { label: 'Add', run: () => onAdd({ kind: 'import', category: 'skills' }) },
+      action: { label: t`Add`, run: () => onAdd({ kind: 'import', category: 'skills' }) },
     },
     {
       key: 'own-marketplace',
-      title: 'Add a marketplace',
+      title: t`Add a marketplace`,
       icon: <BoxIcon />,
-      meta: [{ text: 'Marketplace' }, { text: 'Git repository or host folder' }],
-      description:
-        'A marketplace lists plugins in the Agent Plugins or Claude Code format. Its plugins load after you trust it.',
+      meta: [{ text: t`Marketplace` }, { text: t`Git repository or host folder` }],
+      description: t`A marketplace lists plugins in the Agent Plugins or Claude Code format. Its plugins load after you trust it.`,
       types: ['all', 'marketplaces'],
-      action: { label: 'Add', run: onAddMarketplace },
+      action: { label: t`Add`, run: onAddMarketplace },
     },
   ];
   const registryItems: DiscoverItem[] = (registry.data?.servers ?? []).map(({ server }) => {
@@ -175,18 +179,18 @@ export function useDiscoverItems({
       title: server.title || server.name,
       icon: server.remotes.length ? <GlobeIcon /> : <PlugIcon />,
       meta: [
-        { text: 'MCP connection' },
+        { text: t`MCP connection` },
         server.remotes.length
-          ? { text: 'remote service' }
-          : { text: packages[0] ?? 'See server documentation', mono: Boolean(packages[0]) },
+          ? { text: t`remote service` }
+          : { text: packages[0] ?? t`See server documentation`, mono: Boolean(packages[0]) },
       ],
       description: server.description,
       source: server.repository?.url,
       detail: server.remotes.length
-        ? 'Remote connection'
-        : packages.join(', ') || 'See server documentation',
+        ? t`Remote connection`
+        : packages.join(', ') || t`See server documentation`,
       types: ['all', 'mcp'],
-      action: { label: 'Install', run: () => onAdd(choice) },
+      action: { label: t`Install`, run: () => onAdd(choice) },
     };
   });
   return { curated, registry, registryItems };

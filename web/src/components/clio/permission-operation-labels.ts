@@ -1,20 +1,21 @@
 import type { PendingInteraction } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 const OPERATIONS: Record<string, string> = {
-  fs_read_file: 'Read file',
-  fs_write_file: 'Write file',
-  fs_edit_file: 'Edit file',
-  shell_bash: 'Run command',
-  'workspace.read': 'Read file',
-  'workspace.write': 'Write file',
-  'workspace.move': 'Move file',
-  connected_data_connect: 'Connect source',
-  connected_data_download: 'Download source',
-  connected_data_ndp_endpoint_connect: 'Connect NDP endpoint',
-  web_fetch: 'Read web source',
-  web_search: 'Search the web',
-  browser_host: 'Open a website in the shared browser',
-  browser_evaluate: 'Run a script in a web page',
+  fs_read_file: t`Read file`,
+  fs_write_file: t`Write file`,
+  fs_edit_file: t`Edit file`,
+  shell_bash: t`Run command`,
+  'workspace.read': t`Read file`,
+  'workspace.write': t`Write file`,
+  'workspace.move': t`Move file`,
+  connected_data_connect: t`Connect source`,
+  connected_data_download: t`Download source`,
+  connected_data_ndp_endpoint_connect: t`Connect NDP endpoint`,
+  web_fetch: t`Read web source`,
+  web_search: t`Search the web`,
+  browser_host: t`Open a website in the shared browser`,
+  browser_evaluate: t`Run a script in a web page`,
 };
 
 /** Name a known operation without changing an unknown tool's supplied title. */
@@ -22,7 +23,7 @@ export function permissionOperationLabel(
   name: string,
   input: Record<string, unknown> = {},
 ): string | undefined {
-  if (name === 'web_fetch' && input.to_file === true) return 'Save web source';
+  if (name === 'web_fetch' && input.to_file === true) return t`Save web source`;
   return OPERATIONS[name];
 }
 

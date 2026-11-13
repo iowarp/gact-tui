@@ -27,23 +27,24 @@ import {
   stepCounter,
   stepFraction,
 } from './operation-progress-model';
+import { ph, plural, t } from '@lingui/core/macro';
 
 const STEP_STATE_LABELS: Record<OperationStepState, string> = {
-  pending: 'Waiting',
-  running: 'Running',
-  succeeded: 'Done',
-  reused: 'Reused',
-  skipped: 'Skipped',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
+  pending: t`Waiting`,
+  running: t`Running`,
+  succeeded: t`Done`,
+  reused: t`Reused`,
+  skipped: t`Skipped`,
+  failed: t`Failed`,
+  cancelled: t`Cancelled`,
 };
 
 const OPERATION_STATE_LABELS: Record<InfrastructureOperation['state'], string> = {
-  queued: 'Queued',
-  running: 'Running',
-  succeeded: 'Finished',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
+  queued: t`Queued`,
+  running: t`Running`,
+  succeeded: t`Finished`,
+  failed: t`Failed`,
+  cancelled: t`Cancelled`,
 };
 
 function StepIcon({ state }: { state: OperationStepState }) {
@@ -62,7 +63,7 @@ function StepBar({ step, label }: { step: OperationStep; label: string }) {
   if (fraction !== undefined) {
     return (
       <Progress
-        aria-label={`${label} progress`}
+        aria-label={t`${label} progress`}
         aria-valuetext={`${Math.round(fraction * 100)}%`}
         className="mt-1"
         data-determinate="true"
@@ -72,8 +73,8 @@ function StepBar({ step, label }: { step: OperationStep; label: string }) {
   }
   return (
     <div
-      aria-label={`${label} progress`}
-      aria-valuetext="In progress, amount unknown"
+      aria-label={t`${label} progress`}
+      aria-valuetext={t`In progress, amount unknown`}
       className="relative mt-1 h-1 w-full overflow-hidden rounded-full bg-muted"
       data-determinate="false"
       role="progressbar"
@@ -150,13 +151,13 @@ export function OperationProgress({
           </p>
           {operation?.from_scratch ? (
             <Badge size="sm" variant="outline">
-              From scratch
+              {t`From scratch`}
             </Badge>
           ) : null}
         </div>
         {elapsed !== undefined ? (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            Elapsed {formatElapsed(elapsed * 1000)}
+            {t`Elapsed ${ph({ elapsed: formatElapsed(elapsed * 1000) })}`}
           </span>
         ) : null}
       </header>
@@ -164,7 +165,7 @@ export function OperationProgress({
         <InstallExpectation {...expectation} reused={operation?.from_scratch ? [] : reused} />
       ) : null}
       {steps.length ? (
-        <ol aria-label="Steps" className="space-y-2">
+        <ol aria-label={t`Steps`} className="space-y-2">
           {steps.map((step, index) => {
             const counter = stepCounter(step.progress);
             const time = stepElapsed(step, now);
@@ -224,8 +225,8 @@ export function OperationProgress({
         </ol>
       ) : running && !currentStep ? (
         <div
-          aria-label={`${title}: in progress`}
-          aria-valuetext="In progress, amount unknown"
+          aria-label={t`${title}: in progress`}
+          aria-valuetext={t`In progress, amount unknown`}
           className="relative h-1 w-full overflow-hidden rounded-full bg-muted"
           data-determinate="false"
           role="progressbar"
@@ -234,7 +235,7 @@ export function OperationProgress({
         </div>
       ) : null}
       {reused.length ? (
-        <ul aria-label="Reused instead of redone" className="space-y-1">
+        <ul aria-label={t`Reused instead of redone`} className="space-y-1">
           {reused.map((row) => (
             <li
               className="border-l-2 border-primary/50 pl-2 text-xs text-muted-foreground"
@@ -255,7 +256,7 @@ export function OperationProgress({
         <div className="flex flex-wrap gap-2">
           {running && onCancel ? (
             <Button onClick={onCancel} size="sm" type="button" variant="ghost">
-              Cancel operation
+              {t`Cancel operation`}
             </Button>
           ) : null}
           {!running && onReinstallFromScratch ? (
@@ -265,7 +266,7 @@ export function OperationProgress({
               type="button"
               variant="outline"
             >
-              Reinstall from scratch
+              {t`Reinstall from scratch`}
             </Button>
           ) : null}
         </div>
@@ -278,8 +279,12 @@ export function OperationProgress({
             type="button"
             variant="link"
           >
-            Live log
-            {stream.lines.length ? ` (${stream.lines.length} lines)` : ''}
+            {stream.lines.length
+              ? plural(stream.lines.length, {
+                  one: 'Live log (# line)',
+                  other: 'Live log (# lines)',
+                })
+              : t`Live log`}
             <ChevronDownIcon
               aria-hidden="true"
               className="transition-transform group-data-[state=open]:rotate-180"
@@ -287,7 +292,7 @@ export function OperationProgress({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <OperationLogTerminal gap={stream.gap} label={`${title} log`} lines={stream.lines} />
+          <OperationLogTerminal gap={stream.gap} label={t`${title} log`} lines={stream.lines} />
         </CollapsibleContent>
       </Collapsible>
     </section>

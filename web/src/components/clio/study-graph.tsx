@@ -24,6 +24,7 @@ import {
   type StudyGraphLayout,
 } from './study-graph-layout';
 import type { StudyGraphNode } from './study-graph-model';
+import { ph, t } from '@lingui/core/macro';
 
 interface EntryNodeData extends Record<string, unknown> {
   entry: StudyGraphNode;
@@ -70,7 +71,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
   const viewport = topLeftViewport(fitHeight(fit, size?.h, tall, OPEN_FLOOR));
   return (
     <section
-      aria-label="Study relationship graph"
+      aria-label={t`Study relationship graph`}
       className="h-full min-h-0 min-w-0 overflow-hidden bg-background"
       ref={container}
     >
@@ -90,7 +91,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         <ApplyViewport viewport={viewport} />
         <GraphEdgeFade width={wide} height={tall} />
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
-        <GraphControls label="Study graph controls" region={container} />
+        <GraphControls label={t`Study graph controls`} region={container} />
       </ReactFlow>
     </section>
   );
@@ -105,12 +106,12 @@ function EntryCard({ data }: NodeProps<EntryNode>) {
     : entry.kind in ENTRY_TYPE_LABELS
       ? (entry.kind as ScienceEntry['type'])
       : 'unknown';
-  const kind = entry.members ? 'Observations' : ENTRY_TYPE_LABELS[type];
+  const kind = entry.members ? t`Observations` : ENTRY_TYPE_LABELS[type];
   return (
     <div className="relative" style={{ width, height }}>
       <Handle className={HANDLE} position={Position.Right} type="target" />
       <button
-        aria-label={`${kind}: ${entry.title}, ${entry.state.label}`}
+        aria-label={t`${kind}: ${ph({ title: entry.title })}, ${ph({ state: entry.state.label })}`}
         aria-pressed={data.selected}
         className={cn(
           'nodrag nopan grid h-full w-full grid-cols-[14px_minmax(0,1fr)] content-center gap-x-2 rounded-md border bg-card px-2.5 text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring',

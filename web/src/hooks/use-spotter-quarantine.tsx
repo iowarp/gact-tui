@@ -10,6 +10,7 @@ import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
+import { t } from '@lingui/core/macro';
 
 /** The session's active SPOTTER quarantine (``metadata.spotter_quarantine``), if any. */
 function activeQuarantine(metadata: Record<string, unknown> | undefined) {
@@ -18,7 +19,7 @@ function activeQuarantine(metadata: Record<string, unknown> | undefined) {
   const row = record as Record<string, unknown>;
   if (row.status !== 'active') return undefined;
   return {
-    title: typeof row.title === 'string' ? row.title : 'SPOTTER detected a danger',
+    title: typeof row.title === 'string' ? row.title : t`SPOTTER detected a danger`,
     detail: typeof row.detail === 'string' ? row.detail : '',
     watcher_handle: typeof row.watcher_handle === 'string' ? row.watcher_handle : '',
     raised_at: typeof row.raised_at === 'string' ? row.raised_at : undefined,
@@ -44,8 +45,8 @@ export function useSpotterQuarantine(
     onSuccess: () =>
       invalidateQueriesInBackground(queryClient, [queryKeys.allSessionReads(settings.endpoint)]),
     onError: (error: unknown) =>
-      toast.error('The quarantine was not lifted', {
-        description: error instanceof Error ? error.message : 'The service refused.',
+      toast.error(t`The quarantine was not lifted`, {
+        description: error instanceof Error ? error.message : t`The service refused.`,
       }),
   });
   const card = quarantine ? (
@@ -54,11 +55,11 @@ export function useSpotterQuarantine(
       onDiscuss={() =>
         void discuss({
           id: 'discuss',
-          label: 'Discuss',
+          label: t`Discuss`,
           enabled: Boolean(quarantine.watcher_handle),
           behavior: { kind: 'focus_session', handle_id: quarantine.watcher_handle },
         }).catch((error: unknown) =>
-          toast.error('Could not open SPOTTER', {
+          toast.error(t`Could not open SPOTTER`, {
             description: error instanceof Error ? error.message : undefined,
           }),
         )

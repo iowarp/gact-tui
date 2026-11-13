@@ -3,6 +3,7 @@ import { AlertTriangleIcon } from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { t, ph } from '@lingui/core/macro';
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -46,18 +47,17 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
         >
           <AlertTriangleIcon aria-hidden="true" className="size-6 text-destructive" />
           <h1 className="mt-4 text-lg font-semibold" id="workspace-error-title">
-            {brand.name} could not display this workspace
+            {t`${ph({ name: brand.name })} could not display this workspace`}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your service and saved work were not changed. Reload the workspace to reconnect and try
-            the view again.
+            {t`Your service and saved work were not changed. Reload the workspace to reconnect and try the view again.`}
           </p>
           <Button className="mt-5" onClick={() => window.location.reload()}>
             <RetryIcon aria-hidden="true" />
-            Reload workspace
+            {t`Reload workspace`}
           </Button>
           <details className="mt-5 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Error detail</summary>
+            <summary className="cursor-pointer">{t`Error detail`}</summary>
             <p className="mt-2 break-words font-mono">{this.state.error.message}</p>
           </details>
         </section>

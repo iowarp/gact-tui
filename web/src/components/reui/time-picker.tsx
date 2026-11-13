@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/input-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ClockIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -97,18 +98,18 @@ export type TimePickerI18nOverrides = {
 
 export const DEFAULT_TIME_PICKER_I18N: TimePickerI18nConfig = {
   labels: {
-    placeholder: 'Select time',
-    hour: 'Hour',
-    minute: 'Minute',
-    second: 'Second',
-    period: 'AM/PM',
-    am: 'AM',
-    pm: 'PM',
-    now: 'Now',
-    clear: 'Clear',
-    confirm: 'OK',
-    panelLabel: 'Choose time',
-    openPicker: 'Open time picker',
+    placeholder: t`Select time`,
+    hour: t`Hour`,
+    minute: t`Minute`,
+    second: t`Second`,
+    period: t`AM/PM`,
+    am: t`AM`,
+    pm: t`PM`,
+    now: t`Now`,
+    clear: t`Clear`,
+    confirm: t`OK`,
+    panelLabel: t`Choose time`,
+    openPicker: t`Open time picker`,
   },
   functions: {
     formatSegment: (value) => String(value).padStart(2, '0'),

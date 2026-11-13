@@ -18,5 +18,40 @@
   "themeTokens": {},
   "releaseUrl": "https://github.com/iowarp/gact-tui/releases",
   "desktopReleaseUrl": "https://github.com/iowarp/gact-tui/releases",
-  "agentReleaseUrl": "https://github.com/iowarp/gact-tui/releases"
+  "agentReleaseUrl": "https://github.com/iowarp/gact-tui/releases",
+  "locales": {
+    "es": {
+      "tagline": "Un espacio de trabajo para agentes, sin marca de producto",
+      "landing": {
+        "eyebrow": "Espacio de trabajo para agentes",
+        "headline": "Tu trabajo con agentes, en un solo lugar.",
+        "description": "Conéctate a un servicio de agentes para continuar tu trabajo. La identidad del producto y el lenguaje del dominio los aporta el servicio que uses."
+      },
+      "workspace": {
+        "greeting": "¿En qué puedo ayudarte?"
+      }
+    },
+    "ja": {
+      "tagline": "製品ブランドに依存しないエージェントワークスペース",
+      "landing": {
+        "eyebrow": "エージェントワークスペース",
+        "headline": "エージェントとの作業を、ひとつの場所に。",
+        "description": "エージェントサービスに接続して作業を続けましょう。製品の名称や分野の用語は、利用するサービスが提供します。"
+      },
+      "workspace": {
+        "greeting": "何をお手伝いしましょうか？"
+      }
+    },
+    "el": {
+      "tagline": "Ένας ουδέτερος χώρος εργασίας για πράκτορες",
+      "landing": {
+        "eyebrow": "Χώρος εργασίας πρακτόρων",
+        "headline": "Η δουλειά σας με πράκτορες, σε ένα σημείο.",
+        "description": "Συνδεθείτε σε μια υπηρεσία πρακτόρων για να συνεχίσετε τη δουλειά σας. Την ταυτότητα του προϊόντος και την ορολογία του πεδίου τις παρέχει η υπηρεσία που χρησιμοποιείτε."
+      },
+      "workspace": {
+        "greeting": "Πώς μπορώ να βοηθήσω;"
+      }
+    }
+  }
 }

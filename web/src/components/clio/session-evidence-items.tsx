@@ -16,6 +16,7 @@ import {
   WaypointsIcon,
 } from 'lucide-react';
 import { formatBytes, formatDuration } from '@/lib/format';
+import { formatNumber } from '@/lib/locale-format';
 import type { SessionEvidenceActions } from './session-evidence-types';
 import type { EvidenceFile, EvidencePlan } from './session-evidence-projection';
 import { diffStatus, friendlyStatus, type EvidenceSource } from './observability-evidence-sources';
@@ -28,6 +29,7 @@ import { isSettledTaskActivity, taskActivity } from './task-activity';
 
 import type { SessionRailItem } from './session-rail-layout';
 import { ArtifactRailRow } from './artifact-rail-row';
+import { t } from '@lingui/core/macro';
 
 /** "+48 ?3" when the diffs report line counts. */
 export function changedLines(diffs: readonly SessionDiff[]): string | undefined {
@@ -35,7 +37,7 @@ export function changedLines(diffs: readonly SessionDiff[]): string | undefined 
     return undefined;
   const added = diffs.reduce((sum, diff) => sum + (diff.lines_added ?? 0), 0);
   const removed = diffs.reduce((sum, diff) => sum + (diff.lines_removed ?? 0), 0);
-  return `+${added.toLocaleString()} \u2212${removed.toLocaleString()}`;
+  return `+${formatNumber(added)} \u2212${formatNumber(removed)}`;
 }
 
 export type SessionEvidenceSummaryProps = Pick<
@@ -99,7 +101,7 @@ export function sessionEvidenceItems({
                   <SessionSummaryRow
                     key={run.id}
                     icon={<ActivityIcon />}
-                    label={run.summary || 'Agent run'}
+                    label={run.summary || t`Agent run`}
                     metadata={
                       run.elapsed_ms === undefined
                         ? clioStatusLabel(run.state)

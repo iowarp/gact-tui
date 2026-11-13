@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { Icon } from './settings-tools-options';
 import { ValueMark } from './settings-tools-picker';
+import { t } from '@lingui/core/macro';
 
 /** A value a summary row shows in its sub line: the mark, D for a default, and the word. */
 export function ValueSummary({
@@ -29,7 +30,7 @@ export function ValueSummary({
     >
       <ValueMark icon={icon} isDefault={isDefault} />
       {label}
-      {isDefault ? <span className="sr-only">, default</span> : null}
+      {isDefault ? <span className="sr-only">{t`, default`}</span> : null}
     </span>
   );
 }

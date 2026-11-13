@@ -51,6 +51,7 @@ import { serviceErrorDetail } from './service-error';
 import { WorkbenchFileTree } from './workbench-file-tree';
 import { buildFileTree } from './workbench-file-tree-model';
 import { LIST_HEADER_SECONDARY, type ChangeCounts } from './workbench-shared';
+import { t } from '@lingui/core/macro';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
@@ -207,7 +208,7 @@ export function FileBrowser({
     onSelectedPathChange?.(path);
   };
 
-  const filterLabel = filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files';
+  const filterLabel = filesNextOffset !== undefined ? t`Filter loaded files` : t`Filter files`;
   const refreshFiles = async () => {
     onRefresh?.();
     await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
@@ -217,7 +218,7 @@ export function FileBrowser({
       <IconButton
         aria-pressed={searching}
         icon={<SearchIcon />}
-        label={searching ? 'Close search' : 'Search files'}
+        label={searching ? t`Close search` : t`Search files`}
         onClick={() => (searching ? closeSearch() : setSearching(true))}
         size="sm"
         tooltipSide="bottom"
@@ -227,25 +228,25 @@ export function FileBrowser({
           <IconButton
             aria-pressed={hideDotFiles}
             icon={<ListFilterIcon />}
-            label="Filter files"
+            label={t`Filter files`}
             size="sm"
             tooltipSide="bottom"
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
           <DropdownMenuCheckboxItem
             checked={!hideDotFiles}
             onCheckedChange={(checked) => setHideDotFiles(!checked)}
             onSelect={(event) => event.preventDefault()}
           >
-            Dot files and folders
+            {t`Dot files and folders`}
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <span className={LIST_HEADER_SECONDARY}>
         <RefreshAction
-          label="Refresh files"
+          label={t`Refresh files`}
           refreshing={Boolean(filesFetching)}
           onRefresh={refreshFiles}
         />
@@ -254,12 +255,12 @@ export function FileBrowser({
   ) : null;
 
   const treeSection = (
-    <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
+    <section aria-label={t`Workspace file tree`} className="flex h-full min-h-0 flex-col">
       {headed ? renderHeader(headerActions) : null}
       {directory ? (
         <div className="flex min-w-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
           <Button size="xs" variant="ghost" onClick={onClearDirectory}>
-            All folders
+            {t`All folders`}
           </Button>
           <span className="truncate" title={directory}>
             {directory}
@@ -280,7 +281,7 @@ export function FileBrowser({
                   closeSearch();
                 }
               }}
-              placeholder="Filter files"
+              placeholder={t`Filter files`}
               value={query}
             />
           </div>
@@ -295,13 +296,13 @@ export function FileBrowser({
           {mode === 'tree' ? (
             <IconButton
               icon={<DatabaseIcon />}
-              label="Sources"
+              label={t`Sources`}
               onClick={() => setSourcesOpen(true)}
               size="sm"
             />
           ) : (
             <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
-              Sources
+              {t`Sources`}
             </Button>
           )}
           <div className="relative min-w-0 flex-1">
@@ -311,16 +312,16 @@ export function FileBrowser({
             />
             <Input
               aria-label={
-                filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
+                filesNextOffset !== undefined ? t`Filter loaded files` : t`Filter workspace files`
               }
               className={cn('pl-8 text-xs', mode === 'tree' ? 'h-7' : 'h-8')}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'}
+              placeholder={filesNextOffset !== undefined ? t`Filter loaded files` : t`Filter files`}
               value={query}
             />
           </div>
           <RefreshAction
-            label="Refresh files"
+            label={t`Refresh files`}
             refreshing={Boolean(filesFetching)}
             onRefresh={refreshFiles}
           />
@@ -329,13 +330,13 @@ export function FileBrowser({
       {filesTruncated && filesNextOffset === undefined ? (
         headed ? (
           <p className="shrink-0 truncate px-3.5 pt-1.5 text-caption text-faint">
-            Showing part of this workspace; filter to find the rest.
+            {t`Showing part of this workspace; filter to find the rest.`}
           </p>
         ) : (
           <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
             <TriangleAlertIcon className="size-3.5" />
             <AlertDescription className="text-xs">
-              This list is truncated — the workspace has more files than can be shown at once.
+              {t`This list is truncated — the workspace has more files than can be shown at once.`}
             </AlertDescription>
           </Alert>
         )
@@ -367,7 +368,7 @@ export function FileBrowser({
             changeCounts={changeCounts}
           />
         ) : filesPending ? (
-          <StateView kind="loading" size="panel" title="Loading files" />
+          <StateView kind="loading" size="panel" title={t`Loading files`} />
         ) : files.length ? (
           filteredFiles.length ? (
             <WorkbenchFileTree
@@ -382,28 +383,28 @@ export function FileBrowser({
               icon={SearchIcon}
               kind="empty"
               size="panel"
-              title="No files match this filter"
+              title={t`No files match this filter`}
             />
           )
         ) : filesError ? (
           <StateView
-            action={{ label: 'Retry', onClick: () => void refreshFiles() }}
+            action={{ label: t`Retry`, onClick: () => void refreshFiles() }}
             detail={serviceErrorDetail(filesError)}
             kind="error"
             size="panel"
-            title="Files couldn't be listed"
+            title={t`Files couldn't be listed`}
           />
         ) : (
           <StateView
             detail={
               hideDotFiles
-                ? 'Hidden files are off in Settings > Appearance; there may be dot files.'
+                ? t`Hidden files are off in Settings > Appearance; there may be dot files.`
                 : undefined
             }
             icon={FolderIcon}
             kind="empty"
             size="panel"
-            title="No files in this workspace"
+            title={t`No files in this workspace`}
           />
         )}
         {headed ? legend : null}
@@ -411,11 +412,11 @@ export function FileBrowser({
     </section>
   );
   const previewSection = (
-    <section aria-label="Workspace file preview" className="h-full min-h-0 overflow-hidden">
+    <section aria-label={t`Workspace file preview`} className="h-full min-h-0 overflow-hidden">
       {previewPath && searchLocation && previewPath === selectedPath ? (
         <FileSearchPassage workspaceId={workspaceId} path={previewPath} location={searchLocation} />
       ) : previewPath ? (
-        <Suspense fallback={<ResourceLoading label="Loading file" />}>
+        <Suspense fallback={<ResourceLoading label={t`Loading file`} />}>
           <WorkspaceFileView
             key={previewPath}
             initialPage={previewPath === selectedPath ? page : undefined}
@@ -433,7 +434,7 @@ export function FileBrowser({
             icon={FileTextIcon}
             kind="empty"
             size="panel"
-            title="Choose a file in the tree to see it here"
+            title={t`Choose a file in the tree to see it here`}
           />
         </div>
       )}
@@ -469,7 +470,7 @@ export function FileBrowser({
         >
           {treeSection}
         </ResizablePanel>
-        <ResizableHandle aria-label="Resize file tree" withHandle />
+        <ResizableHandle aria-label={t`Resize file tree`} withHandle />
         <ResizablePanel id="workspace-file-preview" minSize={stacked ? '180px' : '240px'}>
           {previewSection}
         </ResizablePanel>
@@ -520,7 +521,7 @@ export function ArtifactBrowser({
     <ScrollArea className="h-full p-2">
       <div className="grid gap-2">
         {artifactsPending ? (
-          <StateView kind="loading" size="panel" title="Loading artifacts" />
+          <StateView kind="loading" size="panel" title={t`Loading artifacts`} />
         ) : null}
         <ArtifactFilters artifacts={artifacts}>
           {(visible) =>
@@ -540,19 +541,21 @@ export function ArtifactBrowser({
         </ArtifactFilters>
         {!artifactsPending && !artifacts.length ? (
           <StateView
-            action={artifactsError ? { label: 'Retry', onClick: retryArtifacts } : undefined}
+            action={artifactsError ? { label: t`Retry`, onClick: retryArtifacts } : undefined}
             detail={serviceErrorDetail(artifactsError)}
             icon={artifactsError ? undefined : BoxIcon}
             kind={artifactsError ? 'error' : 'empty'}
             size="panel"
             title={
-              artifactsError ? "Artifacts couldn't be listed" : 'No artifacts in this conversation'
+              artifactsError
+                ? t`Artifacts couldn't be listed`
+                : t`No artifacts in this conversation`
             }
           />
         ) : null}
         {artifactsTruncated ? (
           <p className="px-2 py-1 text-xs text-warning">
-            The service returned a partial artifact registry.
+            {t`The service returned a partial artifact registry.`}
           </p>
         ) : null}
       </div>
@@ -560,7 +563,7 @@ export function ArtifactBrowser({
   );
 
   return (
-    <section aria-label="Session artifact list" className="h-full min-h-0" ref={hostRef}>
+    <section aria-label={t`Session artifact list`} className="h-full min-h-0" ref={hostRef}>
       {splitArtifact ? (
         <ResizablePanelGroup orientation={stacked ? 'vertical' : 'horizontal'}>
           <ResizablePanel
@@ -570,10 +573,10 @@ export function ArtifactBrowser({
           >
             {artifactList}
           </ResizablePanel>
-          <ResizableHandle aria-label="Resize artifact list" withHandle />
+          <ResizableHandle aria-label={t`Resize artifact list`} withHandle />
           <ResizablePanel id="session-artifact-preview" minSize={stacked ? '220px' : '230px'}>
-            <section aria-label="Selected artifact" className="h-full min-h-0 overflow-hidden">
-              <Suspense fallback={<ResourceLoading label="Loading artifact" />}>
+            <section aria-label={t`Selected artifact`} className="h-full min-h-0 overflow-hidden">
+              <Suspense fallback={<ResourceLoading label={t`Loading artifact`} />}>
                 <ArtifactView
                   artifact={splitArtifact}
                   files={files}

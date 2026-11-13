@@ -18,6 +18,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
+import { t } from '@lingui/core/macro';
 
 export type ActivityOutcomeTone = 'error' | 'warning' | 'muted';
 
@@ -323,7 +324,7 @@ export const ActivityInfoButton = forwardRef<
   HTMLButtonElement,
   { label: string; onClick?: () => void; hint?: string }
 >(function ActivityInfoButton(
-  { label, onClick, hint = 'View command, input, result, and timing', ...rest },
+  { label, onClick, hint = t`View command, input, result, and timing`, ...rest },
   ref,
 ) {
   return (
@@ -378,7 +379,7 @@ export function ActivityNest({
           onClick={onShowAll}
           className="h-auto rounded-[4px] px-2 py-1 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
         >
-          {showAllLabel ?? `Show all ${hidden}`}
+          {showAllLabel ?? t`Show all ${hidden}`}
         </Button>
       ) : null}
     </div>

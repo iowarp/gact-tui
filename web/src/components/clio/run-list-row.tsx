@@ -18,10 +18,13 @@ import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import {
   RUN_ACTIONS_WIDTH,
   compactWhen,
+  runCancelPending,
   runLook,
   runStateLabel,
 } from '@/components/clio/run-presentation';
 import { sourceLabels, type RunRow, type RunSource } from '@/routes/runs-rows';
+import { formatLocale } from '@/lib/locale-format';
+import { ph, t } from '@lingui/core/macro';
 
 /*
  * Under 560px with a mouse, the hover actions take no column of their own: they
@@ -105,10 +108,11 @@ export function RunStatusMark({
 
 function fullWhen(iso: string): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return 'Time unavailable';
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(at),
-  );
+  if (Number.isNaN(at)) return t`Time unavailable`;
+  return new Intl.DateTimeFormat(formatLocale(), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(at));
 }
 
 /** "3 of 5" when a running task reports counted progress; it fits the state column. */
@@ -183,7 +187,9 @@ export const RunListRow = memo(function RunListRow({
   const rail = density === 'rail';
   const look = runLook(row);
   const stateLabel = runStateLabel(row, cancelRequested);
-  const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
+  const word = runCancelPending(row, cancelRequested)
+    ? runLook({ state: 'stopping' }).word
+    : look.word;
   const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
   const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
   const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
@@ -194,7 +200,7 @@ export const RunListRow = memo(function RunListRow({
       : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
-  const where = row.source === 'flow' ? row.placement : row.host || 'Host unavailable';
+  const where = row.source === 'flow' ? row.placement : row.host || t`Host unavailable`;
   const source =
     row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`;
   const select = (event: MouseEvent<HTMLDivElement>) => {
@@ -249,7 +255,7 @@ export const RunListRow = memo(function RunListRow({
           >
             {percent === undefined ? null : (
               <span
-                aria-label={`${percent}% done`}
+                aria-label={t`${percent}% done`}
                 aria-valuemax={100}
                 aria-valuemin={0}
                 aria-valuenow={percent}
@@ -293,7 +299,7 @@ export const RunListRow = memo(function RunListRow({
             elapsed === undefined ? null : (
               <span
                 className="w-[30px] shrink-0 text-right text-caption text-muted-foreground tabular-nums"
-                title={`Ran for ${formatDuration(elapsed)}`}
+                title={t`Ran for ${ph({ duration: formatDuration(elapsed) })}`}
               >
                 {formatDuration(elapsed, 'compact')}
               </span>

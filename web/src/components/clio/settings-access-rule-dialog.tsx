@@ -29,6 +29,7 @@ import {
   type PriorityChoice,
   type PolicyKind,
 } from './settings-access-rule-model';
+import { t, ph } from '@lingui/core/macro';
 
 export function RuleKindIcon({ kind, className }: { kind: PolicyKind; className?: string }) {
   const Icon =
@@ -138,7 +139,7 @@ export function AccessRuleDialog({
   return (
     <DialogFrame
       confirm={{
-        label: 'Save rule',
+        label: t`Save rule`,
         onConfirm: () => {
           setTouched(false);
           onConfirm();
@@ -148,10 +149,10 @@ export function AccessRuleDialog({
       icon={<ShieldIcon className="size-4" />}
       onOpenChange={changeOpen}
       open={open}
-      title={editing ? 'Edit access rule' : 'New access rule'}
+      title={editing ? t`Edit access rule` : t`New access rule`}
     >
       <div className="-mt-1 grid">
-        <SettingsRow htmlFor="access-rule-kind" title="Applies to">
+        <SettingsRow htmlFor="access-rule-kind" title={t`Applies to`}>
           <RuleSelect
             id="access-rule-kind"
             initialFocus
@@ -169,7 +170,7 @@ export function AccessRuleDialog({
             value={draft.kind}
           />
         </SettingsRow>
-        <SettingsRow htmlFor="access-rule-decision" title="Decision">
+        <SettingsRow htmlFor="access-rule-decision" title={t`Decision`}>
           <RuleSelect
             id="access-rule-decision"
             onChange={(action) => set({ action })}
@@ -178,7 +179,7 @@ export function AccessRuleDialog({
           />
         </SettingsRow>
         <SettingsRow
-          info="Patterns use the service's exact matching rules."
+          info={t`Patterns use the service's exact matching rules.`}
           error={touched && subjectMissing ? subject.error : undefined}
           htmlFor="access-rule-subject"
           title={subject.label}
@@ -195,30 +196,31 @@ export function AccessRuleDialog({
           />
         </SettingsRow>
         {draft.kind !== 'domain' && draft.kind !== 'fs_root' ? (
-          <SettingsRow htmlFor="access-rule-path" title="Limit to file paths">
+          <SettingsRow htmlFor="access-rule-path" title={t`Limit to file paths`}>
             <Input
               className={cn(fieldClass, 'font-mono')}
               id="access-rule-path"
               onChange={(event) => set({ pathPattern: event.target.value })}
-              placeholder="Optional"
+              placeholder={t`Optional`}
               title={draft.pathPattern || undefined}
               value={draft.pathPattern}
             />
           </SettingsRow>
         ) : null}
         {draft.kind === 'plan_acl' || draft.modes ? (
-          <SettingsRow htmlFor="access-rule-modes" title="Modes">
+          <SettingsRow htmlFor="access-rule-modes" title={t`Modes`}>
             <Input
               className={fieldClass}
               id="access-rule-modes"
               onChange={(event) => set({ modes: event.target.value })}
+              // i18n-ignore: example mode identifiers the service matches
               placeholder="plan, architect"
               value={draft.modes}
             />
           </SettingsRow>
         ) : null}
         {draft.kind === 'hook' || draft.events ? (
-          <SettingsRow htmlFor="access-rule-events" title="Tool events">
+          <SettingsRow htmlFor="access-rule-events" title={t`Tool events`}>
             <Input
               className={fieldClass}
               id="access-rule-events"
@@ -229,15 +231,17 @@ export function AccessRuleDialog({
           </SettingsRow>
         ) : null}
         <SettingsRow
-          info={domain ? `Domain rules apply per ${vocab.workspace}.` : undefined}
-          title="Scope"
+          info={
+            domain ? t`Domain rules apply per ${ph({ workspace: vocab.workspace })}.` : undefined
+          }
+          title={t`Scope`}
         >
           <SegmentedControl
-            label="Scope"
+            label={t`Scope`}
             onValueChange={(value) => set({ scope: value, scopeId: '' })}
             options={[
               { value: 'workspace', label: capitalize(vocab.workspace) },
-              { value: 'session', label: 'Session', disabled: domain },
+              { value: 'session', label: t`Session`, disabled: domain },
             ]}
             value={scope}
           />
@@ -246,7 +250,7 @@ export function AccessRuleDialog({
           <SettingsRow
             note={
               domain && !draft.scopeId
-                ? `Domain rules take effect once a specific ${vocab.workspace} is chosen.`
+                ? t`Domain rules take effect once a specific ${ph({ workspace: vocab.workspace })} is chosen.`
                 : undefined
             }
             htmlFor="access-rule-workspace"
@@ -257,7 +261,7 @@ export function AccessRuleDialog({
               id="access-rule-workspace"
               onChange={(value) => set({ scopeId: value === 'any' ? '' : value })}
               options={[
-                { value: 'any', label: `Any ${vocab.workspace}` },
+                { value: 'any', label: t`Any ${ph({ workspace: vocab.workspace })}` },
                 ...(workspaces ?? []).map((workspace) => ({
                   value: workspace.id,
                   label: workspaceName(workspace),
@@ -267,20 +271,20 @@ export function AccessRuleDialog({
             />
           </SettingsRow>
         ) : (
-          <SettingsRow htmlFor="access-rule-session" title="Session ID">
+          <SettingsRow htmlFor="access-rule-session" title={t`Session ID`}>
             <Input
               className={cn(fieldClass, 'font-mono')}
               id="access-rule-session"
               onChange={(event) => set({ scopeId: event.target.value })}
-              placeholder="Any session"
+              placeholder={t`Any session`}
               value={draft.scopeId}
             />
           </SettingsRow>
         )}
         <SettingsRow
-          info="Higher priority wins. A tie goes to the stricter rule."
+          info={t`Higher priority wins. A tie goes to the stricter rule.`}
           htmlFor="access-rule-priority"
-          title="Priority"
+          title={t`Priority`}
         >
           <RuleSelect
             id="access-rule-priority"

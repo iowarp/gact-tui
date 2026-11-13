@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from 'react';
+import { useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { GitBranchIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -46,6 +39,7 @@ import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
 import { useRememberedView } from './remembered-view';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { t } from '@lingui/core/macro';
 
 export interface FileViewerTab {
   value: string;
@@ -112,7 +106,7 @@ function useCommentsSlot() {
 export function FileViewerShell({
   source,
   tabs,
-  label = 'File views',
+  label = t`File views`,
   value,
   onValueChange,
   hasDocumentActions = false,
@@ -157,7 +151,7 @@ export function FileViewerShell({
         ...tabs,
         {
           value: LINEAGE_VIEW,
-          label: 'Lineage',
+          label: t`Lineage`,
           icon: GitBranchIcon,
           shortcut: 'lineage',
           content: lineage,
@@ -316,7 +310,7 @@ export function FileViewerShell({
                               onValueChange={selectValue}
                             >
                               <FrameBar
-                                label="File"
+                                label={t`File`}
                                 className="bg-background"
                                 where={
                                   showIdentity ? (
@@ -401,7 +395,9 @@ export function FileViewerShell({
                                           data-slot="frame-comments"
                                         />
                                         {commentsClaimed ? null : (
-                                          <FrameCommentsUnavailable reason="Not available for this format" />
+                                          <FrameCommentsUnavailable
+                                            reason={t`Not available for this format`}
+                                          />
                                         )}
                                       </>
                                     }

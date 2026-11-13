@@ -9,6 +9,7 @@ import { NARROW_HIDDEN, SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { SettingsResultsContext } from '@/lib/settings-search-results';
 import { InfoTip } from './info-tip';
 import { SearchHighlight } from './search-highlight';
+import { t } from '@lingui/core/macro';
 
 /**
  * Setting row (B): label and ⓘ hint on the left, the control on the right, one
@@ -122,7 +123,7 @@ export function SettingsRow({
               </h2>
             )}
             {hint ? (
-              <InfoTip className={cn('text-faint', NARROW_HIDDEN)} label={`About ${title}`}>
+              <InfoTip className={cn('text-faint', NARROW_HIDDEN)} label={t`About ${title}`}>
                 {hint}
               </InfoTip>
             ) : null}
@@ -189,7 +190,7 @@ export function SettingsGroupLabel({
       {info ? (
         <InfoTip
           className={cn('text-faint', NARROW_HIDDEN)}
-          label={typeof children === 'string' ? `About ${children}` : 'About this group'}
+          label={typeof children === 'string' ? t`About ${children}` : t`About this group`}
         >
           {info}
         </InfoTip>
@@ -197,7 +198,7 @@ export function SettingsGroupLabel({
       <span className="flex-1" />
       {actions}
       {onAdd ? (
-        <IconButton icon={<AddIcon />} label={addLabel ?? 'Add'} onClick={onAdd} size="sm" />
+        <IconButton icon={<AddIcon />} label={addLabel ?? t`Add`} onClick={onAdd} size="sm" />
       ) : null}
     </div>
   );

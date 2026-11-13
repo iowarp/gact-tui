@@ -21,6 +21,8 @@ import {
   type ServiceRowAction,
 } from './managed-service-inventory-row';
 import { SERVICE_COLUMNS, SERVICE_GROUPS } from './managed-service-groups';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const groups = SERVICE_GROUPS;
 const groupFor = (service: ManagedServiceDefinition) => service.category;
@@ -109,14 +111,14 @@ export function ManagedServiceInventory({
       />
     ) : null;
   return (
-    <section aria-label={`Services on ${hostLabel}`} className="flex min-w-0 flex-col gap-3">
+    <section aria-label={t`Services on ${hostLabel}`} className="flex min-w-0 flex-col gap-3">
       {!inventory.length && !loading && !unavailable ? (
         <StateView
-          detail="Install a service or connect one you already run."
+          detail={t`Install a service or connect one you already run.`}
           icon={ServerIcon}
           kind="empty"
           size="panel"
-          title={`No managed services on ${hostLabel}`}
+          title={t`No managed services on ${hostLabel}`}
         />
       ) : null}
       {SERVICE_GROUPS.map((group) => {
@@ -157,7 +159,7 @@ export function ManagedServiceInventory({
         );
       })}
       <DialogFrame
-        cancelLabel={deploying ? 'Cancel' : 'Done'}
+        cancelLabel={deploying ? t`Cancel` : t`Done`}
         confirm={deploying && current ? setupConfirm : undefined}
         className="flex flex-col overflow-hidden [&>[data-slot=dialog-frame-body]]:min-h-0 [&>[data-slot=dialog-frame-body]]:flex-1 [&>[data-slot=dialog-frame-body]]:overflow-y-auto [&>[data-slot=dialog-frame-body]]:pl-[18px] [&>[data-slot=dialog-frame-footer]]:border-t [&>[data-slot=dialog-frame-footer]]:border-border [&>[data-slot=dialog-frame-footer]]:pt-3.5"
         footerStart={
@@ -165,7 +167,7 @@ export function ManagedServiceInventory({
             current ? (
               <Button className="-ml-2" onClick={() => onSelected('')} variant="ghost">
                 <ArrowLeftIcon />
-                Back
+                {t`Back`}
               </Button>
             ) : services.some(
                 (service) =>
@@ -181,7 +183,7 @@ export function ManagedServiceInventory({
                 variant="ghost"
               >
                 {namedOnly ? <ArrowLeftIcon /> : <AddIcon />}
-                {namedOnly ? 'All services' : 'Add named instance'}
+                {namedOnly ? t`All services` : t`Add named instance`}
               </Button>
             ) : null
           ) : (
@@ -203,13 +205,15 @@ export function ManagedServiceInventory({
           if (!open) close();
         }}
         open={deploying || Boolean(selected)}
-        srDescription={`Computer: ${hostLabel}`}
+        srDescription={t`Computer: ${hostLabel}`}
         title={
           deploying
             ? current
-              ? `Set up ${current.label}`
-              : 'Install a service'
-            : `${current?.label ?? 'Service'} on ${hostLabel}`
+              ? t`Set up ${ph({ label: current.label })}`
+              : t`Install a service`
+            : current
+              ? t`${ph({ label: current.label })} on ${hostLabel}`
+              : t`Service on ${hostLabel}`
         }
       >
         <ServiceConfirmSlot.Provider value={setSetupConfirm}>
@@ -217,22 +221,22 @@ export function ManagedServiceInventory({
             {deploying ? (
               <>
                 <nav
-                  aria-label="Deployment steps"
+                  aria-label={t`Deployment steps`}
                   className="mb-2 flex h-6 items-center gap-2 text-meta text-muted-foreground"
                 >
                   <DeployStep done={Boolean(current)} on={!current} step={1}>
-                    Choose service
+                    {t`Choose service`}
                   </DeployStep>
                   <span aria-hidden="true">›</span>
                   <DeployStep on={Boolean(current)} step={2}>
-                    Install
+                    {t`Install`}
                   </DeployStep>
                 </nav>
                 <KeyValueGrid
                   className="-mx-2 mb-2"
                   items={[
                     {
-                      label: 'Computer',
+                      label: t`Computer`,
                       icon: <ServerIcon aria-hidden="true" />,
                       value: hostLabel,
                       title: hostLabel,
@@ -245,31 +249,33 @@ export function ManagedServiceInventory({
             <div className="pb-1">
               {model && deploying ? (
                 <p className="mb-4 text-sm">
-                  Choose a runtime for <strong>{model.repository}</strong>. Model files stay on{' '}
-                  {hostLabel}.
+                  <Trans>
+                    Choose a runtime for <strong>{model.repository}</strong>. Model files stay on{' '}
+                    {hostLabel}.
+                  </Trans>
                 </p>
               ) : null}
               {deploying && !current && !services.length ? (
                 loading ? (
                   <StateView
-                    detail="Installable services appear once the computer answers."
+                    detail={t`Installable services appear once the computer answers.`}
                     kind="loading"
                     size="panel"
-                    title={`Inspecting ${hostLabel}`}
+                    title={t`Inspecting ${hostLabel}`}
                   />
                 ) : (
                   <StateView
                     detail={
                       unavailable
-                        ? 'Try again from the Services tab, then install.'
-                        : 'Inspect the computer again from the Services tab, then install.'
+                        ? t`Try again from the Services tab, then install.`
+                        : t`Inspect the computer again from the Services tab, then install.`
                     }
                     kind="unavailable"
                     size="panel"
                     title={
                       unavailable
-                        ? `Could not inspect ${hostLabel}`
-                        : `No installable services found on ${hostLabel}`
+                        ? t`Could not inspect ${hostLabel}`
+                        : t`No installable services found on ${hostLabel}`
                     }
                   />
                 )
@@ -292,7 +298,7 @@ export function ManagedServiceInventory({
               ) : current ? (
                 renderService(current, deploying)
               ) : (
-                <p role="status">Loading service…</p>
+                <p role="status">{t`Loading service…`}</p>
               )}
             </div>
           </ServiceFooterSlot.Provider>
@@ -343,18 +349,18 @@ function ServiceChooser({
         autoFocus
         className="w-full"
         initialFocus
-        label="Search services"
+        label={t`Search services`}
         onValueChange={setQuery}
-        placeholder="Search services"
+        placeholder={t`Search services`}
         value={query}
       />
       {namedOnly ? (
         <p className="text-xs text-muted-foreground">
-          Choose the engine for the new named instance.
+          {t`Choose the engine for the new named instance.`}
         </p>
       ) : null}
       {!shown.length ? (
-        <StateView kind="empty" size="row" title={`No services match “${query.trim()}”`} />
+        <StateView kind="empty" size="row" title={t`No services match “${query.trim()}”`} />
       ) : null}
       {groups.map((group) => {
         const rows = shown.filter((service) => groupFor(service) === group.id);
@@ -386,25 +392,29 @@ function ServiceChooser({
                     slot={
                       blocked ? (
                         <span className="text-xs text-faint" title={reason}>
-                          Unavailable
+                          {t`Unavailable`}
                         </span>
                       ) : namedOnly ? (
                         <Button
-                          aria-label={`Add ${service.label} instance`}
+                          aria-label={t`Add ${ph({ label: service.label })} instance`}
                           onClick={() => onName(service.id)}
                           size="sm"
                           variant="outline"
                         >
-                          Name…
+                          {t`Name…`}
                         </Button>
                       ) : (
                         <Button
-                          aria-label={`${installed ? 'Manage' : 'Set up'} ${service.label}`}
+                          aria-label={
+                            installed
+                              ? t`Manage ${ph({ label: service.label })}`
+                              : t`Set up ${ph({ label: service.label })}`
+                          }
                           onClick={() => (installed ? onManage(service.id) : onSetUp(service.id))}
                           size="sm"
                           variant="outline"
                         >
-                          {installed ? 'Manage' : 'Set up'}
+                          {installed ? t`Manage` : t`Set up`}
                         </Button>
                       )
                     }
@@ -462,9 +472,9 @@ function modelRuntimeRequirement(
 ): string | undefined {
   const engine = engineId(service);
   if (engine === 'llama_cpp' && !model.file_path?.endsWith('.gguf'))
-    return 'llama.cpp needs a GGUF file. This download does not identify one.';
-  if (engine === 'ollama') return 'Import these files into Ollama before serving them there.';
+    return t`llama.cpp needs a GGUF file. This download does not identify one.`;
+  if (engine === 'ollama') return t`Import these files into Ollama before serving them there.`;
   if (service.id === 'model_router')
-    return 'The router connects running model servers; it does not load downloaded files.';
+    return t`The router connects running model servers; it does not load downloaded files.`;
   return undefined;
 }

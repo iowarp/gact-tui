@@ -2,6 +2,7 @@ import type { FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
 import { plainQuestionText } from './question-card-model';
+import { t } from '@lingui/core/macro';
 
 export interface QuestionChoice {
   value: string;
@@ -65,8 +66,8 @@ export function QuestionWriteIn({
   onChange,
   onSubmit,
   disabled,
-  placeholder = 'Type your answer',
-  label = 'Your response',
+  placeholder = t`Type your answer`,
+  label = t`Your response`,
   enterKey,
 }: {
   id?: string;
@@ -100,14 +101,15 @@ export function QuestionWriteIn({
         />
         {onSubmit ? (
           <AskButton
-            aria-label="Send response"
+            aria-label={t`Send response`}
             className="h-[34px]"
             disabled={disabled || !value.trim()}
+            // i18n-ignore: key name
             hint={enterKey ? 'Enter' : undefined}
             primary
             type="submit"
           >
-            Send
+            {t`Send`}
           </AskButton>
         ) : null}
       </form>

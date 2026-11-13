@@ -18,6 +18,7 @@ import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-fac
 import { rangeFilterSections } from './model-picker-filter-ranges';
 import { ModelPickerQuickStrip } from './model-picker-quick-strip';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { t, ph } from '@lingui/core/macro';
 
 interface ModelPickerSearchProps {
   query: string;
@@ -70,6 +71,21 @@ function lastWord(query: string): string {
   return query.split(/\s+/u).at(-1) ?? '';
 }
 
+/** The count's spoken label, one whole message per wording. */
+function countLabel(
+  shown: number,
+  total: number,
+  { totalOnly, single, loaded }: { totalOnly: boolean; single: boolean; loaded: boolean },
+): string {
+  if (!totalOnly) {
+    return loaded
+      ? t`${shown} of ${total} loaded results match`
+      : t`${shown} of ${total} models match`;
+  }
+  if (loaded) return single ? t`${shown} loaded results match` : t`${shown} loaded results`;
+  return single ? t`${shown} models match` : t`${shown} models`;
+}
+
 /**
  * The picker's two search rows. Row 1: the free-text search (model name and
  * provider), how many models match the text AND the filters of every listed
@@ -94,7 +110,7 @@ export function ModelPickerSearch({
   onFacetsOpenChange,
   maxInputPrice,
   sizes = false,
-  label = 'Search providers and models',
+  label = t`Search providers and models`,
   inputId,
   onSearch,
   compact = false,
@@ -289,11 +305,11 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={
-            totalOnly
-              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'}${single ? ' match' : ''}`
-              : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
-          }
+          aria-label={countLabel(shown, total, {
+            totalOnly,
+            single,
+            loaded: countScope === 'loaded',
+          })}
           className="ms-1 shrink-0 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
@@ -305,10 +321,12 @@ export function ModelPickerSearch({
           <>
             <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
             <TooltipProvider disableHoverableContent>
-              <NamedTooltip label="Filters" shortcut="menu-filters">
+              <NamedTooltip label={t`Filters`} shortcut="menu-filters">
                 <button
                   aria-expanded={facetsOpen}
-                  aria-label={chosen.length ? `Filters, ${chosen.length} on` : 'Filters'}
+                  aria-label={
+                    chosen.length ? t`Filters, ${ph({ count: chosen.length })} on` : t`Filters`
+                  }
                   className={cn(
                     'group/filters relative inline-flex h-[26px] shrink-0 items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
                     facetsOpen &&

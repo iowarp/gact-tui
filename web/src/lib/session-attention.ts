@@ -1,5 +1,7 @@
 import type { PendingInteraction, PendingInteractionKind, Session } from '@clio/core/v3';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { formatLocale } from '@/lib/locale-format';
+import { t, plural } from '@lingui/core/macro';
 
 export interface SessionAttention {
   sessionId: string;
@@ -119,15 +121,26 @@ export function buildSessionAttentionMap(
 }
 
 export function sessionAttentionLabel(attention: SessionAttention): string {
+  const protocol = PROTOCOL.a2ui;
   const labels = [
-    countLabel(attention.permissionIds.length, 'permission'),
-    countLabel(attention.questionIds.length, 'question'),
-    countLabel(attention.mcpTaskInputIds.length, 'task input', 'task inputs'),
-    countLabel(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`),
-    countLabel(attention.unknownIds.length, 'unrecognized request'),
+    countLabel(attention.permissionIds.length, (n) =>
+      plural(n, { one: '# permission', other: '# permissions' }),
+    ),
+    countLabel(attention.questionIds.length, (n) =>
+      plural(n, { one: '# question', other: '# questions' }),
+    ),
+    countLabel(attention.mcpTaskInputIds.length, (n) =>
+      plural(n, { one: '# task input', other: '# task inputs' }),
+    ),
+    countLabel(attention.a2uiIds.length, (n) =>
+      plural(n, { one: `# ${protocol} surface`, other: `# ${protocol} surfaces` }),
+    ),
+    countLabel(attention.unknownIds.length, (n) =>
+      plural(n, { one: '# unrecognized request', other: '# unrecognized requests' }),
+    ),
   ].filter(Boolean);
-  if (labels.length <= 1) return labels[0] ?? 'response';
-  return `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`;
+  if (labels.length <= 1) return labels[0] ?? t`response`;
+  return new Intl.ListFormat(formatLocale(), { type: 'conjunction' }).format(labels);
 }
 
 export function sessionAttentionIds(attention: SessionAttention): readonly string[] {
@@ -165,7 +178,6 @@ function rootSessionId(sessionId: string, sessionsById: ReadonlyMap<string, Sess
   return sessionId;
 }
 
-function countLabel(count: number, noun: string, plural = `${noun}s`): string {
-  if (!count) return '';
-  return `${count} ${count === 1 ? noun : plural}`;
+function countLabel(count: number, words: (count: number) => string): string {
+  return count ? words(count) : '';
 }

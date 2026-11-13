@@ -15,6 +15,7 @@ import {
   filterArtifacts,
   type ArtifactCategory,
 } from '@/lib/artifact-categories';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** Shared controls for long output lists, preserving each surface's card/open behavior. */
 export function ArtifactFilters({
@@ -45,10 +46,10 @@ export function ArtifactFilters({
         <>
           <div className="flex min-w-0 flex-wrap gap-2">
             <Input
-              aria-label="Search artifacts"
+              aria-label={t`Search artifacts`}
               className="min-w-28 flex-1"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search artifacts"
+              placeholder={t`Search artifacts`}
               type="search"
               value={query}
             />
@@ -56,11 +57,11 @@ export function ArtifactFilters({
               value={category}
               onValueChange={(value) => setCategory(value as ArtifactCategory | 'all')}
             >
-              <SelectTrigger aria-label="Artifact category" className="max-w-full">
+              <SelectTrigger aria-label={t`Artifact category`} className="max-w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types ({artifacts.length})</SelectItem>
+                <SelectItem value="all">{t`All types (${ph({ count: artifacts.length })})`}</SelectItem>
                 {ARTIFACT_CATEGORIES.filter(
                   (item) => counts.has(item.value) || item.value === category,
                 ).map((item) => (
@@ -73,7 +74,10 @@ export function ArtifactFilters({
           </div>
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span aria-live="polite">
-              {visible.length} of {artifacts.length} artifacts
+              {plural(artifacts.length, {
+                one: `${ph({ visible: visible.length })} of # artifact`,
+                other: `${ph({ visible: visible.length })} of # artifacts`,
+              })}
             </span>
             {filtered ? (
               <Button
@@ -84,14 +88,14 @@ export function ArtifactFilters({
                 size="xs"
                 variant="ghost"
               >
-                Clear filters
+                {t`Clear filters`}
               </Button>
             ) : null}
           </div>
         </>
       ) : null}
       {filtered && !visible.length ? (
-        <p className="py-3 text-sm text-muted-foreground">No artifacts match these filters.</p>
+        <p className="py-3 text-sm text-muted-foreground">{t`No artifacts match these filters.`}</p>
       ) : (
         children(visible)
       )}

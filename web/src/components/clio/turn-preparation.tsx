@@ -3,6 +3,7 @@ import type { InfrastructureDependency, Message, RunState } from '@clio/core/v3'
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
 import { StateView } from './primitives/state-view';
+import { t } from '@lingui/core/macro';
 
 export interface TurnPreparationProps {
   messages: readonly Message[];
@@ -31,7 +32,7 @@ export function ClioTurnPreparation({
   dependencies = [],
   sending,
 }: TurnPreparationProps) {
-  if (sending && sessionState !== 'running') return <PreparationRow title="Sending message" />;
+  if (sending && sessionState !== 'running') return <PreparationRow title={t`Sending message`} />;
   if (sessionState !== 'queued' && sessionState !== 'running') return null;
   const currentMessages = currentTurnAssistantMessages(messages, activeTurnId);
   const hasContent = currentMessages.some((message) =>

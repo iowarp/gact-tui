@@ -15,6 +15,7 @@ import { ClioComposer } from './composer';
 import { sessionPatchForMessageBehavior } from './session-behavior-options';
 import type { useWorkspaceQuestions } from './use-workspace-questions';
 import * as workspaceRouteState from './workspace-route-state';
+import { t } from '@lingui/core/macro';
 
 type WorkspaceData = ReturnType<typeof useWorkspaceData>;
 type SessionMutations = ReturnType<typeof useSessionMutations>;
@@ -145,7 +146,7 @@ export function WorkspaceComposer({
           session={session}
           onHeightChange={docked ? onHeightChange : undefined}
           onReturnToParent={onReturnToParent}
-          parentTitle={data.parentSession?.title ?? 'Parent conversation'}
+          parentTitle={data.parentSession?.title ?? t`Parent conversation`}
           pendingInteractions={pendingInteractions}
           state={state}
           variant={variant}

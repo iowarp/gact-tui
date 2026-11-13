@@ -17,6 +17,7 @@ import {
 import { StateView } from './primitives/state-view';
 import { useCommentSession } from './comments/comment-session';
 import { useSelectionMarkCommenter, type SelectionMark } from '@/hooks/use-selection-action-file';
+import { plural, t } from '@lingui/core/macro';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -364,17 +365,15 @@ export function ClioDocumentPdfViewer({
   );
   useFileViewerFacts(
     pageFacts && pageCount
-      ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`, FILE_SIZE_FACT]
+      ? [plural(pageCount, { one: '# page', other: '# pages' }), FILE_SIZE_FACT]
       : undefined,
   );
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
   // The page sits between zoom − and + (frame-bar 07), so the bar's fact is the size.
   const pageCounter = pageFact ? (
-    <span title={`Page ${currentPage} of ${pageCount}`}>
+    <span title={t`Page ${currentPage} of ${pageCount}`}>
       <span aria-hidden="true">{pageFact}</span>
-      <span className="sr-only">
-        Page {currentPage} of {pageCount}
-      </span>
+      <span className="sr-only">{t`Page ${currentPage} of ${pageCount}`}</span>
     </span>
   ) : null;
 
@@ -409,7 +408,7 @@ export function ClioDocumentPdfViewer({
       }}
     >
       <ViewerZoomControls
-        label="PDF zoom"
+        label={t`PDF zoom`}
         onIn={zoomIn}
         onOut={zoomOut}
         onReset={resetZoom}
@@ -440,7 +439,7 @@ export function ClioDocumentPdfViewer({
           is off: pages mounting at full size above a jump target would make
           the browser shift scrollTop and land several pages late. */}
       <div
-        aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
+        aria-label={pageCount ? t`${name}, page ${currentPage} of ${pageCount}` : name}
         className="min-h-0 flex-1 overflow-auto [overflow-anchor:none] px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
@@ -449,9 +448,9 @@ export function ClioDocumentPdfViewer({
         tabIndex={0}
       >
         <Document
-          error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
+          error={<StateView kind="error" size="viewer" title={t`Couldn't read ${name}`} />}
           file={file}
-          loading={<StateView kind="loading" size="viewer" title={`Loading ${name}`} />}
+          loading={<StateView kind="loading" size="viewer" title={t`Loading ${name}`} />}
           onLoadSuccess={({ numPages }) => {
             setPageCount(numPages);
             setLoadedFile(file);
@@ -540,7 +539,7 @@ const PdfPage = memo(function PdfPage({
 
   return (
     <div
-      aria-label={`Page ${pageNumber} of ${pageCount}`}
+      aria-label={t`Page ${pageNumber} of ${pageCount}`}
       className="relative mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
       role="group"

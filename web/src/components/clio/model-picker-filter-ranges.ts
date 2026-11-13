@@ -20,6 +20,7 @@ import {
 } from '@/lib/model-range-tokens';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { QUICK_FILTER_ICONS } from './model-quick-filter-icons';
+import { t } from '@lingui/core/macro';
 
 /** One slider row: the scale's two ends, the thumbs and the token it writes. */
 export interface RangeSliderRow {
@@ -105,8 +106,8 @@ export function rangeFilterSections({
       id: 'context',
       slider: {
         id: 'context',
-        label: 'Context',
-        hint: 'Input context in tokens. Type context:>922K for an exact minimum.',
+        label: t`Context`,
+        hint: t`Input context in tokens. Type context:>922K for an exact minimum.`,
         icon: QUICK_FILTER_ICONS.context,
         stops: CONTEXT_STOPS.map((stop) => stop.label),
         value: numericSliderValue('context', CONTEXT_STOPS, tokens),
@@ -121,7 +122,7 @@ export function rangeFilterSections({
         token: contextToken,
         keyThumb: 0,
       },
-      options: [option('Include unknown context', CONTEXT_ANY_TOKEN, contextToken)],
+      options: [option(t`Include unknown context`, CONTEXT_ANY_TOKEN, contextToken)],
     },
   ];
   if (sizes || sizeToken) {
@@ -129,8 +130,8 @@ export function rangeFilterSections({
       id: 'size',
       slider: {
         id: 'size',
-        label: 'Size',
-        hint: "Total parameters, as the model's sources state them",
+        label: t`Size`,
+        hint: t`Total parameters, as the model's sources state them`,
         icon: QUICK_FILTER_ICONS.size,
         stops: SIZE_STOPS.map((stop) => stop.label),
         value: numericSliderValue('size', SIZE_STOPS, tokens),
@@ -141,7 +142,7 @@ export function rangeFilterSections({
         token: sizeToken,
         keyThumb: 0,
       },
-      options: [option('Include unknown size', SIZE_ANY_TOKEN, sizeToken)],
+      options: [option(t`Include unknown size`, SIZE_ANY_TOKEN, sizeToken)],
     });
   }
   sections.push(
@@ -149,8 +150,8 @@ export function rangeFilterSections({
       id: 'cost',
       slider: {
         id: 'cost',
-        label: 'Cost',
-        hint: 'Input price in USD per 1M tokens',
+        label: t`Cost`,
+        hint: t`Input price in USD per 1M tokens`,
         icon: QUICK_FILTER_ICONS.cost,
         stops: prices.map((stop) => stop.label),
         value: numericSliderValue('cost', prices, tokens),
@@ -162,17 +163,17 @@ export function rangeFilterSections({
         keyThumb: 1,
       },
       options: [
-        option('Variable price (routers)', COST_VARIABLE_TOKEN, costToken),
-        option('Subscription (billed by a plan)', COST_SUBSCRIPTION_TOKEN, costToken),
-        option('Unpriced (no price stated)', COST_UNPRICED_TOKEN, costToken),
+        option(t`Variable price (routers)`, COST_VARIABLE_TOKEN, costToken),
+        option(t`Subscription (billed by a plan)`, COST_SUBSCRIPTION_TOKEN, costToken),
+        option(t`Unpriced (no price stated)`, COST_UNPRICED_TOKEN, costToken),
       ],
     },
     {
       id: 'released',
       slider: {
         id: 'released',
-        label: 'Released',
-        hint: 'How long ago the model was released',
+        label: t`Released`,
+        hint: t`How long ago the model was released`,
         icon: QUICK_FILTER_ICONS.recent,
         stops: RELEASED_STOPS.map((stop) => stop.short),
         value: [releasedSliderValue(tokens)],
@@ -183,7 +184,7 @@ export function rangeFilterSections({
       },
       options: [
         {
-          label: 'Recent',
+          label: t`Recent`,
           token: RECENT_TOKEN,
           checked: recent,
           disabled: false,

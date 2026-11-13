@@ -40,6 +40,9 @@ import {
   integrationStatusLabel,
   integrationTone,
 } from './infrastructure-foundation';
+import { ph, t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** Never poll forever: 600 × SANDBOX_SETUP_POLL_MS (10 minutes) is well past any real UAC/provisioning wait. */
 const MAX_SANDBOX_SETUP_POLLS = 600;
@@ -114,13 +117,13 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
         result.row?.detail ||
         (result.reason
           ? humanizeProtocolValue(result.reason)
-          : 'Setup finished. Inspect the current status below.');
+          : t`Setup finished. Inspect the current status below.`);
       setSetupOutcome(outcome);
       toast.message(
         result.row?.setup_progress?.status !== 'failed' &&
           (result.row?.status === 'ready' || result.row?.status === 'healthy')
-          ? 'Protected execution is ready'
-          : 'Protected execution setup finished',
+          ? t`Protected execution is ready`
+          : t`Protected execution setup finished`,
         {
           id: `sandbox-setup:${settings.endpoint}`,
           description: result.row?.next_action || outcome,
@@ -137,9 +140,9 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
       // up from there — one path for both cases instead of two.
     },
     onError: (error) =>
-      toast.message('Setup request disconnected', {
+      toast.message(t`Setup request disconnected`, {
         id: `sandbox-setup:${settings.endpoint}`,
-        description: `${vocab.agent} may still be setting up protection. Checking its status. ${error.message}`,
+        description: t`${agent} may still be setting up protection. Checking its status. ${ph({ message: error.message })}`,
       }),
     onSettled: () => {
       // Unconditional and on BOTH outcomes: the desktop bridge's own
@@ -159,7 +162,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
     try {
       await restartClio();
     } catch (error) {
-      toast.error(`Could not restart ${vocab.agent}`, {
+      toast.error(t`Could not restart ${agent}`, {
         description: error instanceof Error ? error.message : String(error),
       });
       setRestarting(false);
@@ -173,9 +176,9 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   const reasonLabel = row?.reason ? sandboxReasonLabel(row.reason) : undefined;
   const pendingRestart = row?.reason === 'sandbox_fence_pending_restart';
   const summary = pendingRestart
-    ? `Setup finished. Restart ${vocab.agent} to protect tool processes that were already running.`
+    ? t`Setup finished. Restart ${agent} to protect tool processes that were already running.`
     : row?.reason === 'codex_enforcement_unverified'
-      ? 'Protection has not been verified on this computer. Complete setup before retrying commands.'
+      ? t`Protection has not been verified on this computer. Complete setup before retrying commands.`
       : row?.summary ||
         row?.detail ||
         foundationSummary(integration) ||
@@ -185,27 +188,28 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   const working = setup.isPending || polling;
   const setupOffered = (status !== 'healthy' || working) && !setupUnsupported;
   const rowStatus: InfraStatus = working
-    ? { tone: 'running', label: 'Setting up' }
+    ? { tone: 'running', label: t`Setting up` }
     : status === 'healthy'
-      ? { tone: 'success', label: 'Ready' }
+      ? { tone: 'success', label: t`Ready` }
       : row?.reason === 'codex_enforcement_unverified'
-        ? { tone: 'idle', label: 'Not verified' }
+        ? { tone: 'idle', label: t`Not verified` }
         : pendingRestart
-          ? { tone: 'warning', label: 'Restart needed' }
+          ? { tone: 'warning', label: t`Restart needed` }
           : { tone: integrationTone(status), label: integrationStatusLabel(status) };
   const facts: KeyValueItem[] = [
     {
-      label: 'Needed by the agent',
+      label: t`Needed by the agent`,
       icon: <ShieldCheckIcon />,
-      value: (row?.required ?? integration.required) === false ? 'No' : 'Yes',
+      value: (row?.required ?? integration.required) === false ? t`No` : t`Yes`,
       mono: true,
     },
     ...(row?.codex_source
       ? [
           {
+            // i18n-ignore: product name
             label: 'Codex',
             icon: <TerminalIcon />,
-            value: row.codex_source === 'bundled' ? 'Bundled' : 'PATH',
+            value: row.codex_source === 'bundled' ? t`Bundled` : 'PATH',
             mono: true,
           },
         ]
@@ -213,7 +217,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
     ...(integration.config_source
       ? [
           {
-            label: 'Configured in',
+            label: t`Configured in`,
             icon: <FolderIcon />,
             value: integration.config_source,
             mono: true,
@@ -221,6 +225,10 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
         ]
       : []),
   ];
+  const elapsed = row?.setup_progress
+    ? formatDuration(row.setup_progress.elapsed_seconds * 1000)
+    : undefined;
+  const lostReason = sandbox.error instanceof Error ? sandbox.error.message : t`connection failed`;
   const startSetup = () => {
     setExpanded(true);
     setup.mutate();
@@ -238,9 +246,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
           <>
             <p className="text-meta whitespace-normal text-muted-foreground">{summary}</p>
             {row?.next_action ? (
-              <p className="text-meta whitespace-normal text-muted-foreground">
-                {row.next_action}
-              </p>
+              <p className="text-meta whitespace-normal text-muted-foreground">{row.next_action}</p>
             ) : null}
             <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {setupOutcome ? (
@@ -263,7 +269,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                     ) : (
                       <PlayIcon aria-hidden="true" />
                     )}
-                    {working ? 'Setting up protected execution…' : 'Set up protected execution'}
+                    {working ? t`Setting up protected execution…` : t`Set up protected execution`}
                   </Button>
                 ) : null}
                 {pendingRestart && desktop ? (
@@ -278,43 +284,40 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                       aria-hidden="true"
                       className={restarting ? 'motion-safe:animate-spin' : undefined}
                     />
-                    Restart {vocab.agent}
+                    {t`Restart ${agent}`}
                   </Button>
                 ) : null}
               </div>
             ) : null}
             {working ? (
               <div className="text-meta whitespace-normal text-muted-foreground" role="status">
-                <p>{row?.setup_progress?.detail || 'Starting setup…'}</p>
+                <p>{row?.setup_progress?.detail || t`Starting setup…`}</p>
                 <p>
-                  {row?.setup_progress
-                    ? `${formatDuration(row.setup_progress.elapsed_seconds * 1000)} elapsed. `
-                    : ''}
-                  Setup continues if you leave this page. {vocab.agent} will notify you when it
-                  finishes.
+                  {elapsed
+                    ? t`${elapsed} elapsed. Setup continues if you leave this page. ${agent} will notify you when it finishes.`
+                    : t`Setup continues if you leave this page. ${agent} will notify you when it finishes.`}
                 </p>
               </div>
             ) : null}
             {!polling && (pollGaveUpOnErrors || pollExhausted) ? (
               <StateView
-                action={{ label: 'Try again', onClick: () => setup.mutate() }}
+                action={{ label: t`Try again`, onClick: () => setup.mutate() }}
                 kind="error"
                 size="row"
                 title={
                   pollGaveUpOnErrors
-                    ? `Lost touch with ${vocab.agent} while waiting: ${sandbox.error instanceof Error ? sandbox.error.message : 'connection failed'}. Try again once it reconnects.`
-                    : `Still waiting. This is taking longer than expected. Check ${vocab.agent} directly, or try again.`
+                    ? t`Lost touch with ${agent} while waiting: ${lostReason}. Try again once it reconnects.`
+                    : t`Still waiting. This is taking longer than expected. Check ${agent} directly, or try again.`
                 }
               />
             ) : null}
             {pendingRestart && !desktop ? (
               <p className="text-meta whitespace-normal text-foreground">
-                Restart {vocab.agent} to activate protected execution for background tool processes
-                already running.
+                {t`Restart ${agent} to activate protected execution for background tool processes already running.`}
               </p>
             ) : null}
             {integration.summary || integration.detail ? (
-              <TechnicalDetails className="text-meta" title="Technical details">
+              <TechnicalDetails className="text-meta" title={t`Technical details`}>
                 <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                   {[integration.summary, integration.detail].filter(Boolean).join('\n')}
                 </pre>
@@ -333,7 +336,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               icon={
                 working ? <LoaderCircleIcon className="motion-safe:animate-spin" /> : <PlayIcon />
               }
-              label="Set up"
+              label={t`Set up`}
               onClick={startSetup}
               size="sm"
             />

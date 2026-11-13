@@ -8,6 +8,7 @@ import type { McpServiceEntry } from '@/lib/mcp-service-entries';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ToolSettingsBody } from './plugin-tool-settings';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 /** Where one MCP server's tool settings are read from. */
 type McpToolSource =
@@ -16,10 +17,7 @@ type McpToolSource =
   /** A person's or workspace's own server, read by its name. */
   | { kind: 'server'; name: string };
 
-function mcpToolSource(
-  entry: McpServiceEntry,
-  plugins: readonly PluginEntry[],
-): McpToolSource {
+function mcpToolSource(entry: McpServiceEntry, plugins: readonly PluginEntry[]): McpToolSource {
   const server = entry.server;
   if (server?.source === 'plugin' && server.plugin) {
     const plugin =
@@ -89,16 +87,16 @@ export function McpServerToolSettings({
   });
   const data = view.data && source ? serverShare(view.data, source) : undefined;
   if (!source || view.isPending)
-    return <StateView kind="loading" size="row" title="Loading tool settings…" />;
+    return <StateView kind="loading" size="row" title={t`Loading tool settings…`} />;
   if (view.error) {
     if (source.kind === 'plugin') {
       return (
         <div title={view.error.message}>
           <StateView
-            action={{ label: 'Retry', onClick: () => void view.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void view.refetch() }}
             kind="error"
             size="row"
-            title="Tool settings couldn’t be loaded."
+            title={t`Tool settings couldn’t be loaded.`}
           />
         </div>
       );
@@ -106,7 +104,7 @@ export function McpServerToolSettings({
     return (
       <div className="grid min-w-0 gap-1">
         <p className="truncate text-xs text-faint" title={view.error.message}>
-          This agent doesn’t report permission and I/O for this server’s tools.
+          {t`This agent doesn’t report permission and I/O for this server’s tools.`}
         </p>
         {fallback}
       </div>
@@ -115,12 +113,14 @@ export function McpServerToolSettings({
   if (!data || (!data.tools.length && !data.servers_not_loaded.length)) return fallback;
   return (
     <ToolSettingsBody
-      backLabel="All tools"
+      backLabel={t`All tools`}
       data={data}
-      emptyTitle="This server reported no tools."
-      label={`Tools of ${title}`}
+      emptyTitle={t`This server reported no tools.`}
+      label={t`Tools of ${title}`}
       origin={() =>
-        source.kind === 'plugin' ? `${title} server, from ${source.plugin}` : `${title} server`
+        source.kind === 'plugin'
+          ? t`${title} server, from ${ph({ plugin: source.plugin })}`
+          : t`${title} server`
       }
     />
   );

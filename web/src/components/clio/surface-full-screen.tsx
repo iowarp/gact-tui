@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { SurfaceReferenceContext } from './surface-reference-context';
+import { t } from '@lingui/core/macro';
 
 /**
  * Per-component full screen for each data view.
@@ -141,7 +142,7 @@ export function SurfaceFullScreenHost({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      aria-label="Exit full screen"
+                      aria-label={t`Exit full screen`}
                       className={
                         layout === 'media'
                           ? 'absolute right-4 top-4 rounded-full border border-media-foreground/30 bg-media-backdrop/70 text-media-foreground hover:bg-media-foreground/15 hover:text-media-foreground'
@@ -159,7 +160,7 @@ export function SurfaceFullScreenHost({
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Exit full screen</TooltipContent>
+                  <TooltipContent>{t`Exit full screen`}</TooltipContent>
                 </Tooltip>
               </div>
             </TooltipProvider>

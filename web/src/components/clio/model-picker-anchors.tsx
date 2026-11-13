@@ -13,40 +13,53 @@ import type { FacetChip, FacetTab, FacetTabId } from '@/lib/model-facets';
 import { filterTokenName } from '@/lib/model-filter-token-name';
 import { cn } from '@/lib/utils';
 import { ChipIcon, FilterCheck } from './model-picker-facet-panel';
+import { t } from '@lingui/core/macro';
 
 type Anchor = {
   tab: FacetTabId;
   label: string;
-  noun: string;
+  /** Whole messages naming the facet, so each language words them itself. */
+  copy: { find: string; loading: string; empty: string; noMatch: string };
   /** The token prefix the facet's choices carry. */
   prefix: string;
-  article: 'a' | 'an';
   icon: ComponentType<{ className?: string }>;
 };
 
 const ANCHORS: readonly Anchor[] = [
   {
     tab: 'tasks',
-    label: 'Task',
-    noun: 'task',
+    label: t`Task`,
+    copy: {
+      find: t`Find a task…`,
+      loading: t`Loading task choices…`,
+      empty: t`No task choices in these results.`,
+      noMatch: t`No matching task.`,
+    },
     prefix: 'task:',
-    article: 'a',
     icon: ListFilterIcon,
   },
   {
     tab: 'providers',
-    label: 'Organization',
-    noun: 'organization',
+    label: t`Organization`,
+    copy: {
+      find: t`Find an organization…`,
+      loading: t`Loading organization choices…`,
+      empty: t`No organization choices in these results.`,
+      noMatch: t`No matching organization.`,
+    },
     prefix: 'provider:',
-    article: 'an',
     icon: UsersIcon,
   },
   {
     tab: 'capabilities',
-    label: 'Capabilities',
-    noun: 'capability',
+    label: t`Capabilities`,
+    copy: {
+      find: t`Find a capability…`,
+      loading: t`Loading capability choices…`,
+      empty: t`No capability choices in these results.`,
+      noMatch: t`No matching capability.`,
+    },
     prefix: 'cap:',
-    article: 'a',
     icon: LayersIcon,
   },
 ];
@@ -145,16 +158,14 @@ function AnchorFilter({
         }}
       >
         <Command className="h-auto min-h-0 outline-none" ref={commandRef} tabIndex={-1}>
-          {searchable ? (
-            <CommandInput placeholder={`Find ${anchor.article} ${anchor.noun}…`} />
-          ) : null}
+          {searchable ? <CommandInput placeholder={anchor.copy.find} /> : null}
           <CommandList className="max-h-[min(18rem,40dvh)] min-h-0 overscroll-contain">
             <CommandEmpty className="px-3 py-4 text-menu text-muted-foreground">
               {empty && searching
-                ? `Loading ${anchor.noun} choices…`
+                ? anchor.copy.loading
                 : empty
-                  ? `No ${anchor.noun} choices in these results.`
-                  : `No matching ${anchor.noun}.`}
+                  ? anchor.copy.empty
+                  : anchor.copy.noMatch}
             </CommandEmpty>
             {kept.map((token) => (
               <CommandItem
@@ -219,7 +230,7 @@ export function ModelPickerFieldTokens({
           >
             <span className="min-w-0 truncate">{name}</span>
             <button
-              aria-label={`Remove ${name}`}
+              aria-label={t`Remove ${name}`}
               className="inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] text-accent-foreground/60 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={() => onRemoveToken(token)}
               type="button"

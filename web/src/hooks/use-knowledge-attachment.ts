@@ -3,6 +3,7 @@ import type { ComposerDraft } from './use-composer-draft';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_ATTACH_EVENT, type KnowledgeAttachRequest } from '@/lib/knowledge-navigation';
+import { t } from '@lingui/core/macro';
 
 /** Add an explicitly selected immutable note to the active workspace's unsent draft. */
 export function useKnowledgeAttachment(workspaceId: string, draft: ComposerDraft) {
@@ -32,7 +33,7 @@ export function useKnowledgeAttachment(workspaceId: string, draft: ComposerDraft
             kind: 'resource',
             id: resource.id,
             label: resource.name,
-            detail: 'Obsidian knowledge note',
+            detail: t`Obsidian knowledge note`,
             revision: String(resource.revision),
             media_type: resource.detected_mime,
             navigation: { resource },

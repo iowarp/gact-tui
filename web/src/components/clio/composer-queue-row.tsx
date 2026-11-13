@@ -37,13 +37,14 @@ import {
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
 import { proseInputProps } from '@/lib/identifier-input';
+import { plural, t } from '@lingui/core/macro';
 
 type ResourceRefPart = Extract<ComposerMessagePart, { type: 'resource_ref' }>;
 type ContextRefPart = Extract<ComposerMessagePart, { type: 'context_ref' }>;
 
 /** The name of the row's main verb, which follows the composer's delivery. */
 function queuedPromoteLabel(delivery: MessageDelivery): string {
-  return delivery === 'steer' ? 'Steer now' : 'Send now';
+  return delivery === 'steer' ? t`Steer now` : t`Send now`;
 }
 
 export interface QueuedMessageRowProps {
@@ -131,14 +132,14 @@ export function QueuedMessageRow({
             <IconButton
               className="w-5 shrink-0 text-faint hover:bg-transparent hover:text-foreground"
               icon={<GripVerticalIcon />}
-              label="Reorder queued message"
+              label={t`Reorder queued message`}
               size="sm"
             />
           </SortableItemHandle>
           {isEditing ? (
             <Input
               {...proseInputProps}
-              aria-label="Edit queued message"
+              aria-label={t`Edit queued message`}
               autoFocus
               className="h-6 flex-1 rounded-[5px] px-1.5 py-0 text-ui md:text-ui dark:bg-transparent"
               onChange={(event) => onEditChange(event.currentTarget.value)}
@@ -161,7 +162,7 @@ export function QueuedMessageRow({
                 <TruncatedText className="text-foreground">{text}</TruncatedText>
               ) : (
                 <TruncatedText className="text-muted-foreground">
-                  {contextRefs.length > 0 ? 'Context only' : 'Attachments only'}
+                  {contextRefs.length > 0 ? t`Context only` : t`Attachments only`}
                 </TruncatedText>
               )}
             </span>
@@ -187,7 +188,7 @@ export function QueuedMessageRow({
               type="button"
             >
               <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
-              Not sent
+              {t`Not sent`}
             </button>
           ) : null}
           {isEditing ? (
@@ -195,11 +196,11 @@ export function QueuedMessageRow({
               <IconButton
                 disabled={busy || !editingText.trim()}
                 icon={<CheckIcon />}
-                label="Save"
+                label={t`Save`}
                 onClick={() => onSaveEdit(editingText)}
                 size="sm"
               />
-              <IconButton icon={<CloseIcon />} label="Cancel" onClick={onCancelEdit} size="sm" />
+              <IconButton icon={<CloseIcon />} label={t`Cancel`} onClick={onCancelEdit} size="sm" />
             </span>
           ) : (
             <>
@@ -210,7 +211,7 @@ export function QueuedMessageRow({
                 <IconButton
                   disabled={busy}
                   icon={<EditIcon />}
-                  label="Edit"
+                  label={t`Edit`}
                   onClick={() => onStartEdit(text)}
                   ref={editButtonRef}
                   size="sm"
@@ -218,7 +219,7 @@ export function QueuedMessageRow({
                 <IconButton
                   disabled={busy}
                   icon={<DeleteIcon />}
-                  label="Delete"
+                  label={t`Delete`}
                   onClick={onDelete}
                   shortcut="queue-delete"
                   size="sm"
@@ -256,9 +257,9 @@ function promotionProblem(error: QueuedMessage['promotion_error']): string | und
         : undefined;
   const reason =
     error.status_code >= 500
-      ? 'The service hit an error starting it.'
-      : (humanFailureText(said) ?? 'The service did not start it.');
-  return `${reason} Send it again, edit it or delete it.`;
+      ? t`The service hit an error starting it.`
+      : (humanFailureText(said) ?? t`The service did not start it.`);
+  return t`${reason} Send it again, edit it or delete it.`;
 }
 
 /** The first reference by name and kind icon, then how many more travel with it. */
@@ -284,7 +285,9 @@ function QueuedReferenceSummary({ references }: { references: readonly ContextRe
             .join(', ')}
         >
           +{rest.length}
-          <span className="sr-only">{` more ${rest.length === 1 ? 'reference' : 'references'}`}</span>
+          <span className="sr-only">
+            {plural(rest.length, { one: ' more reference', other: ' more references' })}
+          </span>
         </span>
       ) : null}
     </span>
@@ -321,7 +324,9 @@ function QueuedAttachmentSummary({
             .join(', ')}
         >
           +{rest.length}
-          <span className="sr-only">{` more ${rest.length === 1 ? 'attachment' : 'attachments'}`}</span>
+          <span className="sr-only">
+            {plural(rest.length, { one: ' more attachment', other: ' more attachments' })}
+          </span>
         </span>
       ) : null}
     </span>
@@ -350,7 +355,7 @@ function QueuedResourceAttachment({
     <AttachmentHoverCard closeDelay={100} openDelay={220}>
       <AttachmentHoverCardTrigger asChild>
         <Attachment
-          aria-label={openable ? `Open ${filename}` : filename}
+          aria-label={openable ? t`Open ${filename}` : filename}
           className={cn(
             'h-6 max-w-36 min-w-0 gap-1 rounded-[5px] border-0 px-1 text-meta font-normal text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-hover',
             !openable && 'cursor-default',

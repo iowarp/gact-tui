@@ -81,6 +81,7 @@ function endpointUrl(endpoint: string, path: string): string {
 }
 
 function abortError(): DOMException {
+  // i18n-ignore: AbortError reason, developer output
   return new DOMException('The operation was aborted', 'AbortError');
 }
 
@@ -247,6 +248,7 @@ export class TauriClioTransport implements ClioTransport {
       'X-GACT-Version': PROTOCOL_VERSION,
       'X-A2UI-Version': A2UI_VERSION,
     };
+    // i18n-ignore: HTTP header value
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (cursor) headers['Last-Event-ID'] = cursor;
     return headers;

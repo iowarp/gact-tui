@@ -5,6 +5,7 @@ import { BrandIcon } from './brand-icon';
 import { vocab } from '@/lib/brand-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { engineId } from './managed-service-gpus';
+import { t, ph } from '@lingui/core/macro';
 
 /** Packaged provider marks, with a neutral capability icon when no vendor mark exists. */
 export function ManagedServiceLogo({
@@ -40,7 +41,7 @@ export function ManagedServiceState({ service }: { service: ManagedServiceDefini
   const status = managedServiceStatus(service);
   return (
     <span
-      title={`Running means the service is responding. Connect makes it available to ${vocab.agent}; stopping the service does not remove its configuration.`}
+      title={t`Running means the service is responding. Connect makes it available to ${ph({ agent: vocab.agent })}; stopping the service does not remove its configuration.`}
     >
       <ClioStatus label={status.label} value={status.value} />
     </span>
@@ -53,7 +54,7 @@ export function VerificationState({ service }: { service: ManagedServiceDefiniti
   return (
     <span className="inline-flex items-center gap-1 text-xs text-success">
       <ActivityIcon className="size-3" aria-hidden="true" />
-      {service.observation.attention_verified ? 'Attention verified' : 'Provenance verified'}
+      {service.observation.attention_verified ? t`Attention verified` : t`Provenance verified`}
     </span>
   );
 }

@@ -10,39 +10,40 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioStatus } from '../status';
 import { anchorPreview } from './comment-model';
 import { commentThreadsKey } from './comment-session';
+import { plural, t, ph } from '@lingui/core/macro';
 
 type StatusValue = Parameters<typeof ClioStatus>[0]['value'];
 
 /** A thread's state as icon and words (never by colour alone). */
 function threadStatus(thread: ArtifactReview): { value: StatusValue; label: string } {
-  if (thread.reply_error) return { value: 'failed', label: 'The agent’s turn failed' };
-  if (thread.reply_text) return { value: 'completed', label: 'Answered' };
+  if (thread.reply_error) return { value: 'failed', label: t`The agent’s turn failed` };
+  if (thread.reply_text) return { value: 'completed', label: t`Answered` };
   switch (thread.status) {
     case 'draft':
-      return { value: 'pending', label: 'Draft, not sent' };
+      return { value: 'pending', label: t`Draft, not sent` };
     case 'queued':
-      return { value: 'queued', label: 'Waiting to send' };
+      return { value: 'queued', label: t`Waiting to send` };
     case 'dispatched':
-      return { value: 'running', label: 'With the agent' };
+      return { value: 'running', label: t`With the agent` };
     case 'human-note':
-      return { value: 'stopped', label: 'Note, not sent to the agent' };
+      return { value: 'stopped', label: t`Note, not sent to the agent` };
     case 'failed':
-      return { value: 'failed', label: 'Not sent' };
+      return { value: 'failed', label: t`Not sent` };
     default:
-      return { value: 'unavailable', label: 'Stale' };
+      return { value: 'unavailable', label: t`Stale` };
   }
 }
 
 function anchorState(thread: ArtifactReview, headVersion: number): string {
   if (thread.artifact_version === headVersion) return '';
   if (thread.anchor.profile === 'region')
-    return `Made on version ${thread.artifact_version}; shown beside the newest`;
-  if (thread.anchor_state === 'moved') return `Moved to version ${headVersion}`;
+    return t`Made on version ${ph({ artifact_version: thread.artifact_version })}; shown beside the newest`;
+  if (thread.anchor_state === 'moved') return t`Moved to version ${headVersion}`;
   if (thread.anchor_state === 'outdated' && thread.anchor_error)
-    return `Outdated: version ${thread.artifact_version} is no longer available`;
+    return t`Outdated: version ${ph({ artifact_version: thread.artifact_version })} is no longer available`;
   if (thread.anchor_state === 'outdated')
-    return `Outdated: version ${headVersion} changed this part`;
-  return `Made on version ${thread.artifact_version}`;
+    return t`Outdated: version ${headVersion} changed this part`;
+  return t`Made on version ${ph({ artifact_version: thread.artifact_version })}`;
 }
 
 function Crop({
@@ -69,7 +70,7 @@ function Crop({
     [crop.data],
   );
   useEffect(() => () => (url ? URL.revokeObjectURL(url) : undefined), [url]);
-  if (crop.isError) return <p className="text-xs text-muted-foreground">{label}: no crop</p>;
+  if (crop.isError) return <p className="text-xs text-muted-foreground">{t`${label}: no crop`}</p>;
   return (
     <figure className="min-w-0 flex-1">
       {url ? (
@@ -129,7 +130,7 @@ export function CommentThreadList({
         : false,
   });
   if (threads.isPending)
-    return <p className="p-3 text-sm text-muted-foreground">Loading comments…</p>;
+    return <p className="p-3 text-sm text-muted-foreground">{t`Loading comments…`}</p>;
   if (threads.isError)
     return (
       <p className="p-3 text-sm text-destructive" role="alert">
@@ -144,28 +145,32 @@ export function CommentThreadList({
   if (!sent.length)
     return (
       <p className="p-3 text-sm text-muted-foreground">
-        No comments yet. Use Comment to mark text, a region or an element and tell the agent what to
-        change.
+        {t`No comments yet. Use Comment to mark text, a region or an element and tell the agent what to change.`}
       </p>
     );
-  const otherVersions = others ? (
-    <Button
-      className="w-full justify-start text-muted-foreground"
-      onClick={() => setShowOthers((shown) => !shown)}
-      size="sm"
-      variant="ghost"
-    >
-      {showOthers
-        ? `Only version ${version}`
-        : `${others} ${others === 1 ? 'comment' : 'comments'} on other versions`}
-    </Button>
-  ) : null;
+  // Threads on other versions exist only when a version is on screen.
+  const otherVersions =
+    others && version ? (
+      <Button
+        className="w-full justify-start text-muted-foreground"
+        onClick={() => setShowOthers((shown) => !shown)}
+        size="sm"
+        variant="ghost"
+      >
+        {showOthers
+          ? t`Only version ${version}`
+          : plural(others, {
+              one: '# comment on other versions',
+              other: '# comments on other versions',
+            })}
+      </Button>
+    ) : null;
   return (
     <div className="space-y-2 p-3">
-      {rows.length ? null : (
-        <p className="text-sm text-muted-foreground">No comments on version {version}.</p>
+      {rows.length || !version ? null : (
+        <p className="text-sm text-muted-foreground">{t`No comments on version ${version}.`}</p>
       )}
-      <ol aria-label="Comment threads" className="space-y-3" data-slot="comment-thread-list">
+      <ol aria-label={t`Comment threads`} className="space-y-3" data-slot="comment-thread-list">
         {groupBySend(rows).map((group) => (
           <li
             className="space-y-2 rounded-md border p-3 text-sm"
@@ -179,7 +184,7 @@ export function CommentThreadList({
             </ol>
             {group.reply?.reply_text ? <Reply text={group.reply.reply_text} /> : null}
             {group.reply?.reply_version_artifact_id ? (
-              <p className="text-xs">The agent made a new version.</p>
+              <p className="text-xs">{t`The agent made a new version.`}</p>
             ) : null}
           </li>
         ))}
@@ -213,7 +218,7 @@ function Reply({ text }: { text: string }) {
           size="sm"
           variant="ghost"
         >
-          {whole ? 'Show less' : 'Show the whole reply'}
+          {whole ? t`Show less` : t`Show the whole reply`}
         </Button>
       ) : null}
     </div>
@@ -236,21 +241,21 @@ function ThreadRow({ thread, head }: { thread: ArtifactReview; head: number }) {
           label={status.label}
           value={status.value}
         />
-        <span className="text-xs text-muted-foreground">Version {thread.artifact_version}</span>
+        <span className="text-xs text-muted-foreground">{t`Version ${ph({ artifact_version: thread.artifact_version })}`}</span>
       </div>
       <p className="truncate text-xs text-muted-foreground" title={anchorPreview(thread.anchor)}>
         {anchorPreview(thread.anchor)}
       </p>
-      <p className="mt-1 whitespace-pre-wrap">{thread.text || '(no comment)'}</p>
+      <p className="mt-1 whitespace-pre-wrap">{thread.text || t`(no comment)`}</p>
       {state ? <p className="mt-1 text-xs text-muted-foreground">{state}</p> : null}
       {older && (thread.anchor.profile === 'region' || thread.anchor.profile === 'dom') ? (
         <div className="mt-2 flex gap-2" data-slot="comment-compare">
           <Crop
-            label={`Before, version ${thread.artifact_version}`}
+            label={t`Before, version ${ph({ artifact_version: thread.artifact_version })}`}
             side="before"
             threadId={thread.id}
           />
-          <Crop label={`After, version ${head}`} side="after" threadId={thread.id} />
+          <Crop label={t`After, version ${head}`} side="after" threadId={thread.id} />
         </div>
       ) : null}
     </li>

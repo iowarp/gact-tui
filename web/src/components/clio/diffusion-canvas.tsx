@@ -1,4 +1,5 @@
 import type { MessageCanvas } from '@clio/core/v3';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The live answer of a snapshot-requested stream. Each `message.canvas` frame
@@ -13,7 +14,7 @@ export function DiffusionCanvas({ canvas }: { canvas: MessageCanvas }) {
   return (
     <div aria-busy="true" className="flex flex-col gap-1" data-testid="diffusion-canvas">
       {diffusing ? (
-        <span className="text-xs text-muted-foreground">Diffusing: step {canvas.step}</span>
+        <span className="text-xs text-muted-foreground">{t`Diffusing: step ${ph({ step: canvas.step })}`}</span>
       ) : null}
       <p
         aria-live="off"

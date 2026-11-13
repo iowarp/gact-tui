@@ -23,6 +23,7 @@ import {
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { SPOTTER_PROFILE } from '@/lib/attention-profiles';
+import { t, ph } from '@lingui/core/macro';
 
 /** Edits resolved numerical assumptions; Apply reuses the existing capture. */
 export function AttentionProfileEditor({
@@ -53,17 +54,20 @@ export function AttentionProfileEditor({
     >
       <DialogTrigger asChild>
         {iconOnly ? (
-          <IconButton icon={<AdjustIcon />} label={`Heat profile: ${profile.name}`} />
+          <IconButton
+            icon={<AdjustIcon />}
+            label={t`Heat profile: ${ph({ name: profile.name ?? '' })}`}
+          />
         ) : (
           <Button variant="outline" size="xs">
-            Heat profile: {profile.name}
+            {t`Heat profile: ${ph({ name: profile.name ?? '' })}`}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Attention heat profile</DialogTitle>
-          <DialogDescription>Recompute this selection from its existing capture.</DialogDescription>
+          <DialogTitle>{t`Attention heat profile`}</DialogTitle>
+          <DialogDescription>{t`Recompute this selection from its existing capture.`}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -71,6 +75,7 @@ export function AttentionProfileEditor({
             size="sm"
             onClick={() => setDraft({ ...profile, ...SPOTTER_PROFILE })}
           >
+            {/* i18n-ignore: product name */}
             SPOTTER
           </Button>
           <Button
@@ -90,7 +95,7 @@ export function AttentionProfileEditor({
               })
             }
           >
-            Uniform mean
+            {t`Uniform mean`}
           </Button>
           <Button
             variant="outline"
@@ -109,7 +114,7 @@ export function AttentionProfileEditor({
               })
             }
           >
-            Decayed maximum
+            {t`Decayed maximum`}
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -117,7 +122,7 @@ export function AttentionProfileEditor({
             [
               [
                 'metric',
-                'Captured values',
+                t`Captured values`,
                 [
                   ['mean', 'Mean'],
                   ['max', 'Maximum'],
@@ -125,7 +130,7 @@ export function AttentionProfileEditor({
               ],
               [
                 'weighting',
-                'Step weights',
+                t`Step weights`,
                 [
                   ['uniform', 'Equal'],
                   ['exponential', 'Exponential'],
@@ -133,35 +138,35 @@ export function AttentionProfileEditor({
               ],
               [
                 'direction',
-                'Decay starts at',
+                t`Decay starts at`,
                 [
-                  ['forward', 'First selected step'],
-                  ['reverse', 'Last selected step'],
+                  ['forward', t`First selected step`],
+                  ['reverse', t`Last selected step`],
                 ],
               ],
               [
                 'weight_normalization',
-                'Weight normalization',
+                t`Weight normalization`,
                 [
-                  ['sum', 'Sum to one'],
+                  ['sum', t`Sum to one`],
                   ['none', 'None'],
                 ],
               ],
               [
                 'block_reduction',
-                'Source block score',
+                t`Source block score`,
                 [
                   ['sum', 'Sum'],
-                  ['mean', 'Mean per token'],
-                  ['max', 'Maximum token'],
+                  ['mean', t`Mean per token`],
+                  ['max', t`Maximum token`],
                 ],
               ],
               [
                 'display_scaling',
-                'Display scale',
+                t`Display scale`,
                 [
-                  ['max', 'Selection maximum'],
-                  ['none', 'Raw values'],
+                  ['max', t`Selection maximum`],
+                  ['none', t`Raw values`],
                 ],
               ],
             ] as const
@@ -183,7 +188,7 @@ export function AttentionProfileEditor({
             </div>
           ))}
           <div className="space-y-1.5">
-            <Label htmlFor="attention-decay">Decay base</Label>
+            <Label htmlFor="attention-decay">{t`Decay base`}</Label>
             <Input
               id="attention-decay"
               type="number"
@@ -196,11 +201,9 @@ export function AttentionProfileEditor({
             />
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            Mass stays comparable
-            <InfoTip label="About attention heat and mass">
-              Heat follows this profile. Source shares and residual remain uniform mean attention
-              mass. Maximum-based heat is not a percentage or evidence of poisoning. All selected
-              captured steps are included, with no inferred removal of formatting tokens.
+            {t`Mass stays comparable`}
+            <InfoTip label={t`About attention heat and mass`}>
+              {t`Heat follows this profile. Source shares and residual remain uniform mean attention mass. Maximum-based heat is not a percentage or evidence of poisoning. All selected captured steps are included, with no inferred removal of formatting tokens.`}
             </InfoTip>
           </div>
         </div>
@@ -212,7 +215,7 @@ export function AttentionProfileEditor({
               setOpen(false);
             }}
           >
-            Apply profile
+            {t`Apply profile`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -9,6 +9,7 @@ import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
+import { t, ph } from '@lingui/core/macro';
 
 const TITLE_LIMIT = 120;
 
@@ -24,7 +25,7 @@ function splitQuestion(text: string, fallback: string | undefined) {
     fallback.length <= TITLE_LIMIT &&
     !fallback.includes('\n')
       ? plainQuestionText(fallback)
-      : `${vocab.agent} asks`;
+      : t`${ph({ agent: vocab.agent })} asks`;
   return { title: label, body: trimmed };
 }
 
@@ -87,7 +88,7 @@ export function QuestionCard({
       ) : null}
       {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
         <AskSection className="mt-1 text-meta text-muted-foreground">
-          The specialist could not answer this, so it needs you.
+          {t`The specialist could not answer this, so it needs you.`}
         </AskSection>
       ) : null}
       {children}
@@ -129,23 +130,23 @@ export function QuestionFooter({
         composer.answering ? (
           <span className="inline-flex min-w-0 items-center gap-1.5" data-slot="question-answering">
             <EditIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">Type your answer in the message box below</span>
+            <span className="truncate">{t`Type your answer in the message box below`}</span>
           </span>
         ) : (
           <AskHint disabled={disabled} onClick={composer.start}>
             <EditIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-3px]" />
-            {composerOnly ? 'Type your answer below' : 'Or type your own answer below'}
+            {composerOnly ? t`Type your answer below` : t`Or type your own answer below`}
           </AskHint>
         )
       ) : null}
       {onDismiss ? (
         <AskHint
-          aria-label="Dismiss question"
+          aria-label={t`Dismiss question`}
           askKey="Escape"
           disabled={disabled}
           onClick={onDismiss}
         >
-          Dismiss
+          {t`Dismiss`}
         </AskHint>
       ) : null}
     </AskFooter>

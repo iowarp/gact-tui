@@ -35,11 +35,12 @@ import {
 import { CommentControls } from './comment-controls';
 import { CommentEditor } from './comment-editor';
 import { onCommentThreadReveal, takeCommentThreadReveal } from './comment-thread-reveal';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const HINTS: Record<CommentMode, string> = {
-  text: 'Select text to mark it.',
-  region: 'Drag over the view to mark a region.',
-  element: 'Click an element to pick it.',
+  text: t`Select text to mark it.`,
+  region: t`Drag over the view to mark a region.`,
+  element: t`Click an element to pick it.`,
 };
 
 export interface CommentSessionValue {
@@ -257,7 +258,7 @@ export function CommentSessionProvider({
     setEditing(undefined);
     if (destination.kind === 'artifact') {
       void saveDrafts(marks).catch((cause: unknown) =>
-        toast.error('Could not keep the draft comments', {
+        toast.error(t`Could not keep the draft comments`, {
           description: cause instanceof Error ? cause.message : String(cause),
         }),
       );
@@ -288,12 +289,15 @@ export function CommentSessionProvider({
             ...(history ? { allow_historical: true } : {}),
           });
           const failed = sent.threads.find((row) => row.status === 'failed');
-          if (failed) throw new Error(failed.error || 'The comments could not be sent.');
+          if (failed) throw new Error(failed.error || t`The comments could not be sent.`);
           await queryClient.invalidateQueries({
             queryKey: commentThreadsKey(settings.endpoint, artifactId),
           });
           toast.success(
-            `${marks.length} ${marks.length === 1 ? 'comment' : 'comments'} sent to the agent.`,
+            plural(marks.length, {
+              one: '# comment sent to the agent.',
+              other: '# comments sent to the agent.',
+            }),
           );
         } else {
           attachCommentSession({
@@ -377,8 +381,7 @@ export function CommentSessionProvider({
     settings.endpoint,
   ]);
 
-  const threadCount =
-    threads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
+  const threadCount = threads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
   // A transcript chip asked for these threads: show the controls and the thread list.
   const threadIds = threads.data?.threads;
   const [mountedAt] = useState(() => Date.now());
@@ -513,17 +516,20 @@ function CommentSessionControlsBody({
     <>
       <CommentControls
         busy={session.sending}
-        busyLabel="Sending…"
+        busyLabel={t`Sending…`}
         conflict={
           session.stale
             ? {
-                message: `Marked on version ${session.stale.marked}. The file is on version ${session.stale.newest}.`,
+                message: t`Marked on version ${ph({ marked: session.stale.marked })}. The file is on version ${ph({ newest: session.stale.newest })}.`,
                 actions: [
                   {
-                    label: 'Mark again on the new version',
+                    label: t`Mark again on the new version`,
                     onClick: () => void session.markAgain(),
                   },
-                  { label: 'Send as history', onClick: () => void session.send({ history: true }) },
+                  {
+                    label: t`Send as history`,
+                    onClick: () => void session.send({ history: true }),
+                  },
                 ],
               }
             : undefined
@@ -542,8 +548,8 @@ function CommentSessionControlsBody({
         sendDisabled={Boolean(session.editing)}
         sendLabel={
           artifact
-            ? `Send ${count} ${count === 1 ? 'comment' : 'comments'}`
-            : `Add ${count} ${count === 1 ? 'mark' : 'marks'} to message`
+            ? plural(count, { one: 'Send # comment', other: 'Send # comments' })
+            : plural(count, { one: 'Add # mark to message', other: 'Add # marks to message' })
         }
         title={surface.title}
       >

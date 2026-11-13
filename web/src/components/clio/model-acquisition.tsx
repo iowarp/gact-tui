@@ -42,6 +42,7 @@ import { InfraList } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { StateView } from './primitives/state-view';
 import { SourceStatusLine, sourceInputClass } from './source-form-parts';
+import { t, ph } from '@lingui/core/macro';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
 // A module constant: a state setter stays stable only while its initial value does.
@@ -64,7 +65,7 @@ function modelRuntime(
   return {
     runtime: catalog.services.find((service) => service.id === (gguf ? 'llama_cpp' : 'vllm'))
       ?.label,
-    unavailable: `No compatible runtime for these files on ${hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file.`,
+    unavailable: t`No compatible runtime for these files on ${hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file.`,
   };
 }
 
@@ -80,10 +81,10 @@ function FreeSpaceLine({
   hostLabel: string;
   path: string;
 }) {
-  const free = `${formatBytes(freeBytes)} free on ${hostLabel}`;
+  const free = t`${ph({ free: formatBytes(freeBytes) })} free on ${hostLabel}`;
   const tone = !sizeBytes ? 'default' : sizeBytes <= freeBytes ? 'ok' : 'warning';
   return (
-    <div title={`Free space in ${path}`}>
+    <div title={t`Free space in ${path}`}>
       <SourceStatusLine
         icon={
           tone === 'ok' ? (
@@ -97,10 +98,10 @@ function FreeSpaceLine({
         tone={tone}
       >
         {tone === 'ok'
-          ? `Fits: ${free}.`
+          ? t`Fits: ${free}.`
           : tone === 'warning'
-            ? `Needs ${formatBytes(sizeBytes ?? 0)}; only ${free}.`
-            : `${free}.`}
+            ? t`Needs ${ph({ size: formatBytes(sizeBytes ?? 0) })}; only ${free}.`
+            : t({ message: `${free}.`, comment: 'A sentence ending' })}
       </SourceStatusLine>
     </div>
   );
@@ -187,14 +188,14 @@ export function ModelAcquisitions({
     <div className="flex min-w-0 flex-col">
       <InfraTabActions
         fold={{
-          label: 'More model actions',
+          label: t`More model actions`,
           verb: (
             <>
               <Button size="sm" disabled={downloadDisabled} onClick={startDownload}>
-                <DownloadIcon /> Download model
+                <DownloadIcon /> {t`Download model`}
               </Button>
               {unavailable ? (
-                <InfoTip label="Why downloading is unavailable">{unavailable}</InfoTip>
+                <InfoTip label={t`Why downloading is unavailable`}>{unavailable}</InfoTip>
               ) : null}
             </>
           ),
@@ -203,7 +204,7 @@ export function ModelAcquisitions({
               <MenuRow
                 description={unavailable ?? undefined}
                 icon={<DownloadIcon />}
-                label="Download model"
+                label={t`Download model`}
               />
             </DropdownMenuItem>
           ),
@@ -215,7 +216,7 @@ export function ModelAcquisitions({
         <StateView
           action={
             inventory.error
-              ? { label: 'Retry', onClick: () => void inventory.refetch() }
+              ? { label: t`Retry`, onClick: () => void inventory.refetch() }
               : undefined
           }
           kind="error"
@@ -225,24 +226,24 @@ export function ModelAcquisitions({
       ) : null}
       {inventory.data?.errors.map((failure) => (
         <StateView
-          action={{ label: 'Retry', onClick: () => void inventory.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void inventory.refetch() }}
           detail={failure.error}
           key={failure.storage_root}
           kind="error"
           size="row"
-          title={`Could not inspect ${failure.storage_root}. Showing the last observation.`}
+          title={t`Could not inspect ${ph({ storage_root: failure.storage_root })}. Showing the last observation.`}
         />
       ))}
       <InfraList
-        heading={`Downloaded models on ${hostLabel}`}
+        heading={t`Downloaded models on ${hostLabel}`}
         headingAction={
           capacity.data ? (
             <span
               className="flex items-center gap-1 text-label text-muted-foreground"
-              title={`Free space in ${capacity.data.path}`}
+              title={t`Free space in ${ph({ path: capacity.data.path })}`}
             >
               <HardDriveIcon aria-hidden="true" className="size-3.5" />
-              {`${formatBytes(capacity.data.free_bytes)} free`}
+              {t`${ph({ size: formatBytes(capacity.data.free_bytes) })} free`}
             </span>
           ) : undefined
         }
@@ -252,11 +253,11 @@ export function ModelAcquisitions({
       >
         {inventory.isPending ? (
           <div role="listitem">
-            <StateView kind="loading" size="row" title="Inspecting model storage…" />
+            <StateView kind="loading" size="row" title={t`Inspecting model storage…`} />
           </div>
         ) : inventory.data && !models.length ? (
           <div role="listitem">
-            <StateView kind="empty" size="row" title="No downloaded models on this host yet." />
+            <StateView kind="empty" size="row" title={t`No downloaded models on this host yet.`} />
           </div>
         ) : null}
         {models.map((model) => {
@@ -302,21 +303,19 @@ export function ModelAcquisitions({
         >
           <div className="flex h-12 min-w-0 shrink-0 items-center gap-2.5 pr-2.5 pl-4">
             <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold">
-              {acquire.data ? 'Model download' : 'Find a model'}
+              {acquire.data ? t`Model download` : t`Find a model`}
             </DialogTitle>
             {acquire.data ? null : (
-              <InfoTip className="size-7" label="About model downloads">
-                Download the repository's files into a dedicated folder on this host. {vocab.agent}{' '}
-                resolves an immutable revision, checks free space, and verifies the files. This does
-                not load model code or start inference.
+              <InfoTip className="size-7" label={t`About model downloads`}>
+                {t`Download the repository's files into a dedicated folder on this host. ${ph({ agent: vocab.agent })} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference.`}
               </InfoTip>
             )}
             <DialogClose asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Close"
-                title="Close"
+                aria-label={t`Close`}
+                title={t`Close`}
                 className="shrink-0 text-muted-foreground"
               >
                 <CloseIcon aria-hidden="true" />
@@ -325,8 +324,8 @@ export function ModelAcquisitions({
           </div>
           <DialogDescription className="-mt-1.5 shrink-0 truncate px-4 pb-[13px] text-label text-faint">
             {acquire.data
-              ? 'Progress continues if you close this window.'
-              : `Choose a model to download to ${hostLabel}.`}
+              ? t`Progress continues if you close this window.`
+              : t`Choose a model to download to ${hostLabel}.`}
           </DialogDescription>
           {acquire.data ? (
             <>
@@ -348,8 +347,8 @@ export function ModelAcquisitions({
                       acquire.data
                     ).state,
                   )
-                    ? 'Continue in background'
-                    : 'Done'}
+                    ? t`Continue in background`
+                    : t`Done`}
                 </Button>
               </div>
             </>
@@ -521,16 +520,14 @@ function ModelChooser({
         <ModelDownloadSearch
           heading={
             submittedSearch
-              ? `Results for “${submittedSearch}”`
+              ? t`Results for “${submittedSearch}”`
               : searchFilters.length
-                ? 'Models on Hugging Face'
-                : 'Popular text models on Hugging Face'
+                ? t`Models on Hugging Face`
+                : t`Popular text models on Hugging Face`
           }
           headingAction={
-            <InfoTip className="size-5" label="About model search">
-              Search uses Hugging Face tags. Capability filters also check the evidence in loaded
-              results; unknown capabilities are not assumed. Counts refer to loaded results. Load
-              more to continue searching.
+            <InfoTip className="size-5" label={t`About model search`}>
+              {t`Search uses Hugging Face tags. Capability filters also check the evidence in loaded results; unknown capabilities are not assumed. Counts refer to loaded results. Load more to continue searching.`}
             </InfoTip>
           }
           loadMore={loadMore}
@@ -556,7 +553,7 @@ function ModelChooser({
             />
           ) : (
             <p className="py-1.5 text-meta text-pretty text-faint">
-              Choose a model to see its capabilities and model card.
+              {t`Choose a model to see its capabilities and model card.`}
             </p>
           )}
           {draft.repository && capacity ? (
@@ -576,7 +573,7 @@ function ModelChooser({
               <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
                 <ChevronRightIcon className="size-3 group-data-[state=open]/advanced:rotate-90 motion-safe:transition-transform" />
               </span>
-              Advanced download settings
+              {t`Advanced download settings`}
             </CollapsibleTrigger>
             <CollapsibleContent className="flex min-w-0 flex-col gap-[13px] px-2 pt-1.5">
               <div className="grid min-w-0 grid-cols-2 gap-2.5">
@@ -585,7 +582,7 @@ function ModelChooser({
                     htmlFor="model-repository"
                     className="flex min-h-5 items-center text-label whitespace-nowrap text-muted-foreground"
                   >
-                    Repository
+                    {t`Repository`}
                   </label>
                   <Input
                     id="model-repository"
@@ -605,11 +602,10 @@ function ModelChooser({
                       htmlFor="model-revision"
                       className="text-label whitespace-nowrap text-muted-foreground"
                     >
-                      Revision
+                      {t`Revision`}
                     </label>
-                    <InfoTip className="size-5" label="About model revisions">
-                      A branch or tag is resolved once to a commit. Retries keep that same commit
-                      even if the branch changes.
+                    <InfoTip className="size-5" label={t`About model revisions`}>
+                      {t`A branch or tag is resolved once to a commit. Retries keep that same commit even if the branch changes.`}
                     </InfoTip>
                   </div>
                   <Input
@@ -627,12 +623,10 @@ function ModelChooser({
                     htmlFor="model-destination"
                     className="truncate text-label whitespace-nowrap text-muted-foreground"
                   >
-                    Destination on {hostLabel}
+                    {t`Destination on ${hostLabel}`}
                   </label>
-                  <InfoTip className="size-5" label="About model destination">
-                    Choose a dedicated empty folder, or leave this blank to create one under this
-                    host's configured Models folder. Existing downloads retain their original paths
-                    when settings change.
+                  <InfoTip className="size-5" label={t`About model destination`}>
+                    {t`Choose a dedicated empty folder, or leave this blank to create one under this host's configured Models folder. Existing downloads retain their original paths when settings change.`}
                   </InfoTip>
                 </div>
                 <div className="flex min-w-0 items-center gap-1.5">
@@ -643,13 +637,17 @@ function ModelChooser({
                       'min-w-0 flex-1 font-mono text-meta md:text-meta',
                     )}
                     value={draft.destination}
-                    placeholder={`${modelsFolder || 'Models folder'}/repository--revision`}
+                    placeholder={
+                      modelsFolder
+                        ? `${modelsFolder}/repository--revision` // i18n-ignore: example path
+                        : t`Models folder/repository--revision`
+                    }
                     onChange={(event) => setDraft({ ...draft, destination: event.target.value })}
                   />
                   <HostPathPicker
                     targetId={targetId}
                     hostLabel={hostLabel}
-                    label="Model destination"
+                    label={t`Model destination`}
                     path={draft.destination || modelsFolder}
                     onChoose={(destination) => setDraft({ ...draft, destination })}
                     triggerClassName="h-[30px] shrink-0 px-2 text-meta text-muted-foreground"
@@ -677,15 +675,15 @@ function ModelChooser({
           title={installExpectation(downloadEstimate)}
         >
           {chosen?.size_bytes
-            ? `${formatBytes(chosen.size_bytes)} to download`
-            : 'Progress continues if you close this window'}
+            ? t`${ph({ size: formatBytes(chosen.size_bytes) })} to download`
+            : t`Progress continues if you close this window`}
         </p>
         <Button type="button" variant="ghost" disabled={pending} onClick={() => onCancel()}>
-          Cancel
+          {t`Cancel`}
         </Button>
         <Button type="submit" className="gap-[7px] bg-clip-border" disabled={downloadBlocked}>
           <DownloadIcon aria-hidden="true" />
-          {pending ? 'Starting download…' : `Download to ${hostLabel}`}
+          {pending ? t`Starting download…` : t`Download to ${hostLabel}`}
           {downloadBlocked ? null : (
             <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
               <ShortcutKeys className="border-current/45" keys={['Ctrl+Enter']} variant="inline" />

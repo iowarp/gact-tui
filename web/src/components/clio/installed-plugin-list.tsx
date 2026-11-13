@@ -7,6 +7,7 @@ import { ExtensionRow } from './extension-parts';
 import { PluginExplorer } from './plugin-explorer';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
+import { t } from '@lingui/core/macro';
 
 /** A pack's glyph or a plugin's. */
 export function PluginIcon({ kind }: Pick<PluginEntry, 'kind'>) {
@@ -21,7 +22,7 @@ export function InstalledPluginList({
   plugins,
   pending,
   error,
-  label = 'Installed plugins',
+  label = t`Installed plugins`,
   onExplore,
   selected,
   size = 'default',
@@ -39,14 +40,14 @@ export function InstalledPluginList({
   const [inspecting, setInspecting] = useState<PluginEntry>();
   const explore = onExplore ?? setInspecting;
   const roots = catalogRoots(plugins);
-  if (pending) return <StateView kind="loading" size="row" title="Loading plugins…" />;
+  if (pending) return <StateView kind="loading" size="row" title={t`Loading plugins…`} />;
   if (error)
     return (
       <div title={error}>
-        <StateView kind="error" size="row" title="Plugins couldn’t be loaded." />
+        <StateView kind="error" size="row" title={t`Plugins couldn’t be loaded.`} />
       </div>
     );
-  if (!roots.length) return <StateView kind="empty" size="row" title="No plugins yet." />;
+  if (!roots.length) return <StateView kind="empty" size="row" title={t`No plugins yet.`} />;
   return (
     <ItemList label={label}>
       {roots.map((plugin) => {

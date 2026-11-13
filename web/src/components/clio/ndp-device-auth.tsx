@@ -6,6 +6,9 @@ import { ExternalLink } from '@/components/ui/external-link';
 import { prepareExternalUrl } from '@/tauri/external-url';
 import { useStorageSignInPoll } from './use-storage-sign-in-poll';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 type Repository = Pick<ClioRepository, 'startSourceSignIn' | 'completeSourceSignIn'> &
   Partial<Pick<ClioRepository, 'cancelSourceSignIn'>>;
@@ -82,24 +85,24 @@ export function NDPDeviceAuth({
     },
   });
   return (
-    <section aria-label="NDP sign in" className="space-y-3">
+    <section aria-label={t`NDP sign in`} className="space-y-3">
       {flow ? (
         <>
-          <p className="text-sm">Confirm this code on NDP:</p>
+          <p className="text-sm">{t`Confirm this code on NDP:`}</p>
           <output
-            aria-label="NDP sign-in code"
+            aria-label={t`NDP sign-in code`}
             className="block w-fit select-all rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest"
           >
             {flow.user_code}
           </output>
           <ExternalLink href={flow.authorization_url} className="text-sm underline">
-            Open NDP sign-in
+            {t`Open NDP sign-in`}
           </ExternalLink>
           <p role="status" className="text-sm text-muted-foreground">
-            Waiting for you to approve on NDP…
+            {t`Waiting for you to approve on NDP…`}
           </p>
           <Button variant="ghost" size="sm" onClick={cancel}>
-            Cancel sign-in
+            {t`Cancel sign-in`}
           </Button>
         </>
       ) : (
@@ -109,10 +112,10 @@ export function NDPDeviceAuth({
             disabled={start.isPending}
             onClick={() => start.mutate(prepareExternalUrl())}
           >
-            {start.isPending ? 'Opening NDP…' : 'Sign in to NDP'}
+            {start.isPending ? t`Opening NDP…` : t`Sign in to NDP`}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Connect {vocab.agent} using your existing NDP login. Reused across workspaces.
+            {t`Connect ${agent} using your existing NDP login. Reused across workspaces.`}
           </p>
         </div>
       )}

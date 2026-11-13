@@ -8,6 +8,7 @@ import { isOfflineError } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import type { RailSessions } from '@/hooks/use-rail-sessions';
 import { holdPreviews } from './row-preview-hold';
+import { t } from '@lingui/core/macro';
 
 /**
  * A rail list's loading, failure or empty line, one row tall. A failure names
@@ -24,20 +25,15 @@ export function RailState({
 }: {
   kind: 'loading' | 'error' | 'empty';
   title: string;
-  /** For an error: what failed, e.g. `workspaces`. */
-  failed?: { what: string; verb: 'listed' | 'loaded' };
+  /** For an error: the short line (`Workspaces not listed`) and its offline form (`Offline, no workspaces`). */
+  failed?: { label: string; offline: string };
   error?: unknown;
   onRetry?: () => void;
   /** Inside a workspace: aligned with its conversations' titles. */
   indent?: boolean;
 }) {
   const offline = kind === 'error' && isOfflineError(error);
-  const what = failed?.what ?? '';
-  const shown = !failed
-    ? title
-    : offline
-      ? `Offline, no ${what}`
-      : `${what.charAt(0).toUpperCase()}${what.slice(1)} not ${failed.verb}`;
+  const shown = !failed ? title : offline ? failed.offline : failed.label;
   if (kind === 'empty')
     // The spec's quiet .empty line (12px, faint, no icon), its text on the rows' title column.
     return (
@@ -53,9 +49,12 @@ export function RailState({
       </div>
     );
   return (
-    <div className="min-w-0 group-data-[collapsible=icon]:hidden" title={failed ? title : undefined}>
+    <div
+      className="min-w-0 group-data-[collapsible=icon]:hidden"
+      title={failed ? title : undefined}
+    >
       <StateView
-        action={kind === 'error' && onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        action={kind === 'error' && onRetry ? { label: t`Retry`, onClick: onRetry } : undefined}
         className="pl-2.5 pr-1"
         kind={kind}
         size="row"
@@ -71,8 +70,8 @@ export function RailState({
  */
 export function RailIconFailure({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const label = isOfflineError(error)
-    ? 'Offline, no workspaces. Retry'
-    : 'Workspaces not listed. Retry';
+    ? t`Offline, no workspaces. Retry`
+    : t`Workspaces not listed. Retry`;
   return (
     <NamedTooltip label={label} side="right">
       <Button
@@ -83,7 +82,7 @@ export function RailIconFailure({ error, onRetry }: { error: unknown; onRetry?: 
       >
         <CircleAlertIcon aria-hidden="true" />
         <span aria-hidden="true" className="text-caption leading-none font-medium">
-          Retry
+          {t`Retry`}
         </span>
       </Button>
     </NamedTooltip>
@@ -100,9 +99,9 @@ export function DraftConversationRow({ topLevel }: { topLevel: boolean }) {
         topLevel ? 'pl-2.5' : 'pl-[34px]',
       )}
       data-draft-row=""
-      meta={<span className="text-caption italic text-accent-foreground/80">now</span>}
+      meta={<span className="text-caption italic text-accent-foreground/80">{t`now`}</span>}
       selected
-      title={<span className="truncate italic">New conversation</span>}
+      title={<span className="truncate italic">{t`New conversation`}</span>}
     />
   );
 }
@@ -156,13 +155,16 @@ export function RailListState({ rail }: { rail: RailSessions }) {
     return (
       <RailState
         error={rail.error}
-        failed={{ what: 'conversations', verb: 'listed' }}
+        failed={{
+          label: t`Conversations not listed`,
+          offline: t`Offline, no conversations`,
+        }}
         kind="error"
         onRetry={rail.retry}
-        title="Conversations could not be listed"
+        title={t`Conversations could not be listed`}
       />
     );
-  if (rail.loading) return <RailState kind="loading" title="Loading conversations…" />;
+  if (rail.loading) return <RailState kind="loading" title={t`Loading conversations…`} />;
   return null;
 }
 
@@ -172,22 +174,19 @@ export function RailLoadMore({ rail }: { rail: RailSessions }) {
     return (
       <RailState
         error={rail.loadMoreError}
-        failed={{ what: 'more conversations', verb: 'loaded' }}
+        failed={{
+          label: t`More conversations not loaded`,
+          offline: t`Offline, no more conversations`,
+        }}
         kind="error"
         onRetry={rail.retry}
-        title="More conversations could not be loaded"
+        title={t`More conversations could not be loaded`}
       />
     );
   return <RailLoadMoreButton loading={rail.loadingMore} onLoadMore={rail.loadMore} />;
 }
 
-function RailLoadMoreButton({
-  loading,
-  onLoadMore,
-}: {
-  loading: boolean;
-  onLoadMore: () => void;
-}) {
+function RailLoadMoreButton({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
   const sentinel = useRef<HTMLButtonElement>(null);
   const load = useRef(onLoadMore);
   useEffect(() => {
@@ -214,7 +213,7 @@ function RailLoadMoreButton({
       variant="ghost"
     >
       {loading ? <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" /> : null}
-      {loading ? 'Loading more sessions…' : 'Load more sessions'}
+      {loading ? t`Loading more sessions…` : t`Load more sessions`}
     </Button>
   );
 }

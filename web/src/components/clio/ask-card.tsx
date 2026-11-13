@@ -35,6 +35,7 @@ import {
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
 import { composerFailureReason } from './composer-failure';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -57,6 +58,7 @@ const TONE: Record<AskKind, string> = {
   verify: 'text-info',
 };
 
+// i18n-ignore: keyboard key names, printed on the keys
 const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
 /** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
@@ -76,9 +78,9 @@ export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: 
  */
 export function AskPagerControls({
   pager: own,
-  label = 'Pending requests',
+  label = t`Pending requests`,
   noun = 'request',
-}: { pager?: AskPager; label?: string; noun?: string } = {}) {
+}: { pager?: AskPager; label?: string; noun?: 'request' | 'question' } = {}) {
   const queue = useContext(AskPagerContext);
   const pager = own ?? queue;
   if (!pager || pager.total < 2) return null;
@@ -94,7 +96,7 @@ export function AskPagerControls({
           {...askKeyAttributes(keyed ? ['['] : [])}
           disabled={pager.index === 0}
           icon={<ChevronLeftIcon aria-hidden="true" />}
-          label={`Previous ${noun}`}
+          label={noun === 'question' ? t`Previous question` : t`Previous request`}
           onClick={pager.onPrevious}
           size="sm"
         />
@@ -105,7 +107,7 @@ export function AskPagerControls({
           {...askKeyAttributes(keyed ? [']'] : [])}
           disabled={pager.index === pager.total - 1}
           icon={<ChevronRightIcon aria-hidden="true" />}
-          label={`Next ${noun}`}
+          label={noun === 'question' ? t`Next question` : t`Next request`}
           onClick={pager.onNext}
           size="sm"
         />
@@ -495,7 +497,7 @@ export function AskHint({
  */
 export function AskDetails({
   children,
-  title = 'Technical details',
+  title = t`Technical details`,
   hint,
 }: {
   children: ReactNode;
@@ -588,11 +590,11 @@ function AskCopyButton({ code, label }: { code: string; label: string }) {
       <IconButton
         className="text-muted-foreground"
         icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-        label={copied ? 'Copied' : label}
+        label={copied ? t`Copied` : label}
         onClick={() => {
           void copyText(code).then(
             () => setCopied(true),
-            () => toast.error('Could not copy to the clipboard.'),
+            () => toast.error(t`Could not copy to the clipboard.`),
           );
         }}
         size="sm"
@@ -612,7 +614,7 @@ export function AskCode({
   name,
   meta,
   onOpen,
-  openLabel = 'Open in tab',
+  openLabel = t`Open in tab`,
   copyLabel,
   icon: NameIcon,
   wrapToggle,
@@ -702,7 +704,7 @@ export function AskCode({
               <IconButton
                 className="text-muted-foreground"
                 icon={<WrapTextIcon aria-hidden="true" />}
-                label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}
+                label={wrap ? t`Stop wrapping long lines` : t`Wrap long lines`}
                 onClick={() => setWrap((value) => !value)}
                 size="sm"
                 variant="ghost"
@@ -747,7 +749,9 @@ export function AskCode({
       </pre>
       {hidden > 0 || onOpen ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}</span>
+          <span className="truncate">
+            {hidden > 0 ? plural(hidden, { one: '# more line', other: '# more lines' }) : null}
+          </span>
           <AskButton
             {...askKeyAttributes(['o'])}
             className="ml-auto h-6 px-2 text-meta"
@@ -755,7 +759,7 @@ export function AskCode({
           >
             <span className="inline-flex items-center gap-1.5">
               {onOpen ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
-              {onOpen ? openLabel : 'Show all'}
+              {onOpen ? openLabel : t`Show all`}
               <AskKeyChip askKey="o" />
             </span>
           </AskButton>
@@ -768,17 +772,14 @@ export function AskCode({
 /** One quiet line when this card's own answer failed; assertive, never color alone. */
 export function AskError({ error, className }: { error?: Error; className?: string }) {
   if (!error) return null;
-  const reason = composerFailureReason(error, 'The service did not record your answer.');
+  const reason = composerFailureReason(error, t`The service did not record your answer.`);
   return (
     <AskSection
-      className={cn(
-        'mt-2 flex min-w-0 items-center gap-1.5 text-meta text-destructive',
-        className,
-      )}
+      className={cn('mt-2 flex min-w-0 items-center gap-1.5 text-meta text-destructive', className)}
       data-slot="ask-error"
       role="alert"
     >
-      <span className="shrink-0 font-medium">Response unavailable</span>
+      <span className="shrink-0 font-medium">{t`Response unavailable`}</span>
       <span className="min-w-0 truncate text-destructive/85" title={reason}>
         {reason}
       </span>

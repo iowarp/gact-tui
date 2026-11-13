@@ -1,3 +1,5 @@
+import { t } from '@lingui/core/macro';
+
 const INPUT_COMPONENTS = new Set([
   'TextField',
   'TextArea',
@@ -9,15 +11,15 @@ const INPUT_COMPONENTS = new Set([
 ]);
 
 const COMPONENT_KIND_LABELS = new Map([
-  ['clio.chart.v1', 'Chart'],
-  ['clio.data-table.v1', 'Table'],
-  ['clio.map.v1', 'Map'],
-  ['clio.mermaid.v1', 'Diagram'],
-  ['clio.code.v1', 'Code'],
-  ['clio.artifact.v1', 'Artifact'],
-  ['clio.metric.v1', 'Metrics'],
-  ['clio.status.v1', 'Status'],
-  ['clio.progress.v1', 'Status'],
+  ['clio.chart.v1', t`Chart`],
+  ['clio.data-table.v1', t`Table`],
+  ['clio.map.v1', t`Map`],
+  ['clio.mermaid.v1', t`Diagram`],
+  ['clio.code.v1', t`Code`],
+  ['clio.artifact.v1', t`Artifact`],
+  ['clio.metric.v1', t`Metrics`],
+  ['clio.status.v1', t`Status`],
+  ['clio.progress.v1', t`Status`],
 ]);
 
 /** Stable transcript target used by provider-authored surface links. */
@@ -40,10 +42,11 @@ export function a2uiSurfaceKind(messages: readonly unknown[]): string {
       if (typeof name === 'string') names.add(name);
     }
   }
-  if ([...INPUT_COMPONENTS].some((name) => names.has(name))) return 'Input';
+  if ([...INPUT_COMPONENTS].some((name) => names.has(name)))
+    return t({ message: 'Input', context: 'interface kind' });
   for (const [name, label] of COMPONENT_KIND_LABELS) {
     if (names.has(name)) return label;
   }
-  if (names.has('Text')) return 'Text';
-  return 'Interface';
+  if (names.has('Text')) return t({ message: 'Text', context: 'interface kind' });
+  return t`Interface`;
 }

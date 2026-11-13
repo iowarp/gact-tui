@@ -23,6 +23,8 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
 import { StateView } from './state-view';
+import { formatLocale } from '@/lib/locale-format';
+import { ph, t } from '@lingui/core/macro';
 
 /** Column count by row count: the sheet grows to four columns only when it has the rows to fill them. */
 const ROWS_PER_COLUMN = 10;
@@ -42,17 +44,17 @@ const SHEET_COLUMNS = [
 ] as const;
 
 const PLATFORM_OPTIONS = [
-  { value: 'windows', label: 'Windows, Linux' },
-  { value: 'mac', label: 'Mac' },
+  { value: 'windows', label: t`Windows, Linux` },
+  { value: 'mac', label: t`Mac` },
 ] as const satisfies readonly { value: KeyPlatform; label: string }[];
 
-const WORKS_HERE = 'Works on this screen';
+const WORKS_HERE = t`Works on this screen`;
 
 /** Direction pairs share one row, as in the spec ("Previous, next conversation"). */
 const PAIRS: Readonly<Record<string, { with: string; name: string }>> = {
-  'previous-conversation': { with: 'next-conversation', name: 'Previous, next conversation' },
-  'next-region': { with: 'previous-region', name: 'Next, previous region' },
-  'previous-tab': { with: 'next-tab', name: 'Previous, next tab' },
+  'previous-conversation': { with: 'next-conversation', name: t`Previous, next conversation` },
+  'next-region': { with: 'previous-region', name: t`Next, previous region` },
+  'previous-tab': { with: 'next-tab', name: t`Previous, next tab` },
 };
 
 interface SheetRow {
@@ -115,7 +117,7 @@ function PairKeys({
     <span data-slot="shortcut-keys" className="inline-flex shrink-0 items-center gap-1">
       {chords.map((caps, chordIndex) => (
         <span key={chordIndex} className="inline-flex items-center gap-1">
-          {chordIndex > 0 ? <span className="px-0.5 text-caption text-faint">or</span> : null}
+          {chordIndex > 0 ? <span className="px-0.5 text-caption text-faint">{t`or`}</span> : null}
           {caps.map((cap, capIndex) => (
             <KeyCap key={capIndex}>{cap}</KeyCap>
           ))}
@@ -161,10 +163,10 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
       {/* Below 600px the header folds to two rows: title, OS and close, then the find field and legend. */}
       <div className="flex h-12 min-w-0 shrink-0 items-center gap-3 border-b border-border px-[18px] max-[599px]:h-auto max-[599px]:flex-wrap max-[599px]:gap-y-2.5 max-[599px]:py-2.5">
         <DialogTitle className="shrink-0 font-sans text-[0.875rem] leading-none font-semibold whitespace-nowrap">
-          Keyboard shortcuts
+          {t`Keyboard shortcuts`}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Every key, grouped by where it works.
+          {t`Every key, grouped by where it works.`}
         </DialogDescription>
         <span
           aria-hidden="true"
@@ -176,8 +178,8 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint"
           />
           <Input
-            aria-label="Find a shortcut"
-            placeholder="Find a shortcut"
+            aria-label={t`Find a shortcut`}
+            placeholder={t`Find a shortcut`}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="h-[30px] rounded-[7px] pl-8 text-meta"
@@ -189,25 +191,28 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
             {WORKS_HERE}
           </span>
           <SegmentedControl
-            label="Show keys for"
+            label={t`Show keys for`}
             options={PLATFORM_OPTIONS}
             value={platform}
             onValueChange={setPlatform}
             className="border border-border bg-transparent p-0 max-[599px]:order-1 max-[599px]:ml-auto"
           />
           <DialogClose
-            aria-label="Close"
-            title="Close"
+            aria-label={t`Close`}
+            title={t`Close`}
             className="rounded-[5px] outline-none focus-visible:ring-1 focus-visible:ring-ring max-[599px]:order-1 max-[599px]:grid max-[599px]:size-7 max-[599px]:place-items-center max-[599px]:text-muted-foreground max-[599px]:hover:text-foreground"
           >
-            <KeyCap className="max-[599px]:hidden">Esc</KeyCap>
+            <KeyCap className="max-[599px]:hidden">
+              {/* i18n-ignore: key name, as printed on the key */}
+              Esc
+            </KeyCap>
             <CloseIcon aria-hidden="true" className="hidden size-4 max-[599px]:block" />
           </DialogClose>
         </div>
       </div>
       <div className="@container min-h-0 flex-1 overflow-y-auto px-[18px] pt-3.5 pb-[18px]">
         {groups.length === 0 ? (
-          <StateView kind="empty" title="No shortcut matches" />
+          <StateView kind="empty" title={t`No shortcut matches`} />
         ) : (
           <div className={cn('columns-1 gap-[30px]', SHEET_COLUMNS[columns])}>
             {groups.map((group) => (
@@ -228,14 +233,23 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                         />
                         <span
                           className="min-w-0 flex-1 truncate"
-                          title={row.when ? `${row.name}: ${row.when.toLowerCase()}` : row.name}
+                          // Mid-line labels are case-folded; safe in every offered language.
+                          title={
+                            row.when
+                              ? t`${ph({ name: row.name })}: ${ph({ when: row.when.toLocaleLowerCase(formatLocale()) })}`
+                              : row.name
+                          }
                         >
                           {row.name}
                           {row.when ? (
-                            <span className="sr-only">, {row.when.toLowerCase()}</span>
+                            <span className="sr-only">
+                              , {row.when.toLocaleLowerCase(formatLocale())}
+                            </span>
                           ) : null}
                           {here ? (
-                            <span className="sr-only">, {WORKS_HERE.toLowerCase()}</span>
+                            <span className="sr-only">
+                              , {WORKS_HERE.toLocaleLowerCase(formatLocale())}
+                            </span>
                           ) : null}
                         </span>
                         {row.pair ? (

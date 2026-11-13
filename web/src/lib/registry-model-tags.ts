@@ -9,6 +9,7 @@ export function registryModelTags(
 ) {
   return modelCapabilityTagsFromOption({
     providerId: 'huggingface',
+    // i18n-ignore: product name
     providerName: 'Hugging Face',
     id: model.repository,
     label: model.repository,

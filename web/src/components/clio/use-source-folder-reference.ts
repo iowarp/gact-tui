@@ -1,6 +1,7 @@
 import type { ConnectedSourceState, WorkspaceReference } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
+import { t } from '@lingui/core/macro';
 
 /** Reuse ordinary resource custody and the composer's message-part pipeline for folders. */
 export function useSourceFolderReference(
@@ -35,10 +36,10 @@ export function useSourceFolderReference(
         id: resource.id,
         label: path ? `${source.label} / ${name}` : source.label,
         detail: linked
-          ? 'Linked folder'
+          ? t`Linked folder`
           : source.origin === 'desktop_upload'
-            ? 'Folder, full copy'
-            : 'Downloaded folder',
+            ? t`Folder, full copy`
+            : t`Downloaded folder`,
         media_type: resource.detected_mime,
         revision: String(resource.revision),
         navigation: {

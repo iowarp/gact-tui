@@ -58,6 +58,8 @@ import type { ClioComposerProps } from './composer-types';
 import { useComposerDraftInsertion } from './use-composer-draft-insertion';
 import { useComposerFocus } from './use-composer-focus';
 import { useComposerSavedDrafts } from './use-composer-saved-drafts';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 export type { ClioComposerProps } from './composer-types';
 
@@ -119,10 +121,10 @@ export function ClioComposer({
   autoFocus = false,
   variant = 'docked',
   placeholder = variant === 'welcome'
-    ? `Ask ${brand.name} anything, or describe a task…`
+    ? t`Ask ${ph({ name: brand.name })} anything, or describe a task…`
     : state === 'running' || state === 'queued'
-      ? 'Reply, or steer the run'
-      : 'Reply',
+      ? t`Reply, or steer the run`
+      : t`Reply`,
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
   const {
@@ -134,13 +136,15 @@ export function ClioComposer({
   const modelProblem =
     modelCatalogStatus === 'error' && !selectedOption
       ? {
-          label: 'Models unavailable',
-          detail: "The model list couldn't be loaded. Open the picker to retry.",
+          label: t`Models unavailable`,
+          detail: t`The model list couldn't be loaded. Open the picker to retry.`,
         }
       : modelCatalogStatus === 'ready' && missingModel
         ? {
-            label: `${compactModelName(missingModel.modelId, missingModel.modelId)} unavailable`,
-            detail: `${humanFailureText(missingModel.reason) ?? `${missingModel.modelId} isn't available right now.`} Choose another model.`,
+            label: t`${ph({ model: compactModelName(missingModel.modelId, missingModel.modelId) })} unavailable`,
+            detail: humanFailureText(missingModel.reason)
+              ? t`${ph({ reason: humanFailureText(missingModel.reason) ?? '' })} Choose another model.`
+              : t`${ph({ model: missingModel.modelId })} isn't available right now. Choose another model.`,
           }
         : undefined;
   useEffect(() => {
@@ -217,17 +221,20 @@ export function ClioComposer({
   const attachmentRefused = (error: { code: string; message: string; files?: string[] }) => {
     if (error.code === 'max_file_size') {
       const [first, ...rest] = error.files ?? [];
+      const fileCount = error.files?.length ?? 0;
       toast.error(
         first && rest.length === 0
-          ? `${first} is too large`
-          : `${error.files?.length ?? 'Some'} files are too large`,
+          ? t`${first} is too large`
+          : fileCount
+            ? plural(fileCount, { one: '# file is too large', other: '# files are too large' })
+            : t`Some files are too large`,
         {
-          description: `Files up to ${formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES)} can be attached.`,
+          description: t`Files up to ${ph({ size: formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES) })} can be attached.`,
         },
       );
       return;
     }
-    toast.error('Attachment was not added', { description: error.message });
+    toast.error(t`Attachment was not added`, { description: error.message });
   };
   const focusEditorSoon = useCallback((offset?: number) => {
     window.requestAnimationFrame(() => focusComposerEditor(inputRef.current, offset));
@@ -444,21 +451,24 @@ export function ClioComposer({
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const { command, qualified } = commandForName(commands, enteredId);
               if (qualified) {
-                toast.error(`${enteredId} is ambiguous; use ${qualified.join(' or ')}`);
+                const alternatives = new Intl.ListFormat(formatLocale(), {
+                  type: 'disjunction',
+                }).format(qualified);
+                toast.error(t`${enteredId} is ambiguous; use ${alternatives}`);
                 return;
               }
               if (!command) {
-                toast.error(`${enteredId} is not a command here`);
+                toast.error(t`${enteredId} is not a command here`);
                 return;
               }
               if (!command.enabled) {
-                toast.error(`${command.title} is unavailable`, {
+                toast.error(t`${ph({ command: command.title })} is unavailable`, {
                   description: command.disabled_detail || command.disabled_reason,
                 });
                 return;
               }
               if (!onCommand) {
-                toast.error('Commands are unavailable for this session');
+                toast.error(t`Commands are unavailable for this session`);
                 return;
               }
               restoreFocusAfterSubmitRef.current = true;
@@ -468,8 +478,8 @@ export function ClioComposer({
               } catch (error) {
                 // PromptInput swallows a rejected submit so the draft survives;
                 // without this the refusal would never reach the person.
-                toast.error(`${command.title} was not run`, {
-                  description: composerFailureReason(error, 'The service rejected it.'),
+                toast.error(t`${ph({ command: command.title })} was not run`, {
+                  description: composerFailureReason(error, t`The service rejected it.`),
                 });
                 throw error;
               } finally {
@@ -514,20 +524,20 @@ export function ClioComposer({
                   : {}),
               });
             } catch (error) {
-              const reason = composerFailureReason(error, 'The service rejected it.');
+              const reason = composerFailureReason(error, t`The service rejected it.`);
               const failedFile = uploadingFilenameRef.current;
               const retryDelivery = nextDeliveryRef.current;
               setUploadProgress(undefined);
               setUploadFailure({ filename: failedFile, message: reason });
               toast.error(
                 failedFile
-                  ? `${failedFile} could not be uploaded`
+                  ? t`${failedFile} could not be uploaded`
                   : state === 'running'
-                    ? 'Message was not accepted'
-                    : 'Message was not sent',
+                    ? t`Message was not accepted`
+                    : t`Message was not sent`,
                 {
-                  description: `${reason} Your message is still here.`,
-                  action: { label: 'Retry', onClick: () => retrySend(retryDelivery) },
+                  description: t`${reason} Your message is still here.`,
+                  action: { label: t`Retry`, onClick: () => retrySend(retryDelivery) },
                 },
               );
               throw error;
@@ -562,10 +572,9 @@ export function ClioComposer({
         {connectedSources.attachments}
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
-            Uploading {uploadProgress.filename}{' '}
             {uploadProgress.total > 0
-              ? `${Math.round((uploadProgress.loaded / uploadProgress.total) * 100)}%`
-              : ''}
+              ? t`Uploading ${ph({ filename: uploadProgress.filename })} ${ph({ percent: Math.round((uploadProgress.loaded / uploadProgress.total) * 100) })}%`
+              : t`Uploading ${ph({ filename: uploadProgress.filename })}`}
           </div>
         ) : null}
         {sessionId ? (
@@ -582,7 +591,7 @@ export function ClioComposer({
         <ComposerInlineReferenceEditor
           attachmentsEnabled={attachments}
           activeOptionId={composerReferences.activeOptionId}
-          ariaLabel={`Ask ${brand.name}`}
+          ariaLabel={t`Ask ${ph({ name: brand.name })}`}
           className="min-h-6 p-0 text-ui leading-6"
           disabled={disabled}
           expanded={popoverOpen}

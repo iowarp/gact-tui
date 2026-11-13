@@ -3,6 +3,7 @@ import { segmentLevel } from '@/lib/attention-segment-heat';
 import { maxRunValue } from '@/lib/attention-text';
 import { bindTranscriptText } from '@/lib/transcript-content-selection';
 import { verifiedToolField } from '@/lib/verified-tool-field';
+import { t } from '@lingui/core/macro';
 
 /**
  * The conversation's heat ramp (SPOTTER levels 1..9 on the signal hue), as utility
@@ -38,7 +39,7 @@ export function ToolAttentionField({
   if (source === undefined)
     return (
       <p role="status" className="text-xs text-muted-foreground">
-        Attention is unavailable for this changed or unloaded field.
+        {t`Attention is unavailable for this changed or unloaded field.`}
       </p>
     );
   const points = [...source];
@@ -58,7 +59,7 @@ export function ToolAttentionField({
   return (
     <section className="space-y-2">
       <h4 className="text-xs font-medium uppercase text-muted-foreground">
-        Attention on {block.field === 'input' ? 'arguments' : 'result'}
+        {block.field === 'input' ? t`Attention on arguments` : t`Attention on result`}
       </h4>
       <pre
         className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs"

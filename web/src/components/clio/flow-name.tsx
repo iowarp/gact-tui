@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { PluginFlowShape } from './plugin-flow-shape';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The name of a flow a step or a call runs. When the agent knows the flow, the
@@ -20,7 +21,7 @@ export function FlowName({ name, info }: { name: string; info?: FlowInfo }) {
     <Popover>
       <PopoverTrigger asChild>
         <button
-          aria-label={`What the ${info.id} flow is`}
+          aria-label={t`What the ${ph({ id: info.id })} flow is`}
           className="cursor-pointer font-medium text-primary underline decoration-dotted underline-offset-4 hover:decoration-solid focus-visible:outline-2 focus-visible:outline-ring"
           data-slot="flow-name"
           type="button"
@@ -30,17 +31,17 @@ export function FlowName({ name, info }: { name: string; info?: FlowInfo }) {
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        aria-label={`The ${info.id} flow`}
+        aria-label={t`The ${ph({ id: info.id })} flow`}
         className="grid w-[min(28rem,calc(100vw-2rem))] gap-3"
       >
         <PopoverHeader>
-          <PopoverTitle>The {info.id} flow</PopoverTitle>
+          <PopoverTitle>{t`The ${ph({ id: info.id })} flow`}</PopoverTitle>
           {info.plugin ? (
-            <PopoverDescription>From the {info.plugin} plugin</PopoverDescription>
+            <PopoverDescription>{t`From the ${ph({ plugin: info.plugin })} plugin`}</PopoverDescription>
           ) : null}
         </PopoverHeader>
         {info.description ? <p className="text-sm">{info.description}</p> : null}
-        <PluginFlowShape label={`What the ${info.id} flow does`} source={info.shape} />
+        <PluginFlowShape label={t`What the ${ph({ id: info.id })} flow does`} source={info.shape} />
       </PopoverContent>
     </Popover>
   );

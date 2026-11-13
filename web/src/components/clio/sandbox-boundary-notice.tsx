@@ -10,19 +10,21 @@ import { KeyValueGrid } from './primitives/key-value-grid';
 import { setFolderGrant, useFolderGrants } from './sandbox-boundary-grants';
 import { useWorkspaceFolders } from './workspace-folders';
 import type { SandboxBoundary } from './sandbox-boundary';
+import { ph, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const folderName = (path: string) => path.split(/[\\/]/u).filter(Boolean).at(-1) || path;
 
 /** A call row's Blocked tag, in the row's fixed badge column; the explanation on hover. */
 export function SandboxBoundaryBadge({ boundary }: { boundary: SandboxBoundary }) {
   const folders = boundary.request_roots.map(folderName).join(', ');
-  const words = boundary.kind === 'elevation_required' ? 'Admin' : 'Blocked';
+  const words = boundary.kind === 'elevation_required' ? t`Admin` : t`Blocked`;
   const name =
     boundary.kind === 'elevation_required'
-      ? 'Needs administrator rights'
+      ? t`Needs administrator rights`
       : folders
-        ? `Sandbox: ${folders}`
-        : 'Sandbox';
+        ? t`Sandbox: ${folders}`
+        : t`Sandbox`;
   return (
     <TooltipProvider>
       <Tooltip>
@@ -47,10 +49,10 @@ export function SandboxBoundaryBadge({ boundary }: { boundary: SandboxBoundary }
 }
 /** Words for what the sandbox did, always shown with the icon (never the icon alone). */
 function headline(boundary: SandboxBoundary): string {
-  if (boundary.kind === 'elevation_required') return 'Needs administrator rights';
+  if (boundary.kind === 'elevation_required') return t`Needs administrator rights`;
   const folders = boundary.request_roots.map(folderName).join(', ');
-  if (boundary.confidence !== 'confirmed') return 'May have been blocked by the sandbox';
-  return folders ? `Blocked by the sandbox: ${folders}` : 'Blocked by the sandbox';
+  if (boundary.confidence !== 'confirmed') return t`May have been blocked by the sandbox`;
+  return folders ? t`Blocked by the sandbox: ${folders}` : t`Blocked by the sandbox`;
 }
 
 /**
@@ -122,7 +124,7 @@ export function SandboxBoundaryNotice({
         ? boundary.request_roots.map((root) =>
             state[root] === 'granted' ? (
               <span key={root} role="status">
-                {`Allowed ${folderName(root)} for this workspace`}
+                {t`Allowed ${ph({ folder: folderName(root) })} for this workspace`}
               </span>
             ) : (
               <span key={root} className="flex items-center gap-1">
@@ -134,7 +136,7 @@ export function SandboxBoundaryNotice({
                   disabled={state[root] === 'pending'}
                   onClick={() => setAsking(root)}
                 >
-                  {`Allow ${folderName(root)}`}
+                  {t`Allow ${folderName(root)}`}
                 </Button>
                 {state[root] && state[root] !== 'pending' ? (
                   <span role="alert" className="text-destructive">
@@ -147,45 +149,51 @@ export function SandboxBoundaryNotice({
         : null}
       <DialogFrame
         confirm={{
-          label: 'Allow folder',
+          label: t`Allow folder`,
           onConfirm: () => {
             if (asking) void grant(asking);
             setAsking(undefined);
           },
         }}
-        description={`The sandbox blocked ${boundary.program ?? 'a command'} from writing there.`}
+        description={
+          boundary.program
+            ? t`The sandbox blocked ${ph({ program: boundary.program })} from writing there.`
+            : t`The sandbox blocked a command from writing there.`
+        }
         icon={<FolderCheckIcon />}
         onOpenChange={(open) => !open && setAsking(undefined)}
         open={Boolean(asking)}
         className="w-[490px]"
-        title={`Allow writing to ${asking ?? ''}?`}
+        title={t`Allow writing to ${ph({ folder: asking ?? '' })}?`}
       >
         <div data-dialog="allow-folder">
           <KeyValueGrid
             items={[
               {
-                label: 'What you allow',
-                title: `Read and write in ${asking ?? ''}`,
+                label: t`What you allow`,
+                title: t`Read and write in ${ph({ folder: asking ?? '' })}`,
                 value: (
                   <span className="min-w-0">
-                    Read and write in <span className="font-mono text-meta">{asking}</span>
+                    <Trans>
+                      Read and write in <span className="font-mono text-meta">{asking}</span>
+                    </Trans>
                   </span>
                 ),
                 wrap: true,
               },
               {
-                label: 'For',
+                label: t`For`,
                 value: folders.workspace?.name
                   ? `This workspace, ${folders.workspace.name}`
                   : 'This workspace',
                 wrap: true,
               },
-              { label: 'Until', value: 'You remove it in Settings, Permissions', wrap: true },
+              { label: t`Until`, value: t`You remove it in Settings, Permissions`, wrap: true },
             ]}
             variant="facts"
           />
           <p className="mt-2 text-meta text-muted-foreground">
-            The blocked command is not run again. Ask the agent to try again.
+            {t`The blocked command is not run again. Ask the agent to try again.`}
           </p>
         </div>
       </DialogFrame>

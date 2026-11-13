@@ -1,5 +1,6 @@
 import type { AsyncProcess } from '@clio/core/v3';
 import { flowRunStatus } from './flow-run-presentation';
+import { t } from '@lingui/core/macro';
 
 /**
  * The agent's own loop. The service reports it as every plain subagent's `flow`, but
@@ -26,15 +27,14 @@ export function taskFlowState(task: AsyncProcess, execution: string) {
   if (flow.status === 'not_run')
     return {
       value: 'not_run',
-      label: 'No new run',
-      detail:
-        'This invocation completed without starting another flow. The earlier attempt is separate.',
+      label: t`No new run`,
+      detail: t`This invocation completed without starting another flow. The earlier attempt is separate.`,
     };
   if (!flow.status || flow.status === 'unknown')
     return {
       value: execution === 'failed' ? 'failed' : 'unknown',
-      label: execution === 'failed' ? 'Failed' : 'Outcome not recorded',
-      detail: flow.detail || 'Task completion does not establish a completed flow.',
+      label: execution === 'failed' ? t`Failed` : t`Outcome not recorded`,
+      detail: flow.detail || t`Task completion does not establish a completed flow.`,
     };
   const state = flowRunStatus({
     status: flow.status,
@@ -48,8 +48,8 @@ export function taskFlowState(task: AsyncProcess, execution: string) {
   )
     return {
       value: execution === 'completed' ? 'unknown' : execution,
-      label: 'Flow outcome unconfirmed',
-      detail: `The task ${execution}, but the checkpoint still says running.`,
+      label: t`Flow outcome unconfirmed`,
+      detail: t`The task ${execution}, but the checkpoint still says running.`,
     };
   if (
     state.value === 'completed' &&
@@ -57,8 +57,8 @@ export function taskFlowState(task: AsyncProcess, execution: string) {
   )
     return {
       value: 'degraded',
-      label: 'Task settlement needs inspection',
-      detail: 'The flow checkpoint completed, but its owning task did not settle successfully.',
+      label: t`Task settlement needs inspection`,
+      detail: t`The flow checkpoint completed, but its owning task did not settle successfully.`,
     };
   return { ...state, detail: flow.outcome?.message };
 }

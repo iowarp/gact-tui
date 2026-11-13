@@ -28,6 +28,7 @@ import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { delegateTone } from './delegate-tone';
 import { PresentationNavigation } from './presentation-navigation';
+import { ph, t } from '@lingui/core/macro';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -60,9 +61,38 @@ const OUTCOME_TONE: Partial<Record<StatusTone, ActivityOutcomeTone>> = {
   idle: 'muted',
 };
 
+/** A delegate's ended or waiting state as the lower-case outcome word after its row. */
+function outcomeWord(state: RunState, statusLabel: string): string {
+  switch (state) {
+    case 'failed':
+      return t({ message: 'failed', context: 'delegate outcome' });
+    case 'recovery_required':
+    case 'task_state_uncertain':
+      return t({ message: 'needs inspection', context: 'delegate outcome' });
+    case 'cancelled':
+      return t({ message: 'cancelled', context: 'delegate outcome' });
+    case 'interrupted':
+      return t({ message: 'interrupted', context: 'delegate outcome' });
+    case 'stopped':
+      return t({ message: 'stopped', context: 'delegate outcome' });
+    case 'paused':
+      return t({ message: 'paused', context: 'delegate outcome' });
+    case 'yielded':
+      return t({ message: 'yielded', context: 'delegate outcome' });
+    case 'waiting_permission':
+      return t({ message: 'permission needed', context: 'delegate outcome' });
+    case 'waiting_user':
+      return t({ message: 'waiting for you', context: 'delegate outcome' });
+    case 'unknown':
+      return t({ message: 'unknown', context: 'delegate outcome' });
+    default:
+      return statusLabel;
+  }
+}
+
 /** The agent's name: "geospatial", or the skill it runs for. */
 function agentName(subagent: SubagentRun | undefined): string {
-  return subagent?.agent_id || subagent?.origin?.name || subagent?.title || 'Child agent';
+  return subagent?.agent_id || subagent?.origin?.name || subagent?.title || t`Child agent`;
 }
 
 /** The agent as an accent link: opens its conversation in a workbench tab, Shift in the center. */
@@ -91,7 +121,7 @@ function AgentLink({
       <button
         type="button"
         data-slot="delegate-agent"
-        aria-label={`Open ${label}`}
+        aria-label={t`Open ${label}`}
         className={`${className} rounded-[3px] hover:decoration-accent-foreground focus-visible:outline-[1.5px] focus-visible:outline-ring`}
         onMouseDown={(event) => {
           if (event.shiftKey) event.preventDefault();
@@ -122,39 +152,39 @@ function DelegateDetailsDialog({
 }) {
   const items: KeyValueItem[] = [
     {
-      label: 'Agent',
+      label: t`Agent`,
       value: <span className="min-w-0 truncate text-accent-foreground">{agentName(subagent)}</span>,
       title: agentName(subagent),
     },
     ...(subagent?.title && subagent.title !== agentName(subagent)
-      ? [{ label: 'Run', value: subagent.title }]
+      ? [{ label: t`Run`, value: subagent.title }]
       : []),
     ...(subagent?.model_choice
-      ? [{ label: 'Model', value: <SubagentModel choice={subagent.model_choice} /> }]
+      ? [{ label: t`Model`, value: <SubagentModel choice={subagent.model_choice} /> }]
       : []),
-    ...(subagent ? [{ label: 'State', value: clioStatusLabel(subagent.state) }] : []),
+    ...(subagent ? [{ label: t`State`, value: clioStatusLabel(subagent.state) }] : []),
     ...(subagent?.duration_ms !== undefined
-      ? [{ label: 'Execution time', value: formatDuration(subagent.duration_ms, 'elapsed') }]
+      ? [{ label: t`Execution time`, value: formatDuration(subagent.duration_ms, 'elapsed') }]
       : []),
-    ...(subagent?.origin ? [{ label: 'Skill', value: subagent.origin.name, mono: true }] : []),
+    ...(subagent?.origin ? [{ label: t`Skill`, value: subagent.origin.name, mono: true }] : []),
   ];
   return (
     <DialogFrame
       open={open}
       onOpenChange={onOpenChange}
       icon={<InfoIcon className="size-4" />}
-      title={`${action}: Technical details`}
+      title={t`${ph({ action })}: Technical details`}
       description={
         subagent?.duration_ms !== undefined
-          ? 'The delegated assignment, the agent that ran it, and its timing.'
-          : 'The delegated assignment and the agent that ran it.'
+          ? t`The delegated assignment, the agent that ran it, and its timing.`
+          : t`The delegated assignment and the agent that ran it.`
       }
       className="w-[clamp(360px,56vw,760px)]"
     >
       <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-menu [overflow-wrap:anywhere]">
         <TechnicalDetailsFacts items={items} />
         {task ? (
-          <DetailsSection title="Assignment" copy={task}>
+          <DetailsSection title={t`Assignment`} copy={task}>
             <p className="whitespace-pre-wrap text-muted-foreground">{task}</p>
           </DetailsSection>
         ) : null}
@@ -169,7 +199,7 @@ function DelegateDetailsDialog({
  * the full assignment and whatever the agent returned.
  */
 export function ClioDelegateRow({
-  action = 'Delegate',
+  action = t({ message: 'Delegate', context: 'verb' }),
   subagent,
   task,
   result,
@@ -201,12 +231,12 @@ export function ClioDelegateRow({
       <ActivityRow
         open={open}
         onOpenChange={body ? setOpen : undefined}
-        aria-label={`${action} ${name}`}
+        aria-label={t`${ph({ action })} ${ph({ agent: name })}`}
         disclosure={
           body ? (
             <ActivityDisclosure
               open={open}
-              label={`${open ? 'Collapse' : 'Expand'} ${action}`}
+              label={open ? t`Collapse ${ph({ action })}` : t`Expand ${ph({ action })}`}
               asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
             />
           ) : undefined
@@ -216,9 +246,9 @@ export function ClioDelegateRow({
         link={<AgentLink subagent={subagent} label={name} onOpen={onOpen} />}
         argument={task ? task.replace(/\s+/gu, ' ').trim() : undefined}
         argumentTitle={task || undefined}
-        outcome={outcomeTone ? statusLabel.toLowerCase() : undefined}
+        outcome={outcomeTone ? outcomeWord(runState, statusLabel) : undefined}
         outcomeTone={outcomeTone}
-        actions={task ? <CopyAction value={task} label="Copy assignment" /> : null}
+        actions={task ? <CopyAction value={task} label={t`Copy assignment`} /> : null}
         elapsed={
           subagent?.duration_ms !== undefined ? (
             <span data-slot="tool-duration">{formatDuration(subagent.duration_ms, 'compact')}</span>
@@ -227,8 +257,8 @@ export function ClioDelegateRow({
         status={<StatusIndicator tone={tone} label={statusLabel} display="column" mark="glyph" />}
         info={
           <ActivityInfoButton
-            label={`Technical details for ${action}`}
-            hint="View the agent, model, assignment, and timing"
+            label={t`Technical details for ${ph({ action })}`}
+            hint={t`View the agent, model, assignment, and timing`}
             onClick={() => setDetails(true)}
           />
         }
@@ -267,14 +297,14 @@ export function ClioSubagentLifecycleLine({
   // A return says in its name what happened: a turn that ended is not a claim
   // that the assignment succeeded.
   const action = started
-    ? 'Delegate'
+    ? t({ message: 'Delegate', context: 'verb' })
     : continued
-      ? 'Continue subagent'
+      ? t`Continue subagent`
       : failed
-        ? 'Subagent failed'
+        ? t`Subagent failed`
         : cancelled
-          ? 'Subagent cancelled'
-          : 'Subagent turn ended';
+          ? t`Subagent cancelled`
+          : t`Subagent turn ended`;
   return (
     <ClioDelegateRow
       action={action}
@@ -297,8 +327,14 @@ export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessa
   const [expanded, setExpanded] = useTranscriptDisclosure(`agent-message:${block.id}`);
   const lines = useTranscriptPreviewLines();
   const failed = block.status === 'failed';
-  const recipient = subagent?.title || block.label || 'an agent';
-  const label = `${failed ? 'Message could not be sent to' : 'Sent message to'} ${recipient}`;
+  const recipient = subagent?.title || block.label || '';
+  const label = recipient
+    ? failed
+      ? t`Message could not be sent to ${recipient}`
+      : t`Sent message to ${recipient}`
+    : failed
+      ? t`Message could not be sent to an agent`
+      : t`Sent message to an agent`;
   return (
     <Collapsible
       open={expanded}
@@ -317,22 +353,24 @@ export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessa
           />
         }
         icon={<MessageSquareIcon aria-hidden="true" />}
-        name="Message"
+        name={t({ message: 'Message', context: 'verb: a message sent to an agent' })}
         link={
           subagent ? (
             <AgentLink subagent={subagent} label={agentName(subagent)} onOpen={onOpen} />
           ) : (
-            <span className="truncate text-menu text-foreground/85">{recipient}</span>
+            <span className="truncate text-menu text-foreground/85">
+              {recipient || t`an agent`}
+            </span>
           )
         }
         argument={block.message.replace(/\s+/gu, ' ').trim()}
-        outcome={failed ? 'not sent' : undefined}
-        actions={<CopyAction value={block.message} label="Copy message" />}
+        outcome={failed ? t`not sent` : undefined}
+        actions={<CopyAction value={block.message} label={t`Copy message`} />}
         elapsed={null}
         status={
           <StatusIndicator
             tone={failed ? 'error' : 'success'}
-            label={failed ? 'Not sent' : 'Sent'}
+            label={failed ? t`Not sent` : t`Sent`}
             display="column"
             mark="glyph"
           />
@@ -355,10 +393,10 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
   if (!subagent) {
     return (
       <ClioDelegateRow
-        task="Waiting for the live child record."
+        task={t`Waiting for the live child record.`}
         state="queued"
         subagent={undefined}
-        action="Connecting child agent"
+        action={t`Connecting child agent`}
       />
     );
   }
@@ -393,28 +431,30 @@ function SpotterWatcherLine({
     <NamedTooltip label={SUBAGENT_OPEN_HINT}>
       <button
         type="button"
-        aria-label="Open the SPOTTER review conversation"
+        aria-label={t`Open the SPOTTER review conversation`}
         data-slot="delegate-agent"
         className="truncate rounded-[3px] text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2 focus-visible:outline-[1.5px] focus-visible:outline-ring"
         onClick={(event) => onOpen?.(subagent, subagentOpenTarget(event))}
       >
+        {/* i18n-ignore: product name */}
         SPOTTER
       </button>
     </NamedTooltip>
   ) : (
+    // i18n-ignore: product name
     <span className="text-menu font-medium">SPOTTER</span>
   );
   return (
     <ActivityRow
       icon={<ShieldCheckIcon aria-hidden="true" className="text-primary" />}
-      name="Review"
+      name={t({ message: 'Review', context: 'noun: a SPOTTER review' })}
       link={link}
-      argument={busy ? 'reviewing this session' : 'watching this session'}
+      argument={busy ? t`reviewing this session` : t`watching this session`}
       elapsed={null}
       status={
         <StatusIndicator
           tone={busy ? 'running' : 'idle'}
-          label={busy ? 'Reviewing' : 'Watching'}
+          label={busy ? t`Reviewing` : t`Watching`}
           display="column"
           mark="glyph"
         />

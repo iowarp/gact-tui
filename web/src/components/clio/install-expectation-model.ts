@@ -1,6 +1,7 @@
 import type { OperationReuse } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
+import { t, ph } from '@lingui/core/macro';
 
 /** What the service measured or reported, never a guess. Every field is optional. */
 export type InstallEstimate = {
@@ -15,7 +16,7 @@ export type InstallEstimate = {
 };
 
 function minutes(seconds: number): string {
-  return seconds < 60 ? 'under a minute' : `~${Math.round(seconds / 60)} min`;
+  return seconds < 60 ? t`under a minute` : t`~${ph({ minutes: Math.round(seconds / 60) })} min`;
 }
 
 /**
@@ -31,19 +32,19 @@ export function installExpectation({
 }: InstallEstimate): string {
   if (reused.length) {
     const things = [...new Set(reused.map((row) => row.thing))].join(', ');
-    return `Reusing ${things}. This should take under a minute.`;
+    return t`Reusing ${things}. This should take under a minute.`;
   }
   const known = [
     typeof downloadBytes === 'number' && downloadBytes > 0
-      ? `About ${formatBytes(downloadBytes)} to download.`
+      ? t`About ${ph({ size: formatBytes(downloadBytes) })} to download.`
       : '',
     typeof lastSeconds === 'number' && lastSeconds > 0
-      ? `Last install took ${minutes(lastSeconds)}.`
+      ? t`Last install took ${ph({ duration: minutes(lastSeconds) })}.`
       : '',
   ].filter(Boolean);
   return [
-    `${vocab.agent} downloads and prepares ${thing}. This can take several minutes.`,
+    t`${ph({ agent: vocab.agent })} downloads and prepares ${thing}. This can take several minutes.`,
     ...known,
-    'You can leave this page; progress continues.',
+    t`You can leave this page; progress continues.`,
   ].join(' ');
 }

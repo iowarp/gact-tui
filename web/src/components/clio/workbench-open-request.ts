@@ -12,6 +12,7 @@ import { resourceDisplayName } from './host-folder';
 import type { ObservabilityView } from './observability-view-storage';
 import { activityTab } from './workbench-activity-tab';
 import { fileName, type WorkbenchTab } from './workbench-shared';
+import { ph, t } from '@lingui/core/macro';
 
 export type CanvasResourceKind =
   | 'session'
@@ -91,7 +92,7 @@ export function tabForOpenRequest(
       return {
         id: target === workspaceId ? 'files' : `files:${target}`,
         kind: 'files',
-        label: 'Files',
+        label: t`Files`,
         workspaceId: target,
         directory: request.path === '.' ? '' : request.path,
       };
@@ -150,7 +151,7 @@ export function tabForOpenRequest(
       return {
         id: `flow:${request.handle}`,
         kind: 'flow',
-        label: request.label ?? 'Flow run',
+        label: request.label ?? t`Flow run`,
         handle: request.handle,
         sessionId,
         workspaceId,
@@ -159,7 +160,7 @@ export function tabForOpenRequest(
       return {
         id: `terminal:${sessionId}`,
         kind: 'terminal',
-        label: 'Terminal',
+        label: t`Terminal`,
         cwd: request.cwd,
         sessionId,
         workspaceId,
@@ -168,7 +169,7 @@ export function tabForOpenRequest(
       return {
         id: `browser:${request.pageId}`,
         kind: 'browser',
-        label: request.label || 'Browser',
+        label: request.label || t`Browser`,
         pageId: request.pageId,
         sessionId: request.sessionId ?? sessionId,
         workspaceId,
@@ -202,7 +203,9 @@ export function variantTryTab(
   return {
     id: `variant-try:${request.variantsId}:${tryIndex}`,
     kind: 'variant-try',
-    label: request.tries.find((item) => item.tryIndex === tryIndex)?.label ?? `Try ${tryIndex + 1}`,
+    label:
+      request.tries.find((item) => item.tryIndex === tryIndex)?.label ??
+      t`Try ${ph({ number: tryIndex + 1 })}`,
     variantsId: request.variantsId,
     tryIndex,
     sessionId: request.sessionId ?? sessionId,

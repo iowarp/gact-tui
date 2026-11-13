@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** Authoritative branching and destructive transcript-history mutations for the focused session. */
 export function useSessionHistoryActions(sessionId: string, workspaceId: string) {
@@ -40,13 +41,13 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
           queryKey: queryKeys.key('sessions', settings.endpoint, forked.workspace_id),
         }),
       ]);
-      toast.success(`Branched into ${forked.title}`);
+      toast.success(t`Branched into ${ph({ title: forked.title })}`);
       await navigate(
         `/workspaces/${encodeURIComponent(forked.workspace_id)}/sessions/${encodeURIComponent(forked.id)}`,
       );
     },
     onError: (error) =>
-      toast.error('Unable to branch this session', { description: error.message }),
+      toast.error(t`Unable to branch this session`, { description: error.message }),
   });
 
   const compact = useMutation({
@@ -54,14 +55,14 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
     mutationFn: () => repository.compactSession(sessionId),
     onSuccess: async (result) => {
       await refreshFocusedSession();
-      if (result.compacted) toast.success('Conversation compacted');
+      if (result.compacted) toast.success(t`Conversation compacted`);
       else
-        toast.info('Conversation was not compacted', {
-          description: result.reason ?? 'The service did not report a reason.',
+        toast.info(t`Conversation was not compacted`, {
+          description: result.reason ?? t`The service did not report a reason.`,
         });
     },
     onError: (error) =>
-      toast.error('Unable to compact this conversation', { description: error.message }),
+      toast.error(t`Unable to compact this conversation`, { description: error.message }),
   });
 
   const undo = useMutation({
@@ -70,13 +71,14 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
     onSuccess: async (result) => {
       await refreshFocusedSession();
       toast.success(
-        result.deleted_message_ids.length === 1
-          ? 'Last message removed'
-          : `${result.deleted_message_ids.length} messages removed`,
+        plural(result.deleted_message_ids.length, {
+          1: 'Last message removed',
+          other: '# messages removed',
+        }),
       );
     },
     onError: (error) =>
-      toast.error('Unable to remove the last message', { description: error.message }),
+      toast.error(t`Unable to remove the last message`, { description: error.message }),
   });
 
   const rewind = useMutation({
@@ -85,13 +87,14 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
     onSuccess: async (result) => {
       await refreshFocusedSession();
       toast.success(
-        result.deleted_message_ids.length === 1
-          ? 'One later message removed'
-          : `${result.deleted_message_ids.length} later messages removed`,
+        plural(result.deleted_message_ids.length, {
+          1: 'One later message removed',
+          other: '# later messages removed',
+        }),
       );
     },
     onError: (error) =>
-      toast.error('Unable to rewind this conversation', { description: error.message }),
+      toast.error(t`Unable to rewind this conversation`, { description: error.message }),
   });
 
   const share = useMutation({
@@ -101,7 +104,7 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
       return { ...result, url: new URL(result.url, settings.endpoint).toString() };
     },
     onError: (error) =>
-      toast.error('Unable to create a share link', { description: error.message }),
+      toast.error(t`Unable to create a share link`, { description: error.message }),
   });
 
   const isPending = [compact, fork, rewind, share, undo].some((action) => action.isPending);

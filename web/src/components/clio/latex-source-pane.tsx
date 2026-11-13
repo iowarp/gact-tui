@@ -4,6 +4,7 @@ import type { LatexDiagnostic } from '@clio/core/v3';
 import { cn } from '@/lib/utils';
 import { CommentCapture } from './comments/comment-capture';
 import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
+import { t } from '@lingui/core/macro';
 
 /**
  * The read-only source of one project file, with each line's build problems in the gutter.
@@ -49,13 +50,13 @@ export function LatexSourcePane({
       {text === undefined ? (
         <p className="p-4 text-sm text-muted-foreground">
           {file
-            ? 'This file is too large to show here; it is still part of the build.'
-            : 'Choose a source file.'}
+            ? t`This file is too large to show here; it is still part of the build.`
+            : t`Choose a source file.`}
         </p>
       ) : (
         <CommentCapture className="min-h-0 flex-1" sourcePath={file}>
           <div
-            aria-label={`Source of ${file}`}
+            aria-label={t`Source of ${file}`}
             className="h-full overflow-auto font-mono text-menu leading-[1.1875rem]"
             ref={scroller}
             role="region"

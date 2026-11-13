@@ -26,6 +26,8 @@ import {
   SuggestionDetail,
 } from './composer-suggestion-popup';
 import { useHoveredRow } from './use-hovered-row';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
@@ -48,32 +50,34 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
   if (command.disabled_reason === 'command_shadowed')
     return (
       <StatusNote
-        detail={detail || 'Another command file of the same name wins.'}
-        label="Shadowed"
+        detail={detail || t`Another command file of the same name wins.`}
+        label={t`Shadowed`}
       />
     );
   if (command.disabled_reason === 'command_name_reserved')
     return (
       <StatusNote
-        detail={detail || 'A built-in command already has this name.'}
-        label="Reserved name"
+        detail={detail || t`A built-in command already has this name.`}
+        label={t`Reserved name`}
       />
     );
   if (!command.enabled)
     // A specific reason reads inline in the row; only a bare one gets the tag.
-    return detail ? null : <StatusNote detail="This command cannot run." label="Unavailable" />;
+    return detail ? null : (
+      <StatusNote detail={t`This command cannot run.`} label={t`Unavailable`} />
+    );
   if (command.ambiguous)
     return (
       <StatusNote
-        detail={`Another source also has ${command.name}; this one runs as ${command.qualified_id}.`}
-        label="Same name elsewhere"
+        detail={t`Another source also has ${ph({ name: command.name })}; this one runs as ${ph({ qualified_id: command.qualified_id })}.`}
+        label={t`Same name elsewhere`}
       />
     );
   if (command.unsupported_fields.length)
     return (
       <StatusNote
-        detail={`This file’s ${command.unsupported_fields.join(', ')} settings are not used.`}
-        label="Some fields ignored"
+        detail={t`This file’s ${ph({ fields: command.unsupported_fields.join(', ') })} settings are not used.`}
+        label={t`Some fields ignored`}
       />
     );
   return null;
@@ -82,9 +86,9 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
 const KEY_HINTS = [
-  { id: 'menu-fill', label: 'Fill' },
-  { id: 'menu-pick', label: 'Run' },
-  { id: 'menu-close', label: 'Close' },
+  { id: 'menu-fill', label: t`Fill` },
+  { id: 'menu-pick', label: t`Run` },
+  { id: 'menu-close', label: t`Close` },
 ] as const;
 
 const commandKey = (command: CommandDefinition) =>
@@ -208,17 +212,19 @@ function EmptyCommands({
   const typed = query.replace(/^\//u, '');
   const reason =
     state === 'loading' ? (
-      'Loading this agent’s commands…'
+      t`Loading this agent’s commands…`
     ) : state === 'failed' ? (
-      'This agent’s commands couldn’t be loaded. Delete the / to send a message.'
+      t`This agent’s commands couldn’t be loaded. Delete the / to send a message.`
     ) : available === 0 ? (
-      'This agent has no commands. Delete the / to send a message.'
+      t`This agent has no commands. Delete the / to send a message.`
     ) : typed ? (
       <>
-        No command matches <b className="font-medium text-foreground">{typed}</b>.
+        <Trans>
+          No command matches <b className="font-medium text-foreground">{typed}</b>.
+        </Trans>
       </>
     ) : (
-      'No command matches.'
+      t`No command matches.`
     );
   return (
     <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-menu text-muted-foreground">
@@ -354,12 +360,12 @@ export function ClioComposerCommandMenu({
         />
         <span aria-hidden="true" className="min-w-0 flex-1 truncate text-ui">
           <span className="text-foreground">{query}</span>
-          {query === '/' ? <span className="text-faint"> type to search</span> : null}
+          {query === '/' ? <span className="text-faint"> {t`type to search`}</span> : null}
         </span>
         <MatchCount total={total} />
       </div>
       <div
-        aria-label="Suggestions"
+        aria-label={t`Suggestions`}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
         onMouseLeave={hover.onLeave}
         role="listbox"

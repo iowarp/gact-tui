@@ -14,6 +14,8 @@ import { useA2uiReference } from '@/lib/a2ui/use-a2ui-reference';
 import { IMMUTABLE_QUERY, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
 import { latestArtifactSource } from '@/lib/streaming/live-source-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ph, t } from '@lingui/core/macro';
+import { formatLocale, formatNumber } from '@/lib/locale-format';
 
 /**
  * The shared table-query client for every A2UI component that reads a
@@ -181,26 +183,30 @@ export const STREAM_LEASE_RENEW_MS = 15_000;
 export function describeStream(stream: unknown): string {
   if (!isJsonObject(stream)) return '';
   const at = (value: unknown) =>
-    typeof value === 'string' && value ? new Date(value).toLocaleTimeString() : '';
+    typeof value === 'string' && value ? new Date(value).toLocaleTimeString(formatLocale()) : '';
   if (stream.state === 'captured') {
     // An export taken while the stream was written: its entries as they stood then.
     const when = at(stream.captured_at);
     return when
-      ? `Captured at ${when} while live; showing the entries it had then.`
-      : 'Captured while live; showing the entries it had then.';
+      ? t`Captured at ${when} while live; showing the entries it had then.`
+      : t`Captured while live; showing the entries it had then.`;
   }
   if (stream.state === 'closed') {
     const when = at(stream.closed_at) || at(stream.updated_at);
-    return when ? `Closed at ${when}; showing its last entries.` : 'Closed; showing its last entries.';
+    return when
+      ? t`Closed at ${when}; showing its last entries.`
+      : t`Closed; showing its last entries.`;
   }
   const last = at(stream.updated_at);
-  return last ? `Live, last update ${last}.` : 'Live, no entries yet.';
+  return last ? t`Live, last update ${last}.` : t`Live, no entries yet.`;
 }
 
 /** A stream's JSON record entries as rows (text and binary entries are not rows). */
 export function streamRows(content: StreamContent | undefined): QueryRow[] | undefined {
   if (!content) return undefined;
-  return content.entries.filter((entry) => isJsonObject(entry.value)).map((entry) => entry.value as QueryRow);
+  return content.entries
+    .filter((entry) => isJsonObject(entry.value))
+    .map((entry) => entry.value as QueryRow);
 }
 
 /**
@@ -258,12 +264,14 @@ function describeResult(result: ArtifactTableQueryResult, requestedOffset: boole
   // came back, the view has not actually been reduced.
   const downsampled = mode !== 'none' && result.returnedRows < matched;
   if (!downsampled && !result.truncated && !requestedOffset) return '';
-  const parts = [
-    `Showing ${result.returnedRows.toLocaleString()} of ${matched.toLocaleString()} rows`,
-  ];
-  if (downsampled) parts.push(`downsampled (${mode.replaceAll('_', ' ')})`);
-  if (result.truncated) parts.push('cut at the row limit');
-  return `${parts.join(', ')}.`;
+  const shown = formatNumber(result.returnedRows);
+  const total = formatNumber(matched);
+  const method = mode.replaceAll('_', ' ');
+  if (downsampled && result.truncated)
+    return t`Showing ${shown} of ${total} rows, downsampled (${method}), cut at the row limit.`;
+  if (downsampled) return t`Showing ${shown} of ${total} rows, downsampled (${method}).`;
+  if (result.truncated) return t`Showing ${shown} of ${total} rows, cut at the row limit.`;
+  return t`Showing ${shown} of ${total} rows.`;
 }
 
 function detailsOf(error: TransportError): Record<string, unknown> {
@@ -284,28 +292,32 @@ export function tableQueryErrorMessage(error: Error): string {
   const details = detailsOf(error);
   switch (error.code) {
     case 'columns_not_found':
-      return `the table has no column ${listed(details.missing) || 'named in the query'}.`;
+      return listed(details.missing)
+        ? t`the table has no column ${ph({ columns: listed(details.missing) })}.`
+        : t`the table has no column named in the query.`;
     case 'limit_exceeds_ceiling':
-      return `the query asks for ${String(details.limit ?? 'more')} rows; this server returns at most ${String(details.max_rows ?? 'fewer')}.`;
+      return t`the query asks for ${ph({ limit: details.limit == null ? t`more` : String(details.limit) })} rows; this server returns at most ${ph({ max_rows: details.max_rows == null ? t`fewer` : String(details.max_rows) })}.`;
     case 'unsupported_media_type':
-      return 'the artifact is not a CSV or Parquet table.';
+      return t`the artifact is not a CSV or Parquet table.`;
     case 'artifact_too_large':
-      return 'the table is larger than this server will query.';
+      return t`the table is larger than this server will query.`;
     case 'table_query_timeout':
-      return 'the query took longer than the server allows.';
+      return t`the query took longer than the server allows.`;
     case 'not_found':
-      return 'the artifact is not in this workspace.';
+      return t`the artifact is not in this workspace.`;
     case 'study_not_found':
-      return 'the study is not on this server.';
+      return t`the study is not on this server.`;
     case 'study_uri_invalid':
-      return 'the study source is not measurements, entries or records/<name>.';
+      return t`the study source is not measurements, entries or records/<name>.`;
     case 'validation_error': {
       const first = Array.isArray(details.errors) ? details.errors[0] : undefined;
       if (isJsonObject(first) && typeof first.msg === 'string') {
         const where = Array.isArray(first.loc) ? first.loc.slice(1).join('.') : '';
-        return `the server refused the data query${where ? ` at ${where}` : ''}: ${first.msg}`;
+        return where
+          ? t`the server refused the data query at ${where}: ${ph({ reason: first.msg })}`
+          : t`the server refused the data query: ${ph({ reason: first.msg })}`;
       }
-      return `the server refused the data query: ${error.message}`;
+      return t`the server refused the data query: ${ph({ reason: error.message })}`;
     }
     default:
       return error.message;
@@ -494,11 +506,7 @@ export function useTableQueryRows({
     retry: () => void query.refetch(),
     error: '',
     note: query.data
-      ? [
-          describeResult(query.data, (dataQuery?.offset ?? 0) > 0),
-        ]
-          .filter(Boolean)
-          .join(' ')
+      ? [describeResult(query.data, (dataQuery?.offset ?? 0) > 0)].filter(Boolean).join(' ')
       : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
     totalRows: query.data?.totalRows,

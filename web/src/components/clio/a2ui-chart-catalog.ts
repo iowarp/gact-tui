@@ -32,6 +32,7 @@ const chartShape = {
   spec: z
     .record(z.unknown())
     .refine((spec) => checkChartSpecSchemaRules(spec).length === 0, {
+      // i18n-ignore: validation message returned to the agent
       message: 'spec fails the chart spec guard (see checkChartSpec for the violation codes)',
     })
     .optional(),
@@ -98,16 +99,20 @@ function checkChartComponent(value: ChartShape, context: z.RefinementCtx): void 
     if (presetKeys.length) {
       context.addIssue({
         code: 'custom',
+        // i18n-ignore: validation message returned to the agent
         message: `A spec chart cannot also set ${presetKeys.join(', ')}`,
       });
     }
   } else if (!has('preset')) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of spec or preset' });
   }
   if (has('data') === has('dataUri')) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of data or dataUri' });
   }
   if (has('dataQuery') && !has('dataUri')) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'dataQuery needs dataUri' });
   }
   const rules = value.preset ? CHART_PRESET_FIELD_RULES[value.preset] : undefined;
@@ -116,6 +121,7 @@ function checkChartComponent(value: ChartShape, context: z.RefinementCtx): void 
     if (missing.length) {
       context.addIssue({
         code: 'custom',
+        // i18n-ignore: validation message returned to the agent
         message: `The ${value.preset} preset needs ${missing.join(', ')}`,
       });
     }
@@ -123,6 +129,7 @@ function checkChartComponent(value: ChartShape, context: z.RefinementCtx): void 
     if (refused.length) {
       context.addIssue({
         code: 'custom',
+        // i18n-ignore: validation message returned to the agent
         message: `The ${value.preset} preset does not use ${refused.join(', ')}`,
       });
     }

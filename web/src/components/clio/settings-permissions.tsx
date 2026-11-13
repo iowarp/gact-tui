@@ -26,6 +26,7 @@ import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { PermissionRequests } from './settings-permissions-requests';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t } from '@lingui/core/macro';
 
 /** A rule in the working set; `origin` is its index in the saved set. */
 interface StagedRule {
@@ -81,9 +82,9 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
       queryClient.setQueryData(policiesKey, next);
       setStaged(null);
       setSaveError(undefined);
-      toast.success('Access rules saved');
+      toast.success(t`Access rules saved`);
     },
-    onError: () => setSaveError('The service did not accept these rules. Nothing changed.'),
+    onError: () => setSaveError(t`The service did not accept these rules. Nothing changed.`),
   });
 
   const openEditor = (rule?: StagedRule, asCopy = false) => {
@@ -110,18 +111,17 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
   return (
     <section aria-labelledby="access-rules-heading">
       <SettingsGroupLabel
-        addLabel="New access rule"
+        addLabel={t`New access rule`}
         onAdd={policies.data ? () => openEditor() : undefined}
       >
         <span className="flex items-center gap-1.5" id="access-rules-heading">
-          Access rules
-          <InfoTip label="About access rules">
-            Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid
-            set leaves every saved rule unchanged.
+          {t`Access rules`}
+          <InfoTip label={t`About access rules`}>
+            {t`Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid set leaves every saved rule unchanged.`}
           </InfoTip>
         </span>
       </SettingsGroupLabel>
-      <ItemList label="Access rules">
+      <ItemList label={t`Access rules`}>
         {rules.map((rule, index) => (
           <AccessRuleRow
             confirming={confirmingId === rule.id}
@@ -142,16 +142,16 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
           />
         ))}
         {policies.isPending ? (
-          <StateView kind="loading" size="row" title="Loading access rules…" />
+          <StateView kind="loading" size="row" title={t`Loading access rules…`} />
         ) : null}
         {policies.isSuccess && rules.length === 0 ? (
           <GroupEmptyLine>
-            No access rules. Protected actions follow the service defaults.
+            {t`No access rules. Protected actions follow the service defaults.`}
           </GroupEmptyLine>
         ) : null}
         {policies.isError && !staged ? (
           <GroupErrorLine onRetry={() => void policies.refetch()} retrying={policies.isFetching}>
-            Couldn’t load the access rules.
+            {t`Couldn’t load the access rules.`}
           </GroupErrorLine>
         ) : null}
       </ItemList>
@@ -161,7 +161,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
         label={
           <>
             {changeSummary(added, changed, removed)}
-            <span className="ml-3 text-muted-foreground">rules save together</span>
+            <span className="ml-3 text-muted-foreground">{t`rules save together`}</span>
           </>
         }
         onDiscard={() => {
@@ -193,8 +193,8 @@ export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   return (
     <div className="min-w-0">
       <SettingsSectionHeading
-        info="Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions."
-        title="Permissions"
+        info={t`Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions.`}
+        title={t`Permissions`}
       />
       {/* Both lists sit in the setting column (spec `.xrw`). */}
       <div className={SETTINGS_COLUMN} data-row-keys="" onKeyDown={rowArrowKeyDown}>

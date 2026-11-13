@@ -11,6 +11,7 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
 import { isParentDelegation } from './parent-delegation';
 import { toolShowsDiff } from './declared-diff-key';
+import { t } from '@lingui/core/macro';
 
 /**
  * One correlated unit of work inside an iteration, carrying the kind so the
@@ -446,7 +447,7 @@ function messageInterrupted(message: Message): boolean {
 }
 
 function reasoningLabel(_provider?: string): string {
-  return 'Thinking';
+  return t`Thinking`;
 }
 
 function iterationSummary(
@@ -461,13 +462,16 @@ function iterationSummary(
   if (thought) return compactSentence(thought);
   if (eventSummary) return compactSentence(eventSummary);
   const tool = tools[0];
-  if (tool) return `${tool.title ?? tool.name} requested`;
+  if (tool) {
+    const name = tool.title ?? tool.name;
+    return t`${name} requested`;
+  }
   const task = tasks[0];
   if (task) return compactSentence(task.title);
   if (subagent) {
-    return subagent.stage === 'delegate.started' ? 'Child agent started' : 'Child agent returned';
+    return subagent.stage === 'delegate.started' ? t`Child agent started` : t`Child agent returned`;
   }
-  return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
+  return terminal ? t`Preparing the final response` : t`Reasoning about the next action`;
 }
 
 function compactSentence(value: string): string {

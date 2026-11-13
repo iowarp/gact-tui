@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { t } from '@lingui/core/macro';
 
 interface ProviderLoginButtonProps {
   /** "Log in", or "Log in again" for a session the provider refuses. */
@@ -29,7 +30,7 @@ interface ProviderLoginButtonProps {
  * second top-level button beside it.
  */
 export function ProviderLoginButton({
-  label = 'Log in',
+  label = t`Log in`,
   onLogIn,
   onUseCode,
   menuItems,
@@ -56,7 +57,7 @@ export function ProviderLoginButton({
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label="More ways to log in"
+            aria-label={t`More ways to log in`}
             className={cn(
               'border-s border-primary-foreground/25',
               xs && 'size-[22px] w-4 [&_svg]:size-3',
@@ -70,7 +71,9 @@ export function ProviderLoginButton({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {onUseCode ? (
-            <DropdownMenuItem onSelect={onUseCode}>Log in with a code instead</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onUseCode}
+            >{t`Log in with a code instead`}</DropdownMenuItem>
           ) : null}
           {menuItems}
         </DropdownMenuContent>

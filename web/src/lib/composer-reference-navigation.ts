@@ -8,6 +8,7 @@ import type {
 import { toast } from 'sonner';
 import { artifactDetailEntity, artifactDetailVersionEntity } from './session-artifacts';
 import { referenceKindLabel } from './composer-reference-domain';
+import { ph, t } from '@lingui/core/macro';
 
 interface ComposerReferenceNavigation {
   artifacts: readonly Artifact[];
@@ -46,7 +47,7 @@ const OPENED: ComposerReferenceNavigationOutcome = { status: 'opened' };
 export async function navigateComposerReferenceOrToast(
   options: ComposerReferenceNavigation,
 ): Promise<void> {
-  const title = `Could not open ${referenceKindLabel(options.reference.kind)} reference`;
+  const title = t`Could not open ${ph({ kind: referenceKindLabel(options.reference.kind) })} reference`;
   try {
     const outcome = await navigateComposerReference(options);
     if (outcome.status === 'unresolved') toast.error(title, { description: outcome.reason });
@@ -56,7 +57,7 @@ export async function navigateComposerReferenceOrToast(
       description:
         error instanceof Error
           ? error.message
-          : 'The workspace is still available. Refresh the reference and try again.',
+          : t`The workspace is still available. Refresh the reference and try again.`,
     });
   }
 }
@@ -99,7 +100,7 @@ export async function navigateComposerReference({
   switch (reference.kind) {
     case 'workspace_file': {
       const path = stringNavigation(reference, 'path') || reference.id;
-      if (!path) return unresolved('This reference names no workspace path.');
+      if (!path) return unresolved(t`This reference names no workspace path.`);
       const locator = stringNavigation(reference, 'locator');
       if (locator) openWorkspaceFile(path, { locator });
       else openWorkspaceFile(path);
@@ -140,7 +141,9 @@ export async function navigateComposerReference({
         openWorkspaceFile(path);
         return OPENED;
       }
-      return unresolved('This change is no longer in the session and the reference names no file.');
+      return unresolved(
+        t`This change is no longer in the session and the reference names no file.`,
+      );
     }
     case 'evidence_source': {
       const resourceId = stringNavigation(reference, 'resource_id');
@@ -159,8 +162,8 @@ export async function navigateComposerReference({
         openOwningSession() ??
         unresolved(
           uri
-            ? `This source points at ${uri}, which is not a workspace resource or a web address.`
-            : 'This source names no workspace resource or address to open.',
+            ? t`This source points at ${uri}, which is not a workspace resource or a web address.`
+            : t`This source names no workspace resource or address to open.`,
         )
       );
     }
@@ -168,15 +171,15 @@ export async function navigateComposerReference({
     case 'plan':
     case 'session':
     case 'agent_run':
-      return openOwningSession() ?? unresolved('This reference names no conversation to open.');
+      return openOwningSession() ?? unresolved(t`This reference names no conversation to open.`);
     case 'subagent':
     case 'workflow':
     case 'flow':
     case 'server':
       // A summons names what handles the message; there is nothing to open.
-      return unresolved('What you summoned has no page of its own.');
+      return unresolved(t`What you summoned has no page of its own.`);
     case 'unknown':
-      return unresolved('This version of the app has no way to open this kind of reference.');
+      return unresolved(t`This version of the app has no way to open this kind of reference.`);
   }
 }
 

@@ -21,10 +21,11 @@ import { ComputerConnectionContent } from './managed-service-host-selector';
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 /** The words and mark for a computer's connection; never the colour alone. */
 function connectionStatus(local: boolean, state: string): InfraStatus {
-  if (local) return { tone: 'success', label: 'Connected' };
+  if (local) return { tone: 'success', label: t`Connected` };
   const label = computerConnectionLabel(state);
   if (state === 'connected') return { tone: 'success', label };
   if (state === 'connecting' || state === 'reconnecting') return { tone: 'running', label };
@@ -61,18 +62,18 @@ export function InfrastructureHosts({
     <div className="flex min-w-0 flex-col gap-1">
       {children}
       <InfraList
-        heading="Computers"
+        heading={t`Computers`}
         headingAction={
           <>
-            <InfoTip label="About computers">
-              Local is the connected {vocab.agent} computer. Other computers run services for this
-              agent through Desktop SSH. Adding one does not switch your agent connection.
-              {onConnectComputer ? null : ' Add SSH computers in the Desktop app.'}
+            <InfoTip label={t`About computers`}>
+              {onConnectComputer
+                ? t`Local is the connected ${ph({ agent: vocab.agent })} computer. Other computers run services for this agent through Desktop SSH. Adding one does not switch your agent connection.`
+                : t`Local is the connected ${ph({ agent: vocab.agent })} computer. Other computers run services for this agent through Desktop SSH. Adding one does not switch your agent connection. Add SSH computers in the Desktop app.`}
             </InfoTip>
             {onConnectComputer ? (
               <IconButton
                 icon={<AddIcon />}
-                label="Add computer"
+                label={t`Add computer`}
                 onClick={() => setConnectOpen(true)}
                 size="sm"
               />
@@ -87,12 +88,14 @@ export function InfrastructureHosts({
           .map((host) => (
             <ComputerRow
               key={host.id}
-              label={host.kind === 'local' ? 'Local' : host.label}
+              label={host.kind === 'local' ? t`Local` : host.label}
               id={host.id}
               local={host.kind === 'local'}
               address={
                 host.ssh?.host ||
-                (host.kind === 'local' ? `Connected ${vocab.agent}` : 'Saved computer')
+                (host.kind === 'local'
+                  ? t`Connected ${ph({ agent: vocab.agent })}`
+                  : t`Saved computer`)
               }
               status={connectionStatus(host.kind === 'local', host.transport_state)}
               attention={host.kind === 'local' ? localAttention : []}
@@ -119,7 +122,7 @@ export function InfrastructureHosts({
           ))}
       </InfraList>
       {error ? (
-        <StateView kind="error" size="row" title={`Could not connect this computer: ${error}`} />
+        <StateView kind="error" size="row" title={t`Could not connect this computer: ${error}`} />
       ) : null}
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         {onConnectComputer ? (
@@ -166,23 +169,23 @@ function ComputerRow({
           actions={[
             {
               icon: <LayersIcon />,
-              label: `Services on ${label}`,
+              label: t`Services on ${label}`,
               to: `/infrastructure/services?target=${target}`,
             },
             {
               icon: <BoxIcon />,
-              label: `Models on ${label}`,
+              label: t`Models on ${label}`,
               to: `/infrastructure/models?target=${target}`,
             },
           ]}
-          label={`More for ${label}`}
+          label={t`More for ${label}`}
         />
       }
       className="cursor-pointer"
       description={
         attention.length ? (
           <span className="text-warning-foreground" title={attention.join(', ')}>
-            Needs attention: {attention.join(', ')}.
+            {t`Needs attention: ${ph({ services: attention.join(', ') })}.`}
           </span>
         ) : (
           address
@@ -202,7 +205,7 @@ function ComputerRow({
               icon={
                 pending ? <LoaderCircleIcon className="motion-safe:animate-spin" /> : <PlugIcon />
               }
-              label="Reconnect"
+              label={t`Reconnect`}
               onClick={() => void onReconnect().catch(() => undefined)}
               size="sm"
             />
@@ -213,7 +216,7 @@ function ComputerRow({
       }
       status={status}
       title={
-        <InfraRowToggle expanded={open} label={`${label} details`}>
+        <InfraRowToggle expanded={open} label={t`${label} details`}>
           {label}
         </InfraRowToggle>
       }

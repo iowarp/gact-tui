@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { cn } from '@/lib/utils';
 import { MAX_LIST_SHARE, MIN_LIST_WIDTH } from './workbench-list-width';
+import { ph, t } from '@lingui/core/macro';
 
 const KEY_STEP = 16;
 
@@ -71,12 +72,12 @@ export function WorkbenchListResizeHandle({
 
   return (
     <div
-      aria-label={`Resize ${title} list`}
+      aria-label={t`Resize ${title} list`}
       aria-orientation="vertical"
       aria-valuemax={Math.round(MAX_LIST_SHARE * 100)}
       aria-valuemin={0}
       aria-valuenow={Math.round(share * 100)}
-      aria-valuetext={`${Math.round(share * 100)}% of the canvas`}
+      aria-valuetext={t`${ph({ percent: Math.round(share * 100) })}% of the canvas`}
       className={cn(
         // A 12 px grip centred on the 1 px border; only hover and focus show it.
         'group/list-resize absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize touch-none outline-none',

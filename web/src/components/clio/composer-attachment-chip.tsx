@@ -6,6 +6,7 @@ import { RetryIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import type { ResourcePipelineStages } from './resource-availability';
 import { referenceKindIcon } from './composer-reference-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 const CHIP_ACTION =
   'relative z-10 grid size-[18px] shrink-0 place-items-center rounded-[4px] text-muted-foreground outline-none hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
@@ -49,18 +50,18 @@ export function ComposerAttachmentChip({
       : undefined;
   const inFlight = uploading || converting;
   const status = removing
-    ? 'Removing'
+    ? t`Removing`
     : uploading
-    ? bytes && bytes.loaded < bytes.total
-      ? `Uploading ${percentage ?? 0}%`
-      : bytes
-        ? 'Registering file'
-        : 'Starting upload'
-    : converting
-      ? 'Converting'
-      : failed
-        ? 'Upload failed'
-        : undefined;
+      ? bytes && bytes.loaded < bytes.total
+        ? t`Uploading ${ph({ percentage: percentage ?? 0 })}%`
+        : bytes
+          ? t`Registering file`
+          : t`Starting upload`
+      : converting
+        ? t`Converting`
+        : failed
+          ? t`Upload failed`
+          : undefined;
   return (
     <div
       {...props}
@@ -77,12 +78,12 @@ export function ComposerAttachmentChip({
       {/* The spec chip draws no status mark; the full pipeline state stays announced. */}
       <span
         role="img"
-        aria-label={`Attachment status: ${stages.overallLabel}`}
+        aria-label={t`Attachment status: ${ph({ overallLabel: stages.overallLabel })}`}
         className="sr-only"
       />
       <button
         type="button"
-        aria-label={`Open ${name}`}
+        aria-label={t`Open ${name}`}
         title={failed && stages.upload.detail ? `${name}: ${stages.upload.detail}` : name}
         onClick={onOpen}
         className="flex min-w-0 items-center gap-1.5 outline-none after:absolute after:inset-0 after:rounded-[6px] after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-ring"
@@ -110,8 +111,8 @@ export function ComposerAttachmentChip({
       {onRetry && !removing ? (
         <button
           type="button"
-          aria-label={`Retry upload for ${name}`}
-          title="Retry upload"
+          aria-label={t`Retry upload for ${name}`}
+          title={t`Retry upload`}
           onClick={onRetry}
           className={CHIP_ACTION}
         >
@@ -120,14 +121,14 @@ export function ComposerAttachmentChip({
       ) : null}
       <button
         type="button"
-        aria-label={`Remove ${name}`}
+        aria-label={t`Remove ${name}`}
         aria-disabled={removing || undefined}
         title={
           removing
-            ? 'Removing attachment'
+            ? t`Removing attachment`
             : inFlight
-              ? 'Cancel upload and remove attachment'
-              : 'Remove attachment'
+              ? t`Cancel upload and remove attachment`
+              : t`Remove attachment`
         }
         onClick={onRemove}
         className={cn(CHIP_ACTION, removing && 'pointer-events-none opacity-50')}
@@ -136,7 +137,9 @@ export function ComposerAttachmentChip({
       </button>
       {inFlight ? (
         <Progress
-          aria-label={`${uploading ? 'Upload' : 'Conversion'} progress for ${name}`}
+          aria-label={
+            uploading ? t`Upload progress for ${name}` : t`Conversion progress for ${name}`
+          }
           value={uploading && percentage !== undefined && percentage < 100 ? percentage : undefined}
           className="absolute inset-x-0 bottom-0 h-0.5 rounded-none bg-transparent"
         />

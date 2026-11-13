@@ -1,5 +1,4 @@
 import { queryKeys } from '@/lib/query-keys';
-import { truncate } from '@/lib/format';
 import { RUNS_POLL_MS } from '@/lib/runtime-limits';
 import type { Session } from '@clio/core/v3';
 import {
@@ -11,23 +10,12 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import {
-  ActivityIcon,
-  BotIcon,
-  CheckIcon,
-  ListIcon,
-  MessageCircleQuestionIcon,
-  SearchIcon,
-  TriangleAlertIcon,
-  WorkflowIcon,
-  WrenchIcon,
-} from 'lucide-react';
+import { ActivityIcon, SearchIcon, WorkflowIcon } from 'lucide-react';
 import { memo, useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FilterChips } from '@/components/clio/primitives/filter-chips';
 import { FrameDivider } from '@/components/clio/primitives/frame-bar';
-import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
@@ -72,6 +60,14 @@ import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes
 import { matchesRunState } from '@/lib/session-agent-tasks';
 import { cn } from '@/lib/utils';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { ph, plural, t } from '@lingui/core/macro';
+import {
+  SOURCE_CHIPS,
+  STATE_OPTIONS,
+  cancelDescription,
+  flowFooterNote,
+  totalNote,
+} from './runs-page-copy';
 
 const FLOW_SCAN_BATCH = 4;
 /** Conversations read per page for the flow index (a few scan batches). */
@@ -81,26 +77,6 @@ type ConfirmedRunAction = { kind: 'cancel'; row: RunRow };
 /** Rows drawn at once; more appear on request so a long history stays light. */
 const RUN_ROW_STEP = 150;
 const RUN_GROUP_ORDER: readonly RunGroup[] = ['needs-you', 'running', 'queued', 'earlier'];
-const STATE_OPTIONS = [
-  { value: 'all', label: 'All states', icon: <ListIcon aria-hidden="true" /> },
-  {
-    value: 'active',
-    label: 'Active',
-    icon: <RingSpinner className="size-[9px]" />,
-  },
-  {
-    value: 'waiting_user',
-    label: 'Waiting for you',
-    icon: <MessageCircleQuestionIcon aria-hidden="true" />,
-  },
-  { value: 'attention', label: 'Needs attention', icon: <TriangleAlertIcon aria-hidden="true" /> },
-  { value: 'completed', label: 'Completed', icon: <CheckIcon aria-hidden="true" /> },
-] as const;
-/** The bar's execution-type chips; none chosen shows every type. */
-const SOURCE_CHIPS = [
-  { value: 'agent_task', label: 'Agents', icon: <BotIcon aria-hidden="true" /> },
-  { value: 'mcp_task', label: 'Tools', icon: <WrenchIcon aria-hidden="true" /> },
-];
 /**
  * One list row with its actions built from stable inputs, so a poll that leaves a
  * run unchanged doesn't re-render its row, menu and tooltips.
@@ -282,14 +258,14 @@ export function RunsPage() {
   );
   const cancel = useMutation({
     mutationFn: (row: RunRow) => {
-      if (!row.ownerSessionId) throw new Error('The task owner is unavailable');
+      if (!row.ownerSessionId) throw new Error(t`The task owner is unavailable`);
       setRequestedCancellation((previous) => new Set([...previous, row.handleId]));
       return repository.cancelTasks(row.ownerSessionId, [row.handleId]);
     },
     onSuccess: async () => {
       setConfirmedAction(undefined);
       await refreshRuns();
-      toast.success('Cancellation requested');
+      toast.success(t`Cancellation requested`);
     },
     onError: (error, row) => {
       setRequestedCancellation(
@@ -369,7 +345,6 @@ export function RunsPage() {
       return groupRows ? [{ group, rows: groupRows }] : [];
     });
   }, [shownRows]);
-  const noun = category === 'flows' ? 'flows' : 'runs';
   const navigationWorkspaceId =
     workspaceIdFromRoute(returnRouteFromState(location.state, settings.endpoint)) ??
     workspaces.data?.[0]?.id ??
@@ -439,6 +414,8 @@ export function RunsPage() {
   }));
   const currentState =
     stateOptions.find((option) => option.value === stateFilter) ?? stateOptions[0];
+  const stateLabel = currentState.label;
+  const stateCountShown = currentState.count;
   // The chips are the states themselves; no chip chosen shows all of them.
   const stateChips = stateOptions.filter((option) => option.value !== 'all');
   const canIndexMore =
@@ -458,17 +435,10 @@ export function RunsPage() {
     category === 'executions'
       ? runs.hasNextPage
         ? runs.data?.pages[0]?.total == null
-          ? 'More available; search covers loaded runs.'
-          : `${runs.data.pages[0].total} in total. Search covers loaded runs.`
+          ? t`More available; search covers loaded runs.`
+          : totalNote(runs.data.pages[0].total ?? 0)
         : undefined
-      : [
-          flowsRemaining > 0 ? `${flowsIndexed} of ${flowSessionTotal} sessions indexed` : '',
-          flowFailures > 0
-            ? `${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed`
-            : '',
-        ]
-          .filter(Boolean)
-          .join(', ') || undefined;
+      : flowFooterNote(flowsRemaining > 0, flowsIndexed, flowSessionTotal, flowFailures);
   const showFooter =
     Boolean(footerNote) ||
     filteredRows.length > visibleLimit ||
@@ -478,7 +448,7 @@ export function RunsPage() {
   const title = (
     <h1 className="flex min-w-0 items-center gap-1.5 text-ui font-semibold whitespace-nowrap text-foreground">
       <ActivityIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      Runs
+      {t`Runs`}
     </h1>
   );
 
@@ -490,29 +460,31 @@ export function RunsPage() {
       <SegmentedControl
         className="mr-1"
         iconOnly
-        label="Run categories"
+        label={t`Run categories`}
         onValueChange={setCategory}
         options={[
-          { value: 'executions', label: 'Executions', icon: <ActivityIcon aria-hidden="true" /> },
-          { value: 'flows', label: 'Flows', icon: <WorkflowIcon aria-hidden="true" /> },
+          { value: 'executions', label: t`Executions`, icon: <ActivityIcon aria-hidden="true" /> },
+          { value: 'flows', label: t`Flows`, icon: <WorkflowIcon aria-hidden="true" /> },
         ]}
         value={category}
       />
       <FilterChips
         className="hidden @[440px]/runbar:flex"
-        label="Filter by state"
+        label={t`Filter by state`}
         none="all"
         onValueChange={setStateFilter}
         options={stateChips}
         value={stateFilter}
       />
       <DropdownMenu modal={false}>
-        <NamedTooltip label={`Filter by state: ${currentState.label}`}>
+        <NamedTooltip label={t`Filter by state: ${stateLabel}`}>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label={`Filter by state: ${currentState.label}${
-                currentState.count === undefined ? '' : `, ${currentState.count}`
-              }`}
+              aria-label={
+                stateCountShown === undefined
+                  ? t`Filter by state: ${stateLabel}`
+                  : t`Filter by state: ${stateLabel}, ${stateCountShown}`
+              }
               className={cn(
                 'h-6 w-[46px] shrink-0 gap-1 rounded-[12px] border border-border px-0 text-label font-medium text-muted-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-[13px]',
                 stateFilter !== 'all' && 'border-accent-border bg-accent text-accent-foreground',
@@ -545,7 +517,7 @@ export function RunsPage() {
           <FrameDivider className="mx-1 hidden @[480px]/runbar:block" />
           <FilterChips
             className="hidden @[480px]/runbar:flex"
-            label="Filter by execution type"
+            label={t`Filter by execution type`}
             none="all"
             onValueChange={setSourceFilter}
             options={SOURCE_CHIPS}
@@ -555,7 +527,9 @@ export function RunsPage() {
       ) : null}
       <span aria-hidden="true" className="flex-1" />
       <span className="hidden shrink-0 text-label text-faint tabular-nums @[520px]/runbar:inline">
-        {filteredRows.length} {filteredRows.length === 1 ? noun.slice(0, -1) : noun}
+        {category === 'flows'
+          ? plural(filteredRows.length, { one: '# flow', other: '# flows' })
+          : plural(filteredRows.length, { one: '# run', other: '# runs' })}
       </span>
       {searchOpen || search ? (
         <div className="relative w-44 min-w-24 shrink">
@@ -564,7 +538,7 @@ export function RunsPage() {
             className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            aria-label="Search runs"
+            aria-label={t`Search runs`}
             autoFocus
             className="h-7 pl-7 text-meta"
             onBlur={() => {
@@ -577,11 +551,11 @@ export function RunsPage() {
               setSearch('');
               setSearchOpen(false);
             }}
-            placeholder={category === 'flows' ? 'Search flows' : 'Search runs'}
+            placeholder={category === 'flows' ? t`Search flows` : t`Search runs`}
             title={
               category === 'flows'
-                ? 'Search flow, workspace, or state'
-                : 'Search run, workspace, state, host, or task'
+                ? t`Search flow, workspace, or state`
+                : t`Search run, workspace, state, host, or task`
             }
             value={search}
           />
@@ -589,7 +563,7 @@ export function RunsPage() {
       ) : (
         <IconButton
           icon={<SearchIcon aria-hidden="true" />}
-          label="Search runs"
+          label={t`Search runs`}
           onClick={() => setSearchOpen(true)}
           shortcut="list-search"
           size="sm"
@@ -605,34 +579,38 @@ export function RunsPage() {
     >
       {error ? (
         <StateView
-          action={{ label: 'Retry', onClick: () => void refreshRuns() }}
+          action={{ label: t`Retry`, onClick: () => void refreshRuns() }}
           detail={error.message}
           kind="error"
-          title="Run explorer unavailable"
+          title={t`Run explorer unavailable`}
         />
       ) : loading ? (
-        <StateView kind="loading" title={`Loading ${noun}`} />
+        <StateView
+          kind="loading"
+          title={category === 'flows' ? t`Loading flows` : t`Loading runs`}
+        />
       ) : filteredRows.length === 0 ? (
         category === 'flows' && !search ? (
           <StateView
             action={
               canIndexMore
                 ? {
-                    label: flowsIndexing ? 'Indexing…' : 'Index more sessions',
+                    label: flowsIndexing ? t`Indexing…` : t`Index more sessions`,
                     onClick: indexMore,
                   }
                 : undefined
             }
             detail={footerNote}
             kind="empty"
-            title="No flows started in the indexed conversations."
+            title={t`No flows started in the indexed conversations.`}
           />
         ) : (
-          <StateView kind="empty" title="No runs match the current search and filters." />
+          <StateView kind="empty" title={t`No runs match the current search and filters.`} />
         )
       ) : (
         groups.map(({ group, rows: groupRows }) => (
           <section
+            // i18n-ignore: element id
             aria-labelledby={`runs-group-${group}`}
             className="mb-1 max-w-[840px]"
             key={group}
@@ -671,7 +649,7 @@ export function RunsPage() {
                 size="xs"
                 variant="ghost"
               >
-                Show {Math.min(RUN_ROW_STEP, filteredRows.length - visibleLimit)} more
+                {t`Show ${ph({ count: Math.min(RUN_ROW_STEP, filteredRows.length - visibleLimit) })} more`}
               </Button>
             ) : null}
             {category === 'executions' && runs.hasNextPage ? (
@@ -681,7 +659,7 @@ export function RunsPage() {
                 size="xs"
                 variant="ghost"
               >
-                {runs.isFetchingNextPage ? 'Loading…' : 'Load more tasks'}
+                {runs.isFetchingNextPage ? t`Loading…` : t`Load more tasks`}
               </Button>
             ) : null}
             {canIndexMore ? (
@@ -691,7 +669,7 @@ export function RunsPage() {
                 size="xs"
                 variant="ghost"
               >
-                {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
+                {flowsIndexing ? t`Indexing…` : t`Index more sessions`}
               </Button>
             ) : null}
           </span>
@@ -741,15 +719,13 @@ export function RunsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this task?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Cancel this task?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmedAction
-                ? `${truncate(confirmedAction.row.assignment || confirmedAction.row.label, 240)}. ${confirmedAction.row.source === 'agent_task' ? 'This also cancels all descendant agents, downloads and shell processes.' : 'The owner will settle cancellation after required cleanup.'}`
-                : ''}
+              {confirmedAction ? cancelDescription(confirmedAction.row) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep run</AlertDialogCancel>
+            <AlertDialogCancel>{t`Keep run`}</AlertDialogCancel>
             <AlertDialogAction
               disabled={cancel.isPending}
               onClick={(event) => {
@@ -759,7 +735,7 @@ export function RunsPage() {
               }}
               variant="destructive"
             >
-              {cancel.isPending ? 'Requesting cancellation…' : 'Cancel task'}
+              {cancel.isPending ? t`Requesting cancellation…` : t`Cancel task`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -9,6 +9,7 @@ import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
 import { TechnicalDetails } from './technical-details';
+import { t } from '@lingui/core/macro';
 
 /** Read actual capabilities from the same inspection/cache used by Services. */
 export function InfrastructureHostInspection({ targetId }: { targetId: string }) {
@@ -30,7 +31,7 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
           <RefreshIcon />
         )
       }
-      label={query.isFetching ? 'Inspecting' : 'Inspect again'}
+      label={query.isFetching ? t`Inspecting` : t`Inspect again`}
       onClick={() => void query.refetch()}
       size="sm"
     />
@@ -40,19 +41,19 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
   const runtimeErrors = runtimes.filter((line) => line.detail);
   const items: KeyValueItem[] = facts
     ? [
-        { label: 'System', icon: <CpuIcon />, value: hostSummary(facts), action: inspectAgain },
+        { label: t`System`, icon: <CpuIcon />, value: hostSummary(facts), action: inspectAgain },
         ...runtimes.map((line) => ({
           label: RUNTIME_NAMES[line.name],
           icon: <BoxIcon />,
           value: line.text,
         })),
         ...(facts.hostname
-          ? [{ label: 'Computer', icon: <MonitorIcon />, value: facts.hostname, mono: true }]
+          ? [{ label: t`Computer`, icon: <MonitorIcon />, value: facts.hostname, mono: true }]
           : []),
         ...(facts.home
           ? [
               {
-                label: 'Home',
+                label: t`Home`,
                 icon: <HouseIcon />,
                 value: displayHostPath(facts.home),
                 mono: true,
@@ -62,16 +63,16 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
       ]
     : [];
   return (
-    <section aria-label="Computer capabilities" className="flex min-w-0 flex-col gap-1.5">
+    <section aria-label={t`Computer capabilities`} className="flex min-w-0 flex-col gap-1.5">
       {query.error ? (
         <>
           <StateView
-            action={{ label: 'Inspect again', onClick: () => void query.refetch() }}
+            action={{ label: t`Inspect again`, onClick: () => void query.refetch() }}
             kind="error"
             size="row"
-            title="Could not inspect this computer. Check its connection, then try again."
+            title={t`Could not inspect this computer. Check its connection, then try again.`}
           />
-          <TechnicalDetails className="text-meta" title="Inspection details">
+          <TechnicalDetails className="text-meta" title={t`Inspection details`}>
             <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
               {query.error.message}
             </pre>
@@ -81,7 +82,7 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
         <>
           <KeyValueGrid items={items} />
           {runtimeErrors.length ? (
-            <TechnicalDetails className="text-meta" title="Runtime details">
+            <TechnicalDetails className="text-meta" title={t`Runtime details`}>
               <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                 {runtimeErrors
                   .map((line) => `${RUNTIME_NAMES[line.name]}: ${line.detail}`)
@@ -91,7 +92,7 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
           ) : null}
         </>
       ) : (
-        <StateView kind="loading" size="row" title="Reading this computer's capabilities" />
+        <StateView kind="loading" size="row" title={t`Reading this computer's capabilities`} />
       )}
     </section>
   );

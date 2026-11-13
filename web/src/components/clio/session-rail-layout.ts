@@ -19,34 +19,35 @@ import {
   PlayIcon,
   TargetIcon,
 } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 /** Context sits alone at the top; the rest read as what happens now and what this conversation holds. */
 export type RailGroup = 'context' | 'now' | 'conversation';
 
 export const RAIL_GROUP_LABELS: Record<Exclude<RailGroup, 'context'>, string> = {
-  now: 'Now',
-  conversation: 'In this conversation',
+  now: t`Now`,
+  conversation: t`In this conversation`,
 };
 
 /** Stable section identities keep personal layout choices independent of session data. */
 export const SESSION_RAIL_SECTIONS = [
-  { id: 'context', label: 'Context', group: 'context', icon: LayersIcon },
-  { id: 'goal', label: 'Goal', group: 'now', icon: TargetIcon },
-  { id: 'questions', label: 'Questions', group: 'now', icon: MessageCircleQuestionIcon },
-  { id: 'plan', label: 'Plan', group: 'now', icon: NotebookTextIcon },
-  { id: 'todos', label: 'Todos', group: 'now', icon: ListTodoIcon },
-  { id: 'running', label: 'Running', group: 'now', icon: PlayIcon },
-  { id: 'schedules', label: 'Schedules', group: 'now', icon: CalendarClockIcon },
-  { id: 'tasks', label: 'Tasks', group: 'now', icon: ListChecksIcon },
-  { id: 'files', label: 'Files', group: 'conversation', icon: FileIcon },
-  { id: 'changes', label: 'Changes', group: 'conversation', icon: FileDiffIcon },
-  { id: 'sources', label: 'Sources', group: 'conversation', icon: BookOpenIcon },
-  { id: 'connected', label: 'Connected sources', group: 'conversation', icon: DatabaseIcon },
-  { id: 'artifacts', label: 'Artifacts', group: 'conversation', icon: ChartLineIcon },
-  { id: 'browser', label: 'Browser pages', group: 'conversation', icon: GlobeIcon },
-  { id: 'plans', label: 'Earlier plans', group: 'conversation', icon: ListTreeIcon },
-  { id: 'runs', label: 'Agent runs', group: 'conversation', icon: ActivityIcon },
-  { id: 'tools', label: 'Tool calls', group: 'conversation', icon: HammerIcon },
+  { id: 'context', label: t`Context`, group: 'context', icon: LayersIcon },
+  { id: 'goal', label: t`Goal`, group: 'now', icon: TargetIcon },
+  { id: 'questions', label: t`Questions`, group: 'now', icon: MessageCircleQuestionIcon },
+  { id: 'plan', label: t`Plan`, group: 'now', icon: NotebookTextIcon },
+  { id: 'todos', label: t`Todos`, group: 'now', icon: ListTodoIcon },
+  { id: 'running', label: t`Running`, group: 'now', icon: PlayIcon },
+  { id: 'schedules', label: t`Schedules`, group: 'now', icon: CalendarClockIcon },
+  { id: 'tasks', label: t`Tasks`, group: 'now', icon: ListChecksIcon },
+  { id: 'files', label: t`Files`, group: 'conversation', icon: FileIcon },
+  { id: 'changes', label: t`Changes`, group: 'conversation', icon: FileDiffIcon },
+  { id: 'sources', label: t`Sources`, group: 'conversation', icon: BookOpenIcon },
+  { id: 'connected', label: t`Connected sources`, group: 'conversation', icon: DatabaseIcon },
+  { id: 'artifacts', label: t`Artifacts`, group: 'conversation', icon: ChartLineIcon },
+  { id: 'browser', label: t`Browser pages`, group: 'conversation', icon: GlobeIcon },
+  { id: 'plans', label: t`Earlier plans`, group: 'conversation', icon: ListTreeIcon },
+  { id: 'runs', label: t`Agent runs`, group: 'conversation', icon: ActivityIcon },
+  { id: 'tools', label: t`Tool calls`, group: 'conversation', icon: HammerIcon },
 ] as const satisfies readonly {
   id: string;
   label: string;

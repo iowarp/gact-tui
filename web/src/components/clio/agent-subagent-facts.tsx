@@ -1,6 +1,7 @@
 import type { AgentResolution } from '@clio/core/v3';
 import type { PackageItem } from './agent-package-items';
 import type { KeyValueItem } from './primitives/key-value-grid';
+import { t } from '@lingui/core/macro';
 
 export type Subagent = AgentResolution['subagents'][number];
 
@@ -29,35 +30,35 @@ export function subagentFacts(row: Subagent): KeyValueItem[] {
   const facts: KeyValueItem[] = [];
   if ('prefers' in row)
     facts.push({
-      label: 'Model',
+      label: t`Model`,
       value:
         model ||
         (role ? `The ${role} model from Fleet settings` : 'Same as the agent that calls it'),
       mono: Boolean(model),
     });
-  if (effort) facts.push({ label: 'Reasoning', value: effort });
-  if (tools === null) facts.push({ label: 'Tools', value: 'Every tool its packages bring' });
+  if (effort) facts.push({ label: t`Reasoning`, value: effort });
+  if (tools === null) facts.push({ label: t`Tools`, value: 'Every tool its packages bring' });
   else if (tools)
     facts.push({
-      label: 'Tools',
+      label: t`Tools`,
       value: tools.length ? tools.join(', ') : 'None',
       title: tools.join(', '),
     });
   if (text(row.derive) === 'caller')
-    facts.push({ label: 'Packages', value: 'The packages of the agent that calls it' });
+    facts.push({ label: t`Packages`, value: 'The packages of the agent that calls it' });
   else if (plugins?.length)
     facts.push({
-      label: 'Packages',
+      label: t`Packages`,
       value: plugins.join(', '),
       title: plugins.join(', '),
     });
-  if (text(row.effects) === 'read') facts.push({ label: 'Access', value: 'Read-only' });
+  if (text(row.effects) === 'read') facts.push({ label: t`Access`, value: 'Read-only' });
   const flow = text(row.flow);
-  if (flow && flow !== 'react') facts.push({ label: 'Flow', value: flow, mono: true });
+  if (flow && flow !== 'react') facts.push({ label: t`Flow`, value: flow, mono: true });
   if (typeof row.max_iters === 'number' && row.max_iters > 0)
-    facts.push({ label: 'Step limit', value: `${row.max_iters} steps` });
+    facts.push({ label: t`Step limit`, value: `${row.max_iters} steps` });
   if (row.internal === true)
-    facts.push({ label: 'Use', value: 'Internal: the agent’s own flows call it' });
+    facts.push({ label: t`Use`, value: 'Internal: the agent’s own flows call it' });
   // The pane is narrow and these are read, not scanned: wrap rather than cut.
   return facts.map((fact) => ({ ...fact, wrap: true }));
 }

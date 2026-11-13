@@ -7,6 +7,7 @@ import { ConnectedSshHostPicker } from './connected-ssh-host-picker';
 import { sshRouteHost } from '@/lib/ssh-hosts';
 import { sshTargetDefinition } from './managed-service-target-utils';
 import { routeIncompleteMessage } from './ssh-route-utils';
+import { t } from '@lingui/core/macro';
 
 /** Review the actual API route and account destination before saving a connection. */
 export function NDPEndpointEditor({
@@ -60,7 +61,7 @@ export function NDPEndpointEditor({
         });
       }}
     >
-      <div className="flex gap-2" aria-label="Endpoint connection method">
+      <div className="flex gap-2" aria-label={t`Endpoint connection method`}>
         {(['url', 'ssh'] as const).map((route) => (
           <Button
             key={route}
@@ -68,23 +69,24 @@ export function NDPEndpointEditor({
             variant={transport === route ? 'secondary' : 'ghost'}
             onClick={() => setTransport(route)}
           >
-            {route === 'url' ? 'Direct URL' : 'SSH'}
+            {route === 'url' ? t`Direct URL` : 'SSH'}
           </Button>
         ))}
       </div>
       <div className="space-y-1">
-        <Label htmlFor="ndp-endpoint-name">Name</Label>
+        <Label htmlFor="ndp-endpoint-name">{t`Name`}</Label>
         <Input
           id="ndp-endpoint-name"
           required
           value={choice.name}
+          // i18n-ignore: example endpoint name
           placeholder="Ares NDP"
           onChange={(event) => setChoice({ ...choice, name: event.target.value })}
         />
       </div>
       {transport === 'ssh' ? (
         <div className="space-y-2">
-          <Label>SSH connection route</Label>
+          <Label>{t`SSH connection route`}</Label>
           <ConnectedSshHostPicker
             value={host}
             disabled={pending}
@@ -103,7 +105,7 @@ export function NDPEndpointEditor({
       ) : null}
       <div className="space-y-1">
         <Label htmlFor="ndp-endpoint-url">
-          {transport === 'ssh' ? 'Remote API URL' : 'API URL'}
+          {transport === 'ssh' ? t`Remote API URL` : t`API URL`}
         </Label>
         <Input
           id="ndp-endpoint-url"
@@ -115,7 +117,7 @@ export function NDPEndpointEditor({
         />
       </div>
       <div className="space-y-1">
-        <Label htmlFor="ndp-endpoint-auth">API sign-in</Label>
+        <Label htmlFor="ndp-endpoint-auth">{t`API sign-in`}</Label>
         <select
           id="ndp-endpoint-auth"
           className="h-9 w-full rounded-md border bg-background px-2 text-sm"
@@ -126,26 +128,25 @@ export function NDPEndpointEditor({
             onAuthentication(authentication);
           }}
         >
-          <option value="none">No NDP sign-in</option>
-          <option value="ndp">Use my NDP sign-in</option>
+          <option value="none">{t`No NDP sign-in`}</option>
+          <option value="ndp">{t`Use my NDP sign-in`}</option>
         </select>
       </div>
       <p className="text-xs text-muted-foreground">
         {choice.authentication === 'ndp'
-          ? 'Send your saved NDP account token to this API. The Endpoint must accept your account and grant access.'
-          : 'No NDP account token is sent. Only operations available without NDP sign-in can be used.'}
+          ? t`Send your saved NDP account token to this API. The Endpoint must accept your account and grant access.`
+          : t`No NDP account token is sent. Only operations available without NDP sign-in can be used.`}
         {transport === 'ssh' ? (
-          <span className="block">Your SSH connection is authenticated separately.</span>
+          <span className="block">{t`Your SSH connection is authenticated separately.`}</span>
         ) : null}
       </p>
       <details className="space-y-2 text-sm">
-        <summary className="cursor-pointer text-muted-foreground">Streaming runtime</summary>
+        <summary className="cursor-pointer text-muted-foreground">{t`Streaming runtime`}</summary>
         <p className="text-xs text-muted-foreground">
-          Use the NDP streaming SDK installed on the connected computer. Broker credentials stay in
-          its private profile.
+          {t`Use the NDP streaming SDK installed on the connected computer. Broker credentials stay in its private profile.`}
         </p>
         <div className="space-y-1">
-          <Label htmlFor="ndp-sdk-python">SDK Python interpreter</Label>
+          <Label htmlFor="ndp-sdk-python">{t`SDK Python interpreter`}</Label>
           <Input
             id="ndp-sdk-python"
             value={choice.streaming_runtime?.python ?? ''}
@@ -161,7 +162,7 @@ export function NDPEndpointEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="ndp-sdk-profile">Private broker profile path</Label>
+          <Label htmlFor="ndp-sdk-profile">{t`Private broker profile path`}</Label>
           <Input
             id="ndp-sdk-profile"
             value={choice.streaming_runtime?.profile_path ?? ''}
@@ -183,16 +184,16 @@ export function NDPEndpointEditor({
             size="sm"
             onClick={() => setChoice({ ...choice, streaming_runtime: null })}
           >
-            Disconnect streaming runtime
+            {t`Disconnect streaming runtime`}
           </Button>
         ) : null}
       </details>
       <div className="flex gap-2">
         <Button disabled={pending || (transport === 'ssh' && (!host || Boolean(routeError)))}>
-          {pending ? 'Checking API…' : initial ? 'Save endpoint' : 'Connect'}
+          {pending ? t`Checking API…` : initial ? t`Save endpoint` : t`Connect`}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-          Cancel
+          {t`Cancel`}
         </Button>
       </div>
       {error ? (

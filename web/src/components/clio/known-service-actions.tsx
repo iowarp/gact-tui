@@ -28,6 +28,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { deployNameError, type KnownServiceName } from './deploy-name';
+import { t } from '@lingui/core/macro';
 
 /** One known service's row actions: rename it, or forget it on this device. */
 export function KnownServiceActions({
@@ -68,7 +69,7 @@ export function KnownServiceActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label={`Service actions for ${name}`}
+            aria-label={t`Service actions for ${name}`}
             className="mr-1"
             size="icon-sm"
             type="button"
@@ -85,11 +86,11 @@ export function KnownServiceActions({
               setRenaming(true);
             }}
           >
-            <EditIcon aria-hidden="true" /> Rename
+            <EditIcon aria-hidden="true" /> {t`Rename`}
           </DropdownMenuItem>
           {canForget ? (
             <DropdownMenuItem onSelect={() => setForgetting(true)} variant="destructive">
-              <DeleteIcon aria-hidden="true" /> Forget on this device
+              <DeleteIcon aria-hidden="true" /> {t`Forget on this device`}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -99,13 +100,13 @@ export function KnownServiceActions({
         <DialogContent className="sm:max-w-sm">
           <form className="grid gap-4" onSubmit={save}>
             <DialogHeader>
-              <DialogTitle>Rename {name}</DialogTitle>
+              <DialogTitle>{t`Rename ${name}`}</DialogTitle>
               <DialogDescription className="sr-only">
-                The name shown for this service on this device.
+                {t`The name shown for this service on this device.`}
               </DialogDescription>
             </DialogHeader>
             <Field data-invalid={Boolean(error) || undefined}>
-              <FieldLabel htmlFor="known-service-name">Name</FieldLabel>
+              <FieldLabel htmlFor="known-service-name">{t`Name`}</FieldLabel>
               <Input
                 aria-invalid={Boolean(error)}
                 autoComplete="off"
@@ -121,9 +122,9 @@ export function KnownServiceActions({
             </Field>
             <DialogFooter>
               <Button onClick={() => setRenaming(false)} type="button" variant="outline">
-                Cancel
+                {t`Cancel`}
               </Button>
-              <Button type="submit">Save</Button>
+              <Button type="submit">{t`Save`}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -132,15 +133,15 @@ export function KnownServiceActions({
       <AlertDialog onOpenChange={setForgetting} open={forgetting}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Forget {name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Forget ${name}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              It is removed from this device’s list. The service itself keeps running.
+              {t`It is removed from this device’s list. The service itself keeps running.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t`Cancel`}</AlertDialogCancel>
             <AlertDialogAction onClick={onForget} variant="destructive">
-              Forget
+              {t`Forget`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -41,6 +41,15 @@ User-facing rules:
   appear once in More. Do not repeat visible controls in the menu. Menu-based views
   retain selected state, named panels and a clear way back to reading.
 
+## Interface languages
+
+Interface copy is translated. Write it in English inside the Lingui macros
+(`t`, `plural`, `<Trans>`) as [docs/i18n.md](docs/i18n.md) describes, run
+`pnpm --filter @clio/workspace i18n:extract`, and commit the catalogs with the
+change. `node scripts/check_unlocalized_copy.mjs` (in `pnpm lint`) fails on new
+bare copy. Agent output, tool payloads and text sent to the agent stay as they
+are.
+
 ## Adding or changing tools
 
 Read [the tool authoring steps](docs/tool-result-presentation.md#adding-or-changing-a-tool)

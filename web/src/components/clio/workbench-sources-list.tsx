@@ -33,6 +33,7 @@ import { SOURCE_WORDMARK_WIDTH, sourceProviderUsesWordmark } from './source-prov
 import type { WorkbenchListColumnProps } from './workbench-list-column';
 import { GroupLabel } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
+import { t, ph } from '@lingui/core/macro';
 
 /** What the pocket's source dialog opens on: connecting a new source, or one source. */
 type SourceDialog =
@@ -125,20 +126,20 @@ export function SourcesList({
     : undefined;
   let body: ReactNode;
   if (pending && !total)
-    body = <StateView className="p-4" kind="loading" size="panel" title="Loading sources" />;
+    body = <StateView className="p-4" kind="loading" size="panel" title={t`Loading sources`} />;
   else if (needle && !connected.length && !uploads.length)
     body = (
       <StateView
-        action={{ label: 'Clear search', onClick: closeSearch }}
+        action={{ label: t`Clear search`, onClick: closeSearch }}
         className="p-4"
         kind="empty"
         size="panel"
-        title="No sources match"
+        title={t`No sources match`}
       />
     );
   else
     body = (
-      <div aria-label="Workspace sources" className="@container/sources p-1" role="list">
+      <div aria-label={t`Workspace sources`} className="@container/sources p-1" role="list">
         {connected.map((source) => (
           <ConnectedSourceRow
             key={source.id}
@@ -162,7 +163,7 @@ export function SourcesList({
             workspaceId={workspaceId}
           />
         ))}
-        {uploads.length && connected.length ? <GroupLabel>Uploads</GroupLabel> : null}
+        {uploads.length && connected.length ? <GroupLabel>{t`Uploads`}</GroupLabel> : null}
         {uploads.map((resource) => (
           <UploadRow
             key={resource.id}
@@ -174,14 +175,14 @@ export function SourcesList({
         ))}
         {!total && !sources.error && !resourcesError ? (
           <p className="px-2 pt-2 pb-1 text-meta text-muted-foreground" role="listitem">
-            No sources in this workspace yet.
+            {t`No sources in this workspace yet.`}
           </p>
         ) : null}
         {sources.error || resourcesError ? (
           // The spec's status line (`.c3s`): what failed and Retry, no box.
           <div role="listitem">
             <StateView
-              action={{ label: 'Retry', onClick: refresh }}
+              action={{ label: t`Retry`, onClick: refresh }}
               kind="error"
               size="row"
               title={
@@ -195,7 +196,7 @@ export function SourcesList({
                       : undefined
                   }
                 >
-                  {sources.error ? "Sources couldn't be listed" : "Uploads couldn't be listed"}
+                  {sources.error ? t`Sources couldn't be listed` : t`Uploads couldn't be listed`}
                 </span>
               }
             />
@@ -204,14 +205,14 @@ export function SourcesList({
         {needle || (sources.error && !connected.length) ? null : (
           <div role="listitem">
             <ListRow
-              aria-label="Connect a data source"
+              aria-label={t`Connect a data source`}
               className="h-[30px] cursor-pointer text-menu text-accent-foreground [&_[data-slot=list-row-icon]]:text-accent-foreground"
               icon={<AddIcon />}
               onClick={() => openDialog({ kind: 'connect' })}
               onKeyDown={activateOnKey(() => openDialog({ kind: 'connect' }))}
               role="button"
               tabIndex={0}
-              title="Connect a data source"
+              title={t`Connect a data source`}
             />
           </div>
         )}
@@ -226,7 +227,7 @@ export function SourcesList({
             <IconButton
               aria-pressed={searching}
               icon={<SearchIcon />}
-              label={searching ? 'Close search' : 'Search sources'}
+              label={searching ? t`Close search` : t`Search sources`}
               onClick={() => (searching ? closeSearch() : setSearching(true))}
               size="sm"
               tooltipSide="bottom"
@@ -234,7 +235,7 @@ export function SourcesList({
           ) : null}
           <IconButton
             icon={<AddIcon />}
-            label="Connect a data source"
+            label={t`Connect a data source`}
             onClick={() => openDialog({ kind: 'connect' })}
             size="sm"
             tooltipSide="bottom"
@@ -244,7 +245,7 @@ export function SourcesList({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search sources"
+            aria-label={t`Search sources`}
             autoFocus
             className="h-7 text-xs"
             data-escape-owner=""
@@ -256,7 +257,7 @@ export function SourcesList({
                 closeSearch();
               }
             }}
-            placeholder="Search sources"
+            placeholder={t`Search sources`}
             value={query}
           />
         </div>
@@ -314,11 +315,16 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
             onKeyDown={stopRowActivation}
           >
             {status.signIn ? (
-              <IconButton icon={<RetryIcon />} label="Sign in again" onClick={onOpen} size="sm" />
+              <IconButton
+                icon={<RetryIcon />}
+                label={t`Sign in again`}
+                onClick={onOpen}
+                size="sm"
+              />
             ) : source.pending_edits ? (
               <IconButton
                 icon={<FolderUpIcon />}
-                label="Review and publish"
+                label={t`Review and publish`}
                 onClick={onOpen}
                 size="sm"
               />
@@ -341,7 +347,7 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
           </span>
         }
         actionsWidth={SOURCE_ACTIONS_WIDTH}
-        aria-label={`Open ${source.label}`}
+        aria-label={t`Open ${ph({ label: source.label })}`}
         // A source that needs sign-in keeps its action shown, as the spec pins it.
         className={cn(
           'cursor-pointer',
@@ -423,8 +429,8 @@ function sentenceCase(value: string) {
  */
 function uploadSublineParts(resource: WorkspaceResource): string[] {
   const folder = hostFolderOf(resource);
-  if (!folder) return ['Upload', formatResourceSize(resource.received_size)];
-  const how = hostFolderInPlace(folder) ? 'Folder, in place' : 'Full copy';
+  if (!folder) return [t`Upload`, formatResourceSize(resource.received_size)];
+  const how = hostFolderInPlace(folder) ? t`Folder, in place` : t`Full copy`;
   const size = hostFolderSize(folder);
   return size ? [how, size] : [how];
 }
@@ -450,10 +456,10 @@ function UploadRow({
           tone: 'running' as const,
           label: resource.declared_size
             ? `${Math.round((resource.received_size / resource.declared_size) * 100)}%`
-            : 'Uploading',
+            : t`Uploading`,
         }
       : resource.state === 'ready'
-        ? { tone: 'success' as const, label: 'Ready' }
+        ? { tone: 'success' as const, label: t`Ready` }
         : { tone: 'idle' as const, label: sentenceCase(resource.state) };
   return (
     <div role="listitem" title={`${name}, ${parts.join(', ')}`}>
@@ -461,12 +467,12 @@ function UploadRow({
         actions={null}
         actionsWidth={SOURCE_ACTIONS_WIDTH}
         aria-current={selected || undefined}
-        aria-label={`Open ${name}`}
+        aria-label={t`Open ${name}`}
         className="cursor-pointer"
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
         description={
           <SublineParts
-            narrow={[folder && hostFolderInPlace(folder) ? 'In place' : undefined]}
+            narrow={[folder && hostFolderInPlace(folder) ? t`In place` : undefined]}
             parts={parts}
           />
         }

@@ -8,6 +8,18 @@ import {
   useMapThemeRepaint,
 } from './map-theme-paint';
 import { useOfflineArchive } from '@/providers/connection-provider';
+import {
+  claimMap,
+  type MapDebugSurface,
+  GEOMETRY_HANDOVER_MS,
+  GEOMETRY_SOURCE_ID,
+  geometryKey,
+  geometryKeys,
+  pendingGeometryTeardowns,
+  pointsLayerOwners,
+  removeGeometryLayers,
+} from './scientific-map-pool';
+import { MapInstanceReporter } from './map-instance-reporter';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
 import * as maplibre from 'maplibre-gl';
@@ -18,7 +30,6 @@ import Map, {
   Marker,
   NavigationControl,
   Popup,
-  useMap,
   type MapLayerMouseEvent,
   type MapRef,
 } from 'react-map-gl/maplibre';
@@ -32,28 +43,15 @@ import {
   uncategorizedColor,
 } from './map-category-palette';
 import { nearestProjectedGeometryId } from './map-points';
-import { useMapSelectionPointerHandlers } from './map-selection-pointer';
+import { dragIsZone, useMapSelectionPointerHandlers, type DragBox } from './map-selection-pointer';
+import { t, ph } from '@lingui/core/macro';
+import {
+  pointsToGeoJson,
+  type PointsGeoJson,
+  type ScientificMapPoint,
+} from './scientific-map-points';
 
-export interface ScientificMapPoint {
-  id: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-  detail?: string;
-  category?: string;
-  /**
-   * The referenced dataset's `selectionField` column value for this point,
-   * when `clio.map.v1` names one — the value a bound selection reads and
-   * writes, independent of `id`/`label`/`category`. Unset for inline points
-   * and for a dataUri map with no `selectionField`.
-   */
-  selectionValue?: string | number;
-  value?: number;
-  /** Index of this observation in a queried table, used to form ordered tracks. */
-  rowIndex?: number;
-  /** Renderer-derived track identity. A click can select its visible observations together. */
-  track?: string;
-}
+export type { ScientificMapPoint } from './scientific-map-points';
 
 interface ScientificMapViewProps {
   points: readonly ScientificMapPoint[];
@@ -102,114 +100,11 @@ interface ScientificMapViewProps {
  */
 const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
-const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
-/** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
-const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
-/** Which geometry a (possibly pooled) map instance currently holds. */
-const geometryKeys = new WeakMap<MapLibreMap, string>();
-/** Removes geometry a released view left on its pooled map for a successor. */
-const pendingGeometryTeardowns = new WeakMap<MapLibreMap, () => void>();
-/** How long a released map keeps its geometry for a view that shows the same data. */
-const GEOMETRY_HANDOVER_MS = 1_000;
-
-/** The features and the layer styling they were drawn with; a handover keeps only an exact match. */
-function geometryKey(geometry: FeatureCollection, denseTrajectories: boolean): string {
-  return `${denseTrajectories ? 'dense' : 'sparse'}:${geometry.features.length}:${geometry.features.map((feature) => String(feature.id)).join(',')}`;
-}
-
-function removeGeometryLayers(map: MapLibreMap) {
-  geometryKeys.delete(map);
-  try {
-    for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
-    if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
-  } catch {
-    /* Pooled map style was already removed. */
-  }
-}
-
-/**
- * Claim a pooled map for a view. Geometry a previous view left behind stays
- * only when it is the same data, so the next view draws it on its first frame
- * instead of parsing it again.
- */
-function claimMap(map: MapLibreMap, owner: symbol, keepGeometryKey?: string) {
-  pointsLayerOwners.set(map, owner);
-  const teardown = pendingGeometryTeardowns.get(map);
-  if (!teardown) return;
-  pendingGeometryTeardowns.delete(map);
-  if (keepGeometryKey === undefined || geometryKeys.get(map) !== keepGeometryKey) teardown();
-}
-
-interface PointFeatureProperties {
-  id: string;
-  highlighted: boolean;
-  color: string;
-}
-
-function pointsToGeoJson(
-  points: readonly ScientificMapPoint[],
-  highlightedIds: ReadonlySet<string>,
-  categoryColors: ReadonlyMap<string, string>,
-  valueExtent?: [number, number],
-) {
-  return {
-    type: 'FeatureCollection' as const,
-    features: points.map((point) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [point.longitude, point.latitude] },
-      properties: {
-        id: point.id,
-        highlighted: highlightedIds.has(point.id),
-        color: mapPointColor(point, categoryColors, valueExtent),
-      } satisfies PointFeatureProperties,
-    })),
-  };
-}
-
-type PointsGeoJson = ReturnType<typeof pointsToGeoJson>;
-
-/**
- * Read-only mounted map handle for capture and e2e inspection. An e2e assertion needs to see the map's ACTUAL declared
- * layer/source state, which no DOM query can ever observe — a "500 labeled
- * locations" list item proves the data resolved into React props, never
- * that the map component turned it into a real maplibre layer. Never read
- * by general app code; the region capture uses it to request a fresh frame. See `a2ui-data-everywhere.spec.ts`'s `mapPointsLayerData`
- * helper (and its doc comment, which also covers why a live WebGL-paint
- * assertion is not reliable in that harness).
- */
-export interface MapDebugSurface extends HTMLDivElement {
-  __clioMap?: MapLibreMap;
-  __clioMapFailure?: string;
-}
-
-/** Container-relative pixel coordinates of a rubber-band drag in progress. */
-interface DragBox {
-  startX: number;
-  startY: number;
-  x: number;
-  y: number;
-}
-
-/** Pixels a shift+drag must move before it counts as a zone (not a shift+click). */
-const ZONE_DRAG_THRESHOLD_PX = 4;
+export type { MapDebugSurface } from './scientific-map-pool';
 
 /** How long the loading placeholder may cover a map that never settles. */
 const FIRST_DRAW_TIMEOUT_MS = 5_000;
 const LOADING_PLACEHOLDER_DELAY_MS = 150;
-
-/** Get the map instance from the provider, including maps returned from the reuse pool. */
-function MapInstanceReporter({ onMapInstance }: { onMapInstance: (map: MapLibreMap) => void }) {
-  const mapRef = useMap().current;
-  useEffect(() => {
-    const map = mapRef?.getMap();
-    if (!map) return;
-    // `onLoad` only fires for a newly created map. A pooled map may already be
-    // loaded when the new React view attaches, so report it from the provider.
-    map.boxZoom.disable();
-    onMapInstance(map);
-  }, [mapRef, onMapInstance]);
-  return null;
-}
 
 export function ClioScientificMapView({
   boxSelectMode = false,
@@ -430,7 +325,11 @@ export function ClioScientificMapView({
           type: 'fill',
           source: GEOMETRY_SOURCE_ID,
           filter: ['==', ['geometry-type'], 'Polygon'],
-          paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': markerOutlineColor() },
+          paint: {
+            'fill-color': color,
+            'fill-opacity': 0.42,
+            'fill-outline-color': markerOutlineColor(),
+          },
         });
       if (!map.getLayer(GEOMETRY_LAYER_IDS[1]))
         map.addLayer({
@@ -670,9 +569,7 @@ export function ClioScientificMapView({
     const point = containerPoint(event);
     const completed = { ...current, x: point.x, y: point.y };
     const map = mapRef.current?.getMap();
-    const moved =
-      Math.abs(completed.x - completed.startX) > ZONE_DRAG_THRESHOLD_PX ||
-      Math.abs(completed.y - completed.startY) > ZONE_DRAG_THRESHOLD_PX;
+    const moved = dragIsZone(completed);
     if (map && moved) {
       lastBoxDragAt.current = performance.now();
       const corner1 = map.unproject([completed.startX, completed.startY]);
@@ -792,7 +689,7 @@ export function ClioScientificMapView({
         minZoom={1}
         onClick={handleLayerClick}
         onError={(event) => {
-          const detail = event.error?.message || 'The map tiles could not be loaded.';
+          const detail = event.error?.message || t`The map tiles could not be loaded.`;
           setMapError(detail);
           if (rootRef.current) (rootRef.current as MapDebugSurface).__clioMapFailure = detail;
         }}
@@ -814,7 +711,7 @@ export function ClioScientificMapView({
                   longitude={point.longitude}
                 >
                   <button
-                    aria-label={`Select ${point.label}`}
+                    aria-label={t`Select ${ph({ label: point.label })}`}
                     aria-pressed={highlighted}
                     className={cn(
                       'group grid size-8 cursor-pointer place-items-center rounded-full border border-media-foreground/80 text-media-foreground shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -854,12 +751,12 @@ export function ClioScientificMapView({
       {drawn || mapError || !slowDraw ? null : (
         <LoadingFeedback
           className="pointer-events-none absolute inset-0 z-[2] justify-center bg-muted"
-          label="Loading map…"
+          label={t`Loading map…`}
         />
       )}
       {boxSelectMode && onZoneSelect ? (
         <div
-          aria-label="Drag to select map points"
+          aria-label={t`Drag to select map points`}
           className="absolute inset-0 z-[1] cursor-crosshair touch-none"
         />
       ) : null}
@@ -877,7 +774,7 @@ export function ClioScientificMapView({
       ) : null}
       {offlineArchive ? (
         <p className="absolute bottom-1 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
-          Offline map: Natural Earth land outline and saved scientific data
+          {t`Offline map: Natural Earth land outline and saved scientific data`}
         </p>
       ) : null}
       {mapError ? (
@@ -886,8 +783,8 @@ export function ClioScientificMapView({
           role="alert"
         >
           {mapError.startsWith('layers.')
-            ? 'Map data layer unavailable'
-            : 'Map background unavailable'}
+            ? t`Map data layer unavailable`
+            : t`Map background unavailable`}
           : {mapError}
         </p>
       ) : null}

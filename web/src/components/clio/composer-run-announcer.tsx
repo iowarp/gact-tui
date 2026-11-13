@@ -1,18 +1,20 @@
 import type { RunState } from '@clio/core/v3';
 import { useState } from 'react';
 import { clioStatusLabel } from './status';
+import { plural, t } from '@lingui/core/macro';
 
 const RUN_ANNOUNCEMENTS: Partial<Record<RunState, string>> = {
-  running: 'Running',
-  queued: 'Queued, waiting to start',
-  waiting_permission: 'Permission needed',
-  waiting_user: 'Waiting for your answer',
-  completed: 'Finished',
-  failed: 'Run failed',
-  cancelled: 'Stopped',
+  running: t`Running`,
+  queued: t`Queued, waiting to start`,
+  waiting_permission: t`Permission needed`,
+  waiting_user: t`Waiting for your answer`,
+  completed: t`Finished`,
+  failed: t`Run failed`,
+  cancelled: t`Stopped`,
 };
 
-const queuedCount = (count: number) => `${count} queued ${count === 1 ? 'message' : 'messages'}`;
+const queuedCount = (count: number) =>
+  plural(count, { one: '# queued message', other: '# queued messages' });
 
 /**
  * Says what changed, politely: the run starting, waiting, failing or ending,
@@ -38,8 +40,14 @@ export function ComposerRunAnnouncer({
   if (settled !== seen.state || queued !== seen.queued) {
     const parts: string[] = [];
     if (settled !== seen.state) parts.push(RUN_ANNOUNCEMENTS[settled] ?? clioStatusLabel(settled));
-    if (queued > seen.queued) parts.push(`Message queued. ${queuedCount(queued)}`);
-    else if (queued < seen.queued) parts.push(queued ? queuedCount(queued) : 'Queue is empty');
+    if (queued > seen.queued)
+      parts.push(
+        plural(queued, {
+          one: 'Message queued. # queued message',
+          other: 'Message queued. # queued messages',
+        }),
+      );
+    else if (queued < seen.queued) parts.push(queued ? queuedCount(queued) : t`Queue is empty`);
     setSeen({ message: parts.length ? parts.join('. ') : seen.message, queued, state: settled });
   }
   const { message } = seen;

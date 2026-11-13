@@ -1,12 +1,14 @@
 import type { AccountUsage, AccountUsageWindow, FleetAccount, FleetSpend } from '@clio/core/v3';
+import { t, ph } from '@lingui/core/macro';
+import { formatNumber } from './locale-format';
 
 export type UsageMode = 'used' | 'remaining';
 
 const BILLING_LABEL: Record<FleetAccount['billing'], string> = {
-  subscription: 'Subscription',
-  credit: 'Credit',
-  metered: 'Pay per use',
-  free: 'Local or free',
+  subscription: t`Subscription`,
+  credit: t`Credit`,
+  metered: t`Pay per use`,
+  free: t`Local or free`,
 };
 
 /** Accounts in the order the Usage view groups them. */
@@ -26,13 +28,13 @@ export function resetsIn(iso: string, now: number = Date.now()): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return '';
   const minutes = Math.round((at - now) / 60_000);
-  if (minutes <= 0) return 'resets now';
+  if (minutes <= 0) return t`resets now`;
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const rest = minutes % 60;
-  if (days) return `resets in ${days} d ${hours} h`;
-  if (hours) return `resets in ${hours} h ${rest} min`;
-  return `resets in ${rest} min`;
+  if (days) return t`resets in ${days} d ${hours} h`;
+  if (hours) return t`resets in ${hours} h ${rest} min`;
+  return t`resets in ${rest} min`;
 }
 
 /** "observed 12 min ago", for a value that may be old. */
@@ -40,10 +42,11 @@ export function observedAgo(iso: string, now: number = Date.now()): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return '';
   const minutes = Math.max(0, Math.round((now - at) / 60_000));
-  if (minutes < 1) return 'observed just now';
-  if (minutes < 60) return `observed ${minutes} min ago`;
+  if (minutes < 1) return t`observed just now`;
+  if (minutes < 60) return t`observed ${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  return hours < 48 ? `observed ${hours} h ago` : `observed ${Math.round(hours / 24)} d ago`;
+  const days = Math.round(hours / 24);
+  return hours < 48 ? t`observed ${hours} h ago` : t`observed ${days} d ago`;
 }
 
 export function formatTokens(tokens: number): string {
@@ -58,9 +61,9 @@ export function spendDetails(spend: FleetSpend): { tokens: string; cost?: string
     spend.cost_usd >= 0.01
       ? `$${spend.cost_usd.toFixed(2)}`
       : spend.cost_usd > 0
-        ? 'under $0.01'
+        ? t`under $0.01`
         : undefined;
-  return { tokens: `${formatTokens(spend.tokens)} tokens`, cost };
+  return { tokens: t`${ph({ tokens: formatTokens(spend.tokens) })} tokens`, cost };
 }
 
 /** A compact text alternative for nonvisual consumers. */
@@ -93,20 +96,23 @@ export function accountUsageWords(
   const snapshot = account.usage;
   if (!snapshot) {
     return {
-      label: 'No reading',
+      label: t`No reading`,
       tone: 'idle',
       hint:
         account.usage_missing_reason === 'not_supported'
-          ? 'Account limits unavailable for this connection'
-          : 'No account-limit reading available',
+          ? t`Account limits unavailable for this connection`
+          : t`No account-limit reading available`,
     };
   }
-  if (snapshot.state === 'unmetered') return { label: 'No limits', tone: 'idle' };
-  const stale = snapshot.read_failure ? `Last read failed (${snapshot.read_failure})` : undefined;
+  if (snapshot.state === 'unmetered') return { label: t`No limits`, tone: 'idle' };
+  const stale = snapshot.read_failure
+    ? t`Last read failed (${ph({ read_failure: snapshot.read_failure })})`
+    : undefined;
   const window = busiestWindow(snapshot);
   if (window) {
     const used = Math.round(Math.min(100, Math.max(0, window.used_percent)));
-    const label = mode === 'used' ? `${used}% used` : `${100 - used}% left`;
+    const left = 100 - used;
+    const label = mode === 'used' ? t`${used}% used` : t`${left}% left`;
     const hint = [window.name, resetsIn(window.resets_at), stale].filter(Boolean).join(', ');
     return { label, tone: stale || used >= 80 ? 'warning' : 'success', hint };
   }
@@ -115,7 +121,7 @@ export function accountUsageWords(
     const amount = (value: number) =>
       balance.currency === 'USD'
         ? `$${value.toFixed(2)}`
-        : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
+        : `${formatNumber(value, 2)} ${balance.currency}`;
     const used =
       balance.used ??
       (balance.limit !== null && balance.remaining !== null
@@ -125,14 +131,14 @@ export function accountUsageWords(
     const tone = stale || low ? 'warning' : 'success';
     // One measure per mode: "used" under Used, "left" under Remaining.
     if (mode === 'used' && used !== null)
-      return { label: `${amount(used)} used`, tone, hint: stale };
+      return { label: t`${ph({ amount: amount(used) })} used`, tone, hint: stale };
     if (balance.remaining !== null)
       return {
-        label: `${amount(balance.remaining)} left`,
+        label: t`${ph({ amount: amount(balance.remaining) })} left`,
         tone,
-        hint: stale ?? (mode === 'used' ? 'Only the remaining balance is reported' : undefined),
+        hint: stale ?? (mode === 'used' ? t`Only the remaining balance is reported` : undefined),
       };
-    return { label: `${amount(used as number)} used`, tone, hint: stale };
+    return { label: t`${ph({ amount: amount(used as number) })} used`, tone, hint: stale };
   }
-  return { label: 'No windows', tone: 'idle', hint: stale };
+  return { label: t`No windows`, tone: 'idle', hint: stale };
 }

@@ -28,6 +28,7 @@ import { approvalOptionViews } from './approval-option-availability';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
+import { t } from '@lingui/core/macro';
 
 type BehaviorMenu = 'approval' | 'effort' | 'mode';
 
@@ -106,7 +107,7 @@ export function ClioComposerBehaviorControls({
   onReturnFocus,
   reasoningLevels,
   reasoningPending = false,
-  defaultEffortLabel = 'Model default',
+  defaultEffortLabel = t`Model default`,
   unrecognizedEffort,
   spotterAvailability,
   spotterModelControl,
@@ -187,7 +188,7 @@ export function ClioComposerBehaviorControls({
             data-tour="confirmation-policy"
             disabled={disabled}
             icon={<ApprovalIcon />}
-            label={`Confirmation policy: ${approvalLabel}`}
+            label={t`Confirmation policy: ${approvalLabel}`}
             size="toolbar"
             tooltipSide="top"
             type="button"
@@ -200,7 +201,7 @@ export function ClioComposerBehaviorControls({
           onEscapeKeyDown={chose}
           side="top"
         >
-          <DropdownMenuLabel className={MENU_LABEL}>Confirmation policy</DropdownMenuLabel>
+          <DropdownMenuLabel className={MENU_LABEL}>{t`Confirmation policy`}</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
               const option = approvalOptions.find((candidate) => candidate.value === value);
@@ -260,7 +261,7 @@ export function ClioComposerBehaviorControls({
                   }
                 />
               }
-              label={`Reasoning effort: ${effortLabel}`}
+              label={t`Reasoning effort: ${effortLabel}`}
               size="toolbar"
               tooltipSide="top"
               type="button"
@@ -273,11 +274,10 @@ export function ClioComposerBehaviorControls({
             onEscapeKeyDown={chose}
             side="top"
           >
-            <DropdownMenuLabel className={MENU_LABEL}>Reasoning effort</DropdownMenuLabel>
+            <DropdownMenuLabel className={MENU_LABEL}>{t`Reasoning effort`}</DropdownMenuLabel>
             {unknownEffort ? (
               <p className="px-2 pb-1.5 text-xs text-muted-foreground">
-                The service reported “{unknownEffort}”, which this build has no setting for. Choose
-                one to send with this message.
+                {t`The service reported “${unknownEffort}”, which this build has no setting for. Choose one to send with this message.`}
               </p>
             ) : null}
             <DropdownMenuRadioGroup
@@ -313,7 +313,7 @@ export function ClioComposerBehaviorControls({
         <IconButton
           disabled
           icon={<ReasoningBars filled={0} />}
-          label="Reasoning effort"
+          label={t`Reasoning effort`}
           size="toolbar"
           tooltipSide="top"
           type="button"
@@ -349,7 +349,7 @@ export function ClioComposerBehaviorControls({
                 </span>
               </>
             }
-            label={`Mode: ${modeLabel}`}
+            label={t`Mode: ${modeLabel}`}
             shortcut="mode"
             shortcutSide="above-icon"
             size="toolbar"
@@ -365,7 +365,7 @@ export function ClioComposerBehaviorControls({
           onEscapeKeyDown={chose}
           side="top"
         >
-          <DropdownMenuLabel className={MENU_LABEL}>Mode</DropdownMenuLabel>
+          <DropdownMenuLabel className={MENU_LABEL}>{t`Mode`}</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
               const option = SESSION_MODE_OPTIONS.find((candidate) => candidate.value === value);
@@ -399,14 +399,13 @@ export function ClioComposerBehaviorControls({
           }}
         >
           <AlertDialogHeader>
-            <AlertDialogTitle>Bypass protected-action checks?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Bypass protected-action checks?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              The agent may perform supported actions without asking first. Workspace boundaries and
-              unavailable capabilities still apply, but individual changes will not wait for review.
+              {t`The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep asking</AlertDialogCancel>
+            <AlertDialogCancel>{t`Keep asking`}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 chose();
@@ -414,7 +413,7 @@ export function ClioComposerBehaviorControls({
               }}
               variant="destructive"
             >
-              Bypass checks
+              {t`Bypass checks`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -451,7 +450,7 @@ export function ReasoningBars({ filled }: { filled: number }) {
 
 /** Name a value the message contract does not define, rather than replacing it. */
 function unknownLabel(value: string): string {
-  return `Unknown (${value})`;
+  return t`Unknown (${value})`;
 }
 
 function toExecutionMode(

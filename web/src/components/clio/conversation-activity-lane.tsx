@@ -16,6 +16,7 @@ import { transcriptRunSummary } from './transcript-activity-summary';
 import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ActivityRunsFold, useTranscriptDisclosure } from './transcript-disclosure-context';
+import { t, ph, plural } from '@lingui/core/macro';
 
 /** Rows a live step shows before the earlier ones fold behind "Show N earlier". */
 const LANE_LIMIT = 6;
@@ -162,10 +163,7 @@ function ActivityLaneView({
     0,
   );
   const collapses =
-    runsFold &&
-    (!turnLive || afterIds.size > 0) &&
-    headCalls > 0 &&
-    runSettled(head, interactions);
+    runsFold && (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
   // A folded run already counts its rows, so opening it shows every one of them.
   const folded = !all && !collapses && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
@@ -183,7 +181,7 @@ function ActivityLaneView({
       className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
       data-slot="activity-show-all"
     >
-      {`Show ${earlier} earlier`}
+      {t`Show ${earlier} earlier`}
     </Button>
   ) : null;
   const run =
@@ -200,7 +198,7 @@ function ActivityLaneView({
   return (
     <div
       role="group"
-      aria-label={`Activity: ${collapses && run ? run.label : label}`}
+      aria-label={t`Activity: ${ph({ label: collapses && run ? run.label : label })}`}
       aria-busy={live || undefined}
       // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
       // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
@@ -226,10 +224,15 @@ function ActivityLaneView({
           icon={<WrenchIcon aria-hidden="true" />}
           name={run.label}
           outcome={<WaitingForYou />}
-          outcomeTitle="waiting for you"
+          outcomeTitle={t`waiting for you`}
           outcomeTone="muted"
           status={
-            <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+            <StatusIndicator
+              display="column"
+              label={t`Waiting for you`}
+              mark="glyph"
+              tone="running"
+            />
           }
         />
       ) : run ? (
@@ -253,15 +256,17 @@ function ActivityLaneView({
                 {[
                   run.failed ? (
                     <span key="failed" className="text-destructive">
-                      {run.failed} failed
+                      {t`${ph({ failed: run.failed })} failed`}
                     </span>
                   ) : null,
                   run.denied ? (
                     <span key="denied" className="text-warning">
-                      {run.denied} denied
+                      {t`${ph({ denied: run.denied })} denied`}
                     </span>
                   ) : null,
-                  run.interrupted ? <span key="stopped">{run.interrupted} stopped</span> : null,
+                  run.interrupted ? (
+                    <span key="stopped">{t`${ph({ interrupted: run.interrupted })} stopped`}</span>
+                  ) : null,
                 ]
                   .filter(Boolean)
                   .flatMap((part, index) => (index ? [', ', part] : [part]))}
@@ -270,9 +275,9 @@ function ActivityLaneView({
           }
           outcomeTitle={
             [
-              run.failed ? `${run.failed} failed` : '',
-              run.denied ? `${run.denied} denied` : '',
-              run.interrupted ? `${run.interrupted} stopped` : '',
+              run.failed ? plural(run.failed, { other: '# failed' }) : '',
+              run.denied ? plural(run.denied, { other: '# denied' }) : '',
+              run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
             ]
               .filter(Boolean)
               .join(', ') || undefined
@@ -283,12 +288,12 @@ function ActivityLaneView({
               display="column"
               label={
                 run.failed
-                  ? 'Some calls failed'
+                  ? t`Some calls failed`
                   : run.denied
-                    ? 'Some calls were denied'
+                    ? t`Some calls were denied`
                     : run.interrupted
-                      ? 'Stopped'
-                      : 'Done'
+                      ? t`Stopped`
+                      : t`Done`
               }
               mark="glyph"
               tone={
@@ -306,7 +311,10 @@ function ActivityLaneView({
       ) : null}
       {/* One parent in both shapes keeps each row's own state when the run folds. */}
       {collapses && !runOpen ? null : (
-        <ActivityNest flat={!run} label={`Calls: ${(collapses && run?.label) || label}`}>
+        <ActivityNest
+          flat={!run}
+          label={t`Calls: ${ph({ label: (collapses && run?.label) || label })}`}
+        >
           {showAll}
           {shown.filter((item) => !afterIds.has(item.id)).map(children)}
         </ActivityNest>

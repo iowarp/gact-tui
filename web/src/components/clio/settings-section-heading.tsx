@@ -3,6 +3,7 @@ import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { InfoTip } from './info-tip';
 import { SettingsScopeIcon } from './settings-scope-icon';
+import { t } from '@lingui/core/macro';
 
 export interface SettingsSectionHeadingProps {
   title: string;
@@ -48,7 +49,7 @@ export function SettingsSectionHeading({
           {title}
         </Heading>
         {hint ? (
-          <InfoTip className={NARROW_HIDDEN} label={`About ${title}`}>
+          <InfoTip className={NARROW_HIDDEN} label={t`About ${title}`}>
             {hint}
           </InfoTip>
         ) : null}

@@ -3,6 +3,8 @@ import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
+import { formatLocale } from '@/lib/locale-format';
+import { plural, t } from '@lingui/core/macro';
 
 /** How many of a script's calls show before "Show all". */
 const SHOWN = 4;
@@ -22,7 +24,11 @@ function clock(at: string): string {
   const date = new Date(at);
   return Number.isNaN(date.getTime())
     ? ''
-    : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    : date.toLocaleTimeString(formatLocale(), {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
 }
 
 function useNestedCalls(parentId: string): ToolInvocation[] {
@@ -64,16 +70,19 @@ export function NestedToolCalls({
   const running = children.filter((tool) => ['pending', 'running'].includes(tool.state)).length;
   const shown = all ? children : children.slice(0, SHOWN);
   const calls = children.reduce((sum, tool) => sum + (repeatOf(tool)?.count ?? 1), 0);
-  const count = `${calls} tool call${calls === 1 ? '' : 's'} from this script`;
-  const detail = [failed ? `${failed} failed` : '', running ? `${running} running` : '']
+  const count = plural(calls, {
+    one: '# tool call from this script',
+    other: '# tool calls from this script',
+  });
+  const detail = [failed ? t`${failed} failed` : '', running ? t`${running} running` : '']
     .filter(Boolean)
     .join(', ');
   return (
     <ActivityNest
-      label={detail ? `${count} (${detail})` : count}
+      label={detail ? t`${count} (${detail})` : count}
       hidden={all ? 0 : children.length - shown.length}
       onShowAll={() => setAll(true)}
-      showAllLabel={`Show all ${calls}`}
+      showAllLabel={t`Show all ${calls}`}
     >
       {shown.map((tool) => {
         const repeat = repeatOf(tool);
@@ -85,7 +94,12 @@ export function NestedToolCalls({
             {renderCall(tool)}
             {repeat ? (
               <p className="pl-[30px] text-label text-muted-foreground">
-                {`Called ${repeat.count} times${span ? `, ${span}` : ''}`}
+                {span
+                  ? plural(repeat.count, {
+                      one: `Called # time, ${span}`,
+                      other: `Called # times, ${span}`,
+                    })
+                  : plural(repeat.count, { one: 'Called # time', other: 'Called # times' })}
               </p>
             ) : null}
           </div>

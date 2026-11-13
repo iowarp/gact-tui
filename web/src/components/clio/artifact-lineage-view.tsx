@@ -17,6 +17,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { TechnicalDetails } from './technical-details';
+import { t, ph } from '@lingui/core/macro';
 
 // Dagre loads once a lineage graph is actually shown.
 const ArtifactLineageGraph = lazy(() =>
@@ -69,12 +70,12 @@ export function WorkspaceFileLineage({
         onOpenArtifact={onOpenArtifact}
       />
     );
-  if (sessionId && listing.isPending) return <ResourceLoading label="Loading lineage" />;
+  if (sessionId && listing.isPending) return <ResourceLoading label={t`Loading lineage`} />;
   return (
     <ResourceUnavailable
-      detail={`${brand.agentName} records where a file came from when a tool writes or reads it. Nothing in this conversation has yet.`}
+      detail={t`${ph({ agentName: brand.agentName })} records where a file came from when a tool writes or reads it. Nothing in this conversation has yet.`}
       icon={GitBranchIcon}
-      label="No recorded lineage yet"
+      label={t`No recorded lineage yet`}
     />
   );
 }
@@ -141,9 +142,12 @@ export function ArtifactLineageView({
     queryFn: ({ signal }) => repository.artifactDetail(artifact.id, signal),
   });
   return (
-    <section aria-label={`Lineage for ${artifact.name}`} className="h-full min-h-0 min-w-0">
+    <section
+      aria-label={t`Lineage for ${ph({ name: artifact.name })}`}
+      className="h-full min-h-0 min-w-0"
+    >
       {lineage.data ? (
-        <Suspense fallback={<ResourceLoading className="p-3" label="Loading lineage" />}>
+        <Suspense fallback={<ResourceLoading className="p-3" label={t`Loading lineage`} />}>
           <ArtifactLineageGraph
             artifact={artifact}
             lineage={lineage.data}
@@ -159,20 +163,19 @@ export function ArtifactLineageView({
             <EmptyMedia variant="icon">
               <GitBranchIcon aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>Couldn't read its lineage</EmptyTitle>
+            <EmptyTitle>{t`Couldn't read its lineage`}</EmptyTitle>
             <EmptyDescription>
-              The service didn't return where this file came from. The file is unchanged and Render
-              and Source still show it.
+              {t`The service didn't return where this file came from. The file is unchanged and Render and Source still show it.`}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" size="sm" onClick={() => void lineage.refetch()}>
-              Retry
+              {t`Retry`}
             </Button>
             <TechnicalDetails
               className="text-xs text-muted-foreground"
               summaryClassName="rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-              title="Technical details"
+              title={t`Technical details`}
             >
               <code className="mt-2 block break-all rounded-md bg-muted/60 p-2 font-mono text-[0.625rem]">
                 {lineage.error.message}
@@ -181,7 +184,7 @@ export function ArtifactLineageView({
           </EmptyContent>
         </Empty>
       ) : (
-        <ResourceLoading className="p-3" label="Loading lineage" />
+        <ResourceLoading className="p-3" label={t`Loading lineage`} />
       )}
     </section>
   );

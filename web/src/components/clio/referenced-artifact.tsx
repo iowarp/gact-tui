@@ -6,6 +6,7 @@ import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { ClioArtifactCard, type ClioArtifactCardProps } from './artifact-card';
+import { t } from '@lingui/core/macro';
 
 /** Fetch a just-announced reference while the session registry snapshot catches up. */
 export function ReferencedArtifact({
@@ -25,7 +26,7 @@ export function ReferencedArtifact({
   });
   if (detail.isPending) {
     return (
-      <LoadingFeedback label="Loading saved file…" variant="skeleton">
+      <LoadingFeedback label={t`Loading saved file…`} variant="skeleton">
         <Skeleton className="h-16 w-full rounded-lg" />
       </LoadingFeedback>
     );
@@ -43,8 +44,8 @@ export function ReferencedArtifact({
   }
   return (
     <LoadingFailure
-      title="Artifact unavailable"
-      detail={detail.error?.message ?? 'The saved file has no readable version.'}
+      title={t`Artifact unavailable`}
+      detail={detail.error?.message ?? t`The saved file has no readable version.`}
       onRetry={() => void detail.refetch()}
     />
   );

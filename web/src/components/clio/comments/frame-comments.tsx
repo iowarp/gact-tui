@@ -5,6 +5,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { IconButton } from '../primitives/icon-button';
 import { useCommentSession } from './comment-session';
 import { FrameCommentsSlot } from './frame-comments-slot';
+import { t } from '@lingui/core/macro';
 
 /** Puts its children in the frame's Comments place, claiming it while mounted. */
 export function FrameCommentsPortal({ children }: { children: ReactNode }) {
@@ -16,7 +17,9 @@ export function FrameCommentsPortal({ children }: { children: ReactNode }) {
 
 /** The frame's Comments icon, disabled with its reason (no conversation, no format support). */
 export function FrameCommentsUnavailable({ reason }: { reason: string }) {
-  return <FrameCommentsIcon label="Comments" disabledReason={reason} onClick={() => undefined} />;
+  return (
+    <FrameCommentsIcon label={t`Comments`} disabledReason={reason} onClick={() => undefined} />
+  );
 }
 
 /**
@@ -24,7 +27,7 @@ export function FrameCommentsUnavailable({ reason }: { reason: string }) {
  * comment controls are shown. Ctrl Shift K does the same in this frame.
  */
 export function FrameCommentsIcon({
-  label = 'Comments',
+  label = t`Comments`,
   count,
   pressed,
   disabledReason,

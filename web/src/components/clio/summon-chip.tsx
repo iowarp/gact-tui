@@ -1,12 +1,15 @@
 import type { SummonBlock } from '@/lib/sent-inline-references';
 import { cn } from '@/lib/utils';
 import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
-const KIND_WORD: Record<string, string> = {
-  server: 'tools',
-  workflow: 'workflow',
-  flow: 'flow',
-};
+/** "Summoned workflow survey": the chip's accessible name for each kind of target. */
+function summonedLabel(kind: string, target: string): string {
+  if (kind === 'server') return t`Summoned tools ${target}`;
+  if (kind === 'workflow') return t`Summoned workflow ${target}`;
+  if (kind === 'flow') return t`Summoned flow ${target}`;
+  return t`Summoned agent ${target}`;
+}
 
 /**
  * A subagent, workflow, flow or MCP server the person named with `@`, shown where
@@ -14,10 +17,9 @@ const KIND_WORD: Record<string, string> = {
  * link to open.
  */
 export function SummonChip({ block, className }: { block: SummonBlock; className?: string }) {
-  const kind = KIND_WORD[block.target_kind] ?? 'agent';
   return (
     <span
-      aria-label={`Summoned ${kind} ${block.target}`}
+      aria-label={summonedLabel(block.target_kind, block.target)}
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-1.5 text-sm font-medium text-primary',
         className,

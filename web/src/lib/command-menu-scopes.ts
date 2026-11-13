@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /** The result types of the Ctrl K palette, in tab order. */
 export type CommandMenuScope =
   | 'all'
@@ -9,13 +10,13 @@ export type CommandMenuScope =
   | 'more';
 
 export const COMMAND_MENU_SCOPES: readonly { value: CommandMenuScope; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'conversations', label: 'Conversations' },
-  { value: 'files', label: 'Files' },
-  { value: 'artifacts', label: 'Artifacts' },
-  { value: 'actions', label: 'Actions' },
-  { value: 'settings', label: 'Settings' },
-  { value: 'more', label: 'More' },
+  { value: 'all', label: t`All` },
+  { value: 'conversations', label: t`Conversations` },
+  { value: 'files', label: t`Files` },
+  { value: 'artifacts', label: t`Artifacts` },
+  { value: 'actions', label: t`Actions` },
+  { value: 'settings', label: t`Settings` },
+  { value: 'more', label: t`More` },
 ];
 
 /** A first character that opens one type: `> dark`, `#survey`, `@sites`. */

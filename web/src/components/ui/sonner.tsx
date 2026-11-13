@@ -3,6 +3,7 @@ import { useTheme } from '@/providers/appearance-provider';
 import { Toaster as Sonner, toast, type ToasterProps } from 'sonner';
 import { CheckIcon, CircleAlertIcon, Loader2Icon, TriangleAlertIcon } from 'lucide-react';
 import { CloseIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { t } from '@lingui/core/macro';
 
 /**
  * Toasts sit at the top, below the 40px page header: at the bottom they
@@ -57,6 +58,8 @@ const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
     <Sonner
       theme={resolvedTheme.dark ? 'dark' : 'light'}
       className="toaster group"
+      // The library's default names the region in English ("Notifications alt+T").
+      containerAriaLabel={t`Notifications`}
       position="top-center"
       offset={TOAST_OFFSET}
       mobileOffset={TOAST_MOBILE_OFFSET}

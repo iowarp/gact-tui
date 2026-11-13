@@ -21,6 +21,7 @@ import {
   useWorkspaceCanvasControl,
   useWorkspaceCanvasVisibility,
 } from './workspace-canvas-visibility-context';
+import { t } from '@lingui/core/macro';
 
 const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
 
@@ -75,13 +76,13 @@ export function useWorkbenchStrip({
       pressed: listIsPressed(id),
       count,
     });
-  listItem('files', 'Files', <FolderIcon />);
-  listItem('sources', 'Sources', <PaperclipIcon />);
-  listItem('artifacts', 'Artifacts', <BoxIcon />);
-  listItem('activity', 'Activity', <ActivityIcon />, runningSubagents);
+  listItem('files', t`Files`, <FolderIcon />);
+  listItem('sources', t`Sources`, <PaperclipIcon />);
+  listItem('artifacts', t`Artifacts`, <BoxIcon />);
+  listItem('activity', t`Activity`, <ActivityIcon />, runningSubagents);
   stripItems.push({
     id: 'agent',
-    label: 'Agent',
+    label: t`Agent`,
     icon: <BotIcon />,
     position: 5,
     pressed: activeTabId === agentTab.id,
@@ -89,13 +90,13 @@ export function useWorkbenchStrip({
   if (inStudy === true)
     stripItems.push({
       id: 'science-log',
-      label: 'Science log',
+      label: t`Science log`,
       icon: <FlaskConicalIcon />,
       pressed: activeTabId === scienceLogTab.id,
     });
   // Always on the strip: where terminals can't run, its list says so.
-  listItem('terminal', 'Terminal', <TerminalSquareIcon />);
-  listItem('browser', 'Browser', <GlobeIcon />);
+  listItem('terminal', t`Terminal`, <TerminalSquareIcon />);
+  listItem('browser', t`Browser`, <GlobeIcon />);
 
   /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */
   const toggleTab = (tab: WorkbenchTab) => {

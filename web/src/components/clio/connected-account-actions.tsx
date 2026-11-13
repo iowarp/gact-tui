@@ -18,6 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import { t, ph } from '@lingui/core/macro';
 
 /** Account sign-out applies to every workspace on this CLIO, not just one folder. */
 export function ConnectedAccountActions({ provider }: { provider: SourceProvider }) {
@@ -38,24 +39,23 @@ export function ConnectedAccountActions({ provider }: { provider: SourceProvider
       {provider.account_url && (
         <IconButton
           size="sm"
-          label="Repository access"
+          label={t`Repository access`}
           icon={<ExternalLinkIcon />}
           onClick={() => provider.account_url && openExternalUrlOrToast(provider.account_url)}
         />
       )}
       <IconButton
         size="sm"
-        label={`Sign out of ${provider.name}`}
+        label={t`Sign out of ${ph({ name: provider.name })}`}
         icon={<LogOutIcon />}
         onClick={() => setConfirm(true)}
       />
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sign out of {provider.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Sign out of ${ph({ name: provider.name })}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              This signs you out across all workspaces on this {vocab.agent}. Downloaded files stay
-              available. Linked folders will need you to sign in again.
+              {t`This signs you out across all workspaces on this ${ph({ agent: vocab.agent })}. Downloaded files stay available. Linked folders will need you to sign in again.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {signOut.error && (
@@ -64,9 +64,9 @@ export function ConnectedAccountActions({ provider }: { provider: SourceProvider
             </p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={signOut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={signOut.isPending}>{t`Cancel`}</AlertDialogCancel>
             <Button disabled={signOut.isPending} onClick={() => signOut.mutate()}>
-              {signOut.isPending ? 'Signing out…' : 'Sign out'}
+              {signOut.isPending ? t`Signing out…` : t`Sign out`}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

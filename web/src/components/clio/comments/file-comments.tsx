@@ -14,6 +14,7 @@ import { CommentThreadList } from './comment-thread-list';
 import { CommentThreadsPopover } from './comment-threads-popover';
 import { FrameCommentsIcon, FrameCommentsPortal, FrameCommentsUnavailable } from './frame-comments';
 import { useInFrameComments } from './frame-comments-slot';
+import { t } from '@lingui/core/macro';
 
 type RegionAnchor = (rect: Rect, host: HTMLElement) => DocumentAnchor | undefined;
 
@@ -84,7 +85,7 @@ function Commentable({
             trigger={
               <Button className="mt-2 w-full" size="sm" variant="ghost">
                 <MessagesSquareIcon aria-hidden="true" />
-                Earlier threads
+                {t`Earlier threads`}
               </Button>
             }
           >
@@ -102,7 +103,7 @@ function Commentable({
             <CommentThreadsPopover
               align="start"
               trigger={
-                <Button aria-label="Comment threads" size="sm" variant="ghost">
+                <Button aria-label={t`Comment threads`} size="sm" variant="ghost">
                   <MessagesSquareIcon aria-hidden="true" />
                 </Button>
               }
@@ -194,7 +195,7 @@ export function WorkspaceFileComments({
     return inFrame ? (
       <>
         <FrameCommentsPortal>
-          <FrameCommentsUnavailable reason="Open a conversation to comment" />
+          <FrameCommentsUnavailable reason={t`Open a conversation to comment`} />
         </FrameCommentsPortal>
         {children}
       </>
@@ -227,7 +228,7 @@ export function WorkspaceFileComments({
             variant="ghost"
           >
             <MessageSquarePlusIcon aria-hidden="true" />
-            Comment
+            {t`Comment`}
           </Button>
         </div>
         {children}
@@ -317,13 +318,13 @@ export function WorkspaceDocumentView({
           <FrameCommentsPortal>
             {sessionId ? (
               <FrameCommentsIcon
-                label="Preview and comment"
+                label={t`Preview and comment`}
                 busy={register.isPending || target.isPending}
                 disabledReason={register.error?.message}
                 onClick={() => register.mutate()}
               />
             ) : (
-              <FrameCommentsUnavailable reason="Open a conversation to comment" />
+              <FrameCommentsUnavailable reason={t`Open a conversation to comment`} />
             )}
           </FrameCommentsPortal>
           {fallback}
@@ -341,7 +342,7 @@ export function WorkspaceDocumentView({
               variant="secondary"
             >
               <MessageSquarePlusIcon aria-hidden="true" />
-              Preview and comment
+              {t`Preview and comment`}
             </Button>
           </div>
         ) : null}

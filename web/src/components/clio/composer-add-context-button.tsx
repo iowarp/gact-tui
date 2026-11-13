@@ -10,6 +10,7 @@ import {
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
+import { t } from '@lingui/core/macro';
 
 const MENU_ITEM = 'min-h-[30px] py-0 text-menu';
 
@@ -70,7 +71,7 @@ export function ComposerAddContextButtons({
       data-tour="add-context"
       disabled={disabled || plusPending}
       icon={<AddIcon />}
-      label={attach || plusPending ? 'Attach files' : 'Add connected data'}
+      label={attach || plusPending ? t`Attach files` : t`Add connected data`}
       onClick={single}
       size="toolbar"
       tooltipSide="top"
@@ -97,10 +98,10 @@ export function ComposerAddContextButtons({
             side="top"
           >
             <DropdownMenuItem className={MENU_ITEM} onSelect={attach}>
-              <MenuRow icon={<PaperclipIcon />} label="Upload files…" />
+              <MenuRow icon={<PaperclipIcon />} label={t`Upload files…`} />
             </DropdownMenuItem>
             <DropdownMenuItem className={MENU_ITEM} onSelect={onOpenSources}>
-              <MenuRow icon={<DatabaseIcon />} label="From connected data…" />
+              <MenuRow icon={<DatabaseIcon />} label={t`From connected data…`} />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -111,7 +112,7 @@ export function ComposerAddContextButtons({
         <IconButton
           disabled={disabled || pending}
           icon={<AtSignIcon />}
-          label="Add a reference"
+          label={t`Add a reference`}
           onClick={onOpenReferences}
           shortcut="mention"
           shortcutSide="above-icon"

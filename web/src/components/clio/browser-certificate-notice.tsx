@@ -5,18 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { InfoIcon } from '@/lib/icon-vocabulary';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 /** The certificate's facts, for the hover card and the screen reader. */
 function certificateFacts(certificate: BrowserCertificate): string[] {
   return [
-    `Site: ${certificate.host}`,
-    certificate.subject ? `Issued to: ${certificate.subject}` : '',
-    certificate.issuer ? `Issued by: ${certificate.issuer}` : '',
+    t`Site: ${ph({ host: certificate.host })}`,
+    certificate.subject ? t`Issued to: ${ph({ subject: certificate.subject })}` : '',
+    certificate.issuer ? t`Issued by: ${ph({ issuer: certificate.issuer })}` : '',
     certificate.valid_to
-      ? `Valid until: ${new Date(certificate.valid_to).toLocaleDateString()}`
+      ? t`Valid until: ${ph({ date: new Date(certificate.valid_to).toLocaleDateString(formatLocale()) })}`
       : '',
-    certificate.fingerprint ? `Key fingerprint (SHA-256): ${certificate.fingerprint}` : '',
-    certificate.error ? `Browser error: ${certificate.error}` : '',
+    certificate.fingerprint
+      ? t`Key fingerprint (SHA-256): ${ph({ fingerprint: certificate.fingerprint })}`
+      : '',
+    certificate.error ? t`Browser error: ${ph({ error: certificate.error })}` : '',
   ].filter(Boolean);
 }
 
@@ -39,6 +44,7 @@ export function BrowserCertificateNotice({
   const [trusting, setTrusting] = useState<'session' | 'workspace' | null>(null);
   const [failed, setFailed] = useState('');
   const facts = certificateFacts(certificate);
+  const host = certificate.host;
 
   const trust = async (scope: 'session' | 'workspace') => {
     setTrusting(scope);
@@ -46,7 +52,7 @@ export function BrowserCertificateNotice({
     try {
       await repository.trustBrowserCertificate(sessionId, pageId, scope);
     } catch (error) {
-      setFailed(error instanceof Error ? error.message : 'The certificate could not be trusted.');
+      setFailed(error instanceof Error ? error.message : t`The certificate could not be trusted.`);
       setTrusting(null);
     }
   };
@@ -59,8 +65,10 @@ export function BrowserCertificateNotice({
     >
       <ShieldAlertIcon aria-hidden className="size-4 shrink-0" />
       <span className="min-w-0 flex-1">
-        <strong className="font-medium">{certificate.host}</strong> presented a certificate this
-        browser does not trust. Trust it only if you know this device.
+        <Trans>
+          <strong className="font-medium">{host}</strong> presented a certificate this browser does
+          not trust. Trust it only if you know this device.
+        </Trans>
       </span>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -68,7 +76,7 @@ export function BrowserCertificateNotice({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={`Certificate details: ${facts.join('. ')}`}
+            aria-label={t`Certificate details: ${ph({ facts: facts.join('. ') })}`}
           >
             <InfoIcon aria-hidden className="size-4" />
           </Button>
@@ -83,21 +91,21 @@ export function BrowserCertificateNotice({
       </Tooltip>
       {certificate.grantable ? (
         trusting ? (
-          <span className="text-xs text-muted-foreground">Trusted. Restarting the browser…</span>
+          <span className="text-xs text-muted-foreground">{t`Trusted. Restarting the browser…`}</span>
         ) : (
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Trust this certificate for</span>
+            <span className="text-xs text-muted-foreground">{t`Trust this certificate for`}</span>
             <Button size="sm" variant="outline" onClick={() => void trust('session')}>
-              This conversation
+              {t`This conversation`}
             </Button>
             <Button size="sm" variant="outline" onClick={() => void trust('workspace')}>
-              This workspace
+              {t`This workspace`}
             </Button>
           </span>
         )
       ) : (
         <span className="text-xs text-muted-foreground">
-          This page is in your own browser: proceed there if you trust it.
+          {t`This page is in your own browser: proceed there if you trust it.`}
         </span>
       )}
       {failed ? (

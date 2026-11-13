@@ -27,6 +27,7 @@ import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
 import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
+import { plural, t } from '@lingui/core/macro';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -231,7 +232,7 @@ export function ClioPendingInteractions({
   return (
     <section
       ref={dockRef}
-      aria-label="Agent needs your attention"
+      aria-label={t`Agent needs your attention`}
       // A separate card docked 8px above the composer, at the composer's width.
       className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
       data-slot="pending-interactions"
@@ -253,7 +254,10 @@ export function ClioPendingInteractions({
         type="scroll"
         viewportProps={{
           ref: viewportRef,
-          'aria-label': `${pending.length} pending responses`,
+          'aria-label': plural(pending.length, {
+            one: '# pending response',
+            other: '# pending responses',
+          }),
           className: 'pending-interactions-viewport overscroll-contain',
           onKeyDown: handleScrollableRegionKeys,
           // The sticky card header draws its hairline only while content is under it.
@@ -271,8 +275,7 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface &&
-                '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
@@ -384,10 +387,10 @@ export function ClioPendingInteractions({
 }
 
 const KIND_NAMES: Record<string, string> = {
-  permission: 'Permission',
-  question: 'Question',
-  a2ui: 'Question',
-  mcp_task_input: 'Input',
+  permission: t`Permission`,
+  question: t`Question`,
+  a2ui: t`Question`,
+  mcp_task_input: t`Input`,
 };
 
 /** The dock as the workspace mounts it: it renders again only when its props change. */

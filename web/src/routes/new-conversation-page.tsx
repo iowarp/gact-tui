@@ -61,6 +61,8 @@ import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { ph, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** An entry composer has no session identity, persistence, or session stream. */
 export function NewConversationPage() {
@@ -204,11 +206,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         workspaceId,
       });
       if (outcome.status === 'unresolved')
-        toast.error('Could not open reference', { description: outcome.reason });
+        toast.error(t`Could not open reference`, { description: outcome.reason });
     } catch (error) {
-      toast.error('Could not open reference', {
+      toast.error(t`Could not open reference`, {
         description:
-          error instanceof Error ? error.message : 'Refresh the reference and try again.',
+          error instanceof Error ? error.message : t`Refresh the reference and try again.`,
       });
     }
   };
@@ -265,17 +267,17 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         navigation={navigation}
         contextBar={
           <div className="min-w-0 truncate text-ui font-medium">
-            {`${capitalize(vocab.workspace)} unavailable`}
+            {t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`}
           </div>
         }
         statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
-        workbench={<div aria-label="Workspace canvas" className="h-full bg-background" />}
+        workbench={<div aria-label={t`Workspace canvas`} className="h-full bg-background" />}
       >
         <WorkspaceUnavailable
           back={
             workspaceId === DEFAULT_WORKSPACE_ID
               ? undefined
-              : { label: 'Back to Conversations', to: newConversationRoute(DEFAULT_WORKSPACE_ID) }
+              : { label: t`Back to Conversations`, to: newConversationRoute(DEFAULT_WORKSPACE_ID) }
           }
           error={error ?? undefined}
           onRetry={() => {
@@ -331,7 +333,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           diffs={[]}
           sessionView={
             <p className="p-6 text-sm text-muted-foreground">
-              Session activity appears after you send your first message.
+              {t`Session activity appears after you send your first message.`}
             </p>
           }
           agentView={
@@ -345,8 +347,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               />
             ) : (
               <p className="p-6 text-sm text-muted-foreground">
-                The default agent has nothing to change here. Choose an agent next to “with” to
-                customize its plugins, prompt and tools.
+                {t`The default agent has nothing to change here. Choose an agent next to “with” to customize its plugins, prompt and tools.`}
               </p>
             )
           }
@@ -375,35 +376,37 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             !serviceUnreachable(warmup.error) &&
             connection === 'live' &&
             !warmup.isFetching
-              ? `Tools could not be prepared in advance: ${warmup.error.message.replace(/\.+$/, '')}. You can still send a message.`
+              ? t`Tools could not be prepared in advance: ${ph({ reason: warmup.error.message.replace(/\.+$/, '') })}. You can still send a message.`
               : undefined
           }
         />
         <NewConversationDraft
           setup={
             <>
-              <span>In</span>
-              <DraftWorkspaceChip
-                workspaces={data.workspaces.data ?? []}
-                workspaceId={workspaceId}
-                disabled={send.isPending}
-                onSelect={(id) => void navigate(newConversationRoute(id), { replace: true })}
-              />
-              <span>with</span>
-              <DraftAgentChip
-                agents={data.installedAgents.data}
-                agentsError={data.installedAgents.error?.message}
-                pending={data.installedAgents.isPending && agentsSupported !== false}
-                agentRef={draftRef}
-                defaultRef={defaultRef}
-                changes={draftChanges}
-                disabled={send.isPending}
-                onSelect={(ref) => {
-                  setAgentChoice(ref);
-                  setDraftDelta(emptyAgentDelta);
-                }}
-                onManageAgents={openAgent}
-              />
+              <Trans>
+                <span>In</span>{' '}
+                <DraftWorkspaceChip
+                  workspaces={data.workspaces.data ?? []}
+                  workspaceId={workspaceId}
+                  disabled={send.isPending}
+                  onSelect={(id) => void navigate(newConversationRoute(id), { replace: true })}
+                />{' '}
+                <span>with</span>{' '}
+                <DraftAgentChip
+                  agents={data.installedAgents.data}
+                  agentsError={data.installedAgents.error?.message}
+                  pending={data.installedAgents.isPending && agentsSupported !== false}
+                  agentRef={draftRef}
+                  defaultRef={defaultRef}
+                  changes={draftChanges}
+                  disabled={send.isPending}
+                  onSelect={(ref) => {
+                    setAgentChoice(ref);
+                    setDraftDelta(emptyAgentDelta);
+                  }}
+                  onManageAgents={openAgent}
+                />
+              </Trans>
               {agentsSupported !== false ? (
                 <DraftCustomizeChip
                   changes={draftChanges}

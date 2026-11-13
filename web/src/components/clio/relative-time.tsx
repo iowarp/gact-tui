@@ -7,6 +7,8 @@ import {
 } from '@/components/kibo-ui/relative-time';
 import { formatFullTimestamp } from '@/lib/full-timestamp';
 import { cn } from '@/lib/utils';
+import { formatLocale } from '@/lib/locale-format';
+import { t } from '@lingui/core/macro';
 
 interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   timestamp: string;
@@ -18,7 +20,7 @@ interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'child
 export function ClioRelativeTime({
   timestamp,
   compact = false,
-  label = 'Last interaction',
+  label = t`Last interaction`,
   className,
   ...props
 }: ClioRelativeTimeProps) {
@@ -29,7 +31,7 @@ export function ClioRelativeTime({
     compact && valid ? compactTimestamp(time, clockNow()) : '',
   );
   if (!valid) {
-    return <span className={className}>Unavailable</span>;
+    return <span className={className}>{t`Unavailable`}</span>;
   }
 
   const fullLabel = formatFullTimestamp(time);
@@ -68,9 +70,9 @@ export function ClioRelativeTime({
 }
 
 // Formatters are costly to build; a list of rows shares these.
-const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-const MONTH_DAY = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const MONTH_DAY_YEAR = new Intl.DateTimeFormat(undefined, {
+const WEEKDAY = new Intl.DateTimeFormat(formatLocale(), { weekday: 'short' });
+const MONTH_DAY = new Intl.DateTimeFormat(formatLocale(), { month: 'short', day: 'numeric' });
+const MONTH_DAY_YEAR = new Intl.DateTimeFormat(formatLocale(), {
   month: 'short',
   day: 'numeric',
   year: '2-digit',

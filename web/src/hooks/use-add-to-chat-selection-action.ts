@@ -5,6 +5,7 @@ import { useSelectionAction } from './use-selection-action';
 import { markFromSelection, withMark } from '@/lib/composer-annotations';
 import type { SelectionAction } from '@/lib/selection-actions';
 import type { ComposerDraft } from './use-composer-draft';
+import { t } from '@lingui/core/macro';
 
 /**
  * Registers "Add to chat": a selection in any agent answer on screen (the main
@@ -23,7 +24,7 @@ export function useAddToChatSelectionAction(
   const action = useMemo<SelectionAction>(
     () => ({
       id: 'add-to-chat',
-      label: 'Add to chat',
+      label: t`Add to chat`,
       icon: MessageSquareQuoteIcon,
       order: 10,
       kinds: ['agent-answer-text'],

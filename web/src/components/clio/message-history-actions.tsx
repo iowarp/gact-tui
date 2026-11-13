@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 export interface ClioMessageHistoryActionsProps {
   forking?: boolean;
@@ -59,7 +60,7 @@ export function ClioMessageHistoryActions({
               <GitForkIcon aria-hidden="true" />
             )
           }
-          label={forkPending ? 'Forking into a new conversation' : 'Fork into a new conversation'}
+          label={forkPending ? t`Forking into a new conversation` : t`Fork into a new conversation`}
           onClick={() => void run('fork', onFork)}
           size="sm"
           type="button"
@@ -68,7 +69,7 @@ export function ClioMessageHistoryActions({
       <IconButton
         disabled={!onRewind || forkPending || rewindPending}
         icon={<RewindIcon aria-hidden="true" />}
-        label="Rewind to here"
+        label={t`Rewind to here`}
         onClick={() => setConfirmingRewind(true)}
         size="sm"
         type="button"
@@ -76,14 +77,13 @@ export function ClioMessageHistoryActions({
       <AlertDialog onOpenChange={setConfirmingRewind} open={confirmingRewind}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rewind this conversation?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Rewind this conversation?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove every later message from this conversation. The selected message remains as the
-              new end. Files and artifacts already created or edited are kept.
+              {t`Remove every later message from this conversation. The selected message remains as the new end. Files and artifacts already created or edited are kept.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={rewindPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={rewindPending}>{t`Cancel`}</AlertDialogCancel>
             <AlertDialogAction
               disabled={rewindPending}
               onClick={(event) => {
@@ -94,7 +94,7 @@ export function ClioMessageHistoryActions({
               }}
               variant="destructive"
             >
-              {rewindPending ? 'Rewinding…' : 'Remove later messages'}
+              {rewindPending ? t`Rewinding…` : t`Remove later messages`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

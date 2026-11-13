@@ -5,6 +5,7 @@ import { usePromptRegistrySupported } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
 
 const notOffered = (error: unknown) =>
   error instanceof TransportError && [404, 405, 501].includes(error.status ?? 0);
@@ -44,12 +45,12 @@ export function useUnavailableSettingsSections(): Record<string, string> {
     staleTime: 30_000,
   });
   const unavailable: Record<string, string> = {};
-  if (prompts === false) unavailable.prompts = 'This service doesn’t offer prompt families.';
+  if (prompts === false) unavailable.prompts = t`This service doesn’t offer prompt families.`;
   if (notOffered(accounts.error))
-    unavailable['data-sources'] = 'This service doesn’t offer data sources.';
+    unavailable['data-sources'] = t`This service doesn’t offer data sources.`;
   if (notOffered(runtime.error) && notOffered(memory.error))
-    unavailable.runtime = 'This service doesn’t offer execution or history settings.';
+    unavailable.runtime = t`This service doesn’t offer execution or history settings.`;
   if (notOffered(health.error) && notOffered(memory.error))
-    unavailable.system = 'This service doesn’t offer health checks.';
+    unavailable.system = t`This service doesn’t offer health checks.`;
   return unavailable;
 }

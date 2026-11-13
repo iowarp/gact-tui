@@ -1,5 +1,6 @@
 import type { Artifact, ClioRepository, WorkspaceResource } from '@clio/core/v3';
 import { verifyArtifactRecovery } from './artifact-custody';
+import { t } from '@lingui/core/macro';
 
 /** File custody determines reads and copy behavior; the format only determines rendering. */
 export type FileViewerSource =
@@ -36,7 +37,7 @@ export function fileViewerIdentity(source: FileViewerSource) {
       name: source.artifact.name,
       mediaType: source.artifact.media_type,
       size: source.artifact.size,
-      origin: 'Generated output',
+      origin: t`Generated output`,
       available: !source.unavailable,
     };
   }
@@ -45,7 +46,7 @@ export function fileViewerIdentity(source: FileViewerSource) {
       name: source.resource.name,
       mediaType: source.resource.detected_mime || source.resource.claimed_mime,
       size: source.resource.received_size,
-      origin: 'Uploaded file',
+      origin: t`Uploaded file`,
       available: source.resource.state === 'ready',
     };
   }
@@ -53,7 +54,7 @@ export function fileViewerIdentity(source: FileViewerSource) {
     name: source.path.split(/[\\/]+/).at(-1) || source.path,
     mediaType: source.mediaType,
     size: source.size,
-    origin: 'Workspace file',
+    origin: t`Workspace file`,
     available: true,
   };
 }

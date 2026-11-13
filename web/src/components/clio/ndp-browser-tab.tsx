@@ -35,10 +35,11 @@ import { StateView } from './primitives/state-view';
 import { sourceInputClass } from './source-form-parts';
 import { useNdpCatalog } from './use-ndp-catalog';
 import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const datasetKey = (dataset: NDPDataset) => JSON.stringify([dataset.endpoint_id, dataset.id]);
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 /** The endpoint operations that open a catalog stream, as the endpoint browser's Read stream. */
+// i18n-ignore: NDP operation ids, matched against the endpoint
 const STREAM_OPEN = ['SDK streaming_v2.open', 'POST /streams'];
 
 type Picked = { dataset: NDPDataset; resourceId: string };
@@ -83,10 +84,10 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
     endpoint.operations.some((operation) => STREAM_OPEN.includes(operation.id)),
   );
   const startReason = endpoints.isPending
-    ? 'Checking NDP endpoints'
+    ? t`Checking NDP endpoints`
     : streamEndpoint
       ? undefined
-      : 'Connect an NDP endpoint with streaming first';
+      : t`Connect an NDP endpoint with streaming first`;
   const startStream = (resource: Resource) => {
     const operation = streamEndpoint?.operations.find((row) => STREAM_OPEN.includes(row.id));
     if (!streamEndpoint || !operation) return;
@@ -95,7 +96,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
     setStreaming({
       endpoint: streamEndpoint,
       workflow: {
-        title: `Start ${resource.name}`,
+        title: t`Start ${ph({ name: resource.name })}`,
         operation,
         parameters: sdk ? read : {},
         body: sdk ? undefined : read,
@@ -111,7 +112,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         },
       }),
     );
-    toast.success(`Added ${resource.name} to the message.`);
+    toast.success(t`Added ${ph({ name: resource.name })} to the message.`);
   };
   const resourceRow = (dataset: NDPDataset, resource: Resource): FileTreeRow => {
     const kind = ndpResourceKind(resource);
@@ -134,9 +135,9 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
       actions: (
         <IconButton
           className="text-foreground"
-          disabledReason={composerOpen ? undefined : 'Open a conversation to add it to a message'}
+          disabledReason={composerOpen ? undefined : t`Open a conversation to add it to a message`}
           icon={<AtSignIcon />}
-          label="Add to message"
+          label={t`Add to message`}
           onClick={() => addToMessage(resource, dataset)}
           size="sm"
           tooltipSide="bottom"
@@ -148,7 +149,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
             className="text-foreground"
             disabledReason={startReason}
             icon={<PlayIcon />}
-            label="Start stream"
+            label={t`Start stream`}
             onClick={() => startStream(resource)}
             size="sm"
             tooltipSide="bottom"
@@ -181,7 +182,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
       depth: 0,
       open: orgOpen,
       icon: <UsersIcon className="size-3.5" />,
-      meta: plural(datasets.length, 'dataset'),
+      meta: plural(datasets.length, { one: '# dataset', other: '# datasets' }),
     });
     if (!orgOpen) return;
     for (const dataset of datasets) {
@@ -194,7 +195,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         depth: 1,
         open,
         icon: <DatabaseIcon className="size-3.5" />,
-        meta: plural(dataset.resources.length, 'resource'),
+        meta: plural(dataset.resources.length, { one: '# resource', other: '# resources' }),
       });
       if (!open) continue;
       for (const resource of dataset.resources) result.push(resourceRow(dataset, resource));
@@ -203,7 +204,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
           kind: 'note',
           key: `${path}#empty`,
           depth: 2,
-          label: 'No resources in this dataset',
+          label: t`No resources in this dataset`,
         });
     }
   });
@@ -250,10 +251,13 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
   const total = catalog.data?.total;
   const count =
     catalog.searching && !catalog.data
-      ? 'Searching…'
-      : total !== undefined && total > catalog.datasets.length && !searching
-        ? `${plural(total, 'dataset')}`
-        : plural(catalog.datasets.length, 'dataset');
+      ? t`Searching…`
+      : plural(
+          total !== undefined && total > catalog.datasets.length && !searching
+            ? total
+            : catalog.datasets.length,
+          { one: '# dataset', other: '# datasets' },
+        );
 
   let body;
   if (streaming)
@@ -270,33 +274,33 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
       </div>
     );
   else if (catalog.results.isPending && !catalog.data)
-    body = <StateView className="p-6" kind="loading" size="panel" title="Loading the catalog" />;
+    body = <StateView className="p-6" kind="loading" size="panel" title={t`Loading the catalog`} />;
   else if (catalog.results.error && !catalog.data)
     body = (
       <StateView
-        action={{ label: 'Retry', onClick: catalog.submit, icon: <RetryIcon /> }}
+        action={{ label: t`Retry`, onClick: catalog.submit, icon: <RetryIcon /> }}
         className="p-6"
         detail={catalog.results.error.message}
         kind="error"
         size="panel"
-        title="The NDP catalog could not be loaded"
+        title={t`The NDP catalog could not be loaded`}
       />
     );
   else if (!rows.length)
     body = (
       <StateView
         action={
-          searching ? { label: 'Clear search', onClick: () => catalog.setQuery('') } : undefined
+          searching ? { label: t`Clear search`, onClick: () => catalog.setQuery('') } : undefined
         }
         className="p-6"
         kind="empty"
         size="panel"
-        title={searching ? 'No datasets match' : 'No datasets found'}
+        title={searching ? t`No datasets match` : t`No datasets found`}
       />
     );
   else
     body = (
-      <div className="px-1.5 pb-2" aria-label="NDP catalog">
+      <div className="px-1.5 pb-2" aria-label={t`NDP catalog`}>
         <WindowedFileTree
           onSelect={select}
           onToggle={toggle}
@@ -311,21 +315,21 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
             size="sm"
             variant="ghost"
           >
-            {catalog.results.isFetchingNextPage ? 'Loading datasets…' : 'Show more datasets'}
+            {catalog.results.isFetchingNextPage ? t`Loading datasets…` : t`Show more datasets`}
           </Button>
         ) : null}
       </div>
     );
 
   return (
-    <section aria-label="NDP browser" className="flex h-full min-h-0 flex-col">
+    <section aria-label={t`NDP browser`} className="flex h-full min-h-0 flex-col">
       <FrameBar
         actions={
           <>
             <IconButton
               disabled={catalog.results.isFetching}
               icon={<RefreshIcon />}
-              label="Refresh catalog"
+              label={t`Refresh catalog`}
               onClick={catalog.submit}
               size="sm"
               tooltipSide="bottom"
@@ -337,17 +341,17 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
               size="sm"
               title={
                 pickedResource
-                  ? `Add ${pickedResource.name} to this workspace`
-                  : 'Pick a resource in the tree first'
+                  ? t`Add ${ph({ name: pickedResource.name })} to this workspace`
+                  : t`Pick a resource in the tree first`
               }
               variant="outline"
             >
               <AddIcon aria-hidden="true" className="size-3.5" />
-              {add.isPending ? 'Adding…' : add.isSuccess ? 'Added' : 'Add to workspace'}
+              {add.isPending ? t`Adding…` : add.isSuccess ? t`Added` : t`Add to workspace`}
             </Button>
           </>
         }
-        label="NDP actions"
+        label={t`NDP actions`}
         what={
           <span data-frame-position="" role="status" aria-live="polite">
             {count}
@@ -368,23 +372,23 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            aria-label="Search NDP datasets"
+            aria-label={t`Search NDP datasets`}
             className={cn(sourceInputClass, 'pl-8')}
             onChange={(event) => catalog.setQuery(event.target.value)}
-            placeholder="Search NDP datasets"
+            placeholder={t`Search NDP datasets`}
             value={catalog.query}
           />
         </div>
         <span className="relative max-w-full min-w-[9.5rem] basis-[30%]">
           <select
-            aria-label="Catalog access filter"
+            aria-label={t`Catalog access filter`}
             className={cn(sourceInputClass, 'w-full appearance-none border bg-background pr-8')}
             onChange={(event) => catalog.setOnlyGroups(event.target.value === 'groups')}
             value={catalog.onlyGroups ? 'groups' : 'all'}
           >
-            <option value="all">All catalog data</option>
+            <option value="all">{t`All catalog data`}</option>
             <option disabled={!signedIn} value="groups">
-              Only my groups
+              {t`Only my groups`}
             </option>
           </select>
           <ChevronDownIcon
@@ -405,7 +409,7 @@ export function NdpBrowserTab({ workspaceId, label }: { workspaceId: string; lab
         </p>
       ) : add.isSuccess && pickedResource ? (
         <p className="px-3.5 pb-1 text-meta text-muted-foreground" role="status">
-          {pickedResource.name} is in this workspace's Sources.
+          {t`${ph({ name: pickedResource.name })} is in this workspace's Sources.`}
         </p>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>

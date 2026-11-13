@@ -9,6 +9,7 @@ import { IconButton } from './primitives/icon-button';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
 import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
+import { t } from '@lingui/core/macro';
 
 /**
  * The 28px square the row ends with, filled so it reads as the primary action.
@@ -56,7 +57,7 @@ export function ComposerSubmitControls({
           className={SQUARE}
           disabled={!onStop}
           icon={<SquareIcon className="size-3 fill-current" />}
-          label="Stop"
+          label={t`Stop`}
           onClick={onStop}
           shortcut="stop"
           shortcutSide="above-icon"
@@ -68,7 +69,7 @@ export function ComposerSubmitControls({
           className={SQUARE}
           disabled={disabled || !sendable}
           icon={<ArrowUpIcon />}
-          label="Send"
+          label={t`Send`}
           onClick={onSubmit}
           shortcut="send"
           shortcutSide="above-icon"
@@ -80,7 +81,7 @@ export function ComposerSubmitControls({
           className={SQUARE}
           disabled={disabled}
           icon={<ArrowUpIcon />}
-          label="Steer"
+          label={t`Steer`}
           onClick={onSubmit}
           shortcut="steer"
           shortcutSide="above-icon"
@@ -111,7 +112,7 @@ function QueueButton({
           className={SQUARE}
           disabled={disabled}
           icon={<ListPlusIcon />}
-          label="Queue"
+          label={t`Queue`}
           onClick={onSubmit}
           tooltip={false}
           type="submit"
@@ -122,9 +123,9 @@ function QueueButton({
         side="top"
         sideOffset={4}
       >
-        <span>Queue</span>
+        <span>{t`Queue`}</span>
         <kbd className={TOOLTIP_KEY}>{send?.text}</kbd>
-        <span>Steer instead</span>
+        <span>{t`Steer instead`}</span>
         <kbd className={TOOLTIP_KEY}>{steer?.text}</kbd>
       </TooltipContent>
     </Tooltip>

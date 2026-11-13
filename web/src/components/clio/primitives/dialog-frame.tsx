@@ -8,6 +8,7 @@ import { useKeysAria } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
+import { t } from '@lingui/core/macro';
 
 const CLOSE_KEYS = ['Esc'] as const;
 
@@ -66,7 +67,7 @@ function FrameClose({ className }: { className?: string }) {
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Close"
+        aria-label={t`Close`}
         className={cn('shrink-0 text-muted-foreground', className)}
       >
         <CloseIcon aria-hidden="true" />
@@ -193,7 +194,7 @@ export const DialogFrame = memo(function DialogFrame({
   className,
 }: DialogFrameProps) {
   const fullWindow = narrow === 'window';
-  const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
+  const cancelLabel = cancelProp === undefined ? (confirm ? t`Cancel` : t`Close`) : cancelProp;
   const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
   const confirmKey = confirm?.key === 'Enter' ? 'Enter' : 'Ctrl+Enter';
@@ -246,7 +247,7 @@ export const DialogFrame = memo(function DialogFrame({
             {title}
           </DialogTitle>
           {help ? (
-            <InfoTip className="size-7" label={`About ${title}`}>
+            <InfoTip className="size-7" label={t`About ${title}`}>
               {help}
             </InfoTip>
           ) : null}
@@ -308,7 +309,7 @@ export const DialogFrame = memo(function DialogFrame({
                 variant="ghost"
                 data-initial-focus=""
               >
-                {cancelLabel ?? 'Close'}
+                {cancelLabel ?? t`Close`}
                 <FooterKey
                   className="border-muted-foreground/45 text-muted-foreground"
                   keys={CLOSE_KEYS}
@@ -441,7 +442,7 @@ export const WindowShell = memo(function WindowShell({
         <div className="flex min-h-0 flex-1">
           {navigation ? (
             <nav
-              aria-label={`${title} sections`}
+              aria-label={t`${title} sections`}
               className={cn(
                 'hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5',
                 rail ? 'min-[880px]:block' : 'min-[600px]:block',
@@ -452,7 +453,7 @@ export const WindowShell = memo(function WindowShell({
           ) : null}
           {rail ? (
             <nav
-              aria-label={`${title} scopes`}
+              aria-label={t`${title} scopes`}
               className="hidden w-11 shrink-0 flex-col items-center border-r border-border bg-sidebar pt-2.5 min-[600px]:max-[879px]:flex"
             >
               {rail}
