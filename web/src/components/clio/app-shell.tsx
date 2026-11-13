@@ -26,6 +26,7 @@ import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { usePhoneAppDock, useWorkbenchAppTabs } from './phone-app-dock';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -252,6 +253,11 @@ export function ClioAppShell({
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
+  // An App tab on a phone: the sheet is non-modal and docks between header and composer.
+  const appTabs = useWorkbenchAppTabs();
+  const appDock = usePhoneAppDock(
+    hasWorkbench && !desktopWorkbench && workbenchOpen && appTabs.shown,
+  );
   // Opens at the remembered share of the window; the panel keeps those pixels
   // until the window itself resizes (below), so folding the left bar widens
   // the conversation rather than the workbench. A closed canvas mounts
@@ -483,7 +489,7 @@ export function ClioAppShell({
         </main>
       )}
       {hasWorkbench && !desktopWorkbench ? (
-        <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
+        <Sheet modal={!appTabs.open} onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
@@ -495,6 +501,12 @@ export function ClioAppShell({
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            // Docked beside the composer, typing in the conversation keeps the App shown.
+            onInteractOutside={(event) => {
+              if (appDock) event.preventDefault();
+            }}
+            style={appDock}
+            data-app-dock={appDock ? '' : undefined}
             // A list search field closes itself on Escape; that press must not close the sheet.
             onEscapeKeyDown={(event) => {
               if ((event.target as Element | null)?.closest?.('[data-escape-owner]'))
