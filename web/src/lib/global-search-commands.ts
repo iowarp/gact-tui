@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   CableIcon,
+  LanguagesIcon,
   MonitorIcon,
   MoonIcon,
   NetworkIcon,
@@ -8,6 +9,13 @@ import {
   TerminalSquareIcon,
 } from 'lucide-react';
 import type { ThemePreference } from '@/theme/contract';
+import { englishLanguageName, localLanguageName } from '@/i18n/language-names';
+import {
+  availableLanguages,
+  interfaceLanguage,
+  systemLocale,
+  type LocalePreference,
+} from '@/i18n/locales';
 import { OPEN_TERMINAL_EVENT } from '@/components/clio/workspace-canvas-visibility-context';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
@@ -24,7 +32,13 @@ import { ph, t } from '@lingui/core/macro';
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
-  action: { route: string } | { theme: ThemePreference } | { event: string };
+  action:
+    | { route: string }
+    | { theme: ThemePreference }
+    | { locale: LocalePreference }
+    | { event: string };
+  /** The language the label is written in, when it is not the interface's (`Español`). */
+  lang?: string;
   /** A catalog shortcut that does the same from anywhere. */
   shortcut?: string;
   /** Where the row lives, as muted trailing text: "Settings › App". */
@@ -158,6 +172,56 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       group: 'Actions',
       keywords: 'appearance automatic light dark mode follow device',
       action: { theme: 'system' },
+    },
+    ...languageCommands(),
+  ];
+}
+
+function deviceLanguages(): readonly string[] {
+  if (typeof navigator === 'undefined') return [];
+  return navigator.languages?.length ? navigator.languages : [navigator.language];
+}
+
+/**
+ * One row per interface language, as in Settings › Language: named in its own
+ * language so a reader of none of the others still finds it, and matched by
+ * its name in the current and in English too.
+ */
+function languageCommands(): GlobalSearchCommand[] {
+  // i18n-ignore: search aliases in every interface language, so any reader finds the rows; not copy.
+  const terms = 'language locale translation idioma 言語 γλώσσα';
+  const systemName = interfaceLanguage(systemLocale(deviceLanguages())).nativeName;
+  return [
+    ...availableLanguages().map((language): GlobalSearchCommand => {
+      const local = localLanguageName(language.locale);
+      return {
+        id: `language:${language.locale}`,
+        label: language.nativeName,
+        lang: language.locale === 'pseudo' ? undefined : language.locale,
+        icon: LanguagesIcon,
+        group: 'Actions',
+        trail: local,
+        keywords: [
+          t`Language`,
+          terms,
+          local,
+          englishLanguageName(language.locale),
+          language.locale,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        action: { locale: language.locale },
+      };
+    }),
+    {
+      // Last, like the system theme, and named as in Settings › Language so a
+      // narrow row never loses which language "system" means.
+      id: 'language:system',
+      label: t`System (${systemName})`,
+      icon: LanguagesIcon,
+      group: 'Actions',
+      keywords: [t`Language`, terms, 'automatic device follow'].join(' '),
+      action: { locale: 'system' },
     },
   ];
 }

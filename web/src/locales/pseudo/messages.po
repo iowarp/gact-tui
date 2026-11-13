@@ -12068,6 +12068,11 @@ msgstr ""
 msgid "Current"
 msgstr ""
 
+#: src/components/clio/global-search-results.tsx
+msgctxt "interface language"
+msgid "Current"
+msgstr ""
+
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Current revision {revision}"
 msgstr ""
@@ -18364,6 +18369,7 @@ msgid "Lab"
 msgstr ""
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 #: src/lib/model-facets.ts
 #: src/lib/settings-search-rows.ts
 msgid "Language"
@@ -18897,6 +18903,7 @@ msgstr ""
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr ""
@@ -19679,7 +19686,7 @@ msgstr ""
 msgid "Logs"
 msgstr ""
 
-#: src/components/clio/settings-language.tsx
+#: src/i18n/language-names.ts
 msgid "Long accented test copy"
 msgstr ""
 
@@ -33945,6 +33952,7 @@ msgid "System"
 msgstr ""
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 msgid "System ({systemName})"
 msgstr ""
 

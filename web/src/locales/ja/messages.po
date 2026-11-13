@@ -12076,6 +12076,11 @@ msgstr "キュレーターモデル"
 msgid "Current"
 msgstr "現在"
 
+#: src/components/clio/global-search-results.tsx
+msgctxt "interface language"
+msgid "Current"
+msgstr "現在"
+
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Current revision {revision}"
 msgstr "現在のリビジョン{revision}"
@@ -18381,6 +18386,7 @@ msgid "Lab"
 msgstr "ラボ"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 #: src/lib/model-facets.ts
 #: src/lib/settings-search-rows.ts
 msgid "Language"
@@ -18914,6 +18920,7 @@ msgstr "読み込まれたウィジェットカタログ"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "読み込み中"
@@ -19696,7 +19703,7 @@ msgstr "ログアウト中…"
 msgid "Logs"
 msgstr "ログ"
 
-#: src/components/clio/settings-language.tsx
+#: src/i18n/language-names.ts
 msgid "Long accented test copy"
 msgstr "アクセント付きの長いテスト文"
 
@@ -33963,6 +33970,7 @@ msgid "System"
 msgstr "システム"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 msgid "System ({systemName})"
 msgstr "システム({systemName})"
 

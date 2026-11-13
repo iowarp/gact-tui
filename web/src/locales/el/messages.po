@@ -12076,6 +12076,11 @@ msgstr "Μοντέλο επιμελητή"
 msgid "Current"
 msgstr "Τρέχων"
 
+#: src/components/clio/global-search-results.tsx
+msgctxt "interface language"
+msgid "Current"
+msgstr "Τρέχουσα"
+
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Current revision {revision}"
 msgstr "Τρέχουσα αναθεώρηση {revision}"
@@ -18381,6 +18386,7 @@ msgid "Lab"
 msgstr "Εργαστήριο"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 #: src/lib/model-facets.ts
 #: src/lib/settings-search-rows.ts
 msgid "Language"
@@ -18914,6 +18920,7 @@ msgstr "Κατάλογος γραφικών στοιχείων που φορτώ
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "Φόρτωση"
@@ -19696,7 +19703,7 @@ msgstr "Αποσύνδεση…"
 msgid "Logs"
 msgstr "Αρχεία καταγραφής"
 
-#: src/components/clio/settings-language.tsx
+#: src/i18n/language-names.ts
 msgid "Long accented test copy"
 msgstr "Μεγάλο δοκιμαστικό κείμενο με τόνους"
 
@@ -33963,6 +33970,7 @@ msgid "System"
 msgstr "Σύστημα"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 msgid "System ({systemName})"
 msgstr "Σύστημα ({systemName})"
 
