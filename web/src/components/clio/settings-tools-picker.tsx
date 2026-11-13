@@ -187,7 +187,7 @@ function OptionItem<Value extends string>({
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-semibold">{option.label}</span>
-          {option.isDefault ? <span className="shrink-0 text-xs text-faint">Default</span> : null}
+          {option.isDefault ? <span className="shrink-0 text-xs text-muted-foreground">Default</span> : null}
         </span>
         <span className="truncate text-xs text-muted-foreground" title={option.description}>
           {option.description}
@@ -401,7 +401,7 @@ export function ToolFilterField({
 export function DefaultLegend() {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-[7px] text-xs whitespace-nowrap text-faint"
+      className="inline-flex shrink-0 items-center gap-[7px] text-xs whitespace-nowrap text-muted-foreground"
       title="D marks a default value. Choose a value to override it."
     >
       <ValueMark className="text-faint" icon={HelpIcon} isDefault />
@@ -412,7 +412,7 @@ export function DefaultLegend() {
 
 export function ToolTableFooter() {
   return (
-    <p className="flex h-9 min-w-0 items-center gap-2.5 text-xs whitespace-nowrap text-faint">
+    <p className="flex h-9 min-w-0 items-center gap-2.5 text-xs whitespace-nowrap text-muted-foreground">
       <CheckIcon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="truncate">
         Choices save at once. A ✓ shows for 2 s, an error stays on the row.

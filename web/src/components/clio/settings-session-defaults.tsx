@@ -59,7 +59,7 @@ function Footnote({ saving, target }: { saving: boolean; target: string }) {
   return (
     <p
       aria-live="polite"
-      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
       data-slot="settings-footnote"
     >
       <ServerIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
