@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { useConnectorActions } from '@/hooks/use-connectors';
+import { useConnectorActions, useConnectorChanges } from '@/hooks/use-connectors';
 import { useInstalledAgents } from '@/hooks/use-session-agent';
-import { connectorStatus, scopeWords } from '@/lib/connector-presentation';
+import { connectorStatus, scopeWords, type ConnectorChange } from '@/lib/connector-presentation';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
@@ -36,7 +36,8 @@ export function ConnectorPane({
   const [removing, setRemoving] = useState(false);
   // A connector added by URL or command can be removed; a catalog entry is turned off.
   const removable = connector.source === 'custom';
-  const status = connectorStatus(connector);
+  const change = useConnectorChanges().get(connector.id);
+  const status = connectorStatus(connector, change);
   const values = draftValues(connector.needs, draft);
   const changed = Object.keys(values).length > 0;
   const saving = actions.save.isPending;
@@ -141,7 +142,7 @@ export function ConnectorPane({
         ) : (
           <p className="leading-5 text-muted-foreground">It needs nothing from you.</p>
         )}
-        <ConnectorScopeControls connector={connector} />
+        <ConnectorScopeControls change={change} connector={connector} />
       </div>
     </DetailPane>
   );
@@ -151,7 +152,13 @@ export function ConnectorPane({
  * Where the connector applies: every conversation, or the agents chosen (CN10), with
  * the same "Available in every conversation" switch an MCP connection has.
  */
-function ConnectorScopeControls({ connector }: { connector: Connector }) {
+function ConnectorScopeControls({
+  connector,
+  change,
+}: {
+  connector: Connector;
+  change: ConnectorChange | undefined;
+}) {
   const actions = useConnectorActions();
   const agents = useInstalledAgents();
   const current = connector.scope;
@@ -160,7 +167,8 @@ function ConnectorScopeControls({ connector }: { connector: Connector }) {
     current && current !== 'all' ? current.agents : [],
   );
   const scope: ConnectorScope = every ? 'all' : { agents: chosen };
-  const busy = actions.enable.isPending || actions.disable.isPending;
+  // Pending here or from another place this connector appears: one state, in words (CN3).
+  const busy = Boolean(change) || actions.enable.isPending || actions.disable.isPending;
   const unchanged = JSON.stringify(scope) === JSON.stringify(current);
   const rows = agents.data ?? [];
   // A scope names agents by reference, as the resolver does.
@@ -169,9 +177,11 @@ function ConnectorScopeControls({ connector }: { connector: Connector }) {
     <section aria-label="Where it applies" data-slot="connector-scope">
       <SettingsGroupLabel>Where it applies</SettingsGroupLabel>
       <p className="text-xs text-muted-foreground" role="status">
-        {connector.enabled
-          ? `Enabled for ${scopeWords(current, name).toLowerCase()}`
-          : 'Not enabled'}
+        {change
+          ? connectorStatus(connector, change).label
+          : connector.enabled
+            ? `Enabled for ${scopeWords(current, name).toLowerCase()}`
+            : 'Not enabled'}
       </p>
       <SettingsRow
         description="Otherwise it applies only to the agents you choose."
@@ -213,7 +223,7 @@ function ConnectorScopeControls({ connector }: { connector: Connector }) {
             onClick={() => actions.enable.mutate({ id: connector.id, scope })}
             size="sm"
           >
-            {connector.enabled ? 'Apply' : 'Enable'}
+            {change === 'starting' ? 'Starting…' : connector.enabled ? 'Apply' : 'Enable'}
           </Button>
         ) : null}
         {connector.enabled ? (
@@ -224,7 +234,7 @@ function ConnectorScopeControls({ connector }: { connector: Connector }) {
             size="sm"
             variant="outline"
           >
-            Turn off
+            {change === 'turning-off' ? 'Turning off…' : 'Turn off'}
           </Button>
         ) : null}
       </div>

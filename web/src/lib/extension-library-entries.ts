@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import type { ExtensionAdd } from '@/components/clio/extension-add-dialog';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { copyText } from '@/lib/clipboard';
-import { connectorStatus, connectorText } from '@/lib/connector-presentation';
+import { connectorStatus, connectorText, type ConnectorChange } from '@/lib/connector-presentation';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
 import { catalogMatches, catalogRoots } from '@/lib/plugin-catalog-tree';
 
@@ -244,8 +244,8 @@ export function marketplaceRow(
 }
 
 /** A connector: its logo, name and state in words (CN3, CN12). */
-export function connectorRow(connector: Connector): ExtensionEntry {
-  const status = connectorStatus(connector);
+export function connectorRow(connector: Connector, change?: ConnectorChange): ExtensionEntry {
+  const status = connectorStatus(connector, change);
   return {
     kind: 'connector',
     key: `connector:${connector.id}`,
@@ -327,6 +327,7 @@ export function extensionEntries({
   saved,
   servers,
   connectors = [],
+  changes,
   term = '',
 }: {
   type: ExtensionType;
@@ -335,6 +336,8 @@ export function extensionEntries({
   saved: readonly SavedMcpService[];
   servers: readonly McpServerDefinition[];
   connectors?: readonly Connector[];
+  /** Connectors with an Enable or Turn off still running (CN3). */
+  changes?: ReadonlyMap<string, ConnectorChange>;
   term?: string;
 }): ExtensionEntry[] {
   const query = term.trim().toLocaleLowerCase();
@@ -343,7 +346,9 @@ export function extensionEntries({
   // Connectors come first, above plugins and skills (CN12).
   if (type === 'all' || type === 'mcp')
     rows.push(
-      ...connectors.map(connectorRow).filter((row) => !query || entryText(row).includes(query)),
+      ...connectors
+        .map((row) => connectorRow(row, changes?.get(row.id)))
+        .filter((row) => !query || entryText(row).includes(query)),
     );
   if (type === 'all' || type === 'plugins') {
     const roots = shippedLast(

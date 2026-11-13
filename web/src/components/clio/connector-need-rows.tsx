@@ -72,7 +72,9 @@ export function ConnectorNeedRows({
     >
       {needs.map((need) => {
         const id = `${ids}-${need.key}`;
-        const hint = [need.help, need.agent_settable ? 'The agent can set this.' : '']
+        // A catalog's help may end without a full stop (a URL); the next sentence needs one.
+        const help = need.help?.trim().replace(/([^.!?…])$/u, '$1.');
+        const hint = [help, need.agent_settable ? 'The agent can set this.' : '']
           .filter(Boolean)
           .join(' ');
         return (

@@ -42,7 +42,25 @@ function namedNeeds(connector: Connector): Pick<ConnectorNeed, 'kind' | 'label' 
   );
 }
 
-export function connectorStatus(connector: Connector): ConnectorStatusWords {
+/**
+ * A change the person asked for that has not settled yet. Starting a connector can take a
+ * while (a package is fetched and the server asked what it offers), so the state says so
+ * in words instead of leaving the old state beside a dimmed button.
+ */
+export type ConnectorChange = 'starting' | 'turning-off';
+
+export function connectorStatus(
+  connector: Connector,
+  change?: ConnectorChange,
+): ConnectorStatusWords {
+  if (change === 'starting')
+    return {
+      tone: 'running',
+      label: 'Starting…',
+      detail: 'Starting… CLIO is starting it and checking what it needs.',
+    };
+  if (change === 'turning-off')
+    return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };
   if (!connector.enabled) return { tone: 'inactive', label: 'Not enabled', detail: 'Not enabled' };
   const { state } = connector;
   if (state.status === 'ready') {
