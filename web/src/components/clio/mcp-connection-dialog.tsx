@@ -25,6 +25,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useExtensionsSupported } from '@/hooks/use-session-agent';
 import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
+import { connectorStatus } from '@/lib/connector-presentation';
 import { cn } from '@/lib/utils';
 import { EnvironmentTable } from './environment-table';
 import { SettingsSelectField } from './model-select-field';
@@ -65,6 +66,22 @@ function processEnvironment(text: string): Record<string, string> {
     result[name] = raw.slice(split + 1).trim();
   }
   return result;
+}
+
+/**
+ * Whether the form says no more than a connector entry can: a Streamable HTTP address
+ * with automatic sign-in and no headers, or a command with arguments and no
+ * environment. Anything more, or the every-conversation switch, stays a raw MCP connection.
+ */
+function plainConnector(input: McpConfigurationInput): boolean {
+  // "Available in every conversation" is an advanced choice of the raw connection.
+  if (input.always_load) return false;
+  if (input.transport === 'stdio') return !Object.keys(input.env ?? {}).length;
+  return (
+    input.transport === 'http' &&
+    (input.authentication ?? 'auto') === 'auto' &&
+    !Object.keys(input.headers ?? {}).length
+  );
 }
 
 interface HeaderRow {
@@ -175,6 +192,25 @@ export function McpConnectionDialog({
           connection_only: !everyConversation,
         };
       }
+      // Only an address or a command: it becomes a connector with no logo (CN1, AQ11),
+      // enabled for every conversation; its card narrows that to chosen agents.
+      if (plainConnector(input)) {
+        const created = await repository.createConnector(
+          input.transport === 'stdio'
+            ? { command: input.command, args: input.args, name, scope: 'all' }
+            : { url: input.url, name, scope: 'all' },
+        );
+        await onSaved();
+        onClose();
+        if (
+          created.state.status === 'needs' &&
+          created.needs.some((need) => need.kind === 'sign-in')
+        )
+          onSignIn(created.id);
+        else
+          toast.success(`Added ${created.name}`, { description: connectorStatus(created).detail });
+        return;
+      }
       const result = await repository.configureMcpServer(key, input);
       await onSaved();
       onClose();
@@ -209,7 +245,7 @@ export function McpConnectionDialog({
         if (!open && !busy) onClose();
       }}
       open
-      title="Add an MCP connection"
+      title="Add by URL or command"
       titleActions={
         <SegmentedControl
           className="mr-1"
