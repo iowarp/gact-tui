@@ -1,0 +1,246 @@
+import {
+  connectorSchema,
+  pluginEntrySchema,
+  type Connector,
+  type PendingInteraction,
+} from '@clio/core/v3';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const repository = vi.hoisted(() => ({
+  connectors: vi.fn(),
+  connectorLogo: vi.fn(),
+  setConnectorValues: vi.fn(),
+  enableConnector: vi.fn(),
+  disableConnector: vi.fn(),
+  capabilities: vi.fn(async () => ({ capabilities: {} })),
+  agents: vi.fn(async () => []),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
+}));
+
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { connectorStatus, offeredPlugins } from '@/lib/connector-presentation';
+import { extensionEntries } from '@/lib/extension-library-entries';
+import { draftValues, unfilledRequired } from '@/lib/connector-draft';
+import { ConnectorPane } from './connector-pane';
+import { ClioPendingInteractions } from './pending-interactions';
+
+const connector = (value: Partial<Record<string, unknown>> = {}): Connector =>
+  connectorSchema.parse({
+    id: 'fixture-address',
+    name: 'Fixture address',
+    description: 'Needs an address and a sign-in',
+    logo_url: null,
+    source: 'catalog',
+    enabled: true,
+    scope: 'all',
+    tool_count: null,
+    state: { status: 'needs', needs: ['address', 'account'], reason: null },
+    needs: [
+      {
+        key: 'address',
+        kind: 'address',
+        label: 'Server address',
+        required: true,
+        agent_settable: true,
+      },
+      { key: 'account', kind: 'sign-in', label: 'Account', required: true },
+      { key: 'token', kind: 'secret', label: 'Access token', required: false, has_value: true },
+    ],
+    ...value,
+  });
+
+function renderWith(children: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  repository.connectors.mockResolvedValue([connector()]);
+  repository.connectorLogo.mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>');
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe('connector state in words', () => {
+  it('names what is needed, why it cannot be reached, and the tool count when ready', () => {
+    expect(connectorStatus(connector()).label).toBe('Needs server address and a sign-in');
+    expect(
+      connectorStatus(
+        connector({ state: { status: 'unreachable', needs: [], reason: 'connection refused' } }),
+      ),
+    ).toMatchObject({
+      tone: 'error',
+      label: 'Can’t be reached',
+      detail: 'Can’t be reached: connection refused',
+    });
+    expect(
+      connectorStatus(connector({ state: { status: 'ready', needs: [] }, tool_count: 1 })).label,
+    ).toBe('Ready, 1 tool');
+    expect(connectorStatus(connector({ enabled: false })).label).toBe('Not enabled');
+  });
+
+  it('lists connectors first, keeps a following plugin out of the plugin rows and pickers', () => {
+    const plugins = [
+      pluginEntrySchema.parse({ id: 'tools', ref: 'lab/tools', marketplace: 'lab', trusted: true }),
+      pluginEntrySchema.parse({
+        id: 'scenes',
+        ref: 'clio/scenes',
+        marketplace: 'clio',
+        trusted: true,
+        follows: 'fixture-address',
+      }),
+    ];
+    const rows = extensionEntries({
+      type: 'all',
+      plugins,
+      marketplaces: [],
+      saved: [{ name: 'fixture-address', transport: 'http', always_load: false, spec: {} }],
+      servers: [],
+      connectors: [connector()],
+    });
+    expect(rows.map((row) => [row.kind, row.title])).toEqual([
+      ['connector', 'Fixture address'],
+      ['plugin', 'tools'],
+    ]);
+    expect(rows[0]!.status?.label).toBe('Needs server address and a sign-in');
+    expect(offeredPlugins(plugins)?.map((plugin) => plugin.id)).toEqual(['tools']);
+  });
+
+  it('sends only what changed, never an empty secret, and clears an emptied value', () => {
+    const needs = connector({
+      needs: [
+        { key: 'address', kind: 'address', label: 'A', value: 'old', has_value: true },
+        { key: 'token', kind: 'secret', label: 'T', has_value: true },
+        { key: 'via', kind: 'value', label: 'V', value: 'hop', has_value: true },
+      ],
+    }).needs;
+    expect(draftValues(needs, { address: 'old', token: '', via: '' })).toEqual({ via: null });
+    expect(draftValues(needs, { address: 'new', token: 's3cret' })).toEqual({
+      address: 'new',
+      token: 's3cret',
+    });
+    expect(unfilledRequired(connector().needs, {}).map((need) => need.key)).toEqual([
+      'address',
+      'account',
+    ]);
+  });
+});
+
+describe('the setup card in Extensions', () => {
+  it('shows the state, one row per need, masks the saved secret and saves the values', async () => {
+    const user = userEvent.setup();
+    repository.setConnectorValues.mockResolvedValue(connector());
+    renderWith(
+      <ConnectorPane
+        connector={connector()}
+        onClose={() => undefined}
+        onSignIn={() => undefined}
+      />,
+    );
+    const card = screen.getByRole('complementary', { name: 'Fixture address' });
+    expect(within(card).getByText('Needs server address and a sign-in')).toBeTruthy();
+    const secret = within(card).getByLabelText('Access token') as HTMLInputElement;
+    expect(secret.type).toBe('password');
+    expect(secret.value).toBe('');
+    expect(secret.placeholder).toContain('Saved');
+    expect(within(card).getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    await user.type(within(card).getByLabelText('Server address'), 'http://127.0.0.1:19201/mcp');
+    await user.type(secret, 'new-token');
+    await user.click(within(card).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(repository.setConnectorValues).toHaveBeenCalledWith('fixture-address', {
+        address: 'http://127.0.0.1:19201/mcp',
+        token: 'new-token',
+      }),
+    );
+    // The secret is never shown again once saved.
+    await waitFor(() => expect(secret.value).toBe(''));
+  });
+
+  it('shows a value the agent set', async () => {
+    const set = connector({
+      needs: [
+        {
+          key: 'address',
+          kind: 'address',
+          label: 'Server address',
+          value: 'node08',
+          has_value: true,
+          agent_settable: true,
+        },
+      ],
+      state: { status: 'ready', needs: [] },
+    });
+    renderWith(
+      <ConnectorPane connector={set} onClose={() => undefined} onSignIn={() => undefined} />,
+    );
+    expect((screen.getByLabelText('Server address') as HTMLInputElement).value).toBe('node08');
+    expect(screen.getByText(/The agent can set this/u)).toBeTruthy();
+  });
+});
+
+describe('the setup card in the conversation', () => {
+  const interaction: PendingInteraction = {
+    id: 'int-1',
+    kind: 'connector_setup',
+    owner_session_id: 'sess_root',
+    attended_session_id: 'sess_root',
+    status: 'pending',
+    title: 'Set up Fixture address',
+    source: { protocol: 'native', tool_name: 'fixture-address__echo' },
+    created_at: '2026-11-13T00:00:00Z',
+    payload: {
+      connector_id: 'fixture-address',
+      tool_name: 'fixture-address__echo',
+      missing: [{ key: 'address', kind: 'address', label: 'Server address', required: true }],
+    },
+    actions: ['submit', 'decline'],
+  };
+
+  function renderDock(onResponse = vi.fn(async () => undefined)) {
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[interaction]}
+        onResponse={onResponse}
+        viewedSessionId="sess_root"
+      />,
+    );
+    return onResponse;
+  }
+
+  it('continues the waiting call with the rows filled', async () => {
+    const user = userEvent.setup();
+    const onResponse = renderDock();
+    expect(await screen.findByText('Set up Fixture address')).toBeTruthy();
+    const proceed = screen.getByRole('button', { name: /Continue/u });
+    expect(proceed.hasAttribute('disabled')).toBe(true);
+    await user.type(screen.getByLabelText('Server address'), 'http://127.0.0.1:19201/mcp');
+    await user.click(screen.getByRole('button', { name: /Continue/u }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'submit',
+      values: { address: 'http://127.0.0.1:19201/mcp' },
+    });
+  });
+
+  it('declines', async () => {
+    const user = userEvent.setup();
+    const onResponse = renderDock();
+    await user.click(await screen.findByRole('button', { name: /Decline/u }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'decline' });
+  });
+});
