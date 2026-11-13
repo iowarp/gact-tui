@@ -94,9 +94,7 @@ export function UnofferedLine() {
     <StateView
       kind="unavailable"
       size="row"
-      // The whole page body at phone width, so it wraps rather than hiding behind an ellipsis.
-      className="h-auto min-h-7 py-1"
-      title={<span className="whitespace-normal text-pretty">{unofferedSentence(nouns)}</span>}
+      title={<span className="text-pretty">{unofferedSentence(nouns)}</span>}
     />
   );
 }
