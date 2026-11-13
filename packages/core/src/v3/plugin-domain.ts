@@ -200,7 +200,7 @@ export type LocalLibrary = z.infer<typeof localLibrarySchema>;
  * pack named by `via`), `required` (a hard requirement of `via`) or `user`.
  */
 export const pluginProvenanceSchema = z.object({
-  source: forwardCompatibleEnum(['core', 'agent', 'pack', 'required', 'user']),
+  source: forwardCompatibleEnum(['core', 'agent', 'pack', 'required', 'user', 'connector']),
   via: z.string().default(''),
   label: z.string().default(''),
 });
