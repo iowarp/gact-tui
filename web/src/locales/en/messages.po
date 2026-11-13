@@ -18914,6 +18914,7 @@ msgstr "Loaded widget catalog"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "Loading"
@@ -21876,6 +21877,10 @@ msgstr "No fragment mentions “{query}”."
 #: src/components/clio/managed-service-target-utils.ts
 msgid "No GPU detected."
 msgstr "No GPU detected."
+
+#: src/components/clio/attention-mode-banner.tsx
+msgid "No heat"
+msgstr "No heat"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."

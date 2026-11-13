@@ -7,6 +7,7 @@ import {
   lineHeat,
   segmentLevel,
   tokenHeat,
+  toolSections,
   wordHeat,
 } from './attention-segment-heat';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
@@ -77,6 +78,8 @@ export function rangeFromTextOffsets(element: Node, lo: number, hi: number): Ran
 export interface AttentionHighlightRanges {
   /** Ranges per level, index 0 (never painted) through 9. */
   heat: Range[][];
+  /** The same levels for tool calls: tool blocks, and `>>>` calls written in text. */
+  toolHeat: Range[][];
 }
 
 function findRenderedRun(
@@ -159,7 +162,12 @@ export function buildSegmentHighlightRanges(
     ...blocks.flatMap(({ segments }) => segments.map((segment) => segment.value)),
   );
   const heat: Range[][] = Array.from({ length: SEGMENT_HEAT_LEVELS }, () => []);
+  const toolHeat: Range[][] = Array.from({ length: SEGMENT_HEAT_LEVELS }, () => []);
   for (const { block, sourceText, segments } of blocks) {
+    const toolBlock = block.kind === 'tool_input' || block.kind === 'tool_result';
+    const sections = toolBlock ? [] : toolSections(sourceText);
+    const inTool = (at: number) =>
+      toolBlock || sections.some((section) => at >= section.lo && at < section.hi);
     const spans = segments
       .filter((segment) => segment.visible)
       .map((segment) => ({
@@ -168,9 +176,11 @@ export function buildSegmentHighlightRanges(
         bucket: segmentLevel(segment.value, max),
       }))
       .filter((span) => span.bucket > 0 && span.hi > span.lo);
-    paintBlock(container, block, sourceText, spans, heat);
+    // One scale for both ramps (max over every segment above), painted separately.
+    paintBlock(container, block, sourceText, spans.filter((span) => !inTool(span.lo)), heat);
+    paintBlock(container, block, sourceText, spans.filter((span) => inTool(span.lo)), toolHeat);
   }
-  return { heat };
+  return { heat, toolHeat };
 }
 
 /**

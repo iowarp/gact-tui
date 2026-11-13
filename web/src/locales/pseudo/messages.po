@@ -18897,6 +18897,7 @@ msgstr ""
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr ""
@@ -21858,6 +21859,10 @@ msgstr ""
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "No GPU detected."
+msgstr ""
+
+#: src/components/clio/attention-mode-banner.tsx
+msgid "No heat"
 msgstr ""
 
 #: src/components/clio/settings-health-views.tsx

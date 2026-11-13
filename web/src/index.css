@@ -1051,6 +1051,39 @@ html[data-clio-motion='reduced'] *::after {
   font-style: normal;
   color: var(--muted-foreground);
 }
+/* A tool call written in a message: a ">>> call(...)" line and its indented output
+   (a fixed-width table, say) parse as three nested quotes holding one paragraph. Show
+   it as a console block: no quote chrome, monospace, whitespace kept so columns line
+   up. Only styling changes; the text, and so the attention-heat mapping, is untouched,
+   and the ">>>" marker is drawn by CSS, never part of the page text. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) {
+  margin: 0.75rem 0;
+  border-left: 0;
+  padding-left: 0;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) [data-streamdown='blockquote'] {
+  margin: 0;
+  border-left: 0;
+  padding-left: 0;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] {
+  overflow-x: auto;
+  border-radius: 0.375rem;
+  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] p {
+  margin: 0;
+  white-space: pre;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] > p:first-child::before {
+  content: '>>> ';
+  opacity: 0.6;
+}
 :is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
   position: relative;
   gap: 0;

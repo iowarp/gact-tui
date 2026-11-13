@@ -5,6 +5,7 @@ import {
   segmentLevel,
   sourceLines,
   tokenHeat,
+  toolSections,
   wordHeat,
 } from './attention-segment-heat';
 
@@ -222,5 +223,38 @@ describe('tokenHeat', () => {
         [7, 17, 0],
       ]),
     ).toEqual([{ lo: 4, hi: 7, value: 0.5, measured: 1, visible: true }]);
+  });
+});
+
+describe('toolSections', () => {
+  const slice = (text: string, { lo, hi }: { lo: number; hi: number }) =>
+    [...text].slice(lo, hi).join('');
+
+  it('runs from a ">>>" line through its indented and blank output lines', () => {
+    const text = [
+      'TASK: at which dose?',
+      '',
+      '>>> db_lookup(table="fc1")',
+      '    trait   t0     t25',
+      '    Fv/Fm   0.465  0.488',
+      '',
+      'OUTPUT FORMAT',
+    ].join('\n');
+    const sections = toolSections(text);
+    expect(sections).toHaveLength(1);
+    const call = slice(text, sections[0]!);
+    expect(call.startsWith('>>> db_lookup')).toBe(true);
+    expect(call).toContain('Fv/Fm   0.465  0.488');
+    expect(call).not.toContain('OUTPUT FORMAT');
+    expect(call).not.toContain('TASK');
+  });
+
+  it('splits consecutive calls and finds none in plain text', () => {
+    const text = '>>> a()\n    1\n>>> b()\n    2';
+    expect(toolSections(text).map((section) => slice(text, section).split('\n')[0])).toEqual([
+      '>>> a()',
+      '>>> b()',
+    ]);
+    expect(toolSections('no tool calls here\n  just indented text')).toEqual([]);
   });
 });
