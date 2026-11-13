@@ -1,11 +1,16 @@
 import { TransportError, type ClioRepository, type McpAppReopenResult } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
+  noteMcpApp,
   OPEN_MCP_APP_TAB_EVENT,
   resetMcpAppLiveSet,
+  returnMcpAppToConversation,
+  standInForCard,
+  useMcpAppLiveSet,
   useMcpAppLiveSetStore,
+  useMcpAppPresence,
 } from './mcp-app-live-set';
 import { McpAppReopenableCard, McpAppReopenLine, McpAppRestoringTab } from './mcp-app-reopen';
 import { formatArguments, setReopenedMcpApp } from './mcp-app-reopen-store';
@@ -215,6 +220,87 @@ describe('McpAppReopenableCard', () => {
     );
     expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
     expect(repo.mcpAppLive).not.toHaveBeenCalled();
+  });
+});
+
+describe('a reopened view in the live set (MA2, MA5)', () => {
+  const view = (appInstanceId: string) => ({
+    label: 'Open a board',
+    appInstanceId,
+    dataRef: `${appInstanceId}_ref`,
+    sessionId: 'sess_1',
+    resourceUri: 'ui://boards/view',
+    sourceServer: 'boards',
+    toolName: 'boards_open_board',
+  });
+  const liveSetRepository = () => ({
+    closeMcpApp: vi.fn(async () => undefined),
+    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'inline', pinned: false })),
+    pinMcpApp: vi.fn(),
+  });
+
+  it('returns to its card when its tab closes, if its card is the latest', () => {
+    const repo = liveSetRepository();
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'card_1' } });
+    noteMcpApp(view('reopened_1'), repo, 'tab');
+    standInForCard('reopened_1', 'card_1');
+
+    returnMcpAppToConversation('reopened_1');
+
+    expect(useMcpAppLiveSetStore.getState().apps.reopened_1?.placement).toBe('inline');
+    expect(repo.setMcpAppDisplayMode).toHaveBeenCalledWith(
+      { sessionId: 'sess_1', appInstanceId: 'reopened_1', dataRef: 'reopened_1_ref' },
+      'inline',
+    );
+    expect(repo.closeMcpApp).not.toHaveBeenCalled();
+    const presence = renderHook(() => useMcpAppPresence('reopened_1', 'sess_1'));
+    expect(presence.result.current).toEqual({ placement: 'inline', latest: true });
+  });
+
+  it('closes with its tab when its card is an older one', () => {
+    const repo = liveSetRepository();
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'card_2' } });
+    noteMcpApp(view('reopened_1'), repo, 'tab');
+    standInForCard('reopened_1', 'card_1');
+
+    returnMcpAppToConversation('reopened_1');
+
+    expect(useMcpAppLiveSetStore.getState().apps.reopened_1?.placement).toBe('ended');
+    expect(repo.closeMcpApp).toHaveBeenCalledTimes(1);
+  });
+
+  it('is closed when a newer App becomes the latest, like the card it stands for', () => {
+    const repo = liveSetRepository();
+    const message = (id: string, apps: string[]) => ({
+      id,
+      session_id: 'sess_1',
+      role: 'assistant' as const,
+      created_at: '2026-11-13T00:00:00Z',
+      blocks: apps.map((app) => ({
+        id: `${app}_part`,
+        type: 'mcp_app' as const,
+        app_instance_id: app,
+        data_ref: `${app}_ref`,
+        resource_uri: 'ui://boards/view',
+        source_server: 'boards',
+        tool_name: 'boards_open_board',
+        mime_type: 'text/html;profile=mcp-app',
+      })),
+    });
+    const hook = renderHook(({ messages }) => useMcpAppLiveSet('sess_1', messages as never, repo), {
+      initialProps: { messages: [message('m1', ['card_1'])] },
+    });
+    noteMcpApp(view('reopened_1'), repo, 'inline');
+    standInForCard('reopened_1', 'card_1');
+
+    hook.rerender({ messages: [message('m1', ['card_1']), message('m2', ['card_2'])] });
+
+    expect(useMcpAppLiveSetStore.getState().apps.reopened_1?.placement).toBe('ended');
+    expect(repo.closeMcpApp).toHaveBeenCalledWith({
+      sessionId: 'sess_1',
+      appInstanceId: 'reopened_1',
+      dataRef: 'reopened_1_ref',
+    });
   });
 });
 

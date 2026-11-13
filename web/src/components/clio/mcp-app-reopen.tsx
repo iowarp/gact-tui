@@ -18,6 +18,7 @@ import {
   mcpAppLabel,
   noteMcpApp,
   openMcpAppInTab,
+  standInForCard,
   useMcpAppLiveSetStore,
   useMcpAppPresence,
 } from './mcp-app-live-set';
@@ -209,6 +210,10 @@ export function McpAppReopenableCard({
         : block,
     [block, reopened],
   );
+  // After a reload the live set knows the reopened view only by its own id: tie it to this card.
+  useEffect(() => {
+    if (reopened) standInForCard(reopened.appInstanceId, block.app_instance_id);
+  });
   const { placement, latest } = useMcpAppPresence(effective.app_instance_id, session);
   const wantsFrame = placement === 'inline' && (latest || Boolean(reopened));
   const held = useMcpAppHeld(
@@ -226,6 +231,7 @@ export function McpAppReopenableCard({
       const target = viewTarget(view, session, block.title);
       setReopenedMcpApp(session, block.app_instance_id, view);
       noteMcpApp(target, repository);
+      standInForCard(view.appInstanceId, block.app_instance_id);
       if (view.displayMode === 'fullscreen') openMcpAppInTab(target, repository);
     },
     [block.app_instance_id, block.title, repository, session],
@@ -312,6 +318,8 @@ export function McpAppRestoringTab({
       replaceReopenedMcpApp(target.sessionId, target.appInstanceId, view);
       markMcpAppEnded(target.appInstanceId);
       noteMcpApp(next, repository, 'tab');
+      const card = useMcpAppLiveSetStore.getState().apps[target.appInstanceId]?.card;
+      standInForCard(view.appInstanceId, card ?? target.appInstanceId);
       onReplaceTab(`mcp-app:${target.appInstanceId}`, mcpAppTab(next));
     },
     [onReplaceTab, repository, target],
