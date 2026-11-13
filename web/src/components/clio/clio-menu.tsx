@@ -134,7 +134,11 @@ function webBuildVersion(): string | undefined {
 const GROUP_LABEL = 'pt-[9px] pb-[3px] font-semibold';
 /** The facts' columns: label 46%, value right-aligned, a 22px action. */
 const FACT_COLUMNS = 'grid-cols-[46%_minmax(0,1fr)_22px] gap-x-2.5';
-const FACT_GRID = cn(FACT_COLUMNS, 'auto-rows-[25px] gap-y-0');
+/**
+ * The facts' own grid lets a longer label ("Έκδοση χρόνου εκτέλεσης") take what its short
+ * version values leave, so labels still start and values still end on the same x.
+ */
+const FACT_GRID = 'grid-cols-[minmax(46%,max-content)_minmax(0,1fr)_22px] gap-x-2.5 auto-rows-[25px] gap-y-0';
 /** A fact row that is also a menu item: the same columns and height as the facts. */
 const FACT_ITEM = cn(
   "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-meta [&_svg:not([class*='size-'])]:size-[13px]",
