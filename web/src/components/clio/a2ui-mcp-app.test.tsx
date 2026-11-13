@@ -99,6 +99,30 @@ afterEach(() => {
 });
 
 describe('ClioMcpApp', () => {
+  it("names the view by its tool's title, not the tool's identifier", async () => {
+    repository.openMcpAppFromCall.mockResolvedValue({
+      ...OPENED,
+      savedCall: {
+        server: 'timeline',
+        tool: 'open_timeline',
+        arguments: { steps: 24 },
+        display_mode: 'inline',
+        resource_uri: '',
+        label: 'Open a timeline',
+      },
+    });
+    renderApp(undefined, 'titled');
+    await screen.findByTestId('frame');
+    expect(surface.props?.label).toBe('Open a timeline');
+  });
+
+  it('falls back to the tool name when the answer has no title', async () => {
+    repository.openMcpAppFromCall.mockResolvedValue(OPENED);
+    renderApp(undefined, 'untitled');
+    await screen.findByTestId('frame');
+    expect(surface.props?.label).toBe('timeline_open_timeline');
+  });
+
   it('opens its call, pins the view and links the time channel both ways', async () => {
     repository.openMcpAppFromCall.mockResolvedValue(OPENED);
     const context = renderApp(undefined, 'linked');
