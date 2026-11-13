@@ -15,9 +15,12 @@ import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-ac
 import { visualCapturePixelRatio } from './a2ui-visual-viewer';
 import { useFileViewerFacts, useFileViewerTitle } from './file-viewer-facts';
 import { cn } from '@/lib/utils';
-import { DashboardCaptureAction, DashboardCaptureTargetContext } from './dashboard-capture-action';
+import { DashboardCaptureAction } from './dashboard-capture-action';
 import { dashboardTabCount } from './dashboard-tabs';
-import { DashboardPresentationContext } from './dashboard-presentation';
+import {
+  DashboardCaptureTargetContext,
+  DashboardPresentationContext,
+} from './dashboard-presentation';
 
 /** Open a compiled dashboard through the ordinary side-panel artifact viewer. */
 export function DashboardResourceView({

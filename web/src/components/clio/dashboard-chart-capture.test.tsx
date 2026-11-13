@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import type { CaptureTarget } from './a2ui-region-evidence';
-import { DashboardCaptureTargetContext } from './dashboard-capture-action';
+import { DashboardCaptureTargetContext } from './dashboard-presentation';
 import { SurfaceToolbar } from './surface-toolbar';
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));

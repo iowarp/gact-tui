@@ -1,14 +1,8 @@
-import { createContext, useContext, useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { CameraIcon } from 'lucide-react';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import type { CaptureTarget } from './a2ui-region-evidence';
 import { useFileViewerActions } from './file-viewer-action-context';
-
-/**
- * The whole dashboard as a capture target, for a chart inside it: the chart's own capture
- * marks that chart, and offers this one instead (FP-D6).
- */
-export const DashboardCaptureTargetContext = createContext<CaptureTarget | undefined>(undefined);
 
 /**
  * The frame's … menu row that captures the whole displayed dashboard, with

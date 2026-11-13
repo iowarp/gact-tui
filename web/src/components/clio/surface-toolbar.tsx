@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import type { DataZoneReference } from './data-zone-reference';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
-import { DashboardCaptureTargetContext } from './dashboard-capture-action';
+import { DashboardCaptureTargetContext } from './dashboard-presentation';
 import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
 import { ArtifactReferenceContext } from './artifact-reference-context';
 
