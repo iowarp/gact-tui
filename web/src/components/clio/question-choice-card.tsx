@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
-import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
+import { AskButton, AskSection } from './ask-card';
+import { AskRow, AskRows } from './ask-rows';
 import { plainQuestionText } from './question-card-model';
 import { t } from '@lingui/core/macro';
 
