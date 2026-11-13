@@ -76,7 +76,8 @@ function useStatusColumnFit(list: RefObject<HTMLDivElement | null>, minimum: num
     fit();
     const mutations = new MutationObserver(schedule);
     mutations.observe(element, { subtree: true, childList: true, characterData: true });
-    const resizes = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(schedule);
+    const resizes =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(schedule);
     resizes?.observe(element);
     void document.fonts?.ready.then(schedule);
     return () => {
@@ -182,6 +183,9 @@ const NARROW_STATUS =
   'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
 const NARROW_ACTIONS =
   '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
+/** Under 480px the name and sub-line wrap whole rather than cut ("セッションと…"). */
+const NARROW_TEXT =
+  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words';
 
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
@@ -230,6 +234,8 @@ export const InfraRow = memo(
             statusWordClass(status.tone),
           )}
         />
+        {/* A line may break after the status word, not inside the next one. */}
+        <wbr />
         {description}
       </>
     ) : (
@@ -272,7 +278,7 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
-          className={cn(columns.hover && NARROW_ACTIONS, className)}
+          className={cn(NARROW_TEXT, columns.hover && NARROW_ACTIONS, className)}
           onKeyDown={(event) => {
             onKeyDown?.(event);
             if (!event.defaultPrevented) openInfraRowMenu(event);

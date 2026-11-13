@@ -294,8 +294,9 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          // Buttons that no longer fit one row wrap (right-aligned) instead of
-          // pushing Cancel past the left edge of a narrow sheet.
+          // What no longer fits one row wraps (right-aligned) instead of pushing
+          // Cancel past the left edge of a narrow sheet. Cancel and the primary
+          // wrap as a pair; they split only when the pair is wider than the row.
           className="@container flex min-w-0 flex-wrap items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
@@ -305,38 +306,45 @@ export const DialogFrame = memo(function DialogFrame({
             </div>
           ) : null}
           {secondary}
-          {confirmOnly ? null : (
-            <DialogPrimitive.Close asChild>
+          <div
+            data-slot="dialog-frame-actions"
+            className="ml-auto flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 empty:hidden"
+          >
+            {confirmOnly ? null : (
+              <DialogPrimitive.Close asChild>
+                <Button
+                  aria-keyshortcuts={closeAria}
+                  className="border-border gap-[7px]"
+                  variant="ghost"
+                  data-initial-focus=""
+                >
+                  {cancelLabel ?? t`Close`}
+                  <FooterKey
+                    className="border-muted-foreground/45 text-muted-foreground"
+                    keys={CLOSE_KEYS}
+                  />
+                </Button>
+              </DialogPrimitive.Close>
+            )}
+            {confirm ? (
               <Button
-                aria-keyshortcuts={closeAria}
-                className="border-border gap-[7px]"
-                variant="ghost"
-                data-initial-focus=""
+                key={confirmOnly ? 'only' : 'confirm'}
+                aria-keyshortcuts={confirmAria}
+                variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
+                // The face fills the whole 28 px, under the border too.
+                className="gap-[7px] bg-clip-border"
+                disabled={confirm.disabled}
+                onClick={confirm.onConfirm}
+                data-initial-focus={confirmOnly ? '' : undefined}
+                ref={confirmOnly ? focusOnMount : undefined}
               >
-                {cancelLabel ?? t`Close`}
-                <FooterKey
-                  className="border-muted-foreground/45 text-muted-foreground"
-                  keys={CLOSE_KEYS}
-                />
+                {confirm.label}
+                {confirmKeys ? (
+                  <FooterKey className="border-current/45" keys={[confirmKey]} />
+                ) : null}
               </Button>
-            </DialogPrimitive.Close>
-          )}
-          {confirm ? (
-            <Button
-              key={confirmOnly ? 'only' : 'confirm'}
-              aria-keyshortcuts={confirmAria}
-              variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
-              // The face fills the whole 28 px, under the border too.
-              className="gap-[7px] bg-clip-border"
-              disabled={confirm.disabled}
-              onClick={confirm.onConfirm}
-              data-initial-focus={confirmOnly ? '' : undefined}
-              ref={confirmOnly ? focusOnMount : undefined}
-            >
-              {confirm.label}
-              {confirmKeys ? <FooterKey className="border-current/45" keys={[confirmKey]} /> : null}
-            </Button>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
