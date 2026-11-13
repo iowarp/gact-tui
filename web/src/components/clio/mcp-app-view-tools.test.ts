@@ -6,6 +6,7 @@ import {
   dispatchMcpAppToolCallFrame,
   viewToolsOverLimit,
 } from './mcp-app-view-tools';
+import { markMcpAppEnded, noteMcpApp, resetMcpAppLiveSet } from './mcp-app-live-set';
 
 const identity = { sessionId: 'sess_1', appInstanceId: 'app_1', dataRef: 'ref' };
 const highlight = {
@@ -53,7 +54,10 @@ function frame(payload: Record<string, unknown>): TransportFrame {
   };
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  resetMcpAppLiveSet();
+});
 
 describe('McpAppViewTools', () => {
   it('lists the view tools only when the view declares the tools capability', async () => {
@@ -78,6 +82,55 @@ describe('McpAppViewTools', () => {
 
     tools.stop();
     expect(repository.updateMcpAppTools).toHaveBeenLastCalledWith(identity, [], holder);
+  });
+
+  it('does not withdraw the tools of an App CLIO already closed', async () => {
+    const repository = client();
+    const fake = view([highlight]);
+    const tools = new McpAppViewTools(repository, identity, fake.ask);
+    tools.declare({ tools: {} });
+    tools.start();
+    await vi.waitFor(() => expect(repository.updateMcpAppTools).toHaveBeenCalledTimes(1));
+    noteMcpApp(
+      {
+        ...identity,
+        label: 'Board',
+        resourceUri: 'ui://board',
+        sourceServer: 'board',
+        toolName: 'open_board',
+      },
+      undefined,
+      'tab',
+    );
+    markMcpAppEnded(identity.appInstanceId);
+    tools.stop();
+    expect(repository.updateMcpAppTools).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the newer mount answering calls when the older mount of the App stops later', async () => {
+    const repository = client();
+    const card = view([highlight]);
+    const tab = view([highlight]);
+    const older = new McpAppViewTools(repository, identity, card.ask);
+    const newer = new McpAppViewTools(repository, identity, tab.ask);
+    older.declare({ tools: {} });
+    newer.declare({ tools: {} });
+    older.start();
+    newer.start();
+    older.stop();
+    dispatchMcpAppToolCallFrame(
+      frame({
+        session_id: 'sess_1',
+        app_instance_id: 'app_1',
+        call_id: 'apcall_2',
+        name: 'set_highlight',
+        arguments: { reading: 'flow' },
+      }),
+    );
+    await vi.waitFor(() => expect(repository.postMcpAppToolResult).toHaveBeenCalledTimes(1));
+    expect(tab.sent.some((m) => m.method === 'tools/call')).toBe(true);
+    expect(card.sent.some((m) => m.method === 'tools/call')).toBe(false);
+    newer.stop();
   });
 
   it('forwards a streamed agent call to the view once and posts its result', async () => {
