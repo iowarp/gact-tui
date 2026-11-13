@@ -3680,6 +3680,17 @@ msgstr "{tasks, plural, one {# task} other {# tasks}}"
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr "{tasks, plural, one {ran # task} other {ran # tasks}}"
 
+#. Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！
+#: src/components/clio/pending-interactions.tsx
+msgid "{text} {sentence}"
+msgstr "{text} {sentence}"
+
+#. Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …
+#: src/components/clio/pending-interactions.tsx
+msgctxt "after half-width sentence punctuation"
+msgid "{text} {sentence}"
+msgstr "{text} {sentence}"
+
 #. Joins sentences of a screen-reader announcement
 #: src/components/clio/pending-interactions.tsx
 msgid "{text}. {sentence}"
@@ -9778,8 +9789,13 @@ msgstr "Comments, revision history and editing are unavailable: its registered r
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
 msgstr "Commit"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
+msgstr "Commit changes to git"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Commit ID"
@@ -27109,6 +27125,10 @@ msgstr "Recording needs attention"
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
 msgstr "Recording unavailable"
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
+msgstr "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Records full model-call payloads in the selected provenance service for token alignment. Use this only with a trusted service. The inference runtime must also have its attention probe enabled."

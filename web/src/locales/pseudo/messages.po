@@ -3673,6 +3673,17 @@ msgstr ""
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr ""
 
+#. Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！
+#: src/components/clio/pending-interactions.tsx
+msgid "{text} {sentence}"
+msgstr ""
+
+#. Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …
+#: src/components/clio/pending-interactions.tsx
+msgctxt "after half-width sentence punctuation"
+msgid "{text} {sentence}"
+msgstr ""
+
 #. Joins sentences of a screen-reader announcement
 #: src/components/clio/pending-interactions.tsx
 msgid "{text}. {sentence}"
@@ -9770,7 +9781,12 @@ msgstr ""
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
 msgstr ""
 
 #: src/components/clio/github-revision-picker.tsx
@@ -27091,6 +27107,10 @@ msgstr ""
 
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
+msgstr ""
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
 msgstr ""
 
 #: src/components/clio/provenance-connections.tsx

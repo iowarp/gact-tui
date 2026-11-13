@@ -3680,6 +3680,17 @@ msgstr "{tasks, plural, one {# tarea} other {# tareas}}"
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr "{tasks, plural, one {ejecutó # tarea} other {ejecutó # tareas}}"
 
+#. Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！
+#: src/components/clio/pending-interactions.tsx
+msgid "{text} {sentence}"
+msgstr "{text} {sentence}"
+
+#. Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …
+#: src/components/clio/pending-interactions.tsx
+msgctxt "after half-width sentence punctuation"
+msgid "{text} {sentence}"
+msgstr "{text} {sentence}"
+
 #. Joins sentences of a screen-reader announcement
 #: src/components/clio/pending-interactions.tsx
 msgid "{text}. {sentence}"
@@ -9778,8 +9789,13 @@ msgstr "Los comentarios, el historial de revisiones y la edición no están disp
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
 msgstr "Commit"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
+msgstr "Confirmar cambios en git"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Commit ID"
@@ -27109,6 +27125,10 @@ msgstr "El registro requiere atención"
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
 msgstr "Registro no disponible"
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
+msgstr "Registra en git los cambios de una carpeta del espacio de trabajo y crea el repositorio cuando se pide; los hooks del repositorio nunca se ejecutan."
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Records full model-call payloads in the selected provenance service for token alignment. Use this only with a trusted service. The inference runtime must also have its attention probe enabled."

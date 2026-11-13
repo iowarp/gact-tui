@@ -84,6 +84,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   fs_read_file: define(t`Read file`, 'declared', 'path'),
   fs_write_file: { ...define(t`Write file`, 'declared', 'path'), instruction: 'content' },
   fs_edit_file: define(t`Edit file`, 'declared', 'path'),
+  fs_git_commit: define(t`Commit`, 'declared', 'path'),
   shell_bash: define(t`Run command`, 'declared', 'command'),
   // The script's name (its label, first comment or first statement) is the declared subject.
   run_code: define(t`Run script`),
