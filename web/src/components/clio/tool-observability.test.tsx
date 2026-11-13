@@ -7,6 +7,8 @@ import { ClioToolInvocation } from './tool-invocation';
 import { getToolFailureDetail } from './tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
+import { expectStatusMark } from '@/test/status-mark';
 
 afterEach(cleanup);
 
@@ -39,6 +41,9 @@ const shell: ToolInvocation = {
     ],
   },
 };
+
+// The status mark names the recorded shell reason as a sentence.
+const SHELL_FAILURE = 'Failed: windows sandbox failed: CreateProcessWithLogonW failed: 2.';
 
 describe('readable compact tool results', () => {
   it.each([
@@ -137,7 +142,9 @@ describe('readable compact tool results', () => {
       </PresentationNavigation.Provider>,
     );
     const link = screen.getByRole('button', { name: 'raccoon.svg' });
-    expect(screen.getAllByText('raccoon.svg')).toHaveLength(1);
+    // The compact link keeps the file's stem and extension apart so the stem can truncate.
+    expect(link).toHaveTextContent(/^raccoon\.svg$/u);
+    expect(document.body.textContent?.match(/raccoon\.svg/gu)).toHaveLength(1);
     expect(screen.queryByText('RAW SVG DATA')).not.toBeInTheDocument();
     await user.click(link);
     expect(opened).toEqual(['D:/workspace/raccoon.svg']);
@@ -151,10 +158,7 @@ describe('readable compact tool results', () => {
       </TooltipProvider>,
     );
     const row = screen.getByRole('button', { name: 'Show result for Run command' });
-    expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
-      'title',
-      expect.stringContaining('CreateProcessWithLogonW failed: 2'),
-    );
+    await expectStatusMark(SHELL_FAILURE, SHELL_FAILURE);
     row.focus();
     await user.keyboard('{Enter}');
     const result = screen.getByRole('region', { name: 'Run command: Result' });
@@ -193,8 +197,8 @@ describe('readable compact tool results', () => {
     expect(screen.getByRole('region')).not.toHaveTextContent('ok=false');
   });
 
-  it('keeps the row focused when a running call becomes a semantic failure', () => {
-    const view = render(
+  it('keeps the row focused when a running call becomes a semantic failure', async () => {
+    const view = renderWithTooltips(
       <ClioToolInvocation
         compact
         tool={{
@@ -208,10 +212,7 @@ describe('readable compact tool results', () => {
     row.focus();
     view.rerender(<ClioToolInvocation compact tool={shell} />);
     expect(row).toHaveFocus();
-    expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
-      'title',
-      expect.stringContaining('CreateProcessWithLogonW failed: 2'),
-    );
+    await expectStatusMark(SHELL_FAILURE, SHELL_FAILURE);
     view.rerender(
       <ClioToolInvocation
         compact
@@ -322,9 +323,9 @@ describe('recorded failure detail selection', () => {
         ...shell,
         presentation: undefined,
         state: 'denied' as const,
-        error: 'Permission denied by user',
+        error: 'Writes outside /workspace are blocked by the folder policy',
       },
-      expected: 'Permission denied by user',
+      expected: 'Writes outside /workspace are blocked by the folder policy',
     },
     {
       tool: {
@@ -356,4 +357,14 @@ describe('recorded failure detail selection', () => {
   ])('preserves the reason: $expected', ({ tool, expected }) => {
     expect(getToolFailureDetail(tool)).toBe(expected);
   });
+  // The denied row already says Denied and who decided, so a reason that only restates
+  // the refusal is not repeated in the opened body.
+  it.each(['Permission denied by user', 'Denied by you', 'denied.'])(
+    'does not repeat a refusal that only restates the decision: %s',
+    (error) => {
+      const tool = { ...shell, presentation: undefined, state: 'denied' as const, error };
+      expect(getToolFailureDetail(tool)).toBeUndefined();
+      expect(getToolFailureDetail({ ...tool, state: 'failed' })).toBe(error);
+    },
+  );
 });
