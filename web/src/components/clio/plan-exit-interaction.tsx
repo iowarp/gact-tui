@@ -125,22 +125,27 @@ function PlanPreview({
   const footer = footerText(plan);
   return (
     <AskSection
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      // Under the card's height cap the reading area gives up height; the footer stays whole.
+      className={cn(
+        'flex min-h-[36px] flex-col overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="plan-preview"
     >
       <div
         className={cn(
-          'px-3.5 pt-2.5',
+          // The padding sits on the body, so the reading area can give up all of its height.
+          'min-h-0',
           expanded
-            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto pb-2.5'
-            : 'max-h-[118px] overflow-hidden pb-2.5',
+            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto'
+            : 'max-h-[118px] overflow-hidden',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
         )}
         data-plan-clipped={clipped || undefined}
         ref={clipRef}
         tabIndex={expanded ? 0 : undefined}
       >
-        <div ref={bodyRef}>
+        <div className="px-3.5 py-2.5" ref={bodyRef}>
           {content ? (
             <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
@@ -156,7 +161,8 @@ function PlanPreview({
       </div>
       {footer || opens || toggles ? (
         <div
-          className="flex h-[34px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground"
+          // rem, so the footer grows with its button at larger interface sizes.
+          className="flex h-[2.125rem] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground"
           data-slot="plan-preview-footer"
         >
           <span className="min-w-0 truncate" title={footer}>

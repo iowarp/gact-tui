@@ -442,6 +442,33 @@ describe('ClioPendingInteractions', () => {
     expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
   });
 
+  it('announces a question once, without a second stop after its own punctuation', () => {
+    renderPending([
+      pending('question', {
+        id: 'question:q-asks',
+        prompt: 'Run it on flat-ndp?',
+        title: 'Run it on flat-ndp?',
+      }),
+      pending('question', { id: 'question:q-plain', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
+    ]);
+
+    const live = document.querySelector('p[aria-live="polite"]');
+    expect(live).toHaveTextContent(/^Question: Run it on flat-ndp\? 1 of 2$/);
+
+    cleanup();
+    renderPending([
+      pending('question', { id: 'question:q-plain', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
+      pending('question', {
+        id: 'question:q-asks',
+        prompt: 'Run it on flat-ndp?',
+        title: 'Run it on flat-ndp?',
+      }),
+    ]);
+    expect(document.querySelector('p[aria-live="polite"]')).toHaveTextContent(
+      /^Question: Pick a mesh\. 1 of 2$/,
+    );
+  });
+
   it('allows choices and a free-form answer in the same child question', async () => {
     const user = userEvent.setup();
     const interaction = pending('question', {
