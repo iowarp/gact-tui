@@ -9,6 +9,7 @@ import { capRows, inCommandMenuScope, type CommandMenuScope } from '@/lib/comman
 import { useAppearancePreferences, useTheme } from '@/providers/appearance-provider';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { cn } from '@/lib/utils';
 import { compactModelName } from '@/lib/model-options';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
@@ -232,14 +233,22 @@ export function GlobalSearchGroups({
             value={item.id}
           >
             <item.icon aria-hidden="true" />
-            <span className="min-w-0 flex-[0_1_auto] truncate" lang={item.lang}>
+            <span
+              className={cn(
+                'min-w-0 flex-[0_1_auto]',
+                // Language names are short and must stay whole; others truncate.
+                'locale' in item.action ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate',
+              )}
+              lang={item.lang}
+            >
               <SearchHighlight query={query} text={item.label} />
             </span>
             {item.trail ? <ResultDetail>{item.trail}</ResultDetail> : null}
             <ResultTrail>
-              {('theme' in item.action && theme === item.action.theme) ||
-              ('locale' in item.action && localePreference === item.action.locale) ? (
+              {'theme' in item.action && theme === item.action.theme ? (
                 t`Current`
+              ) : 'locale' in item.action && localePreference === item.action.locale ? (
+                t({ message: 'Current', context: 'interface language' })
               ) : item.shortcut ? (
                 <ShortcutKeys capSize="sm" id={item.shortcut} variant="caps" />
               ) : item.setting?.value ? (

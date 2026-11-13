@@ -12076,6 +12076,11 @@ msgstr "Curator model"
 msgid "Current"
 msgstr "Current"
 
+#: src/components/clio/global-search-results.tsx
+msgctxt "interface language"
+msgid "Current"
+msgstr "Current"
+
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Current revision {revision}"
 msgstr "Current revision {revision}"
@@ -33965,6 +33970,7 @@ msgid "System"
 msgstr "System"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 msgid "System ({systemName})"
 msgstr "System ({systemName})"
 
@@ -38813,10 +38819,6 @@ msgstr "Use saved facts and preferences in later conversations. Turning this off
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
 msgstr "Use selected location"
-
-#: src/lib/global-search-commands.ts
-msgid "Use system language"
-msgstr "Use system language"
 
 #: src/lib/global-search-commands.ts
 msgid "Use system theme"

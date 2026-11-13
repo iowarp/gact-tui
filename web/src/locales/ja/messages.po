@@ -12076,6 +12076,11 @@ msgstr "キュレーターモデル"
 msgid "Current"
 msgstr "現在"
 
+#: src/components/clio/global-search-results.tsx
+msgctxt "interface language"
+msgid "Current"
+msgstr "現在"
+
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Current revision {revision}"
 msgstr "現在のリビジョン{revision}"
@@ -33965,6 +33970,7 @@ msgid "System"
 msgstr "システム"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 msgid "System ({systemName})"
 msgstr "システム({systemName})"
 
@@ -38813,10 +38819,6 @@ msgstr "保存した事実と好みを以降の会話で使います。オフに
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
 msgstr "選択した場所を使用"
-
-#: src/lib/global-search-commands.ts
-msgid "Use system language"
-msgstr "システムの言語を使用"
 
 #: src/lib/global-search-commands.ts
 msgid "Use system theme"

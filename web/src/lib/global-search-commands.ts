@@ -192,15 +192,6 @@ function languageCommands(): GlobalSearchCommand[] {
   const terms = 'language locale translation idioma 言語 γλώσσα';
   const systemName = interfaceLanguage(systemLocale(deviceLanguages())).nativeName;
   return [
-    {
-      id: 'language:system',
-      label: t`Use system language`,
-      icon: LanguagesIcon,
-      group: 'Actions',
-      trail: systemName,
-      keywords: [t`Language`, terms, 'system automatic device follow'].join(' '),
-      action: { locale: 'system' },
-    },
     ...availableLanguages().map((language): GlobalSearchCommand => {
       const local = localLanguageName(language.locale);
       return {
@@ -222,6 +213,16 @@ function languageCommands(): GlobalSearchCommand[] {
         action: { locale: language.locale },
       };
     }),
+    {
+      // Last, like the system theme, and named as in Settings › Language so a
+      // narrow row never loses which language "system" means.
+      id: 'language:system',
+      label: t`System (${systemName})`,
+      icon: LanguagesIcon,
+      group: 'Actions',
+      keywords: [t`Language`, terms, 'automatic device follow'].join(' '),
+      action: { locale: 'system' },
+    },
   ];
 }
 

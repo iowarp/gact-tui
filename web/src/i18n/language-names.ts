@@ -24,7 +24,11 @@ function reader(locale: string): Intl.DisplayNames | undefined {
 export function localLanguageName(locale: string): string | undefined {
   if (locale === 'pseudo') return t`Long accented test copy`;
   const name = reader(i18n.locale)?.of(locale);
-  return name && name !== interfaceLanguage(locale).nativeName ? name : undefined;
+  const own = interfaceLanguage(locale).nativeName;
+  // Intl writes some names in lower case (`español`); that is still the same name.
+  return name && name.toLocaleLowerCase(locale) !== own.toLocaleLowerCase(locale)
+    ? name
+    : undefined;
 }
 
 /** A language's English name (`Spanish`), for search terms that work in any interface language. */

@@ -48,7 +48,11 @@ it('offers every interface language by its own name and finds it by its English 
   expect(languages.map((item) => item.label)).toEqual(
     expect.arrayContaining(['English', 'Español', '日本語', 'Ελληνικά']),
   );
-  expect(languages).toContainEqual(expect.objectContaining({ action: { locale: 'system' } }));
+  expect(languages.at(-1)).toMatchObject({
+    action: { locale: 'system' },
+    label: expect.stringMatching(/^System \(.+\)$/),
+  });
+  expect(search('system language')).toEqual([languages.at(-1)]);
   expect(search('spanish')).toContainEqual(
     expect.objectContaining({ label: 'Español', lang: 'es', action: { locale: 'es' } }),
   );
