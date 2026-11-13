@@ -93,7 +93,7 @@ export function ConversationRelationships({
         strokeOpacity: 0.75,
         strokeDasharray: edge.kind === 'delegation' ? '5 4' : undefined,
       },
-      labelStyle: { fill: 'var(--muted-foreground)', fontSize: 11 },
+      labelStyle: { fill: 'var(--muted-foreground)', fontSize: '0.6875rem' },
       labelBgStyle: { fill: 'var(--background)', fillOpacity: 1 },
       labelBgPadding: [5, 3],
     }));
@@ -219,7 +219,7 @@ function ConversationCard({ data }: NodeProps<ConversationNode>) {
         />
         <span className="min-w-0">
           <span className="line-clamp-2 text-xs font-semibold leading-4">{data.session.title}</span>
-          <span className="mt-1 block text-[10px] text-muted-foreground">
+          <span className="mt-1 block text-[0.625rem] text-muted-foreground">
             {conversationRole(data.session)}
             {data.current ? ' (current)' : ''}
           </span>

@@ -159,7 +159,7 @@ function CompactModelDetails({
         {items.length ? (
           <KeyValueGrid
             aria-label={`About ${modelId}`}
-            className="grid-cols-[40%_minmax(0,1fr)] gap-x-2.5 gap-y-0 [&>div>dd]:leading-[25px] [&>div>dt]:min-h-[25px]"
+            className="grid-cols-[40%_minmax(0,1fr)] gap-x-2.5 gap-y-0 [&>div>dd]:leading-[1.5625rem] [&>div>dt]:min-h-[1.5625rem]"
             items={items}
           />
         ) : null}

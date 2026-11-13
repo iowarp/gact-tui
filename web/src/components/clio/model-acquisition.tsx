@@ -301,7 +301,7 @@ export function ModelAcquisitions({
           }}
         >
           <div className="flex h-12 min-w-0 shrink-0 items-center gap-2.5 pr-2.5 pl-4">
-            <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[14px] leading-7 font-semibold">
+            <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold">
               {acquire.data ? 'Model download' : 'Find a model'}
             </DialogTitle>
             {acquire.data ? null : (

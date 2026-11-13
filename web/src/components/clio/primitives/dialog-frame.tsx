@@ -242,7 +242,7 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[14px] leading-7 font-semibold [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold [overflow-wrap:normal]">
             {title}
           </DialogTitle>
           {help ? (

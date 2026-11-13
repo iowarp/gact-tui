@@ -42,7 +42,7 @@ export function ArtifactRailRow({ artifact, onOpen }: { artifact: Artifact; onOp
         <ArtifactTypeIcon artifact={artifact} className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left">{name}</span>
         {artifact.size === undefined ? null : (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
+          <span className="shrink-0 text-[0.625rem] text-muted-foreground">
             {formatBytes(artifact.size)}
           </span>
         )}

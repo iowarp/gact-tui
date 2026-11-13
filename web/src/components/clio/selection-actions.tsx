@@ -187,7 +187,7 @@ function SelectionActionButton({ action, onRun }: { action: SelectionAction; onR
       {presentation ? (
         <kbd
           aria-hidden="true"
-          className="font-mono text-[10.5px] font-normal text-muted-foreground"
+          className="font-mono text-[0.65625rem] font-normal text-muted-foreground"
           data-slot="selection-action-shortcut"
         >
           {presentation.text}

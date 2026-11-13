@@ -340,7 +340,7 @@ export function ModelPickerSearch({
                   {chosen.length ? (
                     <span
                       aria-hidden="true"
-                      className="absolute -top-[3px] -right-[3px] rounded-[6px] bg-primary px-[3px] text-[8.5px] leading-3 font-semibold text-primary-foreground tabular-nums"
+                      className="absolute -top-[3px] -right-[3px] rounded-[6px] bg-primary px-[3px] text-[0.53125rem] leading-3 font-semibold text-primary-foreground tabular-nums"
                     >
                       {chosen.length}
                     </span>

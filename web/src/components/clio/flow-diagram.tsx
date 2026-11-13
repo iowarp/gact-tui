@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { FlowDiagramSpec } from '@/hooks/use-flow-presentation';
 import { cn } from '@/lib/utils';
+import { useInterfaceScale } from '@/theme/runtime';
 import { renderPeleDiagram } from './diagram-renderer';
 import { markRailroad, scaleSvg } from './flow-railroad-marks';
 
@@ -58,7 +59,9 @@ export function FlowDiagram({
   // Preserve readable type for dense graphs too. Fitting the entire SVG into
   // the card can turn a 12px label into 4px; pan the natural layout instead.
   const renderWidth = undefined;
-  const renderKey = JSON.stringify([source, fontSize, renderWidth]);
+  // Pele lays text out in px scaled by Interface size, so a size change redraws.
+  const textScale = useInterfaceScale();
+  const renderKey = JSON.stringify([source, fontSize, renderWidth, textScale]);
   // Status/selection changes mark a cheap SVG clone. They do not lay out the
   // same railroad again whenever a usage or timer update changes its object.
   const svg = useMemo(() => {

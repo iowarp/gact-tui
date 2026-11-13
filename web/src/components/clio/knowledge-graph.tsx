@@ -179,7 +179,7 @@ function NoteCard({ data }: NodeProps<NoteNode>) {
         >
           {card.title}
         </span>
-        <span className="truncate text-caption leading-[14px] text-muted-foreground">{links}</span>
+        <span className="truncate text-caption leading-[0.875rem] text-muted-foreground">{links}</span>
       </button>
       <Handle className={HANDLE} position={Position.Right} type="source" />
     </div>

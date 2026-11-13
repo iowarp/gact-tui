@@ -129,7 +129,7 @@ function HostFolderThumbnail({ name }: { name: string }) {
       title={name}
     >
       <AttachedFolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="w-full truncate text-center text-[10px] leading-tight">{name}</span>
+      <span className="w-full truncate text-center text-[0.625rem] leading-tight">{name}</span>
     </div>
   );
 }
