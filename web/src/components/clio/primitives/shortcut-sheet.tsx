@@ -23,8 +23,14 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
 import { StateView } from './state-view';
-import { formatLocale } from '@/lib/locale-format';
+import { formatLocale, joinClauses } from '@/lib/locale-format';
 import { ph, t } from '@lingui/core/macro';
+
+/** What a screen reader hears after the visible name: ", when focused" (", " is "、" in Japanese). */
+function spokenSuffix(name: string, extras: readonly string[]): string {
+  const spoken = joinClauses([name, ...extras]);
+  return spoken.startsWith(name) ? spoken.slice(name.length) : ` ${joinClauses(extras)}`;
+}
 
 /** Column count by row count: the sheet grows to four columns only when it has the rows to fill them. */
 const ROWS_PER_COLUMN = 10;
@@ -242,14 +248,12 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                           }
                         >
                           {row.name}
-                          {row.when ? (
+                          {row.when || here ? (
                             <span className="sr-only">
-                              , {row.when.toLocaleLowerCase(formatLocale())}
-                            </span>
-                          ) : null}
-                          {here ? (
-                            <span className="sr-only">
-                              , {WORKS_HERE.toLocaleLowerCase(formatLocale())}
+                              {spokenSuffix(row.name, [
+                                ...(row.when ? [row.when.toLocaleLowerCase(formatLocale())] : []),
+                                ...(here ? [WORKS_HERE.toLocaleLowerCase(formatLocale())] : []),
+                              ])}
                             </span>
                           ) : null}
                         </span>

@@ -7,6 +7,24 @@ export function formatLocale(): string {
 }
 
 /**
+ * The gap between two sentences rendered side by side: a space, except in
+ * Japanese and Chinese, where "。" ends a sentence without one.
+ */
+export function sentenceGap(): string {
+  return /^(ja|zh)\b/u.test(formatLocale()) ? '' : ' ';
+}
+
+/**
+ * Joins clauses into one line with the language's list comma ("A, B" in
+ * English, "A、B" in Japanese). `Intl.ListFormat` unit lists join Japanese
+ * with spaces, so the separator is a message.
+ */
+export function joinClauses(parts: readonly string[]): string {
+  if (!parts.length) return '';
+  return parts.reduce((joined, next) => t`${joined}, ${next}`);
+}
+
+/**
  * Cached Intl formatters for per-row hot paths. `Date#toLocale*String` and
  * `Number#toLocaleString` build a new formatter on every call, which costs a
  * long transcript tens of milliseconds per page. They format in the interface

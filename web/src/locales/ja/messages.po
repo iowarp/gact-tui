@@ -50,7 +50,7 @@ msgstr "「{label}」はノードごとの値です。しきい値には要素�
 
 #: src/widget-preview-app.tsx
 msgid "“How did Harvey, Maria, and Dorian move, and when did each reach its strongest winds?”"
-msgstr "「Harvey、Maria、Dorian はどのように移動し、それぞれいつ最大風速に達しましたか？」"
+msgstr "「Harvey、Maria、Dorianはどのように移動し、それぞれいつ最大風速に達しましたか？」"
 
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "(Hidden)"
@@ -73,7 +73,7 @@ msgstr "{0, plural, =1 {最後のメッセージを削除しました} other {#�
 #. placeholder {0}: result.deleted_message_ids.length
 #: src/hooks/use-session-history-actions.ts
 msgid "{0, plural, =1 {One later message removed} other {# later messages removed}}"
-msgstr "{0, plural, =1 {後続のメッセージを 1 件削除しました} other {後続のメッセージを#件削除しました}}"
+msgstr "{0, plural, =1 {後続のメッセージを1件削除しました} other {後続のメッセージを#件削除しました}}"
 
 #. placeholder {0}: rest.length
 #: src/components/clio/composer-queue-row.tsx
@@ -293,7 +293,7 @@ msgstr "{0, plural, one {#件のフロー} other {#件のフロー}}"
 #. placeholder {2}: sections.length
 #: src/components/clio/composed-prompt-view.tsx
 msgid "{0, plural, one {# fragment in {1, plural, one {# section} other {# sections}}, in the order the agent reads them.} other {# fragments in {2, plural, one {# section} other {# sections}}, in the order the agent reads them.}}"
-msgstr "{0, plural, one {#個のフラグメントが {1, plural, one {#個のセクション} other {#個のセクション}}にあり、エージェントが読む順に並んでいます。} other {#個のフラグメントが {2, plural, one {#個のセクション} other {#個のセクション}}にあり、エージェントが読む順に並んでいます。}}"
+msgstr "{0, plural, one {#個のフラグメントが{1, plural, one {#個のセクション} other {#個のセクション}}にあり、エージェントが読む順に並んでいます。} other {#個のフラグメントが{2, plural, one {#個のセクション} other {#個のセクション}}にあり、エージェントが読む順に並んでいます。}}"
 
 #. placeholder {0}: section.fragments.length
 #: src/components/clio/composed-prompt-view.tsx
@@ -774,7 +774,7 @@ msgstr "{0, plural, one {#個のバックグラウンドスクリプトからの
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {plugin}:} other {# more plugins leave with {plugin}:}}"
-msgstr "{0, plural, one {{plugin}とともにさらに 1 個のプラグインが削除されます:} other {{plugin}とともにさらに#個のプラグインが削除されます:}}"
+msgstr "{0, plural, one {{plugin}とともにさらに1個のプラグインが削除されます:} other {{plugin}とともにさらに#個のプラグインが削除されます:}}"
 
 #. placeholder {0}: pages.length
 #: src/components/clio/script-run-body.tsx
@@ -799,7 +799,7 @@ msgstr "{0, plural, one {以前のスケジュール記録#件} other {以前の
 #. placeholder {0}: data.todo_history.length
 #: src/components/clio/session-work.tsx
 msgid "{0, plural, one {Previous # todo list} other {Previous # todo lists}}"
-msgstr "{0, plural, one {以前の ToDo リスト#件} other {以前の ToDo リスト#件}}"
+msgstr "{0, plural, one {以前のToDoリスト#件} other {以前のToDoリスト#件}}"
 
 #. placeholder {0}: problems.length
 #: src/components/clio/latex-frame-controls.tsx
@@ -980,11 +980,11 @@ msgstr "{action}に失敗しました"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "{action} in one conversation"
-msgstr "1 つの会話で{action}"
+msgstr "1つの会話で{action}"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "{action} in one workspace"
-msgstr "1 つのワークスペースで{action}"
+msgstr "1つのワークスペースで{action}"
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "{action} is unavailable in this workspace."
@@ -1082,7 +1082,7 @@ msgstr "{agent} {version}は{label}にインストールされていますが、
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} accepts SSH connections only from this app's own window, and refused this one."
-msgstr "{agent}はこのアプリ自身のウインドウからの SSH 接続のみを受け付けるため、この接続を拒否しました。"
+msgstr "{agent}はこのアプリ自身のウインドウからのSSH接続のみを受け付けるため、この接続を拒否しました。"
 
 #: src/providers/connection-provider.tsx
 msgid "{agent} already on {conflictLabel}"
@@ -1106,7 +1106,7 @@ msgstr "{agent}からの質問"
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} can attach an SSH connection only to an SSH host, and this host is not one."
-msgstr "{agent}は SSH 接続を SSH ホストにのみ関連付けられますが、このホストは SSH ホストではありません。"
+msgstr "{agent}はSSH接続をSSHホストにのみ関連付けられますが、このホストはSSHホストではありません。"
 
 #: src/components/clio/permission-operation-details.tsx
 msgid "{agent} can change files here, including after restart, until you remove these folders. Conversations on the primary folder share this access."
@@ -1114,11 +1114,11 @@ msgstr "これらのフォルダーを削除するまで、{agent}は再起動�
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} closed the SSH connection before attaching it (code {code}: {reason})."
-msgstr "{agent}は SSH 接続を関連付ける前に閉じました（コード{code}：{reason}）。"
+msgstr "{agent}はSSH接続を関連付ける前に閉じました（コード{code}：{reason}）。"
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} closed the SSH connection before attaching it (code {code})."
-msgstr "{agent}は SSH 接続を関連付ける前に閉じました（コード{code}）。"
+msgstr "{agent}はSSH接続を関連付ける前に閉じました（コード{code}）。"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "{agent} could not be reached after the update."
@@ -1134,7 +1134,7 @@ msgstr "{agent}はこのホストでGlobus Connect Personalを検出しました
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} did not accept this app's sign-in for the SSH connection. Reconnect to {agent}, then deploy again."
-msgstr "{agent}は SSH 接続に対するこのアプリのサインインを受け付けませんでした。{agent}に再接続してから、もう一度デプロイしてください。"
+msgstr "{agent}はSSH接続に対するこのアプリのサインインを受け付けませんでした。{agent}に再接続してから、もう一度デプロイしてください。"
 
 #: src/components/clio/settings-connection.tsx
 msgid "{agent} did not answer."
@@ -1214,7 +1214,7 @@ msgstr "続行するには、{agent}への回答が必要です。"
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} no longer has this SSH host saved. Choose the host again, then deploy."
-msgstr "{agent}にはこの SSH ホストが保存されていません。ホストをもう一度選んでから、デプロイしてください。"
+msgstr "{agent}にはこのSSHホストが保存されていません。ホストをもう一度選んでから、デプロイしてください。"
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "{agent} on {label} isn't answering — Replace it?"
@@ -1230,7 +1230,7 @@ msgstr "{agent}は元のフォルダーを読み取り、変更します。何�
 
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} refused the SSH connection before it opened and gave no reason. An older {agent} does not report one; update {agent} and try again."
-msgstr "{agent}は SSH 接続を開く前に拒否し、理由を示しませんでした。古い{agent}は理由を報告しません。{agent}をアップデートして、もう一度お試しください。"
+msgstr "{agent}はSSH接続を開く前に拒否し、理由を示しませんでした。古い{agent}は理由を報告しません。{agent}をアップデートして、もう一度お試しください。"
 
 #: src/lib/infrastructure-service-labels.ts
 msgid "{agent} Relay"
@@ -1276,7 +1276,7 @@ msgstr "{agent}のアップデートが完了していません。ランタイ�
 
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
-msgstr "{agent}は OS による分離なしでコマンドを実行します。"
+msgstr "{agent}はOSによる分離なしでコマンドを実行します。"
 
 #: src/gallery-skill-dialog.tsx
 msgid "{agent} workspace"
@@ -1878,7 +1878,7 @@ msgstr "{failures, plural, one {#件のセッションをインデックスで�
 
 #: src/components/clio/composer-references.tsx
 msgid "{file} cannot be read as HDF5 here."
-msgstr "{file}はここでは HDF5 として読み取れません。"
+msgstr "{file}はここではHDF5として読み取れません。"
 
 #: src/components/clio/composer.tsx
 msgid "{fileCount, plural, one {# file is too large} other {# files are too large}}"
@@ -2108,6 +2108,10 @@ msgstr "入力{input}トークン、出力{output}トークン"
 msgid "{interrupted} stopped"
 msgstr "{interrupted}件停止"
 
+#: src/lib/locale-format.ts
+msgid "{joined}, {next}"
+msgstr "{joined}、{next}"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{returned}件中{kept}件を保持"
@@ -2330,7 +2334,7 @@ msgstr "{hostLabel}上の{label}サービスのデータ"
 
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "{label} URL"
-msgstr "{label}の URL"
+msgstr "{label}のURL"
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "{label} was added. {check}"
@@ -2382,7 +2386,7 @@ msgstr "{label}：トランスクリプトで呼び出し{callId}を表示"
 
 #: src/lib/model-capability-tags.ts
 msgid "{label}. Hugging Face task: {hub}."
-msgstr "{label}。Hugging Face のタスク: {hub}。"
+msgstr "{label}。Hugging Faceのタスク: {hub}。"
 
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "{label}. Identifier {missingId}"
@@ -2656,7 +2660,7 @@ msgid "{name} could not be moved to {dest}: {error}\n"
 "Quit {name}, drag it into Applications in Finder, then open it from there."
 msgstr "{name}を{dest}に移動できませんでした：{error}\n"
 "\n"
-"{name} を終了し、Finder でアプリケーションフォルダーにドラッグしてから、そこから開いてください。"
+"{name}を終了し、Finderでアプリケーションフォルダーにドラッグしてから、そこから開いてください。"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "{name} could not display this workspace"
@@ -2714,17 +2718,17 @@ msgstr "{name}はオフラインです"
 msgid "{name} is running from a temporary location macOS uses for downloaded apps, so it cannot update itself or keep its place in the Dock.\n"
 "\n"
 "Move it to {dest} now? {name} will reopen from there."
-msgstr "{name}は macOS がダウンロードしたアプリに使う一時的な場所から実行されているため、自身をアップデートしたり Dock 内の位置を保持したりできません。\n"
+msgstr "{name}はmacOSがダウンロードしたアプリに使う一時的な場所から実行されているため、自身をアップデートしたりDock内の位置を保持したりできません。\n"
 "\n"
-"今すぐ {dest} に移動しますか？{name} はそこから再び開きます。"
+"今すぐ{dest}に移動しますか？{name}はそこから再び開きます。"
 
 #: src/tauri/native-copy.ts
 msgid "{name} is running from its disk image, so it cannot update itself or keep its place in the Dock.\n"
 "\n"
 "Move it to {dest} now? {name} will reopen from there."
-msgstr "{name}はディスクイメージから実行されているため、自身をアップデートしたり Dock 内の位置を保持したりできません。\n"
+msgstr "{name}はディスクイメージから実行されているため、自身をアップデートしたりDock内の位置を保持したりできません。\n"
 "\n"
-"今すぐ {dest} に移動しますか？{name} はそこから再び開きます。"
+"今すぐ{dest}に移動しますか？{name}はそこから再び開きます。"
 
 #: src/components/clio/provider-actions.ts
 msgid "{name} is signed in but not ready yet. Check it again in a moment."
@@ -2931,11 +2935,11 @@ msgstr "会話へのアテンションの{percent}"
 
 #: src/components/clio/run-list-row.tsx
 msgid "{percent}% done"
-msgstr "{percent}% 完了"
+msgstr "{percent}%完了"
 
 #: src/components/clio/settings-app-updates.tsx
 msgid "{percent}% downloaded"
-msgstr "{percent}% ダウンロード済み"
+msgstr "{percent}%ダウンロード済み"
 
 #: src/components/clio/workbench-list-resize.tsx
 msgid "{percent}% of the canvas"
@@ -3272,7 +3276,7 @@ msgstr "{section}: 別のセクションを選択"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "{selected, plural, one {Tensor parallel size × pipeline parallel size is {tp} × {pp} = {product}, but # GPU is selected. vLLM needs them to match.} other {Tensor parallel size × pipeline parallel size is {tp} × {pp} = {product}, but # GPUs are selected. vLLM needs them to match.}}"
-msgstr "{selected, plural, one {テンソル並列サイズ × パイプライン並列サイズは{tp} × {pp} = {product}ですが、選択されている GPU は#個です。vLLM ではこれらが一致している必要があります。} other {テンソル並列サイズ × パイプライン並列サイズは{tp} × {pp} = {product}ですが、選択されている GPU は#個です。vLLM ではこれらが一致している必要があります。}}"
+msgstr "{selected, plural, one {テンソル並列サイズ × パイプライン並列サイズは{tp} × {pp} = {product}ですが、選択されているGPUは#個です。vLLMではこれらが一致している必要があります。} other {テンソル並列サイズ × パイプライン並列サイズは{tp} × {pp} = {product}ですが、選択されているGPUは#個です。vLLMではこれらが一致している必要があります。}}"
 
 #: src/components/clio/a2ui-map.tsx
 msgid "{selected} of {total} selected"
@@ -3336,7 +3340,7 @@ msgstr "{serviceLabel}が作成したリソース"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "{serviceLabel} GPUs"
-msgstr "{serviceLabel}の GPU"
+msgstr "{serviceLabel}のGPU"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "{serviceLabel} parameters in force"
@@ -3634,7 +3638,7 @@ msgstr "{tasks, plural, one {#件のタスクを実行} other {#件のタスク�
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{thoughts, plural, =1 {thought once} other {thought # times}}"
-msgstr "{thoughts, plural, =1 {1 回思考} other {#回思考}}"
+msgstr "{thoughts, plural, =1 {1回思考} other {#回思考}}"
 
 #: src/components/clio/a2ui-steps.tsx
 msgid "{time} left"
@@ -3644,7 +3648,7 @@ msgstr "残り{time}"
 msgid "{title}\n"
 "Branch {branch}"
 msgstr "{title}\n"
-"ブランチ {branch}"
+"ブランチ{branch}"
 
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "{title} deleted"
@@ -3872,7 +3876,7 @@ msgstr "{used}、最終{date}"
 #: src/components/clio/session-usage-readout.tsx
 #: src/lib/fleet-usage.ts
 msgid "{used}% used"
-msgstr "{used}% 使用済み"
+msgstr "{used}%使用済み"
 
 #: src/components/clio/context-composition-model.ts
 msgid "{usedText} of {limitText}"
@@ -4033,19 +4037,19 @@ msgstr "1年"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "10.0.0.102 or login.example.edu"
-msgstr "10.0.0.102 または login.example.edu"
+msgstr "10.0.0.102またはlogin.example.edu"
 
 #: src/widget-preview-app.tsx
 msgid "115 kt near the Texas coast"
-msgstr "テキサス沿岸付近で 115 kt"
+msgstr "テキサス沿岸付近で115 kt"
 
 #: src/widget-preview-app.tsx
 msgid "150 kt east of Puerto Rico"
-msgstr "プエルトリコの東で 150 kt"
+msgstr "プエルトリコの東で150 kt"
 
 #: src/widget-preview-app.tsx
 msgid "160 kt near the Bahamas"
-msgstr "バハマ付近で 160 kt"
+msgstr "バハマ付近で160 kt"
 
 #: src/lib/model-range-scales.ts
 msgid "2 years"
@@ -4069,7 +4073,7 @@ msgstr "3Dビューを利用できません：{failure}"
 
 #: src/widget-gallery-demos.ts
 msgid "3D viewport"
-msgstr "3D ビューポート"
+msgstr "3Dビューポート"
 
 #: src/lib/model-range-scales.ts
 msgid "6 months"
@@ -4077,19 +4081,19 @@ msgstr "6か月"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "64-bit"
-msgstr "64 ビット"
+msgstr "64ビット"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "64-bit ARM"
-msgstr "64 ビット ARM"
+msgstr "64ビットARM"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "95% within {duration}"
-msgstr "95% が{duration}以内"
+msgstr "95%が{duration}以内"
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
-msgstr "エクスポートで保存した .zip です。事実は ID でマージされるため、同じエクスポートを 2 回インポートしても何も変わりません。"
+msgstr "エクスポートで保存した .zipです。事実はIDでマージされるため、同じエクスポートを2回インポートしても何も変わりません。"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "A {agent}-looking process (pid {pid}) is on the port but isn't answering."
@@ -4113,7 +4117,7 @@ msgstr "ブランチまたはタグは一度だけコミットに解決されま
 
 #: src/components/clio/settings-connection.tsx
 msgid "A browser talks to the agent over HTTP."
-msgstr "ブラウザーは HTTP でエージェントと通信します。"
+msgstr "ブラウザーはHTTPでエージェントと通信します。"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "A browser upload cannot write back to your computer"
@@ -4158,7 +4162,7 @@ msgstr "汎用モデル: 会話ができます。"
 
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "A git repository URL or a folder on the service's host."
-msgstr "git リポジトリの URL、またはサービスのホスト上のフォルダー。"
+msgstr "gitリポジトリのURL、またはサービスのホスト上のフォルダー。"
 
 #: src/components/clio/answer-hook-notice.tsx
 msgid "a hook"
@@ -4174,15 +4178,15 @@ msgstr "Hugging FaceのGGUFリポジトリと任意の量子化。ローカル�
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "A JSON array of strings, passed to the command as they are."
-msgstr "文字列の JSON 配列で、そのままコマンドに渡されます。"
+msgstr "文字列のJSON配列で、そのままコマンドに渡されます。"
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
-msgstr "既知のランタイム、または OpenAI 互換の任意のアドレスには「その他」(クラスターノードや別のマシン上の vLLM や llama.cpp)。"
+msgstr "既知のランタイム、またはOpenAI互換の任意のアドレスには「その他」(クラスターノードや別のマシン上のvLLMやllama.cpp)。"
 
 #: src/widget-gallery.tsx
 msgid "A layout or control building block in the A2UI Basic catalog."
-msgstr "A2UI Basic カタログのレイアウトまたはコントロールの構成要素です。"
+msgstr "A2UI Basicカタログのレイアウトまたはコントロールの構成要素です。"
 
 #: src/components/clio/source-detail-access.tsx
 msgid "A link reads the originals when {agent} needs them. A download saves a copy in this workspace."
@@ -4198,7 +4202,7 @@ msgstr "出典付きの長い調査。"
 
 #: src/components/clio/extension-discover.tsx
 msgid "A marketplace lists plugins in the Agent Plugins or Claude Code format. Its plugins load after you trust it."
-msgstr "マーケットプレイスには Agent Plugins または Claude Code 形式のプラグインが掲載されています。信頼すると、そのプラグインが読み込まれます。"
+msgstr "マーケットプレイスにはAgent PluginsまたはClaude Code形式のプラグインが掲載されています。信頼すると、そのプラグインが読み込まれます。"
 
 #: src/lib/plugin-presentation.ts
 msgid "A member of a pack. Removing it keeps the rest of the pack."
@@ -4226,7 +4230,7 @@ msgstr "1回限りの実行では、このデバイスのタイムゾーンが�
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
-msgstr "plugin.json または .claude-plugin/plugin.json を含むプラグインフォルダー。"
+msgstr "plugin.jsonまたは .claude-plugin/plugin.jsonを含むプラグインフォルダー。"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
@@ -4246,7 +4250,7 @@ msgstr "読み取り専用のスナップショットです。リンクを知っ
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A repository URL, or a folder on the agent host."
-msgstr "リポジトリの URL、またはエージェントホスト上のフォルダー。"
+msgstr "リポジトリのURL、またはエージェントホスト上のフォルダー。"
 
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
@@ -4274,11 +4278,11 @@ msgstr "練習用の会話を使った短いチュートリアル。内容は送
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A skill folder containing SKILL.md and its references."
-msgstr "SKILL.md とその参照ファイルを含むスキルフォルダー。"
+msgstr "SKILL.mdとその参照ファイルを含むスキルフォルダー。"
 
 #: src/lib/model-capability-tags.ts
 msgid "A specialist model: it does one task rather than hold a conversation."
-msgstr "特化型モデル: 会話ではなく 1 つのタスクを実行します。"
+msgstr "特化型モデル: 会話ではなく1つのタスクを実行します。"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "a step with that name already exists"
@@ -4311,7 +4315,7 @@ msgstr "A2UI Basic"
 
 #: src/gallery-skill-dialog.tsx
 msgid "A2UI catalog skills"
-msgstr "A2UI カタログのスキル"
+msgstr "A2UIカタログのスキル"
 
 #: src/lib/plan-status.ts
 msgid "Abandoned"
@@ -4484,7 +4488,7 @@ msgstr "プライベートデータの設定について"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "About private Flowcept settings"
-msgstr "非公開の Flowcept 設定について"
+msgstr "非公開のFlowcept設定について"
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "About private sign in"
@@ -4641,7 +4645,7 @@ msgstr "アカウントを読み込めませんでした。"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "ACE host"
-msgstr "ACE ホスト"
+msgstr "ACEホスト"
 
 #: src/components/clio/permission-operation-details.tsx
 msgid "Action"
@@ -4836,7 +4840,7 @@ msgstr "ジャンプホストを追加"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Add a local MCP"
-msgstr "ローカル MCP を追加"
+msgstr "ローカルMCPを追加"
 
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/extension-library.tsx
@@ -4853,7 +4857,7 @@ msgstr "参照を追加"
 
 #: src/components/clio/relay-settings.tsx
 msgid "Add a remote MCP server by URL"
-msgstr "URL でリモート MCP サーバーを追加"
+msgstr "URLでリモートMCPサーバーを追加"
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/settings-connection-dialogs.tsx
@@ -4873,12 +4877,12 @@ msgstr "エージェントを追加…"
 
 #: src/lib/provider-availability.ts
 msgid "Add an API key."
-msgstr "API キーを追加してください。"
+msgstr "APIキーを追加してください。"
 
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Add an MCP connection"
-msgstr "MCP 接続を追加"
+msgstr "MCP接続を追加"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Add an SSH host"
@@ -4960,7 +4964,7 @@ msgstr "キーを追加"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Add MCP"
-msgstr "MCP を追加"
+msgstr "MCPを追加"
 
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/managed-service-inventory.tsx
@@ -5063,7 +5067,7 @@ msgstr "折りたたまれたアクティビティを含め、ブロック全体
 
 #: src/lib/provider-availability.ts
 msgid "Add your {name} API key."
-msgstr "{name}の API キーを追加してください。"
+msgstr "{name}のAPIキーを追加してください。"
 
 #: src/components/clio/search-source-key-dialog.tsx
 msgid "Add your {name} key"
@@ -5075,11 +5079,11 @@ msgstr "モデルを使用するには{name}のキーを追加してください
 
 #: src/lib/provider-availability.ts
 msgid "Add your {provider} API key to use its models."
-msgstr "{provider}のモデルを使うには、API キーを追加してください。"
+msgstr "{provider}のモデルを使うには、APIキーを追加してください。"
 
 #: src/lib/provider-availability.ts
 msgid "Add your {providerLabel} API key."
-msgstr "{providerLabel}の API キーを追加してください。"
+msgstr "{providerLabel}のAPIキーを追加してください。"
 
 #: src/components/clio/search-source-row.tsx
 msgid "Add your {source} key"
@@ -5225,7 +5229,7 @@ msgstr "詳細設定"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Advanced API tools"
-msgstr "高度な API ツール"
+msgstr "高度なAPIツール"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Advanced download settings"
@@ -5258,7 +5262,7 @@ msgstr "より後"
 
 #: src/components/clio/settings-fleet.tsx
 msgid "After a run of searches and reads, remind the agent that Explore can take over the search. It is a suggestion; the agent decides."
-msgstr "検索と読み取りが続いた後、Explore が検索を引き継げることをエージェントに知らせます。これは提案であり、判断するのはエージェントです。"
+msgstr "検索と読み取りが続いた後、Exploreが検索を引き継げることをエージェントに知らせます。これは提案であり、判断するのはエージェントです。"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "After a tool runs"
@@ -5333,7 +5337,7 @@ msgstr "エージェントの回答ターンが進行中です"
 
 #: src/components/clio/observability-activity.tsx
 msgid "Agent answer validated and returned to MCP"
-msgstr "エージェントの回答が検証され、MCP に返されました"
+msgstr "エージェントの回答が検証され、MCPに返されました"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Agent answered MCP request"
@@ -5394,7 +5398,7 @@ msgstr "エージェントが対応を求めています"
 
 #: src/lib/extension-library-entries.ts
 msgid "Agent Plugins format"
-msgstr "Agent Plugins 形式"
+msgstr "Agent Plugins形式"
 
 #: src/routes/infrastructure-foundation.ts
 msgid "Agent processes are using the configured execution protection."
@@ -5488,15 +5492,15 @@ msgstr "エージェントを利用できません"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "AI review"
-msgstr "AI レビュー"
+msgstr "AIレビュー"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "AI reviews"
-msgstr "AI によるレビュー"
+msgstr "AIによるレビュー"
 
 #: src/components/clio/model-picker-provider-families.tsx
 msgid "ALCF inference"
-msgstr "ALCF 推論"
+msgstr "ALCF推論"
 
 #: src/lib/tool-domain-labels.ts
 msgid "Alerts"
@@ -5577,7 +5581,7 @@ msgstr "すべてのフォルダー"
 #: src/components/clio/managed-service-gpu-picker.tsx
 #: src/components/clio/managed-service-gpus.ts
 msgid "All GPUs"
-msgstr "すべての GPU"
+msgstr "すべてのGPU"
 
 #: src/components/clio/command-menu.tsx
 msgid "All in Settings"
@@ -5709,7 +5713,7 @@ msgstr "ブラウザーの設定で、このサイトの通知を許可してく
 
 #: src/components/clio/permission-response.tsx
 msgid "Allow once"
-msgstr "1 回だけ許可"
+msgstr "1回だけ許可"
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-folders-dialogs.tsx
@@ -5765,11 +5769,11 @@ msgstr "セッションで許可済み"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Allowed in one conversation"
-msgstr "1 つの会話で許可"
+msgstr "1つの会話で許可"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Allowed in one workspace"
-msgstr "1 つのワークスペースで許可"
+msgstr "1つのワークスペースで許可"
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Allowing…"
@@ -5829,7 +5833,7 @@ msgstr "あいまい"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "AMD GPU detected."
-msgstr "AMD GPU が検出されました。"
+msgstr "AMD GPUが検出されました。"
 
 #: src/components/clio/a2ui-steps.tsx
 msgid "Amount"
@@ -5861,11 +5865,11 @@ msgstr "エージェントの回答：{answer}"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
-msgstr "AI エージェントがセッションを監視します。"
+msgstr "AIエージェントがセッションを監視します。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "An AI reviewer approves each call or asks you"
-msgstr "AI レビュアーが各呼び出しを承認するか、あなたに確認します"
+msgstr "AIレビュアーが各呼び出しを承認するか、あなたに確認します"
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "An attachment has no Markdown"
@@ -5987,7 +5991,7 @@ msgstr "承認の質問に回答"
 
 #: src/providers/connection-provider.tsx
 msgid "Answer the prompts from system OpenSSH."
-msgstr "システムの OpenSSH からのプロンプトに応答してください。"
+msgstr "システムのOpenSSHからのプロンプトに応答してください。"
 
 #: src/components/clio/turn-model-exhausted.tsx
 msgid "Answer this turn on another model:"
@@ -6045,7 +6049,7 @@ msgstr "回答には地図、グラフ、表を含めることができます。
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Answers questions and finds conversations, messages, and files. Press Tab in search to use it."
-msgstr "質問に回答し、会話、メッセージ、ファイルを見つけます。検索で Tab キーを押すと使用できます。"
+msgstr "質問に回答し、会話、メッセージ、ファイルを見つけます。検索でTabキーを押すと使用できます。"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Any {scope}"
@@ -6073,15 +6077,15 @@ msgstr "どこでも"
 
 #: src/lib/provider-availability.ts
 msgid "API key"
-msgstr "API キー"
+msgstr "APIキー"
 
 #: src/lib/provider-availability.ts
 msgid "API key needed"
-msgstr "API キーが必要です"
+msgstr "APIキーが必要です"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "API sign-in"
-msgstr "API サインイン"
+msgstr "APIサインイン"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "API URL"
@@ -6268,7 +6272,7 @@ msgstr "引数"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Arguments must be a JSON array of strings"
-msgstr "引数は文字列の JSON 配列である必要があります"
+msgstr "引数は文字列のJSON配列である必要があります"
 
 #: src/lib/composer-reference-domain.ts
 msgid "artifact"
@@ -6702,7 +6706,7 @@ msgstr "通知音はミュートされています"
 
 #: src/components/clio/attention-mode-banner.tsx
 msgid "Attention spread across the parts of the conversation outside the top 10% the capture keeps."
-msgstr "キャプチャが保持する上位 10% 以外の会話部分に分散したアテンション。"
+msgstr "キャプチャが保持する上位10%以外の会話部分に分散したアテンション。"
 
 #: src/components/clio/managed-service-identity.tsx
 msgid "Attention verified"
@@ -6759,7 +6763,7 @@ msgstr "作成者：{agent}"
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Authorization code or return URL"
-msgstr "認可コードまたは戻り先 URL"
+msgstr "認可コードまたは戻り先URL"
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Authorize collection"
@@ -6779,11 +6783,11 @@ msgstr "自動圧縮のしきい値"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Automatic registration is used when the server supports it. Enter a registered client or a published client metadata URL only if your server requires one."
-msgstr "サーバーが対応している場合は自動登録が使用されます。サーバーが必要とする場合にのみ、登録済みのクライアントまたは公開されたクライアントメタデータ URL を入力してください。"
+msgstr "サーバーが対応している場合は自動登録が使用されます。サーバーが必要とする場合にのみ、登録済みのクライアントまたは公開されたクライアントメタデータURLを入力してください。"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Automatic sign-in isn't available right now (the local port is busy). Paste the redirect URL below once you finish in the browser."
-msgstr "現在、自動サインインは利用できません（ローカルポートが使用中です）。ブラウザーでの操作が完了したら、下にリダイレクト URL を貼り付けてください。"
+msgstr "現在、自動サインインは利用できません（ローカルポートが使用中です）。ブラウザーでの操作が完了したら、下にリダイレクトURLを貼り付けてください。"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Automatic sign-in unavailable"
@@ -6958,11 +6962,11 @@ msgstr "{folderName}からソースの最上位に戻る"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Back up to GitHub"
-msgstr "GitHub にバックアップ"
+msgstr "GitHubにバックアップ"
 
 #: src/components/clio/marketplace-actions.tsx
 msgid "Back up with GitHub…"
-msgstr "GitHub でバックアップ…"
+msgstr "GitHubでバックアップ…"
 
 #: src/components/clio/settings-about.tsx
 msgid "Backend build"
@@ -7103,7 +7107,7 @@ msgstr "Berkeley"
 
 #: src/widget-gallery-demos.ts
 msgid "Berkeley moved 2 mm this week."
-msgstr "Berkeley は今週 2 mm 移動しました。"
+msgstr "Berkeleyは今週2 mm移動しました。"
 
 #: src/widget-gallery-demos.ts
 msgid "Berkeley, California"
@@ -7119,7 +7123,7 @@ msgstr "{n}件中ベスト"
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Best of N and refinement"
-msgstr "Best of N と改良"
+msgstr "Best of Nと改良"
 
 #: src/lib/variant-runs.ts
 msgid "Best of several"
@@ -7127,7 +7131,7 @@ msgstr "複数案からベストを選択"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Best practices, dashboards, automations and reference files from homeassistant-ai."
-msgstr "homeassistant-ai によるベストプラクティス、ダッシュボード、オートメーション、参照ファイル。"
+msgstr "homeassistant-aiによるベストプラクティス、ダッシュボード、オートメーション、参照ファイル。"
 
 #: src/components/clio/settings-app-updates.tsx
 #: src/lib/settings-search-rows.ts
@@ -7149,7 +7153,7 @@ msgstr "{minimum}トークンの範囲。"
 
 #: src/lib/onboarding/tour-practice-data.ts
 msgid "BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70."
-msgstr "BKL1 は90日間で約4.7 mm 隆起し、その大部分は45日目から70日目の間に起きました。"
+msgstr "BKL1は90日間で約4.7 mm隆起し、その大部分は45日目から70日目の間に起きました。"
 
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -7194,11 +7198,11 @@ msgstr "ブラウザーの設定でブロックされています"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Blocked in one conversation"
-msgstr "1 つの会話でブロック"
+msgstr "1つの会話でブロック"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Blocked in one workspace"
-msgstr "1 つのワークスペースでブロック"
+msgstr "1つのワークスペースでブロック"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Blocked: hidden from the agent"
@@ -7388,7 +7392,7 @@ msgstr "ブラウザーのページを一覧表示できませんでした"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Browser return URL"
-msgstr "ブラウザーの戻り先 URL"
+msgstr "ブラウザーの戻り先URL"
 
 #: src/components/clio/browser-frame.tsx
 msgid "Browser: {label}"
@@ -8093,7 +8097,7 @@ msgstr "種類を変更（テキストの端で）"
 
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "Change URL"
-msgstr "URL を変更"
+msgstr "URLを変更"
 
 #: src/components/clio/diff-canvas-view.tsx
 #: src/components/clio/source-review-panel.tsx
@@ -8296,7 +8300,7 @@ msgstr "{agent}が実行中であることを確認してから、再試行し�
 
 #: src/widget-gallery-demos.ts
 msgid "Check the Fresno record and schedule a Reno visit."
-msgstr "Fresno の記録を確認し、Reno への訪問を予定してください。"
+msgstr "Fresnoの記録を確認し、Renoへの訪問を予定してください。"
 
 #: src/components/clio/model-picker.tsx
 msgid "Check the provider connection or configuration, then try discovery again."
@@ -8308,7 +8312,7 @@ msgstr "選択したプロバイダーの接続を確認し、準備ができて
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Check this Endpoint’s required identity issuer and role."
-msgstr "このアドレスに必要な ID 発行者とロールを確認してください。"
+msgstr "このアドレスに必要なID発行者とロールを確認してください。"
 
 #: src/components/clio/provider-component-status.tsx
 msgid "Check updates"
@@ -8358,7 +8362,7 @@ msgstr "{agent}のコンポーネントを確認中"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Checking API…"
-msgstr "API を確認しています…"
+msgstr "APIを確認しています…"
 
 #: src/components/clio/provider-actions.ts
 msgid "Checking client updates…"
@@ -8404,11 +8408,11 @@ msgstr "メモリーを確認中"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Checking NDP endpoints"
-msgstr "NDP アドレスを確認しています"
+msgstr "NDPアドレスを確認しています"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Checking Obsidian Sync…"
-msgstr "Obsidian Sync を確認しています…"
+msgstr "Obsidian Syncを確認しています…"
 
 #: src/components/clio/deploy-progress-model.ts
 msgid "Checking saved {agent} installs"
@@ -8449,7 +8453,7 @@ msgstr "ローカルサービスを確認しています。"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Checking the MCP connection…"
-msgstr "MCP 接続を確認中…"
+msgstr "MCP接続を確認中…"
 
 #: src/components/clio/managed-services.tsx
 msgid "Checking the operating system, Docker, local runtimes, acceleration, and existing {agent} services."
@@ -8457,7 +8461,7 @@ msgstr "オペレーティングシステム、Docker、ローカルランタイ
 
 #: src/components/clio/managed-services.tsx
 msgid "Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing {agent} services."
-msgstr "SSH 接続、オペレーティングシステム、Docker、ランタイム、アクセラレーション、既存の{agent}サービスを確認しています。"
+msgstr "SSH接続、オペレーティングシステム、Docker、ランタイム、アクセラレーション、既存の{agent}サービスを確認しています。"
 
 #: src/components/clio/a2ui-source-sign-in.tsx
 msgid "Checking this connection…"
@@ -8636,7 +8640,7 @@ msgstr "日付を選択"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Choose a dedicated empty folder, or leave this blank to create one under this host's configured Models folder. Existing downloads retain their original paths when settings change."
-msgstr "専用の空のフォルダーを選択するか、空欄のままにしてこのホストに設定された Models フォルダーの下に作成してください。設定を変更しても、既存のダウンロードは元のパスを保持します。"
+msgstr "専用の空のフォルダーを選択するか、空欄のままにしてこのホストに設定されたModelsフォルダーの下に作成してください。設定を変更しても、既存のダウンロードは元のパスを保持します。"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Choose a dedicated folder to override the default."
@@ -8658,7 +8662,7 @@ msgstr "このサービス上のフォルダーを選択"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "Choose a folder that contains at least one file"
-msgstr "ファイルが 1 つ以上含まれるフォルダーを選択してください"
+msgstr "ファイルが1つ以上含まれるフォルダーを選択してください"
 
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Choose a future date and time that exists in {deviceTimezone}."
@@ -8666,7 +8670,7 @@ msgstr "{deviceTimezone}に存在する将来の日時を選択してくださ�
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Choose a GGUF model file on this computer."
-msgstr "このコンピューター上の GGUF モデルファイルを選択してください。"
+msgstr "このコンピューター上のGGUFモデルファイルを選択してください。"
 
 #: src/providers/connection-provider.tsx
 msgid "Choose a lower port to start another agent."
@@ -8705,7 +8709,7 @@ msgstr "先にノートを選択してください"
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "Choose a port between 1024 and 65535."
-msgstr "1024～65535 のポートを選択してください。"
+msgstr "1024～65535のポートを選択してください。"
 
 #: src/components/clio/provider-actions.ts
 msgid "Choose a provider first."
@@ -8780,7 +8784,7 @@ msgstr "フォルダーを添付する前にワークスペースを選択して
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Choose a ZIP file"
-msgstr "ZIP ファイルを選択"
+msgstr "ZIPファイルを選択"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Choose access when adding"
@@ -8812,7 +8816,7 @@ msgstr "{count}個以上選択してください。"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Choose at least one skill, plugin or MCP connection"
-msgstr "スキル、プラグイン、MCP 接続のいずれかを 1 つ以上選択してください"
+msgstr "スキル、プラグイン、MCP接続のいずれかを1つ以上選択してください"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Choose Box select or hold Shift and drag to select matching rows."
@@ -8828,7 +8832,7 @@ msgstr "このマシン上にあるデータを選択"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Choose either a GGUF file or a Hugging Face model."
-msgstr "GGUF ファイルか Hugging Face モデルのいずれかを選択してください。"
+msgstr "GGUFファイルかHugging Faceモデルのいずれかを選択してください。"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Choose files"
@@ -8899,7 +8903,7 @@ msgstr "サービスを選択"
 
 #: src/components/clio/monitoring-image-storage.tsx
 msgid "Choose Service folder with Podman to keep images and downloads beside your service data, including on another disk. Engine storage uses the host’s existing image directory. This choice stays fixed for the deployment. Removing its runtime retains images and evidence; deleting retained data is separate."
-msgstr "Podman でサービスフォルダーを選択すると、イメージとダウンロードをサービスデータと同じ場所 (別のディスクも可) に保存できます。エンジンストレージは、ホストの既存のイメージディレクトリを使用します。この選択はデプロイ中は固定されます。ランタイムを削除してもイメージとエビデンスは保持されます。保持されたデータの削除は別の操作です。"
+msgstr "Podmanでサービスフォルダーを選択すると、イメージとダウンロードをサービスデータと同じ場所 (別のディスクも可) に保存できます。エンジンストレージは、ホストの既存のイメージディレクトリを使用します。この選択はデプロイ中は固定されます。ランタイムを削除してもイメージとエビデンスは保持されます。保持されたデータの削除は別の操作です。"
 
 #: src/components/clio/settings-navigation.tsx
 msgid "Choose settings section"
@@ -8908,7 +8912,7 @@ msgstr "設定のセクションを選択"
 #: src/components/clio/composer-spotter-model.tsx
 #: src/components/clio/settings-fleet.tsx
 msgid "Choose SPOTTER model"
-msgstr "SPOTTER のモデルを選択"
+msgstr "SPOTTERのモデルを選択"
 
 #: src/components/clio/settings-runtime.tsx
 msgid "Choose the browser that shows the pages {agent} opens. It runs on the computer {agent} runs on."
@@ -9010,7 +9014,7 @@ msgstr "主張"
 
 #: src/components/clio/resource-viewers.tsx
 msgid "classic NetCDF"
-msgstr "クラシック NetCDF"
+msgstr "クラシックNetCDF"
 
 #: src/lib/model-capability-tags.ts
 msgid "Classifier"
@@ -9026,11 +9030,11 @@ msgstr "操作のリスクを分類します。高リスクの操作にはあな
 
 #: src/lib/extension-library-entries.ts
 msgid "Claude Code format"
-msgstr "Claude Code 形式"
+msgstr "Claude Code形式"
 
 #: src/lib/installer-infrastructure.ts
 msgid "Claude Code still needs setup"
-msgstr "Claude Code のセットアップがまだ必要です"
+msgstr "Claude Codeのセットアップがまだ必要です"
 
 #: src/components/clio/settings-folders-model.ts
 msgid "Clay"
@@ -9114,7 +9118,7 @@ msgstr "ポイントをクリックすると選択されます。{primary}+ク�
 
 #: src/lib/onboarding/tour-script.ts
 msgid "Click a table row, Shift+click another, then choose Reference this."
-msgstr "表の行をクリックし、別の行を Shift+クリックしてから「これを参照」を選択してください。"
+msgstr "表の行をクリックし、別の行をShift+クリックしてから「これを参照」を選択してください。"
 
 #: src/components/clio/comments/comment-session.tsx
 msgid "Click an element to pick it."
@@ -9126,7 +9130,7 @@ msgstr "クライアント{version}は{agent}によって管理されていま�
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Client ID"
-msgstr "クライアント ID"
+msgstr "クライアントID"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "Client is up to date; catalog refreshed."
@@ -9150,7 +9154,7 @@ msgstr "クライアントをアップデートしました。新しいモデル
 
 #: src/lib/context-mode.ts
 msgid "clio-core is not installed on this server, so conversations are kept in memory only and are lost on restart. Context editing and compaction are off."
-msgstr "このサーバーには clio-core がインストールされていないため、会話はメモリーにのみ保持され、再起動すると失われます。コンテキストの編集と圧縮はオフです。"
+msgstr "このサーバーにはclio-coreがインストールされていないため、会話はメモリーにのみ保持され、再起動すると失われます。コンテキストの編集と圧縮はオフです。"
 
 #: src/components/clio/settings-tools-picker.tsx
 msgctxt "menu key hint"
@@ -9404,7 +9408,7 @@ msgstr "コレクションのUUID"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Collections and transfers through Globus"
-msgstr "Globus 経由のコレクションと転送"
+msgstr "Globus経由のコレクションと転送"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "colored by {field}"
@@ -9715,7 +9719,7 @@ msgstr "完了した実行: {fire_count}"
 
 #: src/components/clio/todo-list.tsx
 msgid "Completed todos"
-msgstr "完了した ToDo"
+msgstr "完了したToDo"
 
 #: src/components/clio/async-task-list.tsx
 msgid "Completed work"
@@ -9758,7 +9762,7 @@ msgstr "入力欄"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "Compressed VTP arrays are not supported; export uncompressed ASCII PolyData."
-msgstr "圧縮された VTP 配列はサポートされていません。非圧縮の ASCII PolyData をエクスポートしてください。"
+msgstr "圧縮されたVTP配列はサポートされていません。非圧縮のASCII PolyDataをエクスポートしてください。"
 
 #: src/components/clio/infrastructure-host-inspection.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
@@ -9889,7 +9893,7 @@ msgstr "{agent}自体と、それが依存するコンポーネントの準備�
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Confirm this code on NDP:"
-msgstr "NDP でこのコードを確認してください:"
+msgstr "NDPでこのコードを確認してください:"
 
 #: src/components/clio/composer-behavior-controls.tsx
 #: src/lib/onboarding/tour-script.ts
@@ -9937,11 +9941,11 @@ msgstr "接続"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Connect {agent} using your existing NDP login. Reused across workspaces."
-msgstr "既存の NDP ログインを使って{agent}を接続します。すべてのワークスペースで再利用されます。"
+msgstr "既存のNDPログインを使って{agent}を接続します。すべてのワークスペースで再利用されます。"
 
 #: src/components/clio/managed-services.tsx
 msgid "Connect {executionHostLabel} through Desktop to inspect and manage its services."
-msgstr "{executionHostLabel}のサービスを検査・管理するには、Desktop から接続してください。"
+msgstr "{executionHostLabel}のサービスを検査・管理するには、Desktopから接続してください。"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Connect {label}"
@@ -10008,7 +10012,7 @@ msgstr "推論プロバイダーを接続"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Connect an NDP endpoint with streaming first"
-msgstr "先にストリーミング対応の NDP アドレスを接続してください"
+msgstr "先にストリーミング対応のNDPアドレスを接続してください"
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
@@ -10038,16 +10042,16 @@ msgstr "ホストを接続"
 
 #: src/components/clio/permission-operation-labels.ts
 msgid "Connect NDP endpoint"
-msgstr "NDP アドレスを接続"
+msgstr "NDPアドレスを接続"
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Connect over SSH"
-msgstr "SSH で接続"
+msgstr "SSHで接続"
 
 #: src/tauri/native-copy.ts
 msgid "Connect over SSH…"
-msgstr "SSH で接続…"
+msgstr "SSHで接続…"
 
 #: src/components/clio/permission-operation-labels.ts
 #: src/components/clio/permission-response.tsx
@@ -10060,7 +10064,7 @@ msgstr "{sshLabel}に接続"
 
 #: src/components/clio/ndp-source-picker.tsx
 msgid "Connect to a research institution’s data services. Browse its catalog, query services and work with available streams through a direct connection or SSH."
-msgstr "研究機関のデータサービスに接続します。直接接続または SSH を介して、カタログの参照、サービスのクエリ、利用可能なストリームの操作ができます。"
+msgstr "研究機関のデータサービスに接続します。直接接続またはSSHを介して、カタログの参照、サービスのクエリ、利用可能なストリームの操作ができます。"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Connect to a workspace…"
@@ -10080,7 +10084,7 @@ msgstr "保管庫を接続"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
-msgstr "Home Assistant の環境を接続するか、エージェントホストで ha-mcp パッケージを実行してください。"
+msgstr "Home Assistantの環境を接続するか、エージェントホストでha-mcpパッケージを実行してください。"
 
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/connected-source-detail.tsx
@@ -10171,7 +10175,7 @@ msgstr "子エージェントに接続中"
 
 #: src/components/clio/deploy-progress-model.ts
 msgid "Connecting over SSH"
-msgstr "SSH で接続中"
+msgstr "SSHで接続中"
 
 #: src/lib/mcp-preparation.ts
 msgid "Connecting the server for this conversation; its tools join when it is ready."
@@ -10296,7 +10300,7 @@ msgstr "連絡先メールアドレス"
 
 #: src/components/clio/search-contact-email.tsx
 msgid "Contact email for Crossref and OpenAlex (optional)"
-msgstr "Crossref と OpenAlex 用の連絡先メールアドレス(任意)"
+msgstr "CrossrefとOpenAlex用の連絡先メールアドレス(任意)"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Container"
@@ -10390,7 +10394,7 @@ msgstr "コンテキストのみ"
 
 #: src/lib/model-quick-filters.ts
 msgid "Context over 32K"
-msgstr "コンテキスト 32K 超"
+msgstr "コンテキスト32K超"
 
 #: src/lib/composer-reference-domain.ts
 msgid "context record"
@@ -10434,7 +10438,7 @@ msgstr "コンテキストの使用量"
 
 #: src/components/clio/settings-context-history.tsx
 msgid "Context usage, retention and compaction for one conversation, as the service reports them."
-msgstr "1 つの会話のコンテキスト使用量、保持、圧縮(サービスの報告に基づく)。"
+msgstr "1つの会話のコンテキスト使用量、保持、圧縮(サービスの報告に基づく)。"
 
 #: src/hooks/use-session-context.ts
 msgid "Context was not compacted"
@@ -11364,7 +11368,7 @@ msgstr "参照を開けませんでした"
 
 #: src/hooks/use-spotter-quarantine.tsx
 msgid "Could not open SPOTTER"
-msgstr "SPOTTER を開けませんでした"
+msgstr "SPOTTERを開けませんでした"
 
 #: src/lib/html-in-browser.ts
 msgid "Could not open the file in the browser."
@@ -11519,11 +11523,11 @@ msgstr "アップデートを確認できませんでした"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
-msgstr "現在 API キーを確認できませんでした。もう一度「プロバイダーを検証」をお試しください。"
+msgstr "現在APIキーを確認できませんでした。もう一度「プロバイダーを検証」をお試しください。"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm your {providerLabel} API key right now. Try Verify provider again."
-msgstr "現在{providerLabel}の API キーを確認できませんでした。もう一度「プロバイダーを検証」をお試しください。"
+msgstr "現在{providerLabel}のAPIキーを確認できませんでした。もう一度「プロバイダーを検証」をお試しください。"
 
 #: src/components/clio/surface-toolbar.tsx
 msgid "Couldn't copy"
@@ -11600,7 +11604,7 @@ msgstr "サインアウトできませんでした。もう一度試してくだ
 
 #: src/components/clio/provider-actions.ts
 msgid "Couldn't verify the {provider} API key."
-msgstr "{provider}の API キーを検証できませんでした。"
+msgstr "{provider}のAPIキーを検証できませんでした。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Covered"
@@ -11624,7 +11628,7 @@ msgstr "新しい保管庫を作成"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Create a private GitHub repository and upload the unpacked files, preserving the folders."
-msgstr "非公開の GitHub リポジトリを作成し、フォルダー構成を保ったまま展開済みのファイルをアップロードします。"
+msgstr "非公開のGitHubリポジトリを作成し、フォルダー構成を保ったまま展開済みのファイルをアップロードします。"
 
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
@@ -11649,7 +11653,7 @@ msgstr "データセットを作成"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Create GitHub repository"
-msgstr "GitHub リポジトリを作成"
+msgstr "GitHubリポジトリを作成"
 
 #: src/components/clio/settings-memory.tsx
 msgid "Create memories"
@@ -11694,7 +11698,7 @@ msgstr "{file}を作成"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Created on {hostLabel}. Open the same folder in Obsidian later."
-msgstr "{hostLabel}に作成しました。後で同じフォルダーを Obsidian で開いてください。"
+msgstr "{hostLabel}に作成しました。後で同じフォルダーをObsidianで開いてください。"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Created on this host ({count})"
@@ -11759,7 +11763,7 @@ msgstr "重大なリスク"
 
 #: src/components/clio/search-contact-email.tsx
 msgid "Crossref and OpenAlex answer faster when a search names a contact."
-msgstr "検索に連絡先を付けると、Crossref と OpenAlex の応答が速くなります。"
+msgstr "検索に連絡先を付けると、CrossrefとOpenAlexの応答が速くなります。"
 
 #: src/widget-gallery-demos.ts
 msgid "Crushed tomatoes"
@@ -11783,11 +11787,11 @@ msgstr "CSVデータ"
 
 #: src/components/clio/csv-view.tsx
 msgid "CSV parse log"
-msgstr "CSV 解析ログ"
+msgstr "CSV解析ログ"
 
 #: src/components/clio/csv-view.tsx
 msgid "CSV parse log ({count})"
-msgstr "CSV 解析ログ（{count}）"
+msgstr "CSV解析ログ（{count}）"
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "CSV sampled selection"
@@ -11799,7 +11803,7 @@ msgstr "サンプリングしたビューのCSV"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "CSV URL"
-msgstr "CSV の URL"
+msgstr "CSVのURL"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Curator conversation"
@@ -11824,7 +11828,7 @@ msgstr "現在のセッションアクセス"
 
 #: src/components/clio/todo-list.tsx
 msgid "Current todos"
-msgstr "現在の ToDo"
+msgstr "現在のToDo"
 
 #: src/components/clio/session-move-menu.tsx
 msgid "Current workspace"
@@ -11963,7 +11967,7 @@ msgstr "データセット"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Datasets from National Data Platform catalogs"
-msgstr "National Data Platform カタログのデータセット"
+msgstr "National Data Platformカタログのデータセット"
 
 #: src/components/clio/a2ui-map-data-source.tsx
 #: src/components/reui/date-selector.tsx
@@ -12103,7 +12107,7 @@ msgstr "デフォルトモデル"
 
 #: src/components/clio/settings-about.tsx
 msgid "default ref"
-msgstr "デフォルトの ref"
+msgstr "デフォルトのref"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Default: {defaultBranch}"
@@ -12586,7 +12590,7 @@ msgstr "図のクリックでは、ワークスペースフォルダーの相対
 
 #: src/components/clio/mermaid-security.ts
 msgid "Diagram contains an unsupported executable or HTML directive"
-msgstr "図にサポートされていない実行可能ディレクティブまたは HTML ディレクティブが含まれています"
+msgstr "図にサポートされていない実行可能ディレクティブまたはHTMLディレクティブが含まれています"
 
 #: src/components/clio/mermaid-diagram.tsx
 msgid "Diagram could not be rendered"
@@ -12602,15 +12606,15 @@ msgstr "図のフォルダー"
 
 #: src/components/clio/mermaid-security.ts
 msgid "Diagram renderer did not return SVG"
-msgstr "図のレンダラーが SVG を返しませんでした"
+msgstr "図のレンダラーがSVGを返しませんでした"
 
 #: src/components/clio/mermaid-security.ts
 msgid "Diagram renderer returned invalid SVG"
-msgstr "図のレンダラーが無効な SVG を返しました"
+msgstr "図のレンダラーが無効なSVGを返しました"
 
 #: src/components/clio/mermaid-security.ts
 msgid "Diagram repeats a folder target for one node."
-msgstr "図で 1 つのノードに同じフォルダーターゲットが重複しています。"
+msgstr "図で1つのノードに同じフォルダーターゲットが重複しています。"
 
 #: src/components/clio/mermaid-security.ts
 msgid "Diagram source is empty"
@@ -12685,7 +12689,7 @@ msgstr "直接"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Direct URL"
-msgstr "直接 URL"
+msgstr "直接URL"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Directory"
@@ -12769,11 +12773,11 @@ msgstr "見つける"
 
 #: src/components/clio/ndp-source-picker.tsx
 msgid "Discover scientific datasets in the NDP catalog."
-msgstr "NDP カタログで科学データセットを探します。"
+msgstr "NDPカタログで科学データセットを探します。"
 
 #: src/components/clio/ndp-source-picker.tsx
 msgid "Discover scientific observations, measurements, simulations and analysis results. A dataset can provide files in HDF5, NetCDF, CSV or other formats, plus metadata and links to live data."
-msgstr "科学的な観測、測定、シミュレーション、解析結果を探します。データセットには HDF5、NetCDF、CSV などの形式のファイルに加え、メタデータやライブデータへのリンクが含まれることがあります。"
+msgstr "科学的な観測、測定、シミュレーション、解析結果を探します。データセットにはHDF5、NetCDF、CSVなどの形式のファイルに加え、メタデータやライブデータへのリンクが含まれることがあります。"
 
 #: src/components/clio/model-picker.tsx
 msgid "Discovering providers and models from the connected service."
@@ -12817,15 +12821,15 @@ msgstr "続行しますか？"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Docker is installed but not running."
-msgstr "Docker はインストールされていますが、実行されていません。"
+msgstr "Dockerはインストールされていますが、実行されていません。"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Docker is not installed."
-msgstr "Docker がインストールされていません。"
+msgstr "Dockerがインストールされていません。"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Docker is ready."
-msgstr "Docker の準備ができています。"
+msgstr "Dockerの準備ができています。"
 
 #: src/components/clio/document-workspace.tsx
 #: src/components/reui/file-type.tsx
@@ -13032,7 +13036,7 @@ msgstr "ダウンロード元"
 
 #: src/components/clio/session-export-menu.tsx
 msgid "Download HTML"
-msgstr "HTML をダウンロード"
+msgstr "HTMLをダウンロード"
 
 #: src/components/clio/source-download-attachment.tsx
 msgid "Download interrupted"
@@ -13045,7 +13049,7 @@ msgstr "ダウンロードは中断されました、{amount}"
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/marketplace-actions.tsx
 msgid "Download marketplace ZIP"
-msgstr "マーケットプレイスの ZIP をダウンロード"
+msgstr "マーケットプレイスのZIPをダウンロード"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Download model"
@@ -13087,7 +13091,7 @@ msgstr "ソースをダウンロード"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Download the marketplace ZIP and unpack it."
-msgstr "マーケットプレイスの ZIP をダウンロードして展開します。"
+msgstr "マーケットプレイスのZIPをダウンロードして展開します。"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Download the repository's files into a dedicated folder on this host. {agent} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference."
@@ -13107,7 +13111,7 @@ msgstr "エビデンス付きでダウンロード"
 
 #: src/components/clio/session-export-menu.tsx
 msgid "Download ZIP"
-msgstr "ZIP をダウンロード"
+msgstr "ZIPをダウンロード"
 
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/source-files-browser.tsx
@@ -13323,7 +13327,7 @@ msgstr "図を描画中…"
 
 #: src/hooks/use-flow-presentation.ts
 msgid "Drawn as a graph: some steps wait on only part of a parallel group, so the workflow can't be laid out as one track of sequences and parallel branches."
-msgstr "グラフとして描画: 一部のステップが並列グループの一部だけを待機しているため、このワークフローは順次処理と並列ブランチからなる 1 本のトラックとして配置できません。"
+msgstr "グラフとして描画: 一部のステップが並列グループの一部だけを待機しているため、このワークフローは順次処理と並列ブランチからなる1本のトラックとして配置できません。"
 
 #: src/widget-gallery-demos.ts
 msgid "Dried pasta"
@@ -13331,11 +13335,11 @@ msgstr "乾燥パスタ"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Drop a plugin ZIP here, or click to choose"
-msgstr "プラグインの ZIP をここにドロップするか、クリックして選択"
+msgstr "プラグインのZIPをここにドロップするか、クリックして選択"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Drop a skill ZIP here, or click to choose"
-msgstr "スキルの ZIP をここにドロップするか、クリックして選択"
+msgstr "スキルのZIPをここにドロップするか、クリックして選択"
 
 #: src/components/reui/file-upload-dropzone.tsx
 msgid "Drop files to attach"
@@ -13343,7 +13347,7 @@ msgstr "ファイルをドロップして添付"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Drop one ZIP file"
-msgstr "ZIP ファイルを 1 つドロップしてください"
+msgstr "ZIPファイルを1つドロップしてください"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Drop the last filter"
@@ -13420,7 +13424,7 @@ msgstr "地震の観測値"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "EarthScope analysis"
-msgstr "EarthScope 解析"
+msgstr "EarthScope解析"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -13756,11 +13760,11 @@ msgstr "{minimum}～{maximum}を入力してください。"
 
 #: src/components/clio/settings-general.tsx
 msgid "Enter 0 or more."
-msgstr "0 以上を入力してください。"
+msgstr "0以上を入力してください。"
 
 #: src/components/clio/settings-general.tsx
 msgid "Enter 1 to 50."
-msgstr "1〜50 を入力してください。"
+msgstr "1〜50を入力してください。"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Enter a commit ID…"
@@ -13801,7 +13805,7 @@ msgstr "ツール名またはパターンを入力してください。"
 
 #: src/components/clio/browser-frame.tsx
 msgid "Enter a URL"
-msgstr "URL を入力"
+msgstr "URLを入力"
 
 #: src/components/clio/browser-new-page.tsx
 msgid "Enter a web address, like example.org"
@@ -13814,7 +13818,7 @@ msgstr "整数を入力してください。"
 
 #: src/components/clio/provider-actions.ts
 msgid "Enter an API key."
-msgstr "API キーを入力してください。"
+msgstr "APIキーを入力してください。"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Enter an email address."
@@ -13822,7 +13826,7 @@ msgstr "メールアドレスを入力してください。"
 
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "Enter an HTTP or HTTPS server URL."
-msgstr "HTTP または HTTPS のサーバー URL を入力してください。"
+msgstr "HTTPまたはHTTPSのサーバーURLを入力してください。"
 
 #: src/components/clio/settings-response-setting-error.ts
 msgid "Enter at least {minimum}."
@@ -13846,7 +13850,7 @@ msgstr "サーバーを起動するコマンドを入力してください"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Enter the MCP server URL"
-msgstr "MCP サーバーの URL を入力してください"
+msgstr "MCPサーバーのURLを入力してください"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Enter this code on GitHub:"
@@ -14095,7 +14099,7 @@ msgstr "予測の例"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
-msgstr "Excel ブック"
+msgstr "Excelブック"
 
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Excerpt {number}"
@@ -14291,7 +14295,7 @@ msgstr "{name}を詳しく見る"
 
 #: src/widget-preview-app.tsx
 msgid "Explore a 3D surface"
-msgstr "3D サーフェスを探索"
+msgstr "3Dサーフェスを探索"
 
 #: src/components/clio/settings-agents.tsx
 msgid "Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
@@ -14387,7 +14391,7 @@ msgstr "最高"
 
 #: src/routes/infrastructure-foundation.ts
 msgid "Extra operating-system confinement is not enabled. {agent} still applies {workspace} access rules and records out-of-{workspace} attempts."
-msgstr "OS による追加の隔離は有効になっていません。{agent}は引き続き{workspace}のアクセスルールを適用し、{workspace}外へのアクセス試行を記録します。"
+msgstr "OSによる追加の隔離は有効になっていません。{agent}は引き続き{workspace}のアクセスルールを適用し、{workspace}外へのアクセス試行を記録します。"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Extraction model"
@@ -14411,7 +14415,7 @@ msgstr "すべてのワークスペースで使用できる、あなたに関す
 
 #: src/components/clio/memory-inbox.tsx
 msgid "Facts to apply, one per line"
-msgstr "適用する事実 (1 行に 1 つ)"
+msgstr "適用する事実 (1行に1つ)"
 
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -14647,7 +14651,7 @@ msgstr "ファイルと{workspace}"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Files and folders from Google Drive"
-msgstr "Google Drive のファイルとフォルダー"
+msgstr "Google Driveのファイルとフォルダー"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "Files and their folder structure are uploaded to {hostLabel}. The desktop original stays unchanged. Empty folders are not exposed by the browser picker. If interrupted, select the same folder to resume from uploaded bytes."
@@ -14847,7 +14851,7 @@ msgstr "モデルを探す"
 
 #: src/components/clio/search-assistant.tsx
 msgid "Find a previous decision, locate a passage, or ask what your files say.<0/>Press Enter to search with the selected model."
-msgstr "以前の決定を探したり、一節を見つけたり、ファイルの内容について質問したりできます。<0/>Enter を押すと、選択したモデルで検索します。"
+msgstr "以前の決定を探したり、一節を見つけたり、ファイルの内容について質問したりできます。<0/>Enterを押すと、選択したモデルで検索します。"
 
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Find a shortcut"
@@ -14884,7 +14888,7 @@ msgstr "モデルを検索"
 
 #: src/components/clio/model-download-search.tsx
 msgid "Find on Hugging Face"
-msgstr "Hugging Face で探す"
+msgstr "Hugging Faceで探す"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find publishers"
@@ -14937,11 +14941,11 @@ msgstr "ブラウザーウィンドウでサインインを完了してくださ
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Finish signing in with Google. {agent} will connect automatically when you return."
-msgstr "Google でのサインインを完了してください。戻ると{agent}が自動的に接続します。"
+msgstr "Googleでのサインインを完了してください。戻ると{agent}が自動的に接続します。"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Finish with a return URL"
-msgstr "戻り先 URL で完了"
+msgstr "戻り先URLで完了"
 
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/memory-creation-log.tsx
@@ -15005,27 +15009,27 @@ msgstr "グラフ全体を表示"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU"
-msgstr "GPU に合わせる"
+msgstr "GPUに合わせる"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU ({tokens} tokens)."
-msgstr "GPU に合わせる（{tokens}トークン）。"
+msgstr "GPUに合わせる（{tokens}トークン）。"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU: {label}"
-msgstr "GPU に合わせる: {label}"
+msgstr "GPUに合わせる: {label}"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU: {strategy} ({tokens} tokens)."
-msgstr "GPU に合わせる: {strategy}（{tokens}トークン）。"
+msgstr "GPUに合わせる: {strategy}（{tokens}トークン）。"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU: {strategy}."
-msgstr "GPU に合わせる: {strategy}。"
+msgstr "GPUに合わせる: {strategy}。"
 
 #: src/components/clio/context-control.tsx
 msgid "Fit to GPU."
-msgstr "GPU に合わせる。"
+msgstr "GPUに合わせる。"
 
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
@@ -15266,7 +15270,7 @@ msgstr "「{query}」について"
 
 #: src/components/clio/ndp-query-fields.tsx
 msgid "For a station service, use net for network, sta for station, and format=text."
-msgstr "ステーションサービスでは、ネットワークに net、ステーションに sta、さらに format=text を使用してください。"
+msgstr "ステーションサービスでは、ネットワークにnet、ステーションにsta、さらにformat=textを使用してください。"
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "For example, ares lab"
@@ -15670,7 +15674,7 @@ msgstr "全画面"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Full URL"
-msgstr "完全な URL"
+msgstr "完全なURL"
 
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Future runs are removed. Completed work stays in the session history."
@@ -15694,7 +15698,7 @@ msgstr "ニンニク"
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "gateway or alice@gateway.example.edu:2222"
-msgstr "gateway または alice@gateway.example.edu:2222"
+msgstr "gatewayまたはalice@gateway.example.edu:2222"
 
 #: src/components/clio/settings-general.tsx
 #: src/components/clio/tool-presentation.ts
@@ -15720,7 +15724,7 @@ msgstr "生成された出力"
 
 #: src/lib/model-capability-tags.ts
 msgid "Generates up to {tokens} tokens per response. This is separate from the input context limit."
-msgstr "1 回の応答で最大{tokens}トークンを生成します。これは入力コンテキストの上限とは別です。"
+msgstr "1回の応答で最大{tokens}トークンを生成します。これは入力コンテキストの上限とは別です。"
 
 #: src/components/clio/a2ui-map-geojson-source.tsx
 msgid "GeoJSON data"
@@ -15732,7 +15736,7 @@ msgstr "ジオメトリのみ"
 
 #: src/components/clio/openalex-key-request.tsx
 msgid "Get a free OpenAlex key"
-msgstr "OpenAlex の無料キーを取得"
+msgstr "OpenAlexの無料キーを取得"
 
 #: src/components/clio/search-source-key-dialog.tsx
 msgid "Get a key"
@@ -15748,7 +15752,7 @@ msgstr "{agent}の対応が必要なときに通知を受け取る"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Git repository or host folder"
-msgstr "Git リポジトリまたはホストのフォルダー"
+msgstr "Gitリポジトリまたはホストのフォルダー"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "GitHub did not return a sign-in code. Try again."
@@ -15764,7 +15768,7 @@ msgstr "GitHubサインインコード"
 
 #: src/lib/github-releases.ts
 msgid "GitHub's limit for update checks from this network is used up until {time}."
-msgstr "このネットワークからのアップデート確認に対する GitHub の上限に達しました。{time}まで利用できません。"
+msgstr "このネットワークからのアップデート確認に対するGitHubの上限に達しました。{time}まで利用できません。"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -15961,7 +15965,7 @@ msgstr "ハンドル"
 
 #: src/lib/onboarding/tour-practice-data.ts
 msgid "Harvey, Maria and Dorian, 212 observations. The map and table share one selection."
-msgstr "Harvey、Maria、Dorian の212件の観測。地図と表は同じ選択を共有します。"
+msgstr "Harvey、Maria、Dorianの212件の観測。地図と表は同じ選択を共有します。"
 
 #: src/components/clio/agent-plugin-menu.tsx
 msgid "Has errors"
@@ -16049,7 +16053,7 @@ msgid "Hi Morgan,\n"
 "I am checking a few more records before sharing the results. Thank you for your patience.\n"
 "\n"
 "Alex"
-msgstr "Morgan さん\n"
+msgstr "Morganさん\n"
 "\n"
 "結果を共有する前に、もういくつかの記録を確認しています。お待たせしてすみません。\n"
 "\n"
@@ -16062,7 +16066,7 @@ msgid "Hi Morgan,\n"
 "\n"
 "Thanks,\n"
 "Alex"
-msgstr "Morgan さん\n"
+msgstr "Morganさん\n"
 "\n"
 "レビューにはあと2日かかります。確認済みの結果は金曜日にお送りします。\n"
 "\n"
@@ -16213,7 +16217,7 @@ msgstr "スコアの高い出力トークン ({total}個中{shown}個を表示)"
 
 #: src/widget-preview-app.tsx
 msgid "Historical observations adapted from NOAA HURDAT2 for this gallery. The bundled data works without a running agent. <0>Source</0>"
-msgstr "このギャラリー用に NOAA HURDAT2 から加工した過去の観測データです。同梱のデータは、エージェントが実行されていなくても動作します。<0>ソース</0>"
+msgstr "このギャラリー用にNOAA HURDAT2から加工した過去の観測データです。同梱のデータは、エージェントが実行されていなくても動作します。<0>ソース</0>"
 
 #: src/lib/session-export/archive-evidence.tsx
 msgid "Historical tool"
@@ -16259,7 +16263,7 @@ msgstr "Home Assistant MCP"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Home Assistant skills"
-msgstr "Home Assistant スキル"
+msgstr "Home Assistantスキル"
 
 #: src/components/clio/connect-address.tsx
 msgid "Homelab"
@@ -16372,7 +16376,7 @@ msgstr "このモデルに毎ターン渡される会話の量。このモデル
 
 #: src/components/clio/settings-connection.tsx
 msgid "How the app reaches the agent. Set by where the app runs: Direct in a browser, Bridge in the desktop app, SSH for an Infrastructure route."
-msgstr "アプリがエージェントに接続する方法。アプリの実行場所によって決まります: ブラウザーでは直接、デスクトップアプリではブリッジ、インフラストラクチャ経由では SSH。"
+msgstr "アプリがエージェントに接続する方法。アプリの実行場所によって決まります: ブラウザーでは直接、デスクトップアプリではブリッジ、インフラストラクチャ経由ではSSH。"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "How the change reaches the agent"
@@ -16400,11 +16404,11 @@ msgstr "このフォルダーの使い方"
 
 #: src/components/clio/dashboard-view.tsx
 msgid "HTML dashboard (all tabs and data)"
-msgstr "HTML ダッシュボード（すべてのタブとデータ）"
+msgstr "HTMLダッシュボード（すべてのタブとデータ）"
 
 #: src/components/clio/workbench.tsx
 msgid "HTML file"
-msgstr "HTML ファイル"
+msgstr "HTMLファイル"
 
 #: src/components/clio/html-in-browser.tsx
 msgid "HTML files open in the shared browser, where their scripts run."
@@ -16412,11 +16416,11 @@ msgstr "HTMLファイルは共有ブラウザーで開かれ、そこでスク�
 
 #: src/components/clio/document-view-controls.tsx
 msgid "HTML preview"
-msgstr "HTML プレビュー"
+msgstr "HTMLプレビュー"
 
 #: src/components/clio/document-source-view.tsx
 msgid "HTML source"
-msgstr "HTML ソース"
+msgstr "HTMLソース"
 
 #: src/components/clio/ndp-endpoint-operation.tsx
 msgid "HTTP {status}"
@@ -16485,7 +16489,7 @@ msgstr "アイドル"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "If access requires your connected NDP account, choose Edit endpoint → Use my NDP sign-in."
-msgstr "接続済みの NDP アカウントでのアクセスが必要な場合は、［アドレスを編集］→［自分の NDP サインインを使用］を選択してください。"
+msgstr "接続済みのNDPアカウントでのアクセスが必要な場合は、［アドレスを編集］→［自分のNDPサインインを使用］を選択してください。"
 
 #: src/components/clio/resource-states.tsx
 msgid "If it's text, show it as text."
@@ -16505,7 +16509,7 @@ msgstr "説明用の荷重分布"
 
 #: src/widget-preview-app.tsx
 msgid "Illustrative, dimensionless field on a specimen shaped for this gallery. <0>Explore the Abaqus example</0> for real simulation outputs."
-msgstr "このギャラリー用に作成した試験片上の、説明用の無次元の場です。実際のシミュレーション出力は<0>Abaqus の例を探索</0>してください。"
+msgstr "このギャラリー用に作成した試験片上の、説明用の無次元の場です。実際のシミュレーション出力は<0>Abaqusの例を探索</0>してください。"
 
 #: src/components/ai-elements/attachments.tsx
 #: src/components/clio/hdf5-viewer-frame.tsx
@@ -16588,11 +16592,11 @@ msgstr "インポート"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Import a repository of Agent Skills, or upload one skill folder as a ZIP."
-msgstr "Agent Skills のリポジトリをインポートするか、スキルフォルダーを ZIP としてアップロードします。"
+msgstr "Agent Skillsのリポジトリをインポートするか、スキルフォルダーをZIPとしてアップロードします。"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Import Agent Plugins or Claude Code plugins, or compose your own capabilities."
-msgstr "Agent Plugins や Claude Code のプラグインをインポートするか、独自の機能を作成します。"
+msgstr "Agent PluginsやClaude Codeのプラグインをインポートするか、独自の機能を作成します。"
 
 #: src/components/clio/workspace-actions-menu.tsx
 msgid "Import conversation here…"
@@ -16622,7 +16626,7 @@ msgstr "セッションファイルをインポート"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Import these files into Ollama before serving them there."
-msgstr "Ollama で提供する前に、これらのファイルを Ollama にインポートしてください。"
+msgstr "Ollamaで提供する前に、これらのファイルをOllamaにインポートしてください。"
 
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/memory-source.tsx
@@ -16723,11 +16727,11 @@ msgstr "パックに含まれる"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "In a run_code script, each call asks you, one at a time."
-msgstr "run_code スクリプト内では、呼び出しごとに 1 件ずつ確認します。"
+msgstr "run_codeスクリプト内では、呼び出しごとに1件ずつ確認します。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "In a run_code script, the script's approval covers its calls."
-msgstr "run_code スクリプト内では、スクリプトの承認がその呼び出しに適用されます。"
+msgstr "run_codeスクリプト内では、スクリプトの承認がその呼び出しに適用されます。"
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/workspace-actions-menu.tsx
@@ -16760,7 +16764,7 @@ msgstr "ファイルマネージャーで"
 
 #: src/tauri/workspace-terminal.ts
 msgid "In Finder"
-msgstr "Finder で"
+msgstr "Finderで"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "In force on the server"
@@ -16845,7 +16849,7 @@ msgstr "使用中"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "In use, it is also where SPOTTER and the provenance views read from."
-msgstr "使用中の場合、SPOTTER と来歴ビューもここから読み取ります。"
+msgstr "使用中の場合、SPOTTERと来歴ビューもここから読み取ります。"
 
 #: src/components/clio/browser-frame.tsx
 msgid "In your browser"
@@ -17076,7 +17080,7 @@ msgstr "入力コマンド"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Input context in tokens. Type context:>922K for an exact minimum."
-msgstr "入力コンテキスト (トークン数)。正確な最小値を指定するには context:>922K と入力します。"
+msgstr "入力コンテキスト (トークン数)。正確な最小値を指定するにはcontext:>922Kと入力します。"
 
 #: src/components/clio/pending-interaction-question-response.tsx
 msgid "Input controls are not available yet."
@@ -17084,15 +17088,15 @@ msgstr "入力コントロールはまだ利用できません。"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Input price in USD per 1M tokens"
-msgstr "100 万トークンあたりの入力価格 (USD)"
+msgstr "100万トークンあたりの入力価格 (USD)"
 
 #: src/components/clio/model-row-facts.tsx
 msgid "Input price per 1M tokens"
-msgstr "100 万トークンあたりの入力価格"
+msgstr "100万トークンあたりの入力価格"
 
 #: src/lib/model-quick-filters.ts
 msgid "Input under $1 per 1M tokens"
-msgstr "入力 100万トークンあたり $1 未満"
+msgstr "入力100万トークンあたり $1未満"
 
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -17197,7 +17201,7 @@ msgstr "未解決のタスクを確認"
 
 #: src/components/clio/attention-lookup-panel.tsx
 msgid "Inspect up to 32 selections at a time."
-msgstr "一度に最大 32 個の選択を調べられます。"
+msgstr "一度に最大32個の選択を調べられます。"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Inspect widget"
@@ -17251,7 +17255,7 @@ msgstr "インストール"
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "Install {agent} over SSH and connect through a private tunnel"
-msgstr "SSH 経由で{agent}をインストールし、プライベートトンネルで接続"
+msgstr "SSH経由で{agent}をインストールし、プライベートトンネルで接続"
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
@@ -17272,7 +17276,7 @@ msgstr "マーケットプレイスをインストール"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged."
-msgstr "マーケットプレイス、プラグイン、または Agent Skills フォルダーをインストールします。元のソースは変更されません。"
+msgstr "マーケットプレイス、プラグイン、またはAgent Skillsフォルダーをインストールします。元のソースは変更されません。"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Install a service"
@@ -17304,7 +17308,7 @@ msgstr "ソースをインストール"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Install Sync client"
-msgstr "Sync クライアントをインストール"
+msgstr "Syncクライアントをインストール"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Install the runtime without a model file. Choose a model when you are ready to start."
@@ -17442,7 +17446,7 @@ msgstr "ハリケーンのインタラクティブな解説"
 
 #: src/components/mermaidcn/mermaid-preview.tsx
 msgid "Interactive Mermaid diagram"
-msgstr "インタラクティブな Mermaid 図"
+msgstr "インタラクティブなMermaid図"
 
 #: src/components/clio/surface-question-notice.tsx
 msgid "Interactive question"
@@ -17450,11 +17454,11 @@ msgstr "インタラクティブな質問"
 
 #: src/tauri/ssh-infrastructure-transport.ts
 msgid "Interactive SSH testing requires {product}."
-msgstr "対話型の SSH テストには{product}が必要です。"
+msgstr "対話型のSSHテストには{product}が必要です。"
 
 #: src/tauri/ssh-infrastructure-transport.ts
 msgid "Interactive SSH transport requires {product}."
-msgstr "対話型の SSH トランスポートには{product}が必要です。"
+msgstr "対話型のSSHトランスポートには{product}が必要です。"
 
 #: src/components/clio/surface-toolbar.tsx
 msgid "Interactive surface"
@@ -17817,7 +17821,7 @@ msgstr "最新に移動"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Kafka topic"
-msgstr "Kafka トピック"
+msgstr "Kafkaトピック"
 
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
@@ -17969,7 +17973,7 @@ msgstr "キーが必要"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "key sha256/{fingerprint}"
-msgstr "キー sha256/{fingerprint}"
+msgstr "キーsha256/{fingerprint}"
 
 #: src/components/clio/desktop-title-bar.tsx
 #: src/components/clio/primitives/shortcut-sheet.tsx
@@ -18098,11 +18102,11 @@ msgstr "最新のコンテキストスナップショット"
 
 #: src/components/clio/document-workspace.tsx
 msgid "LaTeX document"
-msgstr "LaTeX ドキュメント"
+msgstr "LaTeXドキュメント"
 
 #: src/components/clio/document-source-view.tsx
 msgid "LaTeX source"
-msgstr "LaTeX ソース"
+msgstr "LaTeXソース"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "LaTeX workspace"
@@ -18170,7 +18174,7 @@ msgstr "長さ"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "Let AI review each action."
-msgstr "各アクションを AI にレビューさせます。"
+msgstr "各アクションをAIにレビューさせます。"
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Let running conversations finish"
@@ -18261,7 +18265,7 @@ msgstr "行"
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "Lines follow SPOTTER's text map: each line of a message as it was written is one band, so a paragraph written over several lines shows several bands. Words are the pieces the tokenizer first cuts text into (a word with its leading space, a number, a run of punctuation), before it splits them into model tokens. Lines, words and tokens are all scaled to the hottest band on levels 1 to 9, so a band below half a level is left blank. The capture keeps only the top 10% of tokens in each part of the prompt. Max takes the hottest kept token; Mean averages every token of the line or word, counting the ones not kept as zero, so it is a lower bound. A band with no kept token is left blank."
-msgstr "行は SPOTTER のテキストマップに従います。メッセージの書かれたとおりの各行が 1 つの帯になるため、複数行にわたって書かれた段落は複数の帯として表示されます。単語は、トークナイザーがテキストを最初に切り分ける単位 (先頭の空白を含む単語、数値、連続する句読点) で、その後モデルのトークンに分割されます。行・単語・トークンはいずれも最もヒートの高い帯を基準に 1〜9 のレベルに正規化され、半レベル未満の帯は空白のままになります。キャプチャはプロンプトの各部分で上位 10% のトークンのみを保持します。最大は保持された中で最もヒートの高いトークンを使い、平均は行または単語のすべてのトークンを平均します (保持されなかったトークンは 0 として数えるため、下限値になります)。保持されたトークンがない帯は空白のままになります。"
+msgstr "行はSPOTTERのテキストマップに従います。メッセージの書かれたとおりの各行が1つの帯になるため、複数行にわたって書かれた段落は複数の帯として表示されます。単語は、トークナイザーがテキストを最初に切り分ける単位 (先頭の空白を含む単語、数値、連続する句読点) で、その後モデルのトークンに分割されます。行・単語・トークンはいずれも最もヒートの高い帯を基準に1〜9のレベルに正規化され、半レベル未満の帯は空白のままになります。キャプチャはプロンプトの各部分で上位10%のトークンのみを保持します。最大は保持された中で最もヒートの高いトークンを使い、平均は行または単語のすべてのトークンを平均します (保持されなかったトークンは0として数えるため、下限値になります)。保持されたトークンがない帯は空白のままになります。"
 
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/question-interaction-forms.tsx
@@ -18405,7 +18409,7 @@ msgstr "ライブ、まだエントリーはありません。"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "llama.cpp needs a GGUF file. This download does not identify one."
-msgstr "llama.cpp には GGUF ファイルが必要です。このダウンロードでは特定できません。"
+msgstr "llama.cppにはGGUFファイルが必要です。このダウンロードでは特定できません。"
 
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Load complete content"
@@ -18893,7 +18897,7 @@ msgstr "ページを読み込み中"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Loading PDF preview…"
-msgstr "PDF プレビューを読み込み中…"
+msgstr "PDFプレビューを読み込み中…"
 
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Loading plugin tools…"
@@ -18950,7 +18954,7 @@ msgstr "リマインダーを読み込み中…"
 
 #: src/components/clio/relay-settings.tsx
 msgid "Loading remote MCP servers…"
-msgstr "リモート MCP サーバーを読み込み中…"
+msgstr "リモートMCPサーバーを読み込み中…"
 
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Loading requests…"
@@ -19230,7 +19234,7 @@ msgstr "ローカルマーケットプレイスの詳細"
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Local MCP command"
-msgstr "ローカル MCP コマンド"
+msgstr "ローカルMCPコマンド"
 
 #: src/lib/fleet-usage.ts
 msgid "Local or free"
@@ -19466,7 +19470,7 @@ msgstr "接続を管理"
 
 #: src/lib/application-destinations.ts
 msgid "Manage inference, web research, and remote execution on the host you choose."
-msgstr "選択したホストで、推論、Web リサーチ、リモート実行を管理します。"
+msgstr "選択したホストで、推論、Webリサーチ、リモート実行を管理します。"
 
 #: src/components/clio/infrastructure-topology.tsx
 msgid "Manage services on connected {agent} {agentLabel}"
@@ -19476,7 +19480,7 @@ msgstr "接続中の{agent} {agentLabel}のサービスを管理"
 #: src/components/clio/source-ssh-target.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Manage SSH hosts"
-msgstr "SSH ホストを管理"
+msgstr "SSHホストを管理"
 
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Managed"
@@ -19558,7 +19562,7 @@ msgstr "Markdown"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Markdown document"
-msgstr "Markdown ドキュメント"
+msgstr "Markdownドキュメント"
 
 #: src/components/clio/knowledge-note-body.tsx
 msgid "Markdown of {title}"
@@ -19675,15 +19679,15 @@ msgstr "サンドボックスによりブロックされた可能性がありま
 #: src/components/clio/extension-discover.tsx
 #: src/lib/extension-library-entries.ts
 msgid "MCP connection"
-msgstr "MCP 接続"
+msgstr "MCP接続"
 
 #: src/lib/extension-library-entries.ts
 msgid "MCP connections"
-msgstr "MCP 接続"
+msgstr "MCP接続"
 
 #: src/components/clio/catalog-toolset.tsx
 msgid "MCP or domain"
-msgstr "MCP またはドメイン"
+msgstr "MCPまたはドメイン"
 
 #: src/components/clio/settings-prompts.tsx
 msgid "MCP prompt"
@@ -19695,7 +19699,7 @@ msgstr "MCP Registry"
 
 #: src/components/clio/extension-library.tsx
 msgid "MCP Registry servers"
-msgstr "MCP Registry のサーバー"
+msgstr "MCP Registryのサーバー"
 
 #: src/components/clio/agent-package-items.ts
 #: src/lib/mcp-service-presentation.ts
@@ -19714,7 +19718,7 @@ msgstr "MCPサーバーに再接続しました"
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "MCP server URL"
-msgstr "MCP サーバーの URL"
+msgstr "MCPサーバーのURL"
 
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/catalog-toolset.tsx
@@ -19732,7 +19736,7 @@ msgstr "MCPサーバーを読み込めませんでした。"
 
 #: src/components/clio/managed-services.tsx
 msgid "MCP services"
-msgstr "MCP サービス"
+msgstr "MCPサービス"
 
 #: src/components/clio/settings-tools.tsx
 msgid "MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
@@ -19931,11 +19935,11 @@ msgstr "記憶された事実を統合、置き換え、廃止します。"
 
 #: src/components/mermaidcn/mermaid.tsx
 msgid "Mermaid diagram"
-msgstr "Mermaid 図"
+msgstr "Mermaid図"
 
 #: src/components/clio/mermaid-diagram.tsx
 msgid "Mermaid source"
-msgstr "Mermaid ソース"
+msgstr "Mermaidソース"
 
 #: src/components/clio/a2ui-mesh-view-state.ts
 msgid "Mesh unavailable"
@@ -20151,11 +20155,11 @@ msgstr "モデルカタログを更新しました。互換性のあるクライ
 
 #: src/components/clio/managed-services.tsx
 msgid "Model Context Protocol services the {agent} on {mcpComputerLabel} uses."
-msgstr "{mcpComputerLabel}上の{agent}が使用する Model Context Protocol サービスです。"
+msgstr "{mcpComputerLabel}上の{agent}が使用するModel Context Protocolサービスです。"
 
 #: src/components/clio/managed-services.tsx
 msgid "Model Context Protocol services the {agent} on this computer uses."
-msgstr "このコンピューター上の{agent}が使用する Model Context Protocol サービスです。"
+msgstr "このコンピューター上の{agent}が使用するModel Context Protocolサービスです。"
 
 #: src/components/clio/composer-behavior-controls.tsx
 #: src/lib/reasoning-levels.ts
@@ -20247,7 +20251,7 @@ msgstr "モデルを読み込めませんでした"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Models folder/repository--revision"
-msgstr "Models フォルダー/リポジトリ--リビジョン"
+msgstr "Modelsフォルダー/リポジトリ--リビジョン"
 
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Models from {providerName}"
@@ -20260,7 +20264,7 @@ msgstr "{label}のモデル"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Models on Hugging Face"
-msgstr "Hugging Face のモデル"
+msgstr "Hugging Faceのモデル"
 
 #: src/components/clio/composer.tsx
 msgid "Models unavailable"
@@ -20524,7 +20528,7 @@ msgstr "マルチモーダル"
 
 #: src/components/clio/save-user-agent-dialog.tsx
 msgid "My HDF5 analyst"
-msgstr "マイ HDF5 アナリスト"
+msgstr "マイHDF5アナリスト"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "My knowledge"
@@ -20607,43 +20611,43 @@ msgstr "ネイティブ"
 
 #: src/components/clio/map-initial-view.ts
 msgid "Natural Earth coarse land outline"
-msgstr "Natural Earth の簡略陸地輪郭"
+msgstr "Natural Earthの簡略陸地輪郭"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "NDP actions"
-msgstr "NDP アクション"
+msgstr "NDPアクション"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "NDP browser"
-msgstr "NDP ブラウザー"
+msgstr "NDPブラウザー"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "NDP catalog"
-msgstr "NDP カタログ"
+msgstr "NDPカタログ"
 
 #: src/components/clio/ndp-source-picker.tsx
 msgid "NDP datasets"
-msgstr "NDP データセット"
+msgstr "NDPデータセット"
 
 #: src/components/clio/connected-source-labels.ts
 msgid "NDP endpoint"
-msgstr "NDP アドレス"
+msgstr "NDPアドレス"
 
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "NDP endpoints"
-msgstr "NDP アドレス"
+msgstr "NDPアドレス"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "NDP sign in"
-msgstr "NDP サインイン"
+msgstr "NDPサインイン"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "NDP sign-in code"
-msgstr "NDP サインインコード"
+msgstr "NDPサインインコード"
 
 #: src/components/clio/ndp-source-picker.tsx
 msgid "NDP view"
-msgstr "NDP ビュー"
+msgstr "NDPビュー"
 
 #: src/components/clio/session-usage-readout.tsx
 msgid "near limit"
@@ -20672,7 +20676,7 @@ msgstr "管理者権限が必要です"
 
 #: src/lib/provider-availability.ts
 msgid "Needs API key"
-msgstr "API キーが必要"
+msgstr "APIキーが必要"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Needs approval"
@@ -20684,11 +20688,11 @@ msgstr "すべての場所で承認が必要"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Needs approval in one conversation"
-msgstr "1 つの会話で承認が必要"
+msgstr "1つの会話で承認が必要"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Needs approval in one workspace"
-msgstr "1 つのワークスペースで承認が必要"
+msgstr "1つのワークスペースで承認が必要"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Needs approval, set by you"
@@ -21177,7 +21181,7 @@ msgstr "これらの結果に機能の選択肢はありません。"
 
 #: src/gallery-skill-dialog.tsx
 msgid "No catalog entry is available for `{name}`."
-msgstr "`{name}` のカタログエントリはありません。"
+msgstr "`{name}`のカタログエントリはありません。"
 
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "No catalog returned by this Endpoint."
@@ -21229,7 +21233,7 @@ msgstr "互換性のあるクライアントのアップデートはまだあり
 
 #: src/components/clio/model-acquisition.tsx
 msgid "No compatible runtime for these files on {hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file."
-msgstr "{hostLabel}にはこれらのファイルに対応するランタイムがありません。Transformers モデルには対応する vLLM コンピューターが、llama.cpp には GGUF ファイルが必要です。"
+msgstr "{hostLabel}にはこれらのファイルに対応するランタイムがありません。Transformersモデルには対応するvLLMコンピューターが、llama.cppにはGGUFファイルが必要です。"
 
 #: src/components/clio/transcript-content-picker.tsx
 msgid "No completed content is available."
@@ -21267,7 +21271,7 @@ msgstr "変換アクティビティは報告されていません。"
 
 #: src/components/clio/todo-list.tsx
 msgid "No current todos."
-msgstr "現在の ToDo はありません。"
+msgstr "現在のToDoはありません。"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "No custody receipt was returned for {path}"
@@ -21415,7 +21419,7 @@ msgstr "「{query}」に言及しているフラグメントはありません�
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "No GPU detected."
-msgstr "GPU が検出されません。"
+msgstr "GPUが検出されません。"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."
@@ -21556,7 +21560,7 @@ msgstr "一致するタスクはありません。"
 
 #: src/components/clio/extension-library.tsx
 msgid "No MCP connections yet."
-msgstr "MCP 接続はまだありません。"
+msgstr "MCP接続はまだありません。"
 
 #: src/components/clio/settings-tools.tsx
 msgid "No MCP servers match “{filter}”."
@@ -21622,11 +21626,11 @@ msgstr "一致するモデルはありません。検索条件またはフィル
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "No NDP account token is sent. Only operations available without NDP sign-in can be used."
-msgstr "NDP アカウントトークンは送信されません。NDP にサインインせずに利用できる操作のみ使用できます。"
+msgstr "NDPアカウントトークンは送信されません。NDPにサインインせずに利用できる操作のみ使用できます。"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "No NDP sign-in"
-msgstr "NDP サインインなし"
+msgstr "NDPサインインなし"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "No new durable facts found"
@@ -21658,7 +21662,7 @@ msgstr "まだノートがありません"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "No OAuth (open access or request headers)"
-msgstr "OAuth なし (オープンアクセスまたはリクエストヘッダー)"
+msgstr "OAuthなし (オープンアクセスまたはリクエストヘッダー)"
 
 #: src/components/clio/composer-references.tsx
 msgid "No objects match."
@@ -21809,7 +21813,7 @@ msgstr "読み取りなし"
 
 #: src/components/clio/registry-model-card.tsx
 msgid "No README was found at this revision."
-msgstr "このリビジョンには README が見つかりませんでした。"
+msgstr "このリビジョンにはREADMEが見つかりませんでした。"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "no reason was recorded"
@@ -21841,7 +21845,7 @@ msgstr "比較するリリースがありません。"
 
 #: src/components/clio/relay-settings.tsx
 msgid "No remote MCP servers yet."
-msgstr "リモート MCP サーバーはまだありません。"
+msgstr "リモートMCPサーバーはまだありません。"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
@@ -22003,7 +22007,7 @@ msgstr "このアドレスはステーションを返しませんでした。"
 
 #: src/components/clio/tool-terminal-result.tsx
 msgid "No stdout or stderr was recorded."
-msgstr "stdout と stderr は記録されていません。"
+msgstr "stdoutとstderrは記録されていません。"
 
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "No streams returned by this Endpoint."
@@ -22101,7 +22105,7 @@ msgstr "この形式用のビューアーはまだありません"
 
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "No visible endpoints. Connect an API or show hidden connections."
-msgstr "表示中のアドレスがありません。API を接続するか、非表示の接続を表示してください。"
+msgstr "表示中のアドレスがありません。APIを接続するか、非表示の接続を表示してください。"
 
 #: src/components/clio/settings-web-search.tsx
 msgid "No web sources are available on this service."
@@ -22614,7 +22618,7 @@ msgstr "メモ"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Notes already on this host. Obsidian is not required"
-msgstr "このホストにすでにあるノート。Obsidian は不要です"
+msgstr "このホストにすでにあるノート。Obsidianは不要です"
 
 #: src/components/clio/whats-new-dialog.tsx
 msgid "Notes included with this build"
@@ -22808,7 +22812,7 @@ msgstr "数値スライダー"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "NVIDIA GPU detected."
-msgstr "NVIDIA GPU が検出されました。"
+msgstr "NVIDIA GPUが検出されました。"
 
 #: src/components/clio/observability-dock.tsx
 msgid "Observability view"
@@ -22858,7 +22862,7 @@ msgstr "たった今確認"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Obsidian account email"
-msgstr "Obsidian アカウントのメールアドレス"
+msgstr "Obsidianアカウントのメールアドレス"
 
 #: src/components/clio/knowledge-vault-actions.tsx
 #: src/hooks/use-knowledge-attachment.ts
@@ -22867,11 +22871,11 @@ msgstr "Obsidianのナレッジノート"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Obsidian Sync account"
-msgstr "Obsidian Sync アカウント"
+msgstr "Obsidian Syncアカウント"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Obsidian Sync vault"
-msgstr "Obsidian Sync の保管庫"
+msgstr "Obsidian Syncの保管庫"
 
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/managed-service-form.tsx
@@ -22913,7 +22917,7 @@ msgstr "オフラインアーカイブ"
 
 #: src/components/clio/scientific-map-view.tsx
 msgid "Offline map: Natural Earth land outline and saved scientific data"
-msgstr "オフライン地図：Natural Earth の陸地輪郭と保存済みの科学データ"
+msgstr "オフライン地図：Natural Earthの陸地輪郭と保存済みの科学データ"
 
 #: src/components/clio/workspace-navigation-rail-rows.tsx
 msgid "Offline, no conversations"
@@ -22958,7 +22962,7 @@ msgstr "{hostLabel}上"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "On {hostLabel}. Hidden files and Obsidian settings are excluded."
-msgstr "{hostLabel}上。隠しファイルと Obsidian の設定は除外されます。"
+msgstr "{hostLabel}上。隠しファイルとObsidianの設定は除外されます。"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "On a file too large to show"
@@ -22966,7 +22970,7 @@ msgstr "表示できないほど大きいファイル上"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "On a PDF"
-msgstr "PDF 上"
+msgstr "PDF上"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "On an HDF5 file in the @ menu"
@@ -23015,23 +23019,23 @@ msgstr "1回"
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One band per source line"
-msgstr "ソースの 1 行につき 1 つの帯"
+msgstr "ソースの1行につき1つの帯"
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One band per word, as the tokenizer's first level cuts it"
-msgstr "トークナイザーの第 1 段階で切り分けられる単語ごとに 1 つの帯"
+msgstr "トークナイザーの第1段階で切り分けられる単語ごとに1つの帯"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "One conversation"
-msgstr "1 つの会話"
+msgstr "1つの会話"
 
 #: src/components/clio/memory-create.tsx
 msgid "One fact or preference per line"
-msgstr "1 行に 1 つの事実または好み"
+msgstr "1行に1つの事実または好み"
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One highlight per model token"
-msgstr "モデルのトークンごとに 1 つのハイライト"
+msgstr "モデルのトークンごとに1つのハイライト"
 
 #: src/widget-gallery.tsx
 msgid "One plant"
@@ -23065,7 +23069,7 @@ msgstr "このレビューに届いたのはプランの一部だけです。実
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Only run_code scripts. Its schema stays out of the prompt."
-msgstr "run_code スクリプトのみ。スキーマはプロンプトに含まれません。"
+msgstr "run_codeスクリプトのみ。スキーマはプロンプトに含まれません。"
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Only the final answer is kept."
@@ -23259,7 +23263,7 @@ msgstr "コメントするには会話を開いてください"
 
 #: src/hooks/use-open-file-in-browser.ts
 msgid "Open a conversation to view HTML files in its browser."
-msgstr "HTML ファイルをブラウザーで表示するには、会話を開いてください。"
+msgstr "HTMLファイルをブラウザーで表示するには、会話を開いてください。"
 
 #: src/components/clio/knowledge-vault-actions.tsx
 msgid "Open a note first"
@@ -23376,7 +23380,7 @@ msgstr "ブラウザーのタブで開く"
 
 #: src/components/clio/subagent-navigation.ts
 msgid "Open in a workspace tab. Shift-click to open in the center."
-msgstr "ワークスペースのタブで開きます。Shift キーを押しながらクリックすると中央に開きます。"
+msgstr "ワークスペースのタブで開きます。Shiftキーを押しながらクリックすると中央に開きます。"
 
 #: src/components/clio/html-in-browser.tsx
 msgid "Open in browser"
@@ -23466,11 +23470,11 @@ msgstr "モデル選択を開く"
 
 #: src/lib/installer-infrastructure.ts
 msgid "Open Models to install Claude Code on the connected agent."
-msgstr "接続されたエージェントに Claude Code をインストールするには「モデル」を開いてください。"
+msgstr "接続されたエージェントにClaude Codeをインストールするには「モデル」を開いてください。"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Open NDP sign-in"
-msgstr "NDP サインインを開く"
+msgstr "NDPサインインを開く"
 
 #: src/components/clio/file-viewer-take.tsx
 msgid "Open options"
@@ -23631,7 +23635,7 @@ msgstr "実行を開く"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Open the SPOTTER review conversation"
-msgstr "SPOTTER のレビュー会話を開く"
+msgstr "SPOTTERのレビュー会話を開く"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Open the stalled step"
@@ -23687,19 +23691,19 @@ msgstr "Google Driveでフォルダーを開き、ブラウザーからアドレ
 
 #: src/components/clio/settings-model-server-details.tsx
 msgid "OpenAI-compatible server"
-msgstr "OpenAI 互換サーバー"
+msgstr "OpenAI互換サーバー"
 
 #: src/components/clio/document-workspace.tsx
 msgid "OpenDocument presentation"
-msgstr "OpenDocument プレゼンテーション"
+msgstr "OpenDocumentプレゼンテーション"
 
 #: src/components/clio/document-workspace.tsx
 msgid "OpenDocument spreadsheet"
-msgstr "OpenDocument スプレッドシート"
+msgstr "OpenDocumentスプレッドシート"
 
 #: src/components/clio/document-workspace.tsx
 msgid "OpenDocument text"
-msgstr "OpenDocument テキスト"
+msgstr "OpenDocumentテキスト"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Opened {time}"
@@ -23748,7 +23752,7 @@ msgstr "GitHubを開いています…"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Opening NDP…"
-msgstr "NDP を開いています…"
+msgstr "NDPを開いています…"
 
 #: src/components/clio/provider-actions.ts
 msgid "Opening sign-in…"
@@ -23793,7 +23797,7 @@ msgstr "タブで開きます。"
 
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
-msgstr "共有ブラウザーで開きます。Shift キーを押しながらクリックすると外部で開きます"
+msgstr "共有ブラウザーで開きます。Shiftキーを押しながらクリックすると外部で開きます"
 
 #: src/components/clio/comment-review-chip.tsx
 msgid "Opens this version with its comments."
@@ -23801,11 +23805,11 @@ msgstr "このバージョンをコメント付きで開きます。"
 
 #: src/components/clio/use-remote-deployment.ts
 msgid "OpenSSH could not be stopped: {error}"
-msgstr "OpenSSH を停止できませんでした：{error}"
+msgstr "OpenSSHを停止できませんでした：{error}"
 
 #: src/providers/connection-provider.tsx
 msgid "OpenSSH disconnected from {host}."
-msgstr "OpenSSH が{host}から切断されました。"
+msgstr "OpenSSHが{host}から切断されました。"
 
 #: src/lib/plugin-presentation.ts
 msgid "Operating guidelines"
@@ -24251,7 +24255,7 @@ msgstr "パスワード、Duo、セキュリティキー、Kerberosは接続時�
 
 #: src/components/clio/conversation-day-groups.ts
 msgid "Past week"
-msgstr "過去 1 週間"
+msgstr "過去1週間"
 
 #: src/tauri/native-copy.ts
 msgctxt "menu bar"
@@ -24277,7 +24281,7 @@ msgstr "コミットIDを貼り付け"
 
 #: src/components/clio/provider-actions.ts
 msgid "Paste the redirect URL or code."
-msgstr "リダイレクト URL またはコードを貼り付けてください。"
+msgstr "リダイレクトURLまたはコードを貼り付けてください。"
 
 #: src/components/clio/connect-address.tsx
 msgid "Paste token"
@@ -24395,34 +24399,34 @@ msgstr "PDF"
 
 #: src/components/clio/document-open-menu.tsx
 msgid "PDF copy with another app"
-msgstr "PDF コピーを別のアプリで開く"
+msgstr "PDFコピーを別のアプリで開く"
 
 #: src/components/clio/document-workspace.tsx
 msgid "PDF document"
-msgstr "PDF ドキュメント"
+msgstr "PDFドキュメント"
 
 #: src/components/clio/document-workspace.tsx
 msgid "PDF downloaded."
-msgstr "PDF をダウンロードしました。"
+msgstr "PDFをダウンロードしました。"
 
 #: src/components/clio/document-workspace.tsx
 msgid "PDF opened in {app}."
-msgstr "PDF を{app}で開きました。"
+msgstr "PDFを{app}で開きました。"
 
 #: src/components/clio/document-workspace.tsx
 msgid "PDF preview failed"
-msgstr "PDF プレビューに失敗しました"
+msgstr "PDFプレビューに失敗しました"
 
 #: src/components/clio/document-workspace.tsx
 msgid "PDF previews are not supported for this {type}."
-msgstr "この{type}では PDF プレビューはサポートされていません。"
+msgstr "この{type}ではPDFプレビューはサポートされていません。"
 
 #: src/components/clio/document-pdf-viewer.tsx
 #: src/components/clio/document-workspace.tsx
 #: src/components/clio/pdf-preview.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "PDF zoom"
-msgstr "PDF のズーム"
+msgstr "PDFのズーム"
 
 #: src/components/clio/workbench-activity-model.ts
 msgid "pending"
@@ -24731,7 +24735,7 @@ msgstr "プラント{0}"
 
 #: src/widget-gallery-demos.ts
 msgid "Plant ID"
-msgstr "プラント ID"
+msgstr "プラントID"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "Play test sound"
@@ -24748,7 +24752,7 @@ msgstr "グラフ"
 #: src/lib/onboarding/tour-practice-data.ts
 #: src/lib/onboarding/tour-script.ts
 msgid "Plot the vertical displacement at station BKL1."
-msgstr "観測点 BKL1 の鉛直変位をグラフにしてください。"
+msgstr "観測点BKL1の鉛直変位をグラフにしてください。"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "Plots, tables and reports show up as file cards in the conversation."
@@ -24790,7 +24794,7 @@ msgstr "プラグインのファイル"
 
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
-msgstr "Agent Plugins 形式と Claude Code 形式のどちらのプラグインマーケットプレイスにも対応しています。{agent}がソースを取得し、次のステップであなたがそれを信頼します。"
+msgstr "Agent Plugins形式とClaude Code形式のどちらのプラグインマーケットプレイスにも対応しています。{agent}がソースを取得し、次のステップであなたがそれを信頼します。"
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugin source"
@@ -24806,7 +24810,7 @@ msgstr "プラグインのツールを読み込めませんでした。"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Plugin ZIP"
-msgstr "プラグインの ZIP"
+msgstr "プラグインのZIP"
 
 #: src/hooks/use-connection-availability.ts
 msgid "plugins"
@@ -24846,7 +24850,7 @@ msgstr "同時に削除されるプラグイン"
 
 #: src/components/clio/extension-library.tsx
 msgid "Plugins, marketplaces, MCP connections and skills for your agents."
-msgstr "エージェント向けのプラグイン、マーケットプレイス、MCP 接続、スキル。"
+msgstr "エージェント向けのプラグイン、マーケットプレイス、MCP接続、スキル。"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -24854,31 +24858,31 @@ msgstr "午後"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export failed: {reason}"
-msgstr "PNG のエクスポートに失敗しました: {reason}"
+msgstr "PNGのエクスポートに失敗しました: {reason}"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export failed: canvas returned no image data."
-msgstr "PNG のエクスポートに失敗しました: キャンバスが画像データを返しませんでした。"
+msgstr "PNGのエクスポートに失敗しました: キャンバスが画像データを返しませんでした。"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export is unavailable while the page is hidden."
-msgstr "ページが非表示の間は PNG のエクスポートを利用できません。"
+msgstr "ページが非表示の間はPNGのエクスポートを利用できません。"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export stopped because the map graphics context was lost."
-msgstr "地図のグラフィックスコンテキストが失われたため、PNG のエクスポートを停止しました。"
+msgstr "地図のグラフィックスコンテキストが失われたため、PNGのエクスポートを停止しました。"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export stopped because the map was closed."
-msgstr "地図が閉じられたため、PNG のエクスポートを停止しました。"
+msgstr "地図が閉じられたため、PNGのエクスポートを停止しました。"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export stopped because the page became hidden."
-msgstr "ページが非表示になったため、PNG のエクスポートを停止しました。"
+msgstr "ページが非表示になったため、PNGのエクスポートを停止しました。"
 
 #: src/components/clio/map-export.ts
 msgid "PNG export timed out waiting for a map frame."
-msgstr "地図のフレームを待機中に PNG のエクスポートがタイムアウトしました。"
+msgstr "地図のフレームを待機中にPNGのエクスポートがタイムアウトしました。"
 
 #: src/components/clio/a2ui-chart.tsx
 #: src/components/clio/a2ui-map.tsx
@@ -24889,7 +24893,7 @@ msgstr "PNG画像"
 
 #: src/components/clio/dashboard-view.tsx
 msgid "PNG image (displayed view)"
-msgstr "PNG 画像（表示中のビュー）"
+msgstr "PNG画像（表示中のビュー）"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "PNG snapshot"
@@ -24905,7 +24909,7 @@ msgstr "ポリシー"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Popular text models on Hugging Face"
-msgstr "Hugging Face の人気テキストモデル"
+msgstr "Hugging Faceの人気テキストモデル"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Port"
@@ -24929,7 +24933,7 @@ msgstr "ポートとストレージには、このコンピューターのデフ
 
 #: src/components/clio/document-workspace.tsx
 msgid "PowerPoint deck"
-msgstr "PowerPoint プレゼンテーション"
+msgstr "PowerPointプレゼンテーション"
 
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 #: src/lib/onboarding/tour-script.ts
@@ -25020,11 +25024,11 @@ msgstr "ローカルのランタイムとパッケージを準備中"
 
 #: src/lib/runtime-install-progress.ts
 msgid "Preparing the managed packages and Office"
-msgstr "管理パッケージと Office を準備中"
+msgstr "管理パッケージとOfficeを準備中"
 
 #: src/components/clio/document-open-menu.tsx
 msgid "Preparing the PDF…"
-msgstr "PDF を準備中…"
+msgstr "PDFを準備中…"
 
 #: src/lib/mcp-preparation.ts
 msgid "Preparing the server for this conversation; its tools join when it is ready."
@@ -25062,7 +25066,7 @@ msgstr "/ を押して絞り込み"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "Press Enter or the send button."
-msgstr "Enter キーまたは送信ボタンを押してください。"
+msgstr "Enterキーまたは送信ボタンを押してください。"
 
 #: src/components/clio/resource-viewers.tsx
 #: src/components/clio/settings-prompt-editor.tsx
@@ -25532,7 +25536,7 @@ msgstr "来歴検証済み"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Provide its query API URL and a Flowcept settings file already on this {agent} host. The file contains its Redis/Mongo connection settings. The external collector remains the sole persistence owner; this client does not start another collector."
-msgstr "クエリ API の URL と、この{agent}ホスト上に既にある Flowcept 設定ファイルを指定してください。このファイルには Redis/Mongo の接続設定が含まれます。永続化は引き続き外部コレクターのみが担います。このクライアントは別のコレクターを起動しません。"
+msgstr "クエリAPIのURLと、この{agent}ホスト上に既にあるFlowcept設定ファイルを指定してください。このファイルにはRedis/Mongoの接続設定が含まれます。永続化は引き続き外部コレクターのみが担います。このクライアントは別のコレクターを起動しません。"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "provider"
@@ -25555,7 +25559,7 @@ msgstr "プロバイダーの既定値"
 
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Provider id"
-msgstr "プロバイダー ID"
+msgstr "プロバイダーID"
 
 #: src/components/clio/catalog-toolset.tsx
 msgid "Provider metadata and raw schemas"
@@ -25644,7 +25648,7 @@ msgstr "レポートを公開しますか？"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Published client metadata URL"
-msgstr "公開されたクライアントメタデータ URL"
+msgstr "公開されたクライアントメタデータURL"
 
 #: src/components/clio/source-review-panel.tsx
 msgid "Publishing selected edits…"
@@ -25930,7 +25934,7 @@ msgstr "未加工の入力"
 
 #: src/components/clio/document-source-view.tsx
 msgid "Raw Markdown"
-msgstr "Markdown の原文"
+msgstr "Markdownの原文"
 
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Raw reason"
@@ -26249,11 +26253,11 @@ msgstr "このワークスペースがエージェントにアクセスを許可
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Reads before the Explore suggestion"
-msgstr "Explore を提案するまでの読み取り回数"
+msgstr "Exploreを提案するまでの読み取り回数"
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Reads before the Explore suggestion, as a number"
-msgstr "Explore を提案するまでの読み取り回数(数値)"
+msgstr "Exploreを提案するまでの読み取り回数(数値)"
 
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
@@ -26651,7 +26655,7 @@ msgstr "復旧チェックポイント{checkpoint}"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Redirect URL or code"
-msgstr "リダイレクト URL またはコード"
+msgstr "リダイレクトURLまたはコード"
 
 #: src/tauri/native-copy.ts
 msgctxt "menu bar"
@@ -26822,11 +26826,11 @@ msgstr "領域の幅（%）"
 
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region x percent"
-msgstr "領域の x（%）"
+msgstr "領域のx（%）"
 
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region y percent"
-msgstr "領域の y（%）"
+msgstr "領域のy（%）"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Register service"
@@ -26915,7 +26919,7 @@ msgstr "ワークスペースからの相対パス"
 
 #: src/components/clio/relay-settings.tsx
 msgid "Relay placements from earlier versions are not converted. Add each remote server again by its URL."
-msgstr "以前のバージョンのリレー配置は変換されません。各リモートサーバーを URL で再度追加してください。"
+msgstr "以前のバージョンのリレー配置は変換されません。各リモートサーバーをURLで再度追加してください。"
 
 #: src/lib/model-facets.ts
 msgid "Release"
@@ -27023,7 +27027,7 @@ msgstr "リモートエージェントのポート"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Remote API URL"
-msgstr "リモート API URL"
+msgstr "リモートAPI URL"
 
 #: src/components/clio/infrastructure-topology.tsx
 msgid "Remote computers"
@@ -27044,15 +27048,15 @@ msgstr "リモートホスト"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Remote MCP"
-msgstr "リモート MCP"
+msgstr "リモートMCP"
 
 #: src/components/clio/relay-settings.tsx
 msgid "Remote MCP servers"
-msgstr "リモート MCP サーバー"
+msgstr "リモートMCPサーバー"
 
 #: src/components/clio/relay-settings.tsx
 msgid "Remote MCP servers couldn’t be listed."
-msgstr "リモート MCP サーバーを一覧表示できませんでした。"
+msgstr "リモートMCPサーバーを一覧表示できませんでした。"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Remote platform"
@@ -27324,7 +27328,7 @@ msgstr "このルールを削除しますか？"
 
 #: src/components/clio/ndp-endpoint-actions.tsx
 msgid "Remove this workspace’s saved API connection. Captured files stay in Sources. The remote service and its running streams are not stopped."
-msgstr "このワークスペースに保存された API 接続を削除します。取得したファイルはソースに残ります。リモートサービスと実行中のストリームは停止されません。"
+msgstr "このワークスペースに保存されたAPI接続を削除します。取得したファイルはソースに残ります。リモートサービスと実行中のストリームは停止されません。"
 
 #: src/components/clio/environment-table.tsx
 msgid "Remove variable {number}"
@@ -27372,7 +27376,7 @@ msgstr "あなたが削除"
 
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Removed from todo list, was {status}"
-msgstr "ToDo リストから削除（以前の状態：{status}）"
+msgstr "ToDoリストから削除（以前の状態：{status}）"
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed in this conversation"
@@ -27384,7 +27388,7 @@ msgstr "削除したプラグイン"
 
 #: src/components/clio/tool-result-presentation.tsx
 msgid "Removed todos"
-msgstr "削除された ToDo"
+msgstr "削除されたToDo"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Removed:"
@@ -27495,7 +27499,7 @@ msgstr "モデルカードをレンダリング中…"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Rendering PDF preview…"
-msgstr "PDF プレビューをレンダリング中…"
+msgstr "PDFプレビューをレンダリング中…"
 
 #: src/components/mermaidcn/mermaid.tsx
 msgid "Rendering..."
@@ -27661,7 +27665,7 @@ msgstr "リポジトリのルートが不明です"
 
 #: src/components/clio/extension-discover.tsx
 msgid "Repository, folder or ZIP"
-msgstr "リポジトリ、フォルダー、または ZIP"
+msgstr "リポジトリ、フォルダー、またはZIP"
 
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Reprocess resource"
@@ -27678,7 +27682,7 @@ msgstr "リクエスト"
 
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Request {request_id}. Capture SHA-256: {capture_sha256}. Profile: {profile_revision}. These identify the exact bytes and aggregation settings used for this view."
-msgstr "リクエスト{request_id}。キャプチャ SHA-256: {capture_sha256}。プロファイル: {profile_revision}。これらはこの表示に使用された正確なバイト列と集計設定を識別します。"
+msgstr "リクエスト{request_id}。キャプチャSHA-256: {capture_sha256}。プロファイル: {profile_revision}。これらはこの表示に使用された正確なバイト列と集計設定を識別します。"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Request accepted"
@@ -27706,7 +27710,7 @@ msgstr "リクエストヘッダー"
 
 #: src/components/clio/ndp-endpoint-operation.tsx
 msgid "Request JSON"
-msgstr "リクエスト JSON"
+msgstr "リクエストJSON"
 
 #: src/components/clio/openalex-key-request.tsx
 msgid "Request key"
@@ -28400,7 +28404,7 @@ msgstr "サインインを開始した{agent}のウィンドウに戻ってく�
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Return URL after authorization"
-msgstr "認可後の戻り先 URL"
+msgstr "認可後の戻り先URL"
 
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
@@ -28670,7 +28674,7 @@ msgstr "実行"
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "Run {agent} on this computer or install it on a computer reached with SSH."
-msgstr "{agent}をこのコンピューターで実行するか、SSH で接続できるコンピューターにインストールします。"
+msgstr "{agent}をこのコンピューターで実行するか、SSHで接続できるコンピューターにインストールします。"
 
 #: src/components/clio/observability-dock.tsx
 msgid "Run {id}"
@@ -29003,11 +29007,11 @@ msgstr "アーカイブデータをサンプリング"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Sample archived URL"
-msgstr "アーカイブ URL をサンプリング"
+msgstr "アーカイブURLをサンプリング"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Sample CSV from URL"
-msgstr "URL から CSV をサンプリング"
+msgstr "URLからCSVをサンプリング"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Sample duration (seconds)"
@@ -29319,7 +29323,7 @@ msgstr "保存済みの項目"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Saved MCP connections"
-msgstr "保存済みの MCP 接続"
+msgstr "保存済みのMCP接続"
 
 #: src/components/clio/settings-memory.tsx
 msgid "Saved memories are kept. Turn memory on under Create memories."
@@ -29335,11 +29339,11 @@ msgstr "保存場所"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Saved or new SSH host"
-msgstr "保存済みまたは新しい SSH ホスト"
+msgstr "保存済みまたは新しいSSHホスト"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Saved PDF preview"
-msgstr "保存済みの PDF プレビュー"
+msgstr "保存済みのPDFプレビュー"
 
 #: src/components/clio/private-local-details.tsx
 msgid "Saved privately on this host. Nothing is published."
@@ -29384,7 +29388,7 @@ msgstr "入力した内容をそのまま保存します。モデルは呼び出
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Saves to your Private local marketplace on this agent host. GitHub backup is available from Marketplaces."
-msgstr "このエージェントホスト上のプライベートローカルマーケットプレイスに保存します。GitHub へのバックアップはマーケットプレイスから利用できます。"
+msgstr "このエージェントホスト上のプライベートローカルマーケットプレイスに保存します。GitHubへのバックアップはマーケットプレイスから利用できます。"
 
 #: src/components/clio/plugin-source-editor.tsx
 msgid "Saves to your Private local marketplace on this agent host. The source repository and current agent stay unchanged."
@@ -29596,7 +29600,7 @@ msgstr "スクリプトで実行"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script: AI reviews"
-msgstr "スクリプト：AI がレビュー"
+msgstr "スクリプト：AIがレビュー"
 
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Scripted. Nothing is sent or saved."
@@ -29629,7 +29633,7 @@ msgstr "スクロール可能な結果の内容"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "SDK Python interpreter"
-msgstr "SDK の Python インタープリター"
+msgstr "SDKのPythonインタープリター"
 
 #: src/components/clio/desktop-title-bar.tsx
 #: src/components/clio/extension-library-toolbar.tsx
@@ -29705,7 +29709,7 @@ msgstr "検索とコマンド"
 
 #: src/components/clio/ndp-action-picker.tsx
 msgid "Search API actions…"
-msgstr "API アクションを検索…"
+msgstr "APIアクションを検索…"
 
 #: src/components/clio/artifact-filters.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -29811,7 +29815,7 @@ msgstr "名前、説明、ファイルを検索…"
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 msgid "Search NDP datasets"
-msgstr "NDP データセットを検索"
+msgstr "NDPデータセットを検索"
 
 #: src/components/clio/knowledge-vault-files.tsx
 msgid "Search notes"
@@ -29944,7 +29948,7 @@ msgstr "ツールを検索"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Search uses Hugging Face tags. Capability filters also check the evidence in loaded results; unknown capabilities are not assumed. Counts refer to loaded results. Load more to continue searching."
-msgstr "検索には Hugging Face のタグを使用します。機能フィルターは読み込まれた結果のエビデンスも確認します。不明な機能は想定されません。件数は読み込まれた結果に基づきます。検索を続けるにはさらに読み込んでください。"
+msgstr "検索にはHugging Faceのタグを使用します。機能フィルターは読み込まれた結果のエビデンスも確認します。不明な機能は想定されません。件数は読み込まれた結果に基づきます。検索を続けるにはさらに読み込んでください。"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Search web"
@@ -29981,7 +29985,7 @@ msgstr "ワークスペースを検索…"
 
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Search, Enter for the registry"
-msgstr "検索（Enter でレジストリ）"
+msgstr "検索（Enterでレジストリ）"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Search..."
@@ -30024,7 +30028,7 @@ msgstr "設定を検索中"
 
 #: src/components/clio/extension-library.tsx
 msgid "Searching the MCP Registry…"
-msgstr "MCP Registry を検索中…"
+msgstr "MCP Registryを検索中…"
 
 #: src/components/clio/composer-references.tsx
 msgid "Searching workspace context…"
@@ -30206,7 +30210,7 @@ msgstr "ファイルを選択"
 
 #: src/components/clio/attention-lookup-panel.tsx
 msgid "Select more transcript passages to combine them. Overlapping captured tokens count once. Heat is a measurement, not evidence of intent or poisoning."
-msgstr "トランスクリプトの箇所をさらに選択すると結合できます。重複するキャプチャ済みトークンは 1 回だけ数えられます。ヒートは測定値であり、意図やポイズニングのエビデンスではありません。"
+msgstr "トランスクリプトの箇所をさらに選択すると結合できます。重複するキャプチャ済みトークンは1回だけ数えられます。ヒートは測定値であり、意図やポイズニングのエビデンスではありません。"
 
 #: src/widget-preview-app.tsx
 msgid "Select observations"
@@ -30214,7 +30218,7 @@ msgstr "観測を選択"
 
 #: src/components/clio/observability-dock-shell.tsx
 msgid "Select one to open a workspace tab. Shift-click to open it in the center."
-msgstr "選択するとワークスペースのタブで開きます。Shift キーを押しながらクリックすると中央で開きます。"
+msgstr "選択するとワークスペースのタブで開きます。Shiftキーを押しながらクリックすると中央で開きます。"
 
 #: src/components/clio/a2ui-region-capture.tsx
 msgid "Select regions on {title}"
@@ -30390,7 +30394,7 @@ msgstr "このリクエストも送信してください。"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
-msgstr "保存済みの NDP アカウントトークンをこの API に送信します。アドレス側があなたのアカウントを受け入れ、アクセスを許可する必要があります。"
+msgstr "保存済みのNDPアカウントトークンをこのAPIに送信します。アドレス側があなたのアカウントを受け入れ、アクセスを許可する必要があります。"
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "Sending action"
@@ -30478,7 +30482,7 @@ msgstr "エージェントにメッセージを送信しました"
 
 #: src/components/clio/managed-service-target.tsx
 msgid "Sent only to this OpenSSH process; {agent} never saves it."
-msgstr "この OpenSSH プロセスにのみ送信されます。{agent}が保存することはありません。"
+msgstr "このOpenSSHプロセスにのみ送信されます。{agent}が保存することはありません。"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "Sent to the agent"
@@ -30601,7 +30605,7 @@ msgstr "サービスの記録"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Service URL from this {agent}"
-msgstr "この{agent}から見たサービス URL"
+msgstr "この{agent}から見たサービスURL"
 
 #: src/components/clio/managed-services.tsx
 #: src/components/clio/ndp-endpoint-data.ts
@@ -30694,7 +30698,7 @@ msgstr "セッションの情報"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"
-msgstr "セッション ID"
+msgstr "セッションID"
 
 #: src/components/clio/navigation.tsx
 msgid "Session imported"
@@ -30789,7 +30793,7 @@ msgstr "{agent}を再起動せずに子エージェントの上限を設定し�
 
 #: src/components/clio/clio-menu.tsx
 msgid "Set it up over SSH, then connect"
-msgstr "SSH でセットアップしてから接続"
+msgstr "SSHでセットアップしてから接続"
 
 #: src/components/clio/managed-service-inventory.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -31231,7 +31235,7 @@ msgstr "さらにデータセットを表示"
 
 #: src/components/clio/settings-general.tsx
 msgid "Show more opens the full result. Diff previews use twice this limit."
-msgstr "「さらに表示」で結果全体が開きます。差分のプレビューではこの上限の 2 倍を使用します。"
+msgstr "「さらに表示」で結果全体が開きます。差分のプレビューではこの上限の2倍を使用します。"
 
 #. placeholder {0}: rows.length - shown
 #: src/components/clio/context-sources.tsx
@@ -31473,7 +31477,7 @@ msgstr "次のステップで、この呼び出しの結果としてモデルに
 #: src/components/clio/image-reach.ts
 #: src/components/clio/script-run-body.tsx
 msgid "Shown to the model on its next step, with the run_code script’s result."
-msgstr "次のステップで、run_code スクリプトの結果と一緒にモデルに表示されました。"
+msgstr "次のステップで、run_codeスクリプトの結果と一緒にモデルに表示されました。"
 
 #: src/components/clio/latex-model.ts
 msgid "Side by side"
@@ -31536,7 +31540,7 @@ msgstr "{providerLabel}のモデルを使うには、サインインしてくだ
 
 #: src/lib/provider-availability.ts
 msgid "Sign in to ALCF to use its models."
-msgstr "ALCF のモデルを使うには、サインインしてください。"
+msgstr "ALCFのモデルを使うには、サインインしてください。"
 
 #: src/components/clio/a2ui-source-sign-in.tsx
 msgid "Sign in to data source"
@@ -31544,19 +31548,19 @@ msgstr "データソースにサインイン"
 
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Globus to reach your collections."
-msgstr "コレクションにアクセスするには Globus にサインインしてください。"
+msgstr "コレクションにアクセスするにはGlobusにサインインしてください。"
 
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Google Drive to reach your folders."
-msgstr "フォルダーにアクセスするには Google Drive にサインインしてください。"
+msgstr "フォルダーにアクセスするにはGoogle Driveにサインインしてください。"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Sign in to NDP"
-msgstr "NDP にサインイン"
+msgstr "NDPにサインイン"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Sign in to Obsidian"
-msgstr "Obsidian にサインイン"
+msgstr "Obsidianにサインイン"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Sign in to services that require an account, then connect their data to a workspace or create a new knowledge vault. Accounts are shared across workspaces on this service. Signing in does not attach data or grant an agent access to a dataset. Manage attached sources in the workspace Files view."
@@ -31565,7 +31569,7 @@ msgstr "アカウントが必要なサービスにサインインしてから、
 #: src/lib/model-options.ts
 #: src/lib/provider-availability.ts
 msgid "Sign in to your ALCF account again."
-msgstr "ALCF アカウントにもう一度サインインしてください。"
+msgstr "ALCFアカウントにもう一度サインインしてください。"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with GitHub"
@@ -31573,7 +31577,7 @@ msgstr "GitHubでサインイン"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Sign in with OAuth"
-msgstr "OAuth でサインイン"
+msgstr "OAuthでサインイン"
 
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Sign in with the service. Your credentials stay with this connection."
@@ -31680,7 +31684,7 @@ msgstr "{name}にサインインしました。"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Signed in to Obsidian, client {version}"
-msgstr "Obsidian にサインイン済み、クライアント{version}"
+msgstr "Obsidianにサインイン済み、クライアント{version}"
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Signed out"
@@ -31768,7 +31772,7 @@ msgstr "スキルは利用できません"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Skill ZIP"
-msgstr "スキルの ZIP"
+msgstr "スキルのZIP"
 
 #: src/components/clio/agent-item-details.tsx
 msgid "SKILL.md has no instructions."
@@ -32126,21 +32130,21 @@ msgstr "ここでの消費量(委任された作業を含む)"
 
 #: src/hooks/use-spotter-quarantine.tsx
 msgid "SPOTTER detected a danger"
-msgstr "SPOTTER が危険を検出しました"
+msgstr "SPOTTERが危険を検出しました"
 
 #: src/hooks/use-spotter-model-selection.ts
 msgid "SPOTTER model was not changed"
-msgstr "SPOTTER のモデルは変更されませんでした"
+msgstr "SPOTTERのモデルは変更されませんでした"
 
 #: src/components/clio/composer-spotter-model.tsx
 msgid "SPOTTER model: {label}"
-msgstr "SPOTTER のモデル: {label}"
+msgstr "SPOTTERのモデル: {label}"
 
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
 msgid "SPOTTER review"
-msgstr "SPOTTER レビュー"
+msgstr "SPOTTERレビュー"
 
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "SPOTTER stopped this session. Discuss the finding with it, or lift the quarantine to continue."
@@ -32165,11 +32169,11 @@ msgstr "SSE (レガシー)"
 
 #: src/providers/connection-provider.tsx
 msgid "SSH authentication for {host} was cancelled."
-msgstr "{host}の SSH 認証はキャンセルされました。"
+msgstr "{host}のSSH認証はキャンセルされました。"
 
 #: src/providers/connection-provider.tsx
 msgid "SSH authentication timed out for {host}."
-msgstr "{host}の SSH 認証がタイムアウトしました。"
+msgstr "{host}のSSH認証がタイムアウトしました。"
 
 #: src/components/clio/source-sftp-target.tsx
 msgid "SSH connection"
@@ -32182,7 +32186,7 @@ msgstr "SSH接続に失敗しました"
 #: src/components/clio/ndp-endpoint-editor.tsx
 #: src/components/clio/ssh-connection-route.tsx
 msgid "SSH connection route"
-msgstr "SSH 接続ルート"
+msgstr "SSH接続ルート"
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "SSH connection route hops, in order"
@@ -32192,7 +32196,7 @@ msgstr "SSH接続経路のホップ（順番どおり）"
 #: src/components/clio/source-sftp-target.tsx
 #: src/components/clio/source-ssh-target.tsx
 msgid "SSH host"
-msgstr "SSH ホスト"
+msgstr "SSHホスト"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "SSH host could not be saved"
@@ -32212,15 +32216,15 @@ msgstr "SSH秘密キーファイル"
 
 #: src/tauri/ssh-profiles.ts
 msgid "SSH profiles can be saved only in {product}."
-msgstr "SSH プロファイルは{product}でのみ保存できます。"
+msgstr "SSHプロファイルは{product}でのみ保存できます。"
 
 #: src/tauri/ssh-profiles.ts
 msgid "SSH routes can be saved only in {product}."
-msgstr "SSH ルートは{product}でのみ保存できます。"
+msgstr "SSHルートは{product}でのみ保存できます。"
 
 #: src/components/clio/connected-ssh-host-picker.tsx
 msgid "SSH starts on the connected {agent}. Add hops to reach the computer hosting the API."
-msgstr "SSH は接続中の{agent}から開始します。API をホストしているコンピューターに到達するには中継ホストを追加してください。"
+msgstr "SSHは接続中の{agent}から開始します。APIをホストしているコンピューターに到達するには中継ホストを追加してください。"
 
 #: src/components/clio/infrastructure-topology.tsx
 msgid "SSH: {words}"
@@ -32305,7 +32309,7 @@ msgstr "開始が完了しました。サーバーの出力はログで確認で
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Start Docker Desktop, then check again."
-msgstr "Docker Desktop を起動してから、もう一度確認してください。"
+msgstr "Docker Desktopを起動してから、もう一度確認してください。"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Start flow"
@@ -32325,7 +32329,7 @@ msgstr "起動して接続（{version}）"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Start Podman, then check again."
-msgstr "Podman を起動してから、もう一度確認してください。"
+msgstr "Podmanを起動してから、もう一度確認してください。"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Start reading"
@@ -32346,7 +32350,7 @@ msgstr "同期を開始"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "Start the Docker service, then check again."
-msgstr "Docker サービスを開始してから、もう一度確認してください。"
+msgstr "Dockerサービスを開始してから、もう一度確認してください。"
 
 #: src/widget-gallery-demos.ts
 msgid "Start the sauce"
@@ -32513,7 +32517,7 @@ msgstr "状態：{state}"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Static HTML document"
-msgstr "静的 HTML ドキュメント"
+msgstr "静的HTMLドキュメント"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "Station"
@@ -32927,7 +32931,7 @@ msgstr "ストリームセッション"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Streamable HTTP"
-msgstr "ストリーミング可能な HTTP"
+msgstr "ストリーミング可能なHTTP"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "streaming"
@@ -33110,7 +33114,7 @@ msgstr "成功"
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Suggest Explore while searching"
-msgstr "検索中に Explore を提案"
+msgstr "検索中にExploreを提案"
 
 #: src/components/clio/extension-library.tsx
 msgid "Suggested"
@@ -33144,7 +33148,7 @@ msgstr "候補"
 
 #: src/components/clio/attention-profile-editor.tsx
 msgid "Sum to one"
-msgstr "合計を 1 にする"
+msgstr "合計を1にする"
 
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/conversation-message-blocks.tsx
@@ -33297,11 +33301,11 @@ msgstr "同期に失敗しました"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Sync from Obsidian"
-msgstr "Obsidian から同期"
+msgstr "Obsidianから同期"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Sync is optional. {agent} installs and manages the official client on this service. An <0>Obsidian Sync subscription</0> is required to use account sync."
-msgstr "Sync は任意です。{agent}がこのサービスに公式クライアントをインストールして管理します。アカウントの同期を使うには <0>Obsidian Sync のサブスクリプション</0>が必要です。"
+msgstr "Syncは任意です。{agent}がこのサービスに公式クライアントをインストールして管理します。アカウントの同期を使うには <0>Obsidian Syncのサブスクリプション</0>が必要です。"
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "Sync running"
@@ -33357,7 +33361,7 @@ msgstr "システム設定"
 
 #: src/components/clio/composer-references.tsx
 msgid "Tab to look inside"
-msgstr "Tab で中を表示"
+msgstr "Tabで中を表示"
 
 #: src/components/clio/a2ui-presentation.ts
 #: src/components/clio/hdf5-viewer-frame.tsx
@@ -33602,7 +33606,7 @@ msgstr "テキスト出力"
 
 #: src/components/clio/settings-general.tsx
 msgid "Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline."
-msgstr "この文字数以上のテキストを貼り付けると、ソースの下にクリック可能な .txt 添付ファイルとして追加されます。すべてをインラインで貼り付けるには 0 を指定します。"
+msgstr "この文字数以上のテキストを貼り付けると、ソースの下にクリック可能な .txt添付ファイルとして追加されます。すべてをインラインで貼り付けるには0を指定します。"
 
 #: src/lib/model-capability-tags.ts
 msgid "Text reader"
@@ -33699,7 +33703,7 @@ msgstr "この会話が実行されているアカウントは接続されてい
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "The address your MCP server publishes. Sign-in opens in your browser when the service asks for it."
-msgstr "MCP サーバーが公開するアドレスです。サービスが要求すると、ブラウザーでサインインが開きます。"
+msgstr "MCPサーバーが公開するアドレスです。サービスが要求すると、ブラウザーでサインインが開きます。"
 
 #: src/hooks/use-connection-availability.ts
 msgid "the agent"
@@ -33752,7 +33756,7 @@ msgstr "エージェントは提供できませんでした。しばらくして
 
 #: src/components/clio/model-download-search.tsx
 msgid "The agent could not search Hugging Face."
-msgstr "エージェントは Hugging Face を検索できませんでした。"
+msgstr "エージェントはHugging Faceを検索できませんでした。"
 
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent couldn't be loaded"
@@ -33784,7 +33788,7 @@ msgstr "エージェントレイヤーがこのプラグインを選択してい
 
 #: src/gallery-skill-dialog.tsx
 msgid "The agent loads one catalog index, then the exact schema for the component it chooses. These entries are generated from the same catalog files used by this gallery."
-msgstr "エージェントはカタログのインデックスを 1 つ読み込み、次に選択したコンポーネントの正確なスキーマを読み込みます。これらのエントリは、このギャラリーで使用しているものと同じカタログファイルから生成されています。"
+msgstr "エージェントはカタログのインデックスを1つ読み込み、次に選択したコンポーネントの正確なスキーマを読み込みます。これらのエントリは、このギャラリーで使用しているものと同じカタログファイルから生成されています。"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent made a new version."
@@ -33809,7 +33813,7 @@ msgstr "エージェントは変更されませんでした"
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "The agent’s full address, including http or https."
-msgstr "http または https を含む、エージェントの完全なアドレス。"
+msgstr "httpまたはhttpsを含む、エージェントの完全なアドレス。"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent’s turn failed"
@@ -33829,7 +33833,7 @@ msgstr "回答ターンが構造化された値を返しませんでした。"
 
 #: src/lib/provider-availability.ts
 msgid "The API key was rejected."
-msgstr "API キーが拒否されました。"
+msgstr "APIキーが拒否されました。"
 
 #: src/components/clio/service-installation-method.tsx
 msgid "The application runs natively; its databases require containers."
@@ -33837,7 +33841,7 @@ msgstr "アプリケーションはネイティブに実行されますが、デ
 
 #: src/components/clio/table-query-rows.ts
 msgid "the artifact is not a CSV or Parquet table."
-msgstr "成果物が CSV または Parquet の表ではありません。"
+msgstr "成果物がCSVまたはParquetの表ではありません。"
 
 #: src/components/clio/table-query-rows.ts
 msgid "the artifact is not in this workspace."
@@ -33865,7 +33869,7 @@ msgstr "MCPが応答を受け入れる前に、自動回答の処理が停止し
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "The average over all of its tokens, counting the ones the capture did not keep as zero"
-msgstr "すべてのトークンの平均 (キャプチャで保持されなかったものは 0 として数える)"
+msgstr "すべてのトークンの平均 (キャプチャで保持されなかったものは0として数える)"
 
 #: src/components/clio/tool-operation-paging.ts
 msgid "The beginning of this recorded result was not retained."
@@ -34031,7 +34035,7 @@ msgstr "会話のエージェントは、最初のメッセージを送信した
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "The copy keeps the skill names declared in its files. Duplicate skill names are rejected. Replacing an individual built-in skill, such as update-models, is not currently supported; adding this copy does not override it."
-msgstr "コピーはファイル内で宣言されたスキル名を保持します。重複するスキル名は拒否されます。update-models などの個別の組み込みスキルの置き換えは現在サポートされていません。このコピーを追加しても上書きされません。"
+msgstr "コピーはファイル内で宣言されたスキル名を保持します。重複するスキル名は拒否されます。update-modelsなどの個別の組み込みスキルの置き換えは現在サポートされていません。このコピーを追加しても上書きされません。"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "The curator finished, but its memory tools failed and no changes were saved or proposed."
@@ -34095,7 +34099,7 @@ msgstr "この変更前のドキュメントと現在のドキュメントの比
 
 #: src/components/clio/settings-health-views.tsx
 msgid "The duration within which 95% of reported calls completed, slowest first."
-msgstr "報告された呼び出しの 95% が完了した時間(遅い順)。"
+msgstr "報告された呼び出しの95%が完了した時間(遅い順)。"
 
 #: src/components/clio/settings-appearance.tsx
 msgid "The earlier cool, blue-tinted light theme."
@@ -34143,7 +34147,7 @@ msgstr "ファイルはノートブックオブジェクトではありません
 
 #: src/lib/notebook.ts
 msgid "The file isn’t complete JSON."
-msgstr "ファイルは完全な JSON ではありません。"
+msgstr "ファイルは完全なJSONではありません。"
 
 #: src/hooks/use-workspace-navigation-actions.ts
 msgid "The file manager could not be started."
@@ -34268,19 +34272,19 @@ msgstr "完全な会話メモリーサービスが利用可能です。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The GLB file has no valid glTF header."
-msgstr "GLB ファイルに有効な glTF ヘッダーがありません。"
+msgstr "GLBファイルに有効なglTFヘッダーがありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The GLB file has no valid JSON chunk."
-msgstr "GLB ファイルに有効な JSON チャンクがありません。"
+msgstr "GLBファイルに有効なJSONチャンクがありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The glTF JSON could not be read."
-msgstr "glTF の JSON を読み取れませんでした。"
+msgstr "glTFのJSONを読み取れませんでした。"
 
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "The GPUs this deployment may use"
-msgstr "このデプロイで使用できる GPU"
+msgstr "このデプロイで使用できるGPU"
 
 #: src/components/clio/observability-provenance.tsx
 msgid "The history cannot confirm completion or duration for those records."
@@ -34308,11 +34312,11 @@ msgstr "インタラクティブツールのリソースがメッセージと一
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "The interactive tool resource is not MCP App HTML."
-msgstr "インタラクティブツールのリソースが MCP App HTML ではありません。"
+msgstr "インタラクティブツールのリソースがMCP App HTMLではありません。"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "The interactive tool sandbox did not match its capability identity."
-msgstr "インタラクティブツールのサンドボックスが機能 ID と一致しませんでした。"
+msgstr "インタラクティブツールのサンドボックスが機能IDと一致しませんでした。"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "The interactive tool sandbox is not isolated from the workspace."
@@ -34412,7 +34416,7 @@ msgstr "管理対象の{agent}サービスは利用できません。"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The map and the table share one selection."
-msgstr "地図と表は 1 つの選択を共有します。"
+msgstr "地図と表は1つの選択を共有します。"
 
 #: src/components/clio/scientific-map-view.tsx
 msgid "The map tiles could not be loaded."
@@ -34420,11 +34424,11 @@ msgstr "地図タイルを読み込めませんでした。"
 
 #: src/components/clio/extension-library.tsx
 msgid "The MCP Registry couldn’t be searched."
-msgstr "MCP Registry を検索できませんでした。"
+msgstr "MCP Registryを検索できませんでした。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The mesh format could not be identified; set the viewport format to glb, gltf, obj, stl, ply, fbx, 3mf, vtk, vtp, or drc."
-msgstr "メッシュの形式を特定できませんでした。ビューポートの形式を glb、gltf、obj、stl、ply、fbx、3mf、vtk、vtp、drc のいずれかに設定してください。"
+msgstr "メッシュの形式を特定できませんでした。ビューポートの形式をglb、gltf、obj、stl、ply、fbx、3mf、vtk、vtp、drcのいずれかに設定してください。"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "The mesh source is not a registered artifact id."
@@ -34477,7 +34481,7 @@ msgstr "このデバイスでこのサービスに表示される名前。"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "The NDP catalog could not be loaded"
-msgstr "NDP カタログを読み込めませんでした"
+msgstr "NDPカタログを読み込めませんでした"
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "The note could not be opened"
@@ -34557,7 +34561,7 @@ msgstr "このコンピューター上にある既存のGGUFモデルファイ�
 
 #: src/components/clio/composer-attachments.tsx
 msgid "The PDF could not be read."
-msgstr "PDF を読み取れませんでした。"
+msgstr "PDFを読み取れませんでした。"
 
 #: src/lib/variant-runs.ts
 msgid "The pick closed. {unused}"
@@ -34643,7 +34647,7 @@ msgstr "プロバイダーがスナップショットを不完全とマークし
 
 #: src/lib/model-capability-tags.ts
 msgid "the provider's API type"
-msgstr "プロバイダーの API の種類"
+msgstr "プロバイダーのAPIの種類"
 
 #: src/lib/model-capability-tags.ts
 msgid "the provider's model list"
@@ -35136,15 +35140,15 @@ msgstr "セッションをインポートできませんでした。"
 
 #: src/lib/a2ui/registry-failure.ts
 msgid "The session server does not support the A2UI catalog registry routes."
-msgstr "セッションサーバーは A2UI カタログレジストリのルートをサポートしていません。"
+msgstr "セッションサーバーはA2UIカタログレジストリのルートをサポートしていません。"
 
 #: src/lib/a2ui/registry-failure.ts
 msgid "The session server's A2UI catalog registry request failed: {message}"
-msgstr "セッションサーバーの A2UI カタログレジストリへのリクエストが失敗しました: {message}"
+msgstr "セッションサーバーのA2UIカタログレジストリへのリクエストが失敗しました: {message}"
 
 #: src/lib/a2ui/registry-failure.ts
 msgid "The session server's A2UI catalog registry response could not be parsed: {detail}"
-msgstr "セッションサーバーの A2UI カタログレジストリの応答を解析できませんでした: {detail}"
+msgstr "セッションサーバーのA2UIカタログレジストリの応答を解析できませんでした: {detail}"
 
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "The shell is not running"
@@ -35188,7 +35192,7 @@ msgstr "スペシャリストはこれに回答できなかったため、あな
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "the SSH host"
-msgstr "SSH ホスト"
+msgstr "SSHホスト"
 
 #: src/gallery-skill-dialog.tsx
 msgid "The standard agent's composed prompt, the {agent} presentation skill, and component catalogs."
@@ -35220,7 +35224,7 @@ msgstr "研究がこのサーバーにありません。"
 
 #: src/components/clio/table-query-rows.ts
 msgid "the study source is not measurements, entries or records/<name>."
-msgstr "研究のソースが measurements、entries、records/<name> のいずれでもありません。"
+msgstr "研究のソースがmeasurements、entries、records/<name> のいずれでもありません。"
 
 #: src/components/clio/conversation-summarization.tsx
 msgid "The summary replaced every earlier message"
@@ -35228,7 +35232,7 @@ msgstr "要約が以前のすべてのメッセージを置き換えました"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "The Sync client is not installed in {agent} yet."
-msgstr "Sync クライアントはまだ{agent}にインストールされていません。"
+msgstr "Syncクライアントはまだ{agent}にインストールされていません。"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The synthesis"
@@ -35256,7 +35260,7 @@ msgstr "表が、このサーバーでクエリできるサイズを超えてい
 
 #: src/tauri/ssh-infrastructure-transport.ts
 msgid "The target is not an SSH host."
-msgstr "ターゲットは SSH ホストではありません。"
+msgstr "ターゲットはSSHホストではありません。"
 
 #: src/components/clio/task-flow-state.ts
 msgid "The task {execution}, but the checkpoint still says running."
@@ -35344,47 +35348,47 @@ msgstr "ビューを開けませんでした: {reason}"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array has invalid numbers."
-msgstr "VTP の{name}配列に無効な数値があります。"
+msgstr "VTPの{name}配列に無効な数値があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array must be ASCII."
-msgstr "VTP の{name}配列は ASCII である必要があります。"
+msgstr "VTPの{name}配列はASCIIである必要があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP file has no PolyData piece."
-msgstr "VTP ファイルに PolyData ピースがありません。"
+msgstr "VTPファイルにPolyDataピースがありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP file is missing {name}."
-msgstr "VTP ファイルに{name}がありません。"
+msgstr "VTPファイルに{name}がありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP file is missing point coordinates."
-msgstr "VTP ファイルに点の座標がありません。"
+msgstr "VTPファイルに点の座標がありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP file is not valid XML."
-msgstr "VTP ファイルが有効な XML ではありません。"
+msgstr "VTPファイルが有効なXMLではありません。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP file must contain VTK PolyData."
-msgstr "VTP ファイルには VTK PolyData が含まれている必要があります。"
+msgstr "VTPファイルにはVTK PolyDataが含まれている必要があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP point array must have x, y, z triples."
-msgstr "VTP の点配列は x、y、z の 3 つ組である必要があります。"
+msgstr "VTPの点配列はx、y、zの3つ組である必要があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP points array has invalid numbers."
-msgstr "VTP の点配列に無効な数値があります。"
+msgstr "VTPの点配列に無効な数値があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP points array must be ASCII."
-msgstr "VTP の点配列は ASCII である必要があります。"
+msgstr "VTPの点配列はASCIIである必要があります。"
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP polygon offsets are invalid."
-msgstr "VTP のポリゴンオフセットが無効です。"
+msgstr "VTPのポリゴンオフセットが無効です。"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The waiting request resumed with the accepted response."
@@ -35676,7 +35680,7 @@ msgstr "このアンカーはページ上にありますが、表示されてい
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "This API does not advertise a supported catalog or stream view. Its available requests are under Advanced."
-msgstr "この API は対応するカタログビューやストリームビューを公開していません。利用可能なリクエストは［詳細］にあります。"
+msgstr "このAPIは対応するカタログビューやストリームビューを公開していません。利用可能なリクエストは［詳細］にあります。"
 
 #: src/components/clio/settings-about.tsx
 msgid "This app"
@@ -35826,7 +35830,7 @@ msgstr "この会話のメニュー"
 
 #: src/components/clio/ndp-nested-fields.tsx
 msgid "This deeply nested field is available in Advanced API tools."
-msgstr "この深くネストされたフィールドは［高度な API ツール］で利用できます。"
+msgstr "この深くネストされたフィールドは［高度なAPIツール］で利用できます。"
 
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "This derivative is retained and available to bounded tools, but has no safe inline renderer."
@@ -35878,7 +35882,7 @@ msgstr "このファイルは大きすぎるためここには表示できませ
 
 #: src/components/clio/navigation.tsx
 msgid "This file isn't a conversation export. Choose a .json file exported from a conversation."
-msgstr "このファイルは会話のエクスポートではありません。会話からエクスポートした .json ファイルを選択してください。"
+msgstr "このファイルは会話のエクスポートではありません。会話からエクスポートした .jsonファイルを選択してください。"
 
 #: src/components/clio/composer-attachments.tsx
 msgid "This file will be preserved and inspected by the workspace after upload."
@@ -35911,7 +35915,7 @@ msgstr "このアプリでインポートしたホストを消去します。Ope
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "This glTF references an external buffer or image. Register a self-contained GLB or embed resources as data URIs."
-msgstr "この glTF は外部のバッファーまたは画像を参照しています。自己完結型の GLB を登録するか、リソースをデータ URI として埋め込んでください。"
+msgstr "このglTFは外部のバッファーまたは画像を参照しています。自己完結型のGLBを登録するか、リソースをデータURIとして埋め込んでください。"
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "this host"
@@ -35943,11 +35947,11 @@ msgstr "この呼び出しは別のフローを開始せずに完了しました
 
 #: src/components/clio/resource-viewers.tsx
 msgid "This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
-msgstr "これはクラシック NetCDF ファイルです。配列ビューアーが読み取るのは NetCDF-4（HDF5）です。"
+msgstr "これはクラシックNetCDFファイルです。配列ビューアーが読み取るのはNetCDF-4（HDF5）です。"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host."
-msgstr "これは手動バックアップです。今後の編集は、再度アップロードするまでローカルに残ります。保存済みの MCP 認証情報は含まれないため、各ホストでそれらの接続を設定してください。"
+msgstr "これは手動バックアップです。今後の編集は、再度アップロードするまでローカルに残ります。保存済みのMCP認証情報は含まれないため、各ホストでそれらの接続を設定してください。"
 
 #: src/components/clio/settings-folders-model.ts
 msgid "This is the primary folder."
@@ -35983,7 +35987,7 @@ msgstr "このモデルカードは空です。"
 
 #: src/components/clio/registry-model-card.tsx
 msgid "This model card requires access on Hugging Face."
-msgstr "このモデルカードには Hugging Face でのアクセス権が必要です。"
+msgstr "このモデルカードにはHugging Faceでのアクセス権が必要です。"
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "This model is pinned for new sessions. Reset it to follow the model in Models settings."
@@ -36254,7 +36258,7 @@ msgstr "このソースには開くワークスペースのリソースやアド
 
 #: src/lib/composer-reference-navigation.ts
 msgid "This source points at {uri}, which is not a workspace resource or a web address."
-msgstr "このソースは{uri}を指していますが、これはワークスペースのリソースでも Web アドレスでもありません。"
+msgstr "このソースは{uri}を指していますが、これはワークスペースのリソースでもWebアドレスでもありません。"
 
 #: src/components/clio/deploy-progress-model.ts
 msgid "This step failed."
@@ -36282,7 +36286,7 @@ msgstr "このサポートサービスに対応が必要です。"
 
 #: src/lib/a2ui/processor-store.ts
 msgid "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time."
-msgstr "このサーフェスのデータには、増分更新に必要な情報（メッセージごとのリビジョンスタンプまたはライフサイクル ID）がないため、変更のたびに完全に再構築されます。まだ送信していない入力はその都度失われます。"
+msgstr "このサーフェスのデータには、増分更新に必要な情報（メッセージごとのリビジョンスタンプまたはライフサイクルID）がないため、変更のたびに完全に再構築されます。まだ送信していない入力はその都度失われます。"
 
 #: src/components/clio/date-time-field.tsx
 msgid "This time does not exist in the local time zone. Choose another time."
@@ -36299,7 +36303,7 @@ msgstr "このターン"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "This two-minute tour uses a practice conversation, so nothing you do in it is sent or saved. Press Esc to leave at any time."
-msgstr "この 2 分間のツアーでは練習用の会話を使用するため、ここでの操作は送信も保存もされません。Esc を押すといつでも終了できます。"
+msgstr "この2分間のツアーでは練習用の会話を使用するため、ここでの操作は送信も保存もされません。Escを押すといつでも終了できます。"
 
 #: src/components/clio/attention-center.tsx
 msgid "This version can't show it."
@@ -36478,7 +36482,7 @@ msgstr "{label}の終了日"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository."
-msgstr "別のホストでバックアップを使うには、マーケットプレイスからそのリポジトリの URL を追加してください。そのホストには非公開リポジトリへのアクセス権が必要です。"
+msgstr "別のホストでバックアップを使うには、マーケットプレイスからそのリポジトリのURLを追加してください。そのホストには非公開リポジトリへのアクセス権が必要です。"
 
 #: src/components/clio/data-filter-popover.tsx
 msgid "To year"
@@ -36500,7 +36504,7 @@ msgstr "今日のこのコンピューター: {searches}、失敗{failed}"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Todo list reminder"
-msgstr "ToDo リストのリマインダー"
+msgstr "ToDoリストのリマインダー"
 
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
@@ -36638,7 +36642,7 @@ msgstr "ツールゲートウェイ"
 
 #: src/components/clio/catalog-toolset.tsx
 msgid "Tool id"
-msgstr "ツール ID"
+msgstr "ツールID"
 
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Tool image result"
@@ -37054,7 +37058,7 @@ msgstr "アカウントをオンにすると、{agent}は確認なしでその�
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Turn an account on to let {agent} run delegated work on it without asking. An account that is off is asked about once per conversation."
-msgstr "アカウントをオンにすると、{agent}は確認なしでそのアカウントで委任された作業を実行できます。オフのアカウントについては会話ごとに 1 回確認されます。"
+msgstr "アカウントをオンにすると、{agent}は確認なしでそのアカウントで委任された作業を実行できます。オフのアカウントについては会話ごとに1回確認されます。"
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Turn limit"
@@ -37078,7 +37082,7 @@ msgstr "2つの観測点で観測データが不完全です。公開する前�
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Two-factor code <0>(if enabled)</0>"
-msgstr "2 要素認証コード<0>（有効な場合）</0>"
+msgstr "2要素認証コード<0>（有効な場合）</0>"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "Type"
@@ -37137,7 +37141,7 @@ msgstr "フォルダーを入力、貼り付け、または参照"
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "UI catalogs"
-msgstr "UI カタログ"
+msgstr "UIカタログ"
 
 #: src/lib/reasoning-levels.ts
 msgid "Ultra"
@@ -37282,11 +37286,11 @@ msgstr "未定義の参照"
 
 #: src/lib/fleet-usage.ts
 msgid "under $0.01"
-msgstr "$0.01 未満"
+msgstr "$0.01未満"
 
 #: src/lib/model-quick-filters.ts
 msgid "Under 32B parameters"
-msgstr "パラメーター数 32B 未満"
+msgstr "パラメーター数32B未満"
 
 #: src/components/clio/install-expectation-model.ts
 msgid "under a minute"
@@ -37310,7 +37314,7 @@ msgstr "画像を理解します。"
 
 #: src/lib/model-capability-tags.ts
 msgid "Understands PDF files."
-msgstr "PDF ファイルを理解します。"
+msgstr "PDFファイルを理解します。"
 
 #: src/components/clio/diff-canvas-view.tsx
 #: src/components/clio/settings-folders.tsx
@@ -37337,11 +37341,11 @@ msgstr "元に戻すことはできません: この変更前にファイルを�
 
 #: src/components/clio/diff-canvas-view.tsx
 msgid "Undo is not available: the file was not UTF-8 text before this change."
-msgstr "元に戻すことはできません: この変更前のファイルは UTF-8 テキストではありませんでした。"
+msgstr "元に戻すことはできません: この変更前のファイルはUTF-8テキストではありませんでした。"
 
 #: src/components/clio/diff-canvas-view.tsx
 msgid "Undo is not available: the file was over 256 KiB before this change."
-msgstr "元に戻すことはできません: この変更前のファイルは 256 KiB を超えていました。"
+msgstr "元に戻すことはできません: この変更前のファイルは256 KiBを超えていました。"
 
 #: src/components/clio/diff-canvas-view.tsx
 msgid "Undo is not available: the previous content was not captured."
@@ -37562,7 +37566,7 @@ msgstr "未保存のローカルコピー"
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Unset uses the fast model of the account the conversation runs on, such as Haiku for Claude."
-msgstr "未設定の場合は、会話を実行しているアカウントの高速モデル（Claude なら Haiku など）が使われます。"
+msgstr "未設定の場合は、会話を実行しているアカウントの高速モデル（ClaudeならHaikuなど）が使われます。"
 
 #: src/lib/latex-diagnostics.ts
 msgid "Unsupported bibliography backend"
@@ -37607,11 +37611,11 @@ msgstr "1つ上の階層へ"
 
 #: src/components/reui/file-upload-dropzone.tsx
 msgid "Up to {maxSizeLabel} per file"
-msgstr "1 ファイルあたり最大{maxSizeLabel}"
+msgstr "1ファイルあたり最大{maxSizeLabel}"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Up to 128 UTF-8 files, 2 MiB uncompressed."
-msgstr "UTF-8 ファイル 128 個まで、非圧縮で 2 MiB まで。"
+msgstr "UTF-8ファイル128個まで、非圧縮で2 MiBまで。"
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/settings-app-updates.tsx
@@ -37745,7 +37749,7 @@ msgstr "アップデートの状態"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Update the connected agent service to add MCP connections"
-msgstr "MCP 接続を追加するには、接続されたエージェントサービスをアップデートしてください"
+msgstr "MCP接続を追加するには、接続されたエージェントサービスをアップデートしてください"
 
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
@@ -37766,7 +37770,7 @@ msgstr "{version}にアップデート"
 
 #: src/components/clio/todo-tool-presentation.ts
 msgid "Update Todos"
-msgstr "ToDo を更新"
+msgstr "ToDoを更新"
 
 #: src/lib/extension-library-entries.ts
 msgid "Update waits for trust"
@@ -37870,7 +37874,7 @@ msgstr "プラグインをアップロード"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Upload a plugin ZIP to your private marketplace."
-msgstr "プラグインの ZIP をプライベートマーケットプレイスにアップロードします。"
+msgstr "プラグインのZIPをプライベートマーケットプレイスにアップロードします。"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Upload a skill"
@@ -37882,7 +37886,7 @@ msgstr "スキルまたはプラグインをアップロード"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Upload a skill ZIP to your private marketplace."
-msgstr "スキルの ZIP をプライベートマーケットプレイスにアップロードします。"
+msgstr "スキルのZIPをプライベートマーケットプレイスにアップロードします。"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "Upload desktop folder"
@@ -37922,7 +37926,7 @@ msgstr "アップロードを一時停止しました。アップロード済み
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Upload plugin ZIP"
-msgstr "プラグインの ZIP をアップロード"
+msgstr "プラグインのZIPをアップロード"
 
 #: src/components/clio/composer-attachment-chip.tsx
 msgid "Upload progress for {name}"
@@ -37930,12 +37934,12 @@ msgstr "{name}のアップロードの進捗"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Upload skill ZIP"
-msgstr "スキルの ZIP をアップロード"
+msgstr "スキルのZIPをアップロード"
 
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Upload ZIP"
-msgstr "ZIP をアップロード"
+msgstr "ZIPをアップロード"
 
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Upload: {state}"
@@ -38044,7 +38048,7 @@ msgstr "整数を入力してください。"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Use a ZIP smaller than 2 MiB, or add its repository"
-msgstr "2 MiB 未満の ZIP を使うか、そのリポジトリを追加してください"
+msgstr "2 MiB未満のZIPを使うか、そのリポジトリを追加してください"
 
 #: src/components/clio/settings-memory.tsx
 #: src/lib/settings-search-rows.ts
@@ -38094,7 +38098,7 @@ msgstr "モデル設定のモデルを使用"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Use my NDP sign-in"
-msgstr "自分の NDP サインインを使用"
+msgstr "自分のNDPサインインを使用"
 
 #: src/components/clio/search-contact-email.tsx
 msgid "Use my profile email ({profileEmail})"
@@ -38146,7 +38150,7 @@ msgstr "左矢印キーで次の列を開き、右矢印キーで戻ります。
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Use the NDP streaming SDK installed on the connected computer. Broker credentials stay in its private profile."
-msgstr "接続先のコンピューターにインストールされた NDP ストリーミング SDK を使用します。ブローカーの認証情報はそのプライベートプロファイルに保持されます。"
+msgstr "接続先のコンピューターにインストールされたNDPストリーミングSDKを使用します。ブローカーの認証情報はそのプライベートプロファイルに保持されます。"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Use the Right Arrow key to expand and the Left Arrow key to collapse."
@@ -38162,7 +38166,7 @@ msgstr "右矢印キーで次の列を開き、左矢印キーで戻ります。
 
 #: src/components/clio/composer-spotter-model.tsx
 msgid "Use the Settings default for SPOTTER"
-msgstr "SPOTTER に設定の既定値を使用"
+msgstr "SPOTTERに設定の既定値を使用"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Use the SSH agent or OpenSSH configuration"
@@ -38198,11 +38202,11 @@ msgstr "このバージョンを使用"
 
 #: src/components/clio/managed-service-gpus.ts
 msgid "Use up to 32 lowercase letters, digits or hyphens, starting and ending with a letter or digit."
-msgstr "小文字、数字、ハイフンを最大 32 文字まで使用し、先頭と末尾は文字または数字にしてください。"
+msgstr "小文字、数字、ハイフンを最大32文字まで使用し、先頭と末尾は文字または数字にしてください。"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Use valid NAME=value process settings"
-msgstr "有効な NAME=value 形式のプロセス設定を使用してください"
+msgstr "有効なNAME=value形式のプロセス設定を使用してください"
 
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-usage.tsx
@@ -38257,7 +38261,7 @@ msgstr "{hostLabel}からSFTPを使用します。「選択」で選択したリ
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required."
-msgstr "CMF サーバー API を直接使用して成果物の系譜を保持します。Flowcept や推論サービスは不要です。"
+msgstr "CMFサーバーAPIを直接使用して成果物の系譜を保持します。Flowceptや推論サービスは不要です。"
 
 #: src/lib/plugin-review.ts
 msgid "Uses the network directly"
@@ -38415,7 +38419,7 @@ msgstr "セットアップを検証"
 
 #: src/components/clio/service-management-facts.tsx
 msgid "Verify setup writes a fresh test record and reads it back. CMF also checks input and output artifact lineage. Restarting or changing configuration requires a fresh check."
-msgstr "「セットアップを検証」は新しいテストレコードを書き込み、読み戻します。CMF では入力と出力の成果物の系譜も確認します。再起動や構成の変更後は、改めて確認が必要です。"
+msgstr "「セットアップを検証」は新しいテストレコードを書き込み、読み戻します。CMFでは入力と出力の成果物の系譜も確認します。再起動や構成の変更後は、改めて確認が必要です。"
 
 #: src/components/clio/provider-action-flows.ts
 msgid "Verifying"
@@ -38601,7 +38605,7 @@ msgstr "操作を表示"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "View PDF"
-msgstr "PDF を表示"
+msgstr "PDFを表示"
 
 #: src/components/clio/sandbox-setup-notification.tsx
 msgid "View progress"
@@ -38821,7 +38825,7 @@ msgstr "GitHubでの承認を待っています…"
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Waiting for you to approve on NDP…"
-msgstr "NDP での承認を待っています…"
+msgstr "NDPでの承認を待っています…"
 
 #: src/components/clio/provider-actions.ts
 msgid "Waiting for you to log in…"
@@ -38897,7 +38901,7 @@ msgstr "試行を見守る"
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Watches actions under SPOTTER review. A conversation can choose its own model."
-msgstr "SPOTTER レビュー下のアクションを監視します。会話ごとに独自のモデルを選択できます。"
+msgstr "SPOTTERレビュー下のアクションを監視します。会話ごとに独自のモデルを選択できます。"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Watching"
@@ -38945,7 +38949,7 @@ msgstr "ウェブブラウザー"
 #: src/lib/model-capability-tags.ts
 #: src/lib/model-quick-filters.ts
 msgid "Web search"
-msgstr "Web 検索"
+msgstr "Web検索"
 
 #: src/components/clio/settings-web-search.tsx
 msgid "Web search pages"
@@ -39267,7 +39271,7 @@ msgstr "コンテキスト予算内"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Without a rule, an AI reviewer approves each write or asks you."
-msgstr "ルールがない場合、AI レビュアーが各書き込みを承認するか、確認を求めます。"
+msgstr "ルールがない場合、AIレビュアーが各書き込みを承認するか、確認を求めます。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Without a rule, each write or command asks you."
@@ -39287,7 +39291,7 @@ msgstr "ルールがない場合、承認モードに従います。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Without a rule, writes ask you while a SPOTTER agent watches."
-msgstr "ルールがない場合、SPOTTER エージェントが監視する間、書き込みは確認を求めます。"
+msgstr "ルールがない場合、SPOTTERエージェントが監視する間、書き込みは確認を求めます。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Without a rule, writes run without asking. Blocked tools stay blocked."
@@ -39295,7 +39299,7 @@ msgstr "ルールがない場合、書き込みは確認なしで実行されま
 
 #: src/components/clio/document-workspace.tsx
 msgid "Word document"
-msgstr "Word 文書"
+msgstr "Word文書"
 
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "Words"
@@ -39806,7 +39810,7 @@ msgstr "選択せずに新しいメッセージを送信しました。{unused}"
 
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."
-msgstr "{providerLabel}の API キーが拒否されました。"
+msgstr "{providerLabel}のAPIキーが拒否されました。"
 
 #: src/components/clio/connected-source-actions.tsx
 msgid "Your account stays signed in for other sources."
@@ -39828,7 +39832,7 @@ msgstr "あなたのエージェント"
 
 #: src/lib/provider-availability.ts
 msgid "Your ALCF session needs to be verified again. Sign in again to continue."
-msgstr "ALCF セッションの再検証が必要です。続行するにはもう一度サインインしてください。"
+msgstr "ALCFセッションの再検証が必要です。続行するにはもう一度サインインしてください。"
 
 #: src/components/clio/question-answer-presentation.ts
 msgid "Your answer"
@@ -39869,7 +39873,7 @@ msgstr "バージョン{head_version}以降の編集は保存されませんで�
 
 #: src/components/clio/openalex-key-request.tsx
 msgid "Your email address. OpenAlex sends the key’s activation link there."
-msgstr "あなたのメールアドレス。OpenAlex はそこにキーの有効化リンクを送ります。"
+msgstr "あなたのメールアドレス。OpenAlexはそこにキーの有効化リンクを送ります。"
 
 #: src/lib/search-source-status.ts
 msgid "Your key"
@@ -39905,7 +39909,7 @@ msgstr "あなたの応答"
 
 #: src/components/clio/observability-activity.tsx
 msgid "Your response was validated and returned to MCP"
-msgstr "あなたの回答が検証され、MCP に返されました"
+msgstr "あなたの回答が検証され、MCPに返されました"
 
 #: src/components/clio/settings-tool-detail.tsx
 msgid "Your rules"
@@ -39941,7 +39945,7 @@ msgstr "ソース"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Your SSH connection is authenticated separately."
-msgstr "SSH 接続は別途認証されます。"
+msgstr "SSH接続は別途認証されます。"
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "Your vault is ready"

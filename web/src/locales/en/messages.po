@@ -2108,6 +2108,10 @@ msgstr "{input} input, {output} output tokens"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} stopped"
 
+#: src/lib/locale-format.ts
+msgid "{joined}, {next}"
+msgstr "{joined}, {next}"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{kept} kept of {returned}"
