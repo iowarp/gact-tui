@@ -230,8 +230,9 @@ export function SettingsChoice({
     icon?: ComponentType<SVGProps<SVGSVGElement>>;
   }>;
 }) {
+  const hasIcons = options.some((option) => option.icon);
   const [choiceRef, iconOnly] = useIconOnlyFit(
-    options.some((option) => option.icon),
+    hasIcons,
     options.map((option) => option.label).join('\n'),
   );
   return (
@@ -245,7 +246,10 @@ export function SettingsChoice({
       data-compact={iconOnly || undefined}
       disabled={disabled}
       className={cn(
-        'inline-flex w-auto max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5',
+        'inline-flex w-auto max-w-full min-w-0 gap-px rounded-[0.4375rem] bg-muted p-0.5',
+        // Icon choices fold to icons; word-only choices that don't fit (a long translation
+        // in a narrow column) wrap onto a second line instead of overflowing it.
+        hasIcons ? 'shrink-0' : 'flex-wrap',
         disabled && 'pointer-events-none opacity-60',
       )}
     >
