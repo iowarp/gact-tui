@@ -47,6 +47,7 @@ import { ConnectedAccountSignIn } from './connected-source-auth';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import type { SourceDownloadSelection } from './source-download-selection';
 import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 /** The same trusted connection and browse surface serves the composer and Files tab. */
 export function ConnectedSourcePicker({
@@ -546,6 +547,7 @@ export function ConnectedSourceContents({
                 <ItemRow
                   key={row.id}
                   className="border-b-0"
+                  wrapMeta
                   icon={<SourceProviderLogo provider={row.id} size="icon" />}
                   iconWidth={providerIconWidth}
                   title={
@@ -746,7 +748,7 @@ export function ConnectedSourceContents({
           <p className="text-menu text-muted-foreground">
             <span className="font-medium text-foreground">
               {manageOnly ? t`No connected sources.` : t`Nothing connected yet.`}
-            </span>{' '}
+            </span>{sentenceGap()}
             {manageOnly
               ? t`Add one with + in the Sources list.`
               : t`Connect a folder to browse and attach its files.`}

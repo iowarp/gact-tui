@@ -2108,6 +2108,10 @@ msgstr ""
 msgid "{interrupted} stopped"
 msgstr ""
 
+#: src/lib/locale-format.ts
+msgid "{joined}, {next}"
+msgstr ""
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr ""
@@ -35733,7 +35737,11 @@ msgstr ""
 #: src/components/clio/connected-source-picker.tsx
 #: src/components/clio/connection-names.ts
 #: src/components/clio/managed-service-target-utils.ts
+msgid "this computer"
+msgstr ""
+
 #: src/components/clio/navigation-agent-menu.tsx
+msgctxt "agent place"
 msgid "this computer"
 msgstr ""
 

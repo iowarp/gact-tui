@@ -78,7 +78,8 @@ export function SettingsNavigation({
             <Link
               aria-current={id === current ? 'page' : undefined}
               className={cn(
-                'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-menu whitespace-nowrap text-foreground/80 outline-none',
+                // A long section name (Greek, Japanese) wraps to a second line rather than clipping.
+                'flex min-h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-[1.9375rem] text-menu leading-tight text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
                 id === current && 'bg-nav-current text-foreground hover:bg-nav-current',
                 unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
@@ -90,7 +91,7 @@ export function SettingsNavigation({
               title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
               to={`/settings/${id}`}
             >
-              <span className="min-w-0 truncate">{label}</span>
+              <span className="line-clamp-2 min-w-0 text-pretty break-words">{label}</span>
               {counts ? <ResultCount count={counts[id]} /> : <NavBadge badge={badges[id]} />}
             </Link>
           ))}

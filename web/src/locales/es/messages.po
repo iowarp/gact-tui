@@ -2108,6 +2108,10 @@ msgstr "{input} tokens de entrada, {output} de salida"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} detenidas"
 
+#: src/lib/locale-format.ts
+msgid "{joined}, {next}"
+msgstr "{joined}, {next}"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{kept} conservados de {returned}"
@@ -35751,7 +35755,11 @@ msgstr "Este comando no se puede ejecutar."
 #: src/components/clio/connected-source-picker.tsx
 #: src/components/clio/connection-names.ts
 #: src/components/clio/managed-service-target-utils.ts
+msgid "this computer"
+msgstr "este equipo"
+
 #: src/components/clio/navigation-agent-menu.tsx
+msgctxt "agent place"
 msgid "this computer"
 msgstr "este equipo"
 

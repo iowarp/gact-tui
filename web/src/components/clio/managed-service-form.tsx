@@ -17,6 +17,7 @@ import { ServerParametersForm } from './managed-service-parameters';
 import { MonitoringImageStorage } from './monitoring-image-storage';
 import { ServiceInstallationMethod } from './service-installation-method';
 import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 /** Shared definition-driven setup and reconfiguration form. Paths belong to the named host. */
 export function ManagedServiceForm({
@@ -146,7 +147,7 @@ export function ManagedServiceForm({
         <div className="flex items-center gap-2">
           <FieldLabel>{t`Service data`}</FieldLabel>
           <InfoTip label={t`About service storage`}>
-            {t`The default uses this computer’s configured service folder. Removing the runtime retains its databases, logs and evidence.`}{' '}
+            {t`The default uses this computer’s configured service folder. Removing the runtime retains its databases, logs and evidence.`}{sentenceGap()}
             {storageOwned
               ? t`This installation already owns its folder; reconfiguration does not move it.`
               : t`Choose a dedicated folder to override the default.`}

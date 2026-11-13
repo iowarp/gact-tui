@@ -2108,6 +2108,10 @@ msgstr "{input} token εισόδου, {output} token εξόδου"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} σταμάτησαν"
 
+#: src/lib/locale-format.ts
+msgid "{joined}, {next}"
+msgstr "{joined}, {next}"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "Διατηρήθηκαν {kept} από {returned}"
@@ -35751,9 +35755,13 @@ msgstr "Αυτή η εντολή δεν μπορεί να εκτελεστεί."
 #: src/components/clio/connected-source-picker.tsx
 #: src/components/clio/connection-names.ts
 #: src/components/clio/managed-service-target-utils.ts
-#: src/components/clio/navigation-agent-menu.tsx
 msgid "this computer"
 msgstr "αυτός ο υπολογιστής"
+
+#: src/components/clio/navigation-agent-menu.tsx
+msgctxt "agent place"
+msgid "this computer"
+msgstr "τοπικά"
 
 #: src/components/clio/connected-source-form.tsx
 #: src/components/clio/deploy-clio-dialog.tsx
