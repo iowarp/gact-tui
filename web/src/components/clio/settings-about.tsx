@@ -76,6 +76,7 @@ export function AboutSettings() {
             <AboutValue
               label={t`Marketplace registry`}
               mono
+              wrap
               value={versions ? formatMarketplaceRegistry(versions.marketplace) : missing}
             />
           ) : null}
@@ -135,15 +136,20 @@ function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace'
 
 const PLACEHOLDERS = new Set([t`Unavailable`, t`Loading…`, t`Not configured`]);
 
-/** A read-only value in the control column: one line, cut with its full text on hover. */
+/**
+ * A read-only value in the control column: one line, cut with its full text on hover.
+ * `wrap` lets a long compound value (registry URL, ref and commit) break across lines.
+ */
 function AboutValue({
   label,
   value,
   mono = false,
+  wrap = false,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  wrap?: boolean;
 }): ReactNode {
   const placeholder = PLACEHOLDERS.has(value);
   return (
@@ -151,8 +157,9 @@ function AboutValue({
       <span
         className={cn(
           // Inline-size containment keeps a long value (a registry URL) from widening the
-          // control column, so the value is cut instead of the label.
-          'min-w-0 flex-1 truncate text-left [contain:inline-size] @xs:text-right max-[1023px]:in-data-window-content:text-left!',
+          // control column, so the value is cut or wrapped instead of the label.
+          'min-w-0 flex-1 text-left [contain:inline-size] @xs:text-right max-[1023px]:in-data-window-content:text-left!',
+          wrap ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate',
           placeholder
             ? 'text-xs text-faint'
             : mono

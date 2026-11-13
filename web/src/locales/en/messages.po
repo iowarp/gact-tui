@@ -300,6 +300,11 @@ msgstr "{0, plural, one {# fragment in {1, plural, one {# section} other {# sect
 msgid "{0, plural, one {# fragment} other {# fragments}}"
 msgstr "{0, plural, one {# fragment} other {# fragments}}"
 
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# hour} other {# hours}}"
+msgstr "{0, plural, one {# hour} other {# hours}}"
+
 #. placeholder {0}: images.length
 #. placeholder {0}: reading.images.length
 #: src/components/clio/script-run-body.tsx
@@ -655,6 +660,11 @@ msgstr "{0, plural, one {# workspace resource found} other {# workspace resource
 #: src/components/clio/stream-artifact-view.tsx
 msgid "{0, plural, one {# write; keeps the newest {window}.} other {# writes; keeps the newest {window}.}}"
 msgstr "{0, plural, one {# write; keeps the newest {window}.} other {# writes; keeps the newest {window}.}}"
+
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# year} other {# years}}"
+msgstr "{0, plural, one {# year} other {# years}}"
 
 #. placeholder {0}: preview.rows.length
 #: src/components/clio/csv-view.tsx
@@ -1479,6 +1489,10 @@ msgstr "{count, plural, one {# comment} other {# comments}}"
 msgid "{count, plural, one {# dataset} other {# datasets}}"
 msgstr "{count, plural, one {# dataset} other {# datasets}}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# day} other {# days}}"
+msgstr "{count, plural, one {# day} other {# days}}"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# entry} other {# entries}}"
 msgstr "{count, plural, one {# entry} other {# entries}}"
@@ -1535,6 +1549,10 @@ msgstr "{count, plural, one {# member} other {# members}}"
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "{count, plural, one {# message} other {# messages}}"
 msgstr "{count, plural, one {# message} other {# messages}}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# minute} other {# minutes}}"
+msgstr "{count, plural, one {# minute} other {# minutes}}"
 
 #: src/components/clio/settings-usage.tsx
 msgid "{count, plural, one {# older conversation is counted under the model it was set to: they predate per-model usage.} other {# older conversations are counted under the model they were set to: they predate per-model usage.}}"
@@ -4260,6 +4278,10 @@ msgstr "A script"
 msgid "A script, {caller}"
 msgstr "A script, {caller}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "A separate browser"
+msgstr "A separate browser"
+
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
 msgstr "A service named “{trimmed}” already exists."
@@ -5264,6 +5286,10 @@ msgstr "After a run of searches and reads, remind the agent that Explore can tak
 msgid "After a tool runs"
 msgstr "After a tool runs"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "After each completed turn"
+msgstr "After each completed turn"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "After existing rules"
 msgstr "After existing rules"
@@ -5586,6 +5612,10 @@ msgstr "All in Settings"
 #: src/components/clio/settings-usage.tsx
 msgid "All models"
 msgstr "All models"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "All new and updated memories"
+msgstr "All new and updated memories"
 
 #: src/components/clio/ndp-organization-filter.tsx
 msgid "All organizations"
@@ -6087,6 +6117,10 @@ msgstr "API sign-in"
 msgid "API URL"
 msgstr "API URL"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "API version"
+msgstr "API version"
+
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -6117,9 +6151,73 @@ msgstr "Application"
 msgid "applied, {lines}, {removed} removed"
 msgstr "applied, {lines}, {removed} removed"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at once: open pages close, and the next page opens in the chosen browser."
+msgstr "Applies at once: open pages close, and the next page opens in the chosen browser."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next background pass."
+msgstr "Applies at the next background pass."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next idle check."
+msgstr "Applies at the next idle check."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies immediately to inference admission. Active model calls finish; waiting calls use the new limit."
+msgstr "Applies immediately to inference admission. Active model calls finish; waiting calls use the new limit."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next background scheduler pass."
+msgstr "Applies on the next background scheduler pass."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next scheduler pass, normally checked once a minute."
+msgstr "Applies on the next scheduler pass, normally checked once a minute."
+
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Applies to"
 msgstr "Applies to"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to edits proposed from now on."
+msgstr "Applies to edits proposed from now on."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to forks made from now on."
+msgstr "Applies to forks made from now on."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to new subagents immediately. Existing descendants remain visible."
+msgstr "Applies to new subagents immediately. Existing descendants remain visible."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to proposals made after the change."
+msgstr "Applies to proposals made after the change."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions that start after the change."
+msgstr "Applies to sessions that start after the change."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions without their own compaction threshold."
+msgstr "Applies to sessions without their own compaction threshold."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to steps proposed from now on."
+msgstr "Applies to steps proposed from now on."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to subsequent model requests."
+msgstr "Applies to subsequent model requests."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to upcoming session-recall requests."
+msgstr "Applies to upcoming session-recall requests."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies when subsequent responses are saved."
+msgstr "Applies when subsequent responses are saved."
 
 #: src/components/clio/date-time-field.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -6130,6 +6228,10 @@ msgstr "Apply"
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "Apply {label} configuration?"
 msgstr "Apply {label} configuration?"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Apply background changes without review"
+msgstr "Apply background changes without review"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Apply configuration"
@@ -6774,6 +6876,7 @@ msgid "Automatic compaction"
 msgstr "Automatic compaction"
 
 #: src/components/clio/context-compaction-controls.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Automatic compaction threshold"
 msgstr "Automatic compaction threshold"
 
@@ -6849,6 +6952,18 @@ msgstr "Awaiting approval"
 #: src/components/clio/flow-run-edits.ts
 msgid "awaiting your approval"
 msgstr "awaiting your approval"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS profile"
+msgstr "AWS profile"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS region"
+msgstr "AWS region"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Azure OpenAI API version."
+msgstr "Azure OpenAI API version."
 
 #: src/components/clio/clio-menu.tsx
 msgctxt "menu key hint"
@@ -7360,6 +7475,7 @@ msgstr "Browse…"
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
 #: src/components/clio/workbench-open-request.ts
@@ -7478,6 +7594,10 @@ msgstr "Bundled"
 #: src/components/clio/provider-component-status.tsx
 msgid "Bundled {name}"
 msgstr "Bundled {name}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Bundled Chromium"
+msgstr "Bundled Chromium"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "by {by}"
@@ -8978,6 +9098,10 @@ msgstr "Choose where to run services. Your {agent} stays connected."
 msgid "Choose whether to connect to the running {agent} or replace it."
 msgstr "Choose whether to connect to the running {agent} or replace it."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Choose which new and updated memories save automatically. Retirement needs review."
+msgstr "Choose which new and updated memories save automatically. Retirement needs review."
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -9795,6 +9919,10 @@ msgstr "Computers"
 msgid "Conclusion"
 msgstr "Conclusion"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Concurrent subagents"
+msgstr "Concurrent subagents"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Conditions"
 msgstr "Conditions"
@@ -10375,6 +10503,10 @@ msgstr "Context could not be compacted"
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "Context frames unavailable"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
+msgstr "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
 
 #: src/components/clio/context-control.tsx
 msgid "Context length"
@@ -11652,8 +11784,13 @@ msgid "Create GitHub repository"
 msgstr "Create GitHub repository"
 
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Create memories"
 msgstr "Create memories"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Create memories from conversations"
+msgstr "Create memories from conversations"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Create organization"
@@ -12104,6 +12241,10 @@ msgstr "Default model"
 #: src/components/clio/settings-about.tsx
 msgid "default ref"
 msgstr "default ref"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Default tool timeout"
+msgstr "Default tool timeout"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Default: {defaultBranch}"
@@ -13353,6 +13494,10 @@ msgstr "Drop the last filter"
 msgid "Drop them anywhere in this window, or choose files from your device."
 msgstr "Drop them anywhere in this window, or choose files from your device."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Drop tokens less likely than this fraction of the most likely one."
+msgstr "Drop tokens less likely than this fraction of the most likely one."
+
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
 msgstr "Duplicate rule"
@@ -13561,6 +13706,10 @@ msgstr "Edited outside"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "editing files"
 msgstr "editing files"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Editing rounds"
+msgstr "Editing rounds"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Editor"
@@ -14119,6 +14268,7 @@ msgid "Execute plan"
 msgstr "Execute plan"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "Execution"
 
@@ -14408,6 +14558,10 @@ msgstr "Facts"
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "Facts about you that every workspace can use. This switch applies to {workspaceName}."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Facts I state directly"
+msgstr "Facts I state directly"
 
 #: src/components/clio/memory-inbox.tsx
 msgid "Facts to apply, one per line"
@@ -15401,6 +15555,10 @@ msgstr "Forked into a new conversation"
 msgid "Forking into a new conversation"
 msgstr "Forking into a new conversation"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Forks per task"
+msgstr "Forks per task"
+
 #: src/components/clio/agent-answer-domain.ts
 msgid "Form request"
 msgstr "Form request"
@@ -15900,6 +16058,14 @@ msgstr "Goals"
 msgid "Good response"
 msgstr "Good response"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud location"
+msgstr "Google Cloud location"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud project"
+msgstr "Google Cloud project"
+
 #: src/components/clio/source-fields.tsx
 msgid "Google Drive folder link"
 msgstr "Google Drive folder link"
@@ -16207,6 +16373,10 @@ msgstr "Higher priority wins. A tie goes to the stricter rule."
 msgid "Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid set leaves every saved rule unchanged."
 msgstr "Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid set leaves every saved rule unchanged."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Higher values make replies more varied; lower values more focused."
+msgstr "Higher values make replies more varied; lower values more focused."
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr "Highest scoring output tokens, showing {shown} of {total}"
@@ -16354,9 +16524,21 @@ msgstr "How long"
 msgid "How long ago the model was released"
 msgstr "How long ago the model was released"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "How many levels of subagents may be created. The first child is level 1."
+msgstr "How many levels of subagents may be created. The first child is level 1."
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many replies the server works on at the same time."
+msgstr "How many replies the server works on at the same time."
+
 #: src/components/clio/settings-fleet.tsx
 msgid "How many searches and reads in a row before the suggestion, from 2 to 20."
 msgstr "How many searches and reads in a row before the suggestion, from 2 to 20."
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many tokens the model can read at once on this server."
+msgstr "How many tokens the model can read at once on this server."
 
 #: src/components/clio/settings-working-context.tsx
 msgid "How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn. Max: {reason}."
@@ -16871,6 +17053,10 @@ msgstr "Include prereleases. Beta versions may be unstable."
 msgid "Include quality-flagged stations"
 msgstr "Include quality-flagged stations"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Include sensitive topics"
+msgstr "Include sensitive topics"
+
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
 msgstr "Include unknown context"
@@ -17334,6 +17520,14 @@ msgstr "Installed {name}"
 #: src/components/clio/settings-agents.tsx
 msgid "Installed agents"
 msgstr "Installed agents"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Google Chrome"
+msgstr "Installed Google Chrome"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Microsoft Edge"
+msgstr "Installed Microsoft Edge"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17855,6 +18049,10 @@ msgstr "Keep {product} running?"
 msgid "Keep {workspace}"
 msgstr "Keep {workspace}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."
+msgstr "Keep a separate transcript file alongside conversation storage. Existing files are retained."
+
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
 msgid "Keep asking"
@@ -17884,6 +18082,10 @@ msgstr "Keep it"
 #: src/components/clio/model-inventory-row.tsx
 msgid "Keep model"
 msgstr "Keep model"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep reasoning supplied by the provider with the saved response, when available."
+msgstr "Keep reasoning supplied by the provider with the saved response, when available."
 
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Keep resource"
@@ -18171,6 +18373,10 @@ msgstr "Length"
 #: src/components/clio/session-behavior-options.ts
 msgid "Let AI review each action."
 msgstr "Let AI review each action."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Let background memory keep facts about health, finances, beliefs and similar matters."
+msgstr "Let background memory keep facts about health, finances, beliefs and similar matters."
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Let running conversations finish"
@@ -19664,9 +19870,25 @@ msgstr "Maximize canvas"
 msgid "Maximize or restore"
 msgstr "Maximize or restore"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum nesting depth"
+msgstr "Maximum nesting depth"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum reserved or in-flight child model calls at each nesting level. Tools and waits release permits. Agent-specific inference limits may be lower."
+msgstr "Maximum reserved or in-flight child model calls at each nesting level. Tools and waits release permits. Agent-specific inference limits may be lower."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum time for a model request. Provider limits may end a request sooner."
+msgstr "Maximum time for a model request. Provider limits may end a request sooner."
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "Maximum token"
 msgstr "Maximum token"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum wait between pieces of a streamed response."
+msgstr "Maximum wait between pieces of a streamed response."
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
@@ -19812,10 +20034,15 @@ msgstr "Memories could not be loaded."
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/tool-result-resource-memory.tsx
 #: src/lib/tool-domain-labels.ts
 msgid "Memory"
 msgstr "Memory"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Memory & history"
+msgstr "Memory & history"
 
 #: src/components/clio/settings-memory.tsx
 #: src/lib/application-destinations.ts
@@ -20186,6 +20413,14 @@ msgstr "Model for new work. Also the service default."
 msgid "Model providers"
 msgstr "Model providers"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model request timeout"
+msgstr "Model request timeout"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model retries"
+msgstr "Model retries"
+
 #: src/components/clio/model-download-search.tsx
 msgid "Model search results"
 msgstr "Model search results"
@@ -20429,6 +20664,18 @@ msgstr "More ways to connect…"
 #: src/components/clio/provider-login-button.tsx
 msgid "More ways to log in"
 msgstr "More ways to log in"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most copies an agent may make of itself to try another direction, per task. Inside a workflow a fork counts as an added step instead."
+msgstr "Most copies an agent may make of itself to try another direction, per task. Inside a workflow a fork counts as an added step instead."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most rounds of edits in one workflow run. A workflow may ask for fewer."
+msgstr "Most rounds of edits in one workflow run. A workflow may ask for fewer."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
+msgstr "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
 
 #: src/components/clio/settings-appearance.tsx
 #: src/lib/settings-search-rows.ts
@@ -20809,6 +21056,10 @@ msgstr "Neutral"
 #: src/widget-gallery-demos.ts
 msgid "Nevada"
 msgstr "Nevada"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Never"
+msgstr "Never"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "New {workspace}"
@@ -22877,6 +23128,7 @@ msgstr "Obsidian Sync vault"
 #: src/components/clio/managed-service-form.tsx
 #: src/components/clio/settings-notifications.tsx
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/reasoning-levels.ts
 msgid "Off"
 msgstr "Off"
@@ -22949,6 +23201,7 @@ msgid "Ollama (this computer)"
 msgstr "Ollama (this computer)"
 
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "On"
 msgstr "On"
 
@@ -23827,6 +24080,10 @@ msgstr "optional"
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Optional"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Optional shared AWS profile name."
+msgstr "Optional shared AWS profile name."
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -24927,6 +25184,14 @@ msgstr "port {port} on this host"
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values make the model repeat the same words less."
+msgstr "Positive values make the model repeat the same words less."
+
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values push the model toward new topics."
+msgstr "Positive values push the model toward new topics."
+
 #: src/components/clio/document-workspace.tsx
 msgid "PowerPoint deck"
 msgstr "PowerPoint deck"
@@ -25299,6 +25564,10 @@ msgstr "Product website"
 msgid "Profile"
 msgstr "Profile"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Profile and preferences are always kept. Other retirement proposals need review."
+msgstr "Profile and preferences are always kept. Other retirement proposals need review."
+
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
 msgstr "Profile saved"
@@ -25319,6 +25588,10 @@ msgstr "Progress continues if you close this window"
 #: src/components/clio/model-acquisition.tsx
 msgid "Progress continues if you close this window."
 msgstr "Progress continues if you close this window."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Project containing the model."
+msgstr "Project containing the model."
 
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/memory-import-dialog.tsx
@@ -26387,6 +26660,10 @@ msgctxt "verb: tool action"
 msgid "Recall"
 msgstr "Recall"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Recall earlier messages, separate from saved memories. Retrieved text can add model usage; no background jobs."
+msgstr "Recall earlier messages, separate from saved memories. Retrieved text can add model usage; no background jobs."
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "received a task notice"
 msgstr "received a task notice"
@@ -26807,6 +27084,10 @@ msgstr "Region"
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region (% of view)"
 msgstr "Region (% of view)"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Region containing the model."
+msgstr "Region containing the model."
 
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region height percent"
@@ -28038,6 +28319,18 @@ msgstr "Restart requested"
 msgid "Restart subagent"
 msgstr "Restart subagent"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service for this change to take effect."
+msgstr "Restart the connected {agent} service for this change to take effect."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing model clients."
+msgstr "Restart the connected {agent} service to update existing model clients."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing tool clients."
+msgstr "Restart the connected {agent} service to update existing tool clients."
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Restart the shell"
 msgstr "Restart the shell"
@@ -28227,6 +28520,10 @@ msgstr "Retained tokens"
 #: src/components/clio/memory-inbox.tsx
 msgid "Retire"
 msgstr "Retire"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Retries a temporary provider failure before any response has streamed."
+msgstr "Retries a temporary provider failure before any response has streamed."
 
 #: src/components/clio/resource-processing-presentation.ts
 msgid "Retrieval"
@@ -28495,6 +28792,10 @@ msgstr "Review before publishing"
 msgid "Review below"
 msgstr "Review below"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review every change"
+msgstr "Review every change"
+
 #: src/lib/pending-interaction-contract.ts
 msgid "Review execution plan"
 msgstr "Review execution plan"
@@ -28538,6 +28839,10 @@ msgstr "Review the data"
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Review the technical details before using work that depends on this service."
 msgstr "Review the technical details before using work that depends on this service."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review unused memories after"
+msgstr "Review unused memories after"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Reviewing"
@@ -28787,6 +29092,10 @@ msgstr "running"
 msgid "Running"
 msgstr "Running"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Running browser to connect to"
+msgstr "Running browser to connect to"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "running commands"
 msgstr "running commands"
@@ -28873,6 +29182,10 @@ msgstr "runs {target}, proposed by {by}"
 #: src/lib/mcp-service-presentation.ts
 msgid "Runs a command inside the workspace’s permitted folders."
 msgstr "Runs a command inside the workspace’s permitted folders."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Runs after a completed turn or idle delay, at the next background check."
+msgstr "Runs after a completed turn or idle delay, at the next background check."
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Runs as"
@@ -29017,6 +29330,14 @@ msgstr "Sample duration (seconds)"
 msgid "Sample limits"
 msgstr "Sample limits"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from the most likely tokens whose probabilities add up to this."
+msgstr "Sample only from the most likely tokens whose probabilities add up to this."
+
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from this many of the most likely tokens (0 turns it off)."
+msgstr "Sample only from this many of the most likely tokens (0 turns it off)."
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Sample size"
 msgstr "Sample size"
@@ -29158,6 +29479,10 @@ msgstr "Save locations"
 msgid "Save memory"
 msgstr "Save memory"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save model reasoning"
+msgstr "Save model reasoning"
+
 #: src/components/clio/resource-dialogs.tsx
 msgid "Save name"
 msgstr "Save name"
@@ -29197,6 +29522,10 @@ msgstr "Save this new prompt before rendering it against live context"
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Save to private marketplace"
 msgstr "Save to private marketplace"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save transcript files"
+msgstr "Save transcript files"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Save typed settings"
@@ -30496,6 +30825,10 @@ msgstr "Sent to the agent as an injection. Its system prompt changes at the next
 msgid "Sent to the agent as an instruction. Its system prompt updates at the next compaction."
 msgstr "Sent to the agent as an instruction. Its system prompt updates at the next compaction."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Separate browser"
+msgstr "Separate browser"
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "Separate values with commas"
@@ -30774,6 +31107,10 @@ msgstr "Sessions and tools run here."
 #: src/components/clio/settings-schedules.tsx
 msgid "Sessions could not be loaded"
 msgstr "Sessions could not be loaded"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Set by the connected service's workspace configuration."
+msgstr "Set by the connected service's workspace configuration."
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
@@ -31125,6 +31462,7 @@ msgid "Show details"
 msgstr "Show details"
 
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "Show diffusion"
@@ -32634,6 +32972,10 @@ msgstr "Steps"
 msgid "Steps ({count})"
 msgstr "Steps ({count})"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Steps editors may add"
+msgstr "Steps editors may add"
+
 #: src/components/clio/plugin-flow-shape.tsx
 msgid "Steps of {label}"
 msgstr "Steps of {label}"
@@ -32904,6 +33246,10 @@ msgstr "Stream"
 msgid "Stream {name}"
 msgstr "Stream {name}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
+msgstr "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "stream gap"
@@ -32912,6 +33258,10 @@ msgstr "stream gap"
 #: src/components/clio/status.tsx
 msgid "Stream gap"
 msgstr "Stream gap"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream idle timeout"
+msgstr "Stream idle timeout"
 
 #: src/components/clio/ndp-capture-result.tsx
 msgid "Stream reader ready. Checkpoint saved."
@@ -33068,6 +33418,7 @@ msgstr "Subagent turn ended"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "Subagents"
 msgstr "Subagents"
@@ -33895,6 +34246,10 @@ msgstr "The browser blocked the new tab."
 msgid "The browser blocked this link. It has not been accepted."
 msgstr "The browser blocked this link. It has not been accepted."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
+msgstr "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
+
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
 msgstr "The call's record is not available: {message}"
@@ -34471,6 +34826,10 @@ msgstr "The most recent conversion failed, so this structure is from the run bef
 msgid "The most recent conversion was cancelled, so this structure is from the run before it."
 msgstr "The most recent conversion was cancelled, so this structure is from the run before it."
 
+#: src/components/clio/settings-models-form.ts
+msgid "The most tokens one reply may use."
+msgstr "The most tokens one reply may use."
+
 #: src/components/clio/known-service-actions.tsx
 msgid "The name shown for this service on this device."
 msgstr "The name shown for this service on this device."
@@ -34793,6 +35152,10 @@ msgstr "The run was stopped"
 #: src/tauri/desktop-updater.ts
 msgid "The runtime is {runtime}. Restore the app and runtime to the same release."
 msgstr "The runtime is {runtime}. Restore the app and runtime to the same release."
+
+#: src/components/clio/settings-models-form.ts
+msgid "The same seed and settings repeat the same reply where the server supports it."
+msgstr "The same seed and settings repeat the same reply where the server supports it."
 
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "The sample catalog did not load."
@@ -36863,6 +37226,10 @@ msgstr "Transcript contains the recorded work. Effects adds touched artifacts an
 msgid "Transcript content in this call"
 msgstr "Transcript content in this call"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Transcript files are required while this service uses in-memory conversation history."
+msgstr "Transcript files are required while this service uses in-memory conversation history."
+
 #: src/components/clio/session-export-menu.tsx
 msgid "Transcript is always included"
 msgstr "Transcript is always included"
@@ -38047,6 +38414,10 @@ msgstr "Use a ZIP smaller than 2 MiB, or add its repository"
 msgid "Use account memory"
 msgstr "Use account memory"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use conversation history"
+msgstr "Use conversation history"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Use conversation model"
 msgstr "Use conversation model"
@@ -38080,6 +38451,10 @@ msgstr "Use letters or numbers."
 msgid "Use local {agent}"
 msgstr "Use local {agent}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use memory"
+msgstr "Use memory"
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Use mine"
 msgstr "Use mine"
@@ -38103,6 +38478,10 @@ msgstr "Use one OpenSSH destination, without spaces, commas, quotes or #."
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Use Reprocess in Derivatives when a document processor is available."
 msgstr "Use Reprocess in Derivatives when a document processor is available."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use saved facts and preferences in later conversations. Turning this off keeps existing memories."
+msgstr "Use saved facts and preferences in later conversations. Turning this off keeps existing memories."
 
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
@@ -38221,6 +38600,18 @@ msgstr "Used so far"
 msgid "used tools"
 msgstr "used tools"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used when a tool call has no explicit timeout. A tool can declare its own budget."
+msgstr "Used when a tool call has no explicit timeout. A tool can declare its own budget."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
+msgstr "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
+msgstr "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
+
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-family-navigation.ts
 #: src/components/clio/conversation-relationships.tsx
@@ -38242,6 +38633,10 @@ msgstr "Username"
 #: src/components/clio/service-installation-method.tsx
 msgid "Uses a container runtime on this computer"
 msgstr "Uses a container runtime on this computer"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Uses background model calls, which count toward model usage. Models are set in Fleet."
+msgstr "Uses background model calls, which count toward model usage. Models are set in Fleet."
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Uses it without asking."
@@ -38310,6 +38705,10 @@ msgstr "Value {number}"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "Value. Mean: {MEAN_UNAVAILABLE}"
 msgstr "Value. Mean: {MEAN_UNAVAILABLE}"
+
+#: src/components/clio/settings-models-form.ts
+msgid "Values above 1 discourage repeating recent tokens; 1 turns it off."
+msgstr "Values above 1 discourage repeating recent tokens; 1 turns it off."
 
 #: src/gallery-skill-dialog.tsx
 msgid "Values: {values}"
@@ -38485,6 +38884,10 @@ msgstr "Versions"
 #: src/components/clio/artifact-lineage-graph.tsx
 msgid "Versions of {name}"
 msgstr "Versions of {name}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Vertex region."
+msgstr "Vertex region."
 
 #: src/widget-gallery-demos.ts
 msgid "Vertical displacement chart"
@@ -39152,6 +39555,10 @@ msgstr "Where this tab's services and models run."
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Which browser"
+msgstr "Which browser"
+
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"
 msgstr "While you were away"
@@ -39350,6 +39757,7 @@ msgid "Workflow unavailable"
 msgstr "Workflow unavailable"
 
 #: src/components/clio/composer-references.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Workflows"
 msgstr "Workflows"
@@ -39906,6 +40314,10 @@ msgstr "Your response was validated and returned to MCP"
 #: src/components/clio/settings-tool-detail.tsx
 msgid "Your rules"
 msgstr "Your rules"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Your running Chrome or Edge"
+msgstr "Your running Chrome or Edge"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "Your service and saved work were not changed. Reload the workspace to reconnect and try the view again."
