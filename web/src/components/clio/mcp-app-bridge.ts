@@ -28,7 +28,8 @@ export type McpAppClient = Pick<
   | 'openBrowserPage'
   | 'updateMcpAppTools'
   | 'postMcpAppToolResult'
->;
+> &
+  Partial<Pick<ClioRepository, 'setMcpAppShown' | 'postMcpAppLook'>>;
 
 export interface JsonRpcMessage {
   jsonrpc: '2.0';

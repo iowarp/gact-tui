@@ -103,6 +103,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   update_a2ui_data_model: define('Update', 'declared', 'surface_id'),
   inspect_a2ui_surface: define('Inspect', 'declared', 'surface_id'),
   capture_a2ui_surface: define('Inspect rendered widget', 'declared', 'surface_id'),
+  look_at_view: { ...define('Look at view', 'declared', 'view'), presentedAction: true },
   delete_a2ui_surface: define('Remove widget', 'ack', 'surface_id'),
   publish_dashboard_report: define('Save dashboard', 'declared', 'report_id'),
   create_artifact: define('Keep', 'declared', 'name'),

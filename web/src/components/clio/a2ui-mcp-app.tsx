@@ -258,6 +258,7 @@ function OpenedMcpApp(
   return (
     <div className="grid min-w-0 gap-1.5" data-mcp-app-component={props.componentId}>
       <McpAppSurface
+        comments
         appInstanceId={identity.appInstanceId}
         dataRef={identity.dataRef}
         height={props.height}

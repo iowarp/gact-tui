@@ -24,6 +24,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
 import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
+import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
 import { useRepository } from './use-repository';
 
@@ -208,6 +209,7 @@ export function useSessionLiveStream({
             science.push(frame);
             liveSources.push(frame);
             dispatchMcpAppToolCallFrame(frame);
+            dispatchMcpAppLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();

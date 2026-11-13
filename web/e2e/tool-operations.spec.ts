@@ -56,6 +56,74 @@ const skillBatch: ToolInvocation = {
     ],
   },
 };
+// The agent looks at an app view (CM1): the image it saw, the view's last report, the gaps.
+const viewReport = [
+  'ParaView view of /data/runs/2026-11/ocean-heat/wave_series_with_a_long_descriptive_name.pvd',
+  'Time step 6 of 6 (time 0.5), following the latest step.',
+  ...Array.from(
+    { length: 40 },
+    (_, i) => `probe_${i + 1}: ${(0.1 * i).toFixed(2)} K at depth ${i * 25} m`,
+  ),
+];
+const lookPresented = (
+  id: string,
+  presentation: ToolInvocation['presentation'],
+  state: ToolInvocation['state'] = 'succeeded',
+): ToolInvocation => ({
+  ...tool(id, 'look_at_view', { view: 'Open a ParaView view' }, { ok: state === 'succeeded' }),
+  state,
+  presentation,
+});
+const looks: ToolInvocation[] = [
+  lookPresented('look', {
+    action: 'Look at view',
+    subject: 'Open a ParaView view',
+    summary: '1331×804 image, shown to the model',
+    blocks: [
+      {
+        id: 'image',
+        type: 'link',
+        target: 'artifact',
+        uri: 'art_look_1',
+        label: 'What Open a ParaView view showed',
+      },
+      {
+        id: 'view',
+        type: 'text',
+        label: 'View',
+        text: 'Open a ParaView view, paraview view opened by paraview_open_view',
+      },
+      { id: 'context', type: 'code', label: 'Last reported', text: viewReport.join('\n') },
+      {
+        id: 'gaps',
+        type: 'text',
+        label: 'Snapshot gaps',
+        severity: 'warning',
+        text: 'Not in the image: a frame from another origin (frame_cross_origin).',
+      },
+    ],
+  }),
+  { ...tool('look-running', 'look_at_view', { view: '' }, null), state: 'running' },
+  lookPresented(
+    'look-refused',
+    {
+      action: 'Look at view',
+      subject: 'Preview a PDB structure',
+      summary: 'The view is not on screen',
+      status: 'failed',
+      blocks: [
+        {
+          id: 'outcome',
+          type: 'text',
+          label: 'Not looked at',
+          severity: 'warning',
+          text: 'The view “Preview a PDB structure” is not on screen, so it cannot be looked at.',
+        },
+      ],
+    },
+    'failed',
+  ),
+];
 // The finished audit child's only recorded call, served from its transcript page.
 const childCall: ToolInvocation = {
   ...tool('child-read', 'fs_read_file', { path: '/workspace/observations.csv' }, 'id,value\n'),
@@ -148,6 +216,7 @@ const fixture = {
       state: 'failed',
       error: "bundled file 'missing.md' not found in skill 'work-with-ndp'",
     },
+    ...looks,
   ],
 };
 
@@ -246,6 +315,22 @@ for (const width of [1440, 390]) {
     expect(await guide.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
+    // A look shows the image it saw as a link, the view's report and its gaps; a refusal
+    // says why, and a running look waits.
+    await opener('look', 'Look at view').click();
+    await expect(row('look').getByText('What Open a ParaView view showed')).toBeVisible();
+    await expect(row('look')).toContainText('probe_40: 3.90 K at depth 975 m');
+    await expect(row('look')).toContainText('frame_cross_origin');
+    await expect(row('look-refused').getByRole('img', { name: /Failed/ })).toHaveAccessibleName(
+      'Failed: The view is not on screen',
+    );
+    await opener('look-refused', 'Look at view').click();
+    await expect(row('look-refused')).toContainText('is not on screen, so it cannot be looked at');
+    await row('look').screenshot({ path: test.info().outputPath(`look-${width}.png`) });
+    await row('look-refused').screenshot({
+      path: test.info().outputPath(`look-refused-${width}.png`),
+    });
+    await expect(row('look-running')).toContainText('Look at view');
     await opener('skill-failed', 'Load skill').click();
     await expect(row('skill-failed')).toContainText("bundled file 'missing.md' not found");
     await expect(row('skill-running')).toContainText('Load skill');

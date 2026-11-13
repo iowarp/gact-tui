@@ -26,6 +26,7 @@ export function CommentRegionLayer({
   onOpenMark,
   openByBadge = false,
   label,
+  onPoint,
 }: {
   capturing: boolean;
   marks: readonly LayerMark[];
@@ -35,6 +36,8 @@ export function CommentRegionLayer({
   /** Only the label badge opens the mark, so the marked content stays usable (a live page). */
   openByBadge?: boolean;
   label: string;
+  /** A click without a drag marks a point (x, y in 0..1); without it, a click marks nothing. */
+  onPoint?: (x: number, y: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const start = useRef<{ x: number; y: number }>(undefined);
@@ -75,7 +78,11 @@ export function CommentRegionLayer({
         setDraft(undefined);
         const box = host.current?.getBoundingClientRect();
         if (!finished || !box) return;
-        if (finished[2] * box.width < 6 || finished[3] * box.height < 6) return;
+        if (finished[2] * box.width < 6 || finished[3] * box.height < 6) {
+          if (onPoint && finished[2] * box.width < 6 && finished[3] * box.height < 6)
+            onPoint(finished[0] + finished[2] / 2, finished[1] + finished[3] / 2);
+          return;
+        }
         onRegion(finished);
       }}
       ref={host}

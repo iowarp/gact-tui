@@ -137,6 +137,32 @@ describe('McpAppViewTools', () => {
     newer.stop();
   });
 
+  it('keeps the older mount answering when the newer mount of the App stops first', async () => {
+    const repository = client();
+    const card = view([highlight]);
+    const tab = view([highlight]);
+    const older = new McpAppViewTools(repository, identity, card.ask);
+    const newer = new McpAppViewTools(repository, identity, tab.ask);
+    older.declare({ tools: {} });
+    newer.declare({ tools: {} });
+    older.start();
+    newer.start();
+    newer.stop(); // the tab went back to the card, which is still mounted
+    dispatchMcpAppToolCallFrame(
+      frame({
+        session_id: 'sess_1',
+        app_instance_id: 'app_1',
+        call_id: 'apcall_3',
+        name: 'set_highlight',
+        arguments: { reading: 'flow' },
+      }),
+    );
+    await vi.waitFor(() => expect(repository.postMcpAppToolResult).toHaveBeenCalledTimes(1));
+    expect(card.sent.some((m) => m.method === 'tools/call')).toBe(true);
+    expect(tab.sent.some((m) => m.method === 'tools/call')).toBe(false);
+    older.stop();
+  });
+
   it('forwards a streamed agent call to the view once and posts its result', async () => {
     const repository = client();
     const fake = view([highlight]);

@@ -9,6 +9,7 @@ import type {
   McpAppViewTool,
   McpAppPlacementState,
   McpAppSavedDownload,
+  McpAppSnapshot,
   McpAppOpenFromCallResult,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
@@ -262,6 +263,38 @@ export class McpAppRepository extends InteractionRepository {
       method: 'POST',
       path: appPath(identity, `/app-tool-results/${encodeURIComponent(callId)}`),
       body: answer,
+      decode: (value) => value,
+      signal,
+    });
+  }
+
+  /** This surface holds the view (or let it go), so the agent can look at it (CM1). */
+  public setMcpAppShown(
+    identity: McpAppIdentity,
+    holder: string,
+    shown: boolean,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/shown'),
+      body: { holder, shown },
+      decode: (value) => value,
+      signal,
+    });
+  }
+
+  /** The snapshot for one agent look at the view (CM1). */
+  public postMcpAppLook(
+    identity: McpAppIdentity,
+    callId: string,
+    snapshot: McpAppSnapshot,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'POST',
+      path: appPath(identity, `/looks/${encodeURIComponent(callId)}`),
+      body: snapshot,
       decode: (value) => value,
       signal,
     });

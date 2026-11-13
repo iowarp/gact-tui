@@ -79,6 +79,36 @@ export interface McpAppToolCallEvent {
   arguments: Record<string, unknown>;
 }
 
+/** The session event asking the surface holding a view for a snapshot of it (CM1). */
+export interface McpAppLookEvent {
+  session_id: string;
+  app_instance_id: string;
+  call_id: string;
+  /** The longest side of the image, in pixels. */
+  max_side: number;
+}
+
+/** One gap in a view snapshot: what was not painted, and the typed reason. */
+export interface McpAppSnapshotSkip {
+  what: string;
+  reason: string;
+  count?: number;
+}
+
+/** A snapshot of a view, taken by CLIO's sandbox document, or why none was taken. */
+export type McpAppSnapshot =
+  | {
+      /** A PNG data URL. */
+      image: string;
+      /** The view's size on screen, in CSS pixels, and the image's scale to it. */
+      width: number;
+      height: number;
+      scale: number;
+      painted: Record<string, number>;
+      skipped: McpAppSnapshotSkip[];
+    }
+  | { error: { reason: string; message: string } };
+
 /** A call that opens an MCP App: a server, one of its tools and the arguments. */
 export interface McpAppCall {
   server: string;
