@@ -10980,8 +10980,8 @@ msgid "Copy file"
 msgstr "Copiar archivo"
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Copy files or a folder to {hostLabel}."
-msgstr "Copia archivos o una carpeta a {hostLabel}."
+msgid "Copy files or a folder to {agent}'s computer."
+msgstr "Copia archivos o una carpeta al equipo de {agent}."
 
 #: src/components/clio/workspace-actions-menu.tsx
 msgid "Copy folder path"
@@ -13128,8 +13128,12 @@ msgid "Downloaded files"
 msgstr "Archivos descargados"
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
-msgstr "Los archivos descargados se guardan en {hostLabel}. Subir copia archivos de tu equipo a este espacio de trabajo. Los cambios en los originales no se copian automáticamente."
+msgid "Downloaded files are saved on {agent}'s computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgstr "Los archivos descargados se guardan en el equipo de {agent}. Subir copia archivos de tu equipo a este espacio de trabajo. Los cambios en los originales no se copian automáticamente."
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Downloaded files are saved on this computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgstr "Los archivos descargados se guardan en este equipo. Subir copia archivos de tu equipo a este espacio de trabajo. Los cambios en los originales no se copian automáticamente."
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Downloaded files stay available. Linked folders will need you to sign in again."
@@ -14654,8 +14658,12 @@ msgid "Files are added to this message and remain editable before you send it."
 msgstr "Los archivos se añaden a este mensaje y se pueden editar antes de enviarlo."
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Files are saved on {hostLabel}"
-msgstr "Los archivos se guardan en {hostLabel}"
+msgid "Files are saved on {agent}'s computer"
+msgstr "Los archivos se guardan en el equipo de {agent}"
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Files are saved on this computer"
+msgstr "Los archivos se guardan en este equipo"
 
 #: src/components/clio/context-sources.tsx
 msgid "Files available to this agent. Availability does not mean the full file is in the prompt."
@@ -22342,6 +22350,10 @@ msgstr "Aún no inspeccionado"
 #: src/lib/managed-service-status.ts
 msgid "Not installed"
 msgstr "No instalado"
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Not linked"
+msgstr "Sin vincular"
 
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Not loaded"
@@ -37933,6 +37945,10 @@ msgstr "Subido"
 msgid "Uploaded file"
 msgstr "Archivo subido"
 
+#: src/components/clio/connected-source-detail.tsx
+msgid "Uploaded from your computer"
+msgstr "Subido desde tu equipo"
+
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Uploading"
 msgstr "Subiendo"
@@ -38011,8 +38027,12 @@ msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Usa una columna de lectura centrada o da más espacio a las tablas y diagramas."
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Use a folder on {hostLabel}"
-msgstr "Usar una carpeta en {hostLabel}"
+msgid "Use a folder on {agent}'s computer"
+msgstr "Usar una carpeta del equipo de {agent}"
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Use a folder on this computer"
+msgstr "Usar una carpeta de este equipo"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Use a whole number."
