@@ -128,7 +128,10 @@ export class McpAppStateBridge {
       if (state.channel.path !== path) continue;
       const encoded = json(value);
       if (encoded === state.written) continue; // the bridge's own write
-      if (isSelectionPath(path) && parseSelectionState(value)?.source === this.options.componentId) {
+      if (
+        isSelectionPath(path) &&
+        parseSelectionState(value)?.source === this.options.componentId
+      ) {
         continue;
       }
       const channelValue = channelValueFromPath(state.channel, value);

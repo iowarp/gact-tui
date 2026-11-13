@@ -64,7 +64,11 @@ describe('ClioRepository MCP App adapter', () => {
     };
     const call = { server: 'clock', tool: 'open', arguments: { time: 3 } };
     const transport = new RecordingTransport([
-      { part: { ...part, id: 'p1', metadata: {} }, saved_call: call, server_tools: ['open', 'set_time'] },
+      {
+        part: { ...part, id: 'p1', metadata: {} },
+        saved_call: call,
+        server_tools: ['open', 'set_time'],
+      },
       { error: { reason: 'mcp_app_tool_not_found', detail: 'no tool' }, saved_call: call },
     ]);
     const repository = new ClioRepository(transport);

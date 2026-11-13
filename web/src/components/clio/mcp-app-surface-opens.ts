@@ -9,9 +9,9 @@
  * The close waits for the end of the current task, so an immediate remount keeps
  * the view instead of making the call again.
  */
-import type { McpAppIdentity, McpAppOpened, McpAppOpenFailure } from '@clio/core/v3';
+import type { McpAppIdentity, McpAppOpenFromCallResult } from '@clio/core/v3';
 
-export type SurfaceOpenOutcome = McpAppOpened | McpAppOpenFailure;
+export type SurfaceOpenOutcome = McpAppOpenFromCallResult;
 
 interface Entry {
   mounts: number;
@@ -26,12 +26,8 @@ export function openedIdentity(
   sessionId: string,
   outcome: SurfaceOpenOutcome | undefined,
 ): McpAppIdentity | undefined {
-  if (!outcome || !('part' in outcome)) return undefined;
-  return {
-    sessionId,
-    appInstanceId: outcome.part.app_instance_id,
-    dataRef: outcome.part.data_ref,
-  };
+  if (!outcome?.ok) return undefined;
+  return { sessionId, appInstanceId: outcome.view.appInstanceId, dataRef: outcome.view.dataRef };
 }
 
 /** Share or make the open for `key`; call the returned release when the mount goes. */
