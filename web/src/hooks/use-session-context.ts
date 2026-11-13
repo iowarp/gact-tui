@@ -8,6 +8,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
 import { sessionObservabilityQueryKey } from './use-session-observability';
+import { t } from '@lingui/core/macro';
 
 /** Selected agent context plus server-owned compaction controls. */
 export function useSessionContext(
@@ -46,8 +47,8 @@ export function useSessionContext(
     mutationFn: () => repository.compactSession(sessionId, scope),
     onSuccess: async (result) => {
       if (!result.compacted)
-        toast.info('Context was not compacted', {
-          description: result.reason ?? 'The service did not report a reason.',
+        toast.info(t`Context was not compacted`, {
+          description: result.reason ?? t`The service did not report a reason.`,
         });
       await Promise.all([
         queryClient.invalidateQueries({
@@ -59,7 +60,7 @@ export function useSessionContext(
       ]);
     },
     onError: (error) =>
-      toast.error('Context could not be compacted', { description: error.message }),
+      toast.error(t`Context could not be compacted`, { description: error.message }),
   });
   const compactionRunning = useLiveStore((live) =>
     Object.values(live.entities.compactions).some(
@@ -84,10 +85,10 @@ export function useSessionContext(
       await queryClient.invalidateQueries({
         queryKey: queryKeys.sessionContextState(settings.endpoint, sessionId, scope),
       });
-      toast.success('Context controls updated');
+      toast.success(t`Context controls updated`);
     },
     onError: (error) =>
-      toast.error('Context controls could not be updated', { description: error.message }),
+      toast.error(t`Context controls could not be updated`, { description: error.message }),
   });
   return {
     compact,

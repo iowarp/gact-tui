@@ -8,6 +8,7 @@ import { SourceFields } from './source-fields';
 import { useSourceFields } from './use-source-fields';
 import { SourceStatusLine } from './source-form-parts';
 import { useSourceFrameFooter } from './use-source-frame-footer';
+import { t } from '@lingui/core/macro';
 
 /**
  * A source's Edit: the connect form's own fields for its provider, in the same
@@ -50,11 +51,11 @@ export function SourceEditForm({
   };
   const footer = useSourceFrameFooter({
     confirm: {
-      label: save.isPending ? 'Saving…' : 'Save',
+      label: save.isPending ? t`Saving…` : t`Save`,
       disabled: !fields.dirty || !fields.ready || save.isPending,
     },
     onConfirm: submit,
-    start: { label: 'Back', back: true, onClick: onDone, disabled: save.isPending },
+    start: { label: t`Back`, back: true, onClick: onDone, disabled: save.isPending },
   });
   return (
     <div className="flex min-w-0 flex-col gap-[13px]">

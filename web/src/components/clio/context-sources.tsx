@@ -4,8 +4,18 @@ import { Button } from '@/components/ui/button';
 import { ContextDisclosure } from './context-disclosure';
 import { getToolSummary } from './tool-presentation';
 import { formatBytes } from '@/lib/format';
+import { t } from '@lingui/core/macro';
 
 /** Inventory is available context; inclusion is shown only when the snapshot records it. */
+/** "Editable, in last request": how a file is attached and whether the last request used it. */
+function fileSourceDetail(mode: ContextFile['mode'], inLastRequest: boolean): string {
+  if (mode === 'edit')
+    return inLastRequest ? t`Editable, in last request` : t`Editable, attached to agent`;
+  if (mode === 'pin')
+    return inLastRequest ? t`Pinned, in last request` : t`Pinned, attached to agent`;
+  return inLastRequest ? t`Read only, in last request` : t`Read only, attached to agent`;
+}
+
 export function ContextSources({
   files,
   frame,
@@ -45,7 +55,10 @@ export function ContextSources({
     ...files.map((file) => ({
       id: file.path,
       label: file.display_path || file.path,
-      detail: `${file.mode === 'edit' ? 'Editable' : file.mode === 'pin' ? 'Pinned' : 'Read only'}, ${frame?.items.some((item) => item.path === file.path && item.included) ? 'in last request' : 'attached to agent'}`,
+      detail: fileSourceDetail(
+        file.mode,
+        Boolean(frame?.items.some((item) => item.path === file.path && item.included)),
+      ),
       open: onOpenFile ? () => onOpenFile(file.path) : undefined,
     })),
     ...resources
@@ -65,8 +78,8 @@ export function ContextSources({
                       item.metadata.resource_id === resource.id ||
                       (resource.workspace_path && item.path === resource.workspace_path)),
                 )
-              ? 'Referenced in last request'
-              : 'Available in workspace',
+              ? t`Referenced in last request`
+              : t`Available in workspace`,
         ]
           .filter(Boolean)
           .join(', '),
@@ -74,9 +87,9 @@ export function ContextSources({
       })),
   ];
   return (
-    <ContextDisclosure label="Sources" count={rows.length}>
+    <ContextDisclosure label={t`Sources`} count={rows.length}>
       <p className="mb-2 text-xs text-muted-foreground">
-        Files available to this agent. Availability does not mean the full file is in the prompt.
+        {t`Files available to this agent. Availability does not mean the full file is in the prompt.`}
       </p>
       {rows.length ? (
         <ul className="grid gap-1">
@@ -97,11 +110,11 @@ export function ContextSources({
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-muted-foreground">No sources attached.</p>
+        <p className="text-xs text-muted-foreground">{t`No sources attached.`}</p>
       )}
       {rows.length > shown ? (
         <Button size="sm" variant="ghost" className="mt-2 px-0" onClick={() => setShown(shown + 6)}>
-          Show more sources ({rows.length - shown})
+          {t`Show more sources (${rows.length - shown})`}
         </Button>
       ) : null}
     </ContextDisclosure>

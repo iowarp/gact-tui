@@ -11,6 +11,7 @@ import { NDPEndpointBrowser } from './ndp-endpoint-browser';
 import { NDPEndpointEditor } from './ndp-endpoint-editor';
 import { NDPEndpointActions } from './ndp-endpoint-actions';
 import { ConnectedAccountSignIn } from './connected-source-auth';
+import { t, ph } from '@lingui/core/macro';
 
 /** Save and manage API connections independently of catalog file selections. */
 export function NDPEndpointPanel({
@@ -73,7 +74,7 @@ export function NDPEndpointPanel({
   const editing = editor || (!all.length && !endpoints.isPending);
   const authenticated = signedIn || accountReady;
   return (
-    <section aria-label="NDP endpoints" className="space-y-4">
+    <section aria-label={t`NDP endpoints`} className="space-y-4">
       <div className="-mt-1 flex items-center justify-end gap-3">
         <Button
           variant="outline"
@@ -83,7 +84,7 @@ export function NDPEndpointPanel({
             setEditor('add');
           }}
         >
-          <AddIcon /> Connect endpoint
+          <AddIcon /> {t`Connect endpoint`}
         </Button>
       </div>
       {!authenticated &&
@@ -131,15 +132,15 @@ export function NDPEndpointPanel({
               onClick={() => setShowHidden(!showHidden)}
             >
               {showHidden
-                ? 'Hide hidden endpoints'
-                : `Show hidden endpoints (${all.filter((row) => row.hidden).length})`}
+                ? t`Hide hidden endpoints`
+                : t`Show hidden endpoints (${ph({ count: all.filter((row) => row.hidden).length })})`}
             </Button>
           ) : null}
           {active ? (
             <>
               <div className="flex items-center gap-1">
                 <select
-                  aria-label="Connected endpoint"
+                  aria-label={t`Connected endpoint`}
                   className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
                   value={active.id}
                   onChange={(event) => setSelected(event.target.value)}
@@ -148,9 +149,9 @@ export function NDPEndpointPanel({
                     <option key={row.id} value={row.id}>
                       {row.name}
                       {row.ssh_route || row.ssh_profile
-                        ? ` (SSH ${row.ssh_route?.profile || row.ssh_route?.host || row.ssh_profile})`
+                        ? ` ${t`(SSH ${ph({ route: row.ssh_route?.profile || row.ssh_route?.host || row.ssh_profile || '' })})`}`
                         : ''}
-                      {row.hidden ? ' (Hidden)' : ''}
+                      {row.hidden ? ` ${t`(Hidden)`}` : ''}
                     </option>
                   ))}
                 </select>
@@ -174,7 +175,7 @@ export function NDPEndpointPanel({
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No visible endpoints. Connect an API or show hidden connections.
+              {t`No visible endpoints. Connect an API or show hidden connections.`}
             </p>
           )}
         </>

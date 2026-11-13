@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { AgentAnswerTextSelection, SelectionAction } from '@/lib/selection-actions';
 import { useRepository } from './use-repository';
 import { useSelectionAction } from './use-selection-action';
+import { t } from '@lingui/core/macro';
 
 /** The model route an aside question runs on: the parent session's own. */
 export interface AsideModelRoute {
@@ -18,6 +19,7 @@ export function firstAsideQuestion(text: string): string {
     .split(/\r?\n/u)
     .map((line) => (line.trim() ? `> ${line}` : '>'))
     .join('\n');
+  // i18n-ignore: the question sent to the agent, kept in English
   return `${quoted}\n\nExplain this part of your answer in more detail.`;
 }
 
@@ -71,8 +73,8 @@ export function useMoreDetails(
     (session: Session | undefined) => {
       if (!session) return;
       void repository.deleteSession(session.id).catch((error: unknown) => {
-        toast.error('The side conversation was not closed', {
-          description: error instanceof Error ? error.message : 'The service rejected it.',
+        toast.error(t`The side conversation was not closed`, {
+          description: error instanceof Error ? error.message : t`The service rejected it.`,
         });
       });
     },
@@ -109,8 +111,8 @@ export function useMoreDetails(
         setHeld({ sessionId, side: created, selection: target });
         await submit(created, firstAsideQuestion(target.text));
       } catch (error) {
-        toast.error('More details is unavailable', {
-          description: error instanceof Error ? error.message : 'The service rejected it.',
+        toast.error(t`More details is unavailable`, {
+          description: error instanceof Error ? error.message : t`The service rejected it.`,
         });
       } finally {
         setOpening(false);
@@ -146,12 +148,13 @@ export function useMoreDetails(
   const action = useMemo<SelectionAction>(
     () => ({
       id: 'more-details',
-      label: 'More details',
+      label: t`More details`,
       icon: SearchIcon,
       order: 20,
       kinds: ['agent-answer-text'],
       // An aside answers about this session; it cannot open another aside.
-      isAvailable: (target) => target.kind === 'agent-answer-text' && target.sessionId === sessionId,
+      isAvailable: (target) =>
+        target.kind === 'agent-answer-text' && target.sessionId === sessionId,
       run: (target) => {
         if (target.kind === 'agent-answer-text') void open(target);
       },

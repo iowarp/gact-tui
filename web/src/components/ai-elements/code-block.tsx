@@ -23,6 +23,7 @@ import type {
   HighlighterGeneric,
   ThemedToken,
 } from 'shiki';
+import { t } from '@lingui/core/macro';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -411,7 +412,12 @@ const CodeBlockBody = memo(
             showLineNumbers && '[counter-increment:line_0] [counter-reset:line]',
           )}
           style={
-            showLineNumbers && startLine > 1 ? { counterReset: `line ${startLine - 1}` } : undefined
+            showLineNumbers && startLine > 1
+              ? {
+                  // i18n-ignore: CSS counter name
+                  counterReset: `line ${startLine - 1}`,
+                }
+              : undefined
           }
         >
           {keyedLines.map((keyedLine) => (
@@ -558,7 +564,7 @@ export const CodeBlockContent = ({
       className="relative min-h-0 flex-1 overflow-auto focus-visible:outline focus-visible:outline-ring"
       data-slot="code-block-scroll"
       role="region"
-      aria-label="Scrollable code"
+      aria-label={t`Scrollable code`}
       tabIndex={0}
     >
       <CodeBlockBody

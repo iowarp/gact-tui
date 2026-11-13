@@ -62,6 +62,7 @@ import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
+import { ph, t } from '@lingui/core/macro';
 
 const NO_AGENTS: readonly AgentEntry[] = [];
 const NO_WORKSPACES: readonly Workspace[] = [];
@@ -237,7 +238,7 @@ export function WorkspacePage() {
             kind: 'tool-call',
             callId,
             sessionId: interaction.owner_session_id,
-            label: 'Script',
+            label: t`Script`,
           }),
         ownerLabels: interactionOwnerLabels,
         surfaces: data.interactionSurfaces,
@@ -340,17 +341,19 @@ export function WorkspacePage() {
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
     return shellAround(
-      rememberedSession?.title ?? 'Opening conversation',
+      rememberedSession?.title ?? t`Opening conversation`,
       <WorkspaceHydrating />,
-      'Workspace canvas loading',
+      t`Workspace canvas loading`,
     );
   }
   if (!session) {
     return shellAround(
-      'Conversation unavailable',
+      t`Conversation unavailable`,
       <WorkspaceUnavailable
         back={{
-          label: activeWorkspace ? `Back to ${workspaceName(activeWorkspace)}` : 'Back to Conversations',
+          label: activeWorkspace
+            ? t`Back to ${ph({ workspace: workspaceName(activeWorkspace) })}`
+            : t`Back to Conversations`,
           to: newConversationRoute(activeWorkspace ? workspaceId : DEFAULT_WORKSPACE_ID),
         }}
         error={missingError}
@@ -365,7 +368,7 @@ export function WorkspacePage() {
         }}
         subject="conversation"
       />,
-      'Workspace canvas',
+      t`Workspace canvas`,
     );
   }
 

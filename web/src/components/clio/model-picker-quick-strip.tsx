@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { QUICK_FILTER_ICONS as QUICK_ICONS } from './model-quick-filter-icons';
 import { IconButton } from './primitives/icon-button';
 import { ShortcutKeys } from './primitives/key-chip';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 interface ModelPickerQuickStripProps {
   filters: readonly QuickFilter[];
@@ -65,10 +67,14 @@ export function ModelPickerQuickStrip({
             <div className="flex shrink-0 items-center gap-0.5" data-slot="quick-filters">
               {filters.map((filter) => {
                 const Icon = QUICK_ICONS[filter.id];
+                const name = filter.label;
                 const label =
                   filter.count === undefined
                     ? filter.label
-                    : `${filter.label}: ${filter.count} ${filter.count === 1 ? 'model' : 'models'}`;
+                    : plural(filter.count, {
+                        one: `${name}: # model`,
+                        other: `${name}: # models`,
+                      });
                 return (
                   <IconButton
                     aria-pressed={filter.active}
@@ -101,7 +107,7 @@ export function ModelPickerQuickStrip({
                   <span className={cn(CHIP_CLASS, 'pe-0.5')} data-token={token} key={token}>
                     {token}
                     <button
-                      aria-label={`Remove ${token}`}
+                      aria-label={t`Remove ${token}`}
                       className="inline-flex size-4 items-center justify-center rounded-[4px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                       onClick={() => onRemoveToken(token)}
                       type="button"
@@ -114,8 +120,10 @@ export function ModelPickerQuickStrip({
             ) : null}
             {removable ? (
               <span className="ms-auto hidden shrink-0 items-center gap-1 ps-2 text-caption whitespace-nowrap text-faint @[30rem]/picker-search:inline-flex">
-                <ShortcutKeys className="text-caption text-faint" id="menu-drop-filter" />
-                drops the last filter
+                <Trans>
+                  <ShortcutKeys className="text-caption text-faint" id="menu-drop-filter" /> drops
+                  the last filter
+                </Trans>
               </span>
             ) : null}
           </>

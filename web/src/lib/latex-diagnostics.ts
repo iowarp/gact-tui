@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /** How the LaTeX workspace names a build problem's kind, and which kinds only warn. */
 
 /**
@@ -13,16 +14,16 @@ export const LATEX_WARNING_KINDS = new Set([
 ]);
 
 const KIND_LABELS: Record<string, string> = {
-  error: 'Error',
-  undefined_reference: 'Undefined reference',
-  undefined_citation: 'Undefined citation',
-  missing_file: 'Missing file',
-  missing_package: 'Missing package',
-  shell_escape_unsupported: 'Needs shell escape',
-  unsupported_bibliography_backend: 'Unsupported bibliography backend',
-  overfull_box: 'Overfull box',
-  font_warning: 'Font substitution',
-  warning: 'Warning',
+  error: t`Error`,
+  undefined_reference: t`Undefined reference`,
+  undefined_citation: t`Undefined citation`,
+  missing_file: t`Missing file`,
+  missing_package: t`Missing package`,
+  shell_escape_unsupported: t`Needs shell escape`,
+  unsupported_bibliography_backend: t`Unsupported bibliography backend`,
+  overfull_box: t`Overfull box`,
+  font_warning: t`Font substitution`,
+  warning: t`Warning`,
 };
 
 export function latexKindLabel(kind: string): string {

@@ -21,6 +21,7 @@ import {
   providerSetupSentence,
   type ProviderActions,
 } from './provider-setup-state';
+import { t, ph } from '@lingui/core/macro';
 
 interface ProviderConnectStateProps {
   group: ProviderGroup;
@@ -39,7 +40,7 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
   const failure = actions.stage ? undefined : providerActionError(actions, group);
   const refused = providerNeedsReauthentication(preset, group.failure);
   const signedIn = actions.stage
-    ? actions.stage.startsWith('Verifying ') || actions.stage === 'Loading models…'
+    ? actions.stage.startsWith('verifying:') || actions.stage === 'loading-models'
     : false;
   return (
     <Empty className="h-full gap-4 border-0 p-6" data-slot="provider-connect-state">
@@ -56,7 +57,7 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
         >
           {failure ??
             (signedIn
-              ? `Signed in to ${group.name}.`
+              ? t`Signed in to ${ph({ name: group.name })}.`
               : refused
                 ? translateKnownProviderErrorReason(
                     group.failure || preset?.status_message || '',
@@ -74,7 +75,7 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
             group.setupNeed === 'start'
           }
           flow={flow}
-          loginLabel={refused ? 'Sign in again' : undefined}
+          loginLabel={refused ? t`Sign in again` : undefined}
           offerCode={preset?.provider === 'codex'}
           preset={preset}
           providerLabel={group.name}

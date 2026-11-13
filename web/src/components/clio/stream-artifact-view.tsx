@@ -4,6 +4,8 @@ import type { Artifact, StreamEntry } from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { describeStream, streamRowsQueryPrefix, useStreamLease } from './table-query-rows';
+import { ph, plural, t } from '@lingui/core/macro';
+import { formatLocale, formatNumber } from '@/lib/locale-format';
 
 /** The most entries the panel reads at once (a stream's window is at most 1,000). */
 const STREAM_PANEL_ENTRIES = 200;
@@ -29,7 +31,7 @@ function EntryLine({ entry }: { entry: StreamEntry }) {
   if (entry.value !== undefined) return <span>{cellText(entry.value)}</span>;
   return (
     <span className="text-muted-foreground">
-      {entry.size_bytes.toLocaleString()} bytes, {entry.media_type}
+      {t`${plural(entry.size_bytes, { one: '# byte', other: '# bytes' })}, ${ph({ media_type: entry.media_type })}`}
     </span>
   );
 }
@@ -73,31 +75,38 @@ export function StreamArtifactView({
   const columns = useMemo(() => recordColumns(records), [records]);
   const stream = content.data?.stream;
   if (!streamId)
-    return <p className="p-4 text-sm text-muted-foreground">This stream has no address.</p>;
+    return <p className="p-4 text-sm text-muted-foreground">{t`This stream has no address.`}</p>;
   if (content.isError)
     return (
       <p role="alert" className="p-4 text-sm text-destructive">
-        The stream could not be read: {content.error instanceof Error ? content.error.message : ''}
+        {t`The stream could not be read: ${ph({ error: content.error instanceof Error ? content.error.message : '' })}`}
       </p>
     );
   return (
-    <section aria-label={`Stream ${artifact.name}`} className="flex h-full min-h-0 flex-col gap-3 p-4">
+    <section
+      aria-label={t`Stream ${ph({ name: artifact.name })}`}
+      className="flex h-full min-h-0 flex-col gap-3 p-4"
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">{artifact.name}</h2>
         <p data-slot="stream-state" className="text-xs text-muted-foreground">
-          {content.isPending ? 'Reading the stream…' : describeStream(stream)}
+          {content.isPending ? t`Reading the stream…` : describeStream(stream)}
+          {stream ? ' ' : ''}
           {stream
-            ? ` ${stream.writes.toLocaleString()} writes; keeps the newest ${stream.window.toLocaleString()}.`
+            ? plural(stream.writes, {
+                one: `# write; keeps the newest ${ph({ window: formatNumber(stream.window) })}.`,
+                other: `# writes; keeps the newest ${ph({ window: formatNumber(stream.window) })}.`,
+              })
             : ''}
         </p>
       </header>
       {!content.isPending && entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No entries yet.</p>
+        <p className="text-sm text-muted-foreground">{t`No entries yet.`}</p>
       ) : records.length === entries.length && records.length > 0 ? (
         <>
           {/* The newest record as fields: a narrow panel shows every value of it at once. */}
           <dl
-            aria-label="Newest entry"
+            aria-label={t`Newest entry`}
             className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-xs"
           >
             {Object.entries(records[0]!).map(([field, value]) => (
@@ -137,7 +146,7 @@ export function StreamArtifactView({
           {entries.map((entry) => (
             <li key={entry.seq} className="flex gap-3 border-t px-2 py-1 first:border-t-0">
               <span className="text-muted-foreground tabular-nums">
-                {new Date(entry.at).toLocaleTimeString()}
+                {new Date(entry.at).toLocaleTimeString(formatLocale())}
               </span>
               <EntryLine entry={entry} />
             </li>

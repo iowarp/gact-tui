@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { queryFilterSchema } from './data-query-schema';
 import type { TableDataQuery } from './table-query-rows';
+import { t, ph } from '@lingui/core/macro';
 
 interface DataContextLike {
   resolveDynamicValue: (value: never) => unknown;
@@ -75,8 +76,7 @@ export function BoundDataQuery({
       const original = query!.filter![index]!;
       return (
         <p className="py-3 text-sm text-destructive" role="alert">
-          View unavailable: filter “{original.column}” bound to {bindingPath(original.value)} has no
-          valid {original.op} value.
+          {t`View unavailable: filter “${ph({ column: original.column })}” bound to ${ph({ path: bindingPath(original.value) ?? '' })} has no valid ${ph({ op: original.op })} value.`}
         </p>
       );
     }

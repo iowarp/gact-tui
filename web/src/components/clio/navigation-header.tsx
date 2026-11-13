@@ -16,6 +16,7 @@ import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availabil
 import type { ConnectionSettings } from '@/lib/connection';
 import { NewConversationIcon } from '@/lib/icon-vocabulary';
 import { NavigationAgentMenu } from './navigation-agent-menu';
+import { t } from '@lingui/core/macro';
 
 interface NavigationHeaderProps {
   endpoint: string;
@@ -69,7 +70,7 @@ export function NavigationHeader({
         {attentionControl}
         {sidebarState === 'expanded' ? (
           <li className="relative shrink-0 in-data-[mobile=true]:hidden">
-            <NamedTooltip label="Hide the left bar" shortcut="left-pocket">
+            <NamedTooltip label={t`Hide the left bar`} shortcut="left-pocket">
               <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[15px]" />
             </NamedTooltip>
             <HeldKeyBadge id="left-pocket" />
@@ -81,11 +82,11 @@ export function NavigationHeader({
           <SidebarMenuButton
             className="h-[30px] gap-2.5 pr-9 text-ui group-data-[collapsible=icon]:pr-2"
             onClick={onNewSession}
-            tooltip="New conversation"
+            tooltip={t`New conversation`}
             type="button"
           >
             <NewConversationIcon aria-hidden="true" className="text-primary" />
-            <span className="truncate">New conversation</span>
+            <span className="truncate">{t`New conversation`}</span>
             {sidebarState === 'expanded' ? (
               // The row's end, left of Import: its keys sit there, not under the row.
               <span aria-hidden="true" className="min-w-0 flex-1 self-stretch">
@@ -102,7 +103,7 @@ export function NavigationHeader({
           <IconButton
             className="absolute right-1 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
             icon={<UploadIcon />}
-            label="Import conversation…"
+            label={t`Import conversation…`}
             onClick={onImportSession}
             shortcut="import-conversation"
             size="sm"
@@ -110,18 +111,18 @@ export function NavigationHeader({
         </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
-            aria-label="Search work"
+            aria-label={t`Search work`}
             className="h-[30px] gap-2.5 text-ui"
             onClick={() => {
               // On a phone the command menu opens over the page, not over the sheet.
               if (isMobile) setOpenMobile(false);
               window.dispatchEvent(new Event('clio:open-command-menu'));
             }}
-            tooltip="Search work, files, and actions"
+            tooltip={t`Search work, files, and actions`}
             type="button"
           >
             <SearchIcon aria-hidden="true" />
-            <span className="truncate">Search</span>
+            <span className="truncate">{t`Search`}</span>
             <ShortcutKeys
               className={cn(
                 'ml-auto text-caption text-muted-foreground group-data-[collapsible=icon]:hidden max-[599px]:hidden',

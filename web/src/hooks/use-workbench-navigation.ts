@@ -25,6 +25,7 @@ import {
   type WorkbenchRequest,
   type WorkbenchRequestSource,
 } from '@/lib/workbench-request-store';
+import { t } from '@lingui/core/macro';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -130,7 +131,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
         );
         return true;
       }
-      toast.error('The linked conversation is not available yet. Try again.');
+      toast.error(t`The linked conversation is not available yet. Try again.`);
       return false;
     },
     [navigate, openSubagent, workspaceId],
@@ -267,7 +268,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
           toast.error(
             error instanceof Error
               ? error.message
-              : 'Could not open the page in the shared browser.',
+              : t`Could not open the page in the shared browser.`,
           );
         });
     },

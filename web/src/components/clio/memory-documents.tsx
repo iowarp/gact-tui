@@ -19,6 +19,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { ShortcutKeys } from './primitives/key-chip';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
+import { t } from '@lingui/core/macro';
 
 function DocumentRow({
   document,
@@ -42,15 +43,15 @@ function DocumentRow({
     <ItemRow
       actions={
         <span className="relative z-10 flex items-center gap-px">
-          <IconButton icon={<HistoryIcon />} label="History" onClick={onHistory} size="sm" />
+          <IconButton icon={<HistoryIcon />} label={t`History`} onClick={onHistory} size="sm" />
           <IconButton
             disabled={exporting}
             icon={<DownloadIcon />}
-            label="Export"
+            label={t`Export`}
             onClick={onExport}
             size="sm"
           />
-          <IconButton icon={<DeleteIcon />} label="Delete" onClick={onDelete} size="sm" />
+          <IconButton icon={<DeleteIcon />} label={t`Delete`} onClick={onDelete} size="sm" />
         </span>
       }
       actionsWidth={92}
@@ -93,7 +94,7 @@ function MemorySearchField({
           <SearchIcon aria-hidden="true" />
         </InputGroupAddon>
         <InputGroupInput
-          aria-label="Search memories"
+          aria-label={t`Search memories`}
           className="text-menu placeholder:text-faint md:text-menu"
           // The window's Esc listener runs first; while there is a query, Esc only clears it.
           data-escape-scope={text ? '' : undefined}
@@ -105,7 +106,7 @@ function MemorySearchField({
               onSearch('');
             }
           }}
-          placeholder="Search memories"
+          placeholder={t`Search memories`}
           ref={inputRef}
           value={text}
         />
@@ -162,21 +163,21 @@ export const MemoryDocuments = forwardRef<
       <MemorySearchField inputRef={searchRef} onSearch={setFilter} />
       {pending ? <Skeleton className="mt-2 h-32 w-full" /> : null}
       {error ? (
-        <MemoryErrorLine error={error} onRetry={onRetry} what="Memories could not be loaded." />
+        <MemoryErrorLine error={error} onRetry={onRetry} what={t`Memories could not be loaded.`} />
       ) : null}
       {!error && documents && !documents.length ? (
         <StateView
-          action={{ label: 'Create a memory', onClick: onCreate }}
+          action={{ label: t`Create a memory`, onClick: onCreate }}
           kind="empty"
           size="row"
-          title="No memories saved yet"
+          title={t`No memories saved yet`}
         />
       ) : null}
       {documents?.length && !filtered.length ? (
         <StateView
           kind="empty"
           size="row"
-          title={needle ? `No memories match “${filter.trim()}”` : 'No memories in this scope'}
+          title={needle ? t`No memories match “${filter.trim()}”` : t`No memories in this scope`}
         />
       ) : null}
       {scopes.map((group) => {
@@ -184,7 +185,7 @@ export const MemoryDocuments = forwardRef<
         return (
           <section aria-label={label} className="min-w-0" key={group}>
             <SettingsGroupLabel>{label}</SettingsGroupLabel>
-            <ItemList label={`${label} memories`}>
+            <ItemList label={t`${label} memories`}>
               {filtered
                 .filter((document) => document.scope === group)
                 .map((document) => (

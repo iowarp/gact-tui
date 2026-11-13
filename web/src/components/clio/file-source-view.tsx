@@ -9,6 +9,7 @@ import { isLargeSource } from '@/lib/source-window';
 import { VirtualSourceLines } from './virtual-source-lines';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { t } from '@lingui/core/macro';
 
 const DELIMITED = /\.(?:csv|tsv)$/iu;
 
@@ -38,7 +39,7 @@ export function FileSourceView({
         ? [
             {
               kind: 'view' as const,
-              label: 'Wrap long lines',
+              label: t`Wrap long lines`,
               icon: WrapTextIcon,
               selected: options.wrap,
               onSelect: () => options.setWrap(!options.wrap),
@@ -56,7 +57,7 @@ export function FileSourceView({
       <ViewerToolbarContent>
         <ToolbarAction
           aria-pressed={options.wrap}
-          label="Wrap long lines"
+          label={t`Wrap long lines`}
           onClick={() => options.setWrap(!options.wrap)}
         >
           <WrapTextIcon aria-hidden="true" />
@@ -70,7 +71,7 @@ export function FileSourceView({
         {wrapToggle}
         <VirtualSourceLines
           role="region"
-          aria-label={label || `Source of ${name}`}
+          aria-label={label || t`Source of ${name}`}
           className="h-full"
           content={content}
           headerRow={headerRow}
@@ -84,7 +85,7 @@ export function FileSourceView({
       {wrapToggle}
       <CodeBlock
         role="region"
-        aria-label={label || `Source of ${name}`}
+        aria-label={label || t`Source of ${name}`}
         code={content}
         language={language}
         showLineNumbers

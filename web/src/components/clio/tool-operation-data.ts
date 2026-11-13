@@ -1,5 +1,6 @@
 import type { SubagentRun, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { asRecord, toolResultRecord } from './tool-result-shared';
+import { ph, select, t as tx } from '@lingui/core/macro';
 
 export interface OperationContext {
   subagents?: Record<string, SubagentRun>;
@@ -52,7 +53,7 @@ export function operationSubject(
     type: child?.child_session_id || declared?.uri ? 'link' : 'text',
     target: declared?.target ?? (child?.child_session_id ? 'session' : undefined),
     uri: child?.child_session_id ?? declared?.uri,
-    label: named || (/^task_/u.test(handle) ? `Task ${handle.slice(-6)}` : handle),
+    label: named || (/^task_/u.test(handle) ? tx`Task ${ph({ id: handle.slice(-6) })}` : handle),
     text: named || handle,
   };
 }
@@ -136,7 +137,7 @@ export function operationWaitTasks(
         : typeof row.title === 'string'
           ? row.title
           : handle.startsWith('collection-error-')
-            ? 'Collection error'
+            ? tx`Collection error`
             : undefined;
     const page = row.fragments_require_concatenation === true ? row : undefined;
     const returned = Object.hasOwn(row, 'result')
@@ -150,11 +151,17 @@ export function operationWaitTasks(
       typeof row.error === 'string'
         ? row.error
         : incomplete
-          ? 'The complete returned result was not retained with this call.'
+          ? tx`The complete returned result was not retained with this call.`
           : ['failed', 'error', 'denied', 'cancelled', 'interrupted'].includes(String(row.status))
             ? typeof row.error_reason === 'string'
               ? row.error_reason
-              : `Task ${row.status}`
+              : select(String(row.status), {
+                  failed: 'Task failed',
+                  error: 'Task error',
+                  denied: 'Task denied',
+                  cancelled: 'Task cancelled',
+                  other: 'Task interrupted',
+                })
             : undefined;
     const blocks = tool.presentation?.blocks.filter(
       (b) => b.content_ref && (b.id.includes(handle) || b.label?.startsWith(handle)),

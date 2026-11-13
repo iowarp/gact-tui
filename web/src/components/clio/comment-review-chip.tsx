@@ -9,10 +9,7 @@ import type { CommentReview } from '@/lib/comment-review-reference';
 import type { ContextReferenceBlock } from '@/lib/sent-inline-references';
 import { revealCommentThreads } from './comments/comment-thread-reveal';
 import { FileTypeIcon } from './file-type-icon';
-
-function commentCount(count: number) {
-  return `${count} ${count === 1 ? 'comment' : 'comments'}`;
-}
+import { plural, t, ph } from '@lingui/core/macro';
 
 /**
  * The file version a sent message commented on. Opening it shows that version with its
@@ -28,7 +25,23 @@ export function CommentReviewChip({
   onOpenReference?: (reference: WorkspaceReference) => void;
 }) {
   const count = review.threads.length;
-  const version = review.version ? `version ${review.version}` : undefined;
+  const { version } = review;
+  const label = block.label;
+  const name = version
+    ? plural(count, {
+        one: `Open ${label} version ${ph({ version })} with # comment`,
+        other: `Open ${label} version ${ph({ version })} with # comments`,
+      })
+    : plural(count, {
+        one: `Open ${label} with # comment`,
+        other: `Open ${label} with # comments`,
+      });
+  const summary = version
+    ? plural(count, {
+        one: `Version ${ph({ version })}, # comment`,
+        other: `Version ${ph({ version })}, # comments`,
+      })
+    : plural(count, { one: '# comment', other: '# comments' });
   const open = () => {
     if (!onOpenReference) return;
     revealCommentThreads(review.threads);
@@ -46,7 +59,7 @@ export function CommentReviewChip({
     <AttachmentHoverCard closeDelay={100} openDelay={220}>
       <AttachmentHoverCardTrigger asChild>
         <button
-          aria-label={`Open ${block.label}${version ? ` ${version}` : ''} with ${commentCount(count)}`}
+          aria-label={name}
           className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] bg-hover px-2 text-ui text-foreground outline-none hover:bg-foreground/[0.08] focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
           data-reference-revision={block.revision}
           data-slot="comment-review-chip"
@@ -54,7 +67,11 @@ export function CommentReviewChip({
           onClick={open}
           type="button"
         >
-          <FileTypeIcon className="size-3.5 shrink-0" mediaType={block.media_type} name={block.label} />
+          <FileTypeIcon
+            className="size-3.5 shrink-0"
+            mediaType={block.media_type}
+            name={block.label}
+          />
           <span className="min-w-0 truncate" data-truncation-hint="off">
             {block.label}
           </span>
@@ -66,15 +83,9 @@ export function CommentReviewChip({
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
         <p className="text-sm font-medium [overflow-wrap:anywhere]">{block.label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {[version ? `Version ${review.version}` : undefined, commentCount(count)]
-            .filter(Boolean)
-            .join(', ')}
-        </p>
-        {review.labels.length ? (
-          <p className="mt-2 text-xs">{review.labels.join(', ')}</p>
-        ) : null}
-        <p className="mt-2 text-xs text-muted-foreground">Opens this version with its comments.</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{summary}</p>
+        {review.labels.length ? <p className="mt-2 text-xs">{review.labels.join(', ')}</p> : null}
+        <p className="mt-2 text-xs text-muted-foreground">{t`Opens this version with its comments.`}</p>
       </AttachmentHoverCardContent>
     </AttachmentHoverCard>
   );

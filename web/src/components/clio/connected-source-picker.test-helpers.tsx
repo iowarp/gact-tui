@@ -16,13 +16,16 @@ export async function assertFolderResourceAttachment(attachSourceFolder: Mock) {
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
+  // i18n-ignore: test query or fixture
   await user.click(await screen.findByRole('button', { name: 'Your sources' }));
   await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
+  // i18n-ignore: test query or fixture
   await user.click(screen.getByRole('button', { name: 'Add source to message' }));
   await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
   expect(attachSourceFolder).toHaveBeenCalledWith('w', 's1', false, '', 'draft_test');
   const reference = onSelect.mock.calls[0][0];
   expect(reference).toMatchObject({
+    // i18n-ignore: test query or fixture
     label: 'OPAL inputs',
     navigation: { source_id: 's1', source_kind: 'folder' },
   });
@@ -30,6 +33,7 @@ export async function assertFolderResourceAttachment(attachSourceFolder: Mock) {
     type: 'resource_ref',
     resource_id: 'res_folder',
     resource_revision: '1',
+    // i18n-ignore: test query or fixture
     name: 'OPAL inputs',
   });
 }
@@ -39,6 +43,7 @@ export async function chooseTrackingConversation(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
 ) {
+  // i18n-ignore: test query or fixture
   await user.click(screen.getByRole('combobox', { name: 'Track work in' }));
   await user.click(await screen.findByRole('option', { name }));
 }

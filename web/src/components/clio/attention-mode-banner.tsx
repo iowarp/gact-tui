@@ -15,12 +15,12 @@ import { FrameBar } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { RingSpinner } from './primitives/ring-spinner';
 import type { AttentionProfile } from '@clio/core/v3';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const QUOTE_TRUNCATE_CHARS = 160;
 
 /** `residual` is real attention, just spread thinly outside the capture's top-10%-per-segment cut. */
-const SPREAD_THIN_TOOLTIP =
-  'Attention spread across the parts of the conversation outside the top 10% the capture keeps.';
+const SPREAD_THIN_TOOLTIP = t`Attention spread across the parts of the conversation outside the top 10% the capture keeps.`;
 
 /**
  * Attention mode's one bar, the same frame bar as a tab (runs-attention 08): radar and
@@ -52,29 +52,29 @@ export function AttentionModeBanner({
       data-slot="attention-mode-banner"
     >
       <FrameBar
-        label="Attention mode"
+        label={t`Attention mode`}
         where={
           <span
             className="flex min-w-0 shrink-0 items-center gap-1.5 text-menu"
-            title={`Attention mode: ${quote}`}
+            title={t`Attention mode: ${quote}`}
           >
             <RadarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
             {/* A phone keeps the radar (its name on hover) so the heat segments fit whole. */}
             <b className="font-medium whitespace-nowrap text-foreground @max-[460px]/attention:sr-only">
-              Attention mode
+              {t`Attention mode`}
             </b>
             {state.status === 'loading' ? <RingSpinner /> : null}
           </span>
         }
         what={
           state.status === 'loading' ? (
-            <span role="status">Loading</span>
+            <span role="status">{t`Loading`}</span>
           ) : state.status === 'unavailable' ? (
             <span data-slot="attention-unavailable-message" title={state.message}>
               {state.message}
             </span>
           ) : dominant ? (
-            <span title="Tool results lead captured content">tool results first</span>
+            <span title={t`Tool results lead captured content`}>{t`tool results first`}</span>
           ) : (
             <span className="truncate" title={state.selection.text}>
               {quote}
@@ -95,7 +95,7 @@ export function AttentionModeBanner({
             {shown?.profile && onProfileChange ? (
               <AttentionProfileEditor iconOnly onApply={onProfileChange} profile={shown.profile} />
             ) : null}
-            <IconButton icon={<CloseIcon />} label="Exit attention mode" onClick={onDismiss} />
+            <IconButton icon={<CloseIcon />} label={t`Exit attention mode`} onClick={onDismiss} />
           </>
         }
       />
@@ -147,7 +147,7 @@ export function AttentionBreakdown({
             <span className="bg-muted-foreground/30" style={{ width: `${data.residual * 100}%` }} />
           </TooltipTrigger>
           <TooltipContent>
-            Spread thin: {pct(data.residual)}. {SPREAD_THIN_TOOLTIP}
+            {t`Spread thin: ${ph({ share: pct(data.residual) })}. ${SPREAD_THIN_TOOLTIP}`}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -169,23 +169,24 @@ export function AttentionBreakdown({
                 aria-hidden="true"
                 className="size-2 shrink-0 rounded-full bg-muted-foreground/30"
               />
-              Spread thin {pct(data.residual)}
+              {t`Spread thin ${ph({ share: pct(data.residual) })}`}
             </span>
           </TooltipTrigger>
           <TooltipContent>{SPREAD_THIN_TOOLTIP}</TooltipContent>
         </Tooltip>
         {dominant ? (
           <Badge className="border-chart-5/40 text-chart-5" variant="outline">
-            Tool results lead captured content
+            {t`Tool results lead captured content`}
           </Badge>
         ) : null}
         {data.unmapped_content?.length ? (
           <span className="inline-flex items-center gap-1.5">
-            {data.unmapped_content.length} unmapped{' '}
-            {data.unmapped_content.length === 1 ? 'block' : 'blocks'}
-            <InfoTip label="About unmapped attention content">
-              These blocks have no unique compatible passage in the captured prompt. Their content
-              may be absent, transformed, or repeated. No transcript heat is inferred.
+            {plural(data.unmapped_content.length, {
+              one: '# unmapped block',
+              other: '# unmapped blocks',
+            })}
+            <InfoTip label={t`About unmapped attention content`}>
+              {t`These blocks have no unique compatible passage in the captured prompt. Their content may be absent, transformed, or repeated. No transcript heat is inferred.`}
             </InfoTip>
           </span>
         ) : null}

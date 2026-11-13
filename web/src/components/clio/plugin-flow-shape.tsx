@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { useInterfaceScale } from '@/theme/runtime';
 import { renderPeleDiagram } from './diagram-renderer';
 import { parseDiagramSource } from './mermaid-security';
+import { t } from '@lingui/core/macro';
 
 type ShapeState = { kind: 'drawing' } | { kind: 'drawn'; svg: string } | { kind: 'failed' };
 
@@ -64,7 +65,7 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
   if (!shape) {
     return (
       <p className="text-xs text-muted-foreground" data-slot="plugin-flow-shape-missing">
-        No diagram was drawn for this flow.
+        {t`No diagram was drawn for this flow.`}
       </p>
     );
   }
@@ -72,7 +73,7 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
     return (
       <div className="grid min-w-0 gap-1" data-slot="plugin-flow-shape-failed">
         <p className="text-xs text-muted-foreground">
-          This flow&apos;s diagram could not be drawn. Here is how it was written:
+          {t`This flow's diagram could not be drawn. Here is how it was written:`}
         </p>
         <pre className="clio-scrollbar max-h-40 overflow-auto rounded-md bg-muted/60 p-2 font-mono text-xs whitespace-pre">
           {shape}
@@ -83,13 +84,13 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
   return (
     <div
       aria-busy={state.kind === 'drawing'}
-      aria-label={`Steps of ${label}`}
+      aria-label={t`Steps of ${label}`}
       className="clio-flow-diagram clio-scrollbar min-h-10 min-w-0 overflow-x-auto rounded-md border border-border/60 bg-background/60 p-2"
       data-slot="plugin-flow-shape"
       role="img"
     >
       {state.kind === 'drawing' ? (
-        <p className="text-xs text-muted-foreground">Drawing the diagram…</p>
+        <p className="text-xs text-muted-foreground">{t`Drawing the diagram…`}</p>
       ) : (
         <div aria-hidden="true" className="w-max" dangerouslySetInnerHTML={html} />
       )}

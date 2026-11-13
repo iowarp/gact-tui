@@ -20,6 +20,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
+
+const { product } = vocab;
 
 export interface PathChoice {
   name: string;
@@ -46,9 +49,9 @@ export function ClioPathPicker({
   value,
   onChange,
   knownFolders = [],
-  placeholder = 'Type, paste, or browse for a folder',
+  placeholder = t`Type, paste, or browse for a folder`,
   disabled,
-  inputLabel = 'Folder path',
+  inputLabel = t`Folder path`,
   inputId,
   className,
 }: ClioPathPickerProps) {
@@ -92,16 +95,15 @@ export function ClioPathPicker({
           type="button"
           variant="outline"
         >
-          <FolderOpenIcon aria-hidden="true" /> Browse
+          <FolderOpenIcon aria-hidden="true" /> {t`Browse`}
         </Button>
       </div>
       <Dialog onOpenChange={setBrowserOpen} open={browserOpen}>
         <DialogContent className="grid max-h-[min(620px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Choose a folder</DialogTitle>
+            <DialogTitle>{t`Choose a folder`}</DialogTitle>
             <DialogDescription>
-              Select a folder this agent service already exposes. Desktop can browse any local
-              folder through the native picker.
+              {t`Select a folder this agent service already exposes. Desktop can browse any local folder through the native picker.`}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="min-h-0 pr-3">
@@ -128,14 +130,13 @@ export function ClioPathPicker({
               </FileTree>
             ) : (
               <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                This service has not exposed any folders yet. Enter a path manually, or use{' '}
-                {vocab.product} for native folder browsing.
+                {t`This service has not exposed any folders yet. Enter a path manually, or use ${product} for native folder browsing.`}
               </div>
             )}
           </ScrollArea>
           <DialogFooter>
             <Button onClick={() => setBrowserOpen(false)} type="button" variant="ghost">
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button
               disabled={!candidate}
@@ -145,7 +146,7 @@ export function ClioPathPicker({
               }}
               type="button"
             >
-              Use this folder
+              {t`Use this folder`}
             </Button>
           </DialogFooter>
         </DialogContent>

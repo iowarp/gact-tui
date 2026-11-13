@@ -16,8 +16,9 @@ import { PackageItemRow } from './agent-package-item-row';
 import {
   bringsLabel,
   countOf,
+  noneBringsLabel,
+  packageCategoryLabel,
   packageItems,
-  PACKAGE_CATEGORY,
   presentCategories,
   type PackageCategory,
   type PackageItem,
@@ -28,6 +29,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { AgentPackageFilter } from './agent-package-filter';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
+import { t, ph } from '@lingui/core/macro';
 
 /** Which category the list shows and which package is open; kept by the host across item details. */
 export interface AgentPackagesView {
@@ -102,15 +104,15 @@ export function AgentPackages({
               resolution={resolution}
             >
               <Button className="shrink-0" size="xs" variant="outline">
-                <AddIcon aria-hidden="true" /> Add package
+                <AddIcon aria-hidden="true" /> {t`Add package`}
               </Button>
             </AgentPluginMenu>
           )
         }
         className="mt-1"
-        info="The packages this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here."
+        info={t`The packages this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here.`}
       >
-        <span id="agent-packages">Packages</span>
+        <span id="agent-packages">{t`Packages`}</span>
       </SettingsGroupLabel>
       {categories.length ? (
         <AgentPackageFilter
@@ -119,15 +121,13 @@ export function AgentPackages({
           value={category}
         />
       ) : null}
-      <ItemList label="Packages">
+      <ItemList label={t`Packages`}>
         {shown.length === 0 ? (
           <StateView
             kind="empty"
             size="row"
             title={
-              category === 'all'
-                ? 'This agent has no packages yet.'
-                : `No package brings ${PACKAGE_CATEGORY[category].plural}.`
+              category === 'all' ? t`This agent has no packages yet.` : noneBringsLabel(category)
             }
           />
         ) : null}
@@ -212,12 +212,16 @@ function PackageRow({
     <ItemRow
       actions={
         <>
-          <IconButton icon={<EyeIcon />} label={`Open ${plugin.id}`} onClick={onExplore} />
+          <IconButton
+            icon={<EyeIcon />}
+            label={t`Open ${ph({ id: plugin.id })}`}
+            onClick={onExplore}
+          />
           {onRemove ? (
             <IconButton
               disabled={pending}
               icon={<RemoveIcon />}
-              label={`Remove ${plugin.id}`}
+              label={t`Remove ${ph({ id: plugin.id })}`}
               onClick={onRemove}
             />
           ) : null}
@@ -281,7 +285,9 @@ function PackageContents({
       ? (Object.keys(items) as PackageCategory[]).filter((key) => items[key].length > 0)
       : [category];
   const heading =
-    category === 'all' ? `${plugin} brings` : bringsLabel(plugin, category, items[category].length);
+    category === 'all'
+      ? t`${plugin} brings`
+      : bringsLabel(plugin, category, items[category].length);
   return (
     <div
       aria-label={heading}
@@ -291,12 +297,11 @@ function PackageContents({
     >
       <p className="truncate pb-1 text-label text-muted-foreground">{heading}</p>
       {groups.map((group) => {
-        const info = PACKAGE_CATEGORY[group];
         return (
           <ItemList
             className="pb-1"
             key={group}
-            label={category === 'all' ? `${plugin} ${info.plural}` : undefined}
+            label={category === 'all' ? packageCategoryLabel(plugin, group) : undefined}
           >
             {category === 'all' ? (
               <p className="truncate pt-1 text-caption text-faint">

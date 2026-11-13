@@ -3,10 +3,12 @@ import type { BundledLanguage } from 'shiki';
 import { bundledLanguages } from 'shiki/langs';
 import { useMemo, useState } from 'react';
 import { FileIcon, ImageIcon } from 'lucide-react';
+import { plural, ph, t } from '@lingui/core/macro';
 import { CodeBlock, HANGING_SOURCE_WRAP } from '@/components/ai-elements/code-block';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { formatBytes } from '@/lib/format';
+import { formatNumber } from '@/lib/locale-format';
 import { cn } from '@/lib/utils';
 import { parsePrintedValue } from './python-literal';
 import { workspaceImages } from './image-reach';
@@ -40,7 +42,7 @@ function traceTail(text: string): string {
   if (lines.length <= TRACE_LINES) return text;
   const earlier = lines.length - TRACE_LINES;
   return [
-    `… ${earlier} earlier line${earlier === 1 ? '' : 's'}`,
+    plural(earlier, { one: '… # earlier line', other: '… # earlier lines' }),
     ...lines.slice(-TRACE_LINES),
   ].join('\n');
 }
@@ -84,7 +86,7 @@ export function ScriptRunBody({
           ),
         )}
         {errors.map((text) => (
-          <DetailsSection key={text} title={stopped ? 'Stopped' : 'Error'} copy={text}>
+          <DetailsSection key={text} title={stopped ? t`Stopped` : t`Error`} copy={text}>
             <pre
               role={stopped ? undefined : 'alert'}
               className={`min-w-0 rounded-lg border px-2.5 py-1.5 font-mono text-label whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'border-border text-muted-foreground' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}
@@ -110,8 +112,8 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
   const detail = blocks.find((block) => block.detail?.trim())?.detail;
   return (
     <DetailsSection
-      title="Shown to the model"
-      aside={`${blocks.length} file${blocks.length === 1 ? '' : 's'}`}
+      title={t`Shown to the model`}
+      aside={plural(blocks.length, { one: '# file', other: '# files' })}
     >
       <div className="grid min-w-0 gap-1.5">
         {images.length ? (
@@ -130,7 +132,7 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
                   <span className="min-w-0 truncate">{fileName(path)}</span>
                   {block.pages?.length ? (
                     <span className="shrink-0 text-meta text-muted-foreground">
-                      {block.pages.length === 1 ? 'Page' : 'Pages'} {block.pages.join(', ')}
+                      {pagesLabel(block.pages)}
                     </span>
                   ) : null}
                 </li>
@@ -156,10 +158,11 @@ function ScriptSource({ block }: { block: ToolPresentationBlock }) {
       ? (block.language as BundledLanguage)
       : ('python' as BundledLanguage);
   const name = LANGUAGE_NAMES[language] ?? language;
+  const count = lines.length;
   return (
     <DetailsSection
-      title="Script"
-      aside={`${name}, ${lines.length} line${lines.length === 1 ? '' : 's'}`}
+      title={t`Script`}
+      aside={plural(count, { one: `${name}, # line`, other: `${name}, # lines` })}
       copy={code}
     >
       <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
@@ -174,13 +177,15 @@ function ScriptSource({ block }: { block: ToolPresentationBlock }) {
         />
         {hidden > 0 ? (
           <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-            <span className="truncate">{hidden} more lines</span>
+            <span className="truncate">
+              {plural(hidden, { one: '# more line', other: '# more lines' })}
+            </span>
             <Button
               variant="ghost"
               className="ml-auto h-6 px-2 text-meta"
               onClick={() => setAll(true)}
             >
-              Show all
+              {t`Show all`}
             </Button>
           </div>
         ) : null}
@@ -197,14 +202,14 @@ function RestOfBlock({ complete }: { complete: CompleteBlockText }) {
     <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
       <span className={cn('truncate', complete.error && 'text-destructive')}>
         {complete.error
-          ? `Could not load the rest: ${complete.error}`
+          ? t`Could not load the rest: ${ph({ error: complete.error })}`
           : complete.loading
-            ? 'Loading the rest…'
-            : `${complete.remaining.toLocaleString()} more characters on the agent`}
+            ? t`Loading the rest…`
+            : remainingLabel(complete.remaining)}
       </span>
       {complete.loading ? null : (
         <Button variant="ghost" className="ml-auto h-6 px-2 text-meta" onClick={complete.loadAll}>
-          {complete.error ? 'Retry' : 'Load the rest'}
+          {complete.error ? t`Retry` : t`Load the rest`}
         </Button>
       )}
     </div>
@@ -221,7 +226,11 @@ function ScriptResult({
   const complete = useCompleteBlockText(block);
   const text = complete.text;
   const title =
-    block.id === 'value' ? 'Returned' : block.id === 'output' ? 'Printed' : block.label || 'Result';
+    block.id === 'value'
+      ? t`Returned`
+      : block.id === 'output'
+        ? t`Printed`
+        : block.label || t({ message: 'Result', context: 'noun' });
   const reading = useMemo(() => {
     const parsed = complete.remaining ? undefined : parsePrintedValue(text);
     if (!parsed) {
@@ -239,8 +248,8 @@ function ScriptResult({
       <DetailsSection title={title} copy={text}>
         <p className="text-muted-foreground">
           {reading.images.length === 1
-            ? `The description of ${fileName(reading.images[0]!.path)}`
-            : `Descriptions of ${reading.images.length} images: ${reading.images.map((image) => fileName(image.path)).join(', ')}`}
+            ? t`The description of ${ph({ file: fileName(reading.images[0]!.path) })}`
+            : descriptionsLabel(reading.images.map((image) => fileName(image.path)))}
         </p>
       </DetailsSection>
     );
@@ -248,7 +257,7 @@ function ScriptResult({
     return (
       <DetailsSection
         title={title}
-        aside={`${reading.images.length} image${reading.images.length === 1 ? '' : 's'}`}
+        aside={plural(reading.images.length, { one: '# image', other: '# images' })}
       >
         <WorkspaceImageStrip images={reading.images} />
       </DetailsSection>
@@ -314,13 +323,7 @@ function PrintedOutput({
                     />
                     <span className="truncate font-mono">{fileName(image.path)}</span>
                     <span className="shrink-0 text-muted-foreground">
-                      {[
-                        'image description',
-                        image.sizeBytes !== undefined ? formatBytes(image.sizeBytes) : undefined,
-                        shownPaths.has(image.path) ? 'pixels shown to the model below' : undefined,
-                      ]
-                        .filter(Boolean)
-                        .join(', ')}
+                      {descriptorNote(image.sizeBytes, shownPaths.has(image.path))}
                     </span>
                   </span>
                 ))}
@@ -331,17 +334,50 @@ function PrintedOutput({
       </div>
       {hidden > 0 ? (
         <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden} more lines</span>
+          <span className="truncate">
+            {plural(hidden, { one: '# more line', other: '# more lines' })}
+          </span>
           <Button
             variant="ghost"
             className="ml-auto h-6 px-2 text-meta"
             onClick={() => setAll(true)}
           >
-            Show all
+            {t`Show all`}
           </Button>
         </div>
       ) : null}
       <RestOfBlock complete={complete} />
     </div>
   );
+}
+
+/** What a printed image descriptor is: "image description, 36.1 KB, pixels shown to the model below". */
+function descriptorNote(sizeBytes: number | undefined, shown: boolean): string {
+  if (sizeBytes === undefined)
+    return shown ? t`image description, pixels shown to the model below` : t`image description`;
+  const size = formatBytes(sizeBytes);
+  return shown
+    ? t`image description, ${size}, pixels shown to the model below`
+    : t`image description, ${size}`;
+}
+
+function pagesLabel(pages: readonly number[]): string {
+  const list = pages.join(', ');
+  return plural(pages.length, { one: `Page ${list}`, other: `Pages ${list}` });
+}
+
+function remainingLabel(remaining: number): string {
+  const count = formatNumber(remaining);
+  return plural(remaining, {
+    one: `${count} more character on the agent`,
+    other: `${count} more characters on the agent`,
+  });
+}
+
+function descriptionsLabel(names: readonly string[]): string {
+  const files = names.join(', ');
+  return plural(names.length, {
+    one: `Description of # image: ${files}`,
+    other: `Descriptions of # images: ${files}`,
+  });
 }

@@ -6,11 +6,12 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { InfraList } from '@/components/clio/infrastructure-row';
 import { foundationGroups } from './infrastructure-foundation';
+import { t } from '@lingui/core/macro';
 
 const GROUP_LABELS = {
-  errors: 'Errors',
-  warnings: 'Warnings',
-  ready: 'Ready and working',
+  errors: t`Errors`,
+  warnings: t`Warnings`,
+  ready: t`Ready and working`,
 } as const;
 
 /** Keep the group counts aligned with the live sandbox row after setup. */

@@ -9,6 +9,8 @@ import { workspaceLabels } from '@/lib/workspace-labels';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 export interface ClioArchivedSessionsDialogProps {
   open: boolean;
@@ -26,7 +28,7 @@ function archivedOn(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
   const thisYear = date.getFullYear() === new Date().getFullYear();
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(formatLocale(), {
     month: 'short',
     day: 'numeric',
     ...(thisYear ? {} : { year: 'numeric' }),
@@ -81,10 +83,10 @@ export function ClioArchivedSessionsDialog({
     setPendingId(session.id);
     try {
       await onRestore(session.id);
-      toast.success(`${session.title} restored`);
+      toast.success(t`${ph({ title: session.title })} restored`);
       focusRowAfter(listRef.current, index);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to restore the conversation');
+      toast.error(error instanceof Error ? error.message : t`Unable to restore the conversation`);
     } finally {
       setPendingId(undefined);
     }
@@ -95,10 +97,10 @@ export function ClioArchivedSessionsDialog({
     setPendingId(deleteTarget.id);
     try {
       await onDelete(deleteTarget.id);
-      toast.success(`${deleteTarget.title} deleted`);
+      toast.success(t`${ph({ title: deleteTarget.title })} deleted`);
       setDeleteTarget(undefined);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to delete the conversation');
+      toast.error(error instanceof Error ? error.message : t`Unable to delete the conversation`);
     } finally {
       setPendingId(undefined);
     }
@@ -111,8 +113,8 @@ export function ClioArchivedSessionsDialog({
         open={open && !deleteTarget}
         onOpenChange={onOpenChange}
         icon={<ArchiveIcon />}
-        title="Archived conversations"
-        description="Restore one to the sidebar, or delete it for good."
+        title={t`Archived conversations`}
+        description={t`Restore one to the sidebar, or delete it for good.`}
       >
         {archived.length ? (
           <ul
@@ -123,9 +125,9 @@ export function ClioArchivedSessionsDialog({
               const label = labels.get(session.workspace_id);
               const workspace = label
                 ? [label.name, ...label.qualifiers].join(' ')
-                : 'Workspace unavailable';
+                : t`Workspace unavailable`;
               const when = archivedOn(session.updated_at);
-              const detail = when ? `${workspace}, archived ${when}` : workspace;
+              const detail = when ? t`${workspace}, archived ${when}` : workspace;
               return (
                 <li
                   key={session.id}
@@ -146,17 +148,17 @@ export function ClioArchivedSessionsDialog({
                     </small>
                   </span>
                   <Button
-                    aria-label={`Restore ${session.title}`}
+                    aria-label={t`Restore ${ph({ title: session.title })}`}
                     disabled={pendingId === session.id}
                     onClick={() => void restore(session)}
                     size="sm"
                     variant="outline"
                   >
-                    <ArchiveRestoreIcon aria-hidden="true" /> Restore
+                    <ArchiveRestoreIcon aria-hidden="true" /> {t`Restore`}
                   </Button>
                   <IconButton
                     size="toolbar"
-                    label={`Delete ${session.title}`}
+                    label={t`Delete ${ph({ title: session.title })}`}
                     icon={<DeleteIcon aria-hidden="true" />}
                     disabled={pendingId === session.id}
                     onClick={() => setDeleteTarget(session)}
@@ -167,16 +169,16 @@ export function ClioArchivedSessionsDialog({
           </ul>
         ) : state?.error ? (
           <StateView
-            action={{ label: 'Retry', onClick: state.retry }}
+            action={{ label: t`Retry`, onClick: state.retry }}
             detail={isOfflineError(state.error) ? 'Offline' : undefined}
             kind="error"
             size="panel"
-            title="Archived conversations could not be listed"
+            title={t`Archived conversations could not be listed`}
           />
         ) : state?.loading ? (
-          <StateView kind="loading" size="panel" title="Loading archived conversations…" />
+          <StateView kind="loading" size="panel" title={t`Loading archived conversations…`} />
         ) : (
-          <StateView kind="empty" size="panel" title="No archived conversations" />
+          <StateView kind="empty" size="panel" title={t`No archived conversations`} />
         )}
       </DialogFrame>
       <DialogFrame
@@ -185,11 +187,15 @@ export function ClioArchivedSessionsDialog({
           if (!next && !pendingId) setDeleteTarget(undefined);
         }}
         icon={<DeleteIcon />}
-        title={`Delete ${deleteTarget?.title ?? 'conversation'}?`}
-        description="Removes it and its record from the service. This can’t be undone."
-        cancelLabel="Keep conversation"
+        title={
+          deleteTarget?.title
+            ? t`Delete ${ph({ title: deleteTarget.title })}?`
+            : t`Delete conversation?`
+        }
+        description={t`Removes it and its record from the service. This can’t be undone.`}
+        cancelLabel={t`Keep conversation`}
         confirm={{
-          label: 'Delete permanently',
+          label: t`Delete permanently`,
           tone: 'destructive',
           disabled: Boolean(pendingId),
           onConfirm: () => void remove(),

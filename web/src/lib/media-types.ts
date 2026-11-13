@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /**
  * What the client can tell about a media type.
  *
@@ -44,25 +45,25 @@ export function fileFormatLabel(name: string, mediaType: string): string {
     html: 'HTML',
     htm: 'HTML',
     tex: 'LaTeX',
-    txt: 'Text',
+    txt: t`Text`,
     docx: 'Word',
     xlsx: 'Excel',
     pptx: 'PowerPoint',
     ppt: 'PowerPoint',
     py: 'Python',
-    sh: 'Shell script',
+    sh: t`Shell script`,
     ps1: 'PowerShell',
     js: 'JavaScript',
     ts: 'TypeScript',
-    ipynb: 'Notebook',
+    ipynb: t`Notebook`,
     glb: 'GLB',
     gltf: 'glTF',
     obj: 'OBJ',
     stl: 'STL',
     ply: 'PLY',
-    odt: 'Document',
-    ods: 'Spreadsheet',
-    odp: 'Presentation',
+    odt: t`Document`,
+    ods: t`Spreadsheet`,
+    odp: t`Presentation`,
     csv: 'CSV',
     tsv: 'TSV',
     json: 'JSON',
@@ -74,11 +75,11 @@ export function fileFormatLabel(name: string, mediaType: string): string {
     svg: 'SVG',
     webp: 'WebP',
     gif: 'GIF',
-    mp4: 'Video',
-    webm: 'Video',
-    mp3: 'Audio',
-    wav: 'Audio',
+    mp4: t`Video`,
+    webm: t`Video`,
+    mp3: t`Audio`,
+    wav: t`Audio`,
     zip: 'ZIP',
   };
-  return (extension && labels[extension]) || (mediaType.startsWith('text/') ? 'Text' : 'File');
+  return (extension && labels[extension]) || (mediaType.startsWith('text/') ? t`Text` : t`File`);
 }

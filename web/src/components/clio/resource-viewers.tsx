@@ -50,7 +50,6 @@ import { ClioDocumentWorkspace } from './document-workspace';
 import { PREPARING_PDF_EXPORT } from './document-open-menu';
 import { useFileViewerActions } from './file-viewer-action-context';
 
-
 import { HtmlFileInBrowser } from './html-in-browser';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
@@ -72,6 +71,7 @@ import { isStreamArtifact } from './stream-artifact';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 import { WorkspaceTextView } from './workspace-text-view';
+import { t, ph } from '@lingui/core/macro';
 export { TextResourceView } from './workspace-text-view';
 
 const PREPARING_PDF_ROWS = [PREPARING_PDF_EXPORT];
@@ -174,7 +174,7 @@ export function WorkspaceFileView({
       mediaType={detected}
     />
   ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
-    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+    <Suspense fallback={<ResourceLoading label={t`Loading ${ph({ name: fileName(path) })}`} />}>
       {/\.nc$/iu.test(path) ? (
         <WorkspaceNetcdfView
           locator={locator}
@@ -204,9 +204,9 @@ export function WorkspaceFileView({
             <WorkspaceBinaryView
               mediaType={detected}
               path={path}
-              reason="It can't run here right now."
+              reason={t`It can't run here right now.`}
               size={size}
-              title="Preview needs the document runtime"
+              title={t`Preview needs the document runtime`}
               workspaceId={workspaceId}
             />
           }
@@ -224,8 +224,8 @@ export function WorkspaceFileView({
       loading={
         <>
           <PreparingPdfExport />
-          <PendingZoomControls label="PDF zoom" readout={<PendingPageReadout />} />
-          <ResourceLoading label={`Opening ${fileName(path)}`} />
+          <PendingZoomControls label={t`PDF zoom`} readout={<PendingPageReadout />} />
+          <ResourceLoading label={t`Opening ${ph({ name: fileName(path) })}`} />
         </>
       }
       mediaType={officeMediaType(path)!}
@@ -243,8 +243,8 @@ export function WorkspaceFileView({
       tabs={[
         // An Office file reads as its document from first paint, as it will once loaded.
         officeMediaType(path)
-          ? { value: 'preview', label: 'Read document', icon: BookOpenIcon, content: preview }
-          : { value: 'preview', label: 'Preview', icon: EyeIcon, content: preview },
+          ? { value: 'preview', label: t`Read document`, icon: BookOpenIcon, content: preview }
+          : { value: 'preview', label: t`Preview`, icon: EyeIcon, content: preview },
       ]}
       lineage={
         embedded ? undefined : (
@@ -302,14 +302,15 @@ function WorkspaceNetcdfView({
     retry: false,
     staleTime: Infinity,
   });
-  if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
+  if (magic.isPending)
+    return <ResourceLoading label={t`Loading ${ph({ name: fileName(path) })}`} />;
   if (magic.isError)
     return <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />;
   if (isClassicNetcdf(magic.data?.subarray(0, 4)))
     return (
       <ViewerNoPreview
-        format="classic NetCDF"
-        reason="This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
+        format={t`classic NetCDF`}
+        reason={t`This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5.`}
         source={source}
       />
     );
@@ -561,7 +562,7 @@ function ArtifactFileView({
         variant="outline"
         onClick={() => onOpenWorkspaceFile(currentFile)}
       >
-        Open current workspace file
+        {t`Open current workspace file`}
       </Button>
     ) : null;
   const source: FileViewerSource = {
@@ -605,12 +606,12 @@ function ArtifactFileView({
         error={
           text.error instanceof ArtifactRecoveryError
             ? text.error.message
-            : 'The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.'
+            : t`The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.`
         }
         onRetry={() => void text.refetch()}
       />
     ) : (
-      <ResourceLoading label={`Loading ${artifact.name}`} />
+      <ResourceLoading label={t`Loading ${ph({ name: artifact.name })}`} />
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
@@ -643,11 +644,11 @@ function ArtifactFileView({
       hasDocumentActions={
         !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
       }
-      label="Artifact views"
+      label={t`Artifact views`}
       tabs={[
         {
           value: 'preview',
-          label: isDashboard ? 'Render' : 'Preview',
+          label: isDashboard ? t`Render` : t`Preview`,
           icon: EyeIcon,
           content: (
             <>
@@ -657,7 +658,7 @@ function ArtifactFileView({
                   <div className="min-h-0 flex-1">{preview}</div>
                   {image.data?.recovered ? (
                     <p className="shrink-0 text-xs text-muted-foreground">
-                      Recovered from the matching workspace file.
+                      {t`Recovered from the matching workspace file.`}
                     </p>
                   ) : null}
                 </div>
@@ -675,7 +676,7 @@ function ArtifactFileView({
                   <div className="min-h-0 flex-1 overflow-auto">{preview}</div>
                   {text.data?.recovered ? (
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Recovered from the matching workspace file.
+                      {t`Recovered from the matching workspace file.`}
                     </p>
                   ) : null}
                 </div>
@@ -687,7 +688,7 @@ function ArtifactFileView({
           ? [
               {
                 value: 'source',
-                label: 'Definition',
+                label: t`Definition`,
                 icon: CodeIcon,
                 content: <FileSourceView name={artifact.name} content={text.data.content} />,
               },

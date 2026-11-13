@@ -4,19 +4,20 @@ import { Badge } from '@/components/ui/badge';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { ActionCardButton } from './action-card-button';
+import { t, ph } from '@lingui/core/macro';
 
 type ActionCardBlock = Extract<MessageBlock, { type: 'action_card' }>;
 
 /** Two alert levels: a warning informs (yellow); a danger also quarantines the session (red). */
 const LEVEL = {
   warning: {
-    label: 'Warning',
+    label: t`Warning`,
     accent: 'border-l-warning',
     tone: 'text-warning',
     Icon: TriangleAlertIcon,
   },
   danger: {
-    label: 'Danger',
+    label: t`Danger`,
     accent: 'border-l-destructive',
     tone: 'text-destructive',
     Icon: ShieldAlertIcon,
@@ -53,7 +54,7 @@ export function ActionAlertCard({
   const actions = block.actions.filter((action) => action.behavior.kind !== 'inspect_attention');
   return (
     <section
-      aria-label={`${raisedBy(block.source)} finding: ${block.title}`}
+      aria-label={t`${ph({ source: raisedBy(block.source) })} finding: ${ph({ title: block.title })}`}
       className={cn('my-2 rounded-lg border border-l-4 bg-card px-4 py-3 text-sm', severity.accent)}
       data-slot="action-alert-card"
       role="alert"

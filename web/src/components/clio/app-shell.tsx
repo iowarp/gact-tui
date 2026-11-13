@@ -37,6 +37,7 @@ import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
 import { ConversationRailDockContext, dockedRailWidth } from './conversation-rail-dock';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t } from '@lingui/core/macro';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -45,7 +46,7 @@ function TopBarSidebarTrigger() {
   if (!isMobile && state === 'expanded') return null;
   return (
     <span className="inline-flex">
-      <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+      <NamedTooltip label={t`Show the left bar`} shortcut="left-pocket">
         {/* Closed or a phone sheet, the left bar is this toggle: the tour points here instead. */}
         <SidebarTrigger
           aria-keyshortcuts={leftPocketKey?.aria}
@@ -168,7 +169,7 @@ function DesktopNavigationLayout({
           {navigation}
         </ResizablePanel>
         <ResizableHandle
-          aria-label="Resize navigation"
+          aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
         />
         {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
@@ -436,7 +437,7 @@ export function ClioAppShell({
     <ConversationRailDockContext.Provider value={railDock}>
       <section
         className="flex h-full min-w-0 flex-col bg-background"
-        aria-label="Conversation workspace"
+        aria-label={t`Conversation workspace`}
         data-keyboard-region=""
         data-slot="conversation-surface"
       >
@@ -451,7 +452,7 @@ export function ClioAppShell({
           {updating ? null : toolbarActions}
           {hasWorkbench && !updating && (
             <ToolbarAction
-              label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
+              label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
               onClick={toggleWorkbench}
               shortcut="right-pocket"
               aria-pressed={workbenchOpen}
@@ -492,12 +493,16 @@ export function ClioAppShell({
     >
       {/* The maximized canvas covers this section (the conversation), not the
           left bar; the rail hides while it is maximized. */}
-      <section aria-label="Session workspace" data-workbench-maximize-host="" ref={setWorkbenchHost}>
+      <section
+        aria-label={t`Session workspace`}
+        data-workbench-maximize-host=""
+        ref={setWorkbenchHost}
+      >
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
             <ResizableHandle
-              aria-label="Resize workspace canvas"
+              aria-label={t`Resize workspace canvas`}
               // Collapsed, the handle sits on the window edge and its 12 px grip
               // would cover the toolbar's last button; the toolbar toggle opens it.
               className={cn(
@@ -575,10 +580,9 @@ export function ClioAppShell({
             side="right"
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Workspace canvas</SheetTitle>
+              <SheetTitle>{t`Workspace canvas`}</SheetTitle>
               <SheetDescription>
-                Session activity, child conversations, files, artifacts, and the conversation’s
-                agent.
+                {t`Session activity, child conversations, files, artifacts, and the conversation’s agent.`}
               </SheetDescription>
             </SheetHeader>
             {visibleWorkbench}

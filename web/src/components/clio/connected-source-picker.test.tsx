@@ -588,7 +588,7 @@ describe('connected source picker', () => {
       expect(fixtures.repository.createConnectedSource).toHaveBeenCalledWith(
         'w',
         expect.objectContaining({
-          root: 'https://drive.google.com/drive/folders/input_data',
+          root: 'input_data',
           label: 'Google Drive',
           mode: 'read_only',
         }),

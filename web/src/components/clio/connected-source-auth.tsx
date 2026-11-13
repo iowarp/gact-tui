@@ -15,6 +15,7 @@ import { signInToStorage } from '@/tauri/storage-oauth';
 import { ProviderLoginButton } from './provider-login-button';
 import { GitHubSourceAuth } from './github-source-auth';
 import { useStorageSignInPoll } from './use-storage-sign-in-poll';
+import { t, ph } from '@lingui/core/macro';
 
 /** Authorization values stay in this trusted form and never enter the composer draft. */
 export function ConnectedSourceAuth({
@@ -160,14 +161,13 @@ function BrowserStorageAuth({
       />
     );
   return (
-    <section className="space-y-3 rounded-lg border p-4" aria-label="Source sign in">
+    <section className="space-y-3 rounded-lg border p-4" aria-label={t`Source sign in`}>
       <div className="flex items-center gap-2">
         <h4 className="text-sm font-medium">
-          {collectionConsent ? 'Allow access to this collection' : 'Sign in through your browser'}
+          {collectionConsent ? t`Allow access to this collection` : t`Sign in through your browser`}
         </h4>
-        <InfoTip label="About private sign in">
-          Your sign-in is saved on this {vocab.agent} and can be used in any of your workspaces.
-          Your password and sign-in codes are never added to a conversation.
+        <InfoTip label={t`About private sign in`}>
+          {t`Your sign-in is saved on this ${ph({ agent: vocab.agent })} and can be used in any of your workspaces. Your password and sign-in codes are never added to a conversation.`}
         </InfoTip>
       </div>
       <ProviderLoginButton
@@ -175,27 +175,27 @@ function BrowserStorageAuth({
         onLogIn={() => start.mutate(inTauri() ? undefined : prepareExternalUrl())}
         label={
           start.isPending
-            ? 'Waiting for browser sign-in…'
+            ? t`Waiting for browser sign-in…`
             : collectionConsent
-              ? 'Authorize collection'
+              ? t`Authorize collection`
               : flow?.automatic_callback
-                ? 'Start again'
-                : 'Log in'
+                ? t`Start again`
+                : t`Log in`
         }
       />
       {start.isPending && (
         <Button variant="ghost" onClick={() => active.current?.abort()}>
-          Cancel sign-in
+          {t`Cancel sign-in`}
         </Button>
       )}
       {flow && (
         <ExternalLink className="block text-sm underline" href={flow.authorization_url}>
-          Open sign-in page
+          {t`Open sign-in page`}
         </ExternalLink>
       )}
       {flow?.automatic_callback && (
         <p role="status" className="text-sm text-muted-foreground">
-          Finish signing in with Google. {vocab.agent} will connect automatically when you return.
+          {t`Finish signing in with Google. ${ph({ agent: vocab.agent })} will connect automatically when you return.`}
         </p>
       )}
       {flow && !flow.automatic_callback && (
@@ -208,8 +208,8 @@ function BrowserStorageAuth({
         >
           <label className="text-sm" htmlFor="source-auth-return">
             {provider === 'globus'
-              ? 'Authorization code or return URL'
-              : 'Return URL after authorization'}
+              ? t`Authorization code or return URL`
+              : t`Return URL after authorization`}
           </label>
           <Input
             id="source-auth-return"
@@ -220,7 +220,7 @@ function BrowserStorageAuth({
             onChange={(e) => setCallback(e.target.value)}
           />
           <Button type="submit" disabled={!callback || complete.isPending}>
-            {complete.isPending ? 'Completing sign in…' : 'Complete sign in'}
+            {complete.isPending ? t`Completing sign in…` : t`Complete sign in`}
           </Button>
         </form>
       )}

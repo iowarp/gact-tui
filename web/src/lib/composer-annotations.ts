@@ -5,6 +5,7 @@ import type {
   DocumentAnchor,
 } from '@clio/core/v3';
 import type { SelectionTarget } from './selection-actions';
+import {} from '@lingui/core/macro';
 
 /**
  * What the person attaches to their next message: comment sessions on things that are not
@@ -78,6 +79,7 @@ export function markFromSelection(target: SelectionTarget): {
       : target;
   return {
     kind: 'agent-answer',
+    // i18n-ignore: the annotation travels with the message to the agent
     title: messageId ? `answer ${messageId}` : 'an answer',
     anchor: {
       profile: 'text-quote',

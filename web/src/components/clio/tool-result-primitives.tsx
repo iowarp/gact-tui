@@ -22,6 +22,7 @@ import { formatDuration } from '@/lib/format';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { TodoStatusIcon } from './todo-list';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const CLIO_STATUSES = new Set<ClioStatusValue>([
   'queued',
@@ -52,16 +53,24 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
   const status = itemStatus(block.status);
   const details = [block.detail, ...(block.items ?? [])].filter(Boolean);
   if (block.result_kind === 'message') {
-    return <ExpandableDetail label={block.label || 'Message sent'} text={block.text ?? ''} />;
+    return <ExpandableDetail label={block.label || t`Message sent`} text={block.text ?? ''} />;
   }
   if (block.target === 'session') {
     const observed = block.result_kind === 'snapshot';
-    const statusText = status ? clioStatusLabel(status).toLowerCase() : 'unknown';
+    const statusText = status ? clioStatusLabel(status).toLowerCase() : t`unknown`;
+    const durationMs = block.duration_ms;
+    const duration = durationMs === undefined ? '' : formatDuration(durationMs);
     const outcome = observed
-      ? `was ${statusText} when checked`
+      ? t`was ${statusText} when checked`
       : status === 'completed' || status === 'succeeded'
-        ? `completed${block.duration_ms === undefined ? '' : block.duration_ms <= 0 ? ', already available' : `, returned after ${formatDuration(block.duration_ms)}`}`
-        : `${statusText}${block.duration_ms !== undefined ? ` after ${formatDuration(block.duration_ms)}` : ''}`;
+        ? durationMs === undefined
+          ? t`completed`
+          : durationMs <= 0
+            ? t`completed, already available`
+            : t`completed, returned after ${duration}`
+        : durationMs !== undefined
+          ? t`${statusText} after ${duration}`
+          : statusText;
     return (
       <div className="min-w-0 text-sm">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -69,7 +78,7 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
           <span className="text-muted-foreground">{outcome}</span>
         </div>
         {!observed && block.detail ? (
-          <ExpandableDetail label="Returned" text={block.detail} />
+          <ExpandableDetail label={t`Returned`} text={block.detail} />
         ) : null}
       </div>
     );
@@ -80,7 +89,7 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
       <div className="min-w-0 flex-1">
         <PresentationLink block={block} compact />
         {block.items?.length ? (
-          <div className="mt-1 flex min-w-0 flex-wrap gap-1" aria-label="Available models">
+          <div className="mt-1 flex min-w-0 flex-wrap gap-1" aria-label={t`Available models`}>
             {block.items.slice(0, 4).map((item) => (
               <span
                 className="max-w-48 truncate rounded bg-background px-1.5 py-0.5 text-xs"
@@ -91,7 +100,7 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
             ))}
             {block.items.length > 4 ? (
               <span className="px-1 py-0.5 text-xs text-muted-foreground">
-                {block.items.length - 4} more
+                {plural(block.items.length - 4, { one: '# more', other: '# more' })}
               </span>
             ) : null}
           </div>
@@ -116,7 +125,9 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
         <Dialog>
           <DialogTrigger asChild>
             <Button
-              aria-label={`Details for ${block.label || 'result'}`}
+              aria-label={
+                block.label ? t`Details for ${ph({ label: block.label })}` : t`Details for result`
+              }
               className="size-7 shrink-0"
               size="icon-sm"
               variant="ghost"
@@ -126,12 +137,12 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
           </DialogTrigger>
           <ResultDialogContent
             icon={<InfoIcon />}
-            title={block.label || 'Result details'}
-            description="Recorded details for this result."
+            title={block.label || t`Result details`}
+            description={t`Recorded details for this result.`}
           >
             {block.detail ? <p className="whitespace-pre-wrap text-sm">{block.detail}</p> : null}
             {block.items?.length ? (
-              <ul className="grid gap-1 text-sm" aria-label="Available models">
+              <ul className="grid gap-1 text-sm" aria-label={t`Available models`}>
                 {block.items.map((item) => (
                   <li className="rounded-md border bg-muted/30 px-2 py-1" key={item}>
                     {item}
@@ -154,9 +165,9 @@ export function ProviderRefreshResults({ blocks }: { blocks: ToolPresentationBlo
   return (
     <div className="min-w-0" data-slot="provider-refresh-results">
       <p className="pb-1 text-sm text-muted-foreground">
-        {blocks.length} providers: {refreshed} refreshed, {failed} failed
+        {t`${plural(blocks.length, { one: '# provider', other: '# providers' })}: ${refreshed} refreshed, ${failed} failed`}
       </p>
-      <ul aria-label="Provider refresh results" className="divide-y border-y">
+      <ul aria-label={t`Provider refresh results`} className="divide-y border-y">
         {blocks.map((block) => (
           <li key={block.id}>
             <ProviderRefreshItem block={block} />
@@ -178,15 +189,15 @@ export function ProviderRefreshItem({ block }: { block: ToolPresentationBlock })
   const diagnosticLines = detailLines.filter((line) => line !== sourceLine);
   const modelCount = block.items?.length ?? 0;
   const outcome = modelCount
-    ? `${modelCount} ${modelCount === 1 ? 'model' : 'models'}`
+    ? plural(modelCount, { one: '# model', other: '# models' })
     : status
       ? clioStatusLabel(status)
-      : 'No result';
+      : t`No result`;
   return (
     <Collapsible className="group/provider">
       <CollapsibleTrigger asChild>
         <button
-          aria-label={`Details for ${providerName}`}
+          aria-label={t`Details for ${providerName}`}
           className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-sm px-1.5 py-1 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50"
           type="button"
         >
@@ -203,7 +214,7 @@ export function ProviderRefreshItem({ block }: { block: ToolPresentationBlock })
       <CollapsibleContent>
         <div className="ml-7 flex min-w-0 flex-col gap-2 border-l px-3 pt-1 pb-2">
           {block.items?.length ? (
-            <div aria-label={`Models from ${providerName}`} className="flex flex-wrap gap-1">
+            <div aria-label={t`Models from ${providerName}`} className="flex flex-wrap gap-1">
               {block.items.map((item) => (
                 <Badge className="max-w-full font-normal" key={item} variant="secondary">
                   <span className="truncate">{item}</span>
@@ -213,7 +224,7 @@ export function ProviderRefreshItem({ block }: { block: ToolPresentationBlock })
           ) : null}
           {sourceLine ? (
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Source </span>
+              <span className="font-medium text-foreground">{t`Source`} </span>
               {sourceLine.replace(/^Source:\s*/iu, '').replaceAll('_', ' ')}
             </p>
           ) : null}
@@ -234,7 +245,7 @@ export function ProviderRefreshItem({ block }: { block: ToolPresentationBlock })
           })}
           {block.action_label && block.uri ? (
             <Button asChild className="h-7 self-start px-2" size="sm" variant="ghost">
-              <a href={block.uri}>Configure provider</a>
+              <a href={block.uri}>{t`Configure provider`}</a>
             </Button>
           ) : null}
         </div>
@@ -281,7 +292,7 @@ export function ExpandableDetail({ text, label }: { text: string; label: string 
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? t`Show less` : t`Show more`}
         </button>
       ) : null}
     </div>
@@ -316,16 +327,16 @@ export function BlockBody({
 }) {
   switch (block.type) {
     case 'media': {
-      if (!complete) return <p>Open the complete media result to preview it.</p>;
+      if (!complete) return <p>{t`Open the complete media result to preview it.`}</p>;
       const mime = block.media_type ?? '';
       if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(text) || text.length % 4 !== 0)
-        return <p>Media data is invalid.</p>;
+        return <p>{t`Media data is invalid.`}</p>;
       if (/^image\/(png|jpeg|webp|gif|avif)$/u.test(mime))
         return (
           <Image
             base64={text}
             mediaType={mime}
-            alt={block.label || 'Tool image result'}
+            alt={block.label || t`Tool image result`}
             className={full ? 'max-h-[65dvh] object-contain' : 'max-h-32 object-contain'}
           />
         );
@@ -334,11 +345,15 @@ export function BlockBody({
           <audio
             controls
             preload="none"
-            aria-label={block.label || 'Tool audio result'}
+            aria-label={block.label || t`Tool audio result`}
             src={`data:${mime};base64,${text}`}
           />
         );
-      return <p>Preview unavailable for {mime || 'this media type'}.</p>;
+      return (
+        <p>
+          {mime ? t`Preview unavailable for ${mime}.` : t`Preview unavailable for this media type.`}
+        </p>
+      );
     }
     case 'markdown':
       return (
@@ -377,16 +392,20 @@ export function BlockBody({
       );
     case 'check': {
       const labelFor = (state: ToolPresentationBlock['state']) =>
-        state === 'completed' ? 'Completed' : state === 'in_progress' ? 'In progress' : 'Pending';
+        state === 'completed'
+          ? t`Completed`
+          : state === 'in_progress'
+            ? t`In progress`
+            : t`Pending`;
       const status = labelFor(block.state);
       const previousStatus = block.previous_state ? labelFor(block.previous_state) : undefined;
       const accessibleStatus =
         block.change === 'status_changed' && previousStatus
-          ? `Changed from ${previousStatus} to ${status}`
+          ? t`Changed from ${previousStatus} to ${status}`
           : block.change === 'added'
-            ? `Added as ${status}`
+            ? t`Added as ${status}`
             : block.change === 'removed'
-              ? `Removed from todo list, was ${status}`
+              ? t`Removed from todo list, was ${status}`
               : status;
       return (
         <div
@@ -422,7 +441,7 @@ export function BlockBody({
           </span>
           {block.change === 'added' || block.change === 'removed' ? (
             <span className="text-xs leading-6 text-muted-foreground" data-slot="todo-change">
-              {block.change === 'added' ? 'Added' : 'Removed'}
+              {block.change === 'added' ? t`Added` : t`Removed`}
             </span>
           ) : null}
         </div>
@@ -520,7 +539,7 @@ export function PagedBlock({
         await load(controller.signal);
       } catch (cause) {
         if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : 'Unable to load complete content');
+          setError(cause instanceof Error ? cause.message : t`Unable to load complete content`);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
         if (request.current === controller) request.current = null;
@@ -536,7 +555,7 @@ export function PagedBlock({
             size="sm"
             variant="outline"
           >
-            {loading ? 'Loading complete content…' : 'Load complete content'}
+            {loading ? t`Loading complete content…` : t`Load complete content`}
           </Button>
         ) : null}
         {error ? (
@@ -549,7 +568,7 @@ export function PagedBlock({
   }
   return (
     <BoundedResult
-      title={block.label || 'Complete result'}
+      title={block.label || t`Complete result`}
       lines={lines}
       hasMore={Object.values(contents).some((item) => item.cursor !== null)}
       loadMore={load}

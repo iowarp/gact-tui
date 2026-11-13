@@ -18,12 +18,8 @@ vi.mock('@/providers/connection-provider', () => ({
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from '@/lib/a2ui/kernel-catalog';
-import {
-  columnKindFromRows,
-  dataTableComponentSchema,
-  mergeFilters,
-  resolveEffectiveSort,
-} from './a2ui-data-table';
+import { columnKindFromRows, mergeFilters, resolveEffectiveSort } from './a2ui-data-table';
+import { dataTableComponentSchema } from './a2ui-data-table-catalog';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { SelectionActionsProvider } from './selection-actions';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
@@ -41,11 +37,10 @@ function ComposerAndChildren({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <ClioComposerAnnotations
-        annotations={annotations}
-        onChange={setAnnotations}
-      />
-      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
+      <ClioComposerAnnotations annotations={annotations} onChange={setAnnotations} />
+      <output data-testid="sent-comments" hidden>
+        {JSON.stringify(annotations)}
+      </output>
     </>
   );
 }

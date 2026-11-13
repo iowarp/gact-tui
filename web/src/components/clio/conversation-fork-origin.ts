@@ -1,4 +1,5 @@
 import type { Session } from '@clio/core/v3';
+import { t, ph } from '@lingui/core/macro';
 
 /** Who made a fork: the person, or the agent through its `fork` tool. */
 export interface ConversationForkAuthor {
@@ -79,7 +80,9 @@ export function isAgentFork(origin: ConversationForkOrigin | undefined): boolean
 /** Who forked, in text: "Forked by the agent: <note>" for an agent's fork. */
 export function forkAuthorLabel(origin: ConversationForkOrigin | undefined): string | undefined {
   if (!isAgentFork(origin)) return undefined;
-  return origin!.note ? `Forked by the agent: ${origin!.note}` : 'Forked by the agent';
+  return origin!.note
+    ? t`Forked by the agent: ${ph({ note: origin!.note })}`
+    : t`Forked by the agent`;
 }
 
 /**

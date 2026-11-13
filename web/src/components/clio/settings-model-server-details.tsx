@@ -12,6 +12,7 @@ import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel } from './settings-row';
 import { TechnicalDetails } from './technical-details';
+import { plural, t } from '@lingui/core/macro';
 
 export interface ModelServerDetailsProps {
   preset: LanguageModelPreset;
@@ -56,8 +57,8 @@ export function ModelServerDetails({
   const models = latest
     ? latest.models
     : (catalogEntry?.models.map((model) => model.model_id) ?? []);
-  const kind = custom ? 'OpenAI-compatible server' : 'Model server';
-  const where = isLoopbackAddress(address) ? 'on this computer' : 'on another machine';
+  const kind = custom ? t`OpenAI-compatible server` : t`Model server`;
+  const where = isLoopbackAddress(address) ? t`on this computer` : t`on another machine`;
 
   function runCheck() {
     if (saved) check.mutate(saved.id);
@@ -66,41 +67,44 @@ export function ModelServerDetails({
 
   const summary: KeyValueItem[] = [
     {
-      label: 'Status',
+      label: t`Status`,
       value: (
         <StatusIndicator
-          label={pending ? 'Checking' : words.label}
+          label={pending ? t`Checking` : words.label}
           tone={pending ? 'running' : words.tone}
         />
       ),
       title: words.hint ?? words.label,
     },
-    { label: 'Address', value: address, mono: true },
-    { label: 'Default model', value: isDefault ? 'New work uses this server' : 'Not in use' },
+    { label: t`Address`, value: address, mono: true },
+    {
+      label: t`Default model`,
+      value: isDefault ? t`New work uses this server` : t`Not in use`,
+    },
   ];
   const endpoint = catalogEntry?.endpoint || group?.endpoint || preset.api_base;
   const facts: Array<[string, string | undefined]> = [
-    ['Provider id', custom && saved ? saved.id : preset.id],
+    [t`Provider id`, custom && saved ? saved.id : preset.id],
     // Only when the catalog reaches it somewhere other than the Address above.
-    ['Endpoint', endpoint && endpoint !== address ? endpoint : undefined],
-    ['Catalog health', catalogEntry?.health],
-    ['Connection', catalogEntry ? providerConnectionLabel(catalogEntry.connectivity) : undefined],
+    [t`Endpoint`, endpoint && endpoint !== address ? endpoint : undefined],
+    [t`Catalog health`, catalogEntry?.health],
+    [t`Connection`, catalogEntry ? providerConnectionLabel(catalogEntry.connectivity) : undefined],
     [
-      'Credentials',
+      t`Credentials`,
       catalogEntry ? providerCredentialStateLabel(preset, catalogEntry.auth) : undefined,
     ],
-    ['Configuration state', preset.status],
+    [t`Configuration state`, preset.status],
     [
-      'Last checked',
+      t`Last checked`,
       saved?.check
         ? formatFreshness(saved.check.checked_at)
         : group?.freshness
           ? formatFreshness(group.freshness)
           : undefined,
     ],
-    ['Catalog source', catalogEntry?.freshness.source],
+    [t`Catalog source`, catalogEntry?.freshness.source],
     [
-      'Raw reason',
+      t`Raw reason`,
       saved?.check?.error || catalogEntry?.failure || preset.status_message || undefined,
     ],
   ];
@@ -118,14 +122,14 @@ export function ModelServerDetails({
             <IconButton
               disabled={applying || pending}
               icon={<CircleCheckIcon />}
-              label={`Use ${label}`}
+              label={t`Use ${label}`}
               onClick={() => onUse(address, latest?.models[0])}
             />
           ) : null}
           <IconButton
             disabled={pending}
             icon={<RefreshIcon />}
-            label="Check again"
+            label={t`Check again`}
             onClick={runCheck}
           />
         </>
@@ -144,10 +148,10 @@ export function ModelServerDetails({
         </p>
         <KeyValueGrid items={summary} />
         <SettingsGroupLabel className="mt-3">
-          {models.length === 1 ? '1 model' : `${models.length} models`}
+          {plural(models.length, { one: '# model', other: '# models' })}
         </SettingsGroupLabel>
         {models.length ? (
-          <ul className="grid gap-0.5" aria-label={`Models on ${label}`}>
+          <ul className="grid gap-0.5" aria-label={t`Models on ${label}`}>
             {models.map((model) => (
               <li className="truncate font-mono text-label" key={model} title={model}>
                 {model}
@@ -157,8 +161,8 @@ export function ModelServerDetails({
         ) : (
           <p className="text-xs text-muted-foreground">
             {status.kind === 'running'
-              ? 'It is running, but no model is loaded yet.'
-              : 'Models appear here once it answers.'}
+              ? t`It is running, but no model is loaded yet.`
+              : t`Models appear here once it answers.`}
           </p>
         )}
         {technical.length ? (
@@ -166,7 +170,7 @@ export function ModelServerDetails({
             className="mt-3"
             contentClassName="pt-1"
             summaryClassName="text-xs font-normal"
-            title="Technical details"
+            title={t`Technical details`}
           >
             <KeyValueGrid items={technical} />
           </TechnicalDetails>

@@ -32,6 +32,7 @@ import {
 } from '@/components/clio/flow-run-presentation';
 import { flowToolDescriptor } from '@/components/clio/flow-tool-presentation';
 import { formatDuration } from '@/lib/format';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** How a run is drawn: as a railroad, or as a graph with the reason it is not a railroad. */
 export type FlowDiagramSpec =
@@ -64,8 +65,7 @@ export interface FlowInfo {
 }
 
 /** Shown under a graph drawn in place of the railroad, so the switch is never silent. */
-export const NOT_SERIES_PARALLEL_NOTE =
-  "Drawn as a graph: some steps wait on only part of a parallel group, so the workflow can't be laid out as one track of sequences and parallel branches.";
+export const NOT_SERIES_PARALLEL_NOTE = t`Drawn as a graph: some steps wait on only part of a parallel group, so the workflow can't be laid out as one track of sequences and parallel branches.`;
 
 /**
  * The session's own agent reference, so a step it runs reads as "this agent":
@@ -258,7 +258,10 @@ export function flowDiagrams(
         diagram: {
           kind: 'graph',
           source: workflowAgentflowSource(steps, new Map()),
-          label: `Workflow graph of ${steps.length} steps and what each waits on`,
+          label: plural(steps.length, {
+            one: 'Workflow graph of # step and what it waits on',
+            other: 'Workflow graph of # steps and what each waits on',
+          }),
           note: NOT_SERIES_PARALLEL_NOTE,
         },
       };
@@ -275,18 +278,21 @@ export function flowDiagrams(
     );
     // Recovered launches establish ownership, not the original gather structure.
     if (run.calls.some((call) => call.recovered)) railroad.parallels = [];
+    const stepList = steps.map((step) => `${step.id}, ${step.status.word}`).join('; ');
     return {
       diagram: {
         kind: 'railroad',
         railroad,
-        label: `The workflow's ${steps.length} steps in order: ${steps
-          .map((step) => `${step.id}, ${step.status.word}`)
-          .join('; ')}`,
+        label: plural(steps.length, {
+          one: `The workflow's # step in order: ${ph({ steps: stepList })}`,
+          other: `The workflow's # steps in order: ${ph({ steps: stepList })}`,
+        }),
       },
     };
   }
   const members = model.members;
   if (!members.length) return {};
+  const callList = members.map((member) => `${member.label}, ${member.status.word}`).join('; ');
   if (!['council', 'arena'].includes(run.flow)) {
     // Council and arena end in a step that is not a call (their synthesis, their judge);
     // any other flow is what it called.
@@ -296,16 +302,28 @@ export function flowDiagrams(
           diagram: {
             kind: 'railroad',
             railroad: railroadDiagram(run.flow, expr),
-            label: `The ${run.flow} flow's ${members.length} calls as they ran: ${members
-              .map((member) => `${member.label}, ${member.status.word}`)
-              .join('; ')}`,
+            label: plural(members.length, {
+              one: `The ${ph({ flow: run.flow })} flow's # call as it ran: ${ph({ calls: callList })}`,
+              other: `The ${ph({ flow: run.flow })} flow's # calls as they ran: ${ph({ calls: callList })}`,
+            }),
           },
         }
       : {};
   }
   const closing = closingStep(run.flow, run.status, members, model.verdict);
-  const word = (member: FlowMember) =>
-    member.chosen ? `${member.status.word}, chosen` : member.status.word;
+  const word = (member: FlowMember) => {
+    const status = member.status.word;
+    return member.chosen ? t`${status}, chosen` : status;
+  };
+  const stepList = members
+    .map((member) => {
+      const step = member.label;
+      const state = word(member);
+      return t`${step}, ${state}`;
+    })
+    .join('; ');
+  const closingLabel = closing.label;
+  const closingState = closing.state.word;
   return {
     closing,
     diagram: {
@@ -314,7 +332,7 @@ export function flowDiagrams(
         run.flow,
         membersRailroadExpr(members, closing, run.flow, model.verdict),
       ),
-      label: `${members.map((member) => `${member.label}, ${word(member)}`).join('; ')}; then the ${closing.label}, ${closing.state.word}`,
+      label: t`${stepList}; then the ${closingLabel}, ${closingState}`,
     },
   };
 }

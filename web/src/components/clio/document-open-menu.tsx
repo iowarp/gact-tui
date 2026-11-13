@@ -8,6 +8,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { documentApplications, type DocumentApplication } from '@/tauri/documents';
 import { AssociatedApplicationItems } from './associated-application-items';
 import type { FileViewerAction } from './file-viewer-action-context';
+import { t } from '@lingui/core/macro';
 
 export interface DocumentOpenTarget {
   kind: 'native';
@@ -41,7 +42,7 @@ export const PREPARING_PDF_EXPORT: FileViewerAction = {
   icon: FileTextIcon,
   pending: true,
   disabled: true,
-  description: 'Preparing the PDF…',
+  description: t`Preparing the PDF…`,
   onSelect: () => undefined,
 };
 
@@ -104,8 +105,8 @@ export function useDocumentOpenActions({
     if (native)
       rows.push({
         kind: 'open',
-        label: 'With another app',
-        description: nativeOpen ? 'Edits become new revisions' : undefined,
+        label: t`With another app`,
+        description: nativeOpen ? t`Edits become new revisions` : undefined,
         icon: ExternalLinkIcon,
         pending: openPending,
         onSelect: () => undefined,
@@ -125,7 +126,7 @@ export function useDocumentOpenActions({
             ) : null}
             <DropdownMenuItem disabled={busy} onSelect={onReveal}>
               <FolderOpenIcon aria-hidden="true" />
-              Open in folder
+              {t`Open in folder`}
             </DropdownMenuItem>
           </>
         ),
@@ -133,7 +134,7 @@ export function useDocumentOpenActions({
     if (native && pdf)
       rows.push({
         kind: 'open',
-        label: 'PDF copy with another app',
+        label: t`PDF copy with another app`,
         icon: FileTextIcon,
         onSelect: () => undefined,
         submenu: (
@@ -150,8 +151,8 @@ export function useDocumentOpenActions({
     if (workingCopyActive)
       rows.push({
         kind: 'open',
-        label: 'Close working copy',
-        description: closePending ? 'Closing…' : undefined,
+        label: t`Close working copy`,
+        description: closePending ? t`Closing…` : undefined,
         icon: CloseIcon,
         disabled: closePending,
         pending: closePending,

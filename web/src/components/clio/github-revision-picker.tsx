@@ -8,6 +8,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { SourceField, SourceStatusLine, sourceInputClass } from './source-form-parts';
+import { t } from '@lingui/core/macro';
 
 type RevisionKind = 'branch' | 'tag' | 'commit';
 
@@ -58,6 +59,7 @@ export function GitHubRevisionPicker({
     refetchOnWindowFocus: false,
   });
   const data = settled === repoUrl ? revisions.data : undefined;
+  const defaultBranch = data?.pages[0].default_branch;
   const choices = [
     ...new Map(
       data?.pages.flatMap((page) => page.revisions).map((row) => [row.value, row]) ?? [],
@@ -69,17 +71,17 @@ export function GitHubRevisionPicker({
     (ready && (kind === 'branch' || (manual ? /^[a-fA-F0-9]{7,40}$/.test(value) : Boolean(value))));
   useEffect(() => onValidityChange(valid), [valid, onValidityChange]);
   const fromLink = root.match(/\/tree\/([^/]+)/)?.[1];
-  const label = kind === 'branch' ? 'Branch' : kind === 'tag' ? 'Tag' : 'Commit';
+  const label = kind === 'branch' ? t`Branch` : kind === 'tag' ? t`Tag` : t`Commit`;
   const selection = kind === 'tag' && value.startsWith('refs/tags/') ? value.slice(10) : value;
   const selectClass =
     'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-menu disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30';
   return (
     <div className="flex flex-col gap-[5px]">
-      <SourceField label="Revision" htmlFor={`${formId}-revision-kind`}>
+      <SourceField label={t`Revision`} htmlFor={`${formId}-revision-kind`}>
         <div className="grid min-w-0 grid-cols-[30%_minmax(0,1fr)] gap-1.5">
           <select
             id={`${formId}-revision-kind`}
-            aria-label="Revision kind"
+            aria-label={t`Revision kind`}
             className={selectClass}
             value={kind}
             disabled={!repoUrl || settled !== repoUrl || disabled}
@@ -89,9 +91,9 @@ export function GitHubRevisionPicker({
               onChange('');
             }}
           >
-            <option value="branch">Branch</option>
-            <option value="tag">Tag</option>
-            <option value="commit">Commit</option>
+            <option value="branch">{t`Branch`}</option>
+            <option value="tag">{t`Tag`}</option>
+            <option value="commit">{t`Commit`}</option>
           </select>
           <select
             id={`${formId}-revision`}
@@ -111,16 +113,20 @@ export function GitHubRevisionPicker({
           >
             <option value="">
               {!repoUrl
-                ? 'Enter a repository first'
+                ? t`Enter a repository first`
                 : !ready
                   ? revisions.error
-                    ? 'Unable to load revisions'
-                    : 'Loading revisions…'
+                    ? t`Unable to load revisions`
+                    : t`Loading revisions…`
                   : kind === 'branch'
                     ? fromLink
-                      ? `From link: ${fromLink}`
-                      : `Default: ${data?.pages[0].default_branch || 'no branch yet'}`
-                    : `Choose a ${kind}`}
+                      ? t`From link: ${fromLink}`
+                      : defaultBranch
+                        ? t`Default: ${defaultBranch}`
+                        : t`Default: no branch yet`
+                    : kind === 'tag'
+                      ? t`Choose a tag`
+                      : t`Choose a commit`}
             </option>
             {selection && !choices.some((row) => row.value === selection) && !manual && (
               <option value={selection}>{selection}</option>
@@ -130,12 +136,12 @@ export function GitHubRevisionPicker({
                 {kind === 'commit' ? `${row.sha.slice(0, 7)} ${row.label}` : row.label}
               </option>
             ))}
-            {kind === 'commit' && <option value="__manual__">Enter a commit ID…</option>}
+            {kind === 'commit' && <option value="__manual__">{t`Enter a commit ID…`}</option>}
           </select>
         </div>
       </SourceField>
       {manual && (
-        <SourceField label="Commit ID" htmlFor={`${formId}-commit`}>
+        <SourceField label={t`Commit ID`} htmlFor={`${formId}-commit`}>
           <Input
             id={`${formId}-commit`}
             className={sourceInputClass}
@@ -144,19 +150,23 @@ export function GitHubRevisionPicker({
             required
             pattern="[a-fA-F0-9]{7,40}"
             maxLength={40}
-            placeholder="Paste the commit ID"
+            placeholder={t`Paste the commit ID`}
             onChange={(event) => onChange(event.target.value.trim())}
           />
         </SourceField>
       )}
       {!repoUrl && (
         <p className="text-caption text-faint">
-          Enter a GitHub repository to choose its branch, tag, or commit.
+          {t`Enter a GitHub repository to choose its branch, tag, or commit.`}
         </p>
       )}
       {ready && choices.length === 0 && (
         <p className="text-caption text-faint">
-          No {kind === 'branch' ? 'branches' : `${kind}s`} found.
+          {kind === 'branch'
+            ? t`No branches found.`
+            : kind === 'tag'
+              ? t`No tags found.`
+              : t`No commits found.`}
         </p>
       )}
       {revisions.error && (
@@ -166,14 +176,14 @@ export function GitHubRevisionPicker({
           icon={<CircleAlertIcon />}
           actions={
             <RefreshButton
-              label="Try again"
+              label={t`Try again`}
               refreshing={revisions.isFetching}
               type="button"
               size="sm"
               variant="ghost"
               onRefresh={() => revisions.refetch()}
             >
-              Try again
+              {t`Try again`}
             </RefreshButton>
           }
         >
@@ -190,13 +200,17 @@ export function GitHubRevisionPicker({
           onClick={() => void revisions.fetchNextPage()}
         >
           {revisions.isFetchingNextPage
-            ? 'Loading…'
-            : `Load more ${kind === 'branch' ? 'branches' : `${kind}s`}`}
+            ? t`Loading…`
+            : kind === 'branch'
+              ? t`Load more branches`
+              : kind === 'tag'
+                ? t`Load more tags`
+                : t`Load more commits`}
         </Button>
       )}
       {ready && kind !== 'branch' && (
         <p className="text-caption text-faint">
-          Tags and commits pin a version. Choose a branch to publish edits.
+          {t`Tags and commits pin a version. Choose a branch to publish edits.`}
         </p>
       )}
     </div>

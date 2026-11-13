@@ -10,25 +10,26 @@
  */
 
 import type { ResourceDeliveryRepresentation, WorkspaceResourceProcessing } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 type ProcessingState = WorkspaceResourceProcessing['state'];
 
 const PROCESSING_STATE_LABELS: Record<ProcessingState, string> = {
-  not_started: 'Not started',
-  submitted: 'Queued',
-  processing: 'In progress',
-  complete: 'Complete',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
+  not_started: t`Not started`,
+  submitted: t`Queued`,
+  processing: t`In progress`,
+  complete: t`Complete`,
+  failed: t`Failed`,
+  cancelled: t`Cancelled`,
 };
 
 const DELIVERY_REPRESENTATION_LABELS: Record<ResourceDeliveryRepresentation, string> = {
-  native: 'Original file',
-  bounded_tools: 'Bounded tools',
-  structured_document: 'Structured document',
-  sandbox: 'Sandbox',
-  retrieval: 'Retrieval',
-  metadata_only: 'Metadata only',
+  native: t`Original file`,
+  bounded_tools: t`Bounded tools`,
+  structured_document: t`Structured document`,
+  sandbox: t`Sandbox`,
+  retrieval: t`Retrieval`,
+  metadata_only: t`Metadata only`,
 };
 
 /**
@@ -38,15 +39,15 @@ const DELIVERY_REPRESENTATION_LABELS: Record<ResourceDeliveryRepresentation, str
  */
 export function processingStateLabel(state: string | undefined): string {
   if (!state) return PROCESSING_STATE_LABELS.not_started;
-  return PROCESSING_STATE_LABELS[state as ProcessingState] ?? `Unknown (${state})`;
+  return PROCESSING_STATE_LABELS[state as ProcessingState] ?? t`Unknown (${state})`;
 }
 
 /** Names the form a resource reached the model in. */
 export function deliveryRepresentationLabel(representation: string): string {
-  if (!representation) return 'Unknown';
+  if (!representation) return t`Unknown`;
   return (
     DELIVERY_REPRESENTATION_LABELS[representation as ResourceDeliveryRepresentation] ??
-    `Unknown (${representation})`
+    t`Unknown (${representation})`
   );
 }
 

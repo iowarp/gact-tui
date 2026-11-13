@@ -5,6 +5,7 @@ import { TOOLTIP_KEY } from '@/components/clio/primitives/tooltip-key';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { showDownloads } from './show-downloads';
+import { t } from '@lingui/core/macro';
 
 /** Opens the desktop's Downloads panel on both draft and saved conversations. */
 export function ClioDownloadsButton() {
@@ -16,7 +17,7 @@ export function ClioDownloadsButton() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          aria-label="Open downloads"
+          aria-label={t`Open downloads`}
           aria-keyshortcuts={keys?.aria}
           className="shrink-0"
           onClick={showDownloads}
@@ -27,7 +28,7 @@ export function ClioDownloadsButton() {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="flex items-center gap-2">
-        Downloads
+        {t`Downloads`}
         {keys ? <kbd className={TOOLTIP_KEY}>{keys.text}</kbd> : null}
       </TooltipContent>
     </Tooltip>

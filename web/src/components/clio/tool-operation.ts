@@ -13,6 +13,7 @@ import {
   type OperationContext,
   type OperationTask,
 } from './tool-operation-data';
+import { ph, plural, t as tx } from '@lingui/core/macro';
 
 export interface ToolOperation {
   action: string;
@@ -50,6 +51,26 @@ function countSummary(summary: string): string {
     /^1 (files|lines|matches|results|hits|items|rows|tasks|entries)\b( match\b)?/u,
     (_, noun: string, verb?: string) => `1 ${SINGULAR[noun]}${verb ? ' matches' : ''}`,
   );
+}
+
+/** A wait receipt's counts as row metadata: "2 returned, 1 running". */
+function receiptMetadata(counts: {
+  returned: number;
+  running?: number;
+  failed?: number;
+  attention?: number;
+  unavailable?: number;
+}): string {
+  const { returned, running, failed, attention, unavailable } = counts;
+  return [
+    plural(returned, { one: '# returned', other: '# returned' }),
+    running ? plural(running, { one: '# running', other: '# running' }) : '',
+    failed ? plural(failed, { one: '# unsuccessful', other: '# unsuccessful' }) : '',
+    attention ? plural(attention, { one: '# needs attention', other: '# need attention' }) : '',
+    unavailable ? plural(unavailable, { one: '# unavailable', other: '# unavailable' }) : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
 }
 
 function subjectFromInput(
@@ -279,11 +300,11 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
   }
   // A background launch was accepted, not finished: the row says where it runs.
   if (input.background === true && tool.state === 'succeeded')
-    operation.metadata = 'in the background';
+    operation.metadata = tx`in the background`;
   if (typeof input.interval_s === 'number' && input.interval_s > 0)
-    operation.metadata = `every ${formatDuration(input.interval_s * 1000)}`;
+    operation.metadata = tx`every ${ph({ interval: formatDuration(input.interval_s * 1000) })}`;
   if (typeof input.delay_seconds === 'number' && input.delay_seconds > 0)
-    operation.metadata = `in ${formatDuration(input.delay_seconds * 1000)}`;
+    operation.metadata = tx`in ${ph({ delay: formatDuration(input.delay_seconds * 1000) })}`;
   if (typeof input.run_at === 'string') {
     const date = new Date(input.run_at);
     if (!Number.isNaN(date.getTime())) {
@@ -300,7 +321,8 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
   }
   if (definition.query && text(input[definition.query])) {
     operation.query = String(input[definition.query]);
-    operation.qualifier = `for “${operation.query}”`;
+    const query = operation.query;
+    operation.qualifier = tx`for “${query}”`;
   }
   if (definition.family === 'search') {
     const rows = result?.matches ?? result?.results ?? result?.tasks ?? result?.hits;
@@ -310,7 +332,8 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
         : Array.isArray(rows)
           ? rows.length
           : undefined;
-    if (count !== undefined) operation.metadata = `${count} ${count === 1 ? 'match' : 'matches'}`;
+    if (count !== undefined)
+      operation.metadata = plural(count, { one: '# match', other: '# matches' });
     const filters = [text(input.scope), text(input.status)].filter(Boolean);
     if (filters.length)
       operation.qualifier = [operation.qualifier, `(${filters.join(', ')})`]
@@ -329,7 +352,7 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
         operation.kind = 'matches';
         operation.tasks = matches;
         operation.subjects = [];
-        operation.metadata = `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`;
+        operation.metadata = plural(matches.length, { one: '# match', other: '# matches' });
       }
     }
   }
@@ -344,13 +367,11 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     operation.tasks = batchWait.tasks;
     operation.expandable = true;
     operation.subjects = [];
-    operation.metadata = [
-      `${batchWait.tasks.length - batchWait.unavailable} returned`,
-      batchWait.running ? `${batchWait.running} running` : '',
-      batchWait.failed ? `${batchWait.failed} unsuccessful` : '',
-    ]
-      .filter(Boolean)
-      .join(', ');
+    operation.metadata = receiptMetadata({
+      returned: batchWait.tasks.length - batchWait.unavailable,
+      running: batchWait.running,
+      failed: batchWait.failed,
+    });
   } else if (definition.family === 'assignment') {
     const tasks = assignments(tool, input, context);
     operation.tasks = tasks;
@@ -359,11 +380,11 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     if (tasks.length === 1) operation.subjects = [tasks[0].subject];
     else {
       operation.subjects = [];
-      operation.metadata = `${tasks.length} assignments`;
+      operation.metadata = plural(tasks.length, { one: '# assignment', other: '# assignments' });
     }
   }
   if (definition.family === 'wait') {
-    if (input.timeout_s === 0) operation.action = 'Check';
+    if (input.timeout_s === 0) operation.action = tx`Check`;
     else if (tool.state === 'running' && tool.presentation?.summary?.startsWith('Waiting for '))
       operation.action = tool.presentation.summary;
     const receipt = operationWaitTasks(tool, context);
@@ -376,16 +397,14 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
       (handle) => tasks.find((t) => t.key === handle)?.subject ?? operationSubject(handle, context),
     );
     if (receipt)
-      operation.metadata = [
-        `${tasks.length - receipt.unavailable} returned`,
-        receipt.running ? `${receipt.running} running` : '',
-        receipt.failed ? `${receipt.failed} unsuccessful` : '',
-        receipt.attention ? `${receipt.attention} needs attention` : '',
-        receipt.unavailable ? `${receipt.unavailable} unavailable` : '',
-      ]
-        .filter(Boolean)
-        .join(', ');
-    else if (tool.state === 'running') operation.metadata = 'Waiting';
+      operation.metadata = receiptMetadata({
+        returned: tasks.length - receipt.unavailable,
+        running: receipt.running,
+        failed: receipt.failed,
+        attention: receipt.attention,
+        unavailable: receipt.unavailable,
+      });
+    else if (tool.state === 'running') operation.metadata = tx`Waiting`;
   }
   if (definition.family === 'ack' && ['succeeded', 'completed'].includes(tool.state))
     operation.expandable = blocks.some((b) => b.severity === 'error') || Boolean(tool.error);
@@ -404,8 +423,8 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     }
     if (result?.truncated === true) {
       operation.kind = 'message';
-      operation.value = 'The complete result was not retained with this call.';
-      operation.metadata = 'Partial result';
+      operation.value = tx`The complete result was not retained with this call.`;
+      operation.metadata = tx`Partial result`;
       return operation;
     }
     const answer = operationAnswer(output);
@@ -436,7 +455,7 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
         type: 'link',
         target: 'memory',
         uri: `scope:${scope === 'account' ? 'user' : scope}`,
-        label: scope === 'account' || scope === 'user' ? 'Personal' : scope,
+        label: scope === 'account' || scope === 'user' ? tx`Personal` : scope,
       };
   }
   // Counts and extents (a read range, an empty file) and refusals are row metadata; other recaps are not.

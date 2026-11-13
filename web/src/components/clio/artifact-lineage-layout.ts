@@ -7,6 +7,7 @@ import type {
 import type { ElkExtendedEdge, ElkNode, ElkPoint } from 'elkjs/lib/elk-api';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
+import { plural, t, ph } from '@lingui/core/macro';
 
 export type LineageNodeKind = 'file' | 'action' | 'gap' | 'self';
 
@@ -167,26 +168,28 @@ export function sketchArtifactLineage(
     placed.unshift({
       id: 'gap:no-record',
       kind: 'gap',
-      name: 'No recorded source',
-      detail: `not made in ${vocab.agent}`,
-      tip: `${vocab.agent} has no record of what made this file.`,
+      name: t`No recorded source`,
+      detail: t`not made in ${ph({ agent: vocab.agent })}`,
+      tip: t`${ph({ agent: vocab.agent })} has no record of what made this file.`,
     });
     edges.push({ from: 'gap:no-record', to: lineage.root });
   }
   if (lineage.truncated) {
+    const depth = lineage.truncated.at_depth;
+    const nodes = lineage.truncated.nodes;
     const at =
-      lineage.truncated.at_depth !== undefined
-        ? `at depth ${lineage.truncated.at_depth}`
-        : lineage.truncated.nodes !== undefined
-          ? `at ${lineage.truncated.nodes} nodes`
-          : 'bounded';
+      depth !== undefined
+        ? t`at depth ${depth}`
+        : nodes !== undefined
+          ? t`at ${nodes} nodes`
+          : t`bounded`;
     const frontier = depthFrontier(lineage, edges, placed);
     placed.push({
       id: CUT_SHORT,
       kind: 'gap',
-      name: 'Cut short',
+      name: t`Cut short`,
       detail: at,
-      tip: `The service stopped the graph ${at}. ${frontier.upstream ? 'Older' : 'Later'} steps aren't shown.`,
+      tip: cutShortTip(depth, nodes, frontier.upstream),
     });
     // The break is drawn as an amber edge into the column where the walk stopped.
     for (const id of frontier.ids)
@@ -253,15 +256,16 @@ function describeNode(
   earlier: number,
 ): Placed {
   if (node.type === 'activity') {
-    const tool = stringField(node, 'tool') || 'Recorded action';
+    const { agent } = vocab;
+    const tool = stringField(node, 'tool') || t`Recorded action`;
     const status = stringField(node, 'status');
     const failed = status !== '' && !OK_STATES.has(status.toLowerCase());
     return {
       id: node.id,
       kind: 'action',
       name: tool,
-      detail: failed ? status : 'ran',
-      tip: `${failed ? `Ended ${status}` : `Ran by ${vocab.agent}`}. Opens in Activity.`,
+      detail: failed ? status : t`ran`,
+      tip: failed ? t`Ended ${status}. Opens in Activity.` : t`Ran by ${agent}. Opens in Activity.`,
       callId: stringField(node, 'call_id') || node.id.replace(/^activity:/u, ''),
       tool,
       sessionId: stringField(node, 'session_id') || undefined,
@@ -274,9 +278,9 @@ function describeNode(
     return {
       id: node.id,
       kind: 'gap',
-      name: 'Edited outside',
+      name: t`Edited outside`,
       detail: name,
-      tip: `${name} changed outside ${vocab.agent}, so the record breaks here. Opens the file.`,
+      tip: t`${name} changed outside ${ph({ agent: vocab.agent })}, so the record breaks here. Opens the file.`,
       artifact: self ? undefined : artifactFromNode(node, fallback),
     };
   }
@@ -286,12 +290,15 @@ function describeNode(
       id: node.id,
       kind: 'self',
       name,
-      detail: [versionText, earlier ? `${earlier} earlier` : sizeText(size)]
+      detail: [versionText, earlier ? t`${earlier} earlier` : sizeText(size)]
         .filter(Boolean)
         .join(', '),
       tip: earlier
-        ? `This file. Its ${earlier === 1 ? 'earlier version is' : `${earlier} earlier versions are`} stacked behind it.`
-        : 'This file.',
+        ? plural(earlier, {
+            one: 'This file. Its earlier version is stacked behind it.',
+            other: 'This file. Its # earlier versions are stacked behind it.',
+          })
+        : t`This file.`,
       stacked: earlier > 0,
       folds: earlier > 0,
     };
@@ -301,7 +308,7 @@ function describeNode(
     kind: 'file',
     name,
     detail: [versionText, sizeText(size)].filter(Boolean).join(', '),
-    tip: 'Opens in a tab.',
+    tip: t`Opens in a tab.`,
     artifact: artifactFromNode(node, fallback),
   };
 }
@@ -311,8 +318,8 @@ function selfFallback(artifact: Artifact, id: string, earlier: number): Placed {
     id,
     kind: 'self',
     name: artifact.name,
-    detail: earlier ? `${earlier} earlier` : '',
-    tip: 'This file.',
+    detail: earlier ? t`${earlier} earlier` : '',
+    tip: t`This file.`,
     stacked: earlier > 0,
     folds: earlier > 0,
   };
@@ -326,6 +333,26 @@ function sizeText(size: number | undefined) {
  * The "revision of" chain, unfolded from the current node's stack: oldest
  * first, each with its age and who made it.
  */
+function cutShortTip(
+  depth: number | undefined,
+  nodes: number | undefined,
+  upstream: boolean,
+): string {
+  if (depth !== undefined) {
+    return upstream
+      ? t`The service stopped the graph at depth ${depth}. Older steps aren't shown.`
+      : t`The service stopped the graph at depth ${depth}. Later steps aren't shown.`;
+  }
+  if (nodes !== undefined) {
+    return upstream
+      ? t`The service stopped the graph at ${nodes} nodes. Older steps aren't shown.`
+      : t`The service stopped the graph at ${nodes} nodes. Later steps aren't shown.`;
+  }
+  return upstream
+    ? t`The service stopped the graph bounded. Older steps aren't shown.`
+    : t`The service stopped the graph bounded. Later steps aren't shown.`;
+}
+
 export function layoutVersionChain(
   artifact: Artifact,
   versions: readonly ArtifactVersion[],
@@ -347,7 +374,8 @@ export function sketchVersionChain(
   const placed = ordered.map((version): Placed => {
     const self = version.version === current;
     const tool = typeof version.producer['tool'] === 'string' ? version.producer['tool'] : '';
-    const by = version.custody_gap ? `outside ${vocab.agent}` : tool || vocab.agent;
+    const { agent } = vocab;
+    const by = version.custody_gap ? t`outside ${agent}` : tool || agent;
     const age = shortAge(version.created_at, now);
     return {
       id: version.artifact_id,
@@ -355,8 +383,10 @@ export function sketchVersionChain(
       name: `v${version.version}`,
       detail: [age, by].filter(Boolean).join(', '),
       tip: self
-        ? 'This version. Choose it to fold the versions back.'
-        : `Made by ${by}${age ? `, ${age} ago` : ''}. Opens this version in a tab.`,
+        ? t`This version. Choose it to fold the versions back.`
+        : age
+          ? t`Made by ${by}, ${age} ago. Opens this version in a tab.`
+          : t`Made by ${by}. Opens this version in a tab.`,
       stacked: undefined,
       folds: self ? true : undefined,
       artifact: self

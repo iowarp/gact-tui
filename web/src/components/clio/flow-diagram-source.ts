@@ -1,5 +1,12 @@
-import type { FlowMember, FlowState, FlowStep, FlowVerdict } from './flow-run-presentation';
+import {
+  THIS_AGENT,
+  type FlowMember,
+  type FlowState,
+  type FlowStep,
+  type FlowVerdict,
+} from './flow-run-presentation';
 import { formatDuration } from '@/lib/format';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * The shape of a workflow and the agentflow graph for a workflow the railroad
@@ -74,20 +81,23 @@ export function workflowAgentflowSource(
   elapsed: ReadonlyMap<string, number>,
 ): string {
   const ids = new Map(steps.map((step, index) => [step.id, `s${index}`]));
+  // i18n-ignore: diagram syntax
   const lines = ['agentflow-beta LR'];
   for (const step of steps) {
     const second = [
       stepWord(step.status, elapsed.get(step.id)),
-      step.targetLabel === 'this agent' ? '' : step.targetLabel,
+      step.targetLabel === THIS_AGENT ? '' : step.targetLabel,
     ]
       .filter(Boolean)
       .join(', ');
-    const third = step.addedBy && step.kind !== 'proposal' ? `added by ${step.addedBy}` : '';
+    const third =
+      step.addedBy && step.kind !== 'proposal' ? t`added by ${ph({ addedBy: step.addedBy })}` : '';
     const name = step.forkOf
-      ? `${step.label ?? step.id} (fork of ${step.forkOf})`
+      ? t`${ph({ step: step.label ?? step.id })} (fork of ${ph({ forkOf: step.forkOf })})`
       : (step.label ?? step.id);
     const label = [name, second, third].filter(Boolean).map(quoteSafe).join('\\n');
     lines.push(`  ${ids.get(step.id)}${shape(step.kind, label)}:::st-${step.status.tone}`);
+    // i18n-ignore: Mermaid source
     if (step.addedBy) lines.push(`  class ${ids.get(step.id)} st-added`);
   }
   const parents = new Map(
@@ -110,21 +120,44 @@ export function closingStep(
   members: readonly FlowMember[],
   verdict: FlowVerdict,
 ): { label: string; state: FlowState } {
-  const label = flow === 'arena' ? 'judge' : 'synthesis';
+  const label = flow === 'arena' ? t`judge` : t`synthesis`;
   if (runStatus === 'completed') {
     const word =
-      flow === 'arena' && verdict.winner !== undefined ? `picked entry ${verdict.winner}` : 'done';
-    return { label, state: { value: 'completed', label: 'Completed', word, tone: 'done' } };
+      flow === 'arena' && verdict.winner !== undefined
+        ? t`picked entry ${ph({ winner: verdict.winner })}`
+        : t({ message: 'done', context: 'flow step state' });
+    return { label, state: { value: 'completed', label: t`Completed`, word, tone: 'done' } };
   }
   if (runStatus !== 'running')
     return {
       label,
-      state: { value: 'cancelled', label: 'Did not run', word: 'did not run', tone: 'cancelled' },
+      state: {
+        value: 'cancelled',
+        label: t`Did not run`,
+        word: t({ message: 'did not run', context: 'flow step state' }),
+        tone: 'cancelled',
+      },
     };
   const answered = members.length > 0 && members.every((member) => member.status.tone === 'done');
   return answered
-    ? { label, state: { value: 'running', label: 'Running', word: 'running', tone: 'running' } }
-    : { label, state: { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' } };
+    ? {
+        label,
+        state: {
+          value: 'running',
+          label: t`Running`,
+          word: t({ message: 'running', context: 'flow step state' }),
+          tone: 'running',
+        },
+      }
+    : {
+        label,
+        state: {
+          value: 'queued',
+          label: t`Waiting`,
+          word: t({ message: 'waiting', context: 'flow step state' }),
+          tone: 'waiting',
+        },
+      };
 }
 
 function shape(kind: FlowStep['kind'], label: string): string {

@@ -17,6 +17,7 @@ import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { truncate } from '@/lib/format';
 import { mcpServerPreparation } from '@/lib/mcp-preparation';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The two services every deployment has. They are part of the agent rather than
@@ -24,9 +25,9 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
  * external service to ask.
  */
 const BUILTIN_TITLES: Record<string, string> = {
-  fs: 'Workspace files',
-  filesystem: 'Workspace files',
-  shell: 'Local commands',
+  fs: t`Workspace files`,
+  filesystem: t`Workspace files`,
+  shell: t`Local commands`,
 };
 
 function specString(server: McpServerDefinition, key: string): string | undefined {
@@ -53,7 +54,7 @@ export function serviceEntryTitle(entry: {
         BUILTIN_TITLES[server.name] ?? BUILTIN_TITLES[server.id] ?? humanizeToolName(server.name)
       );
   }
-  return entry.saved?.label?.trim() || entry.name || server?.id || 'MCP server';
+  return entry.saved?.label?.trim() || entry.name || server?.id || t`MCP server`;
 }
 
 /** How a service runs, which picks its glyph: files, commands, a plugin's server, a URL. */
@@ -83,12 +84,12 @@ export function serviceOrigin(entry: {
   saved?: SavedMcpService;
 }): string {
   const server = entry.server;
-  if (server?.transport === 'in_process') return 'Built in';
+  if (server?.transport === 'in_process') return t`Built in`;
   if (server?.source === 'plugin')
-    return server.plugin ? `From plugin ${server.plugin}` : 'From a plugin';
+    return server.plugin ? t`From plugin ${ph({ plugin: server.plugin })}` : t`From a plugin`;
   const remote = serviceKind(entry) === 'remote';
-  if (entry.saved) return `Yours, ${remote ? 'remote service' : 'local command'}`;
-  return remote ? 'Remote service' : 'Local command';
+  if (entry.saved) return remote ? t`Yours, remote service` : t`Yours, local command`;
+  return remote ? t`Remote service` : t`Local command`;
 }
 
 /**
@@ -152,29 +153,28 @@ export function serviceStatus(server: McpServerDefinition | undefined): {
   label: string;
   tone: StatusTone;
 } {
-  if (!server || server.status === 'stopped') return { label: 'Not started', tone: 'stopped' };
-  if (server.status === 'ready') return { label: 'Running', tone: 'success' };
+  if (!server || server.status === 'stopped') return { label: t`Not started`, tone: 'stopped' };
+  if (server.status === 'ready') return { label: t`Running`, tone: 'success' };
   const preparation = mcpServerPreparation(server);
   if (preparation?.state === 'preparing') return { label: preparation.label, tone: 'running' };
-  if (preparation?.state === 'failed') return { label: 'Unavailable', tone: 'error' };
-  if (server.status === 'available') return { label: 'Starts when used', tone: 'idle' };
+  if (preparation?.state === 'failed') return { label: t`Unavailable`, tone: 'error' };
+  if (server.status === 'available') return { label: t`Starts when used`, tone: 'idle' };
   if (server.status === 'error' || server.status === 'degraded')
-    return { label: 'Unavailable', tone: 'error' };
+    return { label: t`Unavailable`, tone: 'error' };
   return { label: humanizeStatus(server.status), tone: 'warning' };
 }
 
 function humanizeStatus(status: string): string {
   const spaced = status.replaceAll('_', ' ').trim();
-  if (!spaced) return 'Unknown';
+  if (!spaced) return t`Unknown`;
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 const KNOWN_SUMMARIES: Record<string, string> = {
-  fs_read_file: 'Reads a file that this workspace has granted the agent access to.',
-  fs_write_file:
-    'Creates a file or replaces its content in the workspace; each change can be undone.',
-  fs_edit_file: 'Replaces exact text in a workspace file; each change can be undone.',
-  shell_bash: 'Runs a command inside the workspace’s permitted folders.',
+  fs_read_file: t`Reads a file that this workspace has granted the agent access to.`,
+  fs_write_file: t`Creates a file or replaces its content in the workspace; each change can be undone.`,
+  fs_edit_file: t`Replaces exact text in a workspace file; each change can be undone.`,
+  shell_bash: t`Runs a command inside the workspace’s permitted folders.`,
 };
 
 /** One sentence on what a tool does, from a known builtin or the tool's own description. */

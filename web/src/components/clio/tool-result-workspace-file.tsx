@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { FileTypeIcon } from './file-type-icon';
 import { PresentationNavigation } from './presentation-navigation';
 import { WorkspaceFileView } from './resource-viewers';
+import { t } from '@lingui/core/macro';
 
 function fileName(path: string): string {
   return (
@@ -72,14 +73,14 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
 
   if (!path || !workspaceId) {
     return (
-      <Empty aria-label="Workspace file unavailable" className="w-full">
+      <Empty aria-label={t`Workspace file unavailable`} className="w-full">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FileXIcon aria-hidden="true" />
           </EmptyMedia>
-          <EmptyTitle>Workspace file unavailable</EmptyTitle>
+          <EmptyTitle>{t`Workspace file unavailable`}</EmptyTitle>
           <EmptyDescription>
-            This result did not carry enough information to locate the file the agent viewed.
+            {t`This result did not carry enough information to locate the file the agent viewed.`}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -88,15 +89,14 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
 
   if (integrity === 'missing') {
     return (
-      <Empty aria-label={`${name} is no longer available`} className="w-full">
+      <Empty aria-label={t`${name} is no longer available`} className="w-full">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FileXIcon aria-hidden="true" />
           </EmptyMedia>
           <EmptyTitle>{name}</EmptyTitle>
           <EmptyDescription>
-            No longer available in the workspace. The agent viewed this file, but it has since been
-            removed or moved.
+            {t`No longer available in the workspace. The agent viewed this file, but it has since been removed or moved.`}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -112,7 +112,7 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
       />
       {canOpen ? (
         <button
-          aria-label={`Open ${name}`}
+          aria-label={t`Open ${name}`}
           className="min-w-0 shrink truncate rounded-[4px] px-0.5 text-menu font-medium text-foreground outline-none group-data-[fold-where]/frame:hidden hover:underline focus-visible:ring-1 focus-visible:ring-ring"
           data-frame-fit="name"
           onClick={() => {
@@ -121,7 +121,8 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
               navigation.onOpenFileReference(path, { page });
             } else navigation?.onOpenFile?.(path);
           }}
-          title={`${path}\nOpen in the workbench`}
+          title={t`${path}
+Open in the workbench`}
           type="button"
         >
           {name}
@@ -140,11 +141,11 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
           <Tooltip>
             <TooltipTrigger asChild>
               <FileClockIcon
-                aria-label="Changed since the agent viewed it"
+                aria-label={t`Changed since the agent viewed it`}
                 className="size-3.5 shrink-0 text-warning"
               />
             </TooltipTrigger>
-            <TooltipContent>Changed since the agent viewed it</TooltipContent>
+            <TooltipContent>{t`Changed since the agent viewed it`}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : null}

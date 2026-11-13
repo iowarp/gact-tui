@@ -43,6 +43,7 @@ import {
 import { PresentationNavigation } from './presentation-navigation';
 import type { FrameCrumb } from './primitives/frame-bar';
 import { downloadBytes } from './surface-export';
+import { t, ph } from '@lingui/core/macro';
 
 /** One row of a Take menu (Copy ▾, Open ▾), shared by the split button and the narrow … menu. */
 export interface TakeRow {
@@ -90,13 +91,13 @@ export function useAddToMessage(
 ): AddToMessage {
   const composerOpen = useComposerReferenceAvailable(workspaceId);
   const reason = !reference
-    ? 'Not a workspace file'
+    ? t`Not a workspace file`
     : !composerOpen
-      ? 'Open a conversation to add it to a message'
+      ? t`Open a conversation to add it to a message`
       : undefined;
   const onSelect = () => {
     if (reference && addReferenceToComposer(reference, workspaceId))
-      toast.success(`Added ${reference.label} to the message.`);
+      toast.success(t`Added ${ph({ label: reference.label })} to the message.`);
   };
   useShortcut('add-to-message', onSelect, { enabled: !reason, region });
   return { reason, onSelect };
@@ -107,7 +108,7 @@ export async function attempt(work: () => Promise<unknown>, done?: string) {
     await work();
     if (done) toast.success(done);
   } catch (error) {
-    toast.error(error instanceof Error ? error.message : 'That did not work.');
+    toast.error(error instanceof Error ? error.message : t`That did not work.`);
   }
 }
 
@@ -143,29 +144,32 @@ export function useCopyTake(
   const absolute = fileViewerAbsolutePath(source, root);
   const image = identity.mediaType === 'image/png' && typeof ClipboardItem !== 'undefined';
   const contentsReason = !identity.available
-    ? 'Not available'
+    ? t`Not available`
     : contents || isTextMediaType(identity.mediaType) || image
       ? undefined
-      : 'Not text';
+      : t`Not text`;
   const copyContents = () =>
-    attempt(async () => {
-      if (contents) {
-        const text = await contents();
-        if (text === undefined) throw new Error('The file text is not available yet.');
-        return copyText(text);
-      }
-      const bytes = await readFileViewerBytes(repository, source);
-      if (image) {
-        const blob = new Blob([bytes as BlobPart], { type: identity.mediaType });
-        return navigator.clipboard.write([new ClipboardItem({ [identity.mediaType]: blob })]);
-      }
-      return copyText(new TextDecoder().decode(bytes));
-    }, 'Copied the contents.');
+    attempt(
+      async () => {
+        if (contents) {
+          const text = await contents();
+          if (text === undefined) throw new Error(t`The file text is not available yet.`);
+          return copyText(text);
+        }
+        const bytes = await readFileViewerBytes(repository, source);
+        if (image) {
+          const blob = new Blob([bytes as BlobPart], { type: identity.mediaType });
+          return navigator.clipboard.write([new ClipboardItem({ [identity.mediaType]: blob })]);
+        }
+        return copyText(new TextDecoder().decode(bytes));
+      },
+      t`Copied the contents.`,
+    );
   const copyValue = (value: string, done: string) => attempt(() => copyText(value), done);
   const rows: TakeRow[] = [
     {
       id: 'contents',
-      label: 'Contents',
+      label: t`Contents`,
       icon: <FileTextIcon />,
       accelerator: 'C',
       // Ctrl+C in the frame runs the face, which copies the contents when it can.
@@ -175,32 +179,32 @@ export function useCopyTake(
     },
     {
       id: 'absolute',
-      label: 'Absolute path',
+      label: t`Absolute path`,
       icon: <LinkIcon />,
       accelerator: 'A',
-      reason: absolute ? undefined : 'Workspace folder unknown',
-      onSelect: () => absolute && void copyValue(absolute, 'Copied the absolute path.'),
+      reason: absolute ? undefined : t`Workspace folder unknown`,
+      onSelect: () => absolute && void copyValue(absolute, t`Copied the absolute path.`),
     },
     {
       id: 'workspace',
-      label: 'Relative to workspace',
+      label: t`Relative to workspace`,
       icon: <FolderTreeIcon />,
       accelerator: 'W',
-      reason: relative ? undefined : 'Not in this workspace',
-      onSelect: () => relative && void copyValue(relative, 'Copied the workspace path.'),
+      reason: relative ? undefined : t`Not in this workspace`,
+      onSelect: () => relative && void copyValue(relative, t`Copied the workspace path.`),
     },
     {
       id: 'repository',
-      label: 'Relative to repo',
+      label: t`Relative to repo`,
       icon: <GitBranchIcon />,
       accelerator: 'R',
-      reason: 'Repository root unknown',
+      reason: t`Repository root unknown`,
     },
   ];
   const fallback = relative ?? identity.name;
   const face = contentsReason
-    ? { label: 'Copy path', run: () => void copyValue(fallback, 'Copied the path.') }
-    : { label: 'Copy contents', run: () => void copyContents() };
+    ? { label: t`Copy path`, run: () => void copyValue(fallback, t`Copied the path.`) }
+    : { label: t`Copy contents`, run: () => void copyContents() };
   return { rows, face };
 }
 
@@ -248,10 +252,10 @@ export function useOpenTake(
   const openWith = (id: string) =>
     run(
       async () => openFileBytes(fileName, await bytes(), id),
-      'Opened a desktop copy of the file.',
+      t`Opened a desktop copy of the file.`,
     );
   const reveal = () =>
-    run(async () => revealFileBytes(fileName, await bytes()), 'Desktop copy shown in its folder.');
+    run(async () => revealFileBytes(fileName, await bytes()), t`Desktop copy shown in its folder.`);
   const systemApp = () => {
     const apps = applications.data ?? [];
     const app = apps.find((candidate) => candidate.is_default) ?? apps[0];
@@ -270,7 +274,7 @@ export function useOpenTake(
     if (browserTarget) return run(() => openInBrowser(browserTarget, identity.name));
     const tab = window.open('about:blank', '_blank');
     run(async () => {
-      if (!tab) throw new Error('The browser blocked the new tab.');
+      if (!tab) throw new Error(t`The browser blocked the new tab.`);
       tab.opener = null;
       const url = URL.createObjectURL(
         new Blob([(await bytes()) as BlobPart], { type: identity.mediaType }),
@@ -280,14 +284,14 @@ export function useOpenTake(
     });
   };
   const folder = relative?.includes('/') ? relative.slice(0, relative.lastIndexOf('/')) : '';
-  const unavailable = identity.available ? undefined : 'Not available';
+  const unavailable = identity.available ? undefined : t`Not available`;
   const rows: TakeRow[] = [
     ...(tab
-      ? [{ id: 'tab', label: 'In a tab', icon: <FileTextIcon />, accelerator: 'T', onSelect: tab }]
+      ? [{ id: 'tab', label: t`In a tab`, icon: <FileTextIcon />, accelerator: 'T', onSelect: tab }]
       : []),
     {
       id: 'browser',
-      label: 'In a browser tab',
+      label: t`In a browser tab`,
       icon: <GlobeIcon />,
       accelerator: 'B',
       reason: unavailable,
@@ -295,17 +299,17 @@ export function useOpenTake(
     },
     {
       id: 'system',
-      label: 'In the system app',
+      label: t`In the system app`,
       icon: <AppWindowIcon />,
       accelerator: 'S',
-      reason: unavailable ?? (native ? undefined : 'Needs the desktop app'),
+      reason: unavailable ?? (native ? undefined : t`Needs the desktop app`),
       onSelect: systemApp,
     },
     ...(native && identity.available && otherApps
       ? [
           {
             id: 'with',
-            label: 'With another app',
+            label: t`With another app`,
             icon: <ExternalLinkIcon />,
             submenu: (
               <>
@@ -319,7 +323,7 @@ export function useOpenTake(
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled={busy} onSelect={reveal}>
                   <FolderOpenIcon aria-hidden="true" />
-                  Open in folder
+                  {t`Open in folder`}
                 </DropdownMenuItem>
               </>
             ),
@@ -331,26 +335,26 @@ export function useOpenTake(
         id: `open:${action.label}`,
         label: action.label,
         icon: <action.icon aria-hidden="true" />,
-        reason: action.disabled ? (action.description ?? 'Not available') : undefined,
+        reason: action.disabled ? (action.description ?? t`Not available`) : undefined,
         submenu: action.submenu,
         onSelect: action.submenu ? undefined : () => run(async () => action.onSelect()),
       }),
     ),
     {
       id: 'files',
-      label: 'Show in Files',
+      label: t`Show in Files`,
       icon: <FolderTreeIcon />,
       accelerator: 'F',
       reason: !navigation?.onOpenFolder
-        ? 'Files is not open here'
+        ? t`Files is not open here`
         : relative === undefined
-          ? 'Not in this workspace'
+          ? t`Not in this workspace`
           : undefined,
       onSelect: () => navigation?.onOpenFolder?.(folder),
     },
     {
       id: 'download',
-      label: 'Download',
+      label: t`Download`,
       icon: <DownloadIcon />,
       accelerator: 'D',
       reason: unavailable,
@@ -362,7 +366,7 @@ export function useOpenTake(
       ? [
           {
             id: 'evidence',
-            label: 'Download with evidence',
+            label: t`Download with evidence`,
             icon: <PackageIcon />,
             accelerator: 'E',
             onSelect: () =>
@@ -379,23 +383,23 @@ export function useOpenTake(
     ...formats.map(
       (action): TakeRow => ({
         id: `export:${action.label}`,
-        label: `Export to ${action.label}`,
+        label: t`Export to ${ph({ label: action.label })}`,
         icon: <action.icon aria-hidden="true" />,
-        reason: action.disabled ? (action.description ?? 'Not available') : unavailable,
+        reason: action.disabled ? (action.description ?? t`Not available`) : unavailable,
         onSelect: () => run(async () => action.onSelect()),
       }),
     ),
   ];
   const face = tab
-    ? { label: 'Open the file', run: tab, icon: <ExternalLinkIcon aria-hidden="true" /> }
+    ? { label: t`Open the file`, run: tab, icon: <ExternalLinkIcon aria-hidden="true" /> }
     : native
       ? {
-          label: 'Open in the system app',
+          label: t`Open in the system app`,
           run: systemApp,
           icon: <AppWindowIcon aria-hidden="true" />,
         }
       : {
-          label: 'Open in a browser tab',
+          label: t`Open in a browser tab`,
           run: browserTab,
           icon: <ExternalLinkIcon aria-hidden="true" />,
         };

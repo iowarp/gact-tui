@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { ConversationFamilyLegend, ConversationRoleIcon } from './conversation-family-label';
 import { ConversationInspector } from './conversation-inspector';
 import { conversationFamily } from './conversation-relationships-model';
+import { t, ph } from '@lingui/core/macro';
 
 interface ConversationNodeData extends Record<string, unknown> {
   session: Session;
@@ -84,7 +85,7 @@ export function ConversationRelationships({
       source: edge.source,
       target: edge.target,
       type: 'smoothstep',
-      label: edge.kind === 'branch' ? 'User fork' : 'Subagent',
+      label: edge.kind === 'branch' ? t`User fork` : t`Subagent`,
       pathOptions: { borderRadius: 10 },
       markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)', width: 18, height: 18 },
       style: {
@@ -102,19 +103,19 @@ export function ConversationRelationships({
   if (!selected)
     return (
       <p className="p-5 text-sm text-muted-foreground">
-        Conversation relationships are unavailable.
+        {t`Conversation relationships are unavailable.`}
       </p>
     );
   return (
     <section
-      aria-label="Conversation relationships"
+      aria-label={t`Conversation relationships`}
       className="grid min-w-0 overflow-hidden @min-[48rem]:grid-cols-[minmax(0,1fr)_19rem]"
     >
       <div className="flex min-w-0 flex-col">
         {header}
         <div
           ref={container}
-          aria-label="Conversation relationship graph"
+          aria-label={t`Conversation relationship graph`}
           className="min-w-0 flex-1 overflow-hidden"
           style={{
             minHeight: Math.min(
@@ -155,7 +156,7 @@ export function ConversationRelationships({
           <ConversationFamilyLegend />
           {family.incomplete ? (
             <p role="status" className="mt-2 text-xs text-muted-foreground">
-              Some family records are unavailable.
+              {t`Some family records are unavailable.`}
             </p>
           ) : null}
         </div>
@@ -208,7 +209,7 @@ function ConversationCard({ data }: NodeProps<ConversationNode>) {
       />
       <button
         type="button"
-        aria-label={`Select ${data.session.title}`}
+        aria-label={t`Select ${ph({ title: data.session.title })}`}
         aria-pressed={data.selected}
         onClick={() => data.onSelect(data.session.id)}
         className="nodrag nopan flex h-full w-full gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"

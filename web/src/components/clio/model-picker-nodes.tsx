@@ -13,6 +13,7 @@ import {
 } from './model-picker-model';
 import { groupAlcfProviders } from './model-picker-provider-families';
 import type { ProviderSearchCount } from './use-model-picker-search-view';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** One column: models a provider's group lists before its "N more" row. */
 const GROUP_PREVIEW = 3;
@@ -71,7 +72,7 @@ export function useModelPickerNodes({
             ? [
                 {
                   value: MANAGE_NODE_PREFIX + group.id,
-                  label: `Manage ${group.name}`,
+                  label: t`Manage ${ph({ name: group.name })}`,
                   static: true,
                   data: { kind: 'provider-manage', group },
                 },
@@ -117,7 +118,7 @@ export function useModelPickerNodes({
     });
     const all: CascaderNode<PickerNodeData> = {
       value: SEARCH_ALL_VALUE,
-      label: 'All providers',
+      label: t`All providers`,
       icon: <LayoutGridIcon aria-hidden="true" />,
       hasChildren: true,
       children: results,
@@ -149,7 +150,7 @@ function previewModels(
     ...shown,
     {
       value: MORE_NODE_PREFIX + group.id,
-      label: `${hidden} more`,
+      label: plural(hidden, { one: '# more', other: '# more' }),
       hasChildren: true,
       data: { kind: 'provider-more', group, hidden },
     },

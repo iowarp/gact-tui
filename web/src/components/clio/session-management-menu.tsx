@@ -12,6 +12,7 @@ import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import type { SessionHistoryConfirmation } from './session-history-confirm-dialog';
+import { t } from '@lingui/core/macro';
 
 export interface SessionManagementMenuProps {
   session: Session;
@@ -32,18 +33,18 @@ export function SessionOrganizeMenuItems({
     <>
       <KeyMenuItem
         icon={session.pinned ? PinOffIcon : PinIcon}
-        label={session.pinned ? 'Unpin' : 'Pin'}
+        label={session.pinned ? t`Unpin` : t`Pin`}
         menuKey="P"
         onSelect={() =>
           onAction(
             () => actions.setSessionPinned(session.id, !session.pinned),
-            session.pinned ? 'Conversation unpinned' : 'Conversation pinned',
+            session.pinned ? t`Conversation unpinned` : t`Conversation pinned`,
           )
         }
       />
       <KeyMenuItem
         icon={EditIcon}
-        label="Rename"
+        label={t`Rename`}
         menuKey="R"
         onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
       />
@@ -56,7 +57,7 @@ export function SessionForkMenuItem({ onSelect }: { onSelect: () => void }) {
   return (
     <KeyMenuItem
       icon={GitForkIcon}
-      label="Fork into a new conversation"
+      label={t`Fork into a new conversation`}
       menuKey="F"
       onSelect={onSelect}
     />
@@ -66,7 +67,12 @@ export function SessionForkMenuItem({ onSelect }: { onSelect: () => void }) {
 /** Share, shared by the title and left bar menus; it opens the share dialog. */
 export function SessionShareMenuItem({ onSelect }: { onSelect: () => void }) {
   return (
-    <KeyMenuItem icon={Share2Icon} label="Share read-only link" menuKey="L" onSelect={onSelect} />
+    <KeyMenuItem
+      icon={Share2Icon}
+      label={t`Share read-only link`}
+      menuKey="L"
+      onSelect={onSelect}
+    />
   );
 }
 
@@ -80,13 +86,13 @@ export function SessionHistoryMenuItems({
     <>
       <KeyMenuItem
         icon={PackageOpenIcon}
-        label="Compact conversation…"
+        label={t`Compact conversation…`}
         menuKey="C"
         onSelect={() => onConfirm('compact')}
       />
       <KeyMenuItem
         icon={Undo2Icon}
-        label="Remove last message…"
+        label={t`Remove last message…`}
         menuKey="V"
         onSelect={() => onConfirm('undo')}
         destructive
@@ -106,13 +112,15 @@ export function SessionLifecycleMenuItems({
     <>
       <KeyMenuItem
         icon={ArchiveIcon}
-        label="Archive"
+        label={t`Archive`}
         menuKey="A"
-        onSelect={() => onAction(() => actions.archiveSession(session.id), 'Conversation archived')}
+        onSelect={() =>
+          onAction(() => actions.archiveSession(session.id), t`Conversation archived`)
+        }
       />
       <KeyMenuItem
         icon={DeleteIcon}
-        label="Delete…"
+        label={t`Delete…`}
         menuKey="D"
         onSelect={() => onDelete({ kind: 'session', id: session.id, label: session.title })}
         destructive

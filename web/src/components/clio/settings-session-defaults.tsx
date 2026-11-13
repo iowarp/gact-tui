@@ -37,6 +37,7 @@ import {
   SESSION_MODE_OPTIONS,
   SESSION_MODE_PATCHES,
 } from './session-behavior-options';
+import { t, ph } from '@lingui/core/macro';
 
 const serviceDefaultAgent = '__default__';
 
@@ -48,8 +49,8 @@ function SectionHeading() {
   return (
     <>
       <SettingsSectionHeading
-        title="Session defaults"
-        description="Choose how new sessions start."
+        title={t`Session defaults`}
+        description={t`Choose how new sessions start.`}
       />
     </>
   );
@@ -64,7 +65,7 @@ function Footnote({ saving, target }: { saving: boolean; target: string }) {
     >
       <ServerIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
       <span className="min-w-0 truncate">
-        {saving ? `Saving to ${target}…` : `Saved to ${target}.`}
+        {saving ? t`Saving to ${target}…` : t`Saved to ${target}.`}
       </span>
     </p>
   );
@@ -117,7 +118,7 @@ export function SessionDefaultsSettings() {
     form?.provider_id ? undefined : modelConfiguration.data?.resolved_model_id,
   );
 
-  const target = settings.label?.trim() || 'the connected agent';
+  const target = settings.label?.trim() || t`the connected agent`;
 
   if (defaults.error) {
     return (
@@ -125,11 +126,11 @@ export function SessionDefaultsSettings() {
         <SectionHeading />
         <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
-            action={{ label: 'Retry', onClick: () => void defaults.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void defaults.refetch() }}
             className={ROW_STATE_WRAP}
             kind="error"
             size="row"
-            title="Session defaults could not be loaded."
+            title={t`Session defaults could not be loaded.`}
           />
         </div>
       </div>
@@ -144,7 +145,7 @@ export function SessionDefaultsSettings() {
           <StateView
             kind="loading"
             size="row"
-            title="Loading defaults from the connected service…"
+            title={t`Loading defaults from the connected service…`}
           />
         </div>
       </div>
@@ -161,7 +162,7 @@ export function SessionDefaultsSettings() {
   const pinned = Boolean(form.provider_id);
   const modelName = selectedModel
     ? `${selectedModel.providerName ? `${selectedModel.providerName} / ` : ''}${compactModelName(selectedModel.id, selectedModel.label)}`
-    : modelId || 'Choose model';
+    : modelId || t`Choose model`;
 
   function chooseModel(choice: ClioModelOption) {
     if (!form) return;
@@ -182,11 +183,11 @@ export function SessionDefaultsSettings() {
       <div className={FIELDS} data-slot="session-defaults-panel">
         <SettingsRow
           htmlFor="session-default-model"
-          title="Model"
+          title={t`Model`}
           info={
             pinned
-              ? 'This model is pinned for new sessions. Reset it to follow the model in Models settings.'
-              : 'New sessions follow the model in Models settings. Choose a model here to pin it for new sessions.'
+              ? t`This model is pinned for new sessions. Reset it to follow the model in Models settings.`
+              : t`New sessions follow the model in Models settings. Choose a model here to pin it for new sessions.`
           }
         >
           <div className="flex w-full min-w-0 items-center gap-1.5">
@@ -200,7 +201,7 @@ export function SessionDefaultsSettings() {
               }
               id="session-default-model"
               inherited={!pinned}
-              label="Change default model"
+              label={t`Change default model`}
               // The effective model reads as the value whether inherited or pinned;
               // the reset button beside it marks a pin.
               modelId={modelId}
@@ -210,13 +211,13 @@ export function SessionDefaultsSettings() {
               options={options}
               placeholder={modelName}
               providerId={providerId}
-              title="Choose a model for new sessions"
+              title={t`Choose a model for new sessions`}
             />
             {pinned ? (
               <IconButton
                 className="shrink-0 text-muted-foreground"
                 icon={<RetryIcon />}
-                label="Use model from Models settings"
+                label={t`Use model from Models settings`}
                 onClick={() => setForm({ ...form, provider_id: '', model_id: '' })}
               />
             ) : null}
@@ -226,10 +227,10 @@ export function SessionDefaultsSettings() {
           <SettingsRow
             info={
               form.effort === 'unknown'
-                ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
-                : 'The starting thinking depth for new sessions. You can change it again from the composer.'
+                ? t`The service reported a starting effort this build does not know; saving resets it to the model default.`
+                : t`The starting thinking depth for new sessions. You can change it again from the composer.`
             }
-            title="Reasoning effort"
+            title={t`Reasoning effort`}
             wideControl
           >
             <ReasoningLevelSegmented
@@ -241,8 +242,8 @@ export function SessionDefaultsSettings() {
         ) : null}
         <SettingsRow
           htmlFor="session-default-agent"
-          title="Agent"
-          info="The agent new sessions run. Its plugins bring tools, skills and guidance; you can still add or remove plugins in a conversation."
+          title={t`Agent`}
+          info={t`The agent new sessions run. Its plugins bring tools, skills and guidance; you can still add or remove plugins in a conversation.`}
         >
           <Select
             onValueChange={(value) =>
@@ -254,7 +255,7 @@ export function SessionDefaultsSettings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={serviceDefaultAgent}>Service default</SelectItem>
+              <SelectItem value={serviceDefaultAgent}>{t`Service default`}</SelectItem>
               {agents.data?.map((agent) => (
                 <SelectItem key={agent.ref} value={agent.ref}>
                   {agent.name || agent.id}
@@ -262,14 +263,16 @@ export function SessionDefaultsSettings() {
                 </SelectItem>
               ))}
               {form.agent_ref && !agents.data?.some((agent) => agent.ref === form.agent_ref) ? (
-                <SelectItem value={form.agent_ref}>{form.agent_ref} (not installed)</SelectItem>
+                <SelectItem
+                  value={form.agent_ref}
+                >{t`${ph({ agent_ref: form.agent_ref })} (not installed)`}</SelectItem>
               ) : null}
             </SelectContent>
           </Select>
         </SettingsRow>
         <SettingsRow
           htmlFor="session-default-mode"
-          title="Work mode"
+          title={t`Work mode`}
           info={selectedMode.description}
         >
           <Select
@@ -293,8 +296,12 @@ export function SessionDefaultsSettings() {
         </SettingsRow>
         <SettingsRow
           htmlFor="session-default-approval"
-          title="Confirmations"
-          info={<>{selectedApproval.description} Workspace and organization rules still apply.</>}
+          title={t`Confirmations`}
+          info={
+            <>
+              {t`${ph({ description: selectedApproval.description })} Workspace and organization rules still apply.`}
+            </>
+          }
           note={unavailableApprovalNotice(approvalOptions)}
         >
           <Select
@@ -321,14 +328,14 @@ export function SessionDefaultsSettings() {
         <div className={cn('w-full py-1', SETTINGS_COLUMN)}>
           <StateView
             action={{
-              label: 'Retry',
+              label: t`Retry`,
               onClick: () => {
                 if (latest.current) save.mutate(latest.current);
               },
             }}
             kind="error"
             size="row"
-            title="Your change could not be saved."
+            title={t`Your change could not be saved.`}
           />
         </div>
       ) : (

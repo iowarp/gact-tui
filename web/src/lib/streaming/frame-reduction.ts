@@ -30,6 +30,7 @@ export function reduceFramesContained(
         cursor: frame.cursor,
         event_name: frame.eventName,
         code: 'frame_decode_failed',
+        // i18n-ignore: diagnostic gap reason, not shown as copy
         reason: decoded.error.issues[0]?.message ?? 'Unable to decode live frame',
         received_at: frame.receivedAt,
       });
@@ -42,6 +43,7 @@ export function reduceFramesContained(
         event_name: frame.eventName,
         entity_id: decoded.data.entity_id,
         code: 'event_name_mismatch',
+        // i18n-ignore: diagnostic gap reason, not shown as copy
         reason: `Stream named ${frame.eventName}; envelope named ${decoded.data.type}`,
         received_at: frame.receivedAt,
       });
@@ -55,6 +57,7 @@ export function reduceFramesContained(
         event_name: decoded.data.type,
         entity_id: decoded.data.entity_id,
         code: 'frame_decode_failed',
+        // i18n-ignore: diagnostic gap reason, not shown as copy
         reason: error instanceof Error ? error.message : 'Unable to decode live frame payload',
         received_at: frame.receivedAt,
       });

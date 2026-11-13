@@ -10,6 +10,7 @@ import { NamedTooltip } from './primitives/icon-button';
 import { PresentationLink } from './presentation-link';
 import { useHighlightedTokens } from './source-highlight';
 import { CopyAction } from './tool-compact-row';
+import { plural, ph, t } from '@lingui/core/macro';
 
 const MONO = 'font-mono text-label leading-4.5';
 const BAR =
@@ -127,13 +128,15 @@ export function TranscriptDiffBody({
           ))}
         </span>
         <span className="shrink-0 text-muted-foreground">
-          <span className="sr-only">{`${added} lines added, ${removed} removed`}</span>
+          <span className="sr-only">
+            {t`${plural(added, { one: '# line added', other: '# lines added' })}, ${removed} removed`}
+          </span>
           <span aria-hidden="true">{`+${added} −${removed}`}</span>
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <NamedTooltip label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}>
+          <NamedTooltip label={wrap ? t`Stop wrapping long lines` : t`Wrap long lines`}>
             <Button
-              aria-label="Wrap long lines"
+              aria-label={t`Wrap long lines`}
               aria-pressed={wrap}
               className={cn(
                 'size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]',
@@ -145,18 +148,18 @@ export function TranscriptDiffBody({
               <WrapTextIcon aria-hidden="true" className="size-[13px]" />
             </Button>
           </NamedTooltip>
-          <CopyAction value={text} label="Copy diff" />
+          <CopyAction value={text} label={t`Copy diff`} />
           {subject?.type === 'link' && subject.target && subject.target !== 'url' ? (
             <span className="grid size-[22px] place-items-center">
               <PresentationLink block={subject} compact iconOnly />
             </span>
           ) : onOpen ? (
             <Button
-              aria-label={`Open ${segments.at(-1) ?? path}`}
+              aria-label={t`Open ${ph({ name: segments.at(-1) ?? path })}`}
               className="size-[22px] text-muted-foreground hover:text-foreground"
               onClick={onOpen}
               size="icon-xs"
-              title={`Open ${path}`}
+              title={t`Open ${path}`}
               variant="ghost"
             >
               <PanelRightIcon aria-hidden="true" className="size-3.5" />
@@ -174,7 +177,7 @@ export function TranscriptDiffBody({
       >
         {/* Unwrapped, the lines take the longest line's width, so a changed line's fill runs
             under its text however far it scrolls. */}
-        <div className={cn(!wrap && 'w-max min-w-full')} role="table" aria-label="Changes">
+        <div className={cn(!wrap && 'w-max min-w-full')} role="table" aria-label={t`Changes`}>
           {lines.map((line, index) => {
             const tokens = tokensAt(index);
             return (
@@ -202,9 +205,9 @@ export function TranscriptDiffBody({
                   )}
                 >
                   {line.kind === 'added' ? (
-                    <span className="sr-only">Added: </span>
+                    <span className="sr-only">{t`Added:`} </span>
                   ) : line.kind === 'removed' ? (
-                    <span className="sr-only">Removed: </span>
+                    <span className="sr-only">{t`Removed:`} </span>
                   ) : null}
                   {line.kind === 'hunk' ? (
                     <span className="text-muted-foreground">{line.text}</span>
@@ -259,14 +262,14 @@ export function TranscriptTerminalBody({
       {command ? (
         <>
           <div className={BAR}>
-            <span className="text-xs font-medium text-foreground">Command</span>
+            <span className="text-xs font-medium text-foreground">{t`Command`}</span>
             {where ? (
-              <span className="ml-auto truncate font-mono text-muted-foreground" title="Ran on">
+              <span className="ml-auto truncate font-mono text-muted-foreground" title={t`Ran on`}>
                 {where}
               </span>
             ) : null}
             <span className={cn('flex shrink-0 items-center', !where && 'ml-auto')}>
-              <CopyAction value={command} label="Copy command" />
+              <CopyAction value={command} label={t`Copy command`} />
             </span>
           </div>
           {/* Bounded like the output, so a long script never pushes its result out of view. */}
@@ -279,8 +282,8 @@ export function TranscriptTerminalBody({
         </>
       ) : null}
       <div className={BAR}>
-        <span className="text-xs font-medium text-foreground">Output</span>
-        {live ? <span className="text-muted-foreground">live</span> : null}
+        <span className="text-xs font-medium text-foreground">{t`Output`}</span>
+        {live ? <span className="text-muted-foreground">{t`live`}</span> : null}
       </div>
       {output ? (
         <Terminal
@@ -293,12 +296,12 @@ export function TranscriptTerminalBody({
         </Terminal>
       ) : (
         <p className="px-3 py-1.5 text-label text-muted-foreground">
-          {live ? 'Waiting for output' : 'No output'}
+          {live ? t`Waiting for output` : t`No output`}
         </p>
       )}
       {failure && !failed && stopped ? (
         <div className="border-t border-border px-3 py-1.5 text-label [overflow-wrap:anywhere]">
-          <p className="text-xs font-medium text-muted-foreground">Stopped</p>
+          <p className="text-xs font-medium text-muted-foreground">{t`Stopped`}</p>
           <p className="whitespace-pre-wrap text-foreground">
             {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
           </p>

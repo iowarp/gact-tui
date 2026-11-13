@@ -35,6 +35,7 @@ import { ChoicePicker } from './settings-tools-picker';
 import { Outcome } from './settings-tools-tool-row';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SchemaSection } from './tool-schema-section';
+import { t, ph } from '@lingui/core/macro';
 
 /** How long the agent's tool listings stay fresh for a tool's inputs. */
 const SCHEMA_FRESH_MS = 5 * 60_000;
@@ -116,7 +117,7 @@ export function ToolDetailBody({
   const kind = toolKind(tool);
   const rules = savedRules(tool);
   const permissionLabel = PERMISSION_TEXT[permission.value].label;
-  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Unknown';
+  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : t`Unknown`;
   const customized = Boolean(tool.permission || tool.configured_callers);
   return (
     <div className="grid min-w-0" data-slot="tool-detail">
@@ -134,15 +135,15 @@ export function ToolDetailBody({
               size="compact"
               variant="ghost"
             >
-              Use defaults
+              {t`Use defaults`}
             </Button>
           ) : undefined
         }
         className="mt-1"
       >
-        Settings
+        {t`Settings`}
       </SettingsGroupLabel>
-      <SettingsRow fullWidth note={sourceText(tool)} title="Permission">
+      <SettingsRow fullWidth note={sourceText(tool)} title={t`Permission`}>
         <ChoicePicker
           chosen={!permission.isDefault}
           disabled={busy}
@@ -157,7 +158,7 @@ export function ToolDetailBody({
             })
           }
           options={permissionOptions(permissionDefault)}
-          search={`Permission for ${tool.name}`}
+          search={t`Permission for ${ph({ name: tool.name })}`}
           selected={permission.value}
           title={valueTitle(permissionLabel, permission.isDefault)}
         />
@@ -183,7 +184,7 @@ export function ToolDetailBody({
           title={
             callers.value
               ? valueTitle(callersLabel, callers.isDefault)
-              : "The plugin's default is known once a conversation loads the tool."
+              : t`The plugin's default is known once a conversation loads the tool.`
           }
         />
       </SettingsRow>
@@ -196,23 +197,23 @@ export function ToolDetailBody({
           }
           role={status.kind === 'error' ? 'alert' : 'status'}
         >
-          {status.kind === 'error' ? status.message : 'Saved'}
+          {status.kind === 'error' ? status.message : t`Saved`}
         </p>
       ) : null}
       {outcome ? (
         <>
-          <SettingsGroupLabel>What a call does</SettingsGroupLabel>
-          <SettingsRow fullWidth inlineControl title={`In ${modeLabel(mode)}`}>
+          <SettingsGroupLabel>{t`What a call does`}</SettingsGroupLabel>
+          <SettingsRow fullWidth inlineControl title={t`In ${ph({ mode: modeLabel(mode) })}`}>
             <Outcome value={outcome.direct} />
           </SettingsRow>
-          <SettingsRow fullWidth inlineControl title="From a script">
+          <SettingsRow fullWidth inlineControl title={t`From a script`}>
             <Outcome value={outcome.script} />
           </SettingsRow>
         </>
       ) : null}
       {rules.length ? (
         <>
-          <SettingsGroupLabel>Your rules</SettingsGroupLabel>
+          <SettingsGroupLabel>{t`Your rules`}</SettingsGroupLabel>
           {rules.map((rule, index) => {
             const text = ruleText(rule.action, rule.where, rule.path_pattern);
             return (
@@ -223,56 +224,56 @@ export function ToolDetailBody({
                 title={text}
               >
                 <Button
-                  aria-label={`Remove rule: ${text}`}
+                  aria-label={t`Remove rule: ${text}`}
                   disabled={busy}
                   onClick={() => editor.removeRule(tool.name, rule)}
                   size="compact"
                   variant="ghost"
                 >
-                  Remove
+                  {t`Remove`}
                 </Button>
               </SettingsRow>
             );
           })}
         </>
       ) : null}
-      <SettingsGroupLabel>About</SettingsGroupLabel>
-      <SettingsRow fullWidth inlineControl title="Kind">
+      <SettingsGroupLabel>{t`About`}</SettingsGroupLabel>
+      <SettingsRow fullWidth inlineControl title={t`Kind`}>
         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
           <kind.icon aria-hidden="true" className="size-3.5 shrink-0" />
           <span className="truncate">{kind.label}</span>
         </span>
       </SettingsRow>
-      <SettingsRow fullWidth inlineControl title="Flags">
+      <SettingsRow fullWidth inlineControl title={t`Flags`}>
         <span className="truncate text-muted-foreground">{flagText(tool)}</span>
       </SettingsRow>
       {origin || tool.server ? (
-        <SettingsRow fullWidth inlineControl title="Source">
+        <SettingsRow fullWidth inlineControl title={t`Source`}>
           <span className="truncate text-muted-foreground" title={origin || tool.server}>
-            {origin || `${tool.server} server`}
+            {origin || t`${ph({ server: tool.server })} server`}
           </span>
         </SettingsRow>
       ) : null}
-      <SettingsGroupLabel>Inputs</SettingsGroupLabel>
+      <SettingsGroupLabel>{t`Inputs`}</SettingsGroupLabel>
       <div className="min-w-0 pt-1">
         {inputs.schema ? (
-          <SchemaSection empty="No inputs declared." schema={inputs.schema} title="" />
+          <SchemaSection empty={t`No inputs declared.`} schema={inputs.schema} title="" />
         ) : inputs.pending ? (
-          <StateView kind="loading" size="row" title="Loading inputs…" />
+          <StateView kind="loading" size="row" title={t`Loading inputs…`} />
         ) : inputs.error ? (
           <div title={inputs.error.message}>
             <StateView
-              action={{ label: 'Retry', onClick: inputs.retry }}
+              action={{ label: t`Retry`, onClick: inputs.retry }}
               kind="error"
               size="row"
-              title="Inputs couldn’t be loaded."
+              title={t`Inputs couldn’t be loaded.`}
             />
           </div>
         ) : (
           <p className="text-ui text-muted-foreground">
             {tool.server
-              ? 'This server doesn’t report its inputs here yet.'
-              : 'Its inputs are known once a conversation loads the tool.'}
+              ? t`This server doesn’t report its inputs here yet.`
+              : t`Its inputs are known once a conversation loads the tool.`}
           </p>
         )}
       </div>
@@ -354,7 +355,7 @@ export function NestedToolDetail({
           data-slot="tool-detail-back"
           onClick={onBack}
           size="compact"
-          title={`Back to ${backLabel}`}
+          title={t`Back to ${backLabel}`}
           variant="ghost"
         >
           <ChevronLeftIcon aria-hidden="true" className="size-3.5" />

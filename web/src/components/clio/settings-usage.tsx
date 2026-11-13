@@ -33,12 +33,15 @@ import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SpendRow } from './settings-usage-spend';
 import { TechnicalDetails } from './technical-details';
+import { plural, t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 const MODE_KEY = 'clio.usage.mode';
 
 const MODES = [
-  { value: 'used', label: 'Used' },
-  { value: 'remaining', label: 'Remaining' },
+  { value: 'used', label: t`Used` },
+  { value: 'remaining', label: t`Remaining` },
 ] as const;
 
 function storedMode(): UsageMode {
@@ -71,7 +74,7 @@ function AccountRow({
   }
   return (
     <ItemRow
-      actions={<IconButton icon={<InfoIcon />} label="Details" onClick={onDetails} size="sm" />}
+      actions={<IconButton icon={<InfoIcon />} label={t`Details`} onClick={onDetails} size="sm" />}
       actionsWidth={40}
       aria-label={`${account.label}, ${words.label}`}
       data-account-id={account.id}
@@ -105,9 +108,9 @@ function AccountDetails({
 }) {
   const switchId = `delegation-${account.id}`;
   const facts = [
-    { label: 'Health', value: account.health.charAt(0).toUpperCase() + account.health.slice(1) },
-    ...(account.endpoint ? [{ label: 'Endpoint', value: account.endpoint, mono: true }] : []),
-    ...(account.failure ? [{ label: 'Reason', value: account.failure, mono: true }] : []),
+    { label: t`Health`, value: account.health.charAt(0).toUpperCase() + account.health.slice(1) },
+    ...(account.endpoint ? [{ label: t`Endpoint`, value: account.endpoint, mono: true }] : []),
+    ...(account.failure ? [{ label: t`Reason`, value: account.failure, mono: true }] : []),
   ];
   return (
     <DetailPane
@@ -118,28 +121,28 @@ function AccountDetails({
       title={account.label}
     >
       <div className="grid gap-1" data-slot="usage-account-details">
-        <SettingsGroupLabel>Limits</SettingsGroupLabel>
+        <SettingsGroupLabel>{t`Limits`}</SettingsGroupLabel>
         <UsageSummary
           missingReason={account.usage_missing_reason}
           mode={mode}
           snapshot={account.usage}
         />
-        <SettingsGroupLabel className="mt-3">Recorded by {vocab.agent}</SettingsGroupLabel>
+        <SettingsGroupLabel className="mt-3">{t`Recorded by ${agent}`}</SettingsGroupLabel>
         {account.spend ? (
           <SpendSummary spend={account.spend} />
         ) : (
-          <p className="text-xs text-muted-foreground">Nothing recorded yet</p>
+          <p className="text-xs text-muted-foreground">{t`Nothing recorded yet`}</p>
         )}
-        <SettingsGroupLabel className="mt-3">Delegated work</SettingsGroupLabel>
+        <SettingsGroupLabel className="mt-3">{t`Delegated work`}</SettingsGroupLabel>
         <label className="flex items-center gap-2 text-ui" htmlFor={switchId}>
           <DelegationSwitch account={account} id={switchId} />
-          {vocab.agent} may use this account
+          {t`${agent} may use this account`}
         </label>
         <TechnicalDetails
           className="mt-3"
           contentClassName="pt-1"
           summaryClassName="text-xs font-normal"
-          title="Technical details"
+          title={t`Technical details`}
         >
           <KeyValueGrid items={facts} />
         </TechnicalDetails>
@@ -188,7 +191,7 @@ export function UsageSettings() {
   );
   const totals = total ? spendDetails(total) : undefined;
   return (
-    <section aria-label="Usage" className="@container flex flex-col gap-2">
+    <section aria-label={t`Usage`} className="@container flex flex-col gap-2">
       {/* The title-row controls end on the list's right edge, also beside the
           details pane (ListDetailLayout's list column is the other 58%, plus the
           page gutter the pane runs into). */}
@@ -196,22 +199,27 @@ export function UsageSettings() {
         <SettingsSectionHeading
           actions={
             accounts.length ? (
-              <SegmentedControl label="Show" onValueChange={choose} options={MODES} value={mode} />
+              <SegmentedControl
+                label={t`Show`}
+                onValueChange={choose}
+                options={MODES}
+                value={mode}
+              />
             ) : undefined
           }
-          info={`Account limits and usage recorded by ${vocab.agent}.`}
-          title="Usage"
+          info={t`Account limits and usage recorded by ${agent}.`}
+          title={t`Usage`}
         />
       </div>
       {fleet.isPending ? (
-        <StateView kind="loading" size="row" title="Loading usage…" />
+        <StateView kind="loading" size="row" title={t`Loading usage…`} />
       ) : fleet.error || !fleet.data ? (
         <div className="max-w-[760px]">
           <StateView
-            action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void fleet.refetch() }}
             kind="error"
             size="row"
-            title="The agent could not load usage."
+            title={t`The agent could not load usage.`}
           />
         </div>
       ) : accounts.length ? (
@@ -232,21 +240,20 @@ export function UsageSettings() {
                 <SettingsGroupLabel
                   actions={
                     <span className="flex items-center gap-1" data-slot="usage-delegation-caption">
-                      Delegated work
+                      {t`Delegated work`}
                       <InfoTip
                         className={cn('text-faint', NARROW_HIDDEN)}
-                        label="About delegated work"
+                        label={t`About delegated work`}
                       >
-                        Turn an account on to let {vocab.agent} run delegated work on it without
-                        asking.
+                        {t`Turn an account on to let ${agent} run delegated work on it without asking.`}
                       </InfoTip>
                     </span>
                   }
                   className="mt-0"
                 >
-                  Accounts
+                  {t`Accounts`}
                 </SettingsGroupLabel>
-                <ItemList className="border-t border-border/70" label="Accounts">
+                <ItemList className="border-t border-border/70" label={t`Accounts`}>
                   {accounts.map((account) => (
                     <AccountRow
                       account={account}
@@ -259,8 +266,8 @@ export function UsageSettings() {
                 </ItemList>
                 {data && models.length ? (
                   <>
-                    <SettingsGroupLabel>By model</SettingsGroupLabel>
-                    <ItemList label="Usage by model">
+                    <SettingsGroupLabel>{t`By model`}</SettingsGroupLabel>
+                    <ItemList label={t`Usage by model`}>
                       {models.map(([ref, spend]) => {
                         const entry = data.entries.find((candidate) => candidate.ref === ref);
                         const [provider, ...rest] = ref.split('/');
@@ -275,7 +282,14 @@ export function UsageSettings() {
                               />
                             }
                             key={ref}
-                            meta={`${account ? `${account}, ` : ''}${spend.turns} ${spend.turns === 1 ? 'turn' : 'turns'}`}
+                            meta={
+                              account
+                                ? plural(spend.turns, {
+                                    one: `${account}, # turn`,
+                                    other: `${account}, # turns`,
+                                  })
+                                : plural(spend.turns, { one: '# turn', other: '# turns' })
+                            }
                             spend={spend}
                             title={model}
                           />
@@ -286,13 +300,20 @@ export function UsageSettings() {
                 ) : null}
                 {total && totals ? (
                   <>
-                    <SettingsGroupLabel>Total</SettingsGroupLabel>
+                    <SettingsGroupLabel>{t`Total`}</SettingsGroupLabel>
                     {/* The same columns as By model, so the sums sit under their figures. */}
-                    <ItemList label="Total usage">
+                    <ItemList label={t`Total usage`}>
                       <SpendRow
-                        meta={`${total.turns} ${total.turns === 1 ? 'turn' : 'turns'}${totals.cost ? '' : ', no cost recorded'}`}
+                        meta={
+                          totals.cost
+                            ? plural(total.turns, { one: '# turn', other: '# turns' })
+                            : plural(total.turns, {
+                                one: '# turn, no cost recorded',
+                                other: '# turns, no cost recorded',
+                              })
+                        }
                         spend={total}
-                        title={models.length ? 'All models' : 'All accounts'}
+                        title={models.length ? t`All models` : t`All accounts`}
                       />
                     </ItemList>
                   </>
@@ -307,10 +328,10 @@ export function UsageSettings() {
       ) : (
         <div className="max-w-[760px]">
           <StateView
-            action={{ label: 'Open Providers', onClick: () => navigate('/settings/providers') }}
+            action={{ label: t`Open Providers`, onClick: () => navigate('/settings/providers') }}
             kind="empty"
             size="row"
-            title="No account connected"
+            title={t`No account connected`}
           />
         </div>
       )}
@@ -332,7 +353,11 @@ function totalSpend(spends: FleetSpend[]): FleetSpend | undefined {
 }
 
 function EstimatedNote({ count }: { count: number }) {
-  const text = `${count} older conversation${count === 1 ? ' is' : 's are'} counted under the model ${count === 1 ? 'it was' : 'they were'} set to: they predate per-model usage.`;
+  const text = plural(count, {
+    one: '# older conversation is counted under the model it was set to: they predate per-model usage.',
+    other:
+      '# older conversations are counted under the model they were set to: they predate per-model usage.',
+  });
   return (
     <p
       className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"

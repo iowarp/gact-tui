@@ -30,6 +30,7 @@ import {
   McpAppActivity,
   type McpAppActivityEntry,
 } from './conversation-iteration-detail';
+import { t } from '@lingui/core/macro';
 
 /** The flow a run_flow / run_workflow call started, once its start was accepted. */
 function startedFlow(
@@ -316,7 +317,7 @@ export function ConversationTurn({
   }
   if (mode === 'full') {
     return (
-      <section aria-label="Full agent activity">
+      <section aria-label={t`Full agent activity`}>
         <div className="space-y-3">
           {iterations.map((iteration) => (
             <IterationDetail

@@ -15,12 +15,14 @@ import { useRepository } from '@/hooks/use-repository';
 import { readOperationPages } from './tool-operation-paging';
 import { copyText } from '@/lib/clipboard';
 import { clioStatusLabel, type ClioStatusValue } from './status';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const STATUS_WORDS = new Set(['failed', 'cancelled', 'interrupted', 'denied']);
 
 /** A returned task's unsuccessful status in words, for its tab; a completed one stays quiet. */
 function statusWords(task: OperationTask): string | undefined {
-  if (task.error && !task.status) return 'Could not collect';
+  if (task.error && !task.status) return t`Could not collect`;
   return task.status && STATUS_WORDS.has(task.status)
     ? clioStatusLabel(task.status as ClioStatusValue)
     : undefined;
@@ -30,7 +32,7 @@ function statusWords(task: OperationTask): string | undefined {
 function Answer({ value, markdown = false }: { value: unknown; markdown?: boolean }) {
   if (typeof value !== 'string') return <ToolOperationValue value={value} />;
   return (
-    <BoundedResult lines={8} title="Result" inlineExpansion>
+    <BoundedResult lines={8} title={t`Result`} inlineExpansion>
       {markdown ? (
         <ContentMarkdown className="text-sm leading-6">{value}</ContentMarkdown>
       ) : (
@@ -67,14 +69,14 @@ function PinnedAnswer({ task, sessionId }: { task: OperationTask; sessionId: str
           setState({
             pending: false,
             key: pageKey,
-            error: error instanceof Error ? error.message : 'Unable to read recorded result.',
+            error: error instanceof Error ? error.message : t`Unable to read recorded result.`,
           });
       });
     return () => controller.abort();
   }, [repository, sessionId, task.key, pageKey]);
   return state.pending || state.key !== pageKey ? (
     <p role="status" className="text-sm text-muted-foreground">
-      Loading recorded result…
+      {t`Loading recorded result…`}
     </p>
   ) : state.error ? (
     <p role="alert" className="text-sm text-destructive">
@@ -83,6 +85,32 @@ function PinnedAnswer({ task, sessionId }: { task: OperationTask; sessionId: str
   ) : (
     <Answer value={state.value} markdown />
   );
+}
+
+/** The assigned task's subject link, with the agent and model it runs as when known. */
+function TaskSubjectLine({ task }: { task: OperationTask }) {
+  const agent = task.agent ?? '';
+  const model = task.model ?? '';
+  const subject = <PresentationLink block={task.subject} />;
+  if (agent && model)
+    return (
+      <Trans>
+        {subject} running as {agent} on {model}
+      </Trans>
+    );
+  if (agent)
+    return (
+      <Trans>
+        {subject} running as {agent}
+      </Trans>
+    );
+  if (model)
+    return (
+      <Trans>
+        {subject} on {model}
+      </Trans>
+    );
+  return subject;
 }
 
 function TaskContent({
@@ -99,20 +127,18 @@ function TaskContent({
       {assignment ? (
         <>
           <p className="text-sm">
-            <PresentationLink block={task.subject} />
-            {task.agent ? ` running as ${task.agent}` : ''}
-            {task.model ? ` on ${task.model}` : ''}
+            <TaskSubjectLine task={task} />
           </p>
           {task.assignment ? (
             <div>
-              <p className="mb-1 text-sm font-medium">Assignment</p>
+              <p className="mb-1 text-sm font-medium">{t`Assignment`}</p>
               <Answer value={task.assignment} />
             </div>
           ) : null}
         </>
       ) : null}
       {!assignment && task.model ? (
-        <p className="text-xs text-muted-foreground">Ran on {task.model}</p>
+        <p className="text-xs text-muted-foreground">{t`Ran on ${ph({ model: task.model })}`}</p>
       ) : null}
       {task.error ? (
         <p className="whitespace-pre-wrap text-sm text-destructive" role="alert">
@@ -131,7 +157,7 @@ function TaskContent({
             // preview is never parsed or replaced by a newer child conversation.
             if (!complete)
               return (
-                <p className="text-sm text-muted-foreground">Recorded result is incomplete.</p>
+                <p className="text-sm text-muted-foreground">{t`Recorded result is incomplete.`}</p>
               );
             let value: unknown = text;
             if (block.result_kind === 'completion') {
@@ -213,7 +239,7 @@ export function ToolOperationResult({
         >
           <TabsList
             className="h-auto w-full max-w-full flex-wrap justify-start gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto"
-            aria-label={assignment ? 'Delegated assignments' : 'Returned task results'}
+            aria-label={assignment ? t`Delegated assignments` : t`Returned task results`}
           >
             {tasks.map((task) => (
               <TabsTrigger
@@ -253,7 +279,7 @@ export function ToolOperationResult({
             }
           }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t`Copied` : t`Copy`}
         </Button>
       ) : null}
     </div>

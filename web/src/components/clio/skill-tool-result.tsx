@@ -18,6 +18,8 @@ import { downloadText } from './surface-export';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { CopyAction } from './tool-compact-row';
 import { ToolbarAction } from './viewer-toolbar';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /**
  * A skill's files live with the installed skill, outside every workspace, so
@@ -52,17 +54,17 @@ function SkillFileLink({
       return (
         <p className="text-muted-foreground">
           {complete
-            ? 'This call did not retain a separate copy of this file.'
-            : 'Load the complete content to read this file.'}
+            ? t`This call did not retain a separate copy of this file.`
+            : t`Load the complete content to read this file.`}
         </p>
       );
     const { filename, mimeType } = skillFileDownload(name);
     return (
       <>
-        <div className="flex justify-end gap-1" role="toolbar" aria-label={`${name} actions`}>
+        <div className="flex justify-end gap-1" role="toolbar" aria-label={t`${name} actions`}>
           <TextFileCopyAction name={name} readText={() => section} />
           <ToolbarAction
-            label={`Download ${filename}`}
+            label={t`Download ${filename}`}
             onClick={() => downloadText(section, mimeType, filename)}
           >
             <DownloadIcon aria-hidden="true" />
@@ -91,7 +93,7 @@ function SkillFileLink({
         descriptionAction={
           path ? (
             <TooltipProvider delayDuration={200}>
-              <CopyAction value={path} label="Copy path" />
+              <CopyAction value={path} label={t`Copy path`} />
             </TooltipProvider>
           ) : undefined
         }
@@ -128,7 +130,7 @@ export function SkillToolResult({
   const title =
     (tool.presentation?.subject === 'skill-reference'
       ? tool.presentation?.summary
-      : subject?.text) || 'Skill instructions';
+      : subject?.text) || t`Skill instructions`;
   const directory = blocks.find((block) => block.id === 'skill-directory');
   const files = blocks.filter((block) => block.id.startsWith('skill-file-'));
   const fileLink = (file: ToolPresentationBlock) => (
@@ -146,10 +148,12 @@ export function SkillToolResult({
     if (block.id === 'skill-directory')
       return (
         <details className="px-2 py-1 text-sm">
-          <summary className="cursor-pointer text-muted-foreground">Source</summary>
+          <summary className="cursor-pointer text-muted-foreground">{t`Source`}</summary>
           <p className="mt-1 break-all">
-            <span className="text-muted-foreground">Skill directory: </span>
-            {text}
+            <Trans>
+              <span className="text-muted-foreground">Skill directory: </span>
+              {text}
+            </Trans>
           </p>
           {files.map((file) =>
             file.type === 'link' ? (
@@ -170,7 +174,7 @@ export function SkillToolResult({
       return (
         <div className="px-2 py-1 text-sm">
           <span className="font-medium">
-            {block.id === 'skill-description' ? 'When to use' : block.label}:{' '}
+            {block.id === 'skill-description' ? t`When to use:` : `${block.label}:`}{' '}
           </span>
           {text}
         </div>

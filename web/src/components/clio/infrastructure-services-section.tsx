@@ -13,6 +13,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { ProvenanceConnections } from './provenance-connections';
 import { WebSearchSetup } from './web-search-setup';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ServicesWebSearch {
   connection?: McpUserConfiguration;
@@ -112,8 +113,10 @@ export function InfrastructureServicesSection({ webSearch }: { webSearch: Servic
 }
 
 const PROVENANCE_SERVICES = [
-  { id: 'flowcept', title: 'Flowcept', description: 'Record execution provenance.' },
-  { id: 'cmf', title: 'HPE CMF', description: 'Track artifact lineage.' },
+  // i18n-ignore: product names
+  { id: 'flowcept', title: 'Flowcept', description: t`Record execution provenance.` },
+  // i18n-ignore: product names
+  { id: 'cmf', title: 'HPE CMF', description: t`Track artifact lineage.` },
 ] as const;
 
 /** Attach a service whose deployment stays under the user's control. */
@@ -135,20 +138,19 @@ function ConnectExistingServiceDialog({
   webSearchConnected: boolean;
 }) {
   const webSearchStatus: InfraStatus = webSearchConnected
-    ? { tone: 'success', label: 'Connected' }
+    ? { tone: 'success', label: t`Connected` }
     : webSearchConfigured
-      ? { tone: 'warning', label: 'Needs attention' }
-      : { tone: 'idle', label: 'Not connected' };
-  const webSearchAction = webSearchConfigured ? 'Edit connection' : 'Connect';
+      ? { tone: 'warning', label: t`Needs attention` }
+      : { tone: 'idle', label: t`Not connected` };
   return (
     <DialogFrame
-      description={`Attach a service to ${agentLabel}. Its deployment remains under your control.`}
+      description={t`Attach a service to ${agentLabel}. Its deployment remains under your control.`}
       icon={<LinkIcon />}
       onOpenChange={onOpenChange}
       open={open}
-      title="Connect an existing service"
+      title={t`Connect an existing service`}
     >
-      <InfraList label="Services you can connect" meta={0}>
+      <InfraList label={t`Services you can connect`} meta={0}>
         {PROVENANCE_SERVICES.map((service) => (
           <InfraRow
             description={service.description}
@@ -157,49 +159,53 @@ function ConnectExistingServiceDialog({
             primaryAction={
               <IconButton
                 icon={<LinkIcon />}
-                label={`Connect ${service.title}`}
+                label={t`Connect ${ph({ title: service.title })}`}
                 onClick={() =>
                   onProvenance({ service_id: service.id, label: service.title, url: '' })
                 }
                 size="sm"
               />
             }
-            status={{ tone: 'idle', label: 'Not checked' }}
+            status={{ tone: 'idle', label: t`Not checked` }}
             title={service.title}
           />
         ))}
         <InfraRow
-          description={'Search and read sources through CLIO Web Search.'}
+          description={t`Search and read sources through CLIO Web Search.`}
           icon={<GlobeIcon />}
           primaryAction={
             <IconButton
               icon={webSearchConfigured ? <EditIcon /> : <LinkIcon />}
-              label={`${webSearchAction} CLIO Web Search`}
+              label={
+                webSearchConfigured
+                  ? t`Edit connection CLIO Web Search`
+                  : t`Connect CLIO Web Search`
+              }
               onClick={onWebSearch}
               size="sm"
             />
           }
           status={webSearchStatus}
-          title="CLIO Web Search"
+          title={t`CLIO Web Search`}
         />
         <InfraRow
-          description="A hosted or self-run model API."
+          description={t`A hosted or self-run model API.`}
           icon={<CpuIcon />}
           primaryAction={
-            <NamedTooltip label="Connect an inference provider">
+            <NamedTooltip label={t`Connect an inference provider`}>
               <Button
                 asChild
                 className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
                 size="icon-xs"
                 variant="ghost"
               >
-                <Link aria-label="Connect an inference provider" to="/settings/providers">
+                <Link aria-label={t`Connect an inference provider`} to="/settings/providers">
                   <ArrowRightIcon aria-hidden="true" />
                 </Link>
               </Button>
             </NamedTooltip>
           }
-          title="Inference provider"
+          title={t`Inference provider`}
         />
       </InfraList>
     </DialogFrame>

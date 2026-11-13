@@ -18,6 +18,7 @@ import { BrandIcon } from './brand-icon';
 import { ClioMenuContent } from './clio-menu';
 import { connectionAgentName, connectionLocation } from './connection-names';
 import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
+import { t, ph } from '@lingui/core/macro';
 
 interface NavigationAgentMenuProps {
   endpoint: string;
@@ -57,7 +58,7 @@ export function NavigationAgentMenu({
     agentName !== connectionAgentName(undefined, location) || !shortMark
       ? agentName
       : location === 'Local'
-        ? `${brand.wordmark} local`
+        ? t`${ph({ wordmark: brand.wordmark })} local`
         : brand.wordmark;
   const place = placeWords(location);
   const line = statusLine(stream, versions.state === 'available', name, place);
@@ -103,9 +104,7 @@ export function NavigationAgentMenu({
           </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate font-heading text-h3 font-semibold">
-                {brand.wordmark}
-              </span>
+              <span className="truncate font-heading text-h3 font-semibold">{brand.wordmark}</span>
               <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
             </span>
             <span
@@ -118,7 +117,9 @@ export function NavigationAgentMenu({
               <StatusIndicator
                 className="-ml-1 size-3"
                 display="column"
-                hoverName={line.parts?.[0] === line.label ? shown : `${line.label} ${shown}`}
+                hoverName={
+                  line.parts?.[0] === line.label ? shown : t`${ph({ label: line.label })} ${shown}`
+                }
                 label={line.label}
                 tone={line.tone}
               />
@@ -179,44 +180,44 @@ function statusLine(
 ): StatusLine {
   if (stream === 'offline') {
     return {
-      text: `Can't reach ${name}, retrying`,
-      label: 'Offline',
+      text: t`Can't reach ${name}, retrying`,
+      label: t`Offline`,
       tone: 'error',
       className: 'text-destructive',
     };
   }
   if (stream === 'reconnecting' || stream === 'gapped') {
     return {
-      text: 'Resuming updates',
-      label: 'Reconnecting',
+      text: t`Resuming updates`,
+      label: t`Reconnecting`,
       tone: 'warning',
       className: 'text-warning',
     };
   }
   if (stream === 'connecting') {
-    return { text: `Connecting to ${name}`, label: 'Connecting', tone: 'running' };
+    return { text: t`Connecting to ${name}`, label: t`Connecting`, tone: 'running' };
   }
   if (updateReady) {
     // The state leads in amber and the agent follows muted, so a long agent
     // name truncates before the state does. The text takes the dot's amber,
     // as the StatusIndicator's own warning word does.
     return {
-      text: `Update ready, ${name}`,
-      parts: ['Update ready', name],
+      text: t`Update ready, ${name}`,
+      parts: [t`Update ready`, name],
       leadClassName: 'font-medium text-warning',
-      label: 'Update ready',
+      label: t`Update ready`,
       tone: 'warning',
     };
   }
   return {
-    text: `${name}, ${place}`,
+    text: t`${name}, ${place}`,
     parts: [name, place],
     at: true,
-    label: 'Live',
+    label: t`Live`,
     tone: 'success',
   };
 }
 
 function placeWords(location: string): string {
-  return location === 'Local' ? 'this computer' : location;
+  return location === 'Local' ? t`this computer` : location;
 }

@@ -2,6 +2,7 @@ import { BrainIcon } from 'lucide-react';
 import { Link, useInRouterContext } from 'react-router-dom';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { IconButton } from './primitives/icon-button';
+import { plural, t } from '@lingui/core/macro';
 
 interface MemoryUsed {
   read: string[];
@@ -53,7 +54,7 @@ export function MemoryUsedAction({ metadata }: { metadata?: Record<string, unkno
   const used = memoryUsed(metadata);
   if (!used) return null;
   const count = new Set([...used.read, ...used.loaded]).size;
-  const label = `Used ${count} memory ${count === 1 ? 'document' : 'documents'}`;
+  const label = plural(count, { one: 'Used # memory document', other: 'Used # memory documents' });
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -61,8 +62,8 @@ export function MemoryUsedAction({ metadata }: { metadata?: Record<string, unkno
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-72 gap-3">
         <p className="text-sm font-medium">{label}</p>
-        <DocumentList names={used.read} title="Read while answering" />
-        <DocumentList names={used.loaded} title="Loaded at the start of the conversation" />
+        <DocumentList names={used.read} title={t`Read while answering`} />
+        <DocumentList names={used.loaded} title={t`Loaded at the start of the conversation`} />
       </PopoverContent>
     </Popover>
   );

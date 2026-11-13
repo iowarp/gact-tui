@@ -12,6 +12,7 @@ import { ResourceLoading } from './resource-states';
 import { StateView } from './primitives/state-view';
 import { changeCountFor, isChangedPath, type ChangeCounts } from './workbench-shared';
 import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model';
+import { plural, t, ph } from '@lingui/core/macro';
 
 // Human copy for the server's typed `redacted` reasons
 // (workspace_file_policy.workspace_read_redaction_reason). A folder carrying
@@ -19,7 +20,7 @@ import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model
 // their existence) but its contents were never walked — the note explains why
 // an expanded folder shows nothing, instead of silently looking empty.
 const REDACTED_REASON_LABEL: Record<string, string> = {
-  sandbox_child_cache: 'Sandbox cache — contents not shown',
+  sandbox_child_cache: t`Sandbox cache — contents not shown`,
 };
 
 /** Characters kept at a cut name's end, so dated siblings and extensions stay apart. */
@@ -172,14 +173,14 @@ export function WorkbenchFileTree({
           name: node.name,
           depth,
           open,
-          meta: countFolders ? `${count} ${count === 1 ? 'item' : 'items'}` : undefined,
+          meta: countFolders ? plural(count, { one: '# item', other: '# items' }) : undefined,
         });
         if (!open) continue;
         if (node.entry.redacted) {
           result.push({
             kind: 'note',
             key: `${path}#note`,
-            label: REDACTED_REASON_LABEL[node.entry.redacted] ?? 'Contents not shown.',
+            label: REDACTED_REASON_LABEL[node.entry.redacted] ?? t`Contents not shown.`,
             depth: depth + 1,
           });
           continue;
@@ -332,7 +333,7 @@ function TreeRowView({
       return (
         <div className="pr-1" style={style}>
           <StateView
-            action={{ label: 'Retry', onClick: row.onRetry }}
+            action={{ label: t`Retry`, onClick: row.onRetry }}
             className="px-0"
             kind="error"
             size="row"
@@ -365,7 +366,11 @@ function TreeRowView({
           style={placed}
         >
           <button
-            aria-label={`${row.open ? 'Collapse' : 'Expand'} folder ${row.name}`}
+            aria-label={
+              row.open
+                ? t`Collapse folder ${ph({ name: row.name })}`
+                : t`Expand folder ${ph({ name: row.name })}`
+            }
             className={cn(
               TREE_ROW_CLASS,
               // Spec `.zx.h`: top-level folders lead the list.
@@ -401,14 +406,16 @@ function TreeRowView({
       const sizeKnown = row.size !== undefined && row.size >= 0;
       const trailing = added ? `+${added}` : sizeKnown ? formatCompactBytes(row.size!) : row.meta;
       const detail = [
-        added ? `${added} lines added` : undefined,
+        added ? plural(added, { one: '# line added', other: '# lines added' }) : undefined,
         sizeKnown ? formatBytes(row.size!) : row.meta,
       ]
         .filter(Boolean)
         .join(', ');
       return (
         <div
-          aria-label={changed ? `${row.name}, changed in this conversation` : row.name}
+          aria-label={
+            changed ? t`${ph({ name: row.name })}, changed in this conversation` : row.name
+          }
           aria-level={row.depth + 1}
           aria-selected={selected}
           className={cn(

@@ -11,13 +11,35 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StateView } from './primitives/state-view';
 import { notOffered, plainReason } from './settings-health-reason';
+import { ph, t } from '@lingui/core/macro';
 
 type Report = (noun: string, missing: boolean) => void;
 const UnofferedReport = createContext<Report | undefined>(undefined);
 
-function joined(nouns: readonly string[]) {
-  if (nouns.length < 2) return nouns.join('');
-  return `${nouns.slice(0, -1).join(', ')} or ${nouns.at(-1)}`;
+/**
+ * Display names of the parts a page reports by `noun`. The noun stays the
+ * stable English key the pages order by; it is translated only when shown.
+ */
+const NOUN_LABELS: Record<string, string> = {
+  configuration: t`configuration`,
+  'session retention': t`session retention`,
+  'compaction history': t`compaction history`,
+  'health details': t`health details`,
+  'storage statistics': t`storage statistics`,
+  'activity metrics': t`activity metrics`,
+  'hook inspection': t`hook inspection`,
+};
+
+function nounLabel(noun: string): string {
+  return NOUN_LABELS[noun] ?? noun;
+}
+
+/** "This agent doesn’t offer a, b or c." as one sentence per list length. */
+function unofferedSentence(nouns: readonly string[]): string {
+  const labels = nouns.map(nounLabel);
+  if (labels.length < 2) return t`This agent doesn’t offer ${ph({ part: labels.join('') })}.`;
+  const last = labels.at(-1) ?? '';
+  return t`This agent doesn’t offer ${ph({ parts: labels.slice(0, -1).join(', ') })} or ${last}.`;
 }
 
 const UnofferedNouns = createContext<readonly string[] | undefined>(undefined);
@@ -74,11 +96,7 @@ export function UnofferedLine() {
       size="row"
       // The whole page body at phone width, so it wraps rather than hiding behind an ellipsis.
       className="h-auto min-h-7 py-1"
-      title={
-        <span className="whitespace-normal text-pretty">
-          This agent doesn’t offer {joined(nouns)}.
-        </span>
-      }
+      title={<span className="whitespace-normal text-pretty">{unofferedSentence(nouns)}</span>}
     />
   );
 }
@@ -124,7 +142,7 @@ export function SettingsLoadError({
         className={className}
         kind="unavailable"
         size="row"
-        title={`This service doesn’t offer ${noun}.`}
+        title={t`This service doesn’t offer ${ph({ part: nounLabel(noun) })}.`}
       />
     );
   return (
@@ -147,7 +165,7 @@ export function SettingsLoadError({
           type="button"
           variant="link"
         >
-          Retry
+          {t`Retry`}
         </Button>
       ) : null}
     </div>

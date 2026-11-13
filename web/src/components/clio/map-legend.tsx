@@ -1,4 +1,6 @@
 import type { ScientificMapPoint } from './scientific-map-view';
+import { plural, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 const MAX_INLINE_CATEGORY_LEGEND = 12;
 
@@ -24,13 +26,13 @@ export function MapLegend({
 }: MapLegendProps) {
   return valueExtent ? (
     <div
-      aria-label={`${valueLabel} colour scale`}
+      aria-label={t`${valueLabel} colour scale`}
       className="grid grid-cols-[auto_minmax(5rem,1fr)_auto] items-center gap-x-2 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground"
       data-slot="a2ui-map-legend"
     >
       <span className="col-span-3 font-medium text-foreground">{valueLabel}</span>
       <span className="whitespace-nowrap tabular-nums">
-        {valueExtent[0].toLocaleString()}
+        {formatNumber(valueExtent[0])}
         {valueUnit ? ` ${valueUnit}` : ''}
       </span>
       <span
@@ -42,26 +44,38 @@ export function MapLegend({
         }}
       />
       <span className="whitespace-nowrap tabular-nums">
-        {valueExtent[1].toLocaleString()}
+        {formatNumber(valueExtent[1])}
         {valueUnit ? ` ${valueUnit}` : ''}
       </span>
       {points.some((point) => point.value === undefined) ? (
-        <span className="col-span-3">Grey: no value</span>
+        <span className="col-span-3">{t`Grey: no value`}</span>
       ) : null}
     </div>
   ) : categoryColors.size > MAX_INLINE_CATEGORY_LEGEND ? (
     <div
-      aria-label="Map colour summary"
+      aria-label={t`Map colour summary`}
       className="border-t px-3 py-2 text-xs text-muted-foreground"
       data-slot="a2ui-map-legend"
     >
-      {categoryColors.size.toLocaleString()} {geometrySelectionByPoints ? 'tracks' : 'categories'}{' '}
-      on the map. Colours repeat; filter to compare them.
-      {geometrySelectionByPoints && points.length > 1_000 ? ' Zoom in for observations.' : ''}
+      {geometrySelectionByPoints
+        ? points.length > 1_000
+          ? plural(categoryColors.size, {
+              one: '# track on the map. Colours repeat; filter to compare them. Zoom in for observations.',
+              other:
+                '# tracks on the map. Colours repeat; filter to compare them. Zoom in for observations.',
+            })
+          : plural(categoryColors.size, {
+              one: '# track on the map. Colours repeat; filter to compare them.',
+              other: '# tracks on the map. Colours repeat; filter to compare them.',
+            })
+        : plural(categoryColors.size, {
+            one: '# category on the map. Colours repeat; filter to compare them.',
+            other: '# categories on the map. Colours repeat; filter to compare them.',
+          })}
     </div>
   ) : categoryColors.size > 0 ? (
     <div
-      aria-label="Map category colours"
+      aria-label={t`Map category colours`}
       className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground"
       data-slot="a2ui-map-legend"
       role="list"
@@ -83,11 +97,11 @@ export function MapLegend({
             className="size-2.5 rounded-full"
             style={{ backgroundColor: 'var(--muted-foreground)' }}
           />
-          Uncategorized
+          {t`Uncategorized`}
         </span>
       ) : null}
       {new Set(categoryColors.values()).size < categoryColors.size ? (
-        <span>Some category colours repeat; use labels or filter to compare them.</span>
+        <span>{t`Some category colours repeat; use labels or filter to compare them.`}</span>
       ) : null}
     </div>
   ) : null;

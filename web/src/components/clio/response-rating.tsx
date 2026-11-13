@@ -20,6 +20,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
 import { ResponseFeedbackComment } from './response-feedback-comment';
+import { t } from '@lingui/core/macro';
 
 /** A compact, durable response rating; archived and unfinished messages are read-only. */
 export function ResponseRating({
@@ -63,11 +64,11 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
       queryClient.setQueryData(queryKey, value);
       if (input.comment !== undefined) {
         setCommentOpen(false);
-        toast.success('Feedback saved');
-      } else toast.success(value.feedback?.rating ? 'Response rated' : 'Rating removed');
+        toast.success(t`Feedback saved`);
+      } else toast.success(value.feedback?.rating ? t`Response rated` : t`Rating removed`);
     },
     onError: () => {
-      toast.error('Could not confirm your feedback. Please try again.');
+      toast.error(t`Could not confirm your feedback. Please try again.`);
       void queryClient.invalidateQueries({ queryKey });
     },
   });
@@ -75,13 +76,13 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
   const comment = stored.data?.feedback?.comment ?? '';
   const busy = stored.isPending || save.isPending;
   const ratingLabel = save.isPending
-    ? 'Saving response rating'
+    ? t`Saving response rating`
     : rating === 'good'
-      ? 'Rated good response'
+      ? t`Rated good response`
       : rating === 'bad'
-        ? 'Rated bad response'
-        : 'Rate response';
-  const label = comment && !save.isPending ? `${ratingLabel}, with comment` : ratingLabel;
+        ? t`Rated bad response`
+        : t`Rate response`;
+  const label = comment && !save.isPending ? t`${ratingLabel}, with comment` : ratingLabel;
   const Icon = save.isPending
     ? LoaderCircleIcon
     : rating === 'bad'
@@ -150,16 +151,16 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
         >
           {stored.isError ? (
             <DropdownMenuItem onSelect={() => void stored.refetch()}>
-              Retry loading rating
+              {t`Retry loading rating`}
             </DropdownMenuItem>
           ) : (
             <>
               <div className="flex items-center justify-between gap-2 pb-1 pl-1.5">
-                <span className="text-xs text-muted-foreground">Response feedback</span>
+                <span className="text-xs text-muted-foreground">{t`Response feedback`}</span>
                 <DropdownMenuItem asChild onSelect={editComment} disabled={busy}>
                   <Button
-                    aria-label={comment ? 'Edit feedback comment' : 'Add feedback comment'}
-                    title={comment ? 'Edit feedback comment' : 'Add feedback comment'}
+                    aria-label={comment ? t`Edit feedback comment` : t`Add feedback comment`}
+                    title={comment ? t`Edit feedback comment` : t`Add feedback comment`}
                     className="size-6 justify-center p-0"
                     size="icon-sm"
                     variant="ghost"
@@ -173,13 +174,13 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
                   value="good"
                   onSelect={() => change(rating === 'good' ? null : 'good')}
                 >
-                  <ThumbsUpIcon aria-hidden="true" className="size-3.5" /> Good response
+                  <ThumbsUpIcon aria-hidden="true" className="size-3.5" /> {t`Good response`}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
                   value="bad"
                   onSelect={() => change(rating === 'bad' ? null : 'bad')}
                 >
-                  <ThumbsDownIcon aria-hidden="true" className="size-3.5" /> Bad response
+                  <ThumbsDownIcon aria-hidden="true" className="size-3.5" /> {t`Bad response`}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               {comment ? (
@@ -202,7 +203,7 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
           saving={save.isPending}
           error={
             save.isError
-              ? 'Could not save your feedback. Your comment is still here; please try again.'
+              ? t`Could not save your feedback. Your comment is still here; please try again.`
               : undefined
           }
           onClose={() => setCommentOpen(false)}

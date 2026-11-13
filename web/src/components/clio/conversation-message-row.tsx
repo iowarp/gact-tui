@@ -37,6 +37,7 @@ import { ConversationSummonedWork } from './conversation-summoned-work';
 import { DiffusionCanvas } from './diffusion-canvas';
 import { ConversationModelDivider } from './transcript-divider';
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
+import { t } from '@lingui/core/macro';
 
 function modelBoundaryKey(boundary: ConversationModelBoundary | undefined): string {
   const id = (model: ConversationModelBoundary['model']) =>
@@ -81,10 +82,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
+  // A reply the service failed as recoverable (a timed-out model call: error_info
+  // recoverable, recovery "retry") can be retried even when it streamed something
+  // first; only the person's own cancellation is not offered again.
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
-      message.blocks.some((block) => block.type === 'error' && block.recoverable));
+      message.blocks.some((block) => block.type === 'error' && block.recoverable) ||
+      (message.error_info?.recoverable === true && !emptyResponseWasClientCancelled));
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const onRetryMessage = entities.onRetryMessage;
   const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;
@@ -175,6 +180,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
         id={`message-${message.id}`}
         ref={measureElement}
         className={virtualized ? 'absolute left-0 top-0 h-0 w-full' : 'h-0'}
+        // i18n-ignore: CSS transform
         style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       />
     );
@@ -195,6 +201,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       data-session-id={message.session_id}
       id={`message-${message.id}`}
       ref={measureElement}
+      // i18n-ignore: CSS transform
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >
@@ -244,7 +251,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 className="mb-1 flex h-[22px] items-center gap-3 text-label font-medium text-muted-foreground"
                 data-slot="conversation-message-sender"
               >
-                <span>{message.role === 'system' ? 'System' : 'Unknown sender'}</span>
+                <span>{message.role === 'system' ? t`System` : t`Unknown sender`}</span>
                 <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
                   {formatClockTime(message.created_at)}
                 </time>
@@ -276,16 +283,16 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         emptyResponseWasClientCancelled
                           ? undefined
                           : (emptyResponseErrorMessage ??
-                            'No response content was recorded for this turn.')
+                            t`No response content was recorded for this turn.`)
                       }
                       onRetry={retryReply}
                       retrying={entities.retryingMessageId === message.id}
                       title={
                         emptyResponseWasClientCancelled
-                          ? 'Reply cancelled'
+                          ? t`Reply cancelled`
                           : emptyResponseErrorCode === 'server_restart_interrupted'
-                            ? 'This reply was interrupted'
-                            : 'This reply didn’t load'
+                            ? t`This reply was interrupted`
+                            : t`This reply didn’t load`
                       }
                     />
                     {signInProvider || modelExhausted ? (
@@ -430,7 +437,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     reason={emptyResponseErrorMessage}
                     onRetry={retryReply}
                     retrying={entities.retryingMessageId === message.id}
-                    title="This reply didn’t finish"
+                    title={t`This reply didn’t finish`}
                   />
                 ) : null}
               </MessageContent>
@@ -450,7 +457,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   {pendingSteer ? (
                     <>
                       {/* runs-attention: Queued is an empty ring and the word. */}
-                      <StatusIndicator label="Queued" tone="idle" />
+                      <StatusIndicator label={t`Queued`} tone="idle" />
                       <PendingCancelButton entities={entities} message={message} />
                     </>
                   ) : null}
@@ -458,8 +465,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     <span
                       aria-label={
                         executionMode === 'plan'
-                          ? 'Sent in Plan mode'
-                          : 'Sent in Deep research mode'
+                          ? t`Sent in Plan mode`
+                          : t`Sent in Deep research mode`
                       }
                       className="inline-flex"
                       role="img"
@@ -471,14 +478,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                           ) : (
                             <GlobeIcon aria-hidden="true" className="size-3" />
                           )}
-                          {executionMode === 'plan' ? 'Plan' : 'Deep research'}
+                          {executionMode === 'plan' ? t`Plan` : t`Deep research`}
                         </span>
                       </Tag>
                     </span>
                   ) : null}
                   {marked ? (
                     <BookmarkIcon
-                      aria-label="Marked message"
+                      aria-label={t`Marked message`}
                       className={cn(
                         'size-3.5 shrink-0',
                         entities.onMarkMessage &&
@@ -525,12 +532,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               !completionFooterShown(message, active || awaitingChild || responseContinued) ? (
               <div className="mb-1.5 flex h-6 items-center gap-1.5 text-label text-muted-foreground">
                 <BookmarkIcon
-                  aria-label="Marked message"
+                  aria-label={t`Marked message`}
                   className="size-3.5"
                   fill="currentColor"
                   role="img"
                 />
-                Marked
+                {t`Marked`}
               </div>
             ) : null}
           </Message>

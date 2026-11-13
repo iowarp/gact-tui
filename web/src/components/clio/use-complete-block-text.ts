@@ -1,5 +1,6 @@
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { t } from '@lingui/core/macro';
 import { useRepository } from '@/hooks/use-repository';
 
 /** Output up to this size loads in full when the script opens; larger output waits to be asked. */
@@ -57,7 +58,7 @@ export function useCompleteBlockText(block: ToolPresentationBlock | undefined): 
         if (!controller.signal.aborted) setState({ text, cursor: next });
       } catch (cause) {
         if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : 'Unable to load the rest');
+          setError(cause instanceof Error ? cause.message : t`Unable to load the rest`);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
         if (request.current === controller) request.current = null;

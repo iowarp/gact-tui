@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TERMINAL_FONT_FAMILY, loadXterm } from '@/tauri/workspace-terminal';
 import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import type { OperationLogEntry } from './operation-progress-model';
+import { t } from '@lingui/core/macro';
 
 /** Lines the service itself wrote (reuse notes, step changes) stand apart from command output. */
 const SERVICE_LINE = (text: string) => `\x1b[36m${text}\x1b[0m`;
@@ -105,7 +106,7 @@ export function OperationLogTerminal({
     <div className="overflow-hidden rounded-md border bg-terminal" data-slot="operation-log">
       {gap ? (
         <p className="border-b border-terminal-border px-3 py-1.5 text-xs text-terminal-muted">
-          Earlier output is no longer kept by the service.
+          {t`Earlier output is no longer kept by the service.`}
         </p>
       ) : null}
       {failure ? (

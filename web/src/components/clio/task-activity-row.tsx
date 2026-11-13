@@ -16,14 +16,23 @@ import { WorkKindStatus } from './work-kind-status';
 import { taskWorkKind } from './work-kind';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /** The task kind as a reader names it (a background run_code task is a script). */
 function kindLabel(kind: string, active: boolean): string {
-  if (kind === 'MCP' || kind === 'Shell') return 'Tool';
-  if (kind === 'Session' && active) return 'Agent'; // a settled one keeps its kind's name
-  if (kind === 'Code') return 'Script';
-  return kind;
+  if (kind === 'MCP' || kind === 'Shell') return t`Tool`;
+  if (kind === 'Session' && active) return t`Agent`; // a settled one keeps its kind's name
+  if (kind === 'Code') return t`Script`;
+  return KIND_NAMES[kind] ?? kind;
 }
+
+/** Task kinds the row names itself; a kind the service adds later reads as reported. */
+const KIND_NAMES: Record<string, string> = {
+  Flow: t`Flow`,
+  Subagent: t`Subagent`,
+  Session: t`Session`,
+  Question: t`Question`,
+};
 
 /** A quiet task summary with the original assignment and identity disclosed on demand. */
 export function TaskActivityRow({
@@ -45,15 +54,19 @@ export function TaskActivityRow({
   const { process: task, subagent } = entry;
   const previewLines = useTranscriptPreviewLines();
   const conversation = subagent ?? (task ? mergeSessionSubagents([], [task])[0] : undefined);
-  const title = task?.title || subagent?.title || 'Task';
+  const title = task?.title || subagent?.title || t`Task`;
   const flow = taskFlow(task);
   const kind = flow
     ? 'Flow'
     : (task?.task_kind ?? (task?.kind === 'agent' || subagent ? 'Subagent' : 'MCP'));
   const flowState = task ? taskFlowState(task, status) : undefined;
   // The row is named by the task; its flow run is a secondary detail and an action.
+  const flowName = flow ? flowLabel(flow.id) : '';
+  const followUp = flow?.status === 'not_run';
   const flowRun = flow
-    ? `${flowLabel(flow.id)} ${flow.status === 'not_run' ? 'follow-up' : 'run'}`
+    ? followUp
+      ? t`${ph({ flow: flowName })} follow-up`
+      : t`${ph({ flow: flowName })} run`
     : undefined;
   const assignment = task?.description || subagent?.task;
   const counted = useCountedTaskProgress(task?.progress, task?.handle);
@@ -64,11 +77,11 @@ export function TaskActivityRow({
   const running = ['running', 'working', 'executing', 'starting'].includes(status);
   const label =
     status === 'task_state_uncertain'
-      ? 'Needs inspection'
+      ? t`Needs inspection`
       : status === 'cancelling' || status === 'cancellation_requested'
-        ? 'Cancellation requested'
+        ? t`Cancellation requested`
         : awaitingAnswer
-          ? 'Waiting for your answer'
+          ? t`Waiting for your answer`
           : status.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase());
   const result = task?.result?.answer || task?.result?.answer_excerpt || subagent?.result;
   const [open, setOpen] = useState(false);
@@ -93,7 +106,7 @@ export function TaskActivityRow({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            aria-label={`Task details: ${title}`}
+            aria-label={t`Task details: ${title}`}
             title={title}
             className={`flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ${compact ? 'min-h-9 gap-1.5 px-1 py-1' : 'min-h-14 gap-2.5 px-2 py-2'}`}
           >
@@ -117,10 +130,13 @@ export function TaskActivityRow({
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
                 {/* The state in words, never only the icon (also in the compact rail). */}
-                {flowState
-                  ? `Flow: ${flowState.label}`
-                  : `${kindLabel(kind, running || status === 'completed')}: ${label}`}
-                {(!compact || running) && progress && progress !== label ? ` — ${progress}` : ''}
+                {(!compact || running) && progress && progress !== label
+                  ? flowState
+                    ? t`Flow: ${ph({ state: flowState.label })} — ${ph({ progress })}`
+                    : t`${ph({ kind: kindLabel(kind, running || status === 'completed') })}: ${ph({ state: label })} — ${ph({ progress })}`
+                  : flowState
+                    ? t`Flow: ${ph({ state: flowState.label })}`
+                    : t`${ph({ kind: kindLabel(kind, running || status === 'completed') })}: ${ph({ state: label })}`}
               </span>
             </span>
             <ChevronRightIcon
@@ -138,11 +154,11 @@ export function TaskActivityRow({
           ) : null}
           <div
             role="region"
-            aria-label={`Assignment: ${title}`}
+            aria-label={t`Assignment: ${title}`}
             className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
           >
-            <BoundedResult lines={previewLines} title={`Assignment: ${title}`}>
-              {assignment || 'Description unavailable for this older task'}
+            <BoundedResult lines={previewLines} title={t`Assignment: ${title}`}>
+              {assignment || t`Description unavailable for this older task`}
             </BoundedResult>
           </div>
           {flowState?.detail ? (
@@ -153,9 +169,11 @@ export function TaskActivityRow({
               variant="link"
               size="sm"
               className="h-8 px-0"
-              onClick={() => onOpenFlow(flow.previous_handle!, `${flowLabel(flow.id)} run`)}
+              onClick={() =>
+                onOpenFlow(flow.previous_handle!, t`${ph({ flow: flowLabel(flow.id) })} run`)
+              }
             >
-              Open earlier flow attempt
+              {t`Open earlier flow attempt`}
             </Button>
           ) : null}
           {progress ? (
@@ -166,28 +184,28 @@ export function TaskActivityRow({
           ) : null}
           {yielded ? (
             <p className="text-xs text-muted-foreground">
-              The assignment is still open. New messages and task results can continue it.
+              {t`The assignment is still open. New messages and task results can continue it.`}
             </p>
           ) : null}
           {task?.recording === 'unconfirmed' ? (
             <p role="status" className="text-xs text-muted-foreground">
-              History recording is unconfirmed. Check the task before retrying.
+              {t`History recording is unconfirmed. Check the task before retrying.`}
             </p>
           ) : null}
           {status === 'stopping' ? (
             <p role="status" className="text-xs text-muted-foreground">
-              The agent is stopping. New input stays queued until its current execution exits.
+              {t`The agent is stopping. New input stays queued until its current execution exits.`}
             </p>
           ) : null}
           {status === 'task_state_uncertain' ? (
             <p role="status" className="text-xs text-muted-foreground">
-              Execution or cleanup could not be confirmed. Inspect the task before retrying.
+              {t`Execution or cleanup could not be confirmed. Inspect the task before retrying.`}
             </p>
           ) : null}
           {result ? (
             <div
               role="region"
-              aria-label={`Result: ${title}`}
+              aria-label={t`Result: ${title}`}
               tabIndex={0}
               className="max-h-40 overflow-y-auto text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
             >
@@ -199,10 +217,14 @@ export function TaskActivityRow({
               variant="link"
               size="sm"
               className="h-8 px-0"
-              aria-label={`Open the ${flowRun.toLowerCase()}: ${title}`}
+              aria-label={
+                followUp
+                  ? t`Open the ${ph({ flow: flowName.toLowerCase() })} follow-up: ${title}`
+                  : t`Open the ${ph({ flow: flowName.toLowerCase() })} run: ${title}`
+              }
               onClick={() => onOpenFlow(entry.key, flowRun)}
             >
-              Open the run
+              {t`Open the run`}
             </Button>
           ) : null}
           {conversation?.child_session_id && onOpenSubagent ? (
@@ -211,17 +233,17 @@ export function TaskActivityRow({
                 variant="link"
                 size="sm"
                 className="h-8 px-0"
-                aria-label={`Open child conversation ${conversation.title}`}
+                aria-label={t`Open child conversation ${ph({ title: conversation.title })}`}
                 title={SUBAGENT_OPEN_HINT}
                 onClick={(event) => onOpenSubagent(conversation, subagentOpenTarget(event))}
               >
-                Open conversation
+                {t`Open conversation`}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Open ${conversation.title} in the center`}
-                title="Open in the center"
+                aria-label={t`Open ${ph({ title: conversation.title })} in the center`}
+                title={t`Open in the center`}
                 onClick={() => onOpenSubagent(conversation, 'conversation')}
               >
                 <PanelRightOpenIcon aria-hidden="true" />
@@ -235,35 +257,35 @@ export function TaskActivityRow({
                   aria-hidden="true"
                   className="size-3 transition-transform group-data-[state=open]/details:rotate-90"
                 />
-                Technical details
+                {t`Technical details`}
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <dl className="space-y-1.5 pt-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
                   <div>
-                    <dt>Handle</dt>
+                    <dt>{t`Handle`}</dt>
                     <dd className="select-text font-mono">{entry.key}</dd>
                   </div>
                   {task.host ? (
                     <div>
-                      <dt>Host</dt>
+                      <dt>{t`Host`}</dt>
                       <dd>{task.host}</dd>
                     </div>
                   ) : null}
                   {task.raw_status ? (
                     <div>
-                      <dt>Reported status</dt>
+                      <dt>{t`Reported status`}</dt>
                       <dd>{task.raw_status}</dd>
                     </div>
                   ) : null}
                   {task.connection_freshness ? (
                     <div>
-                      <dt>Connection</dt>
+                      <dt>{t`Connection`}</dt>
                       <dd>{task.connection_freshness}</dd>
                     </div>
                   ) : null}
                   {status === 'task_state_uncertain' && task.error_reason ? (
                     <div>
-                      <dt>Reported issue</dt>
+                      <dt>{t`Reported issue`}</dt>
                       <dd>{task.error_reason}</dd>
                     </div>
                   ) : null}

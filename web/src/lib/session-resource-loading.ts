@@ -28,17 +28,20 @@ export function createSessionReadQueue(
   return <T>(signal: AbortSignal, read: () => Promise<T>) =>
     new Promise<T>((resolve, reject) => {
       if (signal.aborted) {
+        // i18n-ignore: AbortError reason, developer output
         reject(signal.reason ?? new DOMException('Read cancelled', 'AbortError'));
         return;
       }
       const cancel = () => {
         const index = queued.indexOf(start);
         if (index >= 0) queued.splice(index, 1);
+        // i18n-ignore: AbortError reason, developer output
         reject(signal.reason ?? new DOMException('Read cancelled', 'AbortError'));
       };
       const start = () => {
         signal.removeEventListener('abort', cancel);
         if (signal.aborted) {
+          // i18n-ignore: AbortError reason, developer output
           reject(signal.reason ?? new DOMException('Read cancelled', 'AbortError'));
           return;
         }

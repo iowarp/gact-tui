@@ -8,6 +8,7 @@ import {
   type VariantRun,
   type VariantTry,
 } from '@clio/core/v3';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** The tool a main agent drafts alternatives with; its pick question renders as the tabs. */
 export const DRAFT_ALTERNATIVES_TOOL = 'draft_alternatives';
@@ -193,63 +194,83 @@ export interface VariantRunView {
   refinable: boolean;
 }
 
+/**
+ * The English noun for one try ("Draft" or "Try"). An identifier for callers that
+ * still branch on it; display text uses `tryLabel` and whole messages instead.
+ */
 export function tryNoun(run: VariantRun): string {
+  // i18n-ignore: compared by callers, not shown as is
   return run.origin === 'draft_alternatives' ? 'Draft' : 'Try';
 }
 
+/** One numbered try as its tab names it: "Draft 2", "Try 2". */
+export function tryLabel(run: VariantRun, tryIndex: number): string {
+  const number = tryIndex + 1;
+  return run.origin === 'draft_alternatives' ? t`Draft ${number}` : t`Try ${number}`;
+}
+
 function strategyLabel(run: VariantRun): string {
+  const { n } = run;
   return run.strategy === 'refine'
-    ? `Refine, up to ${run.n} tries`
-    : run.n > 0
-      ? `Best of ${run.n}`
-      : 'Best of several';
+    ? plural(n, { one: 'Refine, up to # try', other: 'Refine, up to # tries' })
+    : n > 0
+      ? t`Best of ${n}`
+      : t`Best of several`;
 }
 
 function methodLabel(run: VariantRun): string {
   const strategy = strategyLabel(run);
-  const judge =
-    run.judge === 'user' ? 'you pick' : run.judge === 'lm' ? 'judged by the model' : undefined;
-  return judge ? `${strategy} — ${judge}` : strategy;
+  return run.judge === 'user'
+    ? t`${strategy} — you pick`
+    : run.judge === 'lm'
+      ? t`${strategy} — judged by the model`
+      : strategy;
 }
 
 /** A closed run's plain status and notice; never a colour or an icon alone. */
 export function variantClosedView(closure: VariantClosure): VariantClosedView {
-  const unused = 'None of these drafts was used.';
+  const unused = t`None of these drafts was used.`;
   switch (closure.status) {
     case 'superseded':
       return {
         status: closure.status,
-        label: 'Superseded by your next message',
-        notice: `You sent a new message instead of picking. ${unused}`,
+        label: t`Superseded by your next message`,
+        notice: t`You sent a new message instead of picking. ${unused}`,
         supersededByMessageId: closure.superseded_by_message_id,
       };
     case 'cancelled':
       return {
         status: closure.status,
-        label: 'Cancelled',
-        notice: `The pick was cancelled. ${unused}`,
+        label: t`Cancelled`,
+        notice: t`The pick was cancelled. ${unused}`,
       };
     case 'expired':
       return {
         status: closure.status,
-        label: 'Expired',
-        notice: `The time to pick ran out. ${unused}`,
+        label: t`Expired`,
+        notice: t`The time to pick ran out. ${unused}`,
       };
     default:
-      return { status: closure.status, label: 'Closed', notice: `The pick closed. ${unused}` };
+      return { status: closure.status, label: t`Closed`, notice: t`The pick closed. ${unused}` };
   }
 }
 
-function statusLabel(run: VariantRun, noun: string, pick?: VariantPickQuestion): string {
-  if (run.selection) return `${noun} ${run.selection.selected_index + 1} selected`;
+function statusLabel(run: VariantRun, pick?: VariantPickQuestion): string {
+  if (run.selection) {
+    const number = run.selection.selected_index + 1;
+    return run.origin === 'draft_alternatives'
+      ? t`Draft ${number} selected`
+      : t`Try ${number} selected`;
+  }
   if (run.closure) return variantClosedView(run.closure).label;
-  if (pick) return 'Waiting for your pick';
-  if (run.status === 'failed') return 'The run failed';
+  if (pick) return t`Waiting for your pick`;
+  if (run.status === 'failed') return t`The run failed`;
   const running = run.tries.filter((item) => item.state === 'running').length;
-  if (running > 0) return `${running} of ${run.tries.length} running`;
-  if (run.tries.every((item) => item.state === 'failed')) return 'Every try failed';
-  if (run.status === 'awaiting_pick') return 'Waiting for your pick';
-  return run.judge === 'user' ? 'Waiting for the drafts' : 'Judging the tries';
+  const total = run.tries.length;
+  if (running > 0) return t`${running} of ${total} running`;
+  if (run.tries.every((item) => item.state === 'failed')) return t`Every try failed`;
+  if (run.status === 'awaiting_pick') return t`Waiting for your pick`;
+  return run.judge === 'user' ? t`Waiting for the drafts` : t`Judging the tries`;
 }
 
 /** The tabs block's presentation of one run: tabs, badges, the pick it waits for. */
@@ -292,15 +313,14 @@ export function variantRunView(
     );
     return {
       tryIndex: item.try_index,
-      label: `${noun} ${item.try_index + 1}`,
+      label: tryLabel(run, item.try_index),
       state: item.state,
       text: item.text,
       thinking: item.thinking,
       score: item.score,
       tokens: item.tokens?.total,
       error: item.error,
-      forkedFromLabel:
-        item.forked_from === undefined ? undefined : `${noun} ${item.forked_from + 1}`,
+      forkedFromLabel: item.forked_from === undefined ? undefined : tryLabel(run, item.forked_from),
       advice: item.advice,
       injections: [...advice, ...given],
       activity: item.activity,
@@ -343,14 +363,16 @@ export function variantRunView(
     sessionId: run.session_id,
     title:
       run.origin === 'draft_alternatives'
-        ? 'Alternative drafts'
-        : `${run.agent_id || 'Agent'} tries`,
+        ? t`Alternative drafts`
+        : run.agent_id
+          ? t`${ph({ agent: run.agent_id })} tries`
+          : t`Agent tries`,
     method: methodLabel(run),
     strategy: strategyLabel(run),
     noun,
     rubric: run.rubric ?? pick?.rubric,
     judge: run.judge,
-    status: statusLabel(run, noun, pick),
+    status: statusLabel(run, pick),
     tabs,
     defaultTab,
     pick,

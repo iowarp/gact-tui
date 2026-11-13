@@ -132,7 +132,11 @@ export function applyClientFilters<T extends QueryRow>(
   );
 }
 
-/** A short, reader-facing description of one merged filter entry, for a zone reference's "active filters" line. */
+/**
+ * A short, reader-facing description of one merged filter entry, for a zone reference's "active
+ * filters" line. The zone reference is attached to the message sent to the agent, so it stays in
+ * English like the rest of that block (`data-zone-reference.ts`).
+ */
 export function describeQueryFilter(filter: NonNullable<TableDataQuery['filter']>[number]): string {
   switch (filter.op) {
     case 'range': {
@@ -143,22 +147,28 @@ export function describeQueryFilter(filter: NonNullable<TableDataQuery['filter']
         typeof max === 'string' ? max.match(/^(\d{4})-12-31T23:59:59(?:\.9+)?Z$/)?.[1] : undefined;
       if (firstYear || lastYear) {
         if (firstYear && lastYear)
+          // i18n-ignore: attached to the agent's message with the zone reference
           return firstYear === lastYear ? `Year ${firstYear}` : `Years ${firstYear} to ${lastYear}`;
+        // i18n-ignore: attached to the agent's message with the zone reference
         return firstYear ? `From year ${firstYear}` : `Through year ${lastYear}`;
       }
       if (min !== null && max !== null)
+        // i18n-ignore: filter text attached to the agent's message with the zone reference
         return `${filter.column} from ${String(min)} to ${String(max)}`;
       if (min !== null) return `${filter.column} ≥ ${String(min)}`;
       if (max !== null) return `${filter.column} ≤ ${String(max)}`;
+      // i18n-ignore: filter text attached to the agent's message with the zone reference
       return `${filter.column} in range`;
     }
     case 'contains':
+      // i18n-ignore: filter text attached to the agent's message with the zone reference
       return `${filter.column} contains “${String(filter.value)}”`;
     case 'eq':
       return `${filter.column} = ${String(filter.value)}`;
     case 'in':
       return `${filter.column} in [${(filter.value as unknown[]).join(', ')}]`;
     case 'isnull':
+      // i18n-ignore: filter text attached to the agent's message with the zone reference
       return filter.value === false ? `${filter.column} is not empty` : `${filter.column} is empty`;
   }
 }

@@ -4,6 +4,7 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import type { ContextReferenceBlock } from '@/lib/sent-inline-references';
 import { cn } from '@/lib/utils';
 import { referenceKindIcon } from './composer-reference-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 /** One referenced workspace object, opened in place from the transcript. */
 export function ContextReferenceLink({
@@ -30,7 +31,7 @@ export function ContextReferenceLink({
   const kind = referenceKindLabel(block.ref_kind);
   return (
     <button
-      aria-label={`Open referenced ${kind} ${block.label}`}
+      aria-label={t`Open referenced ${kind} ${ph({ label: block.label })}`}
       className={cn(
         'inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,

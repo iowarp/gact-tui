@@ -38,23 +38,24 @@ import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { MetaValue } from './primitives/tag';
 import { clioStatusLabel } from './status';
+import { t, ph } from '@lingui/core/macro';
 
 type TimelineKind = 'tools' | 'agents' | 'questions' | 'runs' | 'outputs';
 
 const TIMELINE_KINDS: readonly { id: TimelineKind; label: string }[] = [
-  { id: 'tools', label: 'Tool calls' },
-  { id: 'agents', label: 'Child agents and tasks' },
-  { id: 'questions', label: 'Questions' },
-  { id: 'runs', label: 'Runs' },
-  { id: 'outputs', label: 'Outputs and sources' },
+  { id: 'tools', label: t`Tool calls` },
+  { id: 'agents', label: t`Child agents and tasks` },
+  { id: 'questions', label: t`Questions` },
+  { id: 'runs', label: t`Runs` },
+  { id: 'outputs', label: t`Outputs and sources` },
 ];
 
 type TimelineGroup = 'now' | 'turn' | 'earlier';
 
 const TIMELINE_GROUPS: readonly { id: TimelineGroup; label: string }[] = [
-  { id: 'now', label: 'Now' },
-  { id: 'turn', label: 'This turn' },
-  { id: 'earlier', label: 'Earlier' },
+  { id: 'now', label: t`Now` },
+  { id: 'turn', label: t`This turn` },
+  { id: 'earlier', label: t`Earlier` },
 ];
 
 const TIMELINE_LIVE_STATES: ReadonlySet<string> = new Set([
@@ -173,7 +174,7 @@ export function ClioActivityTimelineList({
       <IconButton
         aria-pressed={searching}
         icon={<SearchIcon />}
-        label={searching ? 'Close search' : 'Search activity'}
+        label={searching ? t`Close search` : t`Search activity`}
         onClick={() => (searching ? closeSearch() : setSearching(true))}
         size="sm"
         tooltipSide="bottom"
@@ -183,7 +184,7 @@ export function ClioActivityTimelineList({
           <IconButton
             aria-pressed={filterCount > 0}
             icon={<ListFilterIcon />}
-            label={filterCount ? `Filter activity, ${filterCount} on` : 'Filter activity'}
+            label={filterCount ? t`Filter activity, ${filterCount} on` : t`Filter activity`}
             size="sm"
             tooltipSide="bottom"
           />
@@ -191,12 +192,12 @@ export function ClioActivityTimelineList({
         <DropdownMenuContent align="end" className="w-56">
           {lanes.length > 1 ? (
             <>
-              <DropdownMenuLabel>Agent</DropdownMenuLabel>
+              <DropdownMenuLabel>{t`Agent`}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 onValueChange={(value) => setAgentFilter(value === 'all' ? null : value)}
                 value={agent ?? 'all'}
               >
-                <DropdownMenuRadioItem value="all">All agents</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="all">{t`All agents`}</DropdownMenuRadioItem>
                 {lanes.map((lane) => (
                   <DropdownMenuRadioItem key={lane.id} value={lane.id}>
                     <span
@@ -211,7 +212,7 @@ export function ClioActivityTimelineList({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
           {TIMELINE_KINDS.map((kind) => (
             <DropdownMenuCheckboxItem
               checked={!hidden.has(kind.id)}
@@ -241,17 +242,17 @@ export function ClioActivityTimelineList({
   const body = !rows.length ? (
     <StateView
       className="p-4"
-      detail="Tool calls, child agents and questions appear here."
+      detail={t`Tool calls, child agents and questions appear here.`}
       kind="empty"
       size="panel"
-      title="Nothing has run yet"
+      title={t`Nothing has run yet`}
     />
   ) : !entries.length ? (
     <StateView
       action={
         filtered
           ? {
-              label: 'Clear filters',
+              label: t`Clear filters`,
               onClick: () => {
                 closeSearch();
                 setHidden(new Set());
@@ -261,10 +262,10 @@ export function ClioActivityTimelineList({
           : undefined
       }
       className="p-4"
-      detail={filtered ? 'Clear the search or show more kinds.' : undefined}
+      detail={filtered ? t`Clear the search or show more kinds.` : undefined}
       kind="empty"
       size="panel"
-      title="No activity matches"
+      title={t`No activity matches`}
     />
   ) : (
     <TimelineRows
@@ -281,7 +282,7 @@ export function ClioActivityTimelineList({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search activity"
+            aria-label={t`Search activity`}
             autoFocus
             className="h-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
@@ -291,7 +292,7 @@ export function ClioActivityTimelineList({
                 closeSearch();
               }
             }}
-            placeholder="Search activity"
+            placeholder={t`Search activity`}
             value={query}
           />
         </div>
@@ -366,7 +367,7 @@ function TimelineRows({
     );
   if (!windowed)
     return (
-      <div aria-label="Activity timeline" ref={listRef} role="list">
+      <div aria-label={t`Activity timeline`} ref={listRef} role="list">
         {entries.map((entry) => (
           <div key={entry.id}>{render(entry)}</div>
         ))}
@@ -374,7 +375,7 @@ function TimelineRows({
     );
   return (
     <div
-      aria-label="Activity timeline"
+      aria-label={t`Activity timeline`}
       className="relative"
       ref={listRef}
       role="list"
@@ -432,7 +433,7 @@ const TimelineRow = memo(function TimelineRow({
             item.onOpen && item.kind !== 'process' ? (
               <IconButton
                 icon={<PanelRightOpenIcon />}
-                label="Open in canvas"
+                label={t`Open in canvas`}
                 onClick={(event) => {
                   event.stopPropagation();
                   item.onOpen?.('canvas');
@@ -443,7 +444,7 @@ const TimelineRow = memo(function TimelineRow({
           ) : undefined
         }
         actionsWidth={26}
-        aria-label={target ? `Open ${item.label}, ${status}` : undefined}
+        aria-label={target ? t`Open ${ph({ label: item.label })}, ${status}` : undefined}
         className={cn('text-menu', target ? 'cursor-pointer' : 'hover:bg-transparent')}
         columns={
           <>

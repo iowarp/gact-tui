@@ -25,12 +25,14 @@ import {
   type MarksReport,
 } from './browser-live-socket';
 import { browserPagesKey } from './use-browser-pages';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** The frame's Comments icon on a page: the shared session's count, toggling its controls. */
 function BrowserCommentsIcon({ interactive }: { interactive: boolean }) {
   const session = useCommentSession();
   if (!session || !interactive)
-    return <FrameCommentsUnavailable reason="Comments open once the page is live here" />;
+    return <FrameCommentsUnavailable reason={t`Comments open once the page is live here`} />;
   return (
     <FrameCommentsIcon
       count={session.threadCount + session.marks.length}
@@ -114,7 +116,7 @@ export function BrowserSurface({
       },
       onNotice: (reason) => {
         if (!disposed)
-          setNotice(reason === 'view_only' ? 'Another window is using this page.' : '');
+          setNotice(reason === 'view_only' ? t`Another window is using this page.` : '');
       },
       onClose: (code, reason) => {
         if (disposed) return;
@@ -149,6 +151,7 @@ export function BrowserSurface({
   };
 
   const blocked = state?.navigation_blocked ?? null;
+  const blockedHost = blocked?.host ?? '';
   const page = { id: pageId, url: state?.url ?? '', title: state?.title || label };
   return (
     <BrowserPageComments
@@ -164,13 +167,13 @@ export function BrowserSurface({
         facts={
           <>
             {state?.agent_acting ? (
-              <span title={state.last_action || undefined}>Agent acting</span>
+              <span title={state.last_action || undefined}>{t`Agent acting`}</span>
             ) : null}
             {state?.view_only ? (
-              <span title="Another window is using this page">View only</span>
+              <span title={t`Another window is using this page`}>{t`View only`}</span>
             ) : null}
             {state?.sandbox_off ? (
-              <span title={state.sandbox_reason || undefined}>Sandbox off</span>
+              <span title={state.sandbox_reason || undefined}>{t`Sandbox off`}</span>
             ) : null}
           </>
         }
@@ -186,7 +189,7 @@ export function BrowserSurface({
             : undefined
         }
         navigationReason={
-          state?.view_only ? 'Another window is using this page' : 'The page is not live'
+          state?.view_only ? t`Another window is using this page` : t`The page is not live`
         }
         onGo={(url) => send({ type: 'navigate', action: 'goto', url })}
         screenshot={() => frame}
@@ -201,21 +204,25 @@ export function BrowserSurface({
             <BanIcon aria-hidden className="size-4 shrink-0" />
             <span className="min-w-0 flex-1">
               {blocked.reason === 'browser_scheme_refused' ? (
-                <>
-                  The page tried to open a <strong className="font-medium">{blocked.host}</strong>{' '}
+                <Trans>
+                  The page tried to open a <strong className="font-medium">{blockedHost}</strong>{' '}
                   address. The shared browser opens only web pages.
-                </>
-              ) : (
-                <>
-                  The page could not open{' '}
-                  <strong className="font-medium">{blocked.host || 'its next page'}</strong> and
+                </Trans>
+              ) : blockedHost ? (
+                <Trans>
+                  The page could not open <strong className="font-medium">{blockedHost}</strong> and
                   stayed here.
-                </>
+                </Trans>
+              ) : (
+                <Trans>
+                  The page could not open <strong className="font-medium">its next page</strong> and
+                  stayed here.
+                </Trans>
               )}
             </span>
             {blocked.reason !== 'browser_scheme_refused' && blocked.host ? (
               <Button size="sm" variant="outline" disabled={allowing} onClick={() => void allow()}>
-                Try again
+                {t`Try again`}
               </Button>
             ) : null}
           </div>

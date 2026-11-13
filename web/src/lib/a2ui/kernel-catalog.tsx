@@ -46,7 +46,7 @@ import { A2uiMedia } from '@/components/clio/a2ui-media';
 import { ClioChoicePicker } from '@/components/clio/a2ui-choice-picker';
 import { refinedStrictObject } from '@/components/clio/a2ui-refined-schema';
 import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
-import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
+import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table-catalog';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map-catalog';
 import { ClioTabs } from '@/components/clio/a2ui-tabs';
 import { ClioCarousel } from '@/components/clio/a2ui-carousel';
@@ -66,6 +66,7 @@ import { KernelIcon } from './kernel-catalog-icon';
 import { A2uiSurface } from './kernel-surface';
 import { dataViewFlexStyle } from '@/components/clio/data-view-layout';
 import { MetricView } from './kernel-metric';
+import { t, ph } from '@lingui/core/macro';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -281,7 +282,7 @@ const ClioProgress = createComponentImplementation(
           />
         ) : (
           <div
-            aria-label={`${props.label} indeterminate`}
+            aria-label={t`${ph({ label: props.label })} indeterminate`}
             className="clio-activity-beam h-1.5 overflow-hidden rounded-full bg-muted"
           />
         )}
@@ -315,7 +316,7 @@ const Callout = createComponentImplementation(
       <AlertDescription>{props.body}</AlertDescription>
       {props.action ? (
         <Button className="mt-3" onClick={() => void props.action?.()} size="sm">
-          Respond
+          {t`Respond`}
         </Button>
       ) : null}
     </Alert>
@@ -364,7 +365,7 @@ function ClioCodeArtifactSource({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Code unavailable</AlertTitle>
+        <AlertTitle>{t`Code unavailable`}</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -395,6 +396,7 @@ function checkCodeComponent(value: CodeShape, context: z.RefinementCtx): void {
   // "not provided" would fail an old surface that deliberately sends an
   // empty snippet inline instead of a `dataUri`.
   if ((value.code !== undefined) === (value.dataUri !== undefined)) {
+    // i18n-ignore: a validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of code or dataUri' });
   }
 }
@@ -437,10 +439,10 @@ function ClioDiffView({
       <RenderedCode accessibility={accessibility} code={diff} language="diff" title={path} />
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <GitCompareArrowsIcon aria-hidden="true" className="size-3.5" />
-        <span>{status || 'Proposed change'}</span>
+        <span>{status || t`Proposed change`}</span>
         {action ? (
           <Button className="ml-auto" onClick={() => void action()} size="sm" variant="outline">
-            Open diff
+            {t`Open diff`}
           </Button>
         ) : null}
       </div>
@@ -465,7 +467,7 @@ function ClioDiffArtifactSource({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Diff unavailable</AlertTitle>
+        <AlertTitle>{t`Diff unavailable`}</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -501,6 +503,7 @@ function checkDiffComponent(value: DiffShape, context: z.RefinementCtx): void {
   // Presence, not truthiness — see checkCodeComponent above: `diff: ''` is a
   // provided (empty) inline diff, not an absent one.
   if ((value.diff !== undefined) === (value.dataUri !== undefined)) {
+    // i18n-ignore: a validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of diff or dataUri' });
   }
 }
@@ -593,7 +596,7 @@ const Approval = createComponentImplementation(
         <ConfirmationTitle>
           <span className="font-medium">{props.title}</span>
           <span className="mt-1 block text-sm text-muted-foreground">{props.reason}</span>
-          <span className="mt-2 block text-xs">Risk: {props.risk}</span>
+          <span className="mt-2 block text-xs">{t`Risk: ${ph({ risk: props.risk })}`}</span>
         </ConfirmationTitle>
         <ConfirmationRequest>
           <ConfirmationActions>

@@ -11,6 +11,8 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
 import { delegateTone } from './delegate-tone';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 /**
  * A task the agent tracked, as an activity row: "Task", its title, then its
@@ -19,11 +21,12 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
  */
 export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
   const [open, setOpen] = useTranscriptDisclosure(`task:${task?.id ?? id}`);
-  const title = task?.title || 'Task unavailable';
+  const title = task?.title || t`Task unavailable`;
   const state = task?.state;
   const tone = state ? delegateTone(state) : 'idle';
-  const label = state ? clioStatusLabel(state) : 'Unavailable';
-  const outcome = tone === 'success' || tone === 'running' ? undefined : label.toLowerCase();
+  const label = state ? clioStatusLabel(state) : t`Unavailable`;
+  const outcome =
+    tone === 'success' || tone === 'running' ? undefined : label.toLocaleLowerCase(formatLocale());
   const [details, setDetails] = useState(false);
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
@@ -34,7 +37,7 @@ export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
         disclosure={
           <ActivityDisclosure
             open={open}
-            label={`${open ? 'Collapse' : 'Expand'} task ${title}`}
+            label={open ? t`Collapse task ${title}` : t`Expand task ${title}`}
             asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
           />
         }
@@ -55,16 +58,16 @@ export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
         info={
           task ? (
             <ActivityInfoButton
-              label={`Technical details for task ${title}`}
-              hint="View the task, its state, and what it reported"
+              label={t`Technical details for task ${title}`}
+              hint={t`View the task, its state, and what it reported`}
               onClick={() => setDetails(true)}
             />
           ) : null
         }
       />
       <CollapsibleContent>
-        <ActivityBody label={`Task ${title}`} framed={false} className="text-muted-foreground">
-          {task?.detail || 'No task detail was reported.'}
+        <ActivityBody label={t`Task ${title}`} framed={false} className="text-muted-foreground">
+          {task?.detail || t`No task detail was reported.`}
         </ActivityBody>
       </CollapsibleContent>
       {details && task ? (
@@ -87,23 +90,23 @@ function TaskDetailsDialog({
   label: string;
 }) {
   const items: KeyValueItem[] = [
-    { label: 'Task', value: task.title || 'Untitled' },
-    { label: 'State', value: label },
-    { label: 'Handle', value: task.id, mono: true },
+    { label: t`Task`, value: task.title || t`Untitled` },
+    { label: t`State`, value: label },
+    { label: t`Handle`, value: task.id, mono: true },
   ];
   return (
     <DialogFrame
       open={open}
       onOpenChange={onOpenChange}
       icon={<InfoIcon className="size-4" />}
-      title="Task: Technical details"
-      description="The task the agent tracked, its state, and what it reported."
+      title={t`Task: Technical details`}
+      description={t`The task the agent tracked, its state, and what it reported.`}
       className="w-[clamp(360px,56vw,760px)]"
     >
       <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-menu [overflow-wrap:anywhere]">
         <TechnicalDetailsFacts items={items} />
         {task.detail ? (
-          <DetailsSection title="Detail" copy={task.detail}>
+          <DetailsSection title={t`Detail`} copy={task.detail} copyLabel={t`Copy detail`}>
             <p className="whitespace-pre-wrap text-muted-foreground">{task.detail}</p>
           </DetailsSection>
         ) : null}

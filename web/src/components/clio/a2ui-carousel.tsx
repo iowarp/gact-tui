@@ -13,6 +13,7 @@ import {
 import { a2uiAccessibilityLabel, a2uiAccessibilityProps } from './a2ui-accessibility';
 import { dataViewFlexStyle } from './data-view-layout';
 import { isBoundToPath } from './selection-state';
+import { t, ph } from '@lingui/core/macro';
 
 /** One selected child at a time; media use their existing authenticated viewers. */
 export const ClioCarousel = createComponentImplementation(
@@ -72,7 +73,7 @@ export const ClioCarousel = createComponentImplementation(
     return (
       <Carousel
         {...a2uiAccessibilityProps(props.accessibility)}
-        aria-label={a2uiAccessibilityLabel(props.accessibility) || 'Carousel'}
+        aria-label={a2uiAccessibilityLabel(props.accessibility) || t`Carousel`}
         className="min-w-0 space-y-2"
         data-a2ui-component-id={context.componentModel.id}
         data-visual-state={invalid ? 'failed' : 'ready'}
@@ -82,14 +83,14 @@ export const ClioCarousel = createComponentImplementation(
         style={dataViewFlexStyle(props.weight)}
         tabIndex={0}
       >
-        {invalid && <p role="alert">The selected slide is unavailable.</p>}
+        {invalid && <p role="alert">{t`The selected slide is unavailable.`}</p>}
         <div className="flex items-center justify-end gap-1">
           <span
             aria-live="polite"
             aria-atomic="true"
             className="mr-1 text-xs tabular-nums text-muted-foreground"
           >
-            {index + 1} of {children.length}
+            {t`${ph({ position: index + 1 })} of ${ph({ total: children.length })}`}
           </span>
           <CarouselPrevious
             className="static inset-auto my-0"
@@ -107,7 +108,7 @@ export const ClioCarousel = createComponentImplementation(
         <CarouselContent className="-ml-0">
           {children.map((child, position) => (
             <CarouselItem
-              aria-label={`${position + 1} of ${children.length}`}
+              aria-label={t`${ph({ position: position + 1 })} of ${ph({ total: children.length })}`}
               aria-hidden={position !== index}
               className="pl-0"
               key={`${childId(child)}:${position}`}

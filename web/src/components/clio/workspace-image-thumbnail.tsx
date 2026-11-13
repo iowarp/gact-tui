@@ -1,5 +1,6 @@
 import { FileClockIcon, FileXIcon } from 'lucide-react';
 import { useContext } from 'react';
+import { plural, ph, t } from '@lingui/core/macro';
 import { cn } from '@/lib/utils';
 import { formatBytes } from '@/lib/format';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -38,9 +39,10 @@ export function WorkspaceImageThumbnail({
     <figure className="flex w-max max-w-[200px] min-w-0 flex-col gap-1" data-slot="image-thumbnail">
       <button
         type="button"
-        aria-label={`Open ${name}`}
+        aria-label={t`Open ${name}`}
         disabled={!open || unavailable}
-        title={`${image.path}\nOpen in the workbench`}
+        title={t`${ph({ path: image.path })}
+Open in the workbench`}
         onClick={(event) => {
           event.stopPropagation();
           open?.(image.path);
@@ -53,13 +55,13 @@ export function WorkspaceImageThumbnail({
         {unavailable ? (
           <span className="flex flex-col items-center gap-1 px-2 text-center text-meta text-muted-foreground">
             <FileXIcon aria-hidden="true" className="size-4" />
-            {missing ? 'No longer in the workspace' : 'No preview'}
+            {missing ? t`No longer in the workspace` : t`No preview`}
           </span>
         ) : url ? (
           <img alt={name} src={url} className="h-full w-auto max-w-[200px] object-contain" />
         ) : (
           <span
-            aria-label={`Loading ${name}`}
+            aria-label={t`Loading ${name}`}
             role="status"
             className="size-full bg-muted motion-safe:animate-pulse"
           />
@@ -74,9 +76,9 @@ export function WorkspaceImageThumbnail({
         ) : null}
         {status === 'changed' ? (
           <TooltipProvider>
-            <NamedTooltip label="Changed since the agent viewed it">
+            <NamedTooltip label={t`Changed since the agent viewed it`}>
               <FileClockIcon
-                aria-label="Changed since the agent viewed it"
+                aria-label={t`Changed since the agent viewed it`}
                 className="size-3.5 shrink-0 text-warning"
               />
             </NamedTooltip>
@@ -97,7 +99,7 @@ export function WorkspaceImageStrip({
 }) {
   return (
     <ul
-      aria-label={`${images.length} image${images.length === 1 ? '' : 's'}`}
+      aria-label={plural(images.length, { one: '# image', other: '# images' })}
       className="flex flex-wrap gap-2"
     >
       {images.map((image, index) => (

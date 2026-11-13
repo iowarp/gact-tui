@@ -26,14 +26,33 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { SessionEvidenceActions } from './session-evidence-types';
 import { showCompletedWork, type TaskPageControls } from './task-history';
+import { t, ph } from '@lingui/core/macro';
 export type { TaskPageControls } from './task-history';
 
 const settled = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
 
+type RestartKind = 'flow' | 'assignment' | 'subagent';
+
+const RESTART_LABELS: Record<RestartKind, string> = {
+  flow: t`Restart flow`,
+  assignment: t`Restart assignment`,
+  subagent: t`Restart subagent`,
+};
+
+const RESTART_TITLES: Record<RestartKind, string> = {
+  flow: t`Restart this flow?`,
+  assignment: t`Restart this assignment?`,
+  subagent: t`Restart this subagent?`,
+};
+
+function restartKindOf(task: AsyncProcess | undefined): RestartKind {
+  return task?.flow ? 'flow' : task?.task_kind === 'Session' ? 'assignment' : 'subagent';
+}
+
 /** Continue the same read; a page failure leaves the already loaded work visible. */
 export function TaskPageContinuation({
   pagination,
-  label = 'Load more work',
+  label = t`Load more work`,
 }: {
   pagination?: TaskPageControls;
   label?: string;
@@ -55,7 +74,7 @@ export function TaskPageContinuation({
           }
         }}
       >
-        {pagination.pending ? 'Loading work…' : label}
+        {pagination.pending ? t`Loading work…` : label}
       </Button>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -176,7 +195,11 @@ export function AsyncTaskList({
       (active || cancellable) &&
       (task.cancel_requested || requested.has(handle));
     const kind = task.task_kind ?? (task.kind === 'agent' ? 'Subagent' : 'MCP');
-    const restartKind = taskFlow(task) ? 'flow' : kind === 'Session' ? 'assignment' : 'subagent';
+    const restartKind: RestartKind = taskFlow(task)
+      ? 'flow'
+      : kind === 'Session'
+        ? 'assignment'
+        : 'subagent';
     return (
       <TaskActivityRow
         compact={compact}
@@ -238,8 +261,8 @@ export function AsyncTaskList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`More actions for ${task.title}`}
-                    title="More actions"
+                    aria-label={t`More actions for ${ph({ title: task.title })}`}
+                    title={t`More actions`}
                     disabled={Boolean(controlling[handle] || cancelling)}
                   >
                     <MoreIcon aria-hidden="true" className="size-4" />
@@ -248,7 +271,7 @@ export function AsyncTaskList({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setRestart(task)}>
                     <RetryIcon aria-hidden="true" />
-                    Restart {restartKind}
+                    {RESTART_LABELS[restartKind]}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -257,8 +280,8 @@ export function AsyncTaskList({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Cancel ${kind}: ${task.title}`}
-                title="Cancel task"
+                aria-label={t`Cancel ${kind}: ${ph({ title: task.title })}`}
+                title={t`Cancel task`}
                 disabled={Boolean(cancelling)}
                 onClick={() => {
                   setError('');
@@ -274,7 +297,7 @@ export function AsyncTaskList({
     );
   };
   return (
-    <div className="min-w-0 space-y-0.5" aria-label="Background work">
+    <div className="min-w-0 space-y-0.5" aria-label={t`Background work`}>
       {currentRows.map(renderEntry)}
       <TaskPageContinuation pagination={pagination} />
       {history && showCompletedWork(history, entries) ? (
@@ -294,19 +317,19 @@ export function AsyncTaskList({
                 aria-hidden="true"
                 className="size-3.5 shrink-0 transition-transform group-data-[state=open]/completed:rotate-90"
               />
-              Completed work
+              {t`Completed work`}
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-0.5 pl-2">
             {history.pending && !history.items.length ? (
-              <p role="status">Loading completed work…</p>
+              <p role="status">{t`Loading completed work…`}</p>
             ) : null}
             {history.error ? <p role="alert">{history.error}</p> : null}
             {completedRows.map(renderEntry)}
             {!history.pending && !history.error && !history.hasMore && !completedRows.length ? (
-              <p className="px-1 py-1 text-sm text-muted-foreground">No completed work.</p>
+              <p className="px-1 py-1 text-sm text-muted-foreground">{t`No completed work.`}</p>
             ) : null}
-            <TaskPageContinuation pagination={history} label="Load more completed work" />
+            <TaskPageContinuation pagination={history} label={t`Load more completed work`} />
           </CollapsibleContent>
         </Collapsible>
       ) : null}
@@ -323,20 +346,20 @@ export function AsyncTaskList({
       >
         <AlertDialogContent layer="task-confirmation" className="flex flex-col overflow-hidden">
           <AlertDialogHeader className="shrink-0">
-            <AlertDialogTitle>Cancel this task?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Cancel this task?`}</AlertDialogTitle>
             <p className="text-sm font-medium [overflow-wrap:anywhere]">{selected?.title}</p>
             <AlertDialogDescription>
               {selected?.task_kind === 'Subagent' ||
               selected?.task_kind === 'Session' ||
               selected?.kind === 'agent'
-                ? 'This also cancels all descendant agents, downloads and shell processes.'
-                : 'Cancellation is requested from its owner and may take time to finish.'}
+                ? t`This also cancels all descendant agents, downloads and shell processes.`
+                : t`Cancellation is requested from its owner and may take time to finish.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <TaskAssignmentDisclosure assignment={selected?.description || selected?.title} />
           <AlertDialogFooter className="shrink-0">
-            <AlertDialogCancel>Keep running</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void confirm()}>Cancel task</AlertDialogAction>
+            <AlertDialogCancel>{t`Keep running`}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirm()}>{t`Cancel task`}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -348,35 +371,21 @@ export function AsyncTaskList({
       >
         <AlertDialogContent layer="task-confirmation" className="flex flex-col overflow-hidden">
           <AlertDialogHeader className="shrink-0">
-            <AlertDialogTitle>
-              Restart this{' '}
-              {restart?.flow
-                ? 'flow'
-                : restart?.task_kind === 'Session'
-                  ? 'assignment'
-                  : 'subagent'}
-              ?
-            </AlertDialogTitle>
+            <AlertDialogTitle>{RESTART_TITLES[restartKindOf(restart)]}</AlertDialogTitle>
             <p className="text-sm font-medium [overflow-wrap:anywhere]">{restart?.title}</p>
             <AlertDialogDescription>
-              An active assignment is cancelled and settled first. The linked assignment keeps its
-              context. Check uncertain effects before retrying operations.
+              {t`An active assignment is cancelled and settled first. The linked assignment keeps its context. Check uncertain effects before retrying operations.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <TaskAssignmentDisclosure assignment={restart?.description || restart?.title} />
           <AlertDialogFooter className="shrink-0">
-            <AlertDialogCancel>Keep this run</AlertDialogCancel>
+            <AlertDialogCancel>{t`Keep this run`}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (restart) void control(restart, 'restart');
               }}
             >
-              Restart{' '}
-              {restart?.flow
-                ? 'flow'
-                : restart?.task_kind === 'Session'
-                  ? 'assignment'
-                  : 'subagent'}
+              {RESTART_LABELS[restartKindOf(restart)]}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -395,13 +404,13 @@ function TaskAssignmentDisclosure({ assignment }: { assignment?: string }) {
             aria-hidden="true"
             className="size-3.5 transition-transform group-data-[state=open]/assignment:rotate-90"
           />
-          View assignment
+          {t`View assignment`}
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div
           role="region"
-          aria-label="Task assignment"
+          aria-label={t`Task assignment`}
           tabIndex={0}
           className="mt-2 max-h-[35dvh] overflow-y-auto text-sm whitespace-pre-wrap [overflow-wrap:anywhere]"
         >

@@ -25,8 +25,10 @@ import {
 import { PluginExplorer } from './plugin-explorer';
 import { PluginChangePendingNotice } from './plugin-change-pending-notice';
 import { StateView } from './primitives/state-view';
+import { plural, t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
-const STILL_IN_PROMPT = 'Still in the agent’s prompt until compaction';
+const STILL_IN_PROMPT = t`Still in the agent’s prompt until compaction`;
 
 export interface AgentPluginTreeProps {
   resolution: AgentResolution;
@@ -44,8 +46,42 @@ export interface AgentPluginTreeProps {
    * members does), with a control to show every plugin.
    */
   filter?: (contributions: PluginContributions) => boolean;
-  /** What the filter keeps, as a plural noun: "tools", "skills". */
-  filterNoun?: string;
+  /** What the filter keeps: tools, subagents or skills. */
+  filterKind?: PluginFilterKind;
+}
+
+export type PluginFilterKind = 'tools' | 'subagents' | 'skills';
+
+const DIAGNOSTIC_SEVERITY_LABELS: Partial<Record<string, string>> = {
+  error: t`Error`,
+  warning: t`Warning`,
+  info: t({ message: 'Info', context: 'severity' }),
+};
+
+function showOnlyFilteredLabel(kind: PluginFilterKind | undefined): string {
+  switch (kind) {
+    case 'tools':
+      return t`Show only the plugins that add tools`;
+    case 'subagents':
+      return t`Show only the plugins that add subagents`;
+    case 'skills':
+      return t`Show only the plugins that add skills`;
+    default:
+      return t`Show only the plugins that add these`;
+  }
+}
+
+function noPluginAddsLabel(kind: PluginFilterKind | undefined): string {
+  switch (kind) {
+    case 'tools':
+      return t`No plugin adds tools`;
+    case 'subagents':
+      return t`No plugin adds subagents`;
+    case 'skills':
+      return t`No plugin adds skills`;
+    default:
+      return t`No plugin adds these`;
+  }
 }
 
 /**
@@ -65,7 +101,7 @@ export function AgentPluginTree({
   compacting = false,
   onCompact,
   filter,
-  filterNoun = 'these',
+  filterKind,
 }: AgentPluginTreeProps) {
   const [showAll, setShowAll] = useState(false);
   const pendingChange = basis?.pending ? basis : undefined;
@@ -136,7 +172,7 @@ export function AgentPluginTree({
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
         <div className="flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
-            Select a plugin to see what it adds.
+            {t`Select a plugin to see what it adds.`}
           </p>
           {filter ? (
             <Button
@@ -144,10 +180,13 @@ export function AgentPluginTree({
               className="ml-auto"
               onClick={() => setShowAll((current) => !current)}
               size="xs"
-              title={showAll ? `Show only the plugins that add ${filterNoun}` : undefined}
+              title={showAll ? showOnlyFilteredLabel(filterKind) : undefined}
               variant="ghost"
             >
-              Show all {resolution.plugins.length} plugins
+              {plural(resolution.plugins.length, {
+                one: 'Show all # plugin',
+                other: 'Show all # plugins',
+              })}
             </Button>
           ) : null}
           <Button
@@ -159,19 +198,19 @@ export function AgentPluginTree({
             size="xs"
             variant="ghost"
           >
-            {allExpanded ? 'Collapse all' : 'Expand all'}
+            {allExpanded ? t`Collapse all` : t`Expand all`}
           </Button>
         </div>
         {topLevel.length === 0 ? (
-          <StateView kind="empty" size="row" title={`No plugin adds ${filterNoun}`} />
+          <StateView kind="empty" size="row" title={noPluginAddsLabel(filterKind)} />
         ) : null}
-        <ul aria-label="Active plugins" className="grid grid-cols-[minmax(0,1fr)] gap-0.5">
+        <ul aria-label={t`Active plugins`} className="grid grid-cols-[minmax(0,1fr)] gap-0.5">
           {topLevel.map((plugin) => (
             <li key={plugin.id}>
               {node(plugin)}
               {plugin.kind === 'pack' && expanded.has(plugin.id) ? (
                 <ul
-                  aria-label={`Members of ${plugin.id}`}
+                  aria-label={t`Members of ${ph({ id: plugin.id })}`}
                   className="ml-[0.9rem] grid grid-cols-[minmax(0,1fr)]"
                 >
                   {plugin.members.map((member) => {
@@ -188,7 +227,7 @@ export function AgentPluginTree({
                           <p className="flex min-w-0 items-center gap-1.5 py-1.5 pl-5 text-sm text-muted-foreground opacity-75">
                             <PackageIcon aria-hidden="true" className="size-4 shrink-0" />
                             <span className="min-w-0 truncate">
-                              {member} (not in this conversation)
+                              {t`${member} (not in this conversation)`}
                             </span>
                           </p>
                         )}
@@ -202,8 +241,8 @@ export function AgentPluginTree({
         </ul>
       </div>
       {removedByPerson.length || cascaded.length ? (
-        <section aria-label="Removed plugins" className="grid gap-2">
-          <h3 className="text-sm font-semibold">Removed in this conversation</h3>
+        <section aria-label={t`Removed plugins`} className="grid gap-2">
+          <h3 className="text-sm font-semibold">{t`Removed in this conversation`}</h3>
           <ul className="grid gap-1">
             {removedByPerson.map((id) => (
               <li
@@ -211,7 +250,7 @@ export function AgentPluginTree({
                 key={id}
               >
                 <span className="font-medium">{id}</span>
-                <span className="text-xs text-muted-foreground">Removed by you</span>
+                <span className="text-xs text-muted-foreground">{t`Removed by you`}</span>
                 {inPrompt.has(pluginReferenceId(id)) ? <StillInPrompt /> : null}
                 {readOnly ? null : (
                   <Button
@@ -221,7 +260,7 @@ export function AgentPluginTree({
                     size="xs"
                     variant="ghost"
                   >
-                    Add back
+                    {t`Add back`}
                   </Button>
                 )}
               </li>
@@ -303,14 +342,14 @@ function PluginNode({
           </Tooltip>
           {announced ? (
             <Badge className="relative z-10 font-normal" variant="secondary">
-              Announced to the agent
+              {t`Announced to the agent`}
             </Badge>
           ) : null}
           {plugin.kind === 'pack' ? (
             <button
               type="button"
-              aria-label={`Explore ${plugin.id} files`}
-              title={`Explore ${plugin.id} files`}
+              aria-label={t`Explore ${ph({ id: plugin.id })} files`}
+              title={t`Explore ${ph({ id: plugin.id })} files`}
               onClick={onInspect}
               className="relative z-10 max-w-full text-left text-xs text-muted-foreground hover:underline"
             >
@@ -322,12 +361,12 @@ function PluginNode({
         </div>
         {onRemove && plugin.removable ? (
           <Button
-            aria-label={`Remove ${plugin.id}`}
+            aria-label={t`Remove ${ph({ id: plugin.id })}`}
             className="relative z-10 -my-0.5"
             disabled={pending}
             onClick={() => onRemove(plugin.id)}
             size="icon-xs"
-            title={`Remove ${plugin.id}`}
+            title={t`Remove ${ph({ id: plugin.id })}`}
             variant="ghost"
           >
             <RemoveIcon aria-hidden="true" />
@@ -356,43 +395,47 @@ function PluginDetails({
   const c = contributions;
   return (
     <div
-      aria-label={`${plugin.id} details`}
+      aria-label={t`${ph({ id: plugin.id })} details`}
       className="mb-1.5 ml-[1.375rem] grid gap-2 border-l py-1 pl-3 text-sm"
       role="group"
     >
       {plugin.description ? <p className="text-muted-foreground">{plugin.description}</p> : null}
       <Button onClick={onInspect} size="sm" variant="outline" className="w-fit">
-        Explore files
+        {t`Explore files`}
       </Button>
       <dl className="grid gap-2">
         {c.tools.length ? (
-          <DetailRow label={`Tools (${c.tools.length})`}>
+          <DetailRow label={t`Tools (${ph({ length: c.tools.length })})`}>
             <NameChips names={c.tools} />
           </DetailRow>
         ) : null}
         {c.deferredTools.length ? (
-          <DetailRow label={`Loaded when needed (${c.deferredTools.length})`}>
+          <DetailRow label={t`Loaded when needed (${ph({ length: c.deferredTools.length })})`}>
             <p className="mb-1 text-xs text-muted-foreground">
-              Named in the prompt; the agent loads their details with a tool search before using
-              them.
+              {t`Named in the prompt; the agent loads their details with a tool search before using them.`}
             </p>
             <NameChips names={c.deferredTools} />
           </DetailRow>
         ) : null}
         {c.skills.length ? (
-          <DetailRow label={`Skills (${c.skills.length})`}>
+          <DetailRow label={t`Skills (${ph({ length: c.skills.length })})`}>
             <DescribedList rows={c.skills} />
           </DetailRow>
         ) : null}
         {c.fragments.length ? (
-          <DetailRow label={`Prompt parts (${c.fragments.length})`}>
+          <DetailRow label={t`Prompt parts (${ph({ length: c.fragments.length })})`}>
             <ul className="grid gap-0.5">
               {c.fragments.map((fragment) => (
                 <li className="flex min-w-0 flex-wrap items-baseline gap-x-2" key={fragment.id}>
                   <span className="font-mono text-xs break-all">{fragment.id}</span>
                   <span className="text-xs text-muted-foreground">
                     {promptSectionLabel(fragment.section)}
-                    {fragment.tokens !== undefined ? `, about ${fragment.tokens} tokens` : ''}
+                    {fragment.tokens !== undefined
+                      ? plural(fragment.tokens, {
+                          one: ', about # token',
+                          other: ', about # tokens',
+                        })
+                      : ''}
                   </span>
                 </li>
               ))}
@@ -400,7 +443,7 @@ function PluginDetails({
           </DetailRow>
         ) : null}
         {c.mcpServers.length ? (
-          <DetailRow label="MCP servers">
+          <DetailRow label={t`MCP servers`}>
             <ul className="grid gap-0.5">
               {c.mcpServers.map((server) => (
                 <li className="flex flex-wrap items-baseline gap-x-2" key={server.name}>
@@ -409,7 +452,7 @@ function PluginDetails({
                     <span className="text-xs text-muted-foreground">{server.type}</span>
                   ) : null}
                   {server.deferred ? (
-                    <span className="text-xs text-muted-foreground">tools loaded when needed</span>
+                    <span className="text-xs text-muted-foreground">{t`tools loaded when needed`}</span>
                   ) : null}
                 </li>
               ))}
@@ -417,56 +460,64 @@ function PluginDetails({
           </DetailRow>
         ) : null}
         {c.flows.length ? (
-          <DetailRow label="Flows">
+          <DetailRow label={t`Flows`}>
             <DescribedList rows={c.flows} />
           </DetailRow>
         ) : null}
         {c.subagents.length ? (
-          <DetailRow label="Subagents">
+          <DetailRow label={t`Subagents`}>
             <DescribedList rows={c.subagents} />
           </DetailRow>
         ) : null}
         {c.commands.length ? (
-          <DetailRow label="Commands">
+          <DetailRow label={t`Commands`}>
             <DescribedList rows={c.commands} />
           </DetailRow>
         ) : null}
         {c.hooks.length ? (
-          <DetailRow label="Hooks">
+          <DetailRow label={t`Hooks`}>
             <DescribedList rows={c.hooks} />
           </DetailRow>
         ) : null}
         {c.catalogs.length ? (
-          <DetailRow label="Catalogs">
+          <DetailRow label={t`Catalogs`}>
             <NameChips names={c.catalogs.map((row) => row.id)} />
           </DetailRow>
         ) : null}
         {plugin.requires.length ? (
-          <DetailRow label="Requires">
+          <DetailRow label={t`Requires`}>
             <NameChips names={plugin.requires} />
           </DetailRow>
         ) : null}
         {c.requiredBy.length ? (
-          <DetailRow label="Required by">
+          <DetailRow label={t`Required by`}>
             <NameChips names={c.requiredBy} />
           </DetailRow>
         ) : null}
         {c.diagnostics.length ? (
-          <DetailRow label="Notes">
+          <DetailRow label={t`Notes`}>
             <ul className="grid gap-0.5 text-xs text-muted-foreground">
-              {c.diagnostics.map((row, index) => (
-                <li key={`${row.code}-${index}`}>
-                  <span className="font-medium capitalize">{row.severity}</span>: {row.message}
-                </li>
-              ))}
+              {c.diagnostics.map((row, index) => {
+                const severity = DIAGNOSTIC_SEVERITY_LABELS[row.severity] ?? row.severity;
+                const message = row.message;
+                return (
+                  <li key={`${row.code}-${index}`}>
+                    <Trans>
+                      <span className="font-medium capitalize">{severity}</span>: {message}
+                    </Trans>
+                  </li>
+                );
+              })}
             </ul>
           </DetailRow>
         ) : null}
-        <DetailRow label="Source">
+        <DetailRow label={t`Source`}>
           <span className="text-xs text-muted-foreground">
             {[
-              plugin.version ? `Version ${plugin.version}` : 'Version not reported',
-              plugin.marketplace ? `from ${plugin.marketplace}` : '',
+              plugin.version
+                ? t`Version ${ph({ version: plugin.version })}`
+                : t`Version not reported`,
+              plugin.marketplace ? t`from ${ph({ marketplace: plugin.marketplace })}` : '',
             ]
               .filter(Boolean)
               .join(', ')}

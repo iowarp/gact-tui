@@ -1,4 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 import { asRecord, toolResultRecord } from './tool-result-shared';
 
 /** An image a call returned as a workspace file (`clio.workspace_image.v1`). */
@@ -78,45 +79,54 @@ const NOT_SHOWN_TEXT = /NOT shown to the model/u;
  */
 export function imageReach(tool: ToolInvocation): ImageReach | undefined {
   if (!VIEWING_TOOLS.has(tool.name)) return undefined;
-  const kind = tool.name === 'view_pdf' ? 'PDF' : 'image';
+  const pdf = tool.name === 'view_pdf';
   if (tool.state === 'failed') {
     const reason = refusal(tool);
     if (!reason) return undefined;
+    const limit = reason.endsWith('script_limit');
     return {
       state: 'not-shown',
-      label: 'Not shown to the model',
-      detail: reason.endsWith('script_limit')
-        ? `The script had already attached as many files as one result may carry, so the model did not see this ${kind}.`
-        : `A background script has no model step to attach to, so the model did not see this ${kind}.`,
+      label: t`Not shown to the model`,
+      detail: limit
+        ? pdf
+          ? t`The script had already attached as many files as one result may carry, so the model did not see this PDF.`
+          : t`The script had already attached as many files as one result may carry, so the model did not see this image.`
+        : pdf
+          ? t`A background script has no model step to attach to, so the model did not see this PDF.`
+          : t`A background script has no model step to attach to, so the model did not see this image.`,
     };
   }
   if (tool.state !== 'succeeded') return undefined;
   const result = toolResultRecord(tool.output) ?? asRecord(tool.output);
   const block = tool.presentation?.blocks.find((item) => item.status === SHOWN_TO_MODEL);
   if (block || result?.attached_to_model === true) {
-    const via =
-      result?.delivery === 'script_result'
-        ? 'with the run_code script’s result'
-        : 'as this call’s result';
     return {
       state: 'shown',
-      label: 'Shown to the model',
-      detail: block?.detail?.trim() || `Shown to the model on its next step, ${via}.`,
+      label: t`Shown to the model`,
+      detail:
+        block?.detail?.trim() ||
+        (result?.delivery === 'script_result'
+          ? t`Shown to the model on its next step, with the run_code script’s result.`
+          : t`Shown to the model on its next step, as this call’s result.`),
     };
   }
   return {
     state: 'unconfirmed',
-    label: 'Not confirmed',
+    label: t`Not confirmed`,
     detail: tool.parent_call_id
-      ? `This agent does not report whether the model saw the ${kind}. Agents without that report pass a script only the file’s description, not its pixels.`
-      : `This agent does not report whether the model saw the ${kind}.`,
+      ? pdf
+        ? t`This agent does not report whether the model saw the PDF. Agents without that report pass a script only the file’s description, not its pixels.`
+        : t`This agent does not report whether the model saw the image. Agents without that report pass a script only the file’s description, not its pixels.`
+      : pdf
+        ? t`This agent does not report whether the model saw the PDF.`
+        : t`This agent does not report whether the model saw the image.`,
   };
 }
 
 const REACH_WORDS: Record<ReachState, string> = {
-  shown: 'shown to the model',
-  'not-shown': 'not shown to the model',
-  unconfirmed: 'not confirmed as seen',
+  shown: t`shown to the model`,
+  'not-shown': t`not shown to the model`,
+  unconfirmed: t`not confirmed as seen`,
 };
 
 /** One phrase for several views: "shown to the model", or "1 of 4 shown to the model". */
@@ -125,7 +135,8 @@ export function reachSummary(reaches: readonly ImageReach[]): string | undefined
   const states = new Set(reaches.map((reach) => reach.state));
   if (states.size === 1) return REACH_WORDS[reaches[0]!.state];
   const shown = reaches.filter((reach) => reach.state === 'shown').length;
-  if (shown) return `${shown} of ${reaches.length} shown to the model`;
+  const total = reaches.length;
+  if (shown) return t`${shown} of ${total} shown to the model`;
   const refused = reaches.filter((reach) => reach.state === 'not-shown').length;
-  return `${refused} of ${reaches.length} not shown to the model`;
+  return t`${refused} of ${total} not shown to the model`;
 }

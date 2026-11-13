@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { livePollInterval, useLiveStreamHealthy } from '@/hooks/use-live-poll-interval';
+import { t } from '@lingui/core/macro';
 
 /** The query key of one session's browser pages; `browser.page.*` events invalidate it. */
 export function browserPagesKey(endpoint: string, sessionId: string) {
@@ -24,7 +25,7 @@ export function useBrowserPages(sessionId: string) {
 
 /** The label a page's tab and rail row use: its session's name, then its title or host. */
 export function browserPageLabel(page: Pick<BrowserPage, 'label' | 'title' | 'host'>): string {
-  return page.label || page.title || page.host || 'Browser';
+  return page.label || page.title || page.host || t`Browser`;
 }
 
 const LOCAL_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])(:\d+)?(\/|$)/iu;

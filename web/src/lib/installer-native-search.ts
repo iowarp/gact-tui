@@ -2,18 +2,20 @@ import { toast } from 'sonner';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { createRepository } from '@/lib/connection';
 import { completeInstallerWebSearch } from '@/tauri/installer-options';
+import { t } from '@lingui/core/macro';
 
 /** Finish a current installer's native search choice without installing the optional gateway. */
 export async function finishInstallerNativeSearch(
   repository: ReturnType<typeof createRepository>,
 ): Promise<void> {
+  const { product } = vocab;
   const catalog = await repository.managedServiceCatalog('local');
   const service = catalog.services.find((candidate) => candidate.id === 'searxng');
   const variant = service?.variants.find((candidate) => candidate.compatible);
   if (!service || !variant) {
-    toast.warning(`${vocab.product} Search still needs setup`, {
+    toast.warning(t`${product} Search still needs setup`, {
       id: 'installer-web-search-needs-attention',
-      description: service?.variants[0]?.reason || 'Open Infrastructure to inspect this computer.',
+      description: service?.variants[0]?.reason || t`Open Infrastructure to inspect this computer.`,
     });
     return;
   }
@@ -39,8 +41,8 @@ export async function finishInstallerNativeSearch(
     await perform('start');
   }
   await completeInstallerWebSearch();
-  toast.success(`${vocab.product} Search is ready`, {
+  toast.success(t`${product} Search is ready`, {
     id: 'installer-web-search-ready',
-    description: 'Native web search is available to your agents. No Docker service is required.',
+    description: t`Native web search is available to your agents. No Docker service is required.`,
   });
 }

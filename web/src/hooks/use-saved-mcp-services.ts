@@ -1,6 +1,7 @@
 import type { SavedMcpService } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ph, t } from '@lingui/core/macro';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { connectionScope } from '@/lib/connection-scope';
@@ -33,7 +34,7 @@ export function useRemoveSavedMcp(onRemoved?: (service: SavedMcpService) => void
           queryClient.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) }),
         ),
       );
-      toast.success(`Removed ${target.name}`);
+      toast.success(t`Removed ${ph({ name: target.name })}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });

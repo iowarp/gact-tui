@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { instanceNameProblem } from './managed-service-gpus';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Name a further deployment of an engine (`vllm@<name>`) before it is set up
@@ -29,7 +30,7 @@ export function AddInstanceForm({
   const shown = (submitted || Boolean(value)) && problem;
   return (
     <form
-      aria-label={`Add ${service.label} instance`}
+      aria-label={t`Add ${ph({ label: service.label })} instance`}
       className="flex basis-full flex-wrap items-end gap-2"
       noValidate
       onSubmit={(event) => {
@@ -39,7 +40,7 @@ export function AddInstanceForm({
       }}
     >
       <Field className="w-full sm:w-64">
-        <FieldLabel htmlFor={id}>Instance name</FieldLabel>
+        <FieldLabel htmlFor={id}>{t`Instance name`}</FieldLabel>
         <Input
           aria-describedby={`${id}-hint`}
           aria-invalid={Boolean(shown)}
@@ -55,16 +56,18 @@ export function AddInstanceForm({
             <span className="text-destructive" role="alert">
               {problem}
             </span>
+          ) : value ? (
+            t`Deploys as ${ph({ id: service.id })}@${value}`
           ) : (
-            `Deploys as ${service.id}@${value || 'name'}`
+            t`Deploys as ${ph({ id: service.id })}@name`
           )}
         </FieldDescription>
       </Field>
       <Button size="sm" type="submit">
-        Continue
+        {t`Continue`}
       </Button>
       <Button size="sm" type="button" variant="ghost" onClick={onCancel}>
-        Cancel
+        {t`Cancel`}
       </Button>
     </form>
   );

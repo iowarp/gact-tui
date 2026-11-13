@@ -33,6 +33,7 @@ import {
 } from './knowledge-graph-model';
 import { knowledgeLinkCount } from './knowledge-vault-stats';
 import { StateView } from './primitives/state-view';
+import { plural, t } from '@lingui/core/macro';
 
 interface NoteNodeData extends Record<string, unknown> {
   card: KnowledgeGraphCard;
@@ -108,7 +109,7 @@ export function KnowledgeGraph({
   const tall = extent.length ? Math.max(...extent.map((card) => card.y)) + height : 0;
   return (
     <section
-      aria-label="Note graph"
+      aria-label={t`Note graph`}
       className="h-full min-h-0 min-w-0 overflow-hidden bg-background"
       ref={container}
     >
@@ -130,14 +131,14 @@ export function KnowledgeGraph({
           <GraphEdgeFade width={wide} height={tall} />
           <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
           <Controls
-            aria-label="Note graph controls"
+            aria-label={t`Note graph controls`}
             className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!fill-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!fill-foreground"
             position="bottom-right"
             showInteractive={false}
           />
         </ReactFlow>
       ) : (
-        <StateView kind="empty" size="viewer" title="No notes match this view" />
+        <StateView kind="empty" size="viewer" title={t`No notes match this view`} />
       )}
     </section>
   );
@@ -174,9 +175,7 @@ function NoteCard({ data }: NodeProps<NoteNode>) {
         type="button"
       >
         <FileTextIcon aria-hidden="true" className="row-span-2 size-3.5 text-muted-foreground" />
-        <span
-          className={cn('truncate text-menu leading-4 font-semibold', focus && 'text-primary')}
-        >
+        <span className={cn('truncate text-menu leading-4 font-semibold', focus && 'text-primary')}>
           {card.title}
         </span>
         <span className="truncate text-caption leading-[0.875rem] text-muted-foreground">{links}</span>
@@ -193,7 +192,7 @@ function MoreCard({ data }: NodeProps<MoreNode>) {
         <Handle className={HANDLE} position={Position.Left} type="target" />
       ) : null}
       <div className="flex h-full items-center rounded-md border border-dashed px-2.5 text-caption text-muted-foreground tabular-nums">
-        {data.count.toLocaleString()} more {data.count === 1 ? 'note' : 'notes'}
+        {plural(data.count, { one: '# more note', other: '# more notes' })}
       </div>
       {data.side === 'in' ? (
         <Handle className={HANDLE} position={Position.Right} type="source" />

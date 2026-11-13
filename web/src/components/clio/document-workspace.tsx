@@ -1,12 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
-import type {
-  Artifact,
-  CommentTarget,
-  DocumentManifest,
-  DocumentWorkingCopy,
-} from '@clio/core/v3';
+import type { Artifact, CommentTarget, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
 import { TransportError } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessagesSquareIcon } from 'lucide-react';
@@ -59,6 +54,7 @@ import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { PendingPageReadout, PendingZoomControls } from './viewer-zoom-controls';
 import { officeMediaType } from './comments/file-comments';
+import { t, ph } from '@lingui/core/macro';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
@@ -153,21 +149,23 @@ export function ClioDocumentWorkspace({
       const bytes = await repository.documentContent(pdf.artifact_id);
       downloadBytes(bytes, 'application/pdf', documentPdfFileName(artifact.name));
     },
-    onSuccess: () => setStatus('PDF downloaded.'),
+    onSuccess: () => setStatus(t`PDF downloaded.`),
   });
   const createWorkingCopy = useMutation({
     mutationFn: (target: DocumentOpenTarget) =>
       openDocumentTarget(repository, manifest.data, artifact.session_id, preparePdf, target),
     onSuccess: (result) => {
       setWorkingCopy(result.desktopCopy ? undefined : result.copy);
+      const app = result.appName;
+      const opened = result.isPdf
+        ? t`PDF opened in ${app}.`
+        : t`${ph({ name: artifact.name })} opened in ${app}.`;
       announce(
-        `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
-          result.desktopCopy
-            ? ' Opened a desktop copy; edits are local to this copy.'
-            : result.copy?.auto_checkpoint
-              ? ' Stable saves become immutable revisions.'
-              : ''
-        }`,
+        result.desktopCopy
+          ? t`${opened} Opened a desktop copy; edits are local to this copy.`
+          : result.copy?.auto_checkpoint
+            ? t`${opened} Stable saves become immutable revisions.`
+            : opened,
       );
     },
     onError: (error: Error) => toast.error(error.message),
@@ -176,7 +174,7 @@ export function ClioDocumentWorkspace({
     mutationFn: () => repository.closeDocumentWorkingCopy(workingCopy!.id),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      announce('Working copy closed. Its saved revisions remain.');
+      announce(t`Working copy closed. Its saved revisions remain.`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -186,7 +184,7 @@ export function ClioDocumentWorkspace({
         artifact.name.split(/[\\/]/u).at(-1)!,
         await repository.documentContent(artifact.id),
       ),
-    onSuccess: () => announce('Desktop copy shown in its folder.'),
+    onSuccess: () => announce(t`Desktop copy shown in its folder.`),
     onError: (error: Error) => toast.error(error.message),
   });
   const resolveConflict = useMutation({
@@ -197,7 +195,7 @@ export function ClioDocumentWorkspace({
       }),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      announce('Working-copy conflict resolved against the confirmed artifact head.');
+      announce(t`Working-copy conflict resolved against the confirmed artifact head.`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -216,7 +214,7 @@ export function ClioDocumentWorkspace({
     expectPdf: opensAsPdf,
     openPending: createWorkingCopy.isPending,
     pdfPending: rendition.isPending,
-    pdfUnavailable: runtimeMissing ? 'Needs the document runtime' : undefined,
+    pdfUnavailable: runtimeMissing ? t`Needs the document runtime` : undefined,
     revealPending: revealSource.isPending,
     workingCopyActive: workingCopy?.status === 'active',
     closePending: closeWorkingCopy.isPending,
@@ -262,7 +260,7 @@ export function ClioDocumentWorkspace({
     [activeView, sourceProfile, textContent],
   );
   // Without its registered revision the saved result is still readable, but only as a preview.
-  const previewOnly = manifest.isError ? 'Preview only' : undefined;
+  const previewOnly = manifest.isError ? t`Preview only` : undefined;
   useFileViewerFacts(previewOnly ? [previewOnly] : undefined);
   const decision =
     workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? workingCopy : undefined;
@@ -283,21 +281,21 @@ export function ClioDocumentWorkspace({
     />
   ) : null;
   const information = (
-    <FileViewerInformation label="Document information">
+    <FileViewerInformation label={t`Document information`}>
       <p className="text-sm font-medium">{profileLabel(manifest.data ?? effectiveManifest)}</p>
       {needsPdfPreview && pdfPreview.data ? (
-        <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+        <p className="text-xs text-muted-foreground">{t`Saved PDF preview`}</p>
       ) : null}
       <p className="break-all font-mono text-xs text-muted-foreground">
         {effectiveManifest
-          ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
+          ? t`Version ${ph({ version: effectiveManifest.version })}, ${ph({ sha256: effectiveManifest.sha256 })}`
           : manifest.error
-            ? 'Comments, revision history and editing are unavailable: its registered revision could not be loaded.'
-            : 'Checking document capabilities…'}
+            ? t`Comments, revision history and editing are unavailable: its registered revision could not be loaded.`
+            : t`Checking document capabilities…`}
       </p>
       {workingCopy?.status === 'active' ? (
         <p className="text-xs text-muted-foreground">
-          A working copy is open; stable saves become revisions.
+          {t`A working copy is open; stable saves become revisions.`}
         </p>
       ) : null}
     </FileViewerInformation>
@@ -335,7 +333,7 @@ export function ClioDocumentWorkspace({
     commentSurface,
     inFrameComments ? <EarlierThreads>{threads}</EarlierThreads> : undefined,
     <section
-      aria-label="Document workspace"
+      aria-label={t`Document workspace`}
       className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
     >
       <ViewerToolbarHost.Provider value={toolbarHost}>
@@ -346,7 +344,7 @@ export function ClioDocumentWorkspace({
         >
           {ownRow ? (
             <FrameBar
-              label="File"
+              label={t`File`}
               where={<FrameCrumbs parts={[{ label: artifactDisplayName(artifact) }]} />}
               what={previewOnly ? <span data-frame-position="">{previewOnly}</span> : undefined}
               format={
@@ -396,7 +394,7 @@ export function ClioDocumentWorkspace({
               <TabsContent
                 className="m-0 min-h-0 min-w-0 overflow-hidden"
                 value="preview"
-                aria-label="Document preview"
+                aria-label={t`Document preview`}
                 aria-labelledby={undefined}
               >
                 <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
@@ -449,8 +447,8 @@ export function ClioDocumentWorkspace({
                         }
                         previewLabel={
                           manifest.data?.pdf_rendition_artifact_id
-                            ? 'Loading PDF preview…'
-                            : 'Rendering PDF preview…'
+                            ? t`Loading PDF preview…`
+                            : t`Rendering PDF preview…`
                         }
                         onRetryPreview={() => {
                           if (pdfPreview.isError) void pdfPreview.refetch();
@@ -509,7 +507,7 @@ function DocumentCommentThreads({ children }: { children: ReactNode }) {
     <CommentThreadsPopover
       align="end"
       trigger={
-        <ToolbarAction label="Comment threads">
+        <ToolbarAction label={t`Comment threads`}>
           <MessagesSquareIcon aria-hidden="true" />
         </ToolbarAction>
       }
@@ -529,7 +527,7 @@ function EarlierThreads({ children }: { children: ReactNode }) {
       trigger={
         <Button className="mt-2 w-full" size="sm" variant="ghost">
           <MessagesSquareIcon aria-hidden="true" />
-          Earlier threads
+          {t`Earlier threads`}
         </Button>
       }
     >
@@ -573,20 +571,22 @@ function DocumentPreview({
 }) {
   const loading = (label: string) => (
     <>
-      {opensAsPdf ? <PendingZoomControls label="PDF zoom" readout={<PendingPageReadout />} /> : null}
+      {opensAsPdf ? (
+        <PendingZoomControls label={t`PDF zoom`} readout={<PendingPageReadout />} />
+      ) : null}
       <ResourceLoading label={label} />
     </>
   );
-  if (!manifest) return manifestPending ? loading('Opening the document…') : fallback;
+  if (!manifest) return manifestPending ? loading(t`Opening the document…`) : fallback;
   if (runtimeMissing && (unavailable ?? fallback)) return unavailable ?? fallback;
   if (previewError && !previewPending) {
     return (
       <StateView
-        action={{ label: 'Retry preview', onClick: onRetryPreview }}
+        action={{ label: t`Retry preview`, onClick: onRetryPreview }}
         detail={previewError}
         kind="error"
         size="viewer"
-        title="PDF preview failed"
+        title={t`PDF preview failed`}
       />
     );
   }
@@ -622,8 +622,8 @@ function DocumentPreview({
     if (fallback) return fallback;
     return (
       <ResourceUnavailable
-        label="Preview unavailable"
-        detail={`PDF previews are not supported for this ${profileLabel(manifest).toLowerCase()}.`}
+        label={t`Preview unavailable`}
+        detail={t`PDF previews are not supported for this ${ph({ type: profileLabel(manifest) })}.`}
       />
     );
   }
@@ -639,20 +639,20 @@ function renditionUnavailable(error: unknown): boolean {
 }
 
 function profileLabel(manifest?: DocumentManifest) {
-  if (!manifest) return 'Document';
+  if (!manifest) return t`Document`;
   const labels: Partial<Record<DocumentManifest['profile'], string>> = {
-    markdown: 'Markdown document',
-    pdf: 'PDF document',
-    latex: 'LaTeX document',
-    'html-static': 'Static HTML document',
-    'ooxml-word': 'Word document',
-    'ooxml-sheet': 'Excel workbook',
-    'ooxml-slides': 'PowerPoint deck',
-    'odf-text': 'OpenDocument text',
-    'odf-sheet': 'OpenDocument spreadsheet',
-    'odf-slides': 'OpenDocument presentation',
+    markdown: t`Markdown document`,
+    pdf: t`PDF document`,
+    latex: t`LaTeX document`,
+    'html-static': t`Static HTML document`,
+    'ooxml-word': t`Word document`,
+    'ooxml-sheet': t`Excel workbook`,
+    'ooxml-slides': t`PowerPoint deck`,
+    'odf-text': t`OpenDocument text`,
+    'odf-sheet': t`OpenDocument spreadsheet`,
+    'odf-slides': t`OpenDocument presentation`,
   };
-  return labels[manifest.profile] ?? 'Document';
+  return labels[manifest.profile] ?? t`Document`;
 }
 
 /**

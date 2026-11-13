@@ -110,6 +110,7 @@ function useControllable<V>(
     wasControlled.current = isControlled;
     warnCascaderOnce(
       `controlled-switch:${devName}`,
+      // i18n-ignore: development warning for the component's author, not shown in the interface
       `\`${devName}\` switched from ${from} to ${to}. Decide once: pass \`${devName}\` for the whole life of the component, or pass only the default and let the cascader own it.`,
     );
   }, [isControlled, devName]);
@@ -446,6 +447,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     for (const duplicate of issues?.duplicates ?? []) {
       warnCascaderOnce(
         `duplicate-value:${duplicate}`,
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         `Duplicate node value ${JSON.stringify(duplicate)}. \`value\` is the selection key, so only the first occurrence is indexed and the rest never render.`,
       );
     }
@@ -453,6 +455,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     for (const cycle of issues?.cycles ?? []) {
       warnCascaderOnce(
         `cycle:${cycle}`,
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         `\`getParent\` puts ${JSON.stringify(cycle)} on a cycle. The depth walk is cycle-guarded so nothing hangs, but every depth on that chain is clamped rather than derived.`,
       );
     }
@@ -469,11 +472,13 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
       if (multiple && !Array.isArray(current)) {
         warnCascaderOnce(
           `value-shape:multiple:${prop}`,
+          // i18n-ignore: development warning for the component's author, not shown in the interface
           `\`multiple\` is set but \`${prop}\` is a string. Multi-select reads and writes a \`string[]\`; a string is treated as no selection at all.`,
         );
       } else if (!multiple && Array.isArray(current)) {
         warnCascaderOnce(
           `value-shape:single:${prop}`,
+          // i18n-ignore: development warning for the component's author, not shown in the interface
           `\`${prop}\` is an array but \`multiple\` is not set. Single-select reads and writes a \`string\`; only the first entry would survive a commit.`,
         );
       }
@@ -482,6 +487,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (cascade && !multiple) {
       warnCascaderOnce(
         'cascade-without-multiple',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`cascade` does nothing without `multiple`: a single selection has no subtree to propagate over.',
       );
     }
@@ -489,6 +495,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (cascade && selectable === 'leaf') {
       warnCascaderOnce(
         'cascade-with-leaf-selectable',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`cascade` does nothing while `selectable="leaf"`: no branch can be committed, so no commit ever has a subtree under it. Pass `selectable="any"` or a predicate that accepts branches.',
       );
     }
@@ -496,6 +503,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (!indicator && multiple) {
       warnCascaderOnce(
         'indicator-false-with-multiple',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`indicator={false}` does nothing with `multiple`: the checkbox is the selection control rather than a decoration, so it and its gutter stay. Mark selection your own way from `data-selected` on the row, and drop the prop.',
       );
     }
@@ -503,6 +511,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (max != null && !multiple) {
       warnCascaderOnce(
         'max-without-multiple',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`max` does nothing without `multiple`: there is only ever one selection to cap.',
       );
     }
@@ -510,6 +519,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (hasExpanded && mode !== 'tree') {
       warnCascaderOnce(
         `expanded-outside-tree:${mode}`,
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         `\`expanded\` only does something in \`mode="tree"\`, and this cascader is in \`mode="${mode}"\`. Drill and columns navigate with \`path\`.`,
       );
     }
@@ -517,6 +527,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (hasPath && mode === 'tree') {
       warnCascaderOnce(
         'path-in-tree',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`path` does nothing in `mode="tree"`: branches expand in place rather than replacing the level. Use `expanded`.',
       );
     }
@@ -524,6 +535,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (searchScope === 'deep' && mode === 'tree') {
       warnCascaderOnce(
         'deep-search-in-tree',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`searchScope="deep"` does nothing in `mode="tree"`: a tree query already matches at any depth and auto-expands the ancestors of every hit.',
       );
     }
@@ -531,6 +543,7 @@ function useCascaderDevWarnings<T>(options: CascaderDevOptions<T>) {
     if (hasOnSearch && mode === 'tree') {
       warnCascaderOnce(
         'onsearch-in-tree',
+        // i18n-ignore: development warning for the component's author, not shown in the interface
         '`onSearch` does nothing in `mode="tree"`: a tree query filters the loaded tree in place, and a server hit belongs to no visible branch, so its results would never render. The request is not fired. Filter the tree locally, or use drill or columns for server search.',
       );
     }

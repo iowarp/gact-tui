@@ -40,6 +40,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Runtime};
 
 use crate::menu_spec::{action_for_id, Item, Predefined, MENU_SPEC};
+use crate::native_copy;
 
 /// The Tauri event emitted to all windows when an actionable (non-predefined)
 /// menu item is activated.
@@ -67,37 +68,73 @@ pub fn short_app_name(name: &str) -> &str {
 }
 
 fn about_label(name: &str) -> String {
-    format!("About {name}")
+    native_copy::format("menu.item.about", &[("name", name)])
 }
 
 fn quit_label(name: &str) -> String {
-    format!("Quit {name}")
+    native_copy::format("menu.item.quit", &[("name", name)])
 }
 
 fn install_agent_label(name: &str) -> String {
-    format!("Install {} on a Computer…", short_app_name(name))
+    native_copy::format("menu.item.install-agent", &[("name", short_app_name(name))])
+}
+
+/// The key of a predefined item's text in [`native_copy`].
+fn predefined_key(kind: Predefined) -> &'static str {
+    match kind {
+        Predefined::Undo => "menu.predefined.undo",
+        Predefined::Redo => "menu.predefined.redo",
+        Predefined::Cut => "menu.predefined.cut",
+        Predefined::Copy => "menu.predefined.copy",
+        Predefined::Paste => "menu.predefined.paste",
+        Predefined::SelectAll => "menu.predefined.select_all",
+        Predefined::Hide => "menu.predefined.hide",
+        Predefined::HideOthers => "menu.predefined.hide_others",
+        Predefined::ShowAll => "menu.predefined.show_all",
+        Predefined::Minimize => "menu.predefined.minimize",
+        Predefined::Maximize => "menu.predefined.maximize",
+        Predefined::Fullscreen => "menu.predefined.fullscreen",
+        Predefined::CloseWindow => "menu.predefined.close_window",
+        Predefined::BringAllToFront => "menu.predefined.bring_all_to_front",
+    }
 }
 
 fn build_predefined<R: Runtime>(
     app: &AppHandle<R>,
     kind: Predefined,
 ) -> tauri::Result<PredefinedMenuItem<R>> {
-    match kind {
-        Predefined::Undo => PredefinedMenuItem::undo(app, None),
-        Predefined::Redo => PredefinedMenuItem::redo(app, None),
-        Predefined::Cut => PredefinedMenuItem::cut(app, None),
-        Predefined::Copy => PredefinedMenuItem::copy(app, None),
-        Predefined::Paste => PredefinedMenuItem::paste(app, None),
-        Predefined::SelectAll => PredefinedMenuItem::select_all(app, None),
-        Predefined::Hide => PredefinedMenuItem::hide(app, None),
-        Predefined::HideOthers => PredefinedMenuItem::hide_others(app, None),
-        Predefined::ShowAll => PredefinedMenuItem::show_all(app, None),
-        Predefined::Minimize => PredefinedMenuItem::minimize(app, None),
-        Predefined::Maximize => PredefinedMenuItem::maximize(app, None),
-        Predefined::Fullscreen => PredefinedMenuItem::fullscreen(app, None),
-        Predefined::CloseWindow => PredefinedMenuItem::close_window(app, None),
-        Predefined::BringAllToFront => PredefinedMenuItem::bring_all_to_front(app, None),
+    // The operating system's own text, unless the interface sent a translation.
+    // The menu library's own English for full screen is "Toggle Full Screen",
+    // not macOS's "Enter Full Screen", so that item always takes the table text.
+    let key = predefined_key(kind);
+    let text = match kind {
+        Predefined::Fullscreen => Some(native_copy::text(key)),
+        _ => native_copy::translated(key),
     }
+    .map(|text| native_copy::fill(&text, &[("name", &native_app_name(app))]));
+    let text = text.as_deref();
+    match kind {
+        Predefined::Undo => PredefinedMenuItem::undo(app, text),
+        Predefined::Redo => PredefinedMenuItem::redo(app, text),
+        Predefined::Cut => PredefinedMenuItem::cut(app, text),
+        Predefined::Copy => PredefinedMenuItem::copy(app, text),
+        Predefined::Paste => PredefinedMenuItem::paste(app, text),
+        Predefined::SelectAll => PredefinedMenuItem::select_all(app, text),
+        Predefined::Hide => PredefinedMenuItem::hide(app, text),
+        Predefined::HideOthers => PredefinedMenuItem::hide_others(app, text),
+        Predefined::ShowAll => PredefinedMenuItem::show_all(app, text),
+        Predefined::Minimize => PredefinedMenuItem::minimize(app, text),
+        Predefined::Maximize => PredefinedMenuItem::maximize(app, text),
+        Predefined::Fullscreen => PredefinedMenuItem::fullscreen(app, text),
+        Predefined::CloseWindow => PredefinedMenuItem::close_window(app, text),
+        Predefined::BringAllToFront => PredefinedMenuItem::bring_all_to_front(app, text),
+    }
+}
+
+/// A submenu title in the interface language. The application menu's title is
+/// replaced by macOS with the app's name and keeps its spec name.
+fn submenu_title(title: &str) -> String {
+    native_copy::translated(&format!("menu.{title}")).unwrap_or_else(|| title.to_owned())
 }
 
 /// Build the full native menu tree from [`MENU_SPEC`].
@@ -111,7 +148,7 @@ fn build_predefined<R: Runtime>(
 pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
     for spec in MENU_SPEC {
-        let submenu = Submenu::new(app, spec.title, true)?;
+        let submenu = Submenu::new(app, submenu_title(spec.title), true)?;
         append_items(app, &submenu, spec.items)?;
         menu.append(&submenu)?;
     }
@@ -130,7 +167,8 @@ fn append_items<R: Runtime>(
                     "about" => about_label(&native_app_name(app)),
                     "quit" => quit_label(&native_app_name(app)),
                     "install-agent" => install_agent_label(&native_app_name(app)),
-                    _ => (*label).to_string(),
+                    _ => native_copy::translated(&format!("menu.item.{id}"))
+                        .unwrap_or_else(|| (*label).to_string()),
                 };
                 let mi = MenuItem::with_id(app, *id, label, true, *accel)?;
                 submenu.append(&mi)?;
@@ -140,7 +178,7 @@ fn append_items<R: Runtime>(
                 submenu.append(&pi)?;
             }
             Item::Submenu { title, items } => {
-                let nested = Submenu::new(app, *title, true)?;
+                let nested = Submenu::new(app, submenu_title(title), true)?;
                 append_items(app, &nested, items)?;
                 submenu.append(&nested)?;
             }
@@ -161,13 +199,23 @@ pub fn register_app_roles<R: Runtime>(menu: &Menu<R>) -> tauri::Result<()> {
         let Some(submenu) = item.as_submenu() else {
             continue;
         };
-        match submenu.text()?.as_str() {
-            WINDOW_MENU_TITLE => submenu.set_as_windows_menu_for_nsapp()?,
-            HELP_MENU_TITLE => submenu.set_as_help_menu_for_nsapp()?,
-            _ => {}
+        // Titles are in the interface language, so compare with the same text.
+        let text = submenu.text()?;
+        if text == submenu_title(WINDOW_MENU_TITLE) {
+            submenu.set_as_windows_menu_for_nsapp()?;
+        } else if text == submenu_title(HELP_MENU_TITLE) {
+            submenu.set_as_help_menu_for_nsapp()?;
         }
     }
     Ok(())
+}
+
+/// Build the menu bar in the current interface language and install it.
+#[cfg(target_os = "macos")]
+pub fn install_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+    let app_menu = build_menu(app)?;
+    app.set_menu(app_menu.clone())?;
+    register_app_roles(&app_menu)
 }
 
 /// Handle a menu activation: emit the [`MENU_EVENT`] for actionable items.

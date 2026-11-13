@@ -6,6 +6,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Whether the agent may run delegated work on `account` without asking. An
@@ -31,13 +32,13 @@ export function DelegationSwitch({
   });
   return (
     <Switch
-      aria-label={`${vocab.agent} may use ${account.label} for delegated work`}
+      aria-label={t`${ph({ agent: vocab.agent })} may use ${ph({ label: account.label })} for delegated work`}
       checked={account.delegation_allowed}
       disabled={toggle.isPending}
       id={id}
       onCheckedChange={(checked) => toggle.mutate(checked)}
       size={size}
-      title={`${vocab.agent} may use this account for delegated work`}
+      title={t`${ph({ agent: vocab.agent })} may use this account for delegated work`}
     />
   );
 }

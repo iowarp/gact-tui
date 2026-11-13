@@ -18,6 +18,7 @@ import { Tag } from './primitives/tag';
 import { SavedAgentFile } from './private-local-details';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t, ph } from '@lingui/core/macro';
 
 /** Installed agents and the person's own agents (a parent plus a delta). */
 export function AgentSettings() {
@@ -59,21 +60,22 @@ export function AgentSettings() {
     onSuccess: async (_value, agent) => {
       setPreviewRef((current) => (current === agent.ref ? undefined : current));
       await queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
-      toast.success(`Deleted ${agent.name || agent.ref}`);
+      toast.success(t`Deleted ${ph({ name: agent.name || agent.ref })}`);
     },
-    onError: (error: Error) => toast.error(`Could not delete the agent: ${error.message}`),
+    onError: (error: Error) =>
+      toast.error(t`Could not delete the agent: ${ph({ message: error.message })}`),
   });
   const heading = (
     <SettingsSectionHeading
-      description="Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
-      title="Agents"
+      description={t`Explore an agent’s plugins and prompt, change its composition, and save your own local variation.`}
+      title={t`Agents`}
     />
   );
   if (supported === false) {
     return (
       <div className="grid gap-2">
         {heading}
-        <StateView kind="unavailable" size="row" title="This service doesn’t offer agents." />
+        <StateView kind="unavailable" size="row" title={t`This service doesn’t offer agents.`} />
       </div>
     );
   }
@@ -121,7 +123,7 @@ export function AgentSettings() {
             tone="chip"
             width="auto"
           >
-            Default
+            {t`Default`}
           </Tag>
         ) : null
       }
@@ -129,33 +131,33 @@ export function AgentSettings() {
   );
   const list = (
     <div className="min-w-0" onKeyDown={newItemKey(newAgent)}>
-      <SettingsGroupLabel className="mt-2">Installed agents</SettingsGroupLabel>
-      <ItemList label="Installed agents">
+      <SettingsGroupLabel className="mt-2">{t`Installed agents`}</SettingsGroupLabel>
+      <ItemList label={t`Installed agents`}>
         {agents.isPending ? (
-          <StateView kind="loading" size="row" title="Loading agents…" />
+          <StateView kind="loading" size="row" title={t`Loading agents…`} />
         ) : agents.error ? (
           <StateView
-            action={{ label: 'Retry', onClick: () => void agents.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void agents.refetch() }}
             kind="error"
             size="row"
-            title="Agents couldn’t be loaded."
+            title={t`Agents couldn’t be loaded.`}
           />
         ) : installed.length ? (
           installed.map(row)
         ) : (
-          <StateView kind="empty" size="row" title="No agents are installed." />
+          <StateView kind="empty" size="row" title={t`No agents are installed.`} />
         )}
       </ItemList>
       {agents.isPending || agents.error ? null : (
         <>
-          <SettingsGroupLabel addLabel="New agent" onAdd={newAgent}>
-            Your agents
+          <SettingsGroupLabel addLabel={t`New agent`} onAdd={newAgent}>
+            {t`Your agents`}
           </SettingsGroupLabel>
-          <ItemList label="Your agents">
+          <ItemList label={t`Your agents`}>
             {mine.length ? (
               mine.map(row)
             ) : (
-              <StateView kind="empty" size="row" title="No agents of your own yet." />
+              <StateView kind="empty" size="row" title={t`No agents of your own yet.`} />
             )}
           </ItemList>
         </>

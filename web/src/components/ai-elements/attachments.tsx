@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { t } from '@lingui/core/macro';
 
 // ============================================================================
 // Types
@@ -72,11 +73,11 @@ export const getMediaCategory = (data: AttachmentData): AttachmentMediaCategory 
 
 export const getAttachmentLabel = (data: AttachmentData): string => {
   if (data.type === 'source-document') {
-    return data.title || data.filename || 'Source';
+    return data.title || data.filename || t`Source`;
   }
 
   const category = getMediaCategory(data);
-  return data.filename || (category === 'image' ? 'Image' : 'Attachment');
+  return data.filename || (category === 'image' ? t`Image` : t`Attachment`);
 };
 
 const renderAttachmentImage = (
@@ -86,7 +87,7 @@ const renderAttachmentImage = (
 ) =>
   variant === 'grid' || variant === 'composer' ? (
     <img
-      alt={filename || 'Image'}
+      alt={filename || t`Image`}
       className="size-full object-cover"
       height={variant === 'composer' ? 144 : 96}
       src={url}
@@ -94,7 +95,7 @@ const renderAttachmentImage = (
     />
   ) : (
     <img
-      alt={filename || 'Image'}
+      alt={filename || t`Image`}
       className="size-full rounded object-cover"
       height={20}
       src={url}
@@ -335,7 +336,7 @@ export type AttachmentRemoveProps = ComponentProps<typeof Button> & {
 };
 
 export const AttachmentRemove = ({
-  label = 'Remove',
+  label = t`Remove`,
   className,
   children,
   ...props
@@ -466,6 +467,6 @@ export const AttachmentEmpty = ({ className, children, ...props }: AttachmentEmp
     className={cn('flex items-center justify-center p-4 text-muted-foreground text-sm', className)}
     {...props}
   >
-    {children ?? 'No attachments'}
+    {children ?? t`No attachments`}
   </div>
 );

@@ -293,6 +293,11 @@ fn prepare_windows_runtime(
     remove_dir_if_present(&staging_root)?;
     fs::create_dir_all(&staging_root)
         .map_err(|error| format!("create runtime staging directory {staging_root:?}: {error}"))?;
+    // Files unpacked under an already granted directory inherit the sandbox
+    // users' access as they are created, instead of the agent rewriting every
+    // file's permissions after the unpack.
+    let pregrant = runtime_grants_sandbox_access(&runtime_dir);
+    let granted = std::cell::Cell::new(pregrant && grant_sandbox_access(&staging_root));
 
     let install_result = (|| -> Result<(), String> {
         progress("Unpacking and checking the bundled CLIO runtime...");
@@ -319,6 +324,7 @@ fn prepare_windows_runtime(
                         fs::create_dir_all(&staging_root).map_err(|error| {
                             format!("create runtime staging directory {staging_root:?}: {error}")
                         })?;
+                        granted.set(pregrant && grant_sandbox_access(&staging_root));
                     }
                     progress(match origin {
                         PackOrigin::Resource(_) => "Reading the bundled CLIO runtime...",
@@ -375,6 +381,15 @@ fn prepare_windows_runtime(
             format!("{expected_hash}\n"),
         )
         .map_err(|error| format!("write runtime installation receipt: {error}"))?;
+        if granted.get() {
+            // Without the marker the agent simply applies the grant itself.
+            let marker = serde_json::json!({
+                "schema": 1,
+                "runtime": "gact-runtime",
+                "users": SANDBOX_USERS,
+            });
+            let _ = fs::write(staging_root.join(ACCESS_MARKER), marker.to_string());
+        }
 
         remove_dir_if_present(&previous_root)?;
         if install_root.exists() {
@@ -415,6 +430,59 @@ fn prepare_windows_runtime(
     // would waste roughly another 300 MiB on every user's machine.
     let _ = fs::remove_file(&archive_path);
     Ok(Some(runtime_dir))
+}
+
+/// The protected-execution sandbox users (clio-agent's `CODEX_SANDBOX_USERS`).
+#[cfg(windows)]
+const SANDBOX_USERS: [&str; 2] = ["CodexSandboxOffline", "CodexSandboxOnline"];
+/// Tells the agent's protected-execution step that the runtime was unpacked
+/// into a directory that already gave the sandbox users their access.
+#[cfg(windows)]
+const ACCESS_MARKER: &str = "runtime-access.json";
+
+#[cfg(windows)]
+fn icacls(args: &[&std::ffi::OsStr]) -> Option<String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("icacls")
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase())
+}
+
+/// Whether `runtime` gives every sandbox user read access that its files
+/// inherit. The agent grants it only on hosts whose protected execution runs
+/// as those users, so a runtime replacing this one would receive it anyway.
+#[cfg(windows)]
+fn runtime_grants_sandbox_access(runtime: &Path) -> bool {
+    runtime.is_dir()
+        && icacls(&[runtime.as_os_str()]).is_some_and(|acl| {
+            SANDBOX_USERS.iter().all(|user| {
+                let user = user.to_ascii_lowercase();
+                acl.contains(&format!("\\{user}:(oi)(ci)(rx)"))
+                    || acl.contains(&format!("\\{user}:(i)(oi)(ci)(rx)"))
+            })
+        })
+}
+
+/// Grant the sandbox users inherited read access on the empty `dir`.
+#[cfg(windows)]
+fn grant_sandbox_access(dir: &Path) -> bool {
+    use std::ffi::OsStr;
+    let grants: Vec<String> = SANDBOX_USERS
+        .iter()
+        .map(|user| format!("{user}:(OI)(CI)(RX)"))
+        .collect();
+    let mut args = vec![dir.as_os_str(), OsStr::new("/grant")];
+    args.extend(grants.iter().map(OsStr::new));
+    args.push(OsStr::new("/Q"));
+    icacls(&args).is_some()
 }
 
 /// Read the files the Office renderer loads, several at once, in the background.

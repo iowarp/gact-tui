@@ -3,6 +3,7 @@ import { ArrowLeftRightIcon, ChevronRightIcon } from 'lucide-react';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
+import { t } from '@lingui/core/macro';
 
 /**
  * A line across the transcript where the conversation changed footing: the
@@ -85,6 +86,8 @@ function modelName(model: NonNullable<ConversationModelBoundary['model']>): stri
  */
 export function ConversationModelDivider({ boundary }: { boundary: ConversationModelBoundary }) {
   if (!boundary.model || !boundary.previous) return null;
+  const model = modelName(boundary.model);
+  const previous = modelName(boundary.previous);
   return (
     <TranscriptDivider
       className="mb-2"
@@ -92,10 +95,10 @@ export function ConversationModelDivider({ boundary }: { boundary: ConversationM
       data-provider-id={boundary.model.provider_id}
       data-slot="model-checkpoint"
       icon={ArrowLeftRightIcon}
-      label={`Switched to ${modelName(boundary.model)}. Previous model: ${modelName(boundary.previous)}`}
-      title={`Previous model: ${modelName(boundary.previous)}`}
+      label={t`Switched to ${model}. Previous model: ${previous}`}
+      title={t`Previous model: ${previous}`}
     >
-      Switched to {modelName(boundary.model)}
+      {t`Switched to ${model}`}
     </TranscriptDivider>
   );
 }

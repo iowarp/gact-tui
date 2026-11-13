@@ -14,19 +14,22 @@ import {
   unusedResponseSettings,
   type ModelSettingsValues,
   type ResponseSettingName,
+  RESPONSE_SETTING_LABELS,
 } from './settings-models-form';
 import {
   defaultText,
-  rangeText,
+  rangeInfo,
   responseSettingError,
   toNumber,
 } from './settings-response-setting-error';
 import { SettingsChoice, SettingsGroupLabel, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const GROUPS: ReadonlyArray<{ id: AcceptedParameter['group']; title: string }> = [
-  { id: 'sampling', title: 'Sampling' },
-  { id: 'length', title: 'Length' },
-  { id: 'advanced', title: 'Advanced' },
+  { id: 'sampling', title: t`Sampling` },
+  { id: 'length', title: t`Length` },
+  { id: 'advanced', title: t`Advanced` },
 ];
 
 const PROVIDER_DEFAULT = '__provider_default__';
@@ -70,7 +73,12 @@ export function SettingsResponseSettings({
   leading,
 }: SettingsResponseSettingsProps) {
   const [openState, setOpen] = useState<boolean>();
-  const shown = shownResponseParameters(parameters);
+  // The service names each parameter in English; a name this interface knows
+  // is shown in the interface language.
+  const shown = shownResponseParameters(parameters).map((parameter) => ({
+    ...parameter,
+    label: RESPONSE_SETTING_LABELS[parameter.name as ResponseSettingName] ?? parameter.label,
+  }));
   // A search match or a search arrival on one of its rows opens the disclosure.
   const results = useContext(SettingsResultsContext);
   const arrival = settingFromHash(typeof window === 'undefined' ? '' : window.location.hash);
@@ -89,8 +97,8 @@ export function SettingsResponseSettings({
     // says so, and it can still be saved away with the model choice.
     if (leading)
       return (
-        <section aria-label="Response settings" data-slot="response-settings">
-          <SettingsGroupLabel>Response</SettingsGroupLabel>
+        <section aria-label={t`Response settings`} data-slot="response-settings">
+          <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
           {leading}
           {note}
         </section>
@@ -113,8 +121,8 @@ export function SettingsResponseSettings({
   if (shown.length <= INLINE_SETTINGS_LIMIT) {
     const at = shown.findIndex((parameter) => parameter.name === 'max_tokens') + 1;
     return (
-      <section aria-label="Response settings" data-slot="response-settings">
-        <SettingsGroupLabel>Response</SettingsGroupLabel>
+      <section aria-label={t`Response settings`} data-slot="response-settings">
+        <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
         {rows(shown.slice(0, at))}
         {leading}
         {rows(shown.slice(at))}
@@ -126,8 +134,8 @@ export function SettingsResponseSettings({
   return (
     <>
       {leading ? (
-        <section aria-label="Response" data-slot="response-leading">
-          <SettingsGroupLabel>Response</SettingsGroupLabel>
+        <section aria-label={t`Response`} data-slot="response-leading">
+          <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
           {leading}
         </section>
       ) : null}
@@ -144,10 +152,12 @@ export function SettingsResponseSettings({
                 open && 'rotate-90',
               )}
             />
-            Response settings
-            <span className="rounded-full bg-muted px-1.5 text-[0.65625rem] tabular-nums text-muted-foreground">
-              {shown.length}
-            </span>
+            <Trans>
+              Response settings
+              <span className="rounded-full bg-muted px-1.5 text-[0.65625rem] tabular-nums text-muted-foreground">
+                {shown.length}
+              </span>
+            </Trans>
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent>
@@ -170,7 +180,7 @@ export function SettingsResponseSettings({
 function UnusedNote({ unused }: { unused: ReturnType<typeof unusedResponseSettings> }) {
   return (
     <p className="mt-2 truncate text-xs text-muted-foreground" data-slot="response-settings-unused">
-      Saved but not used by this model:{' '}
+      {t`Saved but not used by this model:`}{' '}
       {unused.map((item, index) => (
         <span key={item.name}>
           {index ? ', ' : ''}
@@ -195,8 +205,7 @@ function ParameterRow({
   onChange: (value: string) => void;
 }) {
   const id = `response-${parameter.name}`;
-  const range = rangeText(parameter);
-  const info = range ? `Range ${range}.` : undefined;
+  const info = rangeInfo(parameter);
   if (parameter.kind === 'enum') {
     const options = parameter.options ?? [];
     return (
@@ -207,7 +216,7 @@ function ParameterRow({
             label={parameter.label}
             onChange={(next) => onChange(next === PROVIDER_DEFAULT ? '' : next)}
             options={[
-              { value: PROVIDER_DEFAULT, label: 'Default', description: defaultText(parameter) },
+              { value: PROVIDER_DEFAULT, label: t`Default`, description: defaultText(parameter) },
               ...options.map((option) => ({ value: option, label: option })),
             ]}
             value={value && options.includes(value) ? value : PROVIDER_DEFAULT}
@@ -242,7 +251,7 @@ function ParameterRow({
       id={id}
       inputMode={parameter.kind === 'integer' ? 'numeric' : 'decimal'}
       onChange={(event) => onChange(event.target.value)}
-      placeholder={bounded ? 'Default' : defaultText(parameter)}
+      placeholder={bounded ? t`Default` : defaultText(parameter)}
       spellCheck={false}
       value={value}
     />

@@ -41,6 +41,14 @@ import { ApplyViewport, GraphControls } from './graph-controls';
 import { GraphEdgeFade } from './graph-edge-fade';
 import { flooredFit, focusViewport, fitWidth, usePaneSize } from './graph-fit';
 import { routeLineage, type LineagePins } from './lineage-routes';
+import { plural, t, ph } from '@lingui/core/macro';
+
+/** "3 files, 2 actions". */
+function lineageCountsText(files: number, actions: number): string {
+  const fileCount = plural(files, { one: '# file', other: '# files' });
+  const actionCount = plural(actions, { one: '# action', other: '# actions' });
+  return t`${fileCount}, ${actionCount}`;
+}
 
 /**
  * What the service recorded about one file, drawn as the spec's node graph.
@@ -80,7 +88,7 @@ export function ArtifactLineageGraph({
   );
   useFileViewerFacts([
     ...(version ? [`v${version}`] : []),
-    `${counts.files} ${counts.files === 1 ? 'file' : 'files'}, ${counts.actions} ${counts.actions === 1 ? 'action' : 'actions'}`,
+    lineageCountsText(counts.files, counts.actions),
   ]);
   const open = useCallback(
     (node: LineageGraphNode) => {
@@ -99,7 +107,7 @@ export function ArtifactLineageGraph({
     <LineageGraph
       build={build}
       self={artifact}
-      label={chained ? `Versions of ${artifact.name}` : 'Artifact lineage graph'}
+      label={chained ? t`Versions of ${ph({ name: artifact.name })}` : t`Artifact lineage graph`}
       onOpen={open}
     />
   );
@@ -360,7 +368,7 @@ function LineageGraph({
         />
       ) : failed ? (
         <p className="p-3.5 text-meta text-muted-foreground">
-          Couldn't draw the lineage. Reopen the tab to try again.
+          {t`Couldn't draw the lineage. Reopen the tab to try again.`}
         </p>
       ) : null}
     </section>
@@ -510,7 +518,7 @@ function LineageFlow({
       <ApplyViewport viewport={viewport} />
       <GraphEdgeFade width={graph.width} height={graph.height} />
       <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
-      <GraphControls label="Lineage graph controls" region={region} fit={FIT} fitTo={fitTo} />
+      <GraphControls label={t`Lineage graph controls`} region={region} fit={FIT} fitTo={fitTo} />
     </ReactFlow>
   );
 }

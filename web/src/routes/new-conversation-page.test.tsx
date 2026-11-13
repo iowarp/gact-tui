@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   agents: [] as Array<Record<string, unknown>>,
   defaultAgentRef: 'clio/standard' as string | undefined,
+  draftText: '',
+  setDraftText: vi.fn(),
+  mutationArgs: undefined as Record<string, unknown> | undefined,
 }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: mocks.downloads }));
 vi.mock('@/hooks/use-connection-indicator-state', () => ({
@@ -64,9 +67,9 @@ vi.mock('@/hooks/use-repository', () => ({
 }));
 vi.mock('@/hooks/use-composer-draft', () => ({
   useComposerDraft: () => ({
-    readValue: () => '',
+    readValue: () => mocks.draftText,
     references: [],
-    onValueChange: vi.fn(),
+    onValueChange: mocks.setDraftText,
     onReferencesChange: vi.fn(),
     subscribeValue: () => () => {},
   }),
@@ -98,12 +101,15 @@ vi.mock('@/hooks/use-workbench-navigation', () => ({
   }),
 }));
 vi.mock('@/hooks/use-session-mutations', () => ({
-  useSessionMutations: () => ({
-    send: { isPending: false },
-    runDraftCommand: { isPending: false, mutateAsync: vi.fn() },
-    prepareFiles: vi.fn(),
-    discardFiles: vi.fn(),
-  }),
+  useSessionMutations: (args: Record<string, unknown>) => {
+    mocks.mutationArgs = args;
+    return {
+      send: { isPending: false },
+      runDraftCommand: { isPending: false, mutateAsync: vi.fn() },
+      prepareFiles: vi.fn(),
+      discardFiles: vi.fn(),
+    };
+  },
 }));
 vi.mock('@/hooks/use-session-diff-actions', () => ({
   useSessionDiffActions: () => ({ undo: {} }),
@@ -280,10 +286,46 @@ describe('new conversation draft screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Conversation workspace: Demo' }));
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitemradio', { name: 'Demo' })).toBeChecked();
+    mocks.draftText = 'Plot the humidity';
     await userEvent.click(within(menu).getByRole('menuitemradio', { name: 'Lab notes' }));
     expect(mocks.navigate).toHaveBeenCalledWith('/workspaces/workspace_lab/new', {
       replace: true,
+      state: {
+        movedDraft: {
+          provider: 'codex',
+          model: 'gpt-6-luna',
+          agentRef: undefined,
+          text: 'Plot the humidity',
+        },
+      },
     });
+    mocks.draftText = '';
+  });
+
+  it('keeps the model, agent and text a moved draft brings', async () => {
+    // Desktop, no default model: the person picked one, then moved the draft. The
+    // pick was lost and the first send refused ("Choose an available provider and model").
+    mocks.locationState = {
+      movedDraft: {
+        provider: 'claude_code',
+        model: 'claude-haiku-5-5',
+        agentRef: 'clio/science',
+        text: 'Plot the humidity',
+      },
+    };
+    try {
+      renderDraft();
+      await waitFor(() =>
+        expect(mocks.mutationArgs).toMatchObject({
+          activeProvider: 'claude_code',
+          activeModel: 'claude-haiku-5-5',
+          draftAgentRef: 'clio/science',
+        }),
+      );
+      expect(mocks.setDraftText).toHaveBeenCalledWith('Plot the humidity');
+    } finally {
+      mocks.locationState = null;
+    }
   });
 });
 

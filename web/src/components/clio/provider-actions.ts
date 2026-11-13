@@ -21,26 +21,61 @@ import {
 import { refreshModelsWithClient } from './provider-model-refresh';
 import { verifySignedInProvider } from './provider-sign-in-verify';
 import { toast } from 'sonner';
+import { ph, t } from '@lingui/core/macro';
 
-/** The visible progress text of a running provider action. */
+/**
+ * A running provider action's stage: a stable id. Its words come from
+ * `providerActionStageLabel`; `verifying:<provider>` names its provider.
+ */
 export type ProviderActionStage =
-  | 'Checking client updates…'
-  | 'Downloading client…'
-  | 'Updating client…'
-  | 'Checking updated client…'
-  | 'Client update failed.'
-  | 'Checking…'
-  | 'Finding models…'
-  | 'Waiting to install…'
-  | 'Installing…'
-  | 'Saving your key…'
-  | 'Removing key…'
-  | 'Opening sign-in…'
-  | 'Waiting for you to log in…'
-  | 'Logging in…'
-  | `Verifying ${string}…`
-  | 'Loading models…'
-  | 'Logging out…';
+  | 'client-checking'
+  | 'client-downloading'
+  | 'client-updating'
+  | 'client-verifying'
+  | 'client-failed'
+  | 'checking'
+  | 'finding-models'
+  | 'install-waiting'
+  | 'installing'
+  | 'key-saving'
+  | 'key-removing'
+  | 'sign-in-opening'
+  | 'sign-in-waiting'
+  | 'logging-in'
+  | `verifying:${string}`
+  | 'loading-models'
+  | 'logging-out';
+
+const STAGE_LABELS: Record<Exclude<ProviderActionStage, `verifying:${string}`>, string> = {
+  'client-checking': t`Checking client updates…`,
+  'client-downloading': t`Downloading client…`,
+  'client-updating': t`Updating client…`,
+  'client-verifying': t`Checking updated client…`,
+  'client-failed': t`Client update failed.`,
+  checking: t`Checking…`,
+  'finding-models': t`Finding models…`,
+  'install-waiting': t`Waiting to install…`,
+  installing: t`Installing…`,
+  'key-saving': t`Saving your key…`,
+  'key-removing': t`Removing key…`,
+  'sign-in-opening': t`Opening sign-in…`,
+  'sign-in-waiting': t`Waiting for you to log in…`,
+  'logging-in': t`Logging in…`,
+  'loading-models': t`Loading models…`,
+  'logging-out': t`Logging out…`,
+};
+
+/**
+ * A stage in words. Anything that is not a stage id (a client update's own
+ * progress text shown in the same place) is returned as it is.
+ */
+export function providerActionStageLabel(stage: string): string {
+  if (stage.startsWith('verifying:')) {
+    const name = stage.slice('verifying:'.length);
+    return t`Verifying ${name}…`;
+  }
+  return STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ?? stage;
+}
 
 /**
  * Poll interval while a sign-in flow is pending (SPEC generic auth API).
@@ -131,9 +166,9 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     queryClient.setQueryData(queryKeys.providerCatalog(settings.endpoint), catalog);
   };
   const checkProvider = async () => {
-    setStage('Checking…');
+    setStage('checking');
     const result = await repository.providerHandshake(presetId, { apiBase, refresh: true });
-    setStage('Finding models…');
+    setStage('finding-models');
     const catalog =
       result.connectivity === 'ok' && result.auth === 'ok'
         ? await repository.providerModels(presetId)
@@ -144,13 +179,13 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     result,
     catalog,
   }: Awaited<ReturnType<typeof checkProvider>>): Promise<void> => {
-    setStage('Finding models…');
+    setStage('finding-models');
     setHandshakeResult(result);
     if (catalog) queryClient.setQueryData(modelsKey, catalog);
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
   };
   const signedOut = async () => {
-    setStage('Finding models…');
+    setStage('finding-models');
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
     setStage(undefined);
   };
@@ -167,10 +202,10 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
    * load its models, so the panel never falls back to Log in.
    */
   const signInComplete = async () => {
-    const name = preset?.label ?? 'the provider';
+    const name = preset?.label ?? t`the provider`;
     setAuthFlow(undefined);
     setAuthPaste('');
-    setStage(`Verifying ${name}…`);
+    setStage(`verifying:${name}`);
     const controller = new AbortController();
     verifications.current.add(controller);
     try {
@@ -184,11 +219,11 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
-      setStage('Loading models…');
+      setStage('loading-models');
       if (verified.check) setHandshakeResult(verified.check);
       await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
       if (!verified.ready) {
-        setAuthFailedReason(`${name} is signed in but not ready yet. Check it again in a moment.`);
+        setAuthFailedReason(t`${name} is signed in but not ready yet. Check it again in a moment.`);
       }
     } finally {
       verifications.current.delete(controller);
@@ -199,7 +234,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const refreshModels = useMutation({
     mutationKey: actionKey('refreshModels'),
     mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
+      if (!presetId) throw new Error(t`Choose a provider first.`);
       setRefreshNotice(undefined);
       return refreshModelsWithClient({
         repository,
@@ -225,7 +260,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const handshake = useMutation({
     mutationKey: actionKey('handshake'),
     mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
+      if (!presetId) throw new Error(t`Choose a provider first.`);
       return checkProvider();
     },
     onSuccess: adoptCheck,
@@ -237,7 +272,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const installProvider = useMutation({
     mutationKey: actionKey('installProvider'),
     mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
+      if (!presetId) throw new Error(t`Choose a provider first.`);
       install.clear();
       setHandshakeResult(undefined);
       const job = await repository.startProviderInstall(presetId);
@@ -247,12 +282,12 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     },
   });
   const stage: ProviderActionStage | undefined =
-    ownedStage ?? (installProvider.isPending ? 'Installing…' : install.stage);
+    ownedStage ?? (installProvider.isPending ? 'installing' : install.stage);
   const authenticate = useMutation({
     mutationKey: actionKey('authenticate'),
     mutationFn: async (method: 'browser' | 'device' = 'browser') => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Opening sign-in…');
+      if (!presetId) throw new Error(t`Choose a provider first.`);
+      setStage('sign-in-opening');
       return repository.authenticateProvider(presetId, { force: true, method });
     },
     onError: () => setStage(undefined),
@@ -260,7 +295,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       setAuthFailedReason('');
       setAuthFlow(result);
       setAuthLaunchError('');
-      setStage('Waiting for you to log in…');
+      setStage('sign-in-waiting');
       // Open the page the person must act on: the authorization page, or for a
       // device-code-only flow (GitHub Copilot) the page where the code is
       // entered. The code stays on screen; the panel's link reopens the page.
@@ -268,7 +303,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       if (signInPage) {
         openExternalUrl(signInPage).catch((error: unknown) =>
           setAuthLaunchError(
-            error instanceof Error ? error.message : 'Could not open the sign-in page.',
+            error instanceof Error ? error.message : t`Could not open the sign-in page.`,
           ),
         );
       }
@@ -277,9 +312,9 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const completeAuthentication = useMutation({
     mutationKey: actionKey('completeAuthentication'),
     mutationFn: async () => {
-      if (!presetId || !authFlow) throw new Error('Start sign-in first.');
-      if (!authPaste.trim()) throw new Error('Paste the redirect URL or code.');
-      setStage('Logging in…');
+      if (!presetId || !authFlow) throw new Error(t`Start sign-in first.`);
+      if (!authPaste.trim()) throw new Error(t`Paste the redirect URL or code.`);
+      setStage('logging-in');
       return repository.completeProviderAuthentication(presetId, {
         flowId: authFlow.flow_id,
         paste: authPaste.trim(),
@@ -287,13 +322,13 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     },
     onSuccess: () => signInComplete(),
     // A rejected paste leaves the flow open (paste again): back to waiting.
-    onError: () => setStage(authFlow ? 'Waiting for you to log in…' : undefined),
+    onError: () => setStage(authFlow ? 'sign-in-waiting' : undefined),
   });
   const logout = useMutation({
     mutationKey: actionKey('logout'),
     mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Logging out…');
+      if (!presetId) throw new Error(t`Choose a provider first.`);
+      setStage('logging-out');
       return repository.logoutProvider(presetId);
     },
     onSuccess: () => signedOut(),
@@ -321,11 +356,11 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const saveApiKey = useMutation({
     mutationKey: actionKey('saveApiKey'),
     mutationFn: async (apiKey: string) => {
-      if (!presetId || !preset) throw new Error('Choose a provider first.');
+      if (!presetId || !preset) throw new Error(t`Choose a provider first.`);
       const trimmed = apiKey.trim();
-      if (!trimmed) throw new Error('Enter an API key.');
+      if (!trimmed) throw new Error(t`Enter an API key.`);
       const resolvedApiBase = apiBase || preset.api_base || '';
-      setStage('Saving your key…');
+      setStage('key-saving');
       await storeProviderCredential(presetId, resolvedApiBase, trimmed);
       await repository.saveProviderApiKey(presetId, trimmed);
       const checked = await checkProvider();
@@ -336,7 +371,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
         throw new Error(
           checked.result.error
             ? translateKnownProviderErrorReason(checked.result.error, preset.label)
-            : `Couldn't verify the ${preset.label} API key.`,
+            : t`Couldn't verify the ${ph({ provider: preset.label })} API key.`,
         );
       }
       return checked;
@@ -360,9 +395,9 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const removeApiKey = useMutation({
     mutationKey: actionKey('removeApiKey'),
     mutationFn: async () => {
-      if (!presetId || !preset) throw new Error('Choose a provider first.');
+      if (!presetId || !preset) throw new Error(t`Choose a provider first.`);
       const resolvedApiBase = apiBase || preset.api_base || '';
-      setStage('Removing key…');
+      setStage('key-removing');
       await deleteProviderCredential(presetId, resolvedApiBase);
       const configuration = queryClient.getQueryData<{ provider_id?: string; model?: string }>(
         configurationKey,
@@ -391,7 +426,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const authStatus = useQuery({
     queryKey: queryKeys.key('provider-auth-status', settings.endpoint, presetId, authFlow?.flow_id),
     queryFn: async ({ signal }) => {
-      if (!authFlow) throw new Error('No sign-in flow in progress.');
+      if (!authFlow) throw new Error(t`No sign-in flow in progress.`);
       return repository.providerAuthStatus(presetId, authFlow.flow_id, signal);
     },
     enabled: Boolean(authFlow?.flow_id),
@@ -412,7 +447,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     } else if (authStatusState === 'failed') {
       setStage(undefined);
       setAuthFlow(undefined);
-      setAuthFailedReason(authStatus.data?.reason || 'Sign-in failed.');
+      setAuthFailedReason(authStatus.data?.reason || t`Sign-in failed.`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- signInComplete closes over authFlow/presetId by design
   }, [authStatusState, authFlow?.flow_id]);

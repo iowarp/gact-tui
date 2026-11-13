@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { RegionCoordinateInputs } from '../region-coordinate-inputs';
+import { t } from '@lingui/core/macro';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -27,7 +28,11 @@ type Box = { x: number; y: number; width: number; height: number };
 /** Whether the heading's title only repeats the quote shown under it. */
 function repeats(title: string, detail?: string): boolean {
   if (!detail) return false;
-  const plain = (text: string) => text.replace(/[“”"…]/g, '').trim().toLowerCase();
+  const plain = (text: string) =>
+    text
+      .replace(/[“”"…]/g, '')
+      .trim()
+      .toLowerCase();
   const head = plain(title);
   return Boolean(head) && plain(detail).startsWith(head);
 }
@@ -59,7 +64,7 @@ export function CommentEditor({
   const top = near ? near.top + near.height + 12 : window.innerHeight - 560;
   return (
     <div
-      aria-label={`Comment on ${label}`}
+      aria-label={t`Comment on ${label}`}
       className="fixed z-[90] max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
       data-capture-ui="true"
       // Escape cancels the comment; inside the pocket sheet it must not close the sheet too.
@@ -84,7 +89,7 @@ export function CommentEditor({
         <RegionCoordinateInputs box={coordinates.box} onChange={coordinates.onChange} />
       ) : null}
       <textarea
-        aria-label={`Comment for ${label}`}
+        aria-label={t`Comment for ${label}`}
         autoFocus
         className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
         onChange={(event) => setText(event.target.value)}
@@ -95,12 +100,12 @@ export function CommentEditor({
             if (text.trim()) onDone(text.trim());
           }
         }}
-        placeholder="What should the agent notice here?"
+        placeholder={t`What should the agent notice here?`}
         value={text}
       />
       <div className="mt-2 flex justify-end gap-2">
         <Button
-          aria-label={`Delete ${label}`}
+          aria-label={t`Delete ${label}`}
           className="mr-auto"
           onClick={onDelete}
           size="icon-sm"
@@ -109,11 +114,11 @@ export function CommentEditor({
           <DeleteIcon aria-hidden="true" className="size-4" />
         </Button>
         <Button onClick={onCancel} size="sm" variant="ghost">
-          Cancel
+          {t`Cancel`}
         </Button>
         <Button disabled={!text.trim()} onClick={() => onDone(text.trim())} size="sm">
           <CheckIcon aria-hidden="true" className="size-4" />
-          Done
+          {t`Done`}
         </Button>
       </div>
     </div>

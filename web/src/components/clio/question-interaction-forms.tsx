@@ -24,6 +24,7 @@ import { openExternalUrl } from '@/tauri/external-url';
 import { AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
+import { ph, plural, t } from '@lingui/core/macro';
 
 interface QuestionSurfaceProps {
   interaction: PendingInteraction;
@@ -98,9 +99,9 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           ))}
         </FieldGroup>
       </AskSection>
-      <AskOptions aria-label="Answer">
+      <AskOptions aria-label={t`Answer`}>
         <AskButton disabled={props.disabled || sending} onClick={() => void submit()} primary>
-          {sending ? 'Sending…' : 'Send response'}
+          {sending ? t`Sending…` : t`Send response`}
         </AskButton>
       </AskOptions>
     </QuestionFrame>
@@ -122,7 +123,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
       // Whatever the underlying reason (a blocked popup outside Tauri, a
       // rejected open inside it), consent for this specific URL was not
       // acted on — say that, not the bridge's own generic wording.
-      setNavigationError('The browser blocked this link. It has not been accepted.');
+      setNavigationError(t`The browser blocked this link. It has not been accepted.`);
       return;
     }
     setSending(true);
@@ -132,7 +133,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         metadata: { elicitation_action: 'accept' },
       });
     } catch (thrown) {
-      setNavigationError(thrown instanceof Error ? thrown.message : 'The link was not accepted.');
+      setNavigationError(thrown instanceof Error ? thrown.message : t`The link was not accepted.`);
     } finally {
       setSending(false);
     }
@@ -146,20 +147,20 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
           role="note"
         >
           <AlertTriangleIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          <span className="font-medium">Look-alike address warning</span>
+          <span className="font-medium">{t`Look-alike address warning`}</span>
           <span className="truncate text-muted-foreground">
-            Check both host forms before opening this link.
+            {t`Check both host forms before opening this link.`}
           </span>
         </AskSection>
       ) : null}
       <AskFacts
         facts={[
-          { label: 'Full URL', value: url, title: url, mono: true },
+          { label: t`Full URL`, value: url, title: url, mono: true },
           ...(interaction.payload?.punycode_host
-            ? [{ label: 'Decoded host', value: interaction.payload.punycode_host, mono: true }]
+            ? [{ label: t`Decoded host`, value: interaction.payload.punycode_host, mono: true }]
             : []),
           ...(interaction.payload?.punycode_host_raw
-            ? [{ label: 'ACE host', value: interaction.payload.punycode_host_raw, mono: true }]
+            ? [{ label: t`ACE host`, value: interaction.payload.punycode_host_raw, mono: true }]
             : []),
         ]}
       />
@@ -169,9 +170,10 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         </AskSection>
       ) : null}
       <AskError error={props.responseError} />
-      <AskOptions aria-label="Link">
+      <AskOptions aria-label={t`Link`}>
         <AskButton
           disabled={props.disabled || sending || !url}
+          // i18n-ignore: key name
           hint="Enter"
           number={1}
           onClick={() => void accept()}
@@ -179,11 +181,12 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         >
           <span className="inline-flex items-center gap-1.5">
             <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-            Open link
+            {t`Open link`}
           </span>
         </AskButton>
         <AskButton
           disabled={props.disabled || sending}
+          // i18n-ignore: key name
           hint="Escape"
           onClick={() =>
             void props
@@ -194,7 +197,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
               .catch(() => undefined)
           }
         >
-          Decline
+          {t`Decline`}
         </AskButton>
       </AskOptions>
     </QuestionFrame>
@@ -354,11 +357,11 @@ function validateFields(
     const value = values[field.name];
     if (field.multi && Array.isArray(value)) {
       if (field.min_items !== undefined && value.length < field.min_items) {
-        errors[field.name] = `Choose at least ${field.min_items}.`;
+        errors[field.name] = t`Choose at least ${ph({ count: field.min_items })}.`;
         continue;
       }
       if (field.max_items !== undefined && value.length > field.max_items) {
-        errors[field.name] = `Choose no more than ${field.max_items}.`;
+        errors[field.name] = t`Choose no more than ${ph({ count: field.max_items })}.`;
         continue;
       }
     }
@@ -366,19 +369,25 @@ function validateFields(
       field.required &&
       (value === undefined || value === '' || (Array.isArray(value) && value.length === 0))
     ) {
-      errors[field.name] = 'This field is required.';
+      errors[field.name] = t`This field is required.`;
       continue;
     }
     if (typeof value === 'string') {
       if (field.min_length !== undefined && value.length < field.min_length)
-        errors[field.name] = `Enter at least ${field.min_length} characters.`;
+        errors[field.name] = plural(field.min_length, {
+          one: 'Enter at least # character.',
+          other: 'Enter at least # characters.',
+        });
       if (field.max_length !== undefined && value.length > field.max_length)
-        errors[field.name] = `Enter no more than ${field.max_length} characters.`;
+        errors[field.name] = plural(field.max_length, {
+          one: 'Enter no more than # character.',
+          other: 'Enter no more than # characters.',
+        });
       if ((field.type === 'number' || field.type === 'integer') && value !== '') {
         const number = Number(value);
         if (!Number.isFinite(number) || (field.type === 'integer' && !Number.isInteger(number)))
           errors[field.name] =
-            field.type === 'integer' ? 'Enter a whole number.' : 'Enter a number.';
+            field.type === 'integer' ? t`Enter a whole number.` : t`Enter a number.`;
       }
     }
   }

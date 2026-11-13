@@ -67,8 +67,15 @@ test('desktop variants use product-owned frameless chrome with scoped window con
     assert.ok(caps.permissions.includes(permission), `${permission} capability`);
   }
 
+  // macOS installs the native menu bar (rebuilt when the interface language changes);
+  // other platforms keep the product-owned title bar only.
   const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
-  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu(?:\.clone\(\))?\)/);
+  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*menu::install_menu\(app\.handle\(\)\)/);
+  const menuRs = readFileSync(resolve(root, 'src-tauri', 'src', 'menu.rs'), 'utf8');
+  assert.match(
+    menuRs,
+    /cfg\(target_os = "macos"\)\]\s*pub fn install_menu[\s\S]*app\.set_menu\(app_menu(?:\.clone\(\))?\)/,
+  );
 });
 
 test('desktop close, reopen, and quit lifecycle route through one guarded request_quit path', () => {

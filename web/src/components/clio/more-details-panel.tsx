@@ -15,6 +15,7 @@ import type { AgentAnswerTextSelection } from '@/lib/selection-actions';
 import { isSessionActive } from '@/lib/session-state';
 import { ClioConversation } from './conversation';
 import { ClioStatus } from './status';
+import { t } from '@lingui/core/macro';
 
 export interface ClioMoreDetailsPanelProps {
   workspaceId: string;
@@ -98,19 +99,19 @@ export function ClioMoreDetailsPanel({
       >
         <SheetHeader className="border-b pr-12">
           <div className="flex items-center gap-2">
-            <SheetTitle>More details</SheetTitle>
-            {answering ? <ClioStatus label="Answering" value="running" /> : null}
+            <SheetTitle>{t`More details`}</SheetTitle>
+            {answering ? <ClioStatus label={t`Answering`} value="running" /> : null}
           </div>
           <SheetDescription className="flex items-center gap-1.5 text-xs">
             <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            Read-only side conversation. It can read this session but never changes it.
+            {t`Read-only side conversation. It can read this session but never changes it.`}
           </SheetDescription>
         </SheetHeader>
         {selection ? (
           <div className="mx-4 mt-3 flex min-w-0 items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2">
             <QuoteIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-caption font-medium text-muted-foreground">Selected text</p>
+              <p className="text-caption font-medium text-muted-foreground">{t`Selected text`}</p>
               <p className="line-clamp-3 break-words text-xs leading-5">{selection.text}</p>
             </div>
           </div>
@@ -132,13 +133,13 @@ export function ClioMoreDetailsPanel({
             />
           ) : (
             <p className="p-6 text-center text-sm text-muted-foreground" role="status">
-              {opening ? 'Opening a side conversation…' : 'The side conversation is not open.'}
+              {opening ? t`Opening a side conversation…` : t`The side conversation is not open.`}
             </p>
           )}
         </div>
         <form className="grid gap-2 border-t p-3" onSubmit={(event) => void submit(event)}>
           <Textarea
-            aria-label="Ask a follow-up question"
+            aria-label={t`Ask a follow-up question`}
             className="min-h-16 resize-none text-sm"
             disabled={!side}
             onChange={(event) => setDraft(event.target.value)}
@@ -148,7 +149,7 @@ export function ClioMoreDetailsPanel({
                 event.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder="Ask a follow-up about this passage…"
+            placeholder={t`Ask a follow-up about this passage…`}
             value={draft}
           />
           <div className="flex items-center justify-between gap-2">
@@ -160,7 +161,7 @@ export function ClioMoreDetailsPanel({
               variant="outline"
             >
               <MessageSquareQuoteIcon aria-hidden="true" />
-              Add answer to chat
+              {t`Add answer to chat`}
             </Button>
             <Button
               disabled={!side || asking || answering || !draft.trim()}
@@ -168,7 +169,7 @@ export function ClioMoreDetailsPanel({
               type="submit"
             >
               <SendIcon aria-hidden="true" />
-              Ask
+              {t`Ask`}
             </Button>
           </div>
         </form>

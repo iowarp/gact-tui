@@ -2,6 +2,7 @@ import { Input } from '@/components/ui/input';
 import { formatTokens, modelEffectiveContext } from './context-control-model';
 import { SettingsChoice, SettingsRow } from './settings-row';
 import type { WorkingContextState } from './use-working-context';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * Context size as one setting row: Max or a typed number. The context in force
@@ -26,21 +27,23 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
       dirty={Boolean(draft)}
       error={error}
       htmlFor="working-context-tokens"
-      info={`How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn.${
-        current.maximum_reason ? ` Max: ${current.maximum_reason}.` : ' Max: the model’s maximum.'
-      }`}
+      info={
+        current.maximum_reason
+          ? t`How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn. Max: ${ph({ reason: current.maximum_reason })}.`
+          : t`How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn. Max: the model’s maximum.`
+      }
       note={
         inForce !== undefined ? (
           <span data-slot="context-effective" title={effective?.reason}>
-            In force: {formatTokens(inForce)} tokens
+            {t`In force: ${ph({ tokens: formatTokens(inForce) })} tokens`}
           </span>
         ) : undefined
       }
-      title="Context size"
+      title={t`Context size`}
     >
       <SettingsChoice
         id="working-context-choice"
-        label="Context size choice"
+        label={t`Context size choice`}
         onChange={(choice) =>
           setDraft(
             choice === 'max'
@@ -53,8 +56,8 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
           )
         }
         options={[
-          { value: 'max', label: 'Max', description: 'The model’s maximum' },
-          { value: 'number', label: 'Number', description: 'A typed number of tokens' },
+          { value: 'max', label: t`Max`, description: t`The model’s maximum` },
+          { value: 'number', label: t`Number`, description: t`A typed number of tokens` },
         ]}
         value={value.choice === 'number' ? 'number' : 'max'}
       />
@@ -69,7 +72,7 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
         onChange={(event) =>
           setDraft({ choice: 'number', tokens: event.target.value, strategy: '' })
         }
-        placeholder="Tokens"
+        placeholder={t`Tokens`}
         step={1}
         type="number"
         value={shown}

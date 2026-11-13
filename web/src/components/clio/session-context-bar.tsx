@@ -7,6 +7,7 @@ import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
 import type { ClioSessionActionsProps } from './session-actions';
 import { WorkspaceCrumbMark } from './workspace-mark';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
@@ -40,17 +41,17 @@ export function ClioSessionContextBar({
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
-  const title = session?.title ?? 'Session unavailable';
+  const title = session?.title ?? t`Session unavailable`;
   return (
     <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       {parentSession ? (
         <IconButton
           icon={<ArrowLeftIcon />}
-          label={`Return to parent conversation ${parentSession.title}`}
+          label={t`Return to parent conversation ${ph({ title: parentSession.title })}`}
           onClick={() => onReturnToParent(parentSession)}
         />
       ) : null}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-ui">
+      <nav aria-label={t`Breadcrumb`} className="flex min-w-0 items-center gap-0.5 text-ui">
         {workspaceLabel ? (
           <>
             {/* Spec narrow order: on phones the top bar drops the workspace crumb, so the title gets the width. */}
@@ -58,7 +59,7 @@ export function ClioSessionContextBar({
               className="flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28 max-sm:hidden"
               disabled={!onOpenWorkspace}
               onClick={onOpenWorkspace}
-              title={`Open ${workspaceLabel}`}
+              title={t`Open ${workspaceLabel}`}
               type="button"
             >
               {session ? <WorkspaceCrumbMark id={session.workspace_id} /> : null}
@@ -84,16 +85,25 @@ export function ClioSessionContextBar({
               <IconButton
                 disabled={disabled}
                 icon={<MoreIcon />}
-                label="Conversation menu"
+                label={t`Conversation menu`}
                 shortcut="conversation-menu"
               />
             )}
             trigger={({ disabled }) => (
               <button
-                aria-label={`Actions for ${session?.title ?? 'session'}`}
+                aria-label={
+                  session?.title
+                    ? t`Actions for ${ph({ title: session.title })}`
+                    : t`Actions for session`
+                }
                 className="flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-semibold outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover"
                 disabled={disabled}
-                title={session?.branch ? `${title}\nBranch ${session.branch}` : title}
+                title={
+                  session?.branch
+                    ? t`${title}
+Branch ${ph({ branch: session.branch })}`
+                    : title
+                }
                 type="button"
               >
                 <span className="min-w-0 truncate">{title}</span>

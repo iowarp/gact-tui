@@ -16,22 +16,24 @@ import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { Tag, type TagTone } from './primitives/tag';
+import { t, ph, plural } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 type SessionHref = (sessionId: string) => string | undefined;
 
 const KINDS: Record<MemoryProposal['change'], { label: string; tone: TagTone; icon: LucideIcon }> =
   {
-    add: { label: 'Add', tone: 'success', icon: AddIcon },
-    supersede: { label: 'Replace', tone: 'warning', icon: RefreshIcon },
-    merge: { label: 'Merge', tone: 'info', icon: LayersIcon },
-    retire: { label: 'Retire', tone: 'danger', icon: ArchiveIcon },
+    add: { label: t`Add`, tone: 'success', icon: AddIcon },
+    supersede: { label: t`Replace`, tone: 'warning', icon: RefreshIcon },
+    merge: { label: t`Merge`, tone: 'info', icon: LayersIcon },
+    retire: { label: t`Retire`, tone: 'danger', icon: ArchiveIcon },
   };
 
 const SOURCE_WORDS: Record<string, string> = {
-  user: 'your message',
-  imported: 'imported notes',
-  tool: 'a tool result',
-  inferred: 'a conversation',
+  user: t`your message`,
+  imported: t`imported notes`,
+  tool: t`a tool result`,
+  inferred: t`a conversation`,
 };
 
 /** What the proposal would remember (or, for a retirement, what it removes). */
@@ -44,7 +46,7 @@ function proposalText(proposal: MemoryProposal) {
       .join(' ') ||
     proposal.description ||
     proposal.rationale ||
-    'Proposed change'
+    t`Proposed change`
   );
 }
 
@@ -54,10 +56,12 @@ function sourceLine(proposal: MemoryProposal) {
       (proposal.sources.length
         ? proposal.sources
         : proposal.evidence.map((item) => item.source)
-      ).map((source) => SOURCE_WORDS[source] ?? 'a conversation'),
+      ).map((source) => SOURCE_WORDS[source] ?? t`a conversation`),
     ),
   ];
-  return sources.length ? `From ${sources.join(' and ')}` : 'From a conversation';
+  return sources.length
+    ? t`From ${ph({ sources: new Intl.ListFormat(formatLocale(), { type: 'conjunction' }).format(sources) })}`
+    : t`From a conversation`;
 }
 
 function Evidence({
@@ -70,20 +74,21 @@ function Evidence({
   if (!proposal.evidence.length) return null;
   return (
     <details className="text-muted-foreground">
-      <summary className="w-fit cursor-pointer">Source facts ({proposal.evidence.length})</summary>
-      <ul aria-label="Evidence" className="mt-1.5 grid gap-1 leading-5">
+      <summary className="w-fit cursor-pointer">{t`Source facts (${ph({ count: proposal.evidence.length })})`}</summary>
+      <ul aria-label={t`Evidence`} className="mt-1.5 grid gap-1 leading-5">
         {proposal.evidence.map((item) => {
           const href = sessionHref(item.session);
-          const label = item.fact || `${item.messages.length} message(s)`;
+          const label =
+            item.fact || plural(item.messages.length, { one: '# message', other: '# messages' });
           return (
             <li key={item.id}>
               <span className="font-medium">
                 {item.source === 'imported'
-                  ? 'Imported notes'
+                  ? t`Imported notes`
                   : item.source === 'user'
-                    ? 'User message'
+                    ? t`User message`
                     : item.source === 'tool'
-                      ? 'Tool result'
+                      ? t`Tool result`
                       : item.source}
               </span>
               :{' '}
@@ -132,14 +137,14 @@ function ProposalRow({
     mutationFn: (edited?: string[]) => repository.acceptMemoryProposal(proposal.id, edited),
     onSuccess: () => {
       refresh();
-      toast.success('Change applied');
+      toast.success(t`Change applied`);
     },
   });
   const reject = useMutation({
     mutationFn: () => repository.rejectMemoryProposal(proposal.id),
     onSuccess: () => {
       refresh();
-      toast.success('Change rejected');
+      toast.success(t`Change rejected`);
     },
   });
   const kind = KINDS[proposal.change];
@@ -170,21 +175,21 @@ function ProposalRow({
               className="relative z-10"
               disabled={busy}
               icon={<CheckIcon />}
-              label="Accept"
+              label={t`Accept`}
               onClick={() => accept.mutate(undefined)}
             />
             <IconButton
               className="relative z-10"
               disabled={busy}
               icon={<EditIcon />}
-              label="Edit"
+              label={t`Edit`}
               onClick={() => onExpand(true)}
             />
             <IconButton
               className="relative z-10"
               disabled={busy}
               icon={<CloseIcon />}
-              label="Reject"
+              label={t`Reject`}
               onClick={() => reject.mutate()}
             />
           </>
@@ -224,7 +229,7 @@ function ProposalRow({
           {editable ? (
             <div className="grid gap-1.5">
               <label className="text-menu" htmlFor={`facts-${proposal.id}`}>
-                Facts to apply, one per line
+                {t`Facts to apply, one per line`}
               </label>
               <Textarea
                 autoFocus={focusFacts}
@@ -247,10 +252,10 @@ function ProposalRow({
           ) : null}
           <div className="flex gap-2">
             <Button disabled={busy || (editable && !facts.trim())} onClick={apply} size="sm">
-              {editable ? 'Apply' : 'Retire'}
+              {editable ? t`Apply` : t`Retire`}
             </Button>
             <Button onClick={onCollapse} size="sm" variant="ghost">
-              Cancel
+              {t`Cancel`}
             </Button>
           </div>
         </div>
@@ -294,13 +299,13 @@ export function MemoryInbox({
       <MemoryErrorLine
         error={proposals.error}
         onRetry={() => void proposals.refetch()}
-        what="Proposed changes could not be loaded."
+        what={t`Proposed changes could not be loaded.`}
       />
     );
   if (!proposals.data.length)
-    return <StateView kind="empty" size="row" title="Nothing to review" />;
+    return <StateView kind="empty" size="row" title={t`Nothing to review`} />;
   return (
-    <ItemList label="Proposed changes">
+    <ItemList label={t`Proposed changes`}>
       {proposals.data.map((proposal) => (
         <ProposalRow
           expanded={open?.id === proposal.id}

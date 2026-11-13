@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
+import { t } from '@lingui/core/macro';
 
 /**
  * One column's server-side filter, layered on top of (never replacing) the
@@ -57,7 +58,7 @@ export function ClioTextColumnFilter({
 
   return (
     <Input
-      aria-label={`Filter ${columnLabel}, contains`}
+      aria-label={t`Filter ${columnLabel}, contains`}
       className="h-8"
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => onChangeRef.current(draft)}
@@ -66,7 +67,7 @@ export function ClioTextColumnFilter({
         if (event.key === 'Escape') onChangeRef.current(draft);
         event.stopPropagation();
       }}
-      placeholder="Contains…"
+      placeholder={t`Contains…`}
       value={draft}
     />
   );
@@ -116,7 +117,7 @@ export function ClioRangeColumnFilter({
   return (
     <div className="flex items-center gap-1.5">
       <Input
-        aria-label={`Filter ${columnLabel}, minimum`}
+        aria-label={t`Filter ${columnLabel}, minimum`}
         className="h-8 w-20"
         onChange={(event) =>
           setDraft((current) => ({ ...current, min: parse(event.target.value) }))
@@ -127,7 +128,7 @@ export function ClioRangeColumnFilter({
           if (event.key === 'Escape') onChangeRef.current(draft);
           event.stopPropagation();
         }}
-        placeholder="Min"
+        placeholder={t`Min`}
         type="number"
         value={draft.min ?? ''}
       />
@@ -135,7 +136,7 @@ export function ClioRangeColumnFilter({
         –
       </span>
       <Input
-        aria-label={`Filter ${columnLabel}, maximum`}
+        aria-label={t`Filter ${columnLabel}, maximum`}
         className="h-8 w-20"
         onChange={(event) =>
           setDraft((current) => ({ ...current, max: parse(event.target.value) }))
@@ -146,7 +147,7 @@ export function ClioRangeColumnFilter({
           if (event.key === 'Escape') onChangeRef.current(draft);
           event.stopPropagation();
         }}
-        placeholder="Max"
+        placeholder={t`Max`}
         type="number"
         value={draft.max ?? ''}
       />

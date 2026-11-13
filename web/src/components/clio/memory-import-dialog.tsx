@@ -11,6 +11,7 @@ import { MemoryPicker, MemoryScopePicker, type MemoryScopeOptions } from './memo
 import { DialogFrame } from './primitives/dialog-frame';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsRow } from './settings-row';
+import { t, ph, plural } from '@lingui/core/macro';
 
 type ImportSource = 'archive' | 'assistant';
 
@@ -56,7 +57,7 @@ export function MemoryImportDialog({
     onSuccess: (report) => {
       void client.invalidateQueries({ queryKey: ['memory'] });
       toast.success(
-        `Imported: ${report.added} added, ${report.updated} updated, ${report.skipped} unchanged`,
+        t`Imported: ${ph({ added: report.added })} added, ${ph({ updated: report.updated })} updated, ${ph({ skipped: report.skipped })} unchanged`,
       );
       close(false);
     },
@@ -67,8 +68,11 @@ export function MemoryImportDialog({
       void client.invalidateQueries({ queryKey: ['memory'] });
       toast.success(
         report.candidates
-          ? `${report.candidates} candidate facts found. Memory creation is running.`
-          : 'No facts found in the pasted text.',
+          ? plural(report.candidates, {
+              one: '# candidate fact found. Memory creation is running.',
+              other: '# candidate facts found. Memory creation is running.',
+            })
+          : t`No facts found in the pasted text.`,
       );
       close(false);
       onStarted?.();
@@ -87,34 +91,34 @@ export function MemoryImportDialog({
       confirm={{
         label: busy
           ? source === 'archive'
-            ? 'Importing…'
-            : 'Reading…'
+            ? t`Importing…`
+            : t`Reading…`
           : source === 'archive'
-            ? 'Import'
-            : 'Import notes',
+            ? t`Import`
+            : t`Import notes`,
         disabled: !ready || busy,
         onConfirm: confirm,
       }}
       icon={<UploadIcon />}
       onOpenChange={close}
       open={open}
-      title="Import memory"
+      title={t`Import memory`}
     >
       <div className="grid">
-        <SettingsRow title="From">
+        <SettingsRow title={t`From`}>
           <SegmentedControl
             iconOnly={narrow ? 'others' : false}
-            label="Import from"
+            label={t`Import from`}
             onValueChange={setSource}
             options={[
               {
                 value: 'archive',
-                label: 'Memory export',
+                label: t`Memory export`,
                 icon: narrow ? <FileArchiveIcon /> : undefined,
               },
               {
                 value: 'assistant',
-                label: 'Another assistant',
+                label: t`Another assistant`,
                 icon: narrow ? <BotIcon /> : undefined,
               },
             ]}
@@ -124,8 +128,8 @@ export function MemoryImportDialog({
         {source === 'archive' ? (
           <SettingsRow
             htmlFor="memory-archive-choose"
-            info="A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
-            title="File"
+            info={t`A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing.`}
+            title={t`File`}
           >
             <div className="flex w-full min-w-0 items-center gap-2">
               <span
@@ -135,7 +139,7 @@ export function MemoryImportDialog({
                 {file ? (
                   <span className="truncate">{file.name}</span>
                 ) : (
-                  <span className="truncate text-faint">No file</span>
+                  <span className="truncate text-faint">{t`No file`}</span>
                 )}
               </span>
               <Button
@@ -147,11 +151,11 @@ export function MemoryImportDialog({
                 size="sm"
                 variant="outline"
               >
-                Choose…
+                {t`Choose…`}
               </Button>
               <input
                 accept=".zip,application/zip"
-                aria-label="Memory export (.zip)"
+                aria-label={t`Memory export (.zip)`}
                 className="sr-only"
                 onChange={(event) => setFile(event.target.files?.[0])}
                 ref={fileInput}
@@ -162,8 +166,8 @@ export function MemoryImportDialog({
           </SettingsRow>
         ) : (
           <SettingsRow
-            info="Ask your other assistant this, then paste its answer below."
-            title="Prompt"
+            info={t`Ask your other assistant this, then paste its answer below.`}
+            title={t`Prompt`}
           >
             <Button
               className="w-fit"
@@ -173,13 +177,13 @@ export function MemoryImportDialog({
                 if (!prompt.data) return;
                 void navigator.clipboard
                   .writeText(prompt.data)
-                  .then(() => toast.success('Prompt copied'));
+                  .then(() => toast.success(t`Prompt copied`));
               }}
               size="sm"
               variant="outline"
             >
               <CopyIcon aria-hidden="true" />
-              {prompt.isPending ? 'Loading prompt…' : 'Copy the prompt'}
+              {prompt.isPending ? t`Loading prompt…` : t`Copy the prompt`}
             </Button>
           </SettingsRow>
         )}
@@ -187,20 +191,20 @@ export function MemoryImportDialog({
           htmlFor="memory-import-scope"
           info={
             source === 'archive'
-              ? 'An export keeps each memory where it was saved.'
-              : 'Uses your background memory models and follows the review policy in Create memories.'
+              ? t`An export keeps each memory where it was saved.`
+              : t`Uses your background memory models and follows the review policy in Create memories.`
           }
-          title="Remember in"
+          title={t`Remember in`}
         >
           {source === 'archive' ? (
             <MemoryPicker
               disabled
               id="memory-import-scope"
-              label="Remember in"
+              label={t`Remember in`}
               onChange={() => undefined}
               options={[]}
-              placeholder="As in the export"
-              searchPlaceholder="Search workspaces…"
+              placeholder={t`As in the export`}
+              searchPlaceholder={t`Search workspaces…`}
               value=""
             />
           ) : (
@@ -217,7 +221,7 @@ export function MemoryImportDialog({
         {source === 'assistant' ? (
           <div className="grid gap-1.5 py-2">
             <label className="text-menu font-medium" htmlFor="memory-assistant-text">
-              Their answer
+              {t`Their answer`}
             </label>
             <Textarea
               className="max-h-48 min-h-24 text-ui"

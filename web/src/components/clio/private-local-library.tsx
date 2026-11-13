@@ -11,6 +11,7 @@ import { InstalledPluginList } from './installed-plugin-list';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { LocalMarketplaceDetails, SavedAgentFile } from './private-local-details';
+import { t } from '@lingui/core/macro';
 
 /** Browse host-local content even when no plugin marketplace has been created yet. */
 export function PrivateLocalLibrary({
@@ -47,11 +48,13 @@ export function PrivateLocalLibrary({
   const plugins = catalog.data?.plugins.filter((row) => row.marketplace === 'private-local') ?? [];
   return (
     <div className="grid min-w-0 gap-2">
-      <section aria-label="Saved items" className="min-w-0">
-        {agents.isPending ? <StateView kind="loading" size="row" title="Loading agents…" /> : null}
+      <section aria-label={t`Saved items`} className="min-w-0">
+        {agents.isPending ? (
+          <StateView kind="loading" size="row" title={t`Loading agents…`} />
+        ) : null}
         {agents.error ? <StateView kind="error" size="row" title={agents.error.message} /> : null}
         {mine.length ? (
-          <ItemList label="Your agents">
+          <ItemList label={t`Your agents`}>
             {mine.map((agent) => (
               <AgentRow
                 key={agent.ref}
@@ -59,14 +62,14 @@ export function PrivateLocalLibrary({
                 agents={agents.data ?? []}
                 onPreview={() => setPreviewing(agent)}
                 onViewSource={() => setSourceAgent(agent)}
-                metadata="Agent"
+                metadata={t`Agent`}
               />
             ))}
           </ItemList>
         ) : null}
         {plugins.length || catalog.isPending || catalog.error ? (
           <InstalledPluginList
-            label="Your plugins"
+            label={t`Your plugins`}
             plugins={plugins}
             pending={catalog.isPending}
             error={catalog.error?.message}
@@ -80,7 +83,7 @@ export function PrivateLocalLibrary({
         !catalog.error &&
         !mine.length &&
         !plugins.length ? (
-          <StateView kind="empty" size="row" title="Nothing saved here yet." />
+          <StateView kind="empty" size="row" title={t`Nothing saved here yet.`} />
         ) : null}
       </section>
       {previewing ? (

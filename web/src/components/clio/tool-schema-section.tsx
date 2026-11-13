@@ -1,3 +1,5 @@
+import { t } from '@lingui/core/macro';
+
 /** Readable schema fields shared by the tool catalog and MCP inventories. */
 export function SchemaSection({
   empty,
@@ -10,6 +12,7 @@ export function SchemaSection({
 }) {
   const properties = schemaProperties(schema);
   const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
+  const type = schemaType(schema);
   return (
     <section className="grid gap-2">
       {title ? (
@@ -30,9 +33,9 @@ export function SchemaSection({
               <dt className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                 <code className="break-all text-sm font-medium text-foreground">{name}</code>
                 {required.has(name) ? (
-                  <span className="text-xs text-muted-foreground">required</span>
+                  <span className="text-xs text-muted-foreground">{t`required`}</span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">optional</span>
+                  <span className="text-xs text-muted-foreground">{t`optional`}</span>
                 )}
               </dt>
               <dd className="min-w-0 text-sm leading-6">
@@ -45,7 +48,7 @@ export function SchemaSection({
       ) : Object.keys(schema).length ? (
         <p className="text-sm leading-6 text-muted-foreground">
           {schemaDescription(schema) ||
-            `Declared as ${schemaType(schema) || 'a structured value'}.`}
+            (type ? t`Declared as ${type}.` : t`Declared as a structured value.`)}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">{empty}</p>

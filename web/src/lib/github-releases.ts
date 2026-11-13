@@ -1,5 +1,6 @@
 import { compareReleaseVersions, displayReleaseVersion, isBetaVersion } from './release-version';
 import type { UpdateChannel } from './update-channel';
+import { t } from '@lingui/core/macro';
 
 export interface PublishedRelease {
   tag_name: string;
@@ -18,7 +19,7 @@ export interface PublishedRelease {
 export class ReleaseFeedRateLimited extends Error {
   constructor(readonly resetAt: number) {
     const time = new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    super(`GitHub's limit for update checks from this network is used up until ${time}.`);
+    super(t`GitHub's limit for update checks from this network is used up until ${time}.`);
     this.name = 'ReleaseFeedRateLimited';
   }
 }

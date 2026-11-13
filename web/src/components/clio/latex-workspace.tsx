@@ -39,6 +39,7 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { matchesListQuery, useWorkbenchListSearch } from './workbench-list-search';
 import { WorkbenchTabList } from './workbench-tab-list';
 import { WorkbenchTabListSlot } from './workbench-tab-list-context';
+import { t } from '@lingui/core/macro';
 
 function entryFile(report: LatexReport): string {
   const prefix = report.folder ? `${report.folder}/` : '';
@@ -183,7 +184,7 @@ export function LatexWorkspace({
     if (problem.file) goToSource({ file: problem.file, line: problem.line });
   };
   const picked = slot?.picked;
-  const search = useWorkbenchListSearch('Search the outline');
+  const search = useWorkbenchListSearch(t`Search the outline`);
   const shownRows = search.query
     ? rows.filter((row) => matchesListQuery(`${row.number} ${row.node.title ?? ''}`, search.query))
     : rows;
@@ -253,46 +254,46 @@ export function LatexWorkspace({
     </CommentCapture>
   ) : data && (data.build.status === 'failed' || data.build.error) ? (
     <StateView
-      action={rebuild ? { label: 'Rebuild', onClick: rebuild } : undefined}
+      action={rebuild ? { label: t`Rebuild`, onClick: rebuild } : undefined}
       detail={data.build.error}
       kind="error"
       size="viewer"
-      title="No PDF: the build stopped before making one"
+      title={t`No PDF: the build stopped before making one`}
     />
   ) : data || !sessionId ? (
     <StateView
-      action={rebuild ? { label: 'Build', onClick: rebuild } : undefined}
-      detail={sessionId ? undefined : 'Open this paper from a conversation to build it.'}
+      action={rebuild ? { label: t`Build`, onClick: rebuild } : undefined}
+      detail={sessionId ? undefined : t`Open this paper from a conversation to build it.`}
       kind="empty"
       size="viewer"
-      title="Not built yet"
+      title={t`Not built yet`}
     />
   ) : (
     <StateView
-      action={rebuild ? { label: 'Rebuild', onClick: rebuild } : undefined}
+      action={rebuild ? { label: t`Rebuild`, onClick: rebuild } : undefined}
       detail={report.error?.message}
       kind="error"
       size="viewer"
-      title="The paper could not be built"
+      title={t`The paper could not be built`}
     />
   );
   let body: ReactNode;
   if (sessionId && report.isPending)
-    body = <StateView kind="loading" size="viewer" title="Building the paper…" />;
+    body = <StateView kind="loading" size="viewer" title={t`Building the paper…`} />;
   else if (!data && !fallback)
     body = sessionId ? (
       <StateView
-        action={{ label: 'Retry', onClick: () => void report.refetch() }}
+        action={{ label: t`Retry`, onClick: () => void report.refetch() }}
         detail={report.error?.message}
         kind="error"
         size="viewer"
-        title="The paper could not be built"
+        title={t`The paper could not be built`}
       />
     ) : (
       <StateView
         kind="unavailable"
         size="viewer"
-        title="Open this paper from a conversation to build it."
+        title={t`Open this paper from a conversation to build it.`}
       />
     );
   else
@@ -320,7 +321,7 @@ export function LatexWorkspace({
 
   return (
     <section
-      aria-label="LaTeX workspace"
+      aria-label={t`LaTeX workspace`}
       className="flex h-full min-h-0 min-w-0 flex-col"
       data-slot="latex-workspace"
       data-view={shown}
@@ -329,7 +330,7 @@ export function LatexWorkspace({
       {/* First, so the build's time leads the PDF's page among the frame's facts. */}
       {!ownFrame && facts ? <LatexFacts facts={fact ? [fact] : []} /> : null}
       <span className="sr-only" role="status">
-        {building ? 'Building…' : ''}
+        {building ? t`Building…` : ''}
       </span>
       <Tabs
         className="min-h-0 flex-1 gap-0"
@@ -351,7 +352,7 @@ export function LatexWorkspace({
         )}
       </Tabs>
       {slot && list ? (
-        <WorkbenchTabList actions={search.toggle} title="Outline">
+        <WorkbenchTabList actions={search.toggle} title={t`Outline`}>
           {search.withField(list)}
         </WorkbenchTabList>
       ) : null}
@@ -385,14 +386,15 @@ export function LatexFileWorkspace({
   });
   const register = useMutation({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
-    onError: (error) => toast.error('The paper could not be built', { description: error.message }),
+    onError: (error) =>
+      toast.error(t`The paper could not be built`, { description: error.message }),
   });
   const build = useRef<HTMLButtonElement>(null);
   const pending = register.isPending || target.isPending;
   // Narrowest, Build leaves the bar for a row in the frame's … menu, as the renderer's icons do.
   useFrameTool(
     build,
-    sessionId ? { label: 'Build this paper', icon: <HammerIcon />, disabled: pending } : null,
+    sessionId ? { label: t`Build this paper`, icon: <HammerIcon />, disabled: pending } : null,
   );
   const artifactId = register.data?.artifact_id ?? target.data?.artifact_id;
   if (sessionId && artifactId)
@@ -410,7 +412,7 @@ export function LatexFileWorkspace({
             size="sm"
             variant="ghost"
           >
-            Build this paper
+            {t`Build this paper`}
           </Button>
         </ViewerToolbarContent>
       ) : null}

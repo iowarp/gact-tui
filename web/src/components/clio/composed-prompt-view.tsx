@@ -17,6 +17,7 @@ import {
   promptSectionLabel,
   unwrapFragmentText,
 } from '@/lib/plugin-presentation';
+import { plural, t, ph } from '@lingui/core/macro';
 
 type Fragment = AgentResolution['prompt']['sections'][number]['fragments'][number];
 const FullPromptDocument = lazy(async () => ({
@@ -44,7 +45,8 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
       .map((fragment) => fragment.text)
       .filter(Boolean)
       .join('\n\n');
-  const promptName = `${resolution.agent.name || resolution.agent.id} system prompt`;
+  const agentName = resolution.agent.name || resolution.agent.id;
+  const promptName = t`${agentName} system prompt`;
   const matches = (fragment: Fragment) =>
     !needle ||
     [fragment.id, fragmentOwnerLabel(fragment.plugin), unwrapFragmentText(fragment.text)].some(
@@ -72,10 +74,10 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
               className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
             <Input
-              aria-label="Search the prompt"
+              aria-label={t`Search the prompt`}
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search the prompt"
+              placeholder={t`Search the prompt`}
               type="search"
               value={query}
             />
@@ -92,12 +94,12 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
             size="sm"
             variant="outline"
           >
-            {allOpen ? 'Collapse all' : 'Expand all'}
+            {allOpen ? t`Collapse all` : t`Expand all`}
           </Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button disabled={!fullPrompt} size="sm" variant="outline">
-                See all
+                {t`See all`}
               </Button>
             </DialogTrigger>
             {/* The viewer's own 34px frame bar is the header: its end keeps clear of the close
@@ -105,13 +107,12 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
             <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl [&_[data-slot=file-text-view]>[data-slot=frame-bar]]:pr-11 [&>[data-slot=dialog-close]]:top-[3px] [&>[data-slot=dialog-close]]:right-1.5">
               <DialogTitle className="sr-only">{promptName}</DialogTitle>
               <DialogDescription className="sr-only">
-                The complete composed system prompt for{' '}
-                {resolution.agent.name || resolution.agent.id}.
+                {t`The complete composed system prompt for ${ph({ agent: resolution.agent.name || resolution.agent.id })}.`}
               </DialogDescription>
               <Suspense
                 fallback={
                   <p role="status" className="p-4">
-                    Loading prompt…
+                    {t`Loading prompt…`}
                   </p>
                 }
               >
@@ -122,17 +123,23 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
         </div>
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {needle
-            ? `${shownCount} of ${all.length} ${all.length === 1 ? 'fragment matches' : 'fragments match'}.`
-            : `${all.length} ${all.length === 1 ? 'fragment' : 'fragments'} in ${sections.length} ${
-                sections.length === 1 ? 'section' : 'sections'
-              }, in the order the agent reads them.`}
+            ? plural(all.length, {
+                one: `${shownCount} of # fragment matches.`,
+                other: `${shownCount} of # fragments match.`,
+              })
+            : plural(all.length, {
+                one: `# fragment in ${plural(sections.length, { one: '# section', other: '# sections' })}, in the order the agent reads them.`,
+                other: `# fragments in ${plural(sections.length, { one: '# section', other: '# sections' })}, in the order the agent reads them.`,
+              })}
         </p>
       </div>
       {resolution.prompt.warnings.length ? (
         <details className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm">
           <summary className="cursor-pointer text-warning">
-            {resolution.prompt.warnings.length}{' '}
-            {resolution.prompt.warnings.length === 1 ? 'prompt warning' : 'prompt warnings'}
+            {plural(resolution.prompt.warnings.length, {
+              one: '# prompt warning',
+              other: '# prompt warnings',
+            })}
           </summary>
           <ul className="mt-2 grid list-disc gap-1 pl-5 text-muted-foreground">
             {resolution.prompt.warnings.map((warning) => (
@@ -143,7 +150,7 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
       ) : null}
       {shown.map((section) => (
         <section
-          aria-label={`${promptSectionLabel(section.section)} section`}
+          aria-label={t`${ph({ section: promptSectionLabel(section.section) })} section`}
           className="grid gap-1.5"
           key={section.section}
         >
@@ -151,8 +158,8 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
             {promptSectionLabel(section.section)}
             <span className="text-xs font-normal text-muted-foreground">
               {section.fragments.length
-                ? `${section.fragments.length} ${section.fragments.length === 1 ? 'fragment' : 'fragments'}`
-                : 'Empty'}
+                ? plural(section.fragments.length, { one: '# fragment', other: '# fragments' })
+                : t`Empty`}
             </span>
           </h3>
           {section.fragments.map((fragment) => (
@@ -167,7 +174,7 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
         </section>
       ))}
       {needle && !shownCount ? (
-        <p className="text-sm text-muted-foreground">No fragment mentions “{query.trim()}”.</p>
+        <p className="text-sm text-muted-foreground">{t`No fragment mentions “${ph({ query: query.trim() })}”.`}</p>
       ) : null}
     </div>
   );
@@ -194,7 +201,7 @@ function FragmentRow({
   const owner = fragmentOwnerLabel(fragment.plugin);
   return (
     <article
-      aria-label={`${fragment.id} from ${owner}`}
+      aria-label={t`${ph({ id: fragment.id })} from ${owner}`}
       className="min-w-0 rounded-md border bg-card"
     >
       <button
@@ -227,7 +234,7 @@ function FragmentRow({
         </span>
         {fragment.tokens !== undefined ? (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            ~{fragment.tokens} tokens
+            {plural(fragment.tokens, { one: '~# token', other: '~# tokens' })}
           </span>
         ) : null}
       </button>

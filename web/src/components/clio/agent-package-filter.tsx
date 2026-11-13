@@ -16,10 +16,11 @@ import {
 } from './agent-package-items';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl, type SegmentedOption } from './primitives/segmented-control';
+import { t } from '@lingui/core/macro';
 
 type Filter = PackageCategory | 'all';
 
-const LABEL = 'Show what packages bring';
+const LABEL = t`Show what packages bring`;
 const noop = () => undefined;
 // The More button and the 1px gap before it.
 const MORE_WIDTH = 29;
@@ -46,7 +47,7 @@ export function AgentPackageFilter({
   const fullCopy = useRef<HTMLDivElement>(null);
   const [widths, setWidths] = useState<readonly number[]>();
   const options: SegmentedOption<Filter>[] = [
-    { value: 'all', label: 'All', icon: <LayersIcon /> },
+    { value: 'all', label: t`All`, icon: <LayersIcon /> },
     ...categories.map((info) => {
       const Icon = CATEGORY_ICONS[info.value];
       return { value: info.value, label: info.label, icon: <Icon /> };
@@ -104,7 +105,7 @@ export function AgentPackageFilter({
         {folded.length ? (
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <IconButton icon={<MoreIcon />} label="More categories" />
+              <IconButton icon={<MoreIcon />} label={t`More categories`} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuRadioGroup

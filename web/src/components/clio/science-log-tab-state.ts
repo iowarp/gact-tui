@@ -1,11 +1,12 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { WorkbenchTab } from './workbench-shared';
+import { t } from '@lingui/core/macro';
 
-export const scienceLogTab = {
+export const scienceLogTab: WorkbenchTab = {
   id: 'science-log',
   kind: 'science-log',
-  label: 'Science log',
-} as const satisfies WorkbenchTab;
+  label: t`Science log`,
+};
 
 /**
  * The Science log tab exists only while the session belongs to a study. The

@@ -25,16 +25,20 @@ import { StatusIndicator, type StatusTone } from './primitives/status-indicator'
 import { RefreshButton } from './refresh-button';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { desktopCheckIssue, versionCheckIssueDetail } from './version-check-issue';
+import { t, ph } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
+
+const { agent } = vocab;
 
 type UpdateKind = 'unknown' | 'checking' | 'current' | 'available' | 'unavailable' | 'error';
 
 const STATUS: Record<UpdateKind, { label: string; tone: StatusTone }> = {
-  unknown: { label: 'Not checked', tone: 'idle' },
-  checking: { label: 'Checking', tone: 'running' },
-  current: { label: 'Up to date', tone: 'success' },
-  available: { label: 'Update available', tone: 'info' },
-  unavailable: { label: 'Could not check', tone: 'warning' },
-  error: { label: 'Needs attention', tone: 'error' },
+  unknown: { label: t`Not checked`, tone: 'idle' },
+  checking: { label: t`Checking`, tone: 'running' },
+  current: { label: t`Up to date`, tone: 'success' },
+  available: { label: t`Update available`, tone: 'info' },
+  unavailable: { label: t`Could not check`, tone: 'warning' },
+  error: { label: t`Needs attention`, tone: 'error' },
 };
 
 /** Native app update rows, composed into General by the runtime gate. */
@@ -88,7 +92,7 @@ export function AppUpdateSettings() {
           ? snapshot.status
           : 'unknown';
   const updating = desktopInstalling || updateInFlight;
-  const status = updating ? { label: 'Updating', tone: 'running' as const } : STATUS[kind];
+  const status = updating ? { label: t`Updating`, tone: 'running' as const } : STATUS[kind];
   const issueText = desktopCheckIssue(snapshot)?.text;
   const detail = issueText !== undefined ? versionCheckIssueDetail(issueText) : undefined;
   const versions = available
@@ -104,13 +108,13 @@ export function AppUpdateSettings() {
 
   return (
     <>
-      <SettingsGroupLabel>Updates</SettingsGroupLabel>
+      <SettingsGroupLabel>{t`Updates`}</SettingsGroupLabel>
       <SettingsRow
         error={detail ? <span title={detail}>{detail}</span> : undefined}
-        note={available?.repair ? 'Restore the runtime to match the installed app.' : undefined}
-        title={`${vocab.agent} app`}
+        note={available?.repair ? t`Restore the runtime to match the installed app.` : undefined}
+        title={t`${agent} app`}
       >
-        <span aria-label="Update status" className="inline-flex min-w-0" role="status">
+        <span aria-label={t`Update status`} className="inline-flex min-w-0" role="status">
           <StatusIndicator
             className="text-xs text-muted-foreground"
             label={status.label}
@@ -137,13 +141,13 @@ export function AppUpdateSettings() {
             ) : (
               <DownloadIcon aria-hidden="true" />
             )}
-            {updating ? 'Updating' : `Update ${vocab.agent}`}
+            {updating ? t`Updating` : t`Update ${agent}`}
           </Button>
         ) : (
           <RefreshButton
             className="shrink-0"
             disabled={updateInFlight || desktopInstalling}
-            label="Check for updates"
+            label={t`Check for updates`}
             onRefresh={checkUpdate}
             refreshing={kind === 'checking'}
             size="sm"
@@ -158,10 +162,10 @@ export function AppUpdateSettings() {
         >
           <div className="grid gap-1 border-b border-border/70 py-2.5">
             <div className="flex min-w-0 items-center gap-2 text-ui whitespace-nowrap">
-              <h3 className="truncate font-normal">Release notes</h3>
+              <h3 className="truncate font-normal">{t`Release notes`}</h3>
               {available.date ? (
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                  Released {formatReleaseDate(available.date)}
+                  {t`Released ${ph({ date: formatReleaseDate(available.date) })}`}
                 </span>
               ) : null}
             </div>
@@ -174,16 +178,16 @@ export function AppUpdateSettings() {
         </div>
       ) : null}
       {currentProgress ? (
-        <SettingsRow title="Download">
+        <SettingsRow title={t`Download`}>
           {percent === undefined ? null : (
-            <Progress aria-label="Update download" className="w-28 shrink-0" value={percent} />
+            <Progress aria-label={t`Update download`} className="w-28 shrink-0" value={percent} />
           )}
           <span aria-live="polite" className="text-xs text-muted-foreground tabular-nums">
             {currentProgress.finished
-              ? 'Installing update'
+              ? t`Installing update`
               : percent === undefined
-                ? `${formatBytes(currentProgress.downloadedBytes)} downloaded`
-                : `${percent}% downloaded`}
+                ? t`${ph({ downloaded: formatBytes(currentProgress.downloadedBytes) })} downloaded`
+                : t`${percent}% downloaded`}
           </span>
         </SettingsRow>
       ) : null}
@@ -209,9 +213,9 @@ export function BetaUpdatesRow({
       htmlFor="enable-beta-updates"
       inlineControl
       note={
-        <span id="beta-updates-warning">Include prereleases. Beta versions may be unstable.</span>
+        <span id="beta-updates-warning">{t`Include prereleases. Beta versions may be unstable.`}</span>
       }
-      title="Beta updates"
+      title={t`Beta updates`}
     >
       <Switch
         aria-describedby="beta-updates-warning"
@@ -231,5 +235,5 @@ function formatReleaseDate(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+    : new Intl.DateTimeFormat(formatLocale(), { dateStyle: 'medium' }).format(date);
 }

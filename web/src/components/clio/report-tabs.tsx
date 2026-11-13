@@ -2,10 +2,11 @@ import type { ToolPresentationBlock } from '@clio/core/v3';
 import { MarkdownText } from '@/components/ai-elements/markdown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { clioStatusLabel, type ClioStatusValue } from './status';
+import { t, ph } from '@lingui/core/macro';
 
 function statusWords(block: ToolPresentationBlock): string {
-  if (block.status === 'pending') return 'Still running';
-  if (!block.status) return block.severity === 'error' ? 'Could not collect' : 'No outcome';
+  if (block.status === 'pending') return t`Still running`;
+  if (!block.status) return block.severity === 'error' ? t`Could not collect` : t`No outcome`;
   return clioStatusLabel(block.status as ClioStatusValue) || block.status;
 }
 
@@ -19,7 +20,7 @@ export function ReportTabs({ reports }: { reports: readonly ToolPresentationBloc
   if (!first) return null;
   return (
     <Tabs defaultValue={first} className="min-w-0" data-slot="report-tabs">
-      <TabsList className="h-auto max-w-full flex-wrap justify-start" aria-label="Reports">
+      <TabsList className="h-auto max-w-full flex-wrap justify-start" aria-label={t`Reports`}>
         {reports.map((report) => (
           <TabsTrigger className="gap-1 text-xs" key={report.id} value={report.id}>
             <span className="max-w-40 truncate">{report.title || report.label || report.id}</span>
@@ -30,7 +31,7 @@ export function ReportTabs({ reports }: { reports: readonly ToolPresentationBloc
       {reports.map((report) => (
         <TabsContent className="mt-2 min-w-0" key={report.id} value={report.id}>
           {report.model ? (
-            <p className="mb-1 text-xs text-muted-foreground">Ran on {report.model}</p>
+            <p className="mb-1 text-xs text-muted-foreground">{t`Ran on ${ph({ model: report.model })}`}</p>
           ) : null}
           {report.severity === 'error' ? (
             <p role="alert" className="whitespace-pre-wrap text-sm text-destructive">

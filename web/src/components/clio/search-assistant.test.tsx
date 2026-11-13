@@ -38,13 +38,20 @@ vi.mock('./model-picker', () => ({
   ClioModelPicker: ({
     trigger,
     onChange,
+    returnFocus,
   }: {
     trigger: ReactNode;
     onChange: (choice: { providerId: string; id: string }) => void;
+    returnFocus?: () => void;
   }) => (
     <>
       {trigger}
-      <button onClick={() => onChange({ providerId: 'codex', id: 'alternate-search-model' })}>
+      <button
+        onClick={() => {
+          onChange({ providerId: 'codex', id: 'alternate-search-model' });
+          returnFocus?.();
+        }}
+      >
         Use alternate search model
       </button>
     </>
@@ -123,6 +130,8 @@ it('chooses the next search model inline while retaining the temporary chat and 
   expect(
     screen.getByRole('button', { name: `Choose ${vocab.agent} Search model` }),
   ).toHaveTextContent('alternate-search-model');
+  // The pick hands focus back to the question, so Enter asks rather than reopening the picker.
+  expect(screen.getByRole('textbox', { name: `Ask ${vocab.agent} Search` })).toHaveFocus();
   await user.click(screen.getByRole('button', { name: `Search with ${vocab.agent}` }));
   await waitFor(() => expect(mocks.repository.submitMessage).toHaveBeenCalledTimes(2));
   expect(mocks.repository.openSearchSession).toHaveBeenCalledTimes(1);

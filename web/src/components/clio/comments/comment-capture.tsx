@@ -12,6 +12,7 @@ import { FrameCommentsSessionIcon } from './frame-comments';
 import { useInFrameComments } from './frame-comments-slot';
 import { SvgElementLayer } from './svg-element-layer';
 import { textQuoteFromSelection } from './text-anchor';
+import { t } from '@lingui/core/macro';
 
 function screenBox(rect: DOMRect) {
   return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
@@ -36,7 +37,7 @@ export function CommentToggle({ className }: { className?: string }) {
       variant={session.open ? 'secondary' : 'ghost'}
     >
       <MessageSquarePlusIcon aria-hidden="true" />
-      <span className="@max-[520px]/viewer:sr-only">Comment</span>
+      <span className="@max-[520px]/viewer:sr-only">{t`Comment`}</span>
       {count ? <span className="tabular-nums">{count}</span> : null}
     </Button>
   );
@@ -160,7 +161,7 @@ export function CommentCapture({
       {regionMode || shown.length ? (
         <CommentRegionLayer
           capturing={regionMode}
-          label="Drag to mark a region"
+          label={t`Drag to mark a region`}
           marks={shown}
           onOpenMark={session?.setEditing}
           onRegion={(rect) => {

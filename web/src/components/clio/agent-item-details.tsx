@@ -5,6 +5,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE } from '@/lib/document-markdown';
 import { splitFrontmatter } from '@/lib/frontmatter';
+import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -16,6 +17,9 @@ import { StateView } from './primitives/state-view';
 import { serviceErrorDetail } from './service-error';
 import { SettingsGroupLabel } from './settings-row';
 import { CopyAction } from './tool-compact-row';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 type Subagent = AgentResolution['subagents'][number];
 
@@ -42,12 +46,12 @@ function Reading({ children }: { children: string }) {
 export function SubagentPrompt({ row }: { row: Subagent }) {
   const prompt = text(row.prompt);
   return (
-    <section aria-label={`${row.id} prompt`} className="grid min-w-0 gap-1.5">
+    <section aria-label={t`${ph({ id: row.id })} prompt`} className="grid min-w-0 gap-1.5">
       <SettingsGroupLabel
         className="mt-1"
-        actions={prompt ? <CopyAction label="Copy prompt" value={prompt} /> : undefined}
+        actions={prompt ? <CopyAction label={t`Copy prompt`} value={prompt} /> : undefined}
       >
-        Prompt
+        {t`Prompt`}
       </SettingsGroupLabel>
       {prompt ? (
         <Reading>{prompt}</Reading>
@@ -57,8 +61,8 @@ export function SubagentPrompt({ row }: { row: Subagent }) {
           size="row"
           title={
             'prompt' in row
-              ? 'This subagent has no prompt of its own.'
-              : 'This CLIO doesn’t report subagent prompts.'
+              ? t`This subagent has no prompt of its own.`
+              : t`This ${agent} doesn’t report subagent prompts.`
           }
         />
       )}
@@ -97,22 +101,22 @@ export function SkillContent({
   if (!reference)
     return (
       <StateView
-        detail={`${item.plugin} isn’t installed from a catalog this CLIO can read.`}
+        detail={t`${ph({ plugin: item.plugin })} isn’t installed from a catalog this ${agent} can read.`}
         kind="unavailable"
         size="row"
-        title="The skill’s files aren’t available"
+        title={t`The skill’s files aren’t available`}
       />
     );
   if (inspection.isPending)
-    return <StateView kind="loading" size="row" title="Reading the skill" />;
+    return <StateView kind="loading" size="row" title={t`Reading the skill`} />;
   if (inspection.error)
     return (
       <StateView
-        action={{ label: 'Retry', onClick: () => void inspection.refetch() }}
+        action={{ label: t`Retry`, onClick: () => void inspection.refetch() }}
         detail={serviceErrorDetail(inspection.error.message)}
         kind="error"
         size="row"
-        title="The skill couldn’t be read"
+        title={t`The skill couldn’t be read`}
       />
     );
   const files = inspection.data.files;
@@ -127,7 +131,7 @@ export function SkillContent({
     <>
       {facts.length ? (
         <KeyValueGrid
-          aria-label={`${item.id} settings`}
+          aria-label={t`${ph({ id: item.id })} settings`}
           items={facts.map(([key, value]) => ({
             label: label(key),
             value,
@@ -136,16 +140,16 @@ export function SkillContent({
           variant="rows"
         />
       ) : null}
-      <section aria-label={`${item.id} instructions`} className="grid min-w-0 gap-1.5">
+      <section aria-label={t`${ph({ id: item.id })} instructions`} className="grid min-w-0 gap-1.5">
         <SettingsGroupLabel
           className="mt-1"
           actions={
             skillFile?.text ? (
-              <CopyAction label="Copy SKILL.md" value={skillFile.text} />
+              <CopyAction label={t`Copy SKILL.md`} value={skillFile.text} />
             ) : undefined
           }
         >
-          Instructions
+          {t`Instructions`}
         </SettingsGroupLabel>
         {document?.body.trim() ? (
           <Reading>{document.body}</Reading>
@@ -154,22 +158,22 @@ export function SkillContent({
             detail={skillFile?.error || inspection.data.reason || undefined}
             kind={skillFile ? 'empty' : 'unavailable'}
             size="row"
-            title={skillFile ? 'SKILL.md has no instructions.' : 'This skill has no SKILL.md.'}
+            title={skillFile ? t`SKILL.md has no instructions.` : t`This skill has no SKILL.md.`}
           />
         )}
         {skillFile?.truncated ? (
           <p className="text-meta text-muted-foreground">
-            Only the start of SKILL.md is shown; open its files for the rest.
+            {t`Only the start of SKILL.md is shown; open its files for the rest.`}
           </p>
         ) : null}
       </section>
       {files.length || inspection.data.incomplete ? (
-        <section aria-label={`Files in ${item.id}`} className="grid min-w-0 gap-1">
-          <SettingsGroupLabel className="mt-1">Files in this skill</SettingsGroupLabel>
-          <ItemList label={`Files in ${item.id}`}>
+        <section aria-label={t`Files in ${ph({ id: item.id })}`} className="grid min-w-0 gap-1">
+          <SettingsGroupLabel className="mt-1">{t`Files in this skill`}</SettingsGroupLabel>
+          <ItemList label={t`Files in ${ph({ id: item.id })}`}>
             {files.map((file) => (
               <ItemRow
-                aria-label={`Open ${file.path}`}
+                aria-label={t`Open ${ph({ path: file.path })}`}
                 className="cursor-pointer"
                 icon={<FileIcon />}
                 key={file.path}
@@ -189,7 +193,7 @@ export function SkillContent({
           </ItemList>
           {inspection.data.incomplete ? (
             <p className="text-meta text-muted-foreground">
-              {inspection.data.reason || 'Some files are too large to list here.'}
+              {inspection.data.reason || t`Some files are too large to list here.`}
             </p>
           ) : null}
         </section>

@@ -23,6 +23,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
 import { useRepository } from './use-repository';
+import { ph, t } from '@lingui/core/macro';
 
 interface SessionLiveStreamInput {
   enabled: boolean;
@@ -299,7 +300,9 @@ export function useSessionLiveStream({
       } catch (error) {
         if (controller.signal.aborted) return;
         setStreamError(
-          `Gap recovery failed: ${error instanceof Error ? error.message : 'authoritative snapshot unavailable'}`,
+          error instanceof Error
+            ? t`Gap recovery failed: ${ph({ reason: error.message })}`
+            : t`Gap recovery failed: authoritative snapshot unavailable`,
         );
       }
     };

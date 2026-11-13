@@ -4,8 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { deleteFailure } from '@/lib/resource-delete';
 import { ClioPathPicker } from './path-picker';
 import { DialogFrame } from './primitives/dialog-frame';
+import { t } from '@lingui/core/macro';
+
+const { workspace } = vocab;
+/** The brand's workspace noun as a field-label start; the noun itself is not translated. */
+const Workspace = capitalize(workspace);
 
 const TEXT_FIELD = 'h-[30px] text-menu md:text-menu';
 
@@ -129,14 +135,14 @@ function CreateWorkspaceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Creating?' : `Create ${vocab.workspace}`,
+        label: pending ? t`Creating?` : t`Create ${workspace}`,
         disabled: pending || !rootPath.trim(),
         onConfirm: () => void submit(),
       }}
-      description="Name it and choose the folder it works in."
+      description={t`Name it and choose the folder it works in.`}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={`New ${vocab.workspace}`}
+      title={t`New ${workspace}`}
     >
       <WorkspaceFields
         name={workspaceName}
@@ -169,20 +175,20 @@ function WorkspaceFields({
 }) {
   return (
     <div className="grid gap-3">
-      <StackedField htmlFor="new-workspace-name" label={`${capitalize(vocab.workspace)} name`}>
+      <StackedField htmlFor="new-workspace-name" label={t`${Workspace} name`}>
         <Input
           autoFocus
           className={TEXT_FIELD}
           id="new-workspace-name"
           onChange={(event) => onNameChange(event.target.value)}
-          placeholder="EarthScope analysis"
+          placeholder={t`EarthScope analysis`}
           value={name}
         />
       </StackedField>
       <StackedField
-        description={`Becomes the ${vocab.workspace} boundary. Files aren’t moved.`}
+        description={t`Becomes the ${workspace} boundary. Files aren’t moved.`}
         htmlFor="new-workspace-folder"
-        label={`${capitalize(vocab.workspace)} folder`}
+        label={t`${Workspace} folder`}
       >
         <ClioPathPicker
           className="h-[30px]"
@@ -204,7 +210,7 @@ function WorkspaceFields({
             })),
           )}
           onChange={onPathChange}
-          placeholder="Choose a folder"
+          placeholder={t`Choose a folder`}
           value={path}
         />
       </StackedField>
@@ -277,20 +283,20 @@ export function RenameResourceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Saving…' : 'Save name',
+        label: pending ? t`Saving…` : t`Save name`,
         disabled: pending || !name,
         onConfirm: confirm,
       }}
-      description="Its files and history stay as they are."
+      description={t`Its files and history stay as they are.`}
       icon={<EditIcon />}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={target.kind === 'session' ? 'Rename conversation' : `Rename ${vocab.workspace}`}
+      title={target.kind === 'session' ? t`Rename conversation` : t`Rename ${workspace}`}
     >
       {/* Label over a full-width field (spec .xf), so the current name reads in full. */}
       <div className="grid gap-1.5">
         <Label htmlFor="rename-resource" className="text-xs font-normal text-muted-foreground">
-          Name
+          {t`Name`}
         </Label>
         <Input
           className="h-[30px] text-menu md:text-menu"
@@ -333,7 +339,7 @@ export function DeleteResourceDialog({
       else await actions.deleteSession(target.id);
       onClose();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(deleteFailure(reason));
     } finally {
       setPending(false);
     }
@@ -342,23 +348,23 @@ export function DeleteResourceDialog({
   return (
     <DialogFrame
       alert
-      cancelLabel={session ? 'Keep conversation' : `Keep ${vocab.workspace}`}
+      cancelLabel={session ? t`Keep conversation` : t`Keep ${workspace}`}
       confirm={{
         label: session
           ? pending
-            ? 'Deleting…'
-            : 'Delete permanently'
+            ? t`Deleting…`
+            : t`Delete permanently`
           : pending
-            ? 'Removing…'
-            : `Remove ${vocab.workspace}`,
+            ? t`Removing…`
+            : t`Remove ${workspace}`,
         tone: 'destructive',
         disabled: pending,
         onConfirm: () => void remove(),
       }}
       description={
         session
-          ? 'Removes it and its record from the service. This can’t be undone.'
-          : `Unregisters the ${vocab.workspace} and removes its conversations from the service. Files on disk are not deleted.`
+          ? t`Removes it and its record from the service. This can’t be undone.`
+          : t`Unregisters the ${workspace} and removes its conversations from the service. Files on disk are not deleted.`
       }
       icon={<DeleteIcon />}
       onOpenChange={(open) => !open && onClose()}

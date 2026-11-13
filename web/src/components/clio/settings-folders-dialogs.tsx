@@ -7,6 +7,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { SettingsRow } from './settings-row';
 import { folderName, folderPathProblem, samePath } from './settings-folders-model';
+import { ph, t } from '@lingui/core/macro';
 
 /** A plain value row (the spec's `.zv`): right-aligned, wrapping only when it doesn't fit. */
 function ValueRow({ title, children }: { title: string; children: ReactNode }) {
@@ -48,14 +49,14 @@ function FolderPathField({
         <Input
           aria-describedby={error ? `${id}-error` : undefined}
           aria-invalid={error ? true : undefined}
-          aria-label="Folder"
+          aria-label={t`Folder`}
           autoComplete="off"
           className="min-w-0 flex-1 font-mono md:text-menu"
           data-initial-focus=""
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Type or paste a folder path"
+          placeholder={t`Type or paste a folder path`}
           spellCheck={false}
           title={value || undefined}
           value={value}
@@ -64,7 +65,7 @@ function FolderPathField({
           <IconButton
             disabled={disabled}
             icon={<FolderOpenIcon />}
-            label="Browse for a folder"
+            label={t`Browse for a folder`}
             onClick={() => void browse()}
           />
         ) : null}
@@ -134,7 +135,7 @@ export function AllowFolderDialog({
   return (
     <DialogFrame
       confirm={{
-        label: request.pending ? 'Allowing…' : 'Allow folder',
+        label: request.pending ? t`Allowing…` : t`Allow folder`,
         onConfirm: () => void allow(),
         disabled: request.pending || !path.trim() || Boolean(problem),
       }}
@@ -142,11 +143,13 @@ export function AllowFolderDialog({
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}
       title={
-        path.trim() ? `Allow writing to ${folderName(path.trim())}?` : 'Allow writing to a folder?'
+        path.trim()
+          ? t`Allow writing to ${ph({ folder: folderName(path.trim()) })}?`
+          : t`Allow writing to a folder?`
       }
     >
       <div data-slot="allow-folder">
-        <SettingsRow fullWidth htmlFor="folders-allow-path" title="Folder">
+        <SettingsRow fullWidth htmlFor="folders-allow-path" title={t`Folder`}>
           <FolderPathField
             disabled={request.pending}
             error={problem}
@@ -155,10 +158,12 @@ export function AllowFolderDialog({
             value={path}
           />
         </SettingsRow>
-        <ValueRow title="What you allow">Create, change and delete files in it and below</ValueRow>
-        <ValueRow title="Who">Commands and scripts in every conversation here</ValueRow>
-        <ValueRow title="How long">Until you remove it in Settings, Folders</ValueRow>
-        <ValueRow title="Then">The blocked command isn’t rerun. Ask again.</ValueRow>
+        <ValueRow
+          title={t`What you allow`}
+        >{t`Create, change and delete files in it and below`}</ValueRow>
+        <ValueRow title={t`Who`}>{t`Commands and scripts in every conversation here`}</ValueRow>
+        <ValueRow title={t`How long`}>{t`Until you remove it in Settings, Folders`}</ValueRow>
+        <ValueRow title={t`Then`}>{t`The blocked command isn’t rerun. Ask again.`}</ValueRow>
         <DialogError>{request.error}</DialogError>
       </div>
     </DialogFrame>
@@ -187,17 +192,17 @@ export function ChangePrimaryDialog({
   return (
     <DialogFrame
       confirm={{
-        label: request.pending ? 'Changing…' : 'Change folder',
+        label: request.pending ? t`Changing…` : t`Change folder`,
         onConfirm: () => void change(),
         disabled: request.pending || unchanged,
       }}
       icon={<FolderIcon className="size-4" />}
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}
-      title="Change the primary folder?"
+      title={t`Change the primary folder?`}
     >
       <div data-slot="change-primary-folder">
-        <SettingsRow fullWidth htmlFor="folders-primary-path" title="Folder">
+        <SettingsRow fullWidth htmlFor="folders-primary-path" title={t`Folder`}>
           <FolderPathField
             disabled={request.pending}
             id="folders-primary-path"
@@ -205,9 +210,9 @@ export function ChangePrimaryDialog({
             value={path}
           />
         </SettingsRow>
-        <ValueRow title="Conversations">Start in this folder from now on</ValueRow>
-        <ValueRow title="Files">Nothing is moved or copied</ValueRow>
-        <ValueRow title="Before you change it">Let running conversations finish</ValueRow>
+        <ValueRow title={t`Conversations`}>{t`Start in this folder from now on`}</ValueRow>
+        <ValueRow title={t`Files`}>{t`Nothing is moved or copied`}</ValueRow>
+        <ValueRow title={t`Before you change it`}>{t`Let running conversations finish`}</ValueRow>
         <DialogError>{request.error}</DialogError>
       </div>
     </DialogFrame>

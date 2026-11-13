@@ -11,6 +11,7 @@ import {
   type AgentUseValue,
 } from './agent-tab-values';
 import { KeyValueGrid, KeyValueRowButton } from './primitives/key-value-grid';
+import { t } from '@lingui/core/macro';
 
 const USE_ORDER: readonly AgentUseKind[] = ['tools', 'subagents', 'skills', 'instructions'];
 
@@ -58,7 +59,7 @@ export function AgentTabHeader({
       {/* Notes fold first: in a narrow tab the title and actions keep the line. */}
       {legend ? (
         <span className="ml-auto min-w-0 truncate text-caption text-faint @max-[24rem]/agent-tab:hidden">
-          Changed settings are teal
+          {t`Changed settings are teal`}
         </span>
       ) : null}
       {reset ? (
@@ -89,9 +90,9 @@ export function AgentUseRows({
 }) {
   return (
     <section aria-labelledby="agent-what-it-can-use">
-      <AgentTabSectionLabel id="agent-what-it-can-use">What it can use</AgentTabSectionLabel>
+      <AgentTabSectionLabel id="agent-what-it-can-use">{t`What it can use`}</AgentTabSectionLabel>
       <KeyValueGrid
-        aria-label="What it can use"
+        aria-label={t`What it can use`}
         items={USE_ORDER.map((kind) => {
           const { text, changed } = values[kind];
           const label = AGENT_USE_LABELS[kind];
@@ -100,7 +101,11 @@ export function AgentUseRows({
             title: text,
             value: (
               <KeyValueRowButton
-                aria-label={`${label}: ${text}${changed ? `, ${CHANGED_FOR_CONVERSATION}` : ''}`}
+                aria-label={
+                  changed
+                    ? t`${label}: ${text}, changed for this conversation`
+                    : t`${label}: ${text}`
+                }
                 changed={changed}
                 changedLabel={CHANGED_FOR_CONVERSATION}
                 chevron="right"

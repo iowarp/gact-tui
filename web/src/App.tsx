@@ -39,6 +39,7 @@ import {
   type RouteChunk,
   type RouteModule,
 } from '@/lib/route-chunks';
+import { t, ph } from '@lingui/core/macro';
 
 // Desktop only, and it carries the bundled changelog and its markdown renderer.
 const WhatsNewDialog = lazy(() =>
@@ -80,13 +81,13 @@ const InfrastructurePage = lazyRoute('infrastructure', (module) => module.Infras
 function RouteFallback() {
   return (
     <main
-      aria-label={`Loading ${brand.name}`}
+      aria-label={t`Loading ${ph({ name: brand.name })}`}
       className="grid h-full min-h-0 place-items-center bg-background p-8"
     >
       <div className="w-full max-w-md space-y-3">
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-24 w-full" />
-        <p className="text-sm text-muted-foreground">Loading workspace…</p>
+        <p className="text-sm text-muted-foreground">{t`Loading workspace…`}</p>
       </div>
     </main>
   );
