@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import { NamedTooltip } from './icon-button';
 import { MenuRow } from './menu-row';
 import { t, ph } from '@lingui/core/macro';
@@ -30,7 +31,8 @@ export interface NavTab {
 }
 
 // Widths drawn by the classes below: a closed tab is 7 + 14 + 7, plus the 2px gap;
-// the open tab adds its name, the 6px icon gap and 10px right padding.
+// the open tab adds its name, the 6px icon gap and 10px right padding. Px at the
+// default interface size; scaled by it, as the rem icons and gaps grow.
 const CLOSED_TAB = 30;
 const OPEN_TAB_CHROME = 37;
 const LIST_TRIGGER = 44;
@@ -39,7 +41,7 @@ const LIST_TRIGGER = 44;
  * Places within one page, as links: icon only, and the open tab adds its
  * name over a 2px primary underline; tabs fill the bar's height. Every closed tab keeps its name on hover and as its accessible name,
  * so the strip never wraps and nothing is unexplained. When the strip is squeezed,
- * closed tabs furthest from the open one go into an "N ▾" list at its end, so the
+ * closed tabs furthest from the open one go into an "N â–¾" list at its end, so the
  * open tab keeps its whole name (spec: "Icons past the edge go into a list. The
  * open tab stays"). Pair it with the catalog's previous-tab and next-tab keys on
  * the page that owns it.
@@ -60,6 +62,8 @@ export const NavTabs = memo(function NavTabs({
   const activeIndex = tabs.findIndex((tab) => tab.id === active);
   const closedCount = tabs.length - (activeIndex >= 0 ? 1 : 0);
   const [fit, setFit] = useState(closedCount);
+  // Re-measures when Interface size changes; the measure reads the live size itself.
+  const scaleKey = useInterfaceScale();
   // Closed tabs nearest the open one stay longest; the earlier one wins a tie.
   const priority = useMemo(
     () =>
@@ -76,16 +80,21 @@ export const NavTabs = memo(function NavTabs({
       const width = nav.clientWidth;
       if (!width) return setFit(closedCount);
       const name = nav.querySelector<HTMLElement>('[data-tab-name]');
-      const open = name ? OPEN_TAB_CHROME + name.scrollWidth + 1 : 0;
-      if (open + closedCount * CLOSED_TAB <= width) return setFit(closedCount);
-      setFit(Math.max(0, Math.floor((width - open - LIST_TRIGGER) / CLOSED_TAB)));
+      const scale = interfaceScale();
+      const closed = CLOSED_TAB * scale;
+      const open = name ? OPEN_TAB_CHROME * scale + name.scrollWidth + 1 : 0;
+      if (open + closedCount * closed <= width) return setFit(closedCount);
+      setFit(Math.max(0, Math.floor((width - open - LIST_TRIGGER * scale) / closed)));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(nav);
+    // The open tab's name resizes with the root font size even when the bar does not.
+    const name = nav.querySelector<HTMLElement>('[data-tab-name]');
+    if (name) observer.observe(name);
     return () => observer.disconnect();
-  }, [tabs, active, closedCount]);
+  }, [tabs, active, closedCount, scaleKey]);
   const shown = new Set(priority.slice(0, fit));
   const listed = tabs.filter((_, index) => index !== activeIndex && !shown.has(index));
   return (
