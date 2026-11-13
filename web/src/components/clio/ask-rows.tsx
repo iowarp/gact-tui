@@ -25,6 +25,9 @@ export function AskRows({ className, ...props }: ComponentProps<'div'>) {
   );
 }
 
+/** Keys, marks and checks sit on a wrapped row's first line, as on a single-line row. */
+const ROW_FIRST_LINE = 'flex h-[30px] shrink-0 items-center';
+
 export function AskRow({
   number,
   label,
@@ -45,7 +48,7 @@ export function AskRow({
     <button
       {...askKeyAttributes(keys)}
       className={cn(
-        'flex min-h-[30px] w-full min-w-0 items-center gap-2.5 rounded-[7px] px-1.5 text-left text-menu text-foreground/85 outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:[box-shadow:inset_0_0_0_1.5px_var(--ring)] disabled:pointer-events-none disabled:opacity-50 aria-checked:text-foreground',
+        'flex min-h-[30px] w-full min-w-0 items-start gap-2.5 rounded-[7px] px-1.5 text-left text-menu text-foreground/85 outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:[box-shadow:inset_0_0_0_1.5px_var(--ring)] disabled:pointer-events-none disabled:opacity-50 aria-checked:text-foreground',
         // --hover sits at --card's level in the dark themes; a foreground tint reads in every theme.
         highlighted && 'bg-foreground/[0.07] text-foreground',
         className,
@@ -55,19 +58,30 @@ export function AskRow({
       type="button"
       {...props}
     >
-      {control}
-      {number && number < 10 ? <AskKeyChip askKey={String(number)} /> : null}
-      <span className="min-w-0 shrink truncate">{label}</span>
-      {detail ? (
-        <span className="min-w-0 flex-1 truncate text-label text-foreground/70">{detail}</span>
-      ) : (
-        <span className="flex-1" />
-      )}
-      {highlighted ? <AskKeyChip askKey="Enter" /> : null}
+      {control ? <span className={ROW_FIRST_LINE}>{control}</span> : null}
+      {number && number < 10 ? (
+        <span className={ROW_FIRST_LINE}>
+          <AskKeyChip askKey={String(number)} />
+        </span>
+      ) : null}
+      {/* The choice and its detail read whole: the detail takes the next line when it can't fit.
+          A single line centres in the row; a wrapped one starts on the keys' line. */}
+      <span
+        className="flex min-h-[30px] min-w-0 flex-1 flex-wrap content-center items-baseline gap-x-2.5 py-[max(0px,calc(15px-0.5lh))]"
+        data-slot="ask-row-text"
+      >
+        <span className="min-w-0">{label}</span>
+        {detail ? <span className="min-w-0 text-label text-foreground/70">{detail}</span> : null}
+      </span>
+      {highlighted ? (
+        <span className={ROW_FIRST_LINE}>
+          <AskKeyChip askKey="Enter" />
+        </span>
+      ) : null}
       {checkable ? (
         <span
           aria-hidden="true"
-          className="grid w-3.5 shrink-0 place-items-center"
+          className={cn(ROW_FIRST_LINE, 'w-3.5 justify-center')}
           data-slot="ask-row-check"
         >
           {checked ? <CheckIcon className="size-[13px] text-accent-foreground" /> : null}

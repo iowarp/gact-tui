@@ -190,12 +190,16 @@ export function AskCard({
           EDGE[kind],
         )}
       >
-        <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
+        <Icon
+          aria-hidden="true"
+          // A wrapped question keeps its icon on the first line.
+          className={cn('size-4 shrink-0', wrapTitle && 'mt-1.5 self-start', TONE[kind])}
+        />
         <h2
           className={cn(
-            'min-w-0 shrink truncate text-[0.84375rem] leading-5 font-medium',
-            // A question reads whole: at a fifth of the window it takes a second line.
-            wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
+            'min-w-0 shrink text-[0.84375rem] leading-5 font-medium',
+            // A question is what the person answers: it reads whole and wraps, never cut.
+            wrapTitle ? 'py-1 whitespace-normal' : 'truncate',
           )}
           data-slot="pending-interaction-title"
           id={`${id}-title`}

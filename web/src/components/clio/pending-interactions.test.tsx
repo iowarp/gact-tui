@@ -405,7 +405,9 @@ describe('ClioPendingInteractions', () => {
       name: 'Which evidence view should remain primary?',
     });
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
-    expect(title).toHaveClass('truncate');
+    // The question is what the person answers: it wraps whole instead of being cut.
+    expect(title).not.toHaveClass('truncate');
+    expect(title).toHaveClass('whitespace-normal');
     expect(title).toHaveAttribute('title', 'Which evidence view should remain primary?');
     const first = screen.getByRole('button', { name: /^Station table/ });
     expect(first).toHaveTextContent('Sortable rows');
