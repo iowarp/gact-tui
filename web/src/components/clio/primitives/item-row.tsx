@@ -139,6 +139,10 @@ export const ItemRow = memo(
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           // Stacked, an empty slot kept only for alignment gives its width to the name and status.
           stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
+          // Stacked, a labelled slot button takes its own line under the text, so its column goes too.
+          stacks &&
+            !floats &&
+            '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-slot:0px]!',
           // Floating actions: the name, then a slot that is only as wide as its content.
           floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
@@ -267,6 +271,10 @@ export const ItemRow = memo(
                   (hasSlot && !folds
                     ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
                     : '@max-sm:row-span-2'),
+                // A labelled button ("Update", "Change") gets a line of its own, start-aligned
+                // under the name and meta, so a localized label never squeezes the name.
+                stacks &&
+                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-start @max-sm:has-[[data-slot=button]]:pt-1',
               )}
               data-slot="item-row-slot"
             >
