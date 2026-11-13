@@ -191,7 +191,7 @@ export function AskCard({
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className={cn(
-            'min-w-0 shrink truncate text-[13.5px] leading-5 font-medium',
+            'min-w-0 shrink truncate text-[0.84375rem] leading-5 font-medium',
             // A question reads whole: at a fifth of the window it takes a second line.
             wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
           )}

@@ -68,7 +68,7 @@ function DropdownMenuKey({ children }: { children: string }) {
     <kbd
       aria-hidden="true"
       data-slot="dropdown-menu-key"
-      className="ml-auto w-[22px] shrink-0 text-right font-mono text-[10.5px] font-normal text-faint"
+      className="ml-auto w-[22px] shrink-0 text-right font-mono text-[0.65625rem] font-normal text-faint"
     >
       {children}
     </kbd>

@@ -164,7 +164,7 @@ function LineageNode({
               {node.name}
             </b>
             {node.detail ? (
-              <span className="truncate text-[10px] text-muted-foreground">{node.detail}</span>
+              <span className="truncate text-[0.625rem] text-muted-foreground">{node.detail}</span>
             ) : null}
           </span>
         </button>

@@ -98,7 +98,7 @@ export function ConversationInspector({
         {isManagedChildSession(session) ? 'Open subagent' : 'Open conversation'}
         <ArrowUpRightIcon className="size-3.5" />
       </Link>
-      <p className="mt-2 text-[10px] text-muted-foreground">
+      <p className="mt-2 text-[0.625rem] text-muted-foreground">
         {isManagedChildSession(session)
           ? 'Controlled by the parent agent'
           : session.parent_session_id
@@ -114,7 +114,7 @@ function PreviewMessage({ message, copied }: { message: Message; copied?: boolea
   if (!text) return null;
   return (
     <div>
-      <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+      <div className="mb-1 flex justify-between text-[0.625rem] text-muted-foreground">
         <span>{message.role === 'user' ? 'You' : vocab.agent}</span>
         {copied ? <span>Copied</span> : null}
       </div>

@@ -296,7 +296,7 @@ export function PendingA2UIResponse({
           }}
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-            <DialogTitle className="min-w-0 truncate text-[13.5px] font-medium">
+            <DialogTitle className="min-w-0 truncate text-[0.84375rem] font-medium">
               {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
             </DialogTitle>
             <Button onClick={() => setFullscreen(false)} size="sm" type="button" variant="ghost">

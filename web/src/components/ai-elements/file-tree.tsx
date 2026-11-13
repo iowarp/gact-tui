@@ -66,7 +66,7 @@ export const FileTree = ({
   return (
     <FileTreeContext.Provider value={contextValue}>
       <div
-        className={cn('min-w-0 rounded-lg border bg-background font-sans text-[12.5px]', className)}
+        className={cn('min-w-0 rounded-lg border bg-background font-sans text-[0.78125rem]', className)}
         role="tree"
         {...props}
       >

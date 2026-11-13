@@ -330,7 +330,7 @@ export function McpAppResponseActivity({ response }: { response: McpAppResponseA
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="font-medium text-foreground">You responded through {displayName}</span>
           <time
-            className="font-mono text-[10px] text-muted-foreground"
+            className="font-mono text-[0.625rem] text-muted-foreground"
             dateTime={response.createdAt}
           >
             {new Date(response.createdAt).toLocaleTimeString([], {

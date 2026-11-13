@@ -250,7 +250,7 @@ function PickFrame({
         />
         <span className="min-w-0 truncate font-medium">{name}</span>
         {badge ? (
-          <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
+          <Badge className="shrink-0 px-1.5 py-0 text-[0.625rem]" variant="outline">
             {badge}
           </Badge>
         ) : null}

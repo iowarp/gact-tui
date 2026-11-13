@@ -193,7 +193,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
           className="relative rounded-md bg-[color:color-mix(in_oklab,var(--warning)_9%,transparent)]"
           role="group"
         >
-          <span className="absolute top-1 right-2 text-[10.5px] text-muted-foreground">stderr</span>
+          <span className="absolute top-1 right-2 text-[0.65625rem] text-muted-foreground">stderr</span>
           <pre className={cn(TEXT_BLOCK, 'pr-14')}>{output.text}</pre>
         </div>
       ) : (
