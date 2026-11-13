@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { decodeMcpAppReopen, savedMcpAppCalls } from './mcp-app-reopen.js';
+import {
+  MCP_APP_RETRYABLE_REOPEN_REASONS,
+  decodeMcpAppReopen,
+  savedMcpAppCalls,
+} from './mcp-app-reopen.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
@@ -75,6 +79,11 @@ describe('MCP App reopening', () => {
     expect(
       decodeMcpAppReopen({ error: { reason: 'no_saved_call', detail: 'x' }, saved_call: null }),
     ).toMatchObject({ ok: false, savedCall: null });
+  });
+
+  it('lets a call cancelled when its request went away be tried again', () => {
+    expect(MCP_APP_RETRYABLE_REOPEN_REASONS.has('call_cancelled')).toBe(true);
+    expect(MCP_APP_RETRYABLE_REOPEN_REASONS.has('no_saved_call')).toBe(false);
   });
 
   it('reads saved calls from session metadata and skips malformed rows', () => {
