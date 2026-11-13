@@ -5,7 +5,11 @@ import { useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { useConnectors, useInvalidateConnectors } from '@/hooks/use-connectors';
+import {
+  useConnectorChanges,
+  useConnectors,
+  useInvalidateConnectors,
+} from '@/hooks/use-connectors';
 import { useRepository } from '@/hooks/use-repository';
 import { useWindowContentHeight } from '@/hooks/use-window-content-height';
 import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
@@ -119,6 +123,7 @@ function ExtensionLibraryContents({
   const installed = marketplaces.data ?? [];
   const services = saved.data ?? [];
   const connectors = connectorList.data ?? [];
+  const connectorChanges = useConnectorChanges();
   const serverRows = servers.data ?? [];
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const hasLocalItems = Boolean(
@@ -140,6 +145,7 @@ function ExtensionLibraryContents({
     saved: services,
     servers: serverRows,
     connectors,
+    changes: connectorChanges,
     term,
   });
   const nothingInstalled =

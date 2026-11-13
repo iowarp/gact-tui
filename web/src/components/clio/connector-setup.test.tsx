@@ -32,6 +32,8 @@ import { monogramInitials } from '@/lib/monogram';
 import { draftValues, unfilledRequired } from '@/lib/connector-draft';
 import { ConnectorPane } from './connector-pane';
 import { ClioPendingInteractions } from './pending-interactions';
+import { questionInteractionsForTool, splitWaitingQuestion } from './agent-answer-domain';
+import { ConversationInteractionActivity } from './conversation-interaction-activity';
 
 const connector = (value: Partial<Record<string, unknown>> = {}): Connector =>
   connectorSchema.parse({
@@ -206,6 +208,67 @@ describe('the setup card in Extensions', () => {
     expect((screen.getByLabelText('Server address') as HTMLInputElement).value).toBe('node08');
     expect(screen.getByText(/The agent can set this/u)).toBeTruthy();
   });
+
+  it('ends help without a full stop with one before "The agent can set this."', () => {
+    const helped = connector({
+      needs: [
+        {
+          key: 'address',
+          kind: 'address',
+          label: 'Server address',
+          help: 'For example http://127.0.0.1:19101/mcp',
+          agent_settable: true,
+        },
+      ],
+    });
+    renderWith(
+      <ConnectorPane connector={helped} onClose={() => undefined} onSignIn={() => undefined} />,
+    );
+    expect(
+      screen.getByText('For example http://127.0.0.1:19101/mcp. The agent can set this.'),
+    ).toBeTruthy();
+  });
+
+  it('says "Starting…" in words while Enable runs, then the settled state (CN3)', async () => {
+    const user = userEvent.setup();
+    const off = connector({ enabled: false, scope: null });
+    let finish: (value: Connector) => void = () => undefined;
+    repository.enableConnector.mockImplementation(
+      () => new Promise<Connector>((resolve) => (finish = resolve)),
+    );
+    renderWith(
+      <ConnectorPane connector={off} onClose={() => undefined} onSignIn={() => undefined} />,
+    );
+    const card = screen.getByRole('complementary', { name: 'Fixture address' });
+    expect(within(card).getAllByText('Not enabled').length).toBeGreaterThan(0);
+    await user.click(within(card).getByRole('button', { name: 'Enable' }));
+    // The state and the button both say it is starting; nothing reads "Not enabled".
+    await waitFor(() =>
+      expect(within(card).getByRole('button', { name: 'Starting…' })).toBeTruthy(),
+    );
+    expect(within(card).getAllByText('Starting…').length).toBeGreaterThanOrEqual(2);
+    expect(within(card).queryByText('Not enabled')).toBeNull();
+    expect(
+      (within(card).getByRole('button', { name: 'Starting…' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    finish(connector());
+    await waitFor(() => expect(within(card).queryByText('Starting…')).toBeNull());
+  });
+});
+
+describe('a connector row while it starts', () => {
+  it('reads "Starting…" in the Extensions list', () => {
+    const [row] = extensionEntries({
+      type: 'mcp',
+      plugins: [],
+      marketplaces: [],
+      saved: [],
+      servers: [],
+      connectors: [connector({ enabled: false, scope: null })],
+      changes: new Map([['fixture-address', 'starting' as const]]),
+    });
+    expect(row?.status).toEqual({ tone: 'running', label: 'Starting…' });
+  });
 });
 
 describe('the setup card in the conversation', () => {
@@ -256,5 +319,41 @@ describe('the setup card in the conversation', () => {
     const onResponse = renderDock();
     await user.click(await screen.findByRole('button', { name: /Decline/u }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'decline' });
+  });
+
+  it('puts its line under the call it holds: "Set up …", waiting for you, then the outcome', () => {
+    const linked: PendingInteraction = {
+      ...interaction,
+      source: { ...interaction.source, invocation_id: 'call_1' },
+    };
+    const { waiting, rest } = splitWaitingQuestion(
+      questionInteractionsForTool([linked], 'call_1'),
+      'fixture-address__echo',
+    );
+    // Not folded into the call's row: the card keeps its own line (CN5).
+    expect(waiting).toBeUndefined();
+    expect(rest).toEqual([linked]);
+    expect(questionInteractionsForTool([linked], 'call_2')).toEqual([]);
+    const { rerender } = renderWith(
+      <ConversationInteractionActivity artifacts={{}} interaction={rest[0]!} />,
+    );
+    const line = document.querySelector('[data-slot="connector-setup-activity"]');
+    expect(line?.textContent).toContain('Set up fixture-address');
+    expect(screen.getByRole('button', { name: /Set up below/u }).textContent).toBe(
+      'waiting for you',
+    );
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <TooltipProvider>
+          <ConversationInteractionActivity
+            artifacts={{}}
+            interaction={{ ...linked, status: 'denied' }}
+          />
+        </TooltipProvider>
+      </QueryClientProvider>,
+    );
+    expect(document.querySelector('[data-slot="connector-setup-activity"]')?.textContent).toContain(
+      'declined',
+    );
   });
 });

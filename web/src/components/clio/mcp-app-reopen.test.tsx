@@ -14,6 +14,7 @@ import {
 } from './mcp-app-live-set';
 import { McpAppReopenableCard, McpAppReopenLine, McpAppRestoringTab } from './mcp-app-reopen';
 import { formatArguments, setReopenedMcpApp } from './mcp-app-reopen-store';
+import { useMcpAppTabSync } from './mcp-app-tab-sync';
 
 const restoringRepository = vi.hoisted(() => ({ current: undefined as unknown }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => restoringRepository.current }));
@@ -211,6 +212,36 @@ describe('McpAppReopenableCard', () => {
     window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
   });
 
+  it('reopens an older card into its tab, so only the latest App lives inline (MA5)', async () => {
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'app_9' } });
+    const opened = vi.fn();
+    window.addEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+    // Saved inline, but its card is not the conversation's latest.
+    const repo = repository([fresh]);
+    const { container } = render(
+      <TooltipProvider>
+        <McpAppReopenableCard
+          block={block}
+          repository={repo as unknown as ClioRepository}
+          sessionId="sess_1"
+        />
+      </TooltipProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+
+    await waitFor(() => expect(opened).toHaveBeenCalledTimes(1));
+    expect(useMcpAppLiveSetStore.getState().apps.app_2?.placement).toBe('tab');
+    expect(repo.setMcpAppDisplayMode).toHaveBeenCalledWith(
+      { sessionId: 'sess_1', appInstanceId: 'app_2', dataRef: 'ref_2' },
+      'fullscreen',
+    );
+    // No second inline frame: the card shows the in-tab row, not the view.
+    expect(container.querySelector('[data-mcp-app="app_2"] iframe')).toBeNull();
+    expect(await screen.findByText('Open in a tab')).toBeTruthy();
+    window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+  });
+
   it('shows the reopen line for an older card the live set closed', () => {
     useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess_1: 'app_9' } });
     const repo = repository([]);
@@ -341,6 +372,49 @@ describe('McpAppRestoringTab', () => {
     ]);
     expect(useMcpAppLiveSetStore.getState().apps.app_2?.placement).toBe('tab');
     sizes.mockRestore();
+  });
+
+  it('stays open after a restart when its App is a transcript card, not a reopened one', () => {
+    // The workbench restored the tab of the transcript's latest App; the service lost it.
+    const repo = repository([]);
+    const closeTabs = vi.fn();
+    const tab = { ...target, id: 'mcp-app:app_1' as const, kind: 'mcp-app' as const };
+    renderHook(() => useMcpAppTabSync([tab], closeTabs));
+    const message = {
+      id: 'm1',
+      session_id: 'sess_1',
+      role: 'assistant' as const,
+      created_at: '2026-11-13T00:00:00Z',
+      blocks: [
+        {
+          id: 'app_1_part',
+          type: 'mcp_app' as const,
+          app_instance_id: 'app_1',
+          data_ref: 'ref_1',
+          resource_uri: 'ui://boards/view',
+          source_server: 'boards',
+          tool_name: 'boards_open_board',
+          mime_type: 'text/html;profile=mcp-app',
+        },
+      ],
+    };
+    // The transcript loads after the workbench mounted.
+    renderHook(() => useMcpAppLiveSet('sess_1', [message] as never, repo));
+
+    expect(closeTabs).not.toHaveBeenCalled();
+    expect(useMcpAppLiveSetStore.getState().apps.app_1?.placement).toBe('tab');
+    // The card shows the in-tab row; it does not ask the service and end the view.
+    render(
+      <TooltipProvider>
+        <McpAppReopenableCard
+          block={message.blocks[0]!}
+          repository={repo as unknown as ClioRepository}
+          sessionId="sess_1"
+        />
+      </TooltipProvider>,
+    );
+    expect(repo.mcpAppLive).not.toHaveBeenCalled();
+    expect(useMcpAppLiveSetStore.getState().apps.app_1?.gone).toBeUndefined();
   });
 
   it('keeps a failed replay in the tab with the reason and Retry', async () => {
