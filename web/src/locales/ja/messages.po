@@ -300,6 +300,11 @@ msgstr "{0, plural, one {#個のフラグメントが{1, plural, one {#個のセ
 msgid "{0, plural, one {# fragment} other {# fragments}}"
 msgstr "{0, plural, one {#個のフラグメント} other {#個のフラグメント}}"
 
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# hour} other {# hours}}"
+msgstr "{0, plural, other {#時間}}"
+
 #. placeholder {0}: images.length
 #. placeholder {0}: reading.images.length
 #: src/components/clio/script-run-body.tsx
@@ -655,6 +660,11 @@ msgstr "{0, plural, one {ワークスペースのリソースが#件見つかり
 #: src/components/clio/stream-artifact-view.tsx
 msgid "{0, plural, one {# write; keeps the newest {window}.} other {# writes; keeps the newest {window}.}}"
 msgstr "{0, plural, one {#回の書き込み。最新の{window}を保持します。} other {#回の書き込み。最新の{window}を保持します。}}"
+
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# year} other {# years}}"
+msgstr "{0, plural, other {#年}}"
 
 #. placeholder {0}: preview.rows.length
 #: src/components/clio/csv-view.tsx
@@ -1479,6 +1489,10 @@ msgstr "{count, plural, one {#件のコメント} other {#件のコメント}}"
 msgid "{count, plural, one {# dataset} other {# datasets}}"
 msgstr "{count, plural, one {#件のデータセット} other {#件のデータセット}}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# day} other {# days}}"
+msgstr "{count, plural, other {#日}}"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# entry} other {# entries}}"
 msgstr "{count, plural, one {#件のエントリー} other {#件のエントリー}}"
@@ -1535,6 +1549,10 @@ msgstr "{count, plural, one {#人のメンバー} other {#人のメンバー}}"
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "{count, plural, one {# message} other {# messages}}"
 msgstr "{count, plural, one {#件のメッセージ} other {#件のメッセージ}}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# minute} other {# minutes}}"
+msgstr "{count, plural, other {#分}}"
 
 #: src/components/clio/settings-usage.tsx
 msgid "{count, plural, one {# older conversation is counted under the model it was set to: they predate per-model usage.} other {# older conversations are counted under the model they were set to: they predate per-model usage.}}"
@@ -4264,6 +4282,10 @@ msgstr "スクリプト"
 msgid "A script, {caller}"
 msgstr "スクリプト（{caller}）"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "A separate browser"
+msgstr "別のブラウザー"
+
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
 msgstr "「{trimmed}」という名前のサービスは既に存在します。"
@@ -5268,6 +5290,10 @@ msgstr "検索と読み取りが続いた後、Exploreが検索を引き継げ�
 msgid "After a tool runs"
 msgstr "ツールの実行後"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "After each completed turn"
+msgstr "各ターンの完了後"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "After existing rules"
 msgstr "既存のルールの後"
@@ -5590,6 +5616,10 @@ msgstr "設定のすべて"
 #: src/components/clio/settings-usage.tsx
 msgid "All models"
 msgstr "すべてのモデル"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "All new and updated memories"
+msgstr "新規および更新されたすべてのメモリー"
 
 #: src/components/clio/ndp-organization-filter.tsx
 msgid "All organizations"
@@ -6091,6 +6121,10 @@ msgstr "APIサインイン"
 msgid "API URL"
 msgstr "API URL"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "API version"
+msgstr "API バージョン"
+
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -6121,9 +6155,73 @@ msgstr "アプリケーション"
 msgid "applied, {lines}, {removed} removed"
 msgstr "適用済み、{lines}、{removed}行削除"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at once: open pages close, and the next page opens in the chosen browser."
+msgstr "すぐに適用されます。開いているページは閉じ、次のページは選択したブラウザーで開きます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next background pass."
+msgstr "次回のバックグラウンド処理で適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next idle check."
+msgstr "次回のアイドル確認で適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies immediately to inference admission. Active model calls finish; waiting calls use the new limit."
+msgstr "推論の受け付けにすぐ適用されます。実行中のモデル呼び出しはそのまま完了し、待機中の呼び出しには新しい上限が使われます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next background scheduler pass."
+msgstr "次回のバックグラウンドスケジューラーの実行時に適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next scheduler pass, normally checked once a minute."
+msgstr "次回のスケジューラーの実行時に適用されます。通常は 1 分に 1 回確認されます。"
+
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Applies to"
 msgstr "適用対象"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to edits proposed from now on."
+msgstr "今後提案される編集に適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to forks made from now on."
+msgstr "今後作成されるフォークに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to new subagents immediately. Existing descendants remain visible."
+msgstr "新しいサブエージェントにすぐ適用されます。既存の子孫は引き続き表示されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to proposals made after the change."
+msgstr "変更後に作成される提案に適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions that start after the change."
+msgstr "変更後に開始するセッションに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions without their own compaction threshold."
+msgstr "独自の圧縮しきい値がないセッションに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to steps proposed from now on."
+msgstr "今後提案されるステップに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to subsequent model requests."
+msgstr "以降のモデルへのリクエストに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to upcoming session-recall requests."
+msgstr "今後のセッション想起リクエストに適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies when subsequent responses are saved."
+msgstr "以降の応答が保存されるときに適用されます。"
 
 #: src/components/clio/date-time-field.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -6134,6 +6232,10 @@ msgstr "適用"
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "Apply {label} configuration?"
 msgstr "{label}の構成を適用しますか？"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Apply background changes without review"
+msgstr "バックグラウンドの変更を確認なしで適用"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Apply configuration"
@@ -6778,6 +6880,7 @@ msgid "Automatic compaction"
 msgstr "自動圧縮"
 
 #: src/components/clio/context-compaction-controls.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Automatic compaction threshold"
 msgstr "自動圧縮のしきい値"
 
@@ -6853,6 +6956,18 @@ msgstr "承認待ち"
 #: src/components/clio/flow-run-edits.ts
 msgid "awaiting your approval"
 msgstr "承認待ち"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS profile"
+msgstr "AWS プロファイル"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS region"
+msgstr "AWS リージョン"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Azure OpenAI API version."
+msgstr "Azure OpenAI の API バージョン。"
 
 #: src/components/clio/clio-menu.tsx
 msgctxt "menu key hint"
@@ -7364,6 +7479,7 @@ msgstr "参照…"
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
 #: src/components/clio/workbench-open-request.ts
@@ -7482,6 +7598,10 @@ msgstr "同梱"
 #: src/components/clio/provider-component-status.tsx
 msgid "Bundled {name}"
 msgstr "同梱の{name}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Bundled Chromium"
+msgstr "同梱の Chromium"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "by {by}"
@@ -8982,6 +9102,10 @@ msgstr "サービスを実行する場所を選択してください。{agent}�
 msgid "Choose whether to connect to the running {agent} or replace it."
 msgstr "実行中の{agent}に接続するか、置き換えるかを選んでください。"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Choose which new and updated memories save automatically. Retirement needs review."
+msgstr "自動で保存する新規・更新メモリーを選びます。廃止には確認が必要です。"
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -9799,6 +9923,10 @@ msgstr "コンピューター"
 msgid "Conclusion"
 msgstr "結論"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Concurrent subagents"
+msgstr "同時実行サブエージェント"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Conditions"
 msgstr "条件"
@@ -10378,6 +10506,10 @@ msgstr "コンテキストを圧縮できませんでした"
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "コンテキストフレームを利用できません"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
+msgstr "{agent} が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
 
 #: src/components/clio/context-control.tsx
 msgid "Context length"
@@ -11655,8 +11787,13 @@ msgid "Create GitHub repository"
 msgstr "GitHubリポジトリを作成"
 
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Create memories"
 msgstr "メモリーを作成"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Create memories from conversations"
+msgstr "会話からメモリーを作成"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Create organization"
@@ -12107,6 +12244,10 @@ msgstr "デフォルトモデル"
 #: src/components/clio/settings-about.tsx
 msgid "default ref"
 msgstr "デフォルトのref"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Default tool timeout"
+msgstr "ツールの既定のタイムアウト"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Default: {defaultBranch}"
@@ -13355,6 +13496,10 @@ msgstr "最後のフィルターを外す"
 msgid "Drop them anywhere in this window, or choose files from your device."
 msgstr "このウィンドウ内のどこにでもドロップするか、デバイスからファイルを選択してください。"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Drop tokens less likely than this fraction of the most likely one."
+msgstr "最も可能性の高いトークンに対してこの割合より可能性が低いトークンを除外します。"
+
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
 msgstr "ルールを複製"
@@ -13563,6 +13708,10 @@ msgstr "外部で編集"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "editing files"
 msgstr "ファイルを編集中"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Editing rounds"
+msgstr "編集ラウンド数"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Editor"
@@ -14121,6 +14270,7 @@ msgid "Execute plan"
 msgstr "プランを実行"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "実行"
 
@@ -14410,6 +14560,10 @@ msgstr "事実"
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "すべてのワークスペースで使用できる、あなたに関する事実。このスイッチは{workspaceName}に適用されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Facts I state directly"
+msgstr "自分で直接伝えた事実"
 
 #: src/components/clio/memory-inbox.tsx
 msgid "Facts to apply, one per line"
@@ -15403,6 +15557,10 @@ msgstr "新しい会話に分岐しました"
 msgid "Forking into a new conversation"
 msgstr "新しい会話にフォーク中"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Forks per task"
+msgstr "タスクあたりのフォーク数"
+
 #: src/components/clio/agent-answer-domain.ts
 msgid "Form request"
 msgstr "フォームのリクエスト"
@@ -15902,6 +16060,14 @@ msgstr "目標"
 msgid "Good response"
 msgstr "良い応答"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud location"
+msgstr "Google Cloud のロケーション"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud project"
+msgstr "Google Cloud プロジェクト"
+
 #: src/components/clio/source-fields.tsx
 msgid "Google Drive folder link"
 msgstr "Google Driveフォルダーのリンク"
@@ -16209,6 +16375,10 @@ msgstr "優先度の高いものが優先されます。同じ場合は、より
 msgid "Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid set leaves every saved rule unchanged."
 msgstr "優先度が高いルールが優先されます。同じ場合はより厳しいルールが優先されます。ルールはまとめて保存されます。無効なセットがあると、保存済みのルールはすべて変更されません。"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Higher values make replies more varied; lower values more focused."
+msgstr "値を大きくすると応答が多様になり、小さくすると焦点が絞られます。"
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr "スコアの高い出力トークン ({total}個中{shown}個を表示)"
@@ -16356,9 +16526,21 @@ msgstr "期間"
 msgid "How long ago the model was released"
 msgstr "モデルがリリースされてからの期間"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "How many levels of subagents may be created. The first child is level 1."
+msgstr "作成できるサブエージェントの階層数です。最初の子がレベル 1 です。"
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many replies the server works on at the same time."
+msgstr "サーバーが同時に処理する応答の数です。"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "How many searches and reads in a row before the suggestion, from 2 to 20."
 msgstr "提案するまでに連続して行う検索と読み取りの回数(2〜20)。"
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many tokens the model can read at once on this server."
+msgstr "このサーバーでモデルが一度に読み取れるトークン数です。"
 
 #: src/components/clio/settings-working-context.tsx
 msgid "How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn. Max: {reason}."
@@ -16873,6 +17055,10 @@ msgstr "プレリリースを含めます。ベータ版は不安定な場合が
 msgid "Include quality-flagged stations"
 msgstr "品質フラグ付きの観測点を含める"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Include sensitive topics"
+msgstr "センシティブな話題を含める"
+
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
 msgstr "不明なコンテキストを含める"
@@ -17336,6 +17522,14 @@ msgstr "インストール済みの{name}"
 #: src/components/clio/settings-agents.tsx
 msgid "Installed agents"
 msgstr "インストール済みのエージェント"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Google Chrome"
+msgstr "インストール済みの Google Chrome"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Microsoft Edge"
+msgstr "インストール済みの Microsoft Edge"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17857,6 +18051,10 @@ msgstr "{product}を実行したままにしますか？"
 msgid "Keep {workspace}"
 msgstr "{workspace}を残す"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."
+msgstr "会話の保存とは別にトランスクリプトファイルを保持します。既存のファイルは残ります。"
+
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
 msgid "Keep asking"
@@ -17886,6 +18084,10 @@ msgstr "保持する"
 #: src/components/clio/model-inventory-row.tsx
 msgid "Keep model"
 msgstr "モデルを保持"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep reasoning supplied by the provider with the saved response, when available."
+msgstr "プロバイダーが提供する推論を、利用できる場合は保存した応答と一緒に保持します。"
 
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Keep resource"
@@ -18173,6 +18375,10 @@ msgstr "長さ"
 #: src/components/clio/session-behavior-options.ts
 msgid "Let AI review each action."
 msgstr "各アクションをAIにレビューさせます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Let background memory keep facts about health, finances, beliefs and similar matters."
+msgstr "健康、お金、信条などに関する事実をバックグラウンドのメモリーに保持させます。"
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Let running conversations finish"
@@ -19666,9 +19872,25 @@ msgstr "キャンバスを最大化"
 msgid "Maximize or restore"
 msgstr "最大化または元に戻す"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum nesting depth"
+msgstr "最大ネスト深度"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum reserved or in-flight child model calls at each nesting level. Tools and waits release permits. Agent-specific inference limits may be lower."
+msgstr "各ネストレベルで予約中または実行中にできる子のモデル呼び出しの最大数です。ツールと待機は許可を解放します。エージェントごとの推論上限はこれより低い場合があります。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum time for a model request. Provider limits may end a request sooner."
+msgstr "モデルへのリクエストの最大時間です。プロバイダーの制限でそれより早く終了する場合があります。"
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "Maximum token"
 msgstr "最大トークン"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum wait between pieces of a streamed response."
+msgstr "ストリーミング応答の断片間の最大待ち時間です。"
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
@@ -19814,10 +20036,15 @@ msgstr "メモリーを読み込めませんでした。"
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/tool-result-resource-memory.tsx
 #: src/lib/tool-domain-labels.ts
 msgid "Memory"
 msgstr "メモリー"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Memory & history"
+msgstr "メモリーと履歴"
 
 #: src/components/clio/settings-memory.tsx
 #: src/lib/application-destinations.ts
@@ -20188,6 +20415,14 @@ msgstr "新しい作業用のモデル。サービスのデフォルトでもあ
 msgid "Model providers"
 msgstr "モデルプロバイダー"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model request timeout"
+msgstr "モデルリクエストのタイムアウト"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model retries"
+msgstr "モデルの再試行回数"
+
 #: src/components/clio/model-download-search.tsx
 msgid "Model search results"
 msgstr "モデルの検索結果"
@@ -20431,6 +20666,18 @@ msgstr "その他の接続方法…"
 #: src/components/clio/provider-login-button.tsx
 msgid "More ways to log in"
 msgstr "その他のログイン方法"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most copies an agent may make of itself to try another direction, per task. Inside a workflow a fork counts as an added step instead."
+msgstr "エージェントが別の方向を試すために作成できる自身のコピーの最大数(タスクごと)です。ワークフロー内では、フォークは追加ステップとして数えられます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most rounds of edits in one workflow run. A workflow may ask for fewer."
+msgstr "1 回のワークフロー実行での編集ラウンドの最大数です。ワークフロー側でより少なく指定できます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
+msgstr "ワークフローの編集者が 1 回の実行に追加できるステップの最大数です。ワークフロー側でより少なく指定できます。"
 
 #: src/components/clio/settings-appearance.tsx
 #: src/lib/settings-search-rows.ts
@@ -20811,6 +21058,10 @@ msgstr "ニュートラル"
 #: src/widget-gallery-demos.ts
 msgid "Nevada"
 msgstr "Nevada"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Never"
+msgstr "しない"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "New {workspace}"
@@ -22879,6 +23130,7 @@ msgstr "Obsidian Syncの保管庫"
 #: src/components/clio/managed-service-form.tsx
 #: src/components/clio/settings-notifications.tsx
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/reasoning-levels.ts
 msgid "Off"
 msgstr "オフ"
@@ -22951,6 +23203,7 @@ msgid "Ollama (this computer)"
 msgstr "Ollama（このコンピューター）"
 
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "On"
 msgstr "オン"
 
@@ -23829,6 +24082,10 @@ msgstr "任意"
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "任意"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Optional shared AWS profile name."
+msgstr "共有 AWS プロファイル名(省略可)。"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -24929,6 +25186,14 @@ msgstr "このホスト上のポート{port}"
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "ポートとストレージには、このコンピューターのデフォルトが使用されます。変更するには詳細設定を開いてください。"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values make the model repeat the same words less."
+msgstr "正の値にすると、モデルが同じ言葉を繰り返しにくくなります。"
+
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values push the model toward new topics."
+msgstr "正の値にすると、モデルが新しい話題に向かいやすくなります。"
+
 #: src/components/clio/document-workspace.tsx
 msgid "PowerPoint deck"
 msgstr "PowerPointプレゼンテーション"
@@ -25301,6 +25566,10 @@ msgstr "製品のウェブサイト"
 msgid "Profile"
 msgstr "プロフィール"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Profile and preferences are always kept. Other retirement proposals need review."
+msgstr "プロフィールと好みは常に保持されます。その他の廃止の提案には確認が必要です。"
+
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
 msgstr "プロフィールを保存しました"
@@ -25321,6 +25590,10 @@ msgstr "このウィンドウを閉じても処理は続行されます"
 #: src/components/clio/model-acquisition.tsx
 msgid "Progress continues if you close this window."
 msgstr "このウィンドウを閉じても処理は続行されます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Project containing the model."
+msgstr "モデルを含むプロジェクト。"
 
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/memory-import-dialog.tsx
@@ -26389,6 +26662,10 @@ msgctxt "verb: tool action"
 msgid "Recall"
 msgstr "想起"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Recall earlier messages, separate from saved memories. Retrieved text can add model usage; no background jobs."
+msgstr "保存済みのメモリーとは別に、以前のメッセージを想起します。取得したテキストでモデル使用量が増えることがあります。バックグラウンドジョブはありません。"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "received a task notice"
 msgstr "タスクの通知を受信しました"
@@ -26809,6 +27086,10 @@ msgstr "領域"
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region (% of view)"
 msgstr "領域（ビューに対する %）"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Region containing the model."
+msgstr "モデルを含むリージョン。"
 
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region height percent"
@@ -28040,6 +28321,18 @@ msgstr "再起動を要求しました"
 msgid "Restart subagent"
 msgstr "サブエージェントを再開始"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service for this change to take effect."
+msgstr "変更を反映するには、接続中の {agent} サービスを再起動してください。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing model clients."
+msgstr "既存のモデルクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing tool clients."
+msgstr "既存のツールクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Restart the shell"
 msgstr "シェルを再起動"
@@ -28229,6 +28522,10 @@ msgstr "保持トークン"
 #: src/components/clio/memory-inbox.tsx
 msgid "Retire"
 msgstr "廃止"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Retries a temporary provider failure before any response has streamed."
+msgstr "応答のストリーミングが始まる前に、プロバイダーの一時的な失敗を再試行します。"
 
 #: src/components/clio/resource-processing-presentation.ts
 msgid "Retrieval"
@@ -28497,6 +28794,10 @@ msgstr "公開前に確認"
 msgid "Review below"
 msgstr "下で確認してください"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review every change"
+msgstr "すべての変更を確認"
+
 #: src/lib/pending-interaction-contract.ts
 msgid "Review execution plan"
 msgstr "実行計画を確認"
@@ -28540,6 +28841,10 @@ msgstr "データを確認"
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Review the technical details before using work that depends on this service."
 msgstr "このサービスに依存する作業を使う前に、技術的な詳細を確認してください。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review unused memories after"
+msgstr "未使用メモリーの確認までの期間"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Reviewing"
@@ -28789,6 +29094,10 @@ msgstr "実行中"
 msgid "Running"
 msgstr "実行中"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Running browser to connect to"
+msgstr "接続する実行中のブラウザー"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "running commands"
 msgstr "コマンドを実行中"
@@ -28875,6 +29184,10 @@ msgstr "{target}を実行、{by}が提案"
 #: src/lib/mcp-service-presentation.ts
 msgid "Runs a command inside the workspace’s permitted folders."
 msgstr "ワークスペースの許可されたフォルダー内でコマンドを実行します。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Runs after a completed turn or idle delay, at the next background check."
+msgstr "ターンの完了後またはアイドル時間の経過後、次回のバックグラウンド確認で実行されます。"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Runs as"
@@ -29019,6 +29332,14 @@ msgstr "サンプリング時間（秒）"
 msgid "Sample limits"
 msgstr "サンプリングの上限"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from the most likely tokens whose probabilities add up to this."
+msgstr "確率の合計がこの値になるまでの、最も可能性の高いトークンだけからサンプリングします。"
+
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from this many of the most likely tokens (0 turns it off)."
+msgstr "最も可能性の高いこの数のトークンだけからサンプリングします(0 でオフ)。"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Sample size"
 msgstr "サンプルサイズ"
@@ -29160,6 +29481,10 @@ msgstr "場所を保存"
 msgid "Save memory"
 msgstr "メモリーを保存"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save model reasoning"
+msgstr "モデルの推論を保存"
+
 #: src/components/clio/resource-dialogs.tsx
 msgid "Save name"
 msgstr "名前を保存"
@@ -29199,6 +29524,10 @@ msgstr "ライブコンテキストでレンダリングする前に、この新
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Save to private marketplace"
 msgstr "プライベートマーケットプレイスに保存"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save transcript files"
+msgstr "トランスクリプトファイルを保存"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Save typed settings"
@@ -30498,6 +30827,10 @@ msgstr "インジェクションとしてエージェントに送信しました
 msgid "Sent to the agent as an instruction. Its system prompt updates at the next compaction."
 msgstr "指示としてエージェントに送信されました。システムプロンプトは次回の圧縮時に更新されます。"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Separate browser"
+msgstr "別のブラウザー"
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "値をカンマで区切ってください"
@@ -30776,6 +31109,10 @@ msgstr "セッションとツールはここで実行されます。"
 #: src/components/clio/settings-schedules.tsx
 msgid "Sessions could not be loaded"
 msgstr "セッションを読み込めませんでした"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Set by the connected service's workspace configuration."
+msgstr "接続中のサービスのワークスペース構成で設定されています。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
@@ -31127,6 +31464,7 @@ msgid "Show details"
 msgstr "詳細を表示"
 
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "拡散を表示"
@@ -32636,6 +32974,10 @@ msgstr "ステップ"
 msgid "Steps ({count})"
 msgstr "ステップ（{count}）"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Steps editors may add"
+msgstr "編集者が追加できるステップ数"
+
 #: src/components/clio/plugin-flow-shape.tsx
 msgid "Steps of {label}"
 msgstr "{label}のステップ"
@@ -32906,6 +33248,10 @@ msgstr "ストリーム"
 msgid "Stream {name}"
 msgstr "ストリーム{name}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
+msgstr "拡散モデル(Mercury など)のノイズ除去の各ステップをその場でストリーミング表示します。保存されるのは最終回答だけです。"
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "stream gap"
@@ -32914,6 +33260,10 @@ msgstr "ストリーム欠落"
 #: src/components/clio/status.tsx
 msgid "Stream gap"
 msgstr "ストリームの欠落"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream idle timeout"
+msgstr "ストリームのアイドルタイムアウト"
 
 #: src/components/clio/ndp-capture-result.tsx
 msgid "Stream reader ready. Checkpoint saved."
@@ -33070,6 +33420,7 @@ msgstr "サブエージェントのターンが終了しました"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "Subagents"
 msgstr "サブエージェント"
@@ -33897,6 +34248,10 @@ msgstr "ブラウザーが新しいタブをブロックしました。"
 msgid "The browser blocked this link. It has not been accepted."
 msgstr "ブラウザーがこのリンクをブロックしました。承諾されていません。"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
+msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中の Chrome または Edge にはあなたのサインイン情報があります。"
+
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
 msgstr "呼び出しの記録を利用できません：{message}"
@@ -34473,6 +34828,10 @@ msgstr "最新の変換が失敗したため、この構造はその前の実行
 msgid "The most recent conversion was cancelled, so this structure is from the run before it."
 msgstr "最新の変換がキャンセルされたため、この構造はその前の実行によるものです。"
 
+#: src/components/clio/settings-models-form.ts
+msgid "The most tokens one reply may use."
+msgstr "1 回の応答で使えるトークンの最大数です。"
+
 #: src/components/clio/known-service-actions.tsx
 msgid "The name shown for this service on this device."
 msgstr "このデバイスでこのサービスに表示される名前。"
@@ -34795,6 +35154,10 @@ msgstr "実行は停止されました"
 #: src/tauri/desktop-updater.ts
 msgid "The runtime is {runtime}. Restore the app and runtime to the same release."
 msgstr "ランタイムは{runtime}です。アプリとランタイムを同じリリースに復元してください。"
+
+#: src/components/clio/settings-models-form.ts
+msgid "The same seed and settings repeat the same reply where the server supports it."
+msgstr "サーバーが対応していれば、同じシードと設定で同じ応答が再現されます。"
 
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "The sample catalog did not load."
@@ -36869,6 +37232,10 @@ msgstr "「トランスクリプト」には記録された作業が含まれま
 msgid "Transcript content in this call"
 msgstr "この呼び出しに含まれるトランスクリプトの内容"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Transcript files are required while this service uses in-memory conversation history."
+msgstr "このサービスが会話履歴をメモリー内で保持している間は、トランスクリプトファイルが必要です。"
+
 #: src/components/clio/session-export-menu.tsx
 msgid "Transcript is always included"
 msgstr "トランスクリプトは常に含まれます"
@@ -38053,6 +38420,10 @@ msgstr "2 MiB未満のZIPを使うか、そのリポジトリを追加してく�
 msgid "Use account memory"
 msgstr "アカウントのメモリーを使用"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use conversation history"
+msgstr "会話履歴を使用"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Use conversation model"
 msgstr "会話のモデルを使用"
@@ -38086,6 +38457,10 @@ msgstr "英字または数字を使用してください。"
 msgid "Use local {agent}"
 msgstr "ローカルの{agent}を使用"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use memory"
+msgstr "メモリーを使用"
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Use mine"
 msgstr "自分のものを使用"
@@ -38109,6 +38484,10 @@ msgstr "スペース、カンマ、引用符、#を含まない、OpenSSHの接�
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Use Reprocess in Derivatives when a document processor is available."
 msgstr "ドキュメントプロセッサーが利用可能になったら、派生物の「再処理」を使用してください。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use saved facts and preferences in later conversations. Turning this off keeps existing memories."
+msgstr "保存した事実と好みを以降の会話で使います。オフにしても既存のメモリーは残ります。"
 
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
@@ -38227,6 +38606,18 @@ msgstr "これまでの使用量"
 msgid "used tools"
 msgstr "ツールを使用しました"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used when a tool call has no explicit timeout. A tool can declare its own budget."
+msgstr "ツール呼び出しに明示的なタイムアウトがない場合に使われます。ツールは独自の時間枠を宣言できます。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
+msgstr "別のブラウザーで使用します。初回使用時にダウンロードされる同梱の Chromium、またはそのコンピューターにインストールされた Chrome か Edge を、専用のプロファイルで使います。"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
+msgstr "実行中の Chrome または Edge で使用します。そのコンピューター上のものなら {page} でリモートデバッグをオンにした後(Chrome 144 以降)に {chrome} または {edge}、もしくは {address} のような DevTools アドレスを指定します。"
+
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-family-navigation.ts
 #: src/components/clio/conversation-relationships.tsx
@@ -38248,6 +38639,10 @@ msgstr "ユーザー名"
 #: src/components/clio/service-installation-method.tsx
 msgid "Uses a container runtime on this computer"
 msgstr "このコンピューター上のコンテナーランタイムを使用"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Uses background model calls, which count toward model usage. Models are set in Fleet."
+msgstr "バックグラウンドでのモデル呼び出しを使い、モデル使用量に含まれます。モデルはフリートで設定します。"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Uses it without asking."
@@ -38324,6 +38719,10 @@ msgstr "値{number}"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "Value. Mean: {MEAN_UNAVAILABLE}"
 msgstr "値。平均: {MEAN_UNAVAILABLE}"
+
+#: src/components/clio/settings-models-form.ts
+msgid "Values above 1 discourage repeating recent tokens; 1 turns it off."
+msgstr "1 より大きい値にすると直近のトークンを繰り返しにくくなります。1 でオフです。"
 
 #: src/gallery-skill-dialog.tsx
 msgid "Values: {values}"
@@ -38499,6 +38898,10 @@ msgstr "バージョン"
 #: src/components/clio/artifact-lineage-graph.tsx
 msgid "Versions of {name}"
 msgstr "{name}のバージョン"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Vertex region."
+msgstr "Vertex のリージョン。"
 
 #: src/widget-gallery-demos.ts
 msgid "Vertical displacement chart"
@@ -39166,6 +39569,10 @@ msgstr "このタブのサービスとモデルが実行される場所です。
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "このワークスペースの会話を開始する場所と、そのコマンドが変更できる他のフォルダー。色とアイコンはこのデバイスに保存されます。"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Which browser"
+msgstr "使用するブラウザー"
+
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"
 msgstr "離席中の出来事"
@@ -39364,6 +39771,7 @@ msgid "Workflow unavailable"
 msgstr "ワークフローを利用できません"
 
 #: src/components/clio/composer-references.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Workflows"
 msgstr "ワークフロー"
@@ -39920,6 +40328,10 @@ msgstr "あなたの回答が検証され、MCPに返されました"
 #: src/components/clio/settings-tool-detail.tsx
 msgid "Your rules"
 msgstr "あなたのルール"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Your running Chrome or Edge"
+msgstr "実行中の Chrome または Edge"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "Your service and saved work were not changed. Reload the workspace to reconnect and try the view again."
