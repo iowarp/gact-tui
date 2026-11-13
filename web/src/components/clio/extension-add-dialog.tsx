@@ -15,6 +15,7 @@ import type { SavedMcpService } from '@clio/core/v3';
 import { McpConnectionDialog } from './mcp-connection-dialog';
 import { SettingsRow } from './settings-row';
 import { t } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 export type ExtensionAdd = {
   kind: 'remote' | 'local' | 'import' | 'skill' | 'plugin' | 'upload';
@@ -370,7 +371,7 @@ function ExtensionSourceDialog({
             <span className="text-sm text-muted-foreground">
               {choice.category === 'skills'
                 ? t`A skill folder containing SKILL.md and its references.`
-                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}{' '}
+                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}{sentenceGap()}
               {t`Up to 128 UTF-8 files, 2 MiB uncompressed.`}
             </span>
           </div>

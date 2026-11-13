@@ -4,7 +4,7 @@ import type { ConversationIteration } from './conversation-turn-model';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { getToolStatus, isToolStopped } from './tool-presentation';
 import { plural, t } from '@lingui/core/macro';
-import { formatLocale } from '@/lib/locale-format';
+import { formatLocale, joinClauses } from '@/lib/locale-format';
 
 /** A list of lowercase activity phrases begins the row, so its first letter is a capital. */
 function sentenceStart(text: string): string {
@@ -150,7 +150,7 @@ export function transcriptRunSummary(
     updates ? received : '',
   ].filter(Boolean);
   if (!parts.length) parts.push(received);
-  const description = parts.join(', ');
+  const description = joinClauses(parts);
   const all = iterations.flatMap((item) => item.tools);
   return {
     label: sentenceStart(description),
