@@ -9339,6 +9339,7 @@ msgstr "{action}を折りたたむ"
 msgid "Collapse {group}"
 msgstr "{group}を折りたたむ"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "{label}を折りたたむ"
@@ -14219,6 +14220,7 @@ msgstr "{action}を展開"
 msgid "Expand {group}"
 msgstr "{group}を展開"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "{label}を展開"

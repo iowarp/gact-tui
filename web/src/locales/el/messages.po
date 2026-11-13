@@ -9339,6 +9339,7 @@ msgstr "Σύμπτυξη {action}"
 msgid "Collapse {group}"
 msgstr "Σύμπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Σύμπτυξη {label}"
@@ -14219,6 +14220,7 @@ msgstr "Ανάπτυξη {action}"
 msgid "Expand {group}"
 msgstr "Ανάπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Ανάπτυξη {label}"

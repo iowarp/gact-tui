@@ -248,7 +248,11 @@ function ActivityLaneView({
           data-run-summary=""
           disclosure={
             <ActivityDisclosure
-              label={`${runOpen ? 'Collapse' : 'Expand'} ${run.label}`}
+              label={
+                runOpen
+                  ? t`Collapse ${ph({ label: run.label })}`
+                  : t`Expand ${ph({ label: run.label })}`
+              }
               open={runOpen}
               onClick={() => setRunOpen(!runOpen)}
             />

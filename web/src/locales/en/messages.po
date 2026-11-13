@@ -9339,6 +9339,7 @@ msgstr "Collapse {action}"
 msgid "Collapse {group}"
 msgstr "Collapse {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Collapse {label}"
@@ -14219,6 +14220,7 @@ msgstr "Expand {action}"
 msgid "Expand {group}"
 msgstr "Expand {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Expand {label}"
