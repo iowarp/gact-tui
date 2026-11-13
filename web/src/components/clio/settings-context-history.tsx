@@ -252,6 +252,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           kind="empty"
           size="row"
           title={t`Session retention unavailable`}
+          wrapDetail
         />
       )}
       {compactionOffered ? <SettingsGroupLabel>{t`Compaction history`}</SettingsGroupLabel> : null}

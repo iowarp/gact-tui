@@ -115,6 +115,11 @@ export interface StateViewProps {
   /** Supplemental facts after the line: a size, an extension, a time. */
   detail?: string;
   /**
+   * A row's detail is a sentence, not a technical fact: it wraps whole under
+   * the title instead of truncating first.
+   */
+  wrapDetail?: boolean;
+  /**
    * `row` fits a 28px list row, `panel` a frame, `page` a whole view, and
    * `viewer` a file viewer's body under its frame bar: a quiet skeleton while
    * loading, otherwise a compact centered icon, line and up to two actions.
@@ -141,6 +146,7 @@ export const StateView = memo(function StateView({
   actions,
   link,
   detail,
+  wrapDetail = false,
   size = 'panel',
   icon,
   glyph,
@@ -222,6 +228,7 @@ export const StateView = memo(function StateView({
           className={cn(
             'flex min-w-0',
             row ? 'items-baseline gap-2' : 'max-w-full flex-col items-center gap-1',
+            row && wrapDetail && 'flex-wrap gap-y-0',
           )}
         >
           <span
@@ -238,12 +245,14 @@ export const StateView = memo(function StateView({
           </span>
           {detail ? (
             <span
-              title={row ? detail : undefined}
+              title={row && !wrapDetail ? detail : undefined}
               className={cn(
-                row
-                  ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
-                  : // A panel's explanation is a sentence: it wraps rather than hide its end.
-                    'max-w-[36ch] text-meta leading-[1.4] text-balance',
+                row && wrapDetail
+                  ? 'min-w-0 max-w-full font-mono text-caption text-muted-foreground tabular-nums whitespace-normal [overflow-wrap:break-word]'
+                  : row
+                    ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
+                    : // A panel's explanation is a sentence: it wraps rather than hide its end.
+                      'max-w-[36ch] text-meta leading-[1.4] text-balance',
               )}
             >
               {detail}
