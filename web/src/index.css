@@ -341,7 +341,6 @@
   body {
     @apply bg-background text-foreground;
     height: 100%;
-    min-width: 320px;
     margin: 0;
   }
   /* The app shell never scrolls the document. Holding the values Radix's
