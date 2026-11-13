@@ -1,6 +1,7 @@
 import { CircleArrowUpIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { t } from '@lingui/core/macro';
 
 /**
@@ -48,7 +49,11 @@ export function ProviderUpdateButton({
   return (
     <Button
       aria-label={full}
-      className="h-[22px] min-w-0 shrink gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground"
+      className={cn(
+        'h-[22px] gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground',
+        // The full label may shrink to find out it doesn't fit; the short one never gives way.
+        compact ? 'shrink-0' : 'min-w-0 shrink',
+      )}
       data-compact={compact ? '' : undefined}
       data-slot="provider-update-available"
       disabled={disabled}

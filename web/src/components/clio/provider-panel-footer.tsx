@@ -84,14 +84,12 @@ function statusWithAge(status: string, checked: string): [string, string] {
   const statusMark = '\u0001';
   const checkedMark = '\u0002';
   const joined = t`${ph({ status: statusMark })}, ${ph({ checked: checkedMark })}`;
-  const at = joined.indexOf(checkedMark);
-  // A locale that puts the age first keeps the whole join together.
-  if (at < joined.indexOf(statusMark))
+  const at = joined.indexOf(statusMark);
+  // A locale that leads with anything but the status keeps the whole join together.
+  if (at !== 0 || joined.indexOf(checkedMark) < at)
     return [joined.replace(statusMark, status).replace(checkedMark, checked), ''];
-  return [
-    joined.slice(0, at).replace(statusMark, status),
-    joined.slice(at).replace(checkedMark, checked),
-  ];
+  // The joiner travels with the age, so a row without room for the age shows no stray ", ".
+  return [status, joined.slice(1).replace(checkedMark, checked)];
 }
 
 /**
@@ -173,8 +171,8 @@ export function ProviderPanelFooter({
           // Ready says so with its age ("● Ready, checked 2m ago"); anything else says what is wrong.
           <>
             <span
-              // A floor the update button never takes: the state stays in words.
-              className={cn('min-w-[min(5rem,40%)] grow truncate', !ready && status.color)}
+              // Its own width, no floor: the update action never gives way to empty room.
+              className={cn('min-w-0 grow truncate', !ready && status.color)}
               data-slot="provider-manage-status"
               title={
                 (!ready && group.detail) ||
@@ -186,12 +184,14 @@ export function ProviderPanelFooter({
               {manageStatus}
             </span>
             {manageAge ? (
-              // The age only takes room left over, so it goes before the action is cut.
+              // The age only takes room left over and shows whole or not at all: when it
+              // doesn't fit beside the zero-width lead, it wraps to the clipped second line.
               <span
-                className="-ms-[7px] min-w-0 shrink grow-[1000] basis-0 truncate text-faint"
+                className="-ms-[7px] flex h-[1lh] min-w-0 shrink grow-[1000] basis-0 flex-wrap overflow-hidden text-faint"
                 data-slot="provider-manage-age"
               >
-                {manageAge}
+                <span className="h-full w-0" />
+                <span className="shrink-0 whitespace-nowrap">{manageAge}</span>
               </span>
             ) : null}
           </>
