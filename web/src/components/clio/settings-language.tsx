@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { i18n } from '@/i18n/instance';
+import { localLanguageName } from '@/i18n/language-names';
 import {
   availableLanguages,
   interfaceLanguage,
@@ -18,21 +19,6 @@ import {
 import { changeLocalePreference, currentLocalePreference } from '@/i18n/runtime';
 import { SettingsSelectField } from './model-select-field';
 import { SettingsRow } from './settings-row';
-
-const displayNames = (() => {
-  try {
-    return new Intl.DisplayNames([i18n.locale], { type: 'language' });
-  } catch {
-    return undefined;
-  }
-})();
-
-/** A language's name in the language the interface is shown in now (`Spanish`, `Español`). */
-function localName(locale: string): string | undefined {
-  if (locale === 'pseudo') return t`Long accented test copy`;
-  const name = displayNames?.of(locale);
-  return name && name !== interfaceLanguage(locale).nativeName ? name : undefined;
-}
 
 function deviceLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -73,7 +59,7 @@ export function LanguageSetting() {
               <span className="truncate">{t`System (${systemName})`}</span>
             </DropdownMenuRadioItem>
             {availableLanguages().map((language) => {
-              const name = localName(language.locale);
+              const name = localLanguageName(language.locale);
               return (
                 <DropdownMenuRadioItem
                   key={language.locale}

@@ -18381,6 +18381,7 @@ msgid "Lab"
 msgstr "Lab"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 #: src/lib/model-facets.ts
 #: src/lib/settings-search-rows.ts
 msgid "Language"
@@ -18914,6 +18915,7 @@ msgstr "Loaded widget catalog"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "Loading"
@@ -19696,7 +19698,7 @@ msgstr "Logging out…"
 msgid "Logs"
 msgstr "Logs"
 
-#: src/components/clio/settings-language.tsx
+#: src/i18n/language-names.ts
 msgid "Long accented test copy"
 msgstr "Long accented test copy"
 
@@ -38811,6 +38813,10 @@ msgstr "Use saved facts and preferences in later conversations. Turning this off
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
 msgstr "Use selected location"
+
+#: src/lib/global-search-commands.ts
+msgid "Use system language"
+msgstr "Use system language"
 
 #: src/lib/global-search-commands.ts
 msgid "Use system theme"

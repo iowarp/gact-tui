@@ -13,6 +13,7 @@ import { compactModelName } from '@/lib/model-options';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
 import { THEMES, type ThemeId } from '@/theme/contract';
+import { changeLocalePreference, currentLocalePreference } from '@/i18n/runtime';
 import { SearchHighlight } from './search-highlight';
 import { agentAvailabilityLabel } from './connection-names';
 import { KeyCap, ShortcutKeys } from './primitives/key-chip';
@@ -189,6 +190,7 @@ export function GlobalSearchGroups({
 }) {
   const { settings } = useConnectionSettings();
   const { setTheme, theme } = useTheme();
+  const localePreference = currentLocalePreference();
   const { commands, switching } = matches;
   const settingValue = useSettingValues(
     searching && commands.Settings.some((item) => item.setting?.value === 'default-model'),
@@ -218,6 +220,10 @@ export function GlobalSearchGroups({
                 onFinish();
                 // After the palette closes, so focus lands where the action leads.
                 window.setTimeout(() => window.dispatchEvent(new Event(name)));
+              } else if ('locale' in item.action) {
+                // As in Settings › Language: store the choice and reload this page in it.
+                if (item.action.locale === currentLocalePreference()) onFinish();
+                else changeLocalePreference(item.action.locale);
               } else {
                 setTheme(item.action.theme);
                 onFinish();
@@ -226,12 +232,13 @@ export function GlobalSearchGroups({
             value={item.id}
           >
             <item.icon aria-hidden="true" />
-            <span className="min-w-0 flex-[0_1_auto] truncate">
+            <span className="min-w-0 flex-[0_1_auto] truncate" lang={item.lang}>
               <SearchHighlight query={query} text={item.label} />
             </span>
             {item.trail ? <ResultDetail>{item.trail}</ResultDetail> : null}
             <ResultTrail>
-              {'theme' in item.action && theme === item.action.theme ? (
+              {('theme' in item.action && theme === item.action.theme) ||
+              ('locale' in item.action && localePreference === item.action.locale) ? (
                 t`Current`
               ) : item.shortcut ? (
                 <ShortcutKeys capSize="sm" id={item.shortcut} variant="caps" />

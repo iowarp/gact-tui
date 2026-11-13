@@ -39,6 +39,23 @@ it('finds actions and destinations through whitespace, case and aliases', () => 
   expect(search('something unknown')).toEqual([]);
 });
 
+it('offers every interface language by its own name and finds it by its English name', () => {
+  const search = (query: string) =>
+    globalSearchCommands(false).filter((item) =>
+      matchesGlobalSearch(query, item.label, item.group, item.keywords),
+    );
+  const languages = globalSearchCommands(false).filter((item) => 'locale' in item.action);
+  expect(languages.map((item) => item.label)).toEqual(
+    expect.arrayContaining(['English', 'Español', '日本語', 'Ελληνικά']),
+  );
+  expect(languages).toContainEqual(expect.objectContaining({ action: { locale: 'system' } }));
+  expect(search('spanish')).toContainEqual(
+    expect.objectContaining({ label: 'Español', lang: 'es', action: { locale: 'es' } }),
+  );
+  expect(search('ελλην')).toContainEqual(expect.objectContaining({ action: { locale: 'el' } }));
+  expect(search('language')).toEqual(expect.arrayContaining(languages));
+});
+
 it('keeps native update terms out of browser settings and safely addresses agent identities', () => {
   expect(settingsDestinations(false).find((item) => item.id === 'general')?.keywords).not.toContain(
     'beta',

@@ -18381,6 +18381,7 @@ msgid "Lab"
 msgstr "ラボ"
 
 #: src/components/clio/settings-language.tsx
+#: src/lib/global-search-commands.ts
 #: src/lib/model-facets.ts
 #: src/lib/settings-search-rows.ts
 msgid "Language"
@@ -18914,6 +18915,7 @@ msgstr "読み込まれたウィジェットカタログ"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
 msgid "Loading"
 msgstr "読み込み中"
@@ -19696,7 +19698,7 @@ msgstr "ログアウト中…"
 msgid "Logs"
 msgstr "ログ"
 
-#: src/components/clio/settings-language.tsx
+#: src/i18n/language-names.ts
 msgid "Long accented test copy"
 msgstr "アクセント付きの長いテスト文"
 
@@ -38811,6 +38813,10 @@ msgstr "保存した事実と好みを以降の会話で使います。オフに
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
 msgstr "選択した場所を使用"
+
+#: src/lib/global-search-commands.ts
+msgid "Use system language"
+msgstr "システムの言語を使用"
 
 #: src/lib/global-search-commands.ts
 msgid "Use system theme"
