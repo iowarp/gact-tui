@@ -335,7 +335,7 @@ export function PromptEditorDialog({
               />
             </SettingsRow>
             {resolved.data ? (
-              <div className="grid gap-0.5 pt-2 text-label text-faint">
+              <div className="grid gap-0.5 pt-2 text-label text-muted-foreground">
                 <p>Effective source: {scopeLabel(resolved.data.scope)}</p>
                 {resolved.data.source_path ? (
                   <p className="truncate font-mono" title={resolved.data.source_path}>
@@ -347,7 +347,7 @@ export function PromptEditorDialog({
           </>
         ) : (
           <div className="grid gap-3 pb-1">
-            <p className="text-label text-faint">
+            <p className="text-label text-muted-foreground">
               The preview uses the connected service’s current agents, tools, commands, memory,
               permissions, provider and active pack.
             </p>

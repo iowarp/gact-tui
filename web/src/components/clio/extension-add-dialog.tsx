@@ -402,7 +402,7 @@ function ExtensionSourceDialog({
           </p>
         ) : null}
         {!importing ? (
-          <p className="pt-2 text-xs text-faint">
+          <p className="pt-2 text-xs text-muted-foreground">
             Saves to your Private local marketplace on this agent host. GitHub backup is available
             from Marketplaces.
           </p>

@@ -285,7 +285,7 @@ export function PluginDetailPane({
     >
       {plugin ? (
         <MetaLine
-          className="block truncate text-xs text-faint"
+          className="block truncate text-xs text-muted-foreground"
           parts={[
             selected.skill ? `Skill of ${plugin.id}` : plugin.kind === 'pack' ? 'Pack' : 'Plugin',
             sourceName(plugin.marketplace),

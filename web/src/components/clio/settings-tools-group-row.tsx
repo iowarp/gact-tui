@@ -138,7 +138,7 @@ export const GroupRow = memo(function GroupRow({
           {section.title}
         </h3>
         {section.notice || meta.length || summary ? (
-          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-faint">
+          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
             {section.notice ? (
               <span className="truncate" title={section.notice.title ?? section.notice.text}>
                 {section.notice.text}
@@ -196,7 +196,7 @@ export const GroupRow = memo(function GroupRow({
           title={section.notice.title}
         >
           <StatusIndicator
-            className={cn('text-meta', section.notice.tone === 'idle' && 'text-faint')}
+            className={cn('text-meta', section.notice.tone === 'idle' && 'text-muted-foreground')}
             label={section.notice.status}
             tone={section.notice.tone}
           />
