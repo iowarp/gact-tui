@@ -1,3 +1,4 @@
+import type { BrowserPage } from '@clio/core/v3';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,8 +40,14 @@ function repository() {
     saveMcpAppDownload: vi.fn(async () => ({
       files: [{ name: 'samples.csv', path: 'samples.csv', artifact_id: 'art_1' }],
     })),
-    openBrowserPage: vi.fn(async () => ({ id: 'page_1', title: 'Example', host: 'example.org' })),
-    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'fullscreen' as const, pinned: true })),
+    openBrowserPage: vi.fn(
+      async () =>
+        ({ id: 'page_1', title: 'Example', host: 'example.org' }) as unknown as BrowserPage,
+    ),
+    setMcpAppDisplayMode: vi.fn(async () => ({
+      display_mode: 'fullscreen' as const,
+      pinned: true,
+    })),
     pinMcpApp: vi.fn(async () => ({ display_mode: 'inline' as const, pinned: true })),
     closeMcpApp: vi.fn(async () => undefined),
   };
@@ -121,9 +128,8 @@ describe('MCP App host features', () => {
       placement: 'tab',
       onDisplayModeChange,
     });
-    expect((reply('init')?.result as { hostContext: { displayMode: string } }).hostContext).toEqual(
-      expect.objectContaining({ displayMode: 'fullscreen' }),
-    );
+    const init = reply('init')?.result as { hostContext: { displayMode: string } } | undefined;
+    expect(init?.hostContext).toEqual(expect.objectContaining({ displayMode: 'fullscreen' }));
     send({ id: 'pip', method: 'ui/request-display-mode', params: { mode: 'pip' } });
     expect(reply('pip')?.result).toEqual({ mode: 'fullscreen' });
     send({ id: 'in', method: 'ui/request-display-mode', params: { mode: 'inline' } });
@@ -219,9 +225,9 @@ describe('display mode and link rules', () => {
     expect(resolveDisplayMode('fullscreen', 'inline', undefined)).toBe('fullscreen');
     expect(resolveDisplayMode('pip', 'inline', undefined)).toBe('inline');
     expect(resolveDisplayMode('fullscreen', 'surface', undefined)).toBe('inline');
-    expect(
-      resolveDisplayMode('fullscreen', 'inline', { availableDisplayModes: ['inline'] }),
-    ).toBe('inline');
+    expect(resolveDisplayMode('fullscreen', 'inline', { availableDisplayModes: ['inline'] })).toBe(
+      'inline',
+    );
   });
 
   it('accepts only http and https links', () => {

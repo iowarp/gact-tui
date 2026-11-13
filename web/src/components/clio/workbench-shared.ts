@@ -143,7 +143,7 @@ export interface McpAppTabTarget {
 }
 
 export function mcpAppTab(target: McpAppTabTarget): WorkbenchTab {
-  return { id: `mcp-app:${target.appInstanceId}`, kind: 'mcp-app', ...target };
+  return { ...target, id: `mcp-app:${target.appInstanceId}` as const, kind: 'mcp-app' };
 }
 
 export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {

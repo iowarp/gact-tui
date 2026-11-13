@@ -144,33 +144,29 @@ const McpAppSurfaceInstance = forwardRef<
       ? props.height
       : Math.min(720, Math.max(180, viewportHeight - 180), Math.max(180, requestedHeight));
 
-  useImperativeHandle(
-    ref,
-    () => {
-      const request = async (method: string, params: Record<string, unknown> = {}) => {
-        await channel.current.ready;
-        const post = channel.current.post;
-        if (!post) throw new Error('The interactive view is not open.');
-        const id = `host:${(channel.current.next += 1)}`;
-        return new Promise<unknown>((resolve, reject) => {
-          channel.current.pending.set(id, { resolve, reject });
-          post({ jsonrpc: '2.0', id, method, params });
+  useImperativeHandle(ref, () => {
+    const request = async (method: string, params: Record<string, unknown> = {}) => {
+      await channel.current.ready;
+      const post = channel.current.post;
+      if (!post) throw new Error('The interactive view is not open.');
+      const id = `host:${(channel.current.next += 1)}`;
+      return new Promise<unknown>((resolve, reject) => {
+        channel.current.pending.set(id, { resolve, reject });
+        post({ jsonrpc: '2.0', id, method, params });
+      });
+    };
+    return {
+      request,
+      callAppTool: (name, args) => request('tools/call', { name, arguments: args }),
+      sendToolInput: (args) => {
+        channel.current.post?.({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/tool-input',
+          params: { arguments: args },
         });
-      };
-      return {
-        request,
-        callAppTool: (name, args) => request('tools/call', { name, arguments: args }),
-        sendToolInput: (args) => {
-          channel.current.post?.({
-            jsonrpc: '2.0',
-            method: 'ui/notifications/tool-input',
-            params: { arguments: args },
-          });
-        },
-      };
-    },
-    [],
-  );
+      },
+    };
+  }, []);
 
   useEffect(() => {
     if (placement === 'tab') return;
@@ -361,7 +357,10 @@ const McpAppSurfaceInstance = forwardRef<
   const fill = placement === 'tab';
   return (
     <Frame
-      className={cn('min-w-0 overflow-hidden', fill && 'flex h-full flex-col rounded-none border-0')}
+      className={cn(
+        'min-w-0 overflow-hidden',
+        fill && 'flex h-full flex-col rounded-none border-0',
+      )}
       data-mcp-app={props.appInstanceId}
       data-mcp-app-placement={placement}
       spacing={null}

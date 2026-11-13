@@ -2,7 +2,7 @@ import { CornerDownLeftIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
-import { useMcpAppHostHooks } from './mcp-app-card';
+import { useMcpAppHostHooks } from './mcp-app-host-hooks';
 import {
   markMcpAppEnded,
   mcpAppIdentity,

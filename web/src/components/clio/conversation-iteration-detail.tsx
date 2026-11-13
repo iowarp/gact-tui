@@ -239,11 +239,7 @@ export function McpAppActivity({
 }) {
   return (
     <div data-turn-activity={`mcp-app:${entry.id}`}>
-      <McpAppCard
-        block={entry.block}
-        repository={mcpAppRepository}
-        sessionId={messageSessionId}
-      />
+      <McpAppCard block={entry.block} repository={mcpAppRepository} sessionId={messageSessionId} />
     </div>
   );
 }
