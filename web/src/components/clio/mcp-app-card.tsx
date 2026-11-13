@@ -50,6 +50,7 @@ export function McpAppCard({
   }
   return (
     <McpAppSurface
+      comments
       actions={
         <Button
           onClick={() => openMcpAppInTab(target, repository)}

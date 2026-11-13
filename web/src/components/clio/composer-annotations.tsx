@@ -1,5 +1,5 @@
 import type { CommentAttachment } from '@clio/core/v3';
-import { CameraIcon, ChartLineIcon, QuoteIcon } from 'lucide-react';
+import { BoxIcon, CameraIcon, ChartLineIcon, QuoteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { anchorPreview } from './comments/comment-model';
@@ -8,12 +8,14 @@ const ICONS = {
   'agent-answer': QuoteIcon,
   'a2ui-surface': ChartLineIcon,
   'browser-page': CameraIcon,
+  'mcp-app': BoxIcon,
 } as const;
 
 const KIND_LABELS = {
   'agent-answer': 'Comment on an answer',
   'a2ui-surface': 'Comment on a view',
   'browser-page': 'Comment on a page',
+  'mcp-app': 'Comment on an app view',
 } as const;
 
 /**
@@ -30,9 +32,7 @@ export function ClioComposerAnnotations({
 }) {
   if (!annotations.length) return null;
   const replace = (index: number, next?: CommentAttachment) =>
-    onChange(
-      annotations.flatMap((session, at) => (at !== index ? [session] : next ? [next] : [])),
-    );
+    onChange(annotations.flatMap((session, at) => (at !== index ? [session] : next ? [next] : [])));
   return (
     <ol aria-label="Attached comments" className="grid w-full basis-full gap-1.5 px-2.5 pt-2">
       {annotations.map((session, index) => {
@@ -64,7 +64,10 @@ export function ClioComposerAnnotations({
                   <span className="rounded bg-primary px-1 text-[0.625rem] font-bold text-primary-foreground">
                     {mark.label}
                   </span>
-                  <span className="line-clamp-1 min-w-0 shrink text-xs" title={anchorPreview(mark.anchor)}>
+                  <span
+                    className="line-clamp-1 min-w-0 shrink text-xs"
+                    title={anchorPreview(mark.anchor)}
+                  >
                     {anchorPreview(mark.anchor)}
                   </span>
                   <input
@@ -74,7 +77,9 @@ export function ClioComposerAnnotations({
                       replace(index, {
                         ...session,
                         marks: session.marks.map((item) =>
-                          item.label === mark.label ? { ...item, comment: event.target.value } : item,
+                          item.label === mark.label
+                            ? { ...item, comment: event.target.value }
+                            : item,
                         ),
                       })
                     }

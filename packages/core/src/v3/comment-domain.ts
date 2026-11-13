@@ -50,7 +50,7 @@ export interface SentCommentSession {
   threads: ArtifactReview[];
 }
 
-export type CommentSurfaceKind = 'agent-answer' | 'a2ui-surface' | 'browser-page';
+export type CommentSurfaceKind = 'agent-answer' | 'a2ui-surface' | 'browser-page' | 'mcp-app';
 
 /** The payload of a `comment_session` message part. */
 export interface CommentAttachment {

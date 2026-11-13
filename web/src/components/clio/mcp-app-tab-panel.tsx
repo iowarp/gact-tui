@@ -40,6 +40,7 @@ export function McpAppTabPanel({ target }: { target: McpAppTabTarget }) {
   return (
     <div className="flex h-full min-h-0 flex-col" data-mcp-app-tab={target.appInstanceId}>
       <McpAppSurface
+        comments
         actions={
           latest ? (
             <Button

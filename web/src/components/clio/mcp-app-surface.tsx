@@ -35,6 +35,17 @@ import {
 import { mcpAppLabel } from './mcp-app-live-set';
 import { mcpAppServiceHostContext } from './mcp-app-service';
 import { McpAppViewTools } from './mcp-app-view-tools';
+import {
+  McpAppLooks,
+  snapshotAnswer,
+  VIEW_SNAPSHOT_METHOD,
+  type TakeSnapshot,
+} from './mcp-app-look';
+import {
+  McpAppCommentSession,
+  McpAppCommentsIcon,
+  McpAppRegionLayer,
+} from './comments/mcp-app-comments';
 import { ClioStatus } from './status';
 
 export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
@@ -67,6 +78,8 @@ export interface McpAppSurfaceProps extends BridgeHooks {
   onAppInitialized?: (appCapabilities: Record<string, unknown>) => void;
   /** A notification the host does not consume itself (`notifications/tools/list_changed`). */
   onViewNotification?: (method: string, params: Record<string, unknown>) => void;
+  /** The frame offers the one Comments icon: regions and points on the view (CM3). */
+  comments?: boolean;
 }
 
 /** Drive the view directly: app tools (MA13) and channel inputs (MA21). */
@@ -138,6 +151,9 @@ const McpAppSurfaceInstance = forwardRef<
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const channel = useRef<ViewChannel>(newChannel());
+  // The view's snapshot (CM1), once it is ready, and the context it last reported (CM3).
+  const snapshotRef = useRef<TakeSnapshot | undefined>(undefined);
+  const contextRef = useRef<unknown>(undefined);
   // Callbacks read at call time, so a parent re-render never rebuilds the bridge.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -234,6 +250,23 @@ const McpAppSurfaceInstance = forwardRef<
           post({ jsonrpc: '2.0', id, method, params });
         }),
     );
+    // CLIO's sandbox document answers a snapshot request itself; the view never sees it.
+    const snapshot: TakeSnapshot = (options) =>
+      new Promise<unknown>((resolve, reject) => {
+        const id = `host:${(view.next += 1)}`;
+        view.pending.set(id, { resolve, reject });
+        post({
+          jsonrpc: '2.0',
+          id,
+          method: VIEW_SNAPSHOT_METHOD,
+          params: {
+            scale: options.scale ?? 1,
+            max_side: options.maxSide ?? 4096,
+            background: getComputedStyle(iframe).backgroundColor,
+          },
+        });
+      }).then(snapshotAnswer);
+    const looks = new McpAppLooks(latest.current.repository, identity, snapshot);
     const answer = (message: JsonRpcMessage) => {
       const pending = view.pending.get(String(message.id));
       if (!pending) return;
@@ -304,6 +337,8 @@ const McpAppSurfaceInstance = forwardRef<
         });
         view.markReady();
         viewTools.start();
+        snapshotRef.current = snapshot;
+        looks.start();
         latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
       }
@@ -330,7 +365,10 @@ const McpAppSurfaceInstance = forwardRef<
         return;
       }
       void bridgeRequest(latest.current.repository, identity, message, {
-        onModelContext: (context) => latest.current.onModelContext?.(context),
+        onModelContext: (context) => {
+          contextRef.current = context;
+          latest.current.onModelContext?.(context);
+        },
         onBrowserPage: (page) => latest.current.onBrowserPage?.(page),
         onDownloaded: (files) => latest.current.onDownloaded?.(files),
       })
@@ -362,6 +400,8 @@ const McpAppSurfaceInstance = forwardRef<
     return () => {
       active = false;
       viewTools.stop();
+      looks.stop();
+      snapshotRef.current = undefined;
       view.post = undefined;
       for (const pending of view.pending.values())
         pending.reject(new Error('The interactive view closed.'));
@@ -386,7 +426,7 @@ const McpAppSurfaceInstance = forwardRef<
 
   const displayName = props.label || mcpAppLabel(props.toolName, props.sourceServer);
   const fill = placement === 'tab';
-  return (
+  const frame = (
     <Frame
       className={cn(
         'min-w-0 overflow-hidden',
@@ -400,6 +440,9 @@ const McpAppSurfaceInstance = forwardRef<
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
         <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+        {props.comments ? (
+          <McpAppCommentsIcon disabledReason={ready ? undefined : 'The view is still loading.'} />
+        ) : null}
         {props.actions}
       </FrameHeader>
       <FramePanel
@@ -438,6 +481,7 @@ const McpAppSurfaceInstance = forwardRef<
               style={fill ? undefined : { height: frameHeight }}
               title={`${displayName} interactive view`}
             />
+            {props.comments ? <McpAppRegionLayer /> : null}
           </>
         ) : (
           <div
@@ -450,6 +494,22 @@ const McpAppSurfaceInstance = forwardRef<
         )}
       </FramePanel>
     </Frame>
+  );
+  if (!props.comments) return frame;
+  return (
+    <McpAppCommentSession
+      context={() => contextRef.current}
+      snapshot={() => snapshotRef.current}
+      target={{
+        appInstanceId: props.appInstanceId,
+        server: props.sourceServer,
+        tool: props.toolName,
+        title: displayName,
+        resourceUri: props.resourceUri,
+      }}
+    >
+      {frame}
+    </McpAppCommentSession>
   );
 });
 
