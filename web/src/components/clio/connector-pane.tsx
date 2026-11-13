@@ -95,7 +95,9 @@ export function ConnectorPane({
             ...(connector.tool_count === null
               ? []
               : [{ label: 'Tools', value: `${connector.tool_count}` }]),
-            ...(connector.plugin ? [{ label: 'Brings plugin', value: connector.plugin }] : []),
+            ...(connector.plugin
+              ? [{ label: 'Agent guidance', value: `How to work with ${connector.name}` }]
+              : []),
           ]}
         />
         <SettingsGroupLabel>Setup</SettingsGroupLabel>
