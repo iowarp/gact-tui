@@ -3827,7 +3827,7 @@ msgstr "{window} {percent}%, κοντά στο όριο"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{wordmark} could not update the desktop window."
-msgstr "Το {wordmark} δεν μπόρεσε να ενημερώσει το παράθυρο της εφαρμογής."
+msgstr "{wordmark}: δεν ήταν δυνατή η ενημέρωση του παραθύρου της εφαρμογής."
 
 #: src/components/clio/navigation-agent-menu.tsx
 msgid "{wordmark} local"
@@ -3835,7 +3835,7 @@ msgstr "{wordmark} (τοπικό)"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "{wordmark} menu"
-msgstr "Μενού {wordmark}"
+msgstr "Μενού: {wordmark}"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "{workflowTitle} on <0>{endpointName}</0>?"
@@ -4259,7 +4259,7 @@ msgstr "Σχετικά με {title}"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
-msgstr "Σχετικά με το {wordmark}"
+msgstr "Σχετικά: {wordmark}"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -25637,7 +25637,7 @@ msgstr "Έξοδος από το {product};"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
-msgstr "Έξοδος από το {wordmark}"
+msgstr "Έξοδος: {wordmark}"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -37490,11 +37490,11 @@ msgstr "Ενημέρωση"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark}"
-msgstr "Ενημέρωση του {wordmark}"
+msgstr "Ενημέρωση: {wordmark}"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark} to {version}"
-msgstr "Ενημέρωση του {wordmark} στην έκδοση {version}"
+msgstr "Ενημέρωση: {wordmark}, έκδοση {version}"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Updating chart…"
