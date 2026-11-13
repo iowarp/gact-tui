@@ -100,7 +100,9 @@ export function ComposedPromptView({ resolution }: { resolution: AgentResolution
                 See all
               </Button>
             </DialogTrigger>
-            <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl [&_[data-slot=viewer-toolbar]]:pr-12 [&>[data-slot=dialog-close]]:top-1.5">
+            {/* The viewer's own 34px frame bar is the header: its end keeps clear of the close
+                button, which centres on the bar. */}
+            <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl [&_[data-slot=file-text-view]>[data-slot=frame-bar]]:pr-11 [&>[data-slot=dialog-close]]:top-[3px] [&>[data-slot=dialog-close]]:right-1.5">
               <DialogTitle className="sr-only">{promptName}</DialogTitle>
               <DialogDescription className="sr-only">
                 The complete composed system prompt for{' '}
