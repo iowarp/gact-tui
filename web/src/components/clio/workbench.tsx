@@ -305,7 +305,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     };
     const closeTabOrCanvas = (tabId: string) => closeTabsOrCanvas([tabId]);
     useMcpAppTabSync(orderedTabs, closeTabsOrCanvas, canvasControl?.hide);
-    usePublishWorkbenchAppTabs(orderedTabs, activeTab);
+    usePublishWorkbenchAppTabs(activeTab);
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {

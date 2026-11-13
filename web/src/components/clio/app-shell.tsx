@@ -253,10 +253,10 @@ export function ClioAppShell({
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
-  // An App tab on a phone: the sheet is non-modal and docks between header and composer.
-  const appTabs = useWorkbenchAppTabs();
+  // An App tab shown on a phone docks between the conversation's header and composer.
+  const appTabShown = useWorkbenchAppTabs((state) => state.shown);
   const appDock = usePhoneAppDock(
-    hasWorkbench && !desktopWorkbench && workbenchOpen && appTabs.shown,
+    hasWorkbench && !desktopWorkbench && workbenchOpen && appTabShown,
   );
   // Opens at the remembered share of the window; the panel keeps those pixels
   // until the window itself resizes (below), so folding the left bar widens
@@ -488,8 +488,10 @@ export function ClioAppShell({
           {workspace}
         </main>
       )}
+      {/* Non-modal: an App tab docks beside the conversation's composer (below), and
+          switching the sheet's modality while it is open would remount its contents. */}
       {hasWorkbench && !desktopWorkbench ? (
-        <Sheet modal={!appTabs.open} onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
+        <Sheet modal={false} onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
