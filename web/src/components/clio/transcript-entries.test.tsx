@@ -363,5 +363,6 @@ it('renders the same alternating semantics from a saved assistant message', asyn
   expect(lanes[1]).toHaveTextContent('1 failed');
   for (const run of screen.getAllByRole('button', { name: 'Expand Called 1 tool' }))
     fireEvent.click(run);
-  expect(screen.getByRole('img', { name: 'Failed: Failed' })).toBeInTheDocument();
+  // The status mark names the recorded reason as a sentence.
+  expect(screen.getByRole('img', { name: 'Failed: Failed.' })).toBeInTheDocument();
 });
