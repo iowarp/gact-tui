@@ -1,4 +1,4 @@
-import type { Artifact, SessionDiff, SubagentRun } from '@clio/core/v3';
+import type { Artifact, SessionDiff, SubagentRun, ToolInvocation } from '@clio/core/v3';
 import { ListFilterIcon, SearchIcon } from 'lucide-react';
 import {
   memo,
@@ -35,6 +35,7 @@ import {
   ACTIVITY_FILTERS,
   ACTIVITY_GROUPS,
   filterActivity,
+  toolActivityItem,
   type ActivityFilter,
   type ActivityItem,
 } from './workbench-activity-model';
@@ -166,26 +167,44 @@ function ActivityColumn({
     [onOpenArtifact, onOpenFile, onOpenSubagent, onOpenTab, sessionId, workspaceId],
   );
 
-  // A link asked to show a task ("Show in Work"): open that task's details, or, once the
-  // task has left the list, the script call that started it.
+  // A link asked to show a task ("Show in Work"): open that task's details. A finished
+  // task first loads with the completed work; once the task has left the record, the
+  // script call that started it opens, even when its turn folded it into one row.
   const focusHandle = useWorkTaskFocus((state) => state.handle);
+  const focusHistory = source?.workPages?.history;
+  const focusTools = source?.tools;
   useEffect(() => {
     if (!focusHandle) return;
-    const target =
-      items.find(
-        (item) =>
-          item.process &&
-          [item.process.handle, item.process.handle_id, item.process.id].includes(focusHandle),
-      ) ??
-      items.find((item) =>
-        item.tool?.presentation?.blocks.some(
+    const task = items.find(
+      (item) =>
+        item.process &&
+        [item.process.handle, item.process.handle_id, item.process.id].includes(focusHandle),
+    );
+    if (task) {
+      useWorkTaskFocus.getState().clear(focusHandle);
+      open(task);
+      return;
+    }
+    if (focusHistory && !focusHistory.visible) {
+      focusHistory.toggle();
+      return;
+    }
+    if (focusHistory && (focusHistory.loaded === false || focusHistory.pending)) return;
+    const launched = (tool: ToolInvocation) =>
+      Boolean(
+        tool.presentation?.blocks.some(
           (block) => backgroundTaskLink(block) && block.uri === focusHandle,
         ),
       );
-    if (!target) return;
+    const script =
+      focusTools?.find(launched) ??
+      items
+        .flatMap((item) => [item.tool, ...(item.steps ?? [])])
+        .find((tool) => tool && launched(tool));
+    if (!script) return;
     useWorkTaskFocus.getState().clear(focusHandle);
-    open(target);
-  }, [focusHandle, items, open]);
+    open(toolActivityItem(script));
+  }, [focusHandle, focusHistory, focusTools, items, open]);
 
   const filtered = query.trim() !== '' || hidden.size > 0;
   const closeSearch = () => {

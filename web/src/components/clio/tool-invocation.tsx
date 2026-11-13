@@ -292,6 +292,7 @@ export function ClioToolInvocation({
           duration={duration}
           surface={surface}
           recapTitle={recapTitle}
+          recapLeads={Boolean(scriptRecap || reach)}
           waiting={
             waitingFor || tool.state === 'pending' ? (
               <WaitingForYou interaction={waitingFor} />

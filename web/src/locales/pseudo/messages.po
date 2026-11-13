@@ -2409,6 +2409,11 @@ msgstr ""
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr ""
 
+#. A short list, one more item
+#: src/components/clio/script-calls.ts
+msgid "{list}, {item}"
+msgstr ""
+
 #: src/components/clio/workspace-navigation.tsx
 msgid "{listedWorkspaceCount, plural, one {Show all # workspace} other {Show all # workspaces}}"
 msgstr ""
