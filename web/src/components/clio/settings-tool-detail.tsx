@@ -54,24 +54,29 @@ function catalogMatch(tool: ToolSetting, rows: readonly ToolCatalogItem[] | unde
 }
 
 /**
- * A tool's declared inputs: the agent's live tool list (MCP tools) first, then its
- * catalog (built-in and plugin tools), which is slower and read only when needed.
+ * A tool's declared inputs: an MCP tool's schema from the tools page itself first,
+ * then the agent's live tool list, then its catalog (built-in and plugin tools),
+ * which is slower and read only when needed.
  */
 function useToolInputs(tool: ToolSetting) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const own =
+    tool.input_schema && Object.keys(tool.input_schema).length > 0 ? tool.input_schema : undefined;
   const live = useQuery({
+    enabled: !own,
     queryKey: queryKeys.key('tools', settings.endpoint),
     queryFn: ({ signal }) => repository.tools(signal),
     staleTime: SCHEMA_FRESH_MS,
   });
   const inLive = catalogMatch(tool, live.data);
   const catalog = useQuery({
-    enabled: !live.isPending && !inLive,
+    enabled: !own && !live.isPending && !inLive,
     queryKey: queryKeys.key('tools', settings.endpoint, 'catalog'),
     queryFn: ({ signal }) => repository.catalogTools(signal),
     staleTime: SCHEMA_FRESH_MS,
   });
+  if (own) return { schema: own, pending: false, error: undefined, retry: () => undefined };
   const row = inLive ?? catalogMatch(tool, catalog.data);
   return {
     schema: row?.input_schema,
@@ -265,7 +270,9 @@ export function ToolDetailBody({
           </div>
         ) : (
           <p className="text-ui text-muted-foreground">
-            Its inputs are known once a conversation loads the tool.
+            {tool.server
+              ? 'This server doesn’t report its inputs here yet.'
+              : 'Its inputs are known once a conversation loads the tool.'}
           </p>
         )}
       </div>
