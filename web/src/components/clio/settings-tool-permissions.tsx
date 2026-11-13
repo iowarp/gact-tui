@@ -197,7 +197,7 @@ export function ToolPermissionsSettings() {
           bulkLabel: t`All ${ph({ title: source.title })} tools`,
           bulkPhrase: t`all ${ph({ title: source.title })} tools`,
           tools: [],
-          notice: { text: source.catalog, status: 'Loading', tone: 'running' },
+          notice: { text: source.catalog, status: t`Loading`, tone: 'running' },
           reserveRows: source.count,
         },
       ];

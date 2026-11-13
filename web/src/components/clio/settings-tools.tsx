@@ -274,13 +274,13 @@ export function ToolsSettings({
       ) : null}
       <section
         aria-label={groupLabel}
-        className="grid min-w-0"
+        className="grid min-w-0 grid-cols-1"
         onKeyDown={newItemKey(showAdd && addSupported ? startAdding : undefined)}
       >
         <SettingsGroupLabel
           actions={
             showAdd ? (
-              <span className="text-foreground">
+              <span className="flex max-w-full min-w-0 justify-end text-foreground">
                 <ExtensionAddMenu
                   label={embedded ? undefined : t`Add`}
                   mcpOnly
