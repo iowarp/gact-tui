@@ -124,6 +124,15 @@ const LineSpan = ({
   );
 };
 
+/**
+ * Wrapped numbered lines hang past the line numbers and the line's own indent, so a
+ * number marks only its own line and continuation rows keep the indent. The number
+ * and the indent sit outside the inline flow, so a row never breaks before the
+ * line's first word.
+ */
+export const HANGING_SOURCE_WRAP =
+  '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:relative [&_pre_code>span]:min-h-[1.65em] [&_pre_code>span]:[padding-left:calc(3rem_+_var(--indent,0ch))] [&_pre_code>span]:before:absolute [&_pre_code>span]:before:left-0 [&_pre_code>span>[data-indent]]:absolute';
+
 /** Classify unified-diff syntax, not tool names or model result keys. */
 function diffLineKind(line: string): string {
   if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@')) return 'header';

@@ -146,14 +146,20 @@ function ActivityLaneView({
   // While the turn works, steps after the last call that only think are the
   // agent moving on; they stay below the run. Once it has settled, the whole
   // block between two updates is the run.
+  const lastCallEnd = (end: number) => {
+    while (end > 0 && !group[end - 1].activity.length && !group[end - 1].interrupted) end -= 1;
+    return end;
+  };
   let headEnd = group.length;
-  while (
-    turnLive &&
-    headEnd > 0 &&
-    !group[headEnd - 1].activity.length &&
-    !group[headEnd - 1].interrupted
-  )
-    headEnd -= 1;
+  if (turnLive) {
+    // The settled steps the agent has gone past stay one folded run while it
+    // works on the latest, so a new call never reopens it and remounts its rows.
+    const callEnd = lastCallEnd(group.length);
+    let settled = 0;
+    while (settled < group.length && runSettled([group[settled]], interactions)) settled += 1;
+    const movedOn = settled >= callEnd && callEnd < group.length;
+    headEnd = movedOn ? callEnd : lastCallEnd(Math.min(settled, callEnd - 1)) || callEnd;
+  }
   const head = group.slice(0, headEnd);
   const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
   // A settled run folds once the agent has moved past it, a single call too, so

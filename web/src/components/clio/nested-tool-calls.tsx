@@ -3,22 +3,12 @@ import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
+import { repeatOf } from './script-calls';
 import { formatLocale } from '@/lib/locale-format';
 import { plural, t } from '@lingui/core/macro';
 
 /** How many of a script's calls show before "Show all". */
 const SHOWN = 4;
-
-/** A background script's repeated calls to one tool, recorded once (`_clio_repeat`). */
-function repeatOf(tool: ToolInvocation): { count: number; first: string; last: string } | null {
-  const input = tool.input;
-  const repeat =
-    input && typeof input === 'object' ? (input as Record<string, unknown>)._clio_repeat : null;
-  if (!repeat || typeof repeat !== 'object') return null;
-  const { count, first_at: first, last_at: last } = repeat as Record<string, unknown>;
-  if (typeof count !== 'number' || count < 2) return null;
-  return { count, first: String(first ?? ''), last: String(last ?? '') };
-}
 
 function clock(at: string): string {
   const date = new Date(at);
@@ -38,17 +28,6 @@ function useNestedCalls(parentId: string): ToolInvocation[] {
   const live = useLiveStore((state) => state.entities.tools);
   const tools = provided ?? live;
   return useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
-}
-
-/** A script's source, shown only while it has no calls of its own to show instead (spec: an opened script lists its calls). */
-export function UnlessNestedCalls({
-  parentId,
-  children,
-}: {
-  parentId: string;
-  children: ReactNode;
-}) {
-  return useNestedCalls(parentId).length ? null : children;
 }
 
 /**
@@ -71,8 +50,8 @@ export function NestedToolCalls({
   const shown = all ? children : children.slice(0, SHOWN);
   const calls = children.reduce((sum, tool) => sum + (repeatOf(tool)?.count ?? 1), 0);
   const count = plural(calls, {
-    one: '# tool call from this script',
-    other: '# tool calls from this script',
+    one: '# call from this script',
+    other: '# calls from this script',
   });
   const detail = [failed ? t`${failed} failed` : '', running ? t`${running} running` : '']
     .filter(Boolean)
@@ -80,6 +59,7 @@ export function NestedToolCalls({
   return (
     <ActivityNest
       label={detail ? t`${count} (${detail})` : count}
+      heading={detail ? t`${count}, ${detail}` : count}
       hidden={all ? 0 : children.length - shown.length}
       onShowAll={() => setAll(true)}
       showAllLabel={t`Show all ${calls}`}

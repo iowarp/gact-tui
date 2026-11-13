@@ -41,6 +41,11 @@ export interface ActivityRowProps extends Omit<HTMLAttributes<HTMLDivElement>, '
    */
   recap?: ReactNode;
   recapTitle?: string;
+  /**
+   * The recap is the row's result (what a script called, whether the model saw an
+   * image): it keeps its words and the argument gives up its room first.
+   */
+  recapLeads?: boolean;
   /** A short result word: "exit 1", "12 hits", "waiting for you". */
   outcome?: ReactNode;
   outcomeTone?: ActivityOutcomeTone;
@@ -91,6 +96,7 @@ export const ActivityRow = memo(
       link,
       recap,
       recapTitle,
+      recapLeads = false,
       outcome,
       outcomeTone = 'error',
       outcomeTitle,
@@ -239,7 +245,11 @@ export const ActivityRow = memo(
                   title={recapTitle}
                   // Secondary detail folds first (conversation-states, "When space is
                   // narrow"): it takes what the target leaves, and a narrow row drops it.
-                  className="w-0 min-w-0 max-w-fit grow truncate text-label text-muted-foreground @max-[480px]/activity:hidden"
+                  // A leading recap keeps its natural width (up to most of the row).
+                  className={cn(
+                    'min-w-0 truncate text-label text-muted-foreground @max-[480px]/activity:hidden',
+                    recapLeads ? 'max-w-[75%] shrink-0' : 'w-0 max-w-fit grow',
+                  )}
                 >
                   {recap}
                 </span>
@@ -348,6 +358,7 @@ export const ActivityInfoButton = forwardRef<
 export function ActivityNest({
   children,
   label,
+  heading,
   hidden = 0,
   onShowAll,
   showAllLabel,
@@ -355,6 +366,8 @@ export function ActivityNest({
 }: {
   children: ReactNode;
   label: string;
+  /** A quiet line above the rows that says where they came from ("4 calls from this script"). */
+  heading?: ReactNode;
   /** Rows not shown; adds a "Show all N" line. */
   hidden?: number;
   onShowAll?: () => void;
@@ -372,6 +385,15 @@ export function ActivityNest({
       data-slot={flat ? undefined : 'activity-nest'}
       className={flat ? 'contents' : 'ml-[15px] min-w-0 border-l border-border pl-1.5'}
     >
+      {heading && !flat ? (
+        <p
+          aria-hidden="true"
+          data-slot="activity-nest-heading"
+          className="flex h-6 min-w-0 items-center gap-1.5 pl-[30px] text-label whitespace-nowrap text-muted-foreground"
+        >
+          {heading}
+        </p>
+      ) : null}
       {children}
       {hidden > 0 && onShowAll ? (
         <Button

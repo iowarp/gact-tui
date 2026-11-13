@@ -97,6 +97,13 @@ export function getToolActionLabel(tool: ToolInvocation): string {
   return action;
 }
 
+/** The call a nested call came from, by name: "Run script: Inspect cover". */
+export function callerName(parent: ToolInvocation): string {
+  const subject = getToolSubject(parent);
+  const target = subject?.label || subject?.text;
+  return target ? `${getToolActionLabel(parent)}: ${target}` : getToolActionLabel(parent);
+}
+
 /** Name the requested catalog section while preserving exact arguments in details. */
 export function getToolSubject(tool: ToolInvocation): ToolPresentationBlock | undefined {
   if (tool.name === 'ask_user') return undefined;

@@ -1,4 +1,4 @@
-import type { RunState, Session, WorkspaceReference } from '@clio/core/v3';
+import type { RunState, Session, ToolInvocation, WorkspaceReference } from '@clio/core/v3';
 import { AnimatePresence, LayoutGroup, useResetProjection } from 'motion/react';
 import { useCallback, useLayoutEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
@@ -108,6 +108,11 @@ export function WorkspaceTranscript({
     () => revealWorkbench({ kind: 'resources', section: 'work' }),
     [revealWorkbench],
   );
+  const openToolCall = useCallback(
+    (tool: ToolInvocation, label: string) =>
+      revealWorkbench({ kind: 'tool-call', callId: tool.id, sessionId: tool.session_id, label }),
+    [revealWorkbench],
+  );
   return (
     <section
       ref={surfaceRef}
@@ -157,6 +162,7 @@ export function WorkspaceTranscript({
                 onOpenWork={openWork}
                 onOpenReference={onOpenReference}
                 onOpenTasks={onOpenTasks}
+                onOpenToolCall={openToolCall}
                 onInteractionResponse={onInteractionResponse}
                 forkingMessageId={
                   history.fork.isPending && history.fork.variables

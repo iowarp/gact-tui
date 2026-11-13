@@ -276,8 +276,10 @@ msgstr "{0, plural, one {# field} other {# fields}}"
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
 msgstr "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
 
+#. placeholder {0}: blocks.length
 #. placeholder {0}: files.size
 #: src/components/clio/diff-rows.ts
+#: src/components/clio/script-run-body.tsx
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# file} other {# files}}"
 
@@ -297,6 +299,13 @@ msgstr "{0, plural, one {# fragment in {1, plural, one {# section} other {# sect
 #: src/components/clio/composed-prompt-view.tsx
 msgid "{0, plural, one {# fragment} other {# fragments}}"
 msgstr "{0, plural, one {# fragment} other {# fragments}}"
+
+#. placeholder {0}: images.length
+#. placeholder {0}: reading.images.length
+#: src/components/clio/script-run-body.tsx
+#: src/components/clio/workspace-image-thumbnail.tsx
+msgid "{0, plural, one {# image} other {# images}}"
+msgstr "{0, plural, one {# image} other {# images}}"
 
 #. placeholder {0}: warnings.length
 #: src/components/clio/knowledge-source-view.tsx
@@ -712,6 +721,11 @@ msgstr "{0, plural, one {Compacted here, # message summarized} other {Compacted 
 msgid "{0, plural, one {Connected, # tool available} other {Connected, # tools available}}"
 msgstr "{0, plural, one {Connected, # tool available} other {Connected, # tools available}}"
 
+#. placeholder {0}: names.length
+#: src/components/clio/script-run-body.tsx
+msgid "{0, plural, one {Description of # image: {files}} other {Descriptions of # images: {files}}}"
+msgstr "{0, plural, one {Description of # image: {files}} other {Descriptions of # images: {files}}}"
+
 #. placeholder {0}: field.min_length
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter at least # character.} other {Enter at least # characters.}}"
@@ -761,6 +775,11 @@ msgstr "{0, plural, one {Messages from # background script} other {Messages from
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {plugin}:} other {# more plugins leave with {plugin}:}}"
 msgstr "{0, plural, one {One more plugin leaves with {plugin}:} other {# more plugins leave with {plugin}:}}"
+
+#. placeholder {0}: pages.length
+#: src/components/clio/script-run-body.tsx
+msgid "{0, plural, one {Page {list}} other {Pages {list}}}"
+msgstr "{0, plural, one {Page {list}} other {Pages {list}}}"
 
 #. placeholder {0}: previous.length
 #: src/components/clio/session-work.tsx
@@ -1332,8 +1351,8 @@ msgid "{bytesText} output"
 msgstr "{bytesText} output"
 
 #: src/components/clio/nested-tool-calls.tsx
-msgid "{calls, plural, one {# tool call from this script} other {# tool calls from this script}}"
-msgstr "{calls, plural, one {# tool call from this script} other {# tool calls from this script}}"
+msgid "{calls, plural, one {# call from this script} other {# calls from this script}}"
+msgstr "{calls, plural, one {# call from this script} other {# calls from this script}}"
 
 #: src/components/clio/a2ui-weather.tsx
 msgid "{chance}% rain"
@@ -1382,6 +1401,10 @@ msgstr "{count, plural, one {{agent} asked you a question} other {{agent} asked 
 #: src/components/clio/study-tree.tsx
 msgid "{count, plural, one {{kind}: {title}, {state}, # entry} other {{kind}: {title}, {state}, # entries}}"
 msgstr "{count, plural, one {{kind}: {title}, {state}, # entry} other {{kind}: {title}, {state}, # entries}}"
+
+#: src/components/clio/script-run-body.tsx
+msgid "{count, plural, one {{name}, # line} other {{name}, # lines}}"
+msgstr "{count, plural, one {{name}, # line} other {{name}, # lines}}"
 
 #: src/components/clio/agent-package-items.ts
 msgid "{count, plural, one {{plugin} brings this command} other {{plugin} brings these commands}}"
@@ -1686,6 +1709,10 @@ msgstr "{count} selected"
 msgid "{count} waiting for trust"
 msgstr "{count} waiting for trust"
 
+#: src/components/clio/nested-tool-calls.tsx
+msgid "{count}, {detail}"
+msgstr "{count}, {detail}"
+
 #: src/components/clio/flow-railroad.ts
 msgid "{count}, one at a time"
 msgstr "{count}, one at a time"
@@ -1773,6 +1800,10 @@ msgstr "{duration} elapsed"
 #: src/components/clio/tool-technical-details.tsx
 msgid "{duration}, started {started}"
 msgstr "{duration}, started {started}"
+
+#: src/components/clio/script-run-body.tsx
+msgid "{earlier, plural, one {… # earlier line} other {… # earlier lines}}"
+msgstr "{earlier, plural, one {… # earlier line} other {… # earlier lines}}"
 
 #: src/components/clio/tool-technical-details.tsx
 msgid "{earlier, plural, one {# earlier line} other {# earlier lines}}"
@@ -2378,6 +2409,11 @@ msgstr "{lines, plural, one {# line} other {# lines}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # line} other {Python, # lines}}"
 
+#. A short list, one more item
+#: src/components/clio/script-calls.ts
+msgid "{list}, {item}"
+msgstr "{list}, {item}"
+
 #: src/components/clio/workspace-navigation.tsx
 msgid "{listedWorkspaceCount, plural, one {Show all # workspace} other {Show all # workspaces}}"
 msgstr "{listedWorkspaceCount, plural, one {Show all # workspace} other {Show all # workspaces}}"
@@ -2855,6 +2891,7 @@ msgid "{passed} of {total} passed"
 msgstr "{passed} of {total} passed"
 
 #: src/components/clio/tool-result-workspace-file.tsx
+#: src/components/clio/workspace-image-thumbnail.tsx
 msgid "{path}\n"
 "Open in the workbench"
 msgstr "{path}\n"
@@ -3071,6 +3108,14 @@ msgstr "{received} of {declared}"
 #: src/components/clio/agent-composition-view.tsx
 msgid "{ref}, version {version}"
 msgstr "{ref}, version {version}"
+
+#: src/components/clio/image-reach.ts
+msgid "{refused} of {total} not shown to the model"
+msgstr "{refused} of {total} not shown to the model"
+
+#: src/components/clio/script-run-body.tsx
+msgid "{remaining, plural, one {{count} more character on the agent} other {{count} more characters on the agent}}"
+msgstr "{remaining, plural, one {{count} more character on the agent} other {{count} more characters on the agent}}"
 
 #: src/components/clio/session-usage-readout.tsx
 msgid "{remaining} left"
@@ -3301,6 +3346,10 @@ msgstr "{shown} of {total} models match"
 #: src/components/clio/model-picker-row-label.tsx
 msgid "{shown} of {total} models shown"
 msgstr "{shown} of {total} models shown"
+
+#: src/components/clio/image-reach.ts
+msgid "{shown} of {total} shown to the model"
+msgstr "{shown} of {total} shown to the model"
 
 #: src/lib/model-capability-tags.ts
 msgid "{size} configured"
@@ -4010,6 +4059,14 @@ msgstr "A {agent}-looking process (pid {pid}) is on the port but isn't answering
 msgid "A {type} step part this version cannot display."
 msgstr "A {type} step part this version cannot display."
 
+#: src/components/clio/image-reach.ts
+msgid "A background script has no model step to attach to, so the model did not see this image."
+msgstr "A background script has no model step to attach to, so the model did not see this image."
+
+#: src/components/clio/image-reach.ts
+msgid "A background script has no model step to attach to, so the model did not see this PDF."
+msgstr "A background script has no model step to attach to, so the model did not see this PDF."
+
 #: src/components/clio/model-acquisition.tsx
 msgid "A branch or tag is resolved once to a commit. Retries keep that same commit even if the branch changes."
 msgstr "A branch or tag is resolved once to a commit. Retries keep that same commit even if the branch changes."
@@ -4156,8 +4213,12 @@ msgid "A saved host, or add one"
 msgstr "A saved host, or add one"
 
 #: src/components/clio/workbench-activity-detail.tsx
-msgid "A script (call {call})"
-msgstr "A script (call {call})"
+msgid "A script"
+msgstr "A script"
+
+#: src/components/clio/workbench-activity-detail.tsx
+msgid "A script, {caller}"
+msgstr "A script, {caller}"
 
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
@@ -8032,6 +8093,7 @@ msgid "Changed settings are teal"
 msgstr "Changed settings are teal"
 
 #: src/components/clio/tool-result-workspace-file.tsx
+#: src/components/clio/workspace-image-thumbnail.tsx
 msgid "Changed since the agent viewed it"
 msgstr "Changed since the agent viewed it"
 
@@ -11236,6 +11298,10 @@ msgstr "Could not load"
 msgid "Could not load items."
 msgstr "Could not load items."
 
+#: src/components/clio/script-run-body.tsx
+msgid "Could not load the rest: {error}"
+msgstr "Could not load the rest: {error}"
+
 #: src/tauri/workspace-terminal.ts
 msgid "Could not load the terminal."
 msgstr "Could not load the terminal."
@@ -13805,6 +13871,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
 #: src/lib/latex-diagnostics.ts
@@ -16411,6 +16478,22 @@ msgstr "image {digest}"
 msgid "Image blocked"
 msgstr "Image blocked"
 
+#: src/components/clio/script-run-body.tsx
+msgid "image description"
+msgstr "image description"
+
+#: src/components/clio/script-run-body.tsx
+msgid "image description, {size}"
+msgstr "image description, {size}"
+
+#: src/components/clio/script-run-body.tsx
+msgid "image description, {size}, pixels shown to the model below"
+msgstr "image description, {size}, pixels shown to the model below"
+
+#: src/components/clio/script-run-body.tsx
+msgid "image description, pixels shown to the model below"
+msgstr "image description, pixels shown to the model below"
+
 #: src/lib/model-capability-tags.ts
 msgid "Image editor"
 msgstr "Image editor"
@@ -18331,6 +18414,10 @@ msgstr "Load skill"
 msgid "Load the complete content to read this file."
 msgstr "Load the complete content to read this file."
 
+#: src/components/clio/script-run-body.tsx
+msgid "Load the rest"
+msgstr "Load the rest"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr "loaded {count}×"
@@ -18397,6 +18484,7 @@ msgstr "Loading {heading} mesh"
 #: src/components/clio/image-resource-view.tsx
 #: src/components/clio/pdf-preview.tsx
 #: src/components/clio/resource-viewers.tsx
+#: src/components/clio/workspace-image-thumbnail.tsx
 #: src/components/clio/workspace-resource-view.tsx
 #: src/components/clio/workspace-text-view.tsx
 msgid "Loading {name}"
@@ -18948,6 +19036,10 @@ msgstr "Loading the image…"
 #: src/components/clio/surface-question-notice.tsx
 msgid "Loading the linked view…"
 msgstr "Loading the linked view…"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Loading the rest…"
+msgstr "Loading the rest…"
 
 #: src/components/clio/flow-run-card.tsx
 msgid "Loading the run…"
@@ -21310,6 +21402,10 @@ msgstr "No log was recorded for this operation."
 msgid "No longer available in the workspace. The agent viewed this file, but it has since been removed or moved."
 msgstr "No longer available in the workspace. The agent viewed this file, but it has since been removed or moved."
 
+#: src/components/clio/workspace-image-thumbnail.tsx
+msgid "No longer in the workspace"
+msgstr "No longer in the workspace"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "No managed installer for this service"
 msgstr "No managed installer for this service"
@@ -21621,6 +21717,10 @@ msgstr "No plugin tools yet. Extensions that bring tools list them here."
 #: src/components/clio/installed-plugin-list.tsx
 msgid "No plugins yet."
 msgstr "No plugins yet."
+
+#: src/components/clio/workspace-image-thumbnail.tsx
+msgid "No preview"
+msgstr "No preview"
 
 #: src/components/clio/plugin-check-report.tsx
 msgid "No problems found."
@@ -22134,8 +22234,13 @@ msgid "not confirmed"
 msgstr "not confirmed"
 
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/image-reach.ts
 msgid "Not confirmed"
 msgstr "Not confirmed"
+
+#: src/components/clio/image-reach.ts
+msgid "not confirmed as seen"
+msgstr "not confirmed as seen"
 
 #: src/components/clio/session-usage-readout.tsx
 msgid "Not connected"
@@ -22328,6 +22433,14 @@ msgstr "Not sent"
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
 msgstr "Not set"
+
+#: src/components/clio/image-reach.ts
+msgid "not shown to the model"
+msgstr "not shown to the model"
+
+#: src/components/clio/image-reach.ts
+msgid "Not shown to the model"
+msgstr "Not shown to the model"
 
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/resource-processing-presentation.ts
@@ -23007,6 +23120,7 @@ msgstr "Open {label}, {status}"
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-sources-list.tsx
+#: src/components/clio/workspace-image-thumbnail.tsx
 #: src/components/clio/workspace-resource-browser.tsx
 #: src/routes/connection-page.tsx
 msgid "Open {name}"
@@ -23222,6 +23336,7 @@ msgid "Open in system terminal"
 msgstr "Open in system terminal"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr "Open in tab"
 
@@ -25013,6 +25128,10 @@ msgstr "Previous<0>{count}</0>"
 #: src/components/clio/settings-folders.tsx
 msgid "Primary folder"
 msgstr "Primary folder"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Printed"
+msgstr "Printed"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -27925,6 +28044,11 @@ msgstr "Rests on a tool result: review before it applies"
 msgid "Result"
 msgstr "Result"
 
+#: src/components/clio/script-run-body.tsx
+msgctxt "noun"
+msgid "Result"
+msgstr "Result"
+
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Result details"
 msgstr "Result details"
@@ -28067,6 +28191,7 @@ msgstr "Retrieval"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-agents.tsx
@@ -28203,6 +28328,7 @@ msgid "returned"
 msgstr "returned"
 
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Returned"
 msgstr "Returned"
@@ -28679,6 +28805,14 @@ msgstr "Runs commands"
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
 msgstr "Runs directly on this computer"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
 
 #: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
@@ -29358,6 +29492,7 @@ msgstr "score {score}"
 
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
+#: src/components/clio/script-run-body.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -31122,6 +31257,10 @@ msgstr "Show the original answer"
 msgid "Show the script in Work"
 msgstr "Show the script in Work"
 
+#: src/components/clio/script-run-body.tsx
+msgid "Show the task in Work"
+msgstr "Show the task in Work"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Show the tries"
 msgstr "Show the tries"
@@ -31233,6 +31372,24 @@ msgstr "Showing the last {rows} rows."
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Showing the last completed conversion"
 msgstr "Showing the last completed conversion"
+
+#: src/components/clio/image-reach.ts
+msgid "shown to the model"
+msgstr "shown to the model"
+
+#: src/components/clio/image-reach.ts
+#: src/components/clio/script-run-body.tsx
+msgid "Shown to the model"
+msgstr "Shown to the model"
+
+#: src/components/clio/image-reach.ts
+msgid "Shown to the model on its next step, as this call’s result."
+msgstr "Shown to the model on its next step, as this call’s result."
+
+#: src/components/clio/image-reach.ts
+#: src/components/clio/script-run-body.tsx
+msgid "Shown to the model on its next step, with the run_code script’s result."
+msgstr "Shown to the model on its next step, with the run_code script’s result."
 
 #: src/components/clio/latex-model.ts
 msgid "Side by side"
@@ -32516,6 +32673,7 @@ msgstr "stopped"
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/message-completion-footer.tsx
+#: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/tool-compact-row.tsx
@@ -33243,6 +33401,7 @@ msgstr "Tasks and processes"
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-inline-states.tsx
 #: src/components/clio/transcript-resource-attachment.tsx
+#: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workspace-route-surfaces.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Technical details"
@@ -33821,6 +33980,10 @@ msgstr "The deployment failed."
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "The deployment was cancelled."
 msgstr "The deployment was cancelled."
+
+#: src/components/clio/script-run-body.tsx
+msgid "The description of {file}"
+msgstr "The description of {file}"
 
 #: src/components/clio/settings-connection.tsx
 msgid "The desktop app carries every request."
@@ -34571,6 +34734,14 @@ msgstr "The saved plan could not be loaded. Request changes, or leave Plan mode 
 msgid "The science log could not be read"
 msgstr "The science log could not be read"
 
+#: src/components/clio/image-reach.ts
+msgid "The script had already attached as many files as one result may carry, so the model did not see this image."
+msgstr "The script had already attached as many files as one result may carry, so the model did not see this image."
+
+#: src/components/clio/image-reach.ts
+msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
+msgstr "The script had already attached as many files as one result may carry, so the model did not see this PDF."
+
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."
 msgstr "The script sent no text."
@@ -35318,6 +35489,22 @@ msgstr "This agent does not offer it yet."
 #: src/components/clio/conversation-summarization.tsx
 msgid "This agent does not record which turns it kept"
 msgstr "This agent does not record which turns it kept"
+
+#: src/components/clio/image-reach.ts
+msgid "This agent does not report whether the model saw the image."
+msgstr "This agent does not report whether the model saw the image."
+
+#: src/components/clio/image-reach.ts
+msgid "This agent does not report whether the model saw the image. Agents without that report pass a script only the file’s description, not its pixels."
+msgstr "This agent does not report whether the model saw the image. Agents without that report pass a script only the file’s description, not its pixels."
+
+#: src/components/clio/image-reach.ts
+msgid "This agent does not report whether the model saw the PDF."
+msgstr "This agent does not report whether the model saw the PDF."
+
+#: src/components/clio/image-reach.ts
+msgid "This agent does not report whether the model saw the PDF. Agents without that report pass a script only the file’s description, not its pixels."
+msgstr "This agent does not report whether the model saw the PDF. Agents without that report pass a script only the file’s description, not its pixels."
 
 #: src/components/clio/settings-health-load-error.tsx
 msgid "This agent doesn’t offer {part}."
@@ -36862,6 +37049,10 @@ msgstr "Unable to load result"
 #: src/components/clio/github-revision-picker.tsx
 msgid "Unable to load revisions"
 msgstr "Unable to load revisions"
+
+#: src/components/clio/use-complete-block-text.ts
+msgid "Unable to load the rest"
+msgstr "Unable to load the rest"
 
 #: src/components/clio/show-downloads.ts
 msgid "Unable to open downloads"

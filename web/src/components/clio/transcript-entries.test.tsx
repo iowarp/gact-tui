@@ -201,7 +201,7 @@ it('folds a finished run into one counted row that opens to its ordered calls', 
   expect(ordered(timeline)).toEqual(ordered(view.container).slice(1));
 });
 
-it('keeps a live run as flat rows until it settles', () => {
+it('folds the steps a live run has gone past and keeps the current step as rows', () => {
   const view = render(
     <ConversationTurn
       followLiveActivity
@@ -210,7 +210,10 @@ it('keeps a live run as flat rows until it settles', () => {
       subagents={{}}
     />,
   );
-  expect(view.container.querySelector('[data-run-summary]')).toBeNull();
+  // A new call never reopens the settled run, so no row mounts open and folds again.
+  expect(screen.getByRole('button', { name: 'Expand Called 1 tool' })).toBeInTheDocument();
+  expect(screen.getByText('two.md')).toBeVisible();
+  expect(screen.queryByText('one.md')).toBeNull();
   view.rerender(
     <ConversationTurn
       iterations={[iteration('one', 0), { ...iteration('two', 1), nextThoughts: [] }]}
@@ -221,6 +224,33 @@ it('keeps a live run as flat rows until it settles', () => {
   expect(
     screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' }),
   ).toBeInTheDocument();
+});
+
+it('never paints a file change open while the turn works', () => {
+  const edit = (iteration: ConversationIteration): ConversationIteration => {
+    const tool: ToolInvocation = {
+      ...iteration.tools[0],
+      name: 'fs_write_file',
+      presentation: {
+        status: 'succeeded',
+        summary: 'Wrote file',
+        blocks: [{ id: 'd', type: 'diff', path: 'report.py', text: '@@ -0,0 +1 @@\n+print(1)' }],
+      },
+    };
+    return { ...iteration, activity: [{ kind: 'tool', id: tool.id, tool }], tools: [tool] };
+  };
+  const live = (iterations: ConversationIteration[]) => (
+    <ConversationTurn followLiveActivity iterations={iterations} mode="chain" subagents={{}} />
+  );
+  const opened = () => document.querySelectorAll('[data-slot=tool-activity] > [data-state=open]');
+  const view = render(live([edit(iteration('one', 0))]));
+  expect(opened()).toHaveLength(0);
+  // The next call arrives: the edit folds into the run instead of remounting open.
+  view.rerender(
+    live([edit(iteration('one', 0)), { ...iteration('two', 1, true), nextThoughts: [] }]),
+  );
+  expect(opened()).toHaveLength(0);
+  expect(screen.getByRole('button', { name: 'Expand Edited 1 file' })).toBeVisible();
 });
 
 it('retains an opened tool result across live updates and answer arrival', async () => {

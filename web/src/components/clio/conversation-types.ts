@@ -99,6 +99,8 @@ export interface ClioConversationProps {
   onOpenWork?: () => void;
   /** Open the conversation's background tasks (a `task` link then opens its row there). */
   onOpenTasks?: () => void;
+  /** Open one call's details as a workbench tab, e.g. a long printed output. */
+  onOpenToolCall?: (tool: ToolInvocation, label: string) => void;
   /** Open a web link in the conversation's shared browser (shift-click opens it outside). */
   onOpenWebPage?: (url: string, sessionId: string) => void;
   onOpenResource?: (

@@ -190,7 +190,15 @@ function fallbackIterations(
     }
   };
   let previousPartId = '';
+  // Prose the agent wrote on both sides of a script's call is one passage once the
+  // call moves under its script; split, it would break Markdown spans.
+  let joinText: boolean = false;
+  let joinThought: boolean = false;
   for (const { block } of ordered) {
+    const followsText: boolean = joinText;
+    const followsThought: boolean = joinThought;
+    joinText = false;
+    joinThought = false;
     insertFeedback(previousPartId);
     previousPartId = block.id;
     // Transport-only instructions have no visible boundary to split.
@@ -259,6 +267,21 @@ function fallbackIterations(
     }
     if (block.type === 'text' && block.channel === 'next_thought') {
       if (current.activity.length > 0) flush();
+      const last = current.nextThoughts.length - 1;
+      // Only unshown parts (a script's call, a transport note) can sit between two
+      // thoughts of one iteration: they read as one passage, like answer text
+      // below, since separate Markdown blocks would break its spans.
+      if (last >= 0) {
+        const previousText = current.nextThoughts[last] ?? '';
+        const separator =
+          followsThought || /\s$/u.test(previousText) || /^\s/u.test(block.text) ? '' : '\n\n';
+        current.nextThoughts[last] = previousText + separator + block.text;
+        current.streaming ||= Boolean(block.streaming);
+        consumed.add(block.id);
+        joinThought = true;
+        continue;
+      }
+      joinThought = true;
       current.nextThoughts.push(block.text);
       publicThought = block.text;
       (current.nextThoughtSources ??= []).push({
@@ -289,6 +312,8 @@ function fallbackIterations(
       if (isNestedToolInvocation(tool, tools)) {
         // A run_code script's call shows under the script's row, not as its own.
         consumed.add(block.id);
+        joinText = followsText;
+        joinThought = followsThought;
         continue;
       }
       if (!alreadyInLane(current, 'tool', tool.id)) {
@@ -375,7 +400,28 @@ function fallbackIterations(
         block.channel === 'answer' &&
         !current.activity.some((entry) => entry.kind === 'tool'),
     );
-    segments.push({ kind: 'block', block });
+    const previous = segments.at(-1);
+    // Text parts with nothing shown between them read as one passage, whatever
+    // unshown part split them (a script's call, an empty thought, a transport note).
+    if (
+      block.type === 'text' &&
+      previous?.kind === 'block' &&
+      previous.block.type === 'text' &&
+      (previous.block.channel ?? null) === (block.channel ?? null) &&
+      (previous.block.agent_id ?? '') === (block.agent_id ?? '')
+    ) {
+      // A stream cut mid-sentence keeps its own spacing; separate steps stay paragraphs.
+      const separator =
+        followsText || /\s$/u.test(previous.block.text) || /^\s/u.test(block.text) ? '' : '\n\n';
+      previous.block = {
+        ...previous.block,
+        text: previous.block.text + separator + block.text,
+        streaming: block.streaming,
+      };
+    } else {
+      segments.push({ kind: 'block', block });
+    }
+    joinText = block.type === 'text';
   }
   insertFeedback(previousPartId);
   flush(
