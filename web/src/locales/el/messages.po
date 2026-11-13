@@ -3446,6 +3446,14 @@ msgid "{source} key saved."
 msgstr "Το κλειδί του {source} αποθηκεύτηκε."
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr "{source}, προεπιλεγμένο ref, εγκατεστημένο commit {commit}"
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr "{source}, προεπιλεγμένο ref, το εγκατεστημένο commit δεν είναι διαθέσιμο"
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr "{source}, ref {ref}, εγκατεστημένο commit {commit}"
 
@@ -12292,10 +12300,6 @@ msgstr "Προεπιλεγμένη εφαρμογή αλληλογραφίας"
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
 msgstr "Προεπιλεγμένο μοντέλο"
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
-msgstr "προεπιλεγμένο ref"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Default tool timeout"

@@ -3439,6 +3439,14 @@ msgid "{source} key saved."
 msgstr ""
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr ""
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr ""
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr ""
 
@@ -12283,10 +12291,6 @@ msgstr ""
 #: src/components/clio/settings-models.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
-msgstr ""
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
 msgstr ""
 
 #: src/components/clio/settings-schema-copy.ts

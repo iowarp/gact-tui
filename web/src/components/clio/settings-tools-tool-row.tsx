@@ -191,11 +191,9 @@ export const ToolRow = memo(function ToolRow({
           </span>
         ) : (
           // The values (summary rows only), the outcomes the columns fold away,
-          // then the reason. Below 44rem the line wraps inside a one-line clip,
-          // so an outcome without room for a few letters of its label leaves
-          // whole rather than as a bare dot. From 44rem the reason moves to a
-          // line of its own when the folded outcomes leave it no room.
-          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-muted-foreground @min-[44rem]/tools:h-auto @min-[44rem]/tools:gap-y-0.5">
+          // then the reason. Each part stays whole and moves to a line of its
+          // own when the ones before it leave no room, so no label is cut.
+          <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-xs whitespace-nowrap text-muted-foreground">
             {shows(2) ? (
               <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
             ) : null}
@@ -232,7 +230,7 @@ export const ToolRow = memo(function ToolRow({
             ) : null}
             {outcome && shows(0, 3) ? (
               <OutcomeMark
-                className="max-w-max min-w-0 grow basis-[calc(1.25rem+5ch)] @min-[44rem]/tools:shrink-0 @min-[44rem]/tools:grow-0 @min-[44rem]/tools:basis-auto @min-[56rem]/tools:hidden"
+                className="max-w-full shrink-0 @min-[56rem]/tools:hidden"
                 text={SCRIPT_OUTCOME_TEXT[outcome.script]}
                 value={outcome.script}
               />

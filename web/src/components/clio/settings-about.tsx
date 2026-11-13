@@ -133,10 +133,14 @@ function reported(value: string | undefined): string | undefined {
 
 function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace']): string {
   if (!marketplace) return t`Not configured`;
-  const ref = reported(marketplace.ref) || t`default ref`;
+  const ref = reported(marketplace.ref);
   const installed = reported(marketplace.installed_commit);
   const commit = installed ? installed.slice(0, 12) : undefined;
   const source = reported(marketplace.source) || t`unknown source`;
+  if (!ref)
+    return commit
+      ? t`${source}, default ref, installed ${commit}`
+      : t`${source}, default ref, installed commit unavailable`;
   return commit
     ? t`${source}, ref ${ref}, installed ${commit}`
     : t`${source}, ref ${ref}, installed commit unavailable`;

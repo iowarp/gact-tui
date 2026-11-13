@@ -3446,6 +3446,14 @@ msgid "{source} key saved."
 msgstr "Clave de {source} guardada."
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr "{source}, ref predeterminada, commit instalado {commit}"
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr "{source}, ref predeterminada, commit instalado no disponible"
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr "{source}, ref {ref}, commit instalado {commit}"
 
@@ -12292,10 +12300,6 @@ msgstr "Aplicación de correo predeterminada"
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
 msgstr "Modelo predeterminado"
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
-msgstr "ref predeterminada"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Default tool timeout"

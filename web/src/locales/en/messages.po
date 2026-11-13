@@ -3446,6 +3446,14 @@ msgid "{source} key saved."
 msgstr "{source} key saved."
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr "{source}, default ref, installed {commit}"
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr "{source}, default ref, installed commit unavailable"
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr "{source}, ref {ref}, installed {commit}"
 
@@ -12292,10 +12300,6 @@ msgstr "Default mail app"
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
 msgstr "Default model"
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
-msgstr "default ref"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Default tool timeout"
