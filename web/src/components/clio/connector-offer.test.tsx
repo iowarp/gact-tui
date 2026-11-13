@@ -104,7 +104,10 @@ describe('the agent offers a connector that is off', () => {
     expect(screen.getByText(offer.payload!.reason as string)).toBeTruthy();
     expect(screen.getByText(offer.payload!.description as string)).toBeTruthy();
     expect(screen.getByText('Not enabled')).toBeTruthy();
-    expect(screen.getByLabelText(/Where it runs/u)).toBeTruthy();
+    // The optional row waits behind its disclosure.
+    expect(screen.queryByLabelText(/Where it runs/u)).toBeNull();
+    const more = screen.getByRole('button', { name: 'Optional settings (1)' });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
     expect(screen.getByText(/asks for the first time the agent uses it/u)).toBeTruthy();
     // A required row keeps Turn on disabled until it is typed.
     expect(screen.getByRole('button', { name: /Turn on/u }).hasAttribute('disabled')).toBe(true);
@@ -114,6 +117,7 @@ describe('the agent offers a connector that is off', () => {
     const user = userEvent.setup();
     const onResponse = renderDock();
     await user.type(await screen.findByLabelText(/Access token/u), 'zz-token');
+    await user.click(screen.getByRole('button', { name: 'Optional settings (1)' }));
     await user.type(screen.getByLabelText(/Where it runs/u), 'node08');
     await user.click(screen.getByRole('button', { name: /^1?\s*Turn on/u }));
     expect(onResponse).toHaveBeenCalledWith(offer, {

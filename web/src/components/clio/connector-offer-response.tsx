@@ -1,9 +1,10 @@
 import { connectorSetupPayload, type PendingInteraction } from '@clio/core/v3';
-import { PlugIcon } from 'lucide-react';
+import { ChevronRightIcon, PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { useConnector } from '@/hooks/use-connectors';
 import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { cn } from '@/lib/utils';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
@@ -39,6 +40,12 @@ export function ConnectorOfferResponse({
   const description = connector?.description ?? payload?.description ?? '';
   const agent = payload?.agent_name || payload?.agent_ref || 'this agent';
   const unfilled = unfilledRequired(rows, draft);
+  // Required rows show at once; optional ones (where it runs, a command to run first)
+  // wait behind one disclosure, so the offer stays short.
+  const required = rows.filter((need) => need.required);
+  const optional = rows.filter((need) => !need.required);
+  const [showOptional, setShowOptional] = useState(false);
+  const optionalId = `${pendingInteractionDomId(interaction.id)}-optional`;
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const turnOn = () => {
     if (disabled || unfilled.length) return;
@@ -51,6 +58,14 @@ export function ConnectorOfferResponse({
     );
   };
   const switchId = `${pendingInteractionDomId(interaction.id)}-everywhere`;
+  const needProps = {
+    disabled,
+    draft,
+    onDraft: (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value })),
+    onSignIn: () => undefined,
+    onSubmit: turnOn,
+    submitLabel: `Turn on ${name}`,
+  };
   return (
     <AskCard
       data-connector={id}
@@ -90,19 +105,39 @@ export function ConnectorOfferResponse({
             </div>
           ) : null}
           {payload ? (
-            rows.length ? (
-              <ConnectorNeedRows
-                disabled={disabled}
-                draft={draft}
-                needs={rows}
-                onDraft={(key, value) => setDraft((current) => ({ ...current, [key]: value }))}
-                onSignIn={() => undefined}
-                onSubmit={turnOn}
-                submitLabel={`Turn on ${name}`}
-              />
-            ) : (
-              <p className="text-xs text-muted-foreground">It needs nothing to set up.</p>
-            )
+            <>
+              {required.length ? (
+                <ConnectorNeedRows {...needProps} needs={required} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {optional.length
+                    ? 'Nothing is required to set up.'
+                    : 'It needs nothing to set up.'}
+                </p>
+              )}
+              {optional.length ? (
+                <div className="grid gap-2" data-slot="connector-offer-optional">
+                  <button
+                    aria-controls={optionalId}
+                    aria-expanded={showOptional}
+                    className="flex w-fit items-center gap-1 rounded-[4px] text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                    onClick={() => setShowOptional((open) => !open)}
+                    type="button"
+                  >
+                    <ChevronRightIcon
+                      aria-hidden="true"
+                      className={cn('size-3.5 transition-transform', showOptional && 'rotate-90')}
+                    />
+                    Optional settings ({optional.length})
+                  </button>
+                  {showOptional ? (
+                    <div id={optionalId}>
+                      <ConnectorNeedRows {...needProps} needs={optional} />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           ) : (
             <p role="alert">This offer can’t be read by this version.</p>
           )}
