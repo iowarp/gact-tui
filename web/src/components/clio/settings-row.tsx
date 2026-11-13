@@ -194,7 +194,10 @@ export function SettingsGroupLabel({
       )}
       data-slot="settings-group-label"
     >
-      <h2 className="max-w-full min-w-0 shrink-0 truncate font-normal">{children}</h2>
+      {/* A long localized label wraps rather than clipping. */}
+      <h2 className="max-w-full min-w-0 shrink-0 font-normal break-words whitespace-normal [word-break:auto-phrase]">
+        {children}
+      </h2>
       {info ? (
         <InfoTip
           className={cn('text-faint', NARROW_HIDDEN)}

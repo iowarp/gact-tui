@@ -85,7 +85,8 @@ export function IconSelect({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <SettingsSelectField
-          className="w-[150px]"
+          // In rem like its text, so a larger interface size keeps the icon's name whole.
+          className="w-[9.375rem] max-w-full"
           icon={<current.Icon />}
           id={id}
           title={current.label}

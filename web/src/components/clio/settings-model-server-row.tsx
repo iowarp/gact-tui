@@ -407,7 +407,12 @@ export function ModelServerRow({
       }
       statusWidth={158}
       tabIndex={0}
-      title={<span title={label}>{label}</span>}
+      // On a phone-width list a long name wraps whole rather than ending in an ellipsis.
+      title={
+        <span className="@max-sm:block @max-sm:break-words @max-sm:whitespace-normal" title={label}>
+          {label}
+        </span>
+      }
     />
   );
 }
