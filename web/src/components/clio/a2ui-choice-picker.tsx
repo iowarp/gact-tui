@@ -11,6 +11,7 @@ import {
   CommandEmpty,
   CommandItem,
 } from '@/components/ui/command';
+import { plural, t } from '@lingui/core/macro';
 
 const INLINE_OPTION_LIMIT = 8;
 
@@ -34,17 +35,18 @@ export const ClioChoicePicker = createComponentImplementation(
         ? [props.value]
         : [];
     const selected = options.filter((option) => values.includes(option.value));
+    const label = props.label;
     const caption =
       selected.length > 2
-        ? `${selected.length} selected`
-        : selected.map((option) => option.label).join(', ') || 'Choose…';
+        ? plural(selected.length, { one: '# selected', other: '# selected' })
+        : selected.map((option) => option.label).join(', ') || t`Choose…`;
     return (
       <div className="min-w-0 space-y-2" data-slot="a2ui-searchable-choice">
         {props.label ? <p className="text-sm font-medium">{props.label}</p> : null}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
-              aria-label={props.label || 'Choose options'}
+              aria-label={props.label || t`Choose options`}
               aria-expanded={open}
               aria-controls={open ? popupId : undefined}
               role="combobox"
@@ -59,12 +61,12 @@ export const ClioChoicePicker = createComponentImplementation(
           </PopoverTrigger>
           <PopoverContent
             id={popupId}
-            aria-label={`${props.label || 'Options'} choices`}
+            aria-label={label ? t`${label} choices` : t`Options choices`}
             className="w-(--radix-popover-trigger-width) min-w-64 max-w-[90vw] p-0"
             align="start"
           >
             <Command
-              label={`Search ${props.label || 'options'}`}
+              label={label ? t`Search ${label}` : t`Search options`}
               filter={(value, search, keywords) =>
                 [value, ...(keywords ?? [])].some((text) =>
                   text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
@@ -74,11 +76,11 @@ export const ClioChoicePicker = createComponentImplementation(
               }
             >
               <CommandInput
-                aria-label={`Search ${props.label || 'options'}`}
-                placeholder={`Search ${props.label || 'options'}…`}
+                aria-label={label ? t`Search ${label}` : t`Search options`}
+                placeholder={label ? t`Search ${label}…` : t`Search options…`}
               />
               <CommandList className="max-h-72">
-                <CommandEmpty>No matching options.</CommandEmpty>
+                <CommandEmpty>{t`No matching options.`}</CommandEmpty>
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}

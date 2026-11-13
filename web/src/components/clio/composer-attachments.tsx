@@ -45,6 +45,7 @@ import {
 } from './resource-pipeline-status';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 import { ClioPdfPreview } from './pdf-preview';
+import { t } from '@lingui/core/macro';
 
 const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
@@ -58,11 +59,14 @@ export interface ResourceUploadFailure {
 export function ClioComposerAttachments({
   onPrepareFiles,
   onDiscardFiles,
+  onRemovingChange,
   resources = [],
   uploadFailure,
   uploadProgress,
 }: {
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
+  /** True while an uploaded attachment's discard is in flight. */
+  onRemovingChange?: (removing: boolean) => void;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -83,6 +87,10 @@ export function ClioComposerAttachments({
     Record<string, ResourceUploadFailure>
   >({});
   const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+  const removingIds = useRef(new Set<string>());
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(() => new Set());
+  const removingAny = removing.size > 0;
+  useEffect(() => onRemovingChange?.(removingAny), [onRemovingChange, removingAny]);
   // A keyboard removal hands focus on once the removed chip has left the DOM.
   const removalFocus = useRef<{
     editor: HTMLDivElement | null;
@@ -95,8 +103,14 @@ export function ClioComposerAttachments({
     const pending = removalFocus.current;
     if (!pending || attachments.files.some((file) => file.id === pending.id)) return;
     removalFocus.current = undefined;
-    const next = attachments.files[pending.index];
-    const chip = next && pending.group.isConnected ? pending.group.children[pending.index] : null;
+    // The chip that took the removed one's place, else the one before it, so
+    // removing the last chip stays among the chips.
+    const index = pending.group.isConnected
+      ? attachments.files[pending.index]
+        ? pending.index
+        : pending.index - 1
+      : -1;
+    const chip = index >= 0 ? pending.group.children[index] : null;
     const button = chip?.querySelector<HTMLElement>('button');
     if (button) button.focus();
     else focusEditorAtOffset(pending.editor);
@@ -158,7 +172,7 @@ export function ClioComposerAttachments({
             ...current,
             [file.id]: {
               filename: file.filename,
-              message: composerFailureReason(error, 'The upload failed.'),
+              message: composerFailureReason(error, t`The upload failed.`),
             },
           }));
         })
@@ -185,6 +199,7 @@ export function ClioComposerAttachments({
   };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
+    if (removingIds.current.has(file.id)) return;
     // Removing the chip that holds focus keeps focus in the composer: on the
     // chip that takes its place, or else the editor.
     const focused = document.activeElement;
@@ -198,15 +213,34 @@ export function ClioComposerAttachments({
         ?.querySelector<HTMLDivElement>('[contenteditable="true"]') ?? null;
     preparationControllers.current.get(file.id)?.abort();
     preparationControllers.current.delete(file.id);
-    try {
-      await onDiscardFiles?.([file]);
+    const forget = () => {
       const index = attachments.files.findIndex((candidate) => candidate.id === file.id);
       if (group && index >= 0) removalFocus.current = { editor, group, id: file.id, index };
       attachments.remove(file.id);
+    };
+    if (!preparedResources[file.id]) {
+      // Still uploading, or failed: nothing the person must keep track of. The chip
+      // leaves now, so its upload can't restart, and the service discards whatever
+      // part of it arrived.
+      forget();
+      void onDiscardFiles?.([file]).catch(() => undefined);
+      return;
+    }
+    const setRemovingId = (on: boolean) => {
+      if (on) removingIds.current.add(file.id);
+      else removingIds.current.delete(file.id);
+      setRemoving(new Set(removingIds.current));
+    };
+    setRemovingId(true);
+    try {
+      await onDiscardFiles?.([file]);
+      forget();
     } catch (error) {
-      toast.error('Could not remove attachment', {
-        description: composerFailureReason(error, 'The service did not remove it.'),
+      toast.error(t`Could not remove attachment`, {
+        description: composerFailureReason(error, t`The service did not remove it.`),
       });
+    } finally {
+      setRemovingId(false);
     }
   };
 
@@ -239,7 +273,7 @@ export function ClioComposerAttachments({
         type="auto"
       >
         <Attachments
-          aria-label="Pending attachments"
+          aria-label={t`Pending attachments`}
           className="w-full min-w-0 flex-wrap items-center justify-start gap-1.5 px-0 pt-0.5 pb-1"
           role="group"
           variant="composer"
@@ -269,6 +303,7 @@ export function ClioComposerAttachments({
                       mediaType={file.mediaType || ''}
                       size={(file as UploadableFilePart).file?.size ?? resource?.declared_size}
                       progress={progress}
+                      removing={removing.has(file.id)}
                       stages={stages}
                       onOpen={() => setPreviewId(file.id)}
                       onRemove={() => void removeFile(file)}
@@ -279,9 +314,17 @@ export function ClioComposerAttachments({
                       }
                     />
                   ) : (
-                    <Attachment data={file} onRemove={() => void removeFile(file)}>
+                    <Attachment
+                      aria-busy={removing.has(file.id) || undefined}
+                      className={cn(removing.has(file.id) && 'opacity-60')}
+                      data={file}
+                      onRemove={() => void removeFile(file)}
+                    >
+                      {removing.has(file.id) ? (
+                        <span className="sr-only">{t`Removing`}</span>
+                      ) : null}
                       <button
-                        aria-label={`Open ${filename}`}
+                        aria-label={t`Open ${filename}`}
                         className={cn(
                           'text-left',
                           visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
@@ -295,13 +338,13 @@ export function ClioComposerAttachments({
                           <ResourcePipelineSummaryIcon overlay stages={stages} />
                         </span>
                       </button>
-                      <AttachmentRemove aria-label={`Remove ${filename}`} />
+                      <AttachmentRemove aria-label={t`Remove ${filename}`} />
                       {onPrepareFiles && attachmentFailures[file.id] ? (
                         <Button
                           variant="secondary"
                           size="icon-sm"
                           className="absolute top-1 left-1"
-                          aria-label={`Retry upload for ${filename}`}
+                          aria-label={t`Retry upload for ${filename}`}
                           onClick={() => retryFile(file)}
                         >
                           <RetryIcon className="size-3.5" />
@@ -313,7 +356,7 @@ export function ClioComposerAttachments({
                 <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
                   <p className="truncate text-sm font-medium">{filename}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {file.mediaType || 'Media type pending'}
+                    {file.mediaType || t`Media type pending`}
                   </p>
                   <div className="mt-2">
                     <ResourcePipelineStatusLines stages={stages} />
@@ -336,9 +379,9 @@ export function ClioComposerAttachments({
         >
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="truncate">
-              {preview?.filename ?? 'Attachment preview'}
+              {preview?.filename ?? t`Attachment preview`}
             </DialogTitle>
-            <DialogDescription>{preview?.mediaType || 'Detected after upload'}</DialogDescription>
+            <DialogDescription>{preview?.mediaType || t`Detected after upload`}</DialogDescription>
           </DialogHeader>
           {preview ? (
             <AttachmentPreviewCarousel
@@ -364,8 +407,8 @@ function localAttachmentStages(
     // Without this a rejected upload keeps reading as a healthy "Ready locally"
     // attachment, which is the opposite of what happened.
     return summarizeResourcePipelineStages(
-      { detail: uploadFailure.message, kind: 'failed', label: 'Failed', name: 'Upload' },
-      { kind: 'waiting', label: 'Waiting for upload', name: 'Conversion' },
+      { detail: uploadFailure.message, kind: 'failed', label: t`Failed`, name: 'Upload' },
+      { kind: 'waiting', label: t`Waiting for upload`, name: 'Conversion' },
     );
   }
   const progress = uploadProgress?.filename === file.filename ? uploadProgress : undefined;
@@ -377,17 +420,17 @@ function localAttachmentStages(
               ? `${Math.round((progress.loaded / progress.total) * 100)}%`
               : undefined,
           kind: 'active' as const,
-          label: 'In progress',
+          label: t`In progress`,
           name: 'Upload' as const,
         }
       : {
           kind: preparing ? ('active' as const) : ('complete' as const),
-          label: progress ? 'Complete' : preparing ? 'Starting' : 'Ready locally',
+          label: progress ? t`Complete` : preparing ? t`Starting` : t`Ready locally`,
           name: 'Upload' as const,
         };
   const conversion = {
     kind: 'waiting' as const,
-    label: 'Waiting for upload',
+    label: t`Waiting for upload`,
     name: 'Conversion' as const,
   };
   return summarizeResourcePipelineStages(upload, conversion);
@@ -397,7 +440,7 @@ function LocalAttachmentPreview({ file }: { file: UploadableFilePart }) {
   if (file.mediaType?.startsWith('image/')) {
     return (
       <img
-        alt={file.filename ?? 'Attachment preview'}
+        alt={file.filename ?? t`Attachment preview`}
         className="size-full rounded-lg object-contain"
         src={file.url}
       />
@@ -421,8 +464,8 @@ function LocalAttachmentPreview({ file }: { file: UploadableFilePart }) {
   return (
     <div className="grid h-full min-h-64 place-items-center text-center text-sm text-muted-foreground">
       <div>
-        <p className="font-medium text-foreground">Preview unavailable</p>
-        <p>This file will be preserved and inspected by the workspace after upload.</p>
+        <p className="font-medium text-foreground">{t`Preview unavailable`}</p>
+        <p>{t`This file will be preserved and inspected by the workspace after upload.`}</p>
       </div>
     </div>
   );
@@ -444,7 +487,7 @@ function LocalTextPreview({ file }: { file: UploadableFilePart }) {
       .then(setText)
       .catch((cause: unknown) => {
         if (cause instanceof Error && cause.name === 'AbortError') return;
-        setError(cause instanceof Error ? cause.message : 'The text file could not be read.');
+        setError(cause instanceof Error ? cause.message : t`The text file could not be read.`);
       });
     return () => controller.abort();
     // Re-reads only when the attachment identity itself changes; `file` is a
@@ -457,7 +500,7 @@ function LocalTextPreview({ file }: { file: UploadableFilePart }) {
     return <p className="p-4 text-sm text-destructive">{error}</p>;
   }
   if (text === undefined) {
-    return <p className="p-4 text-sm text-muted-foreground">Loading preview…</p>;
+    return <p className="p-4 text-sm text-muted-foreground">{t`Loading preview…`}</p>;
   }
   return (
     <pre className="min-h-full whitespace-pre-wrap rounded-lg border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
@@ -477,7 +520,7 @@ function LocalPdfPreview({ file }: { file: UploadableFilePart }) {
       .then((buffer) => setBytes(new Uint8Array(buffer)))
       .catch((cause: unknown) => {
         if (cause instanceof Error && cause.name === 'AbortError') return;
-        setError(cause instanceof Error ? cause.message : 'The PDF could not be read.');
+        setError(cause instanceof Error ? cause.message : t`The PDF could not be read.`);
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps

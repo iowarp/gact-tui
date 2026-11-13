@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { renderPeleDiagram } from '@/components/clio/diagram-renderer';
+import { t } from '@lingui/core/macro';
 
 /* -------------------------------------------------------------------------------------------------
  * Types
@@ -134,6 +135,7 @@ function useMermaid({
               : {}),
           },
           sequence: parsedConfig.sequence,
+          // i18n-ignore: CSS font stack
           fontFamily: parsedConfig.fontFamily ?? 'Inter, sans-serif',
           fontSize: parsedConfig.fontSize ?? 14,
           logLevel: parsedConfig.logLevel ?? 'error',
@@ -163,7 +165,7 @@ function useMermaid({
         }
       } catch (err) {
         if (!isCancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to render diagram';
+          const message = err instanceof Error ? err.message : t`Failed to render diagram`;
           console.error('Mermaid Render Error:', err);
           setError(message);
           setStatus('error');
@@ -236,7 +238,7 @@ export function Mermaid({
           className="flex items-center justify-center w-full h-full overflow-auto animate-in fade-in duration-300 [&_svg]:max-w-full [&_svg]:h-auto"
           dangerouslySetInnerHTML={renderedHtml}
           role="img"
-          aria-label="Mermaid diagram"
+          aria-label={t`Mermaid diagram`}
         />
       )}
 
@@ -254,7 +256,7 @@ export function Mermaid({
         <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
           <div className="flex flex-col items-center gap-3">
             <div className="w-5 h-5 border-2 border-primary rounded-full animate-spin border-t-transparent" />
-            <span className="text-xs text-muted-foreground font-medium">Rendering...</span>
+            <span className="text-xs text-muted-foreground font-medium">{t`Rendering...`}</span>
           </div>
         </div>
       )}
@@ -264,7 +266,7 @@ export function Mermaid({
         <div className="flex items-center justify-center w-full p-6 border border-destructive/20 bg-destructive/5 rounded-lg">
           <div className="flex flex-col items-center gap-2 max-w-md text-center">
             <span className="text-xs font-bold text-destructive uppercase tracking-wider">
-              Syntax Error
+              {t`Syntax Error`}
             </span>
             <code className="text-xs text-muted-foreground font-mono bg-background/50 px-2 py-1 rounded w-full break-all">
               {error.split('\n')[0]} {/* Show only first line of error for brevity */}
@@ -276,7 +278,7 @@ export function Mermaid({
       {/* 5. Idle State */}
       {status === 'idle' && (
         <div className="flex items-center justify-center w-full h-full min-h-[150px] border-2 border-dashed rounded-lg border-muted-foreground/20">
-          <p className="text-sm text-muted-foreground">No diagram code provided</p>
+          <p className="text-sm text-muted-foreground">{t`No diagram code provided`}</p>
         </div>
       )}
     </div>

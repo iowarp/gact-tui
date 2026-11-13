@@ -13,6 +13,7 @@ import {
 } from '@/lib/selection-actions-file';
 import type { ComposerDraft } from './use-composer-draft';
 import { useSelectionAction } from './use-selection-action';
+import { t } from '@lingui/core/macro';
 
 /**
  * The selection menu on a file viewer's text: "Add to message" quotes the
@@ -30,7 +31,7 @@ export function useFileSelectionActions(
   const addToMessage = useMemo<SelectionAction>(
     () => ({
       id: 'file-add-to-message',
-      label: 'Add to message',
+      label: t`Add to message`,
       icon: AtSignIcon,
       order: 10,
       shortcut: 'add-to-message',
@@ -52,7 +53,7 @@ export function useFileSelectionActions(
 
 const FILE_COMMENT_ACTION: SelectionAction = {
   id: 'file-comment',
-  label: 'Comment',
+  label: t`Comment`,
   icon: MessageSquareIcon,
   order: 20,
   shortcut: 'comment',

@@ -84,7 +84,7 @@ describe('SurfaceToolbar', () => {
     expect(toolbar.className).toContain('[@media(hover:hover)]:group-hover:pointer-events-auto');
   });
 
-  it('is low emphasis (not full strength) on a touch/no-hover device, per the owner\'s ruling (#516 review item 12)', () => {
+  it("is low emphasis (not full strength) on a touch/no-hover device, per the owner's ruling (#516 review item 12)", () => {
     render(<SurfaceToolbar capabilities={{ onCopy: () => true }} />);
     const toolbar = document.querySelector('[data-slot="surface-toolbar"]')!;
     const classes = toolbar.className.split(/\s+/u);
@@ -150,13 +150,17 @@ describe('SurfaceToolbar', () => {
     const { container } = render(<SurfaceToolbar capabilities={capabilities} />);
     await user.click(opener(container));
     await user.click(screen.getByRole('menuitem', { name: /Download/ }));
-    expect(await screen.findByRole('menuitem', { name: 'PNG image' })).toHaveAttribute('data-disabled');
+    expect(await screen.findByRole('menuitem', { name: 'PNG image' })).toHaveAttribute(
+      'data-disabled',
+    );
   });
 
   it('renders a copy entry in the overflow that calls onCopy and shows a transient confirmation on success', async () => {
     const user = userEvent.setup();
     const onCopy = vi.fn().mockResolvedValue(true);
-    const { container } = render(<SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />);
+    const { container } = render(
+      <SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />,
+    );
 
     await user.click(opener(container));
     await user.click(screen.getByRole('menuitem', { name: 'Copy value' }));
@@ -169,7 +173,9 @@ describe('SurfaceToolbar', () => {
   it('never shows "Copied" on a false result -- shows a failure notice instead (#516 review item 11)', async () => {
     const user = userEvent.setup();
     const onCopy = vi.fn().mockResolvedValue(false);
-    const { container } = render(<SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />);
+    const { container } = render(
+      <SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />,
+    );
 
     await user.click(opener(container));
     await user.click(screen.getByRole('menuitem', { name: 'Copy value' }));
@@ -181,14 +187,16 @@ describe('SurfaceToolbar', () => {
   it('shows a failure notice when onCopy itself rejects', async () => {
     const user = userEvent.setup();
     const onCopy = vi.fn().mockRejectedValue(new Error('clipboard denied'));
-    const { container } = render(<SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />);
+    const { container } = render(
+      <SurfaceToolbar capabilities={{ copyLabel: 'Copy value', onCopy }} />,
+    );
 
     await user.click(opener(container));
     await user.click(screen.getByRole('menuitem', { name: 'Copy value' }));
 
     await vi.waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
-        "Couldn't copy copy value",
+        "Couldn't copy",
         expect.objectContaining({ description: 'clipboard denied' }),
       ),
     );
@@ -197,11 +205,27 @@ describe('SurfaceToolbar', () => {
   it('shows a failure notice for every DownloadSubmenu failure mode (#516 review item 10)', async () => {
     const user = userEvent.setup();
     const cases: { description: string; error: unknown; label: string }[] = [
-      { description: 'export_too_large', error: new Error('export_too_large'), label: 'Server 413' },
-      { description: 'canvas returned no image data', error: new Error('canvas returned no image data'), label: 'Canvas' },
+      {
+        description: 'export_too_large',
+        error: new Error('export_too_large'),
+        label: 'Server 413',
+      },
+      {
+        description: 'canvas returned no image data',
+        error: new Error('canvas returned no image data'),
+        label: 'Canvas',
+      },
       { description: 'Failed to fetch', error: new TypeError('Failed to fetch'), label: 'Fetch' },
-      { description: 'denied', error: new DOMException('denied', 'SecurityError'), label: 'Security' },
-      { description: 'the export failed for an unknown reason', error: undefined, label: 'Unknown' },
+      {
+        description: 'denied',
+        error: new DOMException('denied', 'SecurityError'),
+        label: 'Security',
+      },
+      {
+        description: 'the export failed for an unknown reason',
+        error: undefined,
+        label: 'Unknown',
+      },
     ];
     for (const testCase of cases) {
       vi.mocked(toast.error).mockClear();
@@ -230,13 +254,15 @@ describe('SurfaceToolbar', () => {
   it('shows the selection/linking hint as an informational row in the overflow', async () => {
     const user = userEvent.setup();
     const { container } = render(
-      <SurfaceToolbar capabilities={{ selectionHint: <span>Shift+drag to select an area</span> }} />,
+      <SurfaceToolbar
+        capabilities={{ selectionHint: <span>Shift+drag to select an area</span> }}
+      />,
     );
     await user.click(opener(container));
     expect(screen.getByText('Shift+drag to select an area')).toBeInTheDocument();
   });
 
-  it('exposes the selection hint as a disabled menu item, not a bare div, so it stays in the menu\'s keyboard navigation (#516 review item 16)', async () => {
+  it("exposes the selection hint as a disabled menu item, not a bare div, so it stays in the menu's keyboard navigation (#516 review item 16)", async () => {
     const user = userEvent.setup();
     const { container } = render(
       <SurfaceToolbar
@@ -277,7 +303,9 @@ describe('SurfaceToolbar', () => {
 
   it('renders the filters slot as a primary control, as declared by the component', () => {
     render(
-      <SurfaceToolbar capabilities={{ filters: { content: <button type="button">Filters</button> } }} />,
+      <SurfaceToolbar
+        capabilities={{ filters: { content: <button type="button">Filters</button> } }}
+      />,
     );
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
@@ -358,7 +386,14 @@ describe('SurfaceToolbar', () => {
     const first = render(
       <QueryClientProvider client={client}>
         {withSelectionActions(
-          <ClioChart componentId="chart1" data={rows} entityField="run" preset="trajectories" xField="t" yField="v" />,
+          <ClioChart
+            componentId="chart1"
+            data={rows}
+            entityField="run"
+            preset="trajectories"
+            xField="t"
+            yField="v"
+          />,
         )}
       </QueryClientProvider>,
     );
@@ -384,7 +419,11 @@ describe('SurfaceToolbar', () => {
       .filter((label): label is string => label !== null);
 
     expect(chartOrder).toEqual([
-      'Box select chart points', 'Filters', 'Reference this', 'Full screen', 'More',
+      'Box select chart points',
+      'Filters',
+      'Reference this',
+      'Full screen',
+      'More',
     ]);
     expect(tableOrder).toEqual(['Filters', 'Reference this', 'Full screen', 'More']);
     // Every control the table DOES declare lands in the same relative

@@ -13,6 +13,7 @@ import { UsageSettings } from '@/components/clio/settings-usage';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DataSourceSettings } from '@/components/clio/settings-data-sources';
+import { WebSearchSettings } from '@/components/clio/settings-web-search';
 import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
@@ -34,6 +35,7 @@ export function SettingsSection({
 }) {
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
+  if (section === 'web-search') return <WebSearchSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'runtime' || section === 'browser')
     return <ExecutionHistorySettings initialSessionId={sessionId} />;

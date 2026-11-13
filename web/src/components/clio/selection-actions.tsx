@@ -15,6 +15,7 @@ import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { useKeyPlatform, useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { chordMatches } from '@/lib/shortcuts/keys';
 import { shortcutChords } from '@/lib/shortcuts/registry';
+import { t } from '@lingui/core/macro';
 
 /** Owns the one selection-action registry every selectable surface shares. */
 export function SelectionActionsProvider({ children }: { children: ReactNode }) {
@@ -135,7 +136,7 @@ export function ClioSelectionActionToolbar() {
       ref={toolbarRef}
       role="toolbar"
       aria-keyshortcuts={menuKey?.aria}
-      aria-label="Selection actions"
+      aria-label={t`Selection actions`}
       style={{ left: anchor.left, top: Math.max(anchor.top, TOOLBAR_GAP_PX) }}
     >
       <ButtonGroup>
@@ -187,7 +188,7 @@ function SelectionActionButton({ action, onRun }: { action: SelectionAction; onR
       {presentation ? (
         <kbd
           aria-hidden="true"
-          className="font-mono text-[10.5px] font-normal text-muted-foreground"
+          className="font-mono text-[0.65625rem] font-normal text-muted-foreground"
           data-slot="selection-action-shortcut"
         >
           {presentation.text}

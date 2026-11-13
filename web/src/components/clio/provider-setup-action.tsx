@@ -10,6 +10,7 @@ import { ProviderActionSteps } from './provider-action-steps';
 import { ProviderAuthPanel } from './provider-auth-panel';
 import { ProviderLoginButton } from './provider-login-button';
 import type { ProviderActions } from './provider-setup-state';
+import { ph, t } from '@lingui/core/macro';
 
 interface ProviderSetupActionProps {
   flow: ProviderActionFlow;
@@ -78,16 +79,16 @@ export function ProviderSetupAction({
           }}
         >
           <Input
-            aria-label={`${providerLabel} key`}
+            aria-label={t`${providerLabel} key`}
             autoComplete="off"
             className="h-8"
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder={`Paste your ${providerLabel.replace(/\s+API$/u, '')} key`}
+            placeholder={t`Paste your ${ph({ provider: providerLabel.replace(/\s+API$/u, '') })} key`}
             type="password"
             value={apiKey}
           />
           <Button disabled={!apiKey.trim() || !preset} size="sm" type="submit">
-            Connect
+            {t`Connect`}
           </Button>
         </form>
       ) : flow === 'sign_in' ? (
@@ -99,18 +100,18 @@ export function ProviderSetupAction({
       ) : flow === 'install' ? (
         <Button onClick={() => actions.installProvider.mutate()} size="sm" type="button">
           <DownloadIcon data-icon="inline-start" />
-          Install
+          {t`Install`}
         </Button>
       ) : (
         <RefreshButton
-          label={failed ? 'Check again' : 'Check'}
+          label={failed ? t`Check again` : t({ message: 'Check', context: 'verb' })}
           refreshing={actions.handshake.isPending}
           onRefresh={() => actions.handshake.mutateAsync()}
           size="sm"
           type="button"
           variant="outline"
         >
-          {failed ? 'Check again' : 'Check'}
+          {failed ? t`Check again` : t({ message: 'Check', context: 'verb' })}
         </RefreshButton>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { formatParameterCount } from './model-facts';
 import { formatContextSize } from './model-capability-tags';
 import { parseRangeToken, RANGE_MODIFIERS, type RangeKind } from './model-range-tokens';
+import { t } from '@lingui/core/macro';
 
 /**
  * The filter panel's slider scales and how a slider position becomes a range
@@ -27,13 +28,13 @@ export const SIZE_STOPS: readonly ScaleStop[] = [
 
 /** Open-ended token scale: typing supports exact limits, including 922,000. */
 export const CONTEXT_STOPS: readonly ScaleStop[] = [
-  { value: 128, label: 'Min', tick: true },
+  { value: 128, label: t`Min`, tick: true },
   ...[4_000, 32_000, 128_000, 256_000, 1_000_000, 10_000_000].map((value) => ({
     value,
     label: formatContextSize(value),
     tick: true,
   })),
-  { value: Number.POSITIVE_INFINITY, label: 'Max', tick: true },
+  { value: Number.POSITIVE_INFINITY, label: t`Max`, tick: true },
 ];
 
 /** "$0.1", "$25", "$360K": a price stop's tick. */
@@ -49,7 +50,7 @@ export function costStops(maxPrice: number): ScaleStop[] {
   const top = Math.max(maxPrice, 0.05);
   const stops = COST_VALUES.filter((value) => value < top).map((value) => ({
     value,
-    label: value === 0 ? 'Free' : priceLabel(value),
+    label: value === 0 ? t`Free` : priceLabel(value),
     tick: [0, 0.1, 1, 10].includes(value),
   }));
   return [...stops, { value: top, label: priceLabel(top), tick: true }];
@@ -65,12 +66,12 @@ export interface ReleasedStop {
 
 /** Newest first; the last stop ("All") writes no token. */
 export const RELEASED_STOPS: readonly ReleasedStop[] = [
-  { token: 'released:<30d', label: '30 days', short: '<30d', days: 30 },
-  { token: 'released:<3mo', label: '3 months', short: '<3mo', days: 91 },
-  { token: 'released:<6mo', label: '6 months', short: '<6mo', days: 182 },
-  { token: 'released:<1y', label: '1 year', short: '<1y', days: 365 },
-  { token: 'released:<2y', label: '2 years', short: '<2y', days: 730 },
-  { label: 'All', short: 'All', days: Number.POSITIVE_INFINITY },
+  { token: 'released:<30d', label: t`30 days`, short: '<30d', days: 30 },
+  { token: 'released:<3mo', label: t`3 months`, short: '<3mo', days: 91 },
+  { token: 'released:<6mo', label: t`6 months`, short: '<6mo', days: 182 },
+  { token: 'released:<1y', label: t`1 year`, short: '<1y', days: 365 },
+  { token: 'released:<2y', label: t`2 years`, short: '<2y', days: 730 },
+  { label: t`All`, short: t`All`, days: Number.POSITIVE_INFINITY },
 ];
 
 export const RECENT_TOKEN = 'released:<6mo';

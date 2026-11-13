@@ -21,6 +21,8 @@ import type { MapCameraProps } from './map-camera';
 import { artifactIdFromDataUri, useTableQueryRows, type TableDataQuery } from './table-query-rows';
 import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { downloadServerTableExport, type ServerExportQuery } from './table-export-client';
+import { ph, plural, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 export interface ClioMapArtifactSourceProps extends MapFieldNames, MapCameraProps {
   accessibility?: A2UIAccessibility;
@@ -62,7 +64,7 @@ export function ClioMapArtifactSource({
   valueLabel,
   valueUnit,
   selectionField,
-  title = 'Locations',
+  title = t`Locations`,
   ...rest
 }: ClioMapArtifactSourceProps) {
   const autoSelection = useAutoDatasetSelection(dataUri);
@@ -146,7 +148,7 @@ export function ClioMapArtifactSource({
           fields.push({
             key,
             kind,
-            label: kind === 'year' ? 'Year' : 'Date',
+            label: kind === 'year' ? t`Year` : t`Date`,
             precision: (precision as DataFilterField['precision']) ?? 'text',
           });
           continue;
@@ -204,10 +206,19 @@ export function ClioMapArtifactSource({
     const wholeTracks =
       selectedTracks &&
       rows?.every((row) => !selectedTracks.has(row[trackField!]) || selectedRows.includes(row));
+    const selectedPointsText = visibleSelectedValues.length.toLocaleString();
+    const totalText = total.toLocaleString();
+    const shownText = shown.toLocaleString();
     const selectedDescription =
       wholeTracks && selectedTracks?.size
-        ? `${selectedTracks.size.toLocaleString()} selected ${selectedTracks.size === 1 ? 'track' : 'tracks'} containing ${visibleSelectedValues.length.toLocaleString()} of ${total.toLocaleString()} points`
-        : `${visibleSelectedValues.length.toLocaleString()} selected ${visibleSelectedValues.length === 1 ? 'point' : 'points'} of ${total.toLocaleString()}`;
+        ? plural(selectedTracks.size, {
+            one: `# selected track containing ${selectedPointsText} of ${totalText} points`,
+            other: `# selected tracks containing ${selectedPointsText} of ${totalText} points`,
+          })
+        : plural(visibleSelectedValues.length, {
+            one: `# selected point of ${totalText}`,
+            other: `# selected points of ${totalText}`,
+          });
     return buildZoneReference({
       componentLabel: title,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -224,8 +235,14 @@ export function ClioMapArtifactSource({
       zoneDescription: visibleSelectedValues.length
         ? selectedDescription
         : shown < total
-          ? `the filtered current view (${shown.toLocaleString()} of ${total.toLocaleString()} points)`
-          : `the filtered current view (${total.toLocaleString()} points)`,
+          ? plural(total, {
+              one: `the filtered current view (${shownText} of # point)`,
+              other: `the filtered current view (${shownText} of # points)`,
+            })
+          : plural(total, {
+              one: 'the filtered current view (# point)',
+              other: 'the filtered current view (# points)',
+            }),
     });
   };
   // G0 data export (mirrors `a2ui-chart.tsx`'s csv/csv-full pair): the
@@ -250,7 +267,7 @@ export function ClioMapArtifactSource({
   const dataExportFormats: SurfaceExportFormat[] = [
     {
       id: 'csv',
-      label: 'CSV (current view)',
+      label: t`CSV (current view)`,
       run: () =>
         downloadServerTableExport({
           dataUri,
@@ -263,7 +280,7 @@ export function ClioMapArtifactSource({
     },
     {
       id: 'json',
-      label: 'JSON (current view)',
+      label: t`JSON (current view)`,
       run: () =>
         downloadServerTableExport({
           dataUri,
@@ -276,7 +293,7 @@ export function ClioMapArtifactSource({
     },
     {
       id: 'csv-full',
-      label: 'CSV (full dataset)',
+      label: t`CSV (full dataset)`,
       run: () =>
         downloadServerTableExport({
           dataUri,
@@ -296,10 +313,10 @@ export function ClioMapArtifactSource({
     exportFormats: rows ? dataExportFormats : undefined,
     filters: filterPopover ? { content: filterPopover, isOpen: filtersOpen } : undefined,
   };
-  const reducedCaption =
+  const reducedCounts =
     matchedRows !== undefined && returnedRows !== undefined && returnedRows < matchedRows
-      ? `Showing ${returnedRows.toLocaleString()} of ${matchedRows.toLocaleString()} points.`
-      : '';
+      ? { returned: formatNumber(returnedRows), matched: formatNumber(matchedRows) }
+      : undefined;
   const points = useMemo(
     () =>
       rows
@@ -347,7 +364,7 @@ export function ClioMapArtifactSource({
     return (
       <div className="min-w-0 space-y-2" role="group">
         <h3 className="text-sm font-medium">{title}</h3>
-        <LoadingFailure title="Map unavailable" detail={error} onRetry={retry} />
+        <LoadingFailure title={t`Map unavailable`} detail={error} onRetry={retry} />
       </div>
     );
   }
@@ -355,7 +372,7 @@ export function ClioMapArtifactSource({
     return (
       <div className="min-w-0 space-y-2" role="group">
         <h3 className="text-sm font-medium">{title}</h3>
-        <LoadingFeedback label={`Loading ${title} map`} variant="skeleton">
+        <LoadingFeedback label={t`Loading ${title} map`} variant="skeleton">
           <Skeleton className="h-[26rem] w-full rounded-none" />
         </LoadingFeedback>
       </div>
@@ -363,7 +380,7 @@ export function ClioMapArtifactSource({
   }
   return (
     <div className="grid gap-1">
-      {refreshing ? <LoadingFeedback label="Updating map…" /> : null}
+      {refreshing ? <LoadingFeedback label={t`Updating map…`} /> : null}
       <ClioScientificMap
         {...rest}
         dataCapabilities={dataCapabilities}
@@ -382,9 +399,11 @@ export function ClioMapArtifactSource({
         valueLabel={valueLabel ?? valueField}
         valueUnit={valueUnit}
       />
-      {reducedCaption ? (
+      {reducedCounts ? (
         <p className="text-xs text-muted-foreground">
-          {geometry ? `${reducedCaption} Trajectories may be incomplete.` : reducedCaption}
+          {geometry
+            ? t`Showing ${ph({ returned: reducedCounts.returned })} of ${ph({ matched: reducedCounts.matched })} points. Trajectories may be incomplete.`
+            : t`Showing ${ph({ returned: reducedCounts.returned })} of ${ph({ matched: reducedCounts.matched })} points.`}
         </p>
       ) : null}
     </div>

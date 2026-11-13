@@ -13,6 +13,7 @@ import {
 import type { ResourceActions } from './resource-dialogs';
 import { ResponsiveMenuSub } from './responsive-menu-sub';
 import { WorkspaceMark } from './workspace-mark';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Move to ›: Conversations, then each workspace, the current one checked. Shared
@@ -38,11 +39,12 @@ export function SessionMoveMenu({
   const workspaces = useSessionMoveTargets(movable);
   const [listed, setListed] = useState(workspaces.data);
   if (workspaces.data && !listed) setListed(workspaces.data);
+  const conversations = t`Conversations`;
   const targets = useMemo(() => {
     const rows = (listed ?? []).filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID);
     const labels = workspaceLabels(rows);
     return [
-      { id: DEFAULT_WORKSPACE_ID, label: 'Conversations' },
+      { id: DEFAULT_WORKSPACE_ID, label: conversations },
       ...rows.map((workspace) => {
         const label = labels.get(workspace.id);
         return {
@@ -51,13 +53,13 @@ export function SessionMoveMenu({
         };
       }),
     ];
-  }, [listed]);
+  }, [conversations, listed]);
   if (!movable || !moveSession) return null;
   return (
     <ResponsiveMenuSub
       contentClassName="max-h-[min(360px,60vh)] overflow-y-auto"
       icon={FolderIcon}
-      label="Move to"
+      label={t`Move to`}
       width={240}
     >
       {targets.map((target) => {
@@ -69,7 +71,10 @@ export function SessionMoveMenu({
             key={target.id}
             onSelect={() => {
               if (current) return;
-              onAction(() => moveSession(session.id, target.id), `Moved to ${target.label}`);
+              onAction(
+                () => moveSession(session.id, target.id),
+                t`Moved to ${ph({ label: target.label })}`,
+              );
             }}
           >
             {target.id === DEFAULT_WORKSPACE_ID ? (
@@ -79,7 +84,10 @@ export function SessionMoveMenu({
             )}
             <span className="min-w-0 truncate">{target.label}</span>
             {current ? (
-              <CheckIcon aria-label="Current workspace" className="ml-auto text-muted-foreground" />
+              <CheckIcon
+                aria-label={t`Current workspace`}
+                className="ml-auto text-muted-foreground"
+              />
             ) : null}
           </DropdownMenuItem>
         );

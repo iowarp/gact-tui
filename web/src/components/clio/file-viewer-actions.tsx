@@ -21,6 +21,7 @@ import { FrameTalkTake } from './file-viewer-take';
 import { useCopyTake, useOpenTake, type AddToMessage } from './file-viewer-take-hooks';
 import { MenuRow, assignJumpLetters } from './primitives/menu-row';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
+import { t, ph } from '@lingui/core/macro';
 
 /** Jump letters of the … menu's own rows, and of @, Copy and Open once folded. */
 const FIXED_LETTERS = 'ACOIFWR';
@@ -81,7 +82,7 @@ export function FileViewerActions({
         comments={comments}
         copy={copy}
         open={open}
-        menuLabel="File actions"
+        menuLabel={t`File actions`}
         menuLetters={FIXED_LETTERS + otherLetters.join('')}
         pending={otherActions.some((action) => action.pending)}
         menu={
@@ -141,12 +142,12 @@ export function FileViewerActions({
             )}
             {otherActions.length ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem data-accelerator="I" onSelect={() => setInformationOpen(true)}>
-              <MenuRow icon={<InfoIcon />} label="File information" accelerator="I" />
+              <MenuRow icon={<InfoIcon />} label={t`File information`} accelerator="I" />
             </DropdownMenuItem>
             <DropdownMenuItem data-accelerator="F" onSelect={onFullscreen}>
               <MenuRow
                 icon={fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
-                label={fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
+                label={fullscreen ? t`Exit file fullscreen` : t`View file fullscreen`}
                 accelerator="F"
               />
             </DropdownMenuItem>
@@ -155,7 +156,11 @@ export function FileViewerActions({
               disabled={!identity.available}
               onSelect={() => setCopyOpen(true)}
             >
-              <MenuRow icon={<CopyPlusIcon />} label="Copy to another workspace" accelerator="W" />
+              <MenuRow
+                icon={<CopyPlusIcon />}
+                label={t`Copy to another workspace`}
+                accelerator="W"
+              />
             </DropdownMenuItem>
             {canRemove ? (
               <>
@@ -167,7 +172,7 @@ export function FileViewerActions({
                 >
                   <MenuRow
                     icon={<DeleteIcon />}
-                    label="Remove from this workspace"
+                    label={t`Remove from this workspace`}
                     accelerator="R"
                   />
                 </DropdownMenuItem>
@@ -182,12 +187,12 @@ export function FileViewerActions({
             <DialogTitle className="break-words pr-6">{identity.name}</DialogTitle>
             <DialogDescription>
               {identity.origin},{' '}
-              {identity.size === undefined ? 'Size unavailable' : formatBytes(identity.size)}
+              {identity.size === undefined ? t`Size unavailable` : formatBytes(identity.size)}
             </DialogDescription>
           </DialogHeader>
           <p className="break-all text-xs text-muted-foreground">{identity.mediaType}</p>
           {source.kind === 'resource' ? (
-            <p className="text-xs text-muted-foreground">Upload: {source.resource.state}</p>
+            <p className="text-xs text-muted-foreground">{t`Upload: ${ph({ state: source.resource.state })}`}</p>
           ) : null}
           {source.kind === 'workspace' ? (
             <p className="break-all font-mono text-xs">{source.path}</p>

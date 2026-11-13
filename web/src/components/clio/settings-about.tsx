@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { TechnicalDetails } from './technical-details';
 import { StateView } from './primitives/state-view';
-import { AnnounceStates } from './settings-a11y';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t, ph } from '@lingui/core/macro';
 
 /** Version and links: this app, then the connected service; wire detail stays behind a disclosure. */
 export function AboutSettings() {
@@ -29,53 +29,52 @@ export function AboutSettings() {
   const data = capabilities.data;
   const activeModel = data?.active_model;
   const versions = data?.versions;
-  const missing = capabilities.isPending ? 'Loading…' : 'Unavailable';
+  const missing = capabilities.isPending ? t`Loading…` : t`Unavailable`;
   return (
     <div>
-      <AnnounceStates />
-      <SettingsSectionHeading description="Version and links." title="About" />
-      <SettingsGroupLabel>This app</SettingsGroupLabel>
-      <AboutValue label="Product" value={brand.name} />
-      <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
+      <SettingsSectionHeading description={t`Version and links.`} title={t`About`} />
+      <SettingsGroupLabel>{t`This app`}</SettingsGroupLabel>
+      <AboutValue label={t`Product`} value={brand.name} />
+      <AboutValue label={t`Runtime`} value={inTauri() ? t`Desktop application` : t`Web browser`} />
       {brand.homeUrl ? (
-        <SettingsRow title="Website">
+        <SettingsRow title={t`Website`}>
           <Button asChild className="shrink-0" size="sm" variant="outline">
             <ExternalLink href={brand.homeUrl}>
-              Product website
+              {t`Product website`}
               <ExternalLinkIcon aria-hidden="true" />
             </ExternalLink>
           </Button>
         </SettingsRow>
       ) : null}
-      <SettingsGroupLabel>Connected service</SettingsGroupLabel>
+      <SettingsGroupLabel>{t`Connected service`}</SettingsGroupLabel>
       {capabilities.error ? (
         <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
-            action={{ label: 'Retry', onClick: () => void capabilities.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void capabilities.refetch() }}
             kind="error"
             size="row"
-            title="Service details could not be loaded."
+            title={t`Service details could not be loaded.`}
           />
         </div>
       ) : (
         <>
           {!data || data.service?.version ? (
             <AboutValue
-              label="Agent service version"
+              label={t`Agent service version`}
               mono
               value={data?.service?.version || missing}
             />
           ) : null}
           {/* Rows the service does not report are left out rather than filled with a placeholder. */}
           {!data || versions?.backend_build ? (
-            <AboutValue label="Backend build" mono value={versions?.backend_build || missing} />
+            <AboutValue label={t`Backend build`} mono value={versions?.backend_build || missing} />
           ) : null}
           {!data || versions?.python ? (
-            <AboutValue label="Python" mono value={versions?.python || missing} />
+            <AboutValue label={t`Python`} mono value={versions?.python || missing} />
           ) : null}
           {!data || versions ? (
             <AboutValue
-              label="Marketplace registry"
+              label={t`Marketplace registry`}
               mono
               value={versions ? formatMarketplaceRegistry(versions.marketplace) : missing}
             />
@@ -84,11 +83,11 @@ export function AboutSettings() {
             <TechnicalDetails
               contentClassName="pt-1"
               summaryClassName="text-xs font-normal"
-              title="Technical details"
+              title={t`Technical details`}
             >
-              <AboutValue label="Address" mono value={endpointHost(settings.endpoint)} />
+              <AboutValue label={t`Address`} mono value={endpointHost(settings.endpoint)} />
               <AboutValue
-                label="Active model"
+                label={t`Active model`}
                 mono
                 value={
                   activeModel
@@ -97,12 +96,12 @@ export function AboutSettings() {
                 }
               />
               <AboutValue
-                label="Workspace protocol"
+                label={t`Workspace protocol`}
                 mono
                 value={data?.gact_versions.join(', ') || missing}
               />
               <AboutValue
-                label={`${PROTOCOL.a2ui} surfaces`}
+                label={t`${ph({ a2ui: PROTOCOL.a2ui })} surfaces`}
                 mono
                 value={data?.a2ui_versions.join(', ') || missing}
               />
@@ -123,17 +122,18 @@ function endpointHost(endpoint: string): string {
 }
 
 function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace']): string {
-  if (!marketplace) return 'Not configured';
-  const ref = marketplace.ref || 'default ref';
+  if (!marketplace) return t`Not configured`;
+  const ref = marketplace.ref || t`default ref`;
   const commit = marketplace.installed_commit
     ? marketplace.installed_commit.slice(0, 12)
     : undefined;
+  const { source } = marketplace;
   return commit
-    ? `${marketplace.source}, ref ${ref}, installed ${commit}`
-    : `${marketplace.source}, ref ${ref}, installed commit unavailable`;
+    ? t`${source}, ref ${ref}, installed ${commit}`
+    : t`${source}, ref ${ref}, installed commit unavailable`;
 }
 
-const PLACEHOLDERS = new Set(['Unavailable', 'Loading…', 'Not configured']);
+const PLACEHOLDERS = new Set([t`Unavailable`, t`Loading…`, t`Not configured`]);
 
 /** A read-only value in the control column: one line, cut with its full text on hover. */
 function AboutValue({
@@ -157,7 +157,7 @@ function AboutValue({
             ? 'text-xs text-faint'
             : mono
               ? 'font-mono text-xs text-muted-foreground tabular-nums'
-              : 'text-[0.78125rem] text-muted-foreground',
+              : 'text-menu text-muted-foreground',
         )}
         data-slot="settings-value"
         title={value}

@@ -51,6 +51,7 @@ const mapDataProperties = {
     .array(fieldNameSchema)
     .min(1)
     .max(12)
+    // i18n-ignore: validation message returned to the agent
     .refine((fields) => new Set(fields).size === fields.length, 'filterFields must be distinct')
     .optional(),
   detailField: fieldNameSchema.optional(),
@@ -73,6 +74,7 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
   if ([value.points, value.dataUri, value.geojsonUri].filter(Boolean).length !== 1) {
     context.addIssue({
       code: 'custom',
+      // i18n-ignore: validation message returned to the agent
       message: 'Provide exactly one of points, dataUri, or geojsonUri',
     });
   }
@@ -81,32 +83,40 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
       (name) => !value[name],
     );
     if (missing.length) {
+      // i18n-ignore: validation message returned to the agent
       context.addIssue({ code: 'custom', message: `dataUri requires ${missing.join(', ')}` });
     }
   } else if (value.dataQuery) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'dataQuery applies only to dataUri' });
   }
   if (value.trackField && !value.dataUri) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'trackField requires dataUri' });
   }
   if (value.trackField && !value.orderField) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'trackField requires orderField' });
   }
   if (value.orderField && !value.trackField) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'orderField requires trackField' });
   }
   if (value.filterFields && !value.dataUri) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'filterFields requires dataUri' });
   }
   if (isBoundToPath(value.selection) && !value.selectionField) {
     context.addIssue({
       code: 'custom',
+      // i18n-ignore: validation message returned to the agent
       message: 'selectionField is required when selection is bound',
     });
   }
   if (value.categoryField && value.valueField) {
     context.addIssue({
       code: 'custom',
+      // i18n-ignore: validation message returned to the agent
       message: 'Choose categoryField or valueField for the map colour, not both',
     });
   }

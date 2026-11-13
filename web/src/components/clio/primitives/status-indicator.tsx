@@ -1,6 +1,7 @@
-import { memo, type ReactNode } from 'react';
+import { memo, useState, type ReactElement, type ReactNode } from 'react';
 import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NamedTooltip } from './icon-button';
 import { RingSpinner } from './ring-spinner';
 import { statusWordClass } from './status-word-tone';
 
@@ -50,6 +51,11 @@ export interface StatusIndicatorProps {
   mark?: 'dot' | 'glyph';
   /** A domain's own 14px glyph for this state (a run's question bubble); replaces the mark. */
   icon?: ReactNode;
+  /**
+   * The hover name, when it should say more than the label (the whole line it
+   * leads); `false` when a parent already shows the line's hover name.
+   */
+  hoverName?: string | false;
   className?: string;
 }
 
@@ -59,6 +65,24 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
   warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
   stopped: <OctagonIcon className="size-3.5 text-muted-foreground" />,
 };
+
+/**
+ * A column mark's hover name, in the shared tooltip rather than a native title.
+ * Transcripts carry many marks, so the tooltip mounts on the first pointer
+ * enter and opens on the next move.
+ */
+function ColumnMark({ hoverName, children }: { hoverName?: string; children: ReactElement }) {
+  const [armed, setArmed] = useState(false);
+  if (!hoverName) return children;
+  if (!armed) return <span className="contents" onPointerEnter={() => setArmed(true)}>{children}</span>;
+  return (
+    <span className="contents">
+      <NamedTooltip label={hoverName} side="top">
+        {children}
+      </NamedTooltip>
+    </span>
+  );
+}
 
 /**
  * The one status word: a mark carrying the colour and a 12px word, muted except
@@ -71,6 +95,7 @@ export const StatusIndicator = memo(function StatusIndicator({
   display = 'visible',
   mark: markStyle = 'dot',
   icon,
+  hoverName,
   className,
 }: StatusIndicatorProps) {
   const glyph = icon ?? (markStyle === 'glyph' ? GLYPH[tone] : undefined);
@@ -89,16 +114,17 @@ export const StatusIndicator = memo(function StatusIndicator({
     ));
   if (display === 'column') {
     return (
-      <span
-        role="img"
-        aria-label={label}
-        title={label}
-        data-slot="status-indicator"
-        data-tone={tone}
-        className={cn('inline-grid size-4 shrink-0 place-items-center', className)}
-      >
-        {mark}
-      </span>
+      <ColumnMark hoverName={hoverName === false ? undefined : (hoverName ?? label)}>
+        <span
+          role="img"
+          aria-label={label}
+          data-slot="status-indicator"
+          data-tone={tone}
+          className={cn('inline-grid size-4 shrink-0 place-items-center', className)}
+        >
+          {mark}
+        </span>
+      </ColumnMark>
     );
   }
   return (
@@ -106,7 +132,7 @@ export const StatusIndicator = memo(function StatusIndicator({
       data-slot="status-indicator"
       data-tone={tone}
       className={cn(
-        'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
+        'inline-flex min-w-0 items-center gap-1 text-meta whitespace-nowrap text-muted-foreground',
         statusWordClass(tone),
         className,
       )}

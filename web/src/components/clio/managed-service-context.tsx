@@ -11,6 +11,8 @@ import {
   deploymentEffectiveContext,
 } from './context-control-model';
 import { PARAMETER_PREFIX, configurationForVariant } from './managed-service-target-utils';
+import { t, ph } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 /** How long the model field must stay unchanged before the host is asked to size it. */
 const PREVIEW_DEBOUNCE_MS = 600;
@@ -117,9 +119,9 @@ function DeploymentContextControl({
     : spec.strategies;
   const installedDefault =
     controls && !draft.choice && controls.current !== undefined
-      ? `Default: ${controls.current.toLocaleString('en-US')} tokens${
-          controls.current_reason ? ` (${controls.current_reason})` : ''
-        }`
+      ? controls.current_reason
+        ? t`Default: ${ph({ tokens: formatNumber(controls.current) })} tokens (${ph({ reason: controls.current_reason })})`
+        : t`Default: ${ph({ tokens: formatNumber(controls.current) })} tokens`
       : undefined;
   return (
     <div className="grid gap-1.5">
@@ -149,11 +151,11 @@ function DeploymentContextControl({
       />
       {preview.isFetching ? (
         <p className="text-xs text-muted-foreground" role="status">
-          Reading the model and this host’s GPUs…
+          {t`Reading the model and this host’s GPUs…`}
         </p>
       ) : preview.error ? (
         <p className="text-xs text-muted-foreground" role="status">
-          Could not size the context yet: {preview.error.message}
+          {t`Could not size the context yet: ${ph({ message: preview.error.message })}`}
         </p>
       ) : null}
     </div>

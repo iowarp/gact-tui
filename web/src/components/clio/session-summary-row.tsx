@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { cn } from '@/lib/utils';
 import { ClioRelativeTime } from './relative-time';
+import { t } from '@lingui/core/macro';
 
 /** One summary fact links to its full view without embedding that view's card. */
 export function SessionSummaryRow({
@@ -10,7 +11,7 @@ export function SessionSummaryRow({
   label,
   metadata,
   timestamp,
-  timestampLabel = 'Recorded',
+  timestampLabel = t`Recorded`,
   title,
   onOpen,
   href,
@@ -33,7 +34,7 @@ export function SessionSummaryRow({
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {metadata ? (
-        <span className="max-w-[35%] shrink-0 truncate text-[10px] text-muted-foreground">
+        <span className="max-w-[35%] shrink-0 truncate text-[0.625rem] text-muted-foreground">
           {metadata}
         </span>
       ) : null}
@@ -44,7 +45,7 @@ export function SessionSummaryRow({
   if (onOpen)
     return (
       <Button
-        aria-label={`Open ${label}`}
+        aria-label={t`Open ${label}`}
         className={className}
         onClick={onOpen}
         title={description}

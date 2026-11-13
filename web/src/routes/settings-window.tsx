@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from '
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { StateView } from '@/components/clio/primitives/state-view';
+import { AnnounceStates } from '@/components/clio/settings-a11y';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
   SettingsNavigation,
@@ -27,6 +28,7 @@ import {
   historyIndex,
   settingsBackgroundRoute,
   settingsCloseStep,
+  settingsWorkspaceFromState,
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
 import { settingFromHash } from '@/lib/settings-search-rows';
@@ -38,6 +40,7 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { plural, t } from '@lingui/core/macro';
 
 // Only the sections load lazily. The window itself mounts once, with the
 // route, so a dialog opened over it (Ctrl K) is never covered by a window
@@ -53,7 +56,7 @@ function SectionsLoaded({ onLoaded }: { onLoaded: () => void }) {
 
 /** Sections load lazily: the shared inline loading line where the page will be. */
 function SectionsLoading() {
-  return <StateView kind="loading" size="row" title="Loading settings…" />;
+  return <StateView kind="loading" size="row" title={t`Loading settings…`} />;
 }
 
 export function SettingsWindow() {
@@ -97,12 +100,15 @@ export function SettingsWindow() {
     ? withoutSearchArrival(location.state)
     : { endpoint: settings.endpoint, from: workspaceRoute, detached: true };
   const fromSearch = arrivedFromSearch(location.state);
-  const workspaceId = workspaceIdFromRoute(workspaceRoute);
-  const sessionId = sessionIdFromRoute(workspaceRoute);
+  // A workspace's own "Workspace settings…" names it; otherwise the page behind decides.
+  const routeWorkspaceId = workspaceIdFromRoute(workspaceRoute);
+  const workspaceId = settingsWorkspaceFromState(location.state) ?? routeWorkspaceId;
+  const sessionId =
+    workspaceId === routeWorkspaceId ? sessionIdFromRoute(workspaceRoute) : undefined;
   const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
+  const scopeLabels = { App: t`App`, Workspace: workspaceName.label, Agent: agentName };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'
@@ -110,11 +116,11 @@ export function SettingsWindow() {
         : 'App',
     line:
       destination?.group === 'Agent'
-        ? `${agentName}, applies to every conversation on this agent`
+        ? t`${agentName}, applies to every conversation on this agent`
         : destination?.group === 'Workspace'
           ? workspaceName.line
-          : 'App, applies to this computer',
-    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
+          : t`App, applies to this computer`,
+    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? t`App`,
   };
   useEffect(() => {
     if (!sectionsLoaded || showResults) return;
@@ -219,7 +225,15 @@ export function SettingsWindow() {
     section,
     linkState,
     scopeLabels,
-    badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+    badges: {
+      memory: {
+        count: inbox,
+        label: plural(inbox, {
+          one: '# memory change waiting for review',
+          other: '# memory changes waiting for review',
+        }),
+      },
+    },
     unavailable,
     counts: showResults ? results.counts : undefined,
     onClearFilter: clearQuery,
@@ -240,7 +254,7 @@ export function SettingsWindow() {
   return (
     <WindowShell
       className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
-      contentLabel="Settings content"
+      contentLabel={t`Settings content`}
       contentRef={content}
       icon={<SettingsWindowIcon />}
       navigation={<SettingsNavigation {...navigation} />}
@@ -262,12 +276,19 @@ export function SettingsWindow() {
           <SettingsSearchButton autoFocus={cleared} />
         )
       }
-      title="Settings"
+      title={t`Settings`}
     >
       {/* Alt Space over Settings: the CLIO menu from the window's top-left (DialogContent is fixed). */}
       <FrameClioMenu className="top-12 left-3" />
-      <main className="px-5 pt-4 pb-5 sm:px-7">
-        <div className="pb-12">
+      {/* Not <main>: the window's content region already names this area, and a
+          main landmark inside it is not top-level. */}
+      <div
+        className="px-5 pt-4 pb-5 [--settings-gutter:1.25rem] sm:px-7 sm:[--settings-gutter:1.75rem]"
+        data-settings-main=""
+      >
+        <AnnounceStates />
+        {/* Panes stop at the spec's 760 px; an open detail pane takes the window's width. */}
+        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none">
           <SettingsScopeContext.Provider value={scopeLine}>
             <SettingsWindowCloseContext.Provider value={close}>
               <Suspense fallback={<SectionsLoading />}>
@@ -290,7 +311,7 @@ export function SettingsWindow() {
             </SettingsWindowCloseContext.Provider>
           </SettingsScopeContext.Provider>
         </div>
-      </main>
+      </div>
     </WindowShell>
   );
 }

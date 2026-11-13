@@ -118,8 +118,8 @@ export function WorkspaceWorkbench({
         artifactsError={sessionArtifacts.error?.message}
         artifactsPending={sessionArtifacts.isPending}
         artifactsTruncated={sessionArtifacts.data?.truncated}
-        diffActionError={diffActions.undo.error?.message}
-        diffActionPending={diffActions.undo.isPending}
+        diffActionError={diffActions.undoError?.message}
+        diffActionPending={diffActions.undoPending}
         diffs={data.sessionObservability.diffs.data ?? []}
         files={workspaceFiles.data?.entries ?? []}
         filesError={workspaceFiles.error?.message}

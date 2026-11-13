@@ -6,6 +6,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 
 import { useReducedMotionConfig } from 'motion/react';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversation } from '@/components/clio/conversation';
+import { preloadScientificMapView } from '@/components/clio/scientific-map-view-loader';
+import { ClioMapArtifactSource } from '@/components/clio/a2ui-map-data-source';
+import type { SelectionWriter } from '@/components/clio/selection-state';
+import { ActivityRunsFold } from '@/components/clio/transcript-disclosure-context';
 import { ArtifactView } from '@/components/clio/resource-viewers';
 import { ADD_COMMENT_SESSION_EVENT } from '@/components/clio/comments/comment-model';
 import { IconButton } from '@/components/clio/primitives/icon-button';
@@ -19,12 +23,14 @@ import {
 import { vocab } from '@/lib/brand-vocabulary';
 import { markFromSelection, withMark } from '@/lib/composer-annotations';
 import { createGalleryRepository } from '@/lib/gallery-repository';
+import { queryKeys } from '@/lib/query-keys';
 import { setModelImageInput, useModelImageInput } from '@/lib/model-image-input';
 import type { ClioModelOption } from '@/lib/model-options';
 import { findTourAnchor, tourAnchor } from '@/lib/onboarding/tour-anchors';
 import {
-  PRACTICE_PLOT,
   practiceConversation,
+  practicePlot,
+  PRACTICE_TRACKS_MAP,
   type PracticeProgress,
 } from '@/lib/onboarding/tour-practice-data';
 import type { TourPracticeEvent, TourStep } from '@/lib/onboarding/tour-script';
@@ -36,11 +42,39 @@ import {
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { RepositoryOverrideProvider } from '@/providers/repository-override';
+import { useTheme } from '@/providers/appearance-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /** Window events the practice composer and surfaces send; the real composer must never see them. */
 const COMPOSER_EVENTS = [ADD_COMMENT_SESSION_EVENT, 'clio:use-message-draft', 'clio:message-sent'];
 /** How long a scripted reply "works" before it answers. */
 const WORKING_MS = 1400;
+
+const { agent } = vocab;
+
+const keepSelection: SelectionWriter = () => undefined;
+
+/**
+ * The tracks map, drawn out of sight until the reply that shows it. When it
+ * unmounts, MapLibre pools its instance (`reuseMaps`) with the style, tiles
+ * and rows already loaded, so the reply's map is drawn on its first frame.
+ */
+function TracksMapWarmup() {
+  return (
+    <div
+      aria-hidden="true"
+      // MapLibre's open attribution sets `visibility: visible`, escaping `invisible`. The
+      // controls are hidden only here: the pooled instance keeps its attribution for the reply.
+      className="pointer-events-none invisible absolute inset-0 overflow-hidden [&_.maplibregl-control-container]:hidden"
+      data-tour-map-warmup=""
+      inert
+    >
+      <div className="mx-auto w-full max-w-4xl px-4">
+        <ClioMapArtifactSource {...PRACTICE_TRACKS_MAP} setSelection={keepSelection} />
+      </div>
+    </div>
+  );
+}
 
 /** A scripted catalog: the picker, levels and badges render from it exactly as from a live one. */
 const PRACTICE_MODELS: readonly ClioModelOption[] = [
@@ -60,6 +94,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'openai',
     providerName: 'OpenAI',
     id: 'gpt-5-mini',
+    // i18n-ignore: model name
     label: 'GPT-5 mini',
     available: true,
     health: 'healthy',
@@ -72,6 +107,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'anthropic',
     providerName: 'Anthropic',
     id: 'claude-sonnet-4-5',
+    // i18n-ignore: model name
     label: 'Claude Sonnet 4.5',
     available: true,
     health: 'healthy',
@@ -84,6 +120,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'anthropic',
     providerName: 'Anthropic',
     id: 'claude-haiku-4-5',
+    // i18n-ignore: model name
     label: 'Claude Haiku 4.5',
     available: true,
     health: 'healthy',
@@ -94,7 +131,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
   },
   {
     providerId: 'ollama',
-    providerName: 'Ollama (this computer)',
+    providerName: t`Ollama (this computer)`,
     id: 'qwen3:32b',
     label: 'Qwen3 32B',
     available: true,
@@ -106,7 +143,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
   },
   {
     providerId: 'ollama',
-    providerName: 'Ollama (this computer)',
+    providerName: t`Ollama (this computer)`,
     id: 'llama3.1:8b',
     label: 'Llama 3.1 8B',
     available: true,
@@ -175,9 +212,20 @@ export function TourPracticeStage({
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   );
-  const [repository] = useState(
-    () => createGalleryRepository(new ClioRepository(new TourTransport())) as ClioRepository,
+  const light = !useTheme().resolvedTheme.dark;
+  // The tour transport is stateless, so a theme switch can rebuild the repository.
+  const repository = useMemo(
+    () =>
+      createGalleryRepository(new ClioRepository(new TourTransport()), {
+        lightPlot: light,
+      }) as ClioRepository,
+    [light],
   );
+  const plot = practicePlot(light);
+  // The plot's bytes are cached per artifact; a theme switch fetches the other variant.
+  useEffect(() => {
+    void client.resetQueries({ queryKey: queryKeys.key('artifact-image') });
+  }, [client, light]);
   const selectionActions = useMemo(() => createSelectionActionRegistry(), []);
   const area = useConversationArea();
   const [progress, setProgress] = useState<PracticeProgress>({
@@ -212,7 +260,7 @@ export function TourPracticeStage({
       if (scene.turns < 2) setAnnotations([]);
     }
   }
-  const conversation = useMemo(() => practiceConversation(progress), [progress]);
+  const conversation = useMemo(() => practiceConversation(progress, light), [progress, light]);
 
   useEffect(() => {
     if (!progress.working) return;
@@ -227,6 +275,11 @@ export function TourPracticeStage({
   }, [progress.working, reduceMotion]);
 
   useEffect(() => () => client.clear(), [client]);
+
+  // The tracks map's renderer and MapLibre load now, so the map step mounts without a fallback.
+  useEffect(() => {
+    void preloadScientificMapView();
+  }, []);
 
   // The composer reports its model's image input app-wide; restore the real one's afterwards.
   const appImageInput = useRef(useModelImageInput());
@@ -248,7 +301,7 @@ export function TourPracticeStage({
         markA2uiSessionRouteUnavailable(
           TOUR_PRACTICE_SESSION_ID,
           'a2ui_catalog_decode_failed',
-          error instanceof Error ? error.message : 'The sample catalog did not load.',
+          error instanceof Error ? error.message : t`The sample catalog did not load.`,
         );
       });
     return () => {
@@ -262,7 +315,7 @@ export function TourPracticeStage({
     () =>
       selectionActions.register({
         id: 'tour-reference',
-        label: 'Reference this',
+        label: t`Reference this`,
         icon: ChartLineIcon,
         order: 10,
         kinds: ['data-surface-zone'],
@@ -317,7 +370,7 @@ export function TourPracticeStage({
         <ConnectionStateOverride.Provider value="live">
           <SelectionActionsContext.Provider value={selectionActions}>
             <section
-              aria-label="Practice conversation"
+              aria-label={t`Practice conversation`}
               className={
                 area
                   ? 'pointer-events-auto fixed z-40 flex flex-col overflow-hidden bg-background'
@@ -329,28 +382,31 @@ export function TourPracticeStage({
               {...tourAnchor('practice-conversation')}
             >
               <header className="flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-2">
-                <h2 className="text-sm font-medium">Practice conversation</h2>
-                <p className="text-xs text-muted-foreground">Scripted. Nothing is sent or saved.</p>
+                <h2 className="text-sm font-medium">{t`Practice conversation`}</h2>
+                <p className="text-xs text-muted-foreground">{t`Scripted. Nothing is sent or saved.`}</p>
               </header>
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative flex min-w-0 flex-1 flex-col">
+                  {progress.turns < 2 || progress.working ? <TracksMapWarmup /> : null}
                   {progress.turns === 0 ? (
                     <div
                       className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground"
                       style={{ paddingBottom: composerHeight }}
                     >
-                      Your conversation with {vocab.agent} appears here.
+                      {t`Your conversation with ${agent} appears here.`}
                     </div>
                   ) : (
-                    <ClioConversation
-                      {...conversation}
-                      agentName={vocab.agent}
-                      bottomInset={composerHeight}
-                      onOpenArtifact={() => {
-                        setViewer(true);
-                        emit.current('artifact-opened');
-                      }}
-                    />
+                    <ActivityRunsFold.Provider value={false}>
+                      <ClioConversation
+                        {...conversation}
+                        agentName={vocab.agent}
+                        bottomInset={composerHeight}
+                        onOpenArtifact={() => {
+                          setViewer(true);
+                          emit.current('artifact-opened');
+                        }}
+                      />
+                    </ActivityRunsFold.Provider>
                   )}
                   <div className="pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end">
                     <ClioComposer
@@ -374,15 +430,15 @@ export function TourPracticeStage({
                 </div>
                 {viewer ? (
                   <aside
-                    aria-label={PRACTICE_PLOT.name}
+                    aria-label={plot.name}
                     className="absolute inset-0 z-30 flex min-w-0 flex-col border-l border-border bg-background md:static md:w-[46%] md:shrink-0"
                     {...tourAnchor('practice-artifact-viewer')}
                   >
                     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border py-1 pr-1 pl-3">
-                      <h3 className="truncate text-sm font-medium">{PRACTICE_PLOT.name}</h3>
+                      <h3 className="truncate text-sm font-medium">{plot.name}</h3>
                       <IconButton
                         icon={<CloseIcon />}
-                        label={`Close ${PRACTICE_PLOT.name}`}
+                        label={t`Close ${ph({ name: plot.name })}`}
                         onClick={() => setViewer(false)}
                         size="toolbar"
                         type="button"
@@ -390,9 +446,10 @@ export function TourPracticeStage({
                     </div>
                     <div className="min-h-0 flex-1 overflow-auto">
                       <ArtifactView
-                        artifact={PRACTICE_PLOT}
+                        artifact={plot}
                         files={[]}
                         sessionId={TOUR_PRACTICE_SESSION_ID}
+                        showIdentity={false}
                         workspaceId={TOUR_PRACTICE_WORKSPACE_ID}
                       />
                     </div>

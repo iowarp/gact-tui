@@ -1,6 +1,7 @@
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import type { ProviderGroup } from './model-picker-model';
+import { t, ph } from '@lingui/core/macro';
 
 /** The eye: rendered ONLY while managing visibility (the caller does not
  * mount this at all outside that mode -- normal mode is `name heartbeat
@@ -33,7 +34,11 @@ export function ProviderEyeToggle({
   );
   return (
     <Toggle
-      aria-label={hidden ? `Show ${group.name} in this picker` : `Hide ${group.name} in this picker`}
+      aria-label={
+        hidden
+          ? t`Show ${ph({ name: group.name })} in this picker`
+          : t`Hide ${ph({ name: group.name })} in this picker`
+      }
       asChild={asStaticElement}
       className="size-6 min-w-0 p-0"
       data-slot="provider-visibility-toggle"
@@ -41,7 +46,7 @@ export function ProviderEyeToggle({
       onPressedChange={onToggle}
       pressed={hidden}
       size="sm"
-      title={hidden ? `Show ${group.name}` : `Hide ${group.name}`}
+      title={hidden ? t`Show ${ph({ name: group.name })}` : t`Hide ${ph({ name: group.name })}`}
     >
       {asStaticElement ? (
         <span role="button" tabIndex={-1}>

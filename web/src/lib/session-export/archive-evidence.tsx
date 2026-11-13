@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GroundedMessageResponse } from '@/components/clio/grounded-message-response';
 import { RecordedValue, type RecordedTool } from './archive-timeline';
+import { t } from '@lingui/core/macro';
 
 interface EvidenceRow {
   session: { id: string };
@@ -22,6 +23,12 @@ export function ExactRecord({ value, label }: { value: unknown; label: string })
     </details>
   );
 }
+function exactRecordLabel(record: RecordedTool): string {
+  const tool = record.tool ?? t`Historical tool`;
+  const status = record.status ?? t`recorded`;
+  return t`${tool} (${status}): show exact record`;
+}
+
 /** Keep recorded skill bodies and exact records inside the self-contained HTML. */
 export function ArchiveEvidence({
   rows,
@@ -34,43 +41,40 @@ export function ArchiveEvidence({
 }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Evidence & skills</h2>
+      <h2 className="text-2xl font-semibold">{t`Evidence & skills`}</h2>
       <p className="text-sm text-muted-foreground">
-        These instructions and records were saved during this session. Expand an item to read it.
+        {t`These instructions and records were saved during this session. Expand an item to read it.`}
       </p>
       {rows.map((row) => (
         <section key={row.session.id} className="space-y-4">
-          <h3 className="text-lg font-semibold">Loaded skill instructions</h3>
+          <h3 className="text-lg font-semibold">{t`Loaded skill instructions`}</h3>
           {row.loaded_skills.map((skill, i) => (
             <article key={skill.event_id ?? i} className="rounded-xl border p-4">
-              <h4 className="mb-2 font-semibold">{skill.skill_id || 'Loaded skill'}</h4>
+              <h4 className="mb-2 font-semibold">{skill.skill_id || t`Loaded skill`}</h4>
               <details>
-                <summary className="cursor-pointer text-sm">Show loaded skill instructions</summary>
+                <summary className="cursor-pointer text-sm">{t`Show loaded skill instructions`}</summary>
                 <div className="mt-3 max-h-96 overflow-auto">
                   <GroundedMessageResponse
                     components={{ a: ({ children }) => <span>{children}</span> }}
                   >
-                    {skill.content ?? 'The original body was not recorded.'}
+                    {skill.content ?? t`The original body was not recorded.`}
                   </GroundedMessageResponse>
                 </div>
               </details>
             </article>
           ))}
-          <h3 className="text-lg font-semibold">Exact tool records</h3>
+          <h3 className="text-lg font-semibold">{t`Exact tool records`}</h3>
           {row.tool_records.map((tool) => (
             <article key={tool.call_id} className="rounded-xl border p-4">
-              <ExactRecord
-                value={tool}
-                label={`${tool.tool ?? 'Historical tool'} (${tool.status ?? 'recorded'}): show exact record`}
-              />
+              <ExactRecord value={tool} label={exactRecordLabel(tool)} />
             </article>
           ))}
-          <h3 className="text-lg font-semibold">Recording coverage</h3>
+          <h3 className="text-lg font-semibold">{t`Recording coverage`}</h3>
           <RecordedValue value={row.recording} />
         </section>
       ))}
-      <ExactRecord value={transcript} label="Show complete raw transcript and traces" />
-      <ExactRecord value={omissions} label="Show unavailable or excluded files" />
+      <ExactRecord value={transcript} label={t`Show complete raw transcript and traces`} />
+      <ExactRecord value={omissions} label={t`Show unavailable or excluded files`} />
     </div>
   );
 }

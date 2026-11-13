@@ -2,6 +2,7 @@ import { BookmarkIcon, LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 /** A saved navigation mark; it does not change or submit conversation content. */
 export function MessageMarkButton({
@@ -28,7 +29,7 @@ export function MessageMarkButton({
           <BookmarkIcon aria-hidden="true" fill={marked ? 'currentColor' : 'none'} />
         )
       }
-      label={marked ? 'Unmark message' : 'Mark message'}
+      label={marked ? t`Unmark message` : t`Mark message`}
       onClick={() => {
         setSaving(true);
         void Promise.resolve()

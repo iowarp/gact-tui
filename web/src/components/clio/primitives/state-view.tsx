@@ -1,4 +1,4 @@
-import { memo, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { memo, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from 'react';
 import {
   BoxIcon,
   CircleAlertIcon,
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { HeldKeyBadge } from './key-chip';
 import { RingSpinner } from './ring-spinner';
+import { t } from '@lingui/core/macro';
 
 export type StateKind =
   | 'loading'
@@ -31,6 +32,33 @@ export type StateKind =
   | 'marker';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const FOCUSABLE =
+  'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Runs a state's action and, when the action replaces the state (Clear filters
+ * brings the rows back) and takes the focused button with it, lands focus on
+ * the first control of what replaced it, never on the page body.
+ */
+function keepingFocus(onClick: () => void) {
+  return (event: MouseEvent<HTMLElement>) => {
+    const container = event.currentTarget.closest('[data-slot="state-view"]')?.parentElement;
+    onClick();
+    if (!container) return;
+    requestAnimationFrame(() => {
+      if (!container.isConnected) return;
+      const focused = document.activeElement;
+      // A dialog's focus scope catches lost focus on itself, an ancestor of the list.
+      const lost = !focused || !focused.isConnected || focused.contains(container);
+      if (!lost) return;
+      const target =
+        container.querySelector<HTMLElement>('[tabindex="0"]') ??
+        container.querySelector<HTMLElement>(FOCUSABLE);
+      target?.focus();
+    });
+  };
+}
 
 const ICON: Record<Exclude<StateKind, 'loading'>, Icon> = {
   empty: InboxIcon,
@@ -146,7 +174,7 @@ export const StateView = memo(function StateView({
           ? {}
           : ({ role: 'status' } as const);
   const actionLabel =
-    action?.label ?? (kind === 'error' ? 'Retry' : kind === 'unavailable' ? 'Why?' : undefined);
+    action?.label ?? (kind === 'error' ? t`Retry` : kind === 'unavailable' ? t`Why?` : undefined);
   return (
     <div
       {...live}
@@ -156,8 +184,8 @@ export const StateView = memo(function StateView({
       className={cn(
         'flex min-w-0 text-muted-foreground',
         row
-          ? 'h-7 items-center gap-2 px-2 text-[12.5px] whitespace-nowrap'
-          : 'flex-col items-center justify-center gap-2.5 px-4 text-center text-[13px]',
+          ? 'h-7 items-center gap-2 px-2 text-menu whitespace-nowrap'
+          : 'flex-col items-center justify-center gap-2.5 px-4 text-center text-ui',
         size === 'panel' && 'min-h-[170px] py-6',
         size === 'page' && 'min-h-[50vh] py-10',
         className,
@@ -203,9 +231,9 @@ export const StateView = memo(function StateView({
             title={row ? detail : undefined}
             className={cn(
               row
-                ? 'min-w-0 max-w-full truncate font-mono text-[11px] text-muted-foreground tabular-nums'
+                ? 'min-w-0 max-w-full truncate font-mono text-caption text-muted-foreground tabular-nums'
                 : // A panel's explanation is a sentence: it wraps rather than hide its end.
-                  'max-w-[36ch] text-[12px] leading-[1.4] text-balance',
+                  'max-w-[36ch] text-meta leading-[1.4] text-balance',
             )}
           >
             {detail}
@@ -219,7 +247,7 @@ export const StateView = memo(function StateView({
             <Button
               variant="outline"
               size={row ? 'xs' : 'default'}
-              onClick={secondaryAction.onClick}
+              onClick={keepingFocus(secondaryAction.onClick)}
               data-slot="state-secondary-action"
             >
               {secondaryAction.label}
@@ -229,7 +257,7 @@ export const StateView = memo(function StateView({
             variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
             size={row ? 'xs' : 'default'}
             disabled={action.disabled}
-            onClick={action.onClick}
+            onClick={keepingFocus(action.onClick)}
             className={cn(
               kind !== 'changed-elsewhere' && 'text-foreground',
               row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input',
@@ -250,7 +278,7 @@ export const StateView = memo(function StateView({
           type="button"
           disabled={link.disabled}
           onClick={link.onClick}
-          className="rounded-sm text-[12px] text-accent-foreground underline underline-offset-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-sm text-meta text-accent-foreground underline underline-offset-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {link.label}
         </button>
@@ -305,9 +333,11 @@ function ViewerState({
       </div>
     );
   const IconComponent = icon ?? VIEWER_ICON[kind];
+  // Callers pass the translated `Retry`; compare in the same language.
+  const retryLabel = t`Retry`;
   const retry =
-    kind === 'error' && action && (action.label || 'Retry') === 'Retry'
-      ? { ...action, label: 'Retry', icon: action.icon ?? <RetryIcon /> }
+    kind === 'error' && action && (action.label || retryLabel) === retryLabel
+      ? { ...action, label: retryLabel, icon: action.icon ?? <RetryIcon /> }
       : action;
   const actions =
     listed ?? [secondaryAction, retry].filter((entry): entry is StateAction => !!entry);
@@ -318,20 +348,20 @@ function ViewerState({
       data-size="viewer"
       data-slot="state-view"
       className={cn(
-        'flex size-full min-h-[140px] min-w-0 flex-col items-center justify-center gap-[9px] px-4 py-6 text-center text-[12.5px] text-muted-foreground',
+        'flex size-full min-h-[140px] min-w-0 flex-col items-center justify-center gap-[9px] px-4 py-6 text-center text-menu text-muted-foreground',
         className,
       )}
     >
       <span aria-hidden="true" className="grid shrink-0 place-items-center text-faint">
         {glyph ?? <IconComponent className="size-[26px]" />}
       </span>
-      <span className="max-w-[min(100%,34rem)] px-3.5 text-[13px] font-medium text-balance break-words text-foreground">
+      <span className="max-w-[min(100%,34rem)] px-3.5 text-ui font-medium text-balance break-words text-foreground">
         {title}
       </span>
       {detail ? (
         <span
           title={detail}
-          className="line-clamp-4 max-w-[min(100%,256px)] text-[12px] leading-normal break-words text-muted-foreground"
+          className="line-clamp-4 max-w-[min(100%,256px)] text-meta leading-normal break-words text-muted-foreground"
         >
           {detail}
         </span>
@@ -358,10 +388,10 @@ function ViewerStateAction({ action }: { action: StateAction }) {
   const button = (
     <Button
       aria-keyshortcuts={presentation?.aria}
-      className="relative h-auto shrink-0 gap-1 rounded-[6px] px-[9px] py-1 text-[11.5px] font-normal whitespace-nowrap text-foreground [&_svg:not([class*=size-])]:size-3.5"
+      className="relative h-auto shrink-0 gap-1 rounded-[6px] px-[9px] py-1 text-label font-normal whitespace-nowrap text-foreground [&_svg:not([class*=size-])]:size-3.5"
       data-slot="state-action"
       disabled={action.disabled}
-      onClick={action.onClick}
+      onClick={keepingFocus(action.onClick)}
       size="xs"
       variant="secondary"
     >

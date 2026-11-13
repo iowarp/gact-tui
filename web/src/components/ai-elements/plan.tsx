@@ -9,6 +9,7 @@ import type { ComponentProps } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 import { Shimmer } from './shimmer';
+import { t } from '@lingui/core/macro';
 
 interface PlanContextValue {
   isStreaming: boolean;
@@ -100,7 +101,7 @@ export const PlanTrigger = ({ className, ...props }: PlanTriggerProps) => (
       {...props}
     >
       <ChevronsUpDownIcon className="size-4" />
-      <span className="sr-only">Toggle plan</span>
+      <span className="sr-only">{t`Toggle plan`}</span>
     </Button>
   </CollapsibleTrigger>
 );

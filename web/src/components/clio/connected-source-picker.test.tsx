@@ -427,7 +427,7 @@ describe('connected source picker', () => {
       ).toBeChecked();
       if (local)
         expect(
-          screen.getByRole('button', { name: "Browse source folder on Agent's computer" }),
+          screen.getByRole('button', { name: 'Browse source folder on this computer' }),
         ).toBeEnabled();
       else expect(screen.getByRole('button', { name: 'Upload folder' })).toBeDisabled();
     },
@@ -588,7 +588,7 @@ describe('connected source picker', () => {
       expect(fixtures.repository.createConnectedSource).toHaveBeenCalledWith(
         'w',
         expect.objectContaining({
-          root: 'https://drive.google.com/drive/folders/input_data',
+          root: 'input_data',
           label: 'Google Drive',
           mode: 'read_only',
         }),

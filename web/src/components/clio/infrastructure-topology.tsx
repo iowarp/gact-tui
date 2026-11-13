@@ -1,13 +1,5 @@
 import type { InfrastructureInventory, InfrastructureTarget } from '@clio/core/v3';
-import {
-  CpuIcon,
-  GlobeIcon,
-  LaptopIcon,
-  MonitorIcon,
-  PackageIcon,
-  PlugIcon,
-  ServerIcon,
-} from 'lucide-react';
+import { CpuIcon, LaptopIcon, MonitorIcon, PackageIcon, PlugIcon, ServerIcon } from 'lucide-react';
 import { memo, useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -21,6 +13,7 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
 import { AGENT_COMPUTER } from './managed-service-target-utils';
+import { t, ph } from '@lingui/core/macro';
 
 type NodeTone = 'ok' | 'self' | 'active' | 'attention' | 'failed' | 'idle';
 
@@ -109,7 +102,7 @@ export function InfrastructureTopology({
   const nodes = new Map(map.nodes.map((node) => [node.id, node]));
   return (
     <section
-      aria-label="Connection map"
+      aria-label={t`Connection map`}
       className={cn(
         'bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:14px_14px] px-3 py-2',
         className,
@@ -156,7 +149,7 @@ export function InfrastructureTopology({
                 </svg>
                 {edge.label ? (
                   <text
-                    className="fill-muted-foreground stroke-none text-[10px]"
+                    className="fill-muted-foreground stroke-none text-[0.625rem]"
                     textAnchor="middle"
                     x={`${(x1 + x2) / 2}%`}
                     y={(y1 + y2) / 2 - 5}
@@ -169,7 +162,7 @@ export function InfrastructureTopology({
           })}
         </svg>
         <div
-          aria-label="Connections from this client to the agent and managed computers"
+          aria-label={t`Connections from this client to the agent and managed computers`}
           className="absolute inset-0"
           role="list"
         >
@@ -211,9 +204,9 @@ const MapNodeView = memo(function MapNodeView({
       >
         {node.icon}
       </span>
-      <span className="flex min-w-0 flex-col leading-[1.25]">
-        <span className="truncate text-[12px] font-semibold text-foreground">{node.title}</span>
-        <span className="truncate text-[11px] text-muted-foreground">
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-meta font-semibold text-foreground">{node.title}</span>
+        <span className="truncate text-caption text-muted-foreground">
           {node.brief ?? node.detail}
         </span>
       </span>
@@ -250,7 +243,7 @@ const MapNodeView = memo(function MapNodeView({
     >
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent className="flex-col items-start gap-0.5" side="bottom" sideOffset={4}>
+        <TooltipContent className="flex-col items-start gap-0.5 px-[9px] py-1.5" side="bottom" sideOffset={4}>
           <span className="font-semibold">{node.title}</span>
           <span>{action ? `${node.detail}. ${action.hint}` : node.detail}</span>
         </TooltipContent>
@@ -298,7 +291,7 @@ function topologyLayout(
       row: row + (span - 1) / 2,
       icon: isLocal ? <MonitorIcon /> : <ServerIcon />,
       title: hostName,
-      detail: isLocal ? 'Local' : state!.detail,
+      detail: isLocal ? t`Local` : state!.detail,
       brief: state?.brief,
       tone: state?.tone ?? 'ok',
       action:
@@ -306,21 +299,26 @@ function topologyLayout(
           ? {
               kind: 'reconnect',
               host: sshHostFromTarget(host),
-              label: `Reconnect ${host.label}`,
-              hint: 'Enter to reconnect.',
+              label: t`Reconnect ${ph({ label: host.label })}`,
+              hint: t`Enter to reconnect.`,
             }
           : {
               kind: 'link',
               to: `/infrastructure/services?target=${encodeURIComponent(band.id)}`,
-              label: `Services on ${hostName}`,
-              hint: 'Enter to open its services.',
+              label: t`Services on ${hostName}`,
+              hint: t`Enter to open its services.`,
             },
     });
     const route = host?.kind === 'ssh' ? 'SSH' : host?.kind === 'direct' ? 'Direct' : undefined;
     edges.push({
       from: 'agent',
       to: hostId,
-      label: route && !labelled.has(route) ? route : undefined,
+      label:
+        route && !labelled.has(route)
+          ? route === 'Direct'
+            ? t({ message: 'Direct', context: 'network route' })
+            : route
+          : undefined,
       dashed: state?.reconnect,
       tone: state?.reconnect ? 'attention' : state?.tone === 'failed' ? 'failed' : undefined,
     });
@@ -339,7 +337,7 @@ function topologyLayout(
         row: row + index,
         icon: serviceIcon(service.service_id),
         title: name,
-        detail: port ? `${status.label}, port ${port}` : status.label,
+        detail: port ? t`${ph({ status: status.label })}, port ${port}` : status.label,
         tone:
           status.value === 'healthy'
             ? 'ok'
@@ -351,8 +349,8 @@ function topologyLayout(
         action: {
           kind: 'link',
           to: `/infrastructure/services?target=${encodeURIComponent(band.id)}&service=${encodeURIComponent(service.service_id)}`,
-          label: `Manage ${name} on ${hostName}`,
-          hint: 'Enter to manage it.',
+          label: t`Manage ${name} on ${hostName}`,
+          hint: t`Enter to manage it.`,
         },
       });
       edges.push({ from: hostId, to: id, dashed: state?.reconnect });
@@ -365,14 +363,14 @@ function topologyLayout(
       column: 2,
       row,
       icon: <ServerIcon />,
-      title: 'Remote computers',
-      detail: 'None added',
+      title: t`Remote computers`,
+      detail: t`None added`,
       tone: 'idle',
       action: {
         kind: 'link',
         to: '/infrastructure/agent',
-        label: 'Add a computer',
-        hint: 'Enter to add one.',
+        label: t`Add a computer`,
+        hint: t`Enter to add one.`,
       },
     });
     edges.push({ from: 'agent', to: 'add-computer', dashed: true });
@@ -385,7 +383,7 @@ function topologyLayout(
       column: 0,
       row: middle,
       icon: <LaptopIcon />,
-      title: 'This client',
+      title: t`This client`,
       detail: client,
       tone: 'ok',
     },
@@ -394,18 +392,22 @@ function topologyLayout(
       column: 1,
       row: middle,
       icon: <BrandIcon className="size-3.5" />,
-      title: `Connected ${vocab.agent}`,
+      title: t`Connected ${ph({ agent: vocab.agent })}`,
       detail: agentLabel,
       tone: 'self',
       action: {
         kind: 'link',
         to: `/infrastructure/services?target=${encodeURIComponent(localId)}`,
-        label: `Manage services on connected ${vocab.agent} ${agentLabel}`,
-        hint: 'Enter to open its services.',
+        label: t`Manage services on connected ${ph({ agent: vocab.agent })} ${agentLabel}`,
+        hint: t`Enter to open its services.`,
       },
     },
   );
-  edges.unshift({ from: 'client', to: 'agent', label: agentRoute });
+  edges.unshift({
+    from: 'client',
+    to: 'agent',
+    label: agentRoute === 'Direct' ? t({ message: 'Direct', context: 'network route' }) : 'SSH',
+  });
   return { nodes, edges, rows: row };
 }
 
@@ -418,7 +420,11 @@ function hostState(host: InfrastructureTarget): {
 } {
   const words = computerConnectionLabel(host.transport_state);
   const jump = host.ssh?.jump_hosts[0];
-  const detail = jump ? `via ${jump}, ${words}` : host.kind === 'direct' ? words : `SSH: ${words}`;
+  const detail = jump
+    ? t`via ${jump}, ${words}`
+    : host.kind === 'direct'
+      ? words
+      : t`SSH: ${words}`;
   const state = { detail, brief: words };
   switch (host.transport_state) {
     case 'connected':
@@ -452,7 +458,6 @@ function sshHostFromTarget(host: InfrastructureTarget): SshHost {
 function serviceIcon(serviceId: string): ReactNode {
   const engine = serviceId.split('@', 1)[0];
   if (engine === 'vllm' || engine === 'llama_cpp' || engine === 'ollama') return <CpuIcon />;
-  if (engine === 'searxng' || engine === 'web_search') return <GlobeIcon />;
   if (engine === 'relay') return <PlugIcon />;
   return <PackageIcon />;
 }

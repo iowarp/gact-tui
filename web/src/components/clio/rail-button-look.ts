@@ -1,4 +1,5 @@
 import type { AsyncProcess, PendingInteraction, SubagentRun } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export type RailButtonLook =
   | { kind: 'waiting'; count: number; label: string }
@@ -49,13 +50,13 @@ export function railButtonLook({
     interactions.filter(
       (interaction) => interaction.status === 'pending' && interaction.audience !== 'agent',
     ).length + states.filter((state) => WAITING.has(state)).length;
-  if (waiting) return { kind: 'waiting', count: waiting, label: `${waiting} waiting for you` };
+  if (waiting) return { kind: 'waiting', count: waiting, label: t`${waiting} waiting for you` };
   const failed = states.filter((state) => FAILED.has(state)).length;
   if (failed > seenFailed) {
     const count = failed - seenFailed;
-    return { kind: 'failed', count, label: `${count} failed` };
+    return { kind: 'failed', count, label: t`${count} failed` };
   }
   const running = states.filter((state) => RUNNING.has(state)).length;
-  if (running) return { kind: 'running', count: running, label: `${running} running` };
-  return { kind: 'idle', count: 0, label: 'Nothing running' };
+  if (running) return { kind: 'running', count: running, label: t`${running} running` };
+  return { kind: 'idle', count: 0, label: t`Nothing running` };
 }

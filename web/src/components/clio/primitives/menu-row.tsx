@@ -87,7 +87,7 @@ export const MenuRow = memo(function MenuRow({
           <span className={cn('truncate', muted && 'text-muted-foreground')}>
             <JumpLabel label={label} letter={accelerator} />
           </span>
-          <span title={detail} className="truncate text-[11px] text-muted-foreground">
+          <span title={detail} className="truncate text-caption text-muted-foreground">
             {detail}
           </span>
         </span>
@@ -105,7 +105,7 @@ export const MenuRow = memo(function MenuRow({
             <span
               title={wrapDescription ? undefined : description}
               className={cn(
-                'min-w-0 text-[12px] text-muted-foreground',
+                'min-w-0 text-meta text-muted-foreground',
                 wrapDescription ? 'leading-[1.35] whitespace-normal' : 'truncate',
               )}
             >
@@ -116,12 +116,12 @@ export const MenuRow = memo(function MenuRow({
       )}
       {status ? (
         <span className="mr-[34px] flex min-w-[62px] shrink-0">
-          <StatusIndicator className="text-[11px]" label={status.label} tone={status.tone} />
+          <StatusIndicator className="text-caption" label={status.label} tone={status.tone} />
         </span>
       ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}
       {value !== undefined ? (
-        <span className="w-[52px] shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+        <span className="w-[52px] shrink-0 truncate text-right font-mono text-caption text-muted-foreground tabular-nums">
           {value}
         </span>
       ) : null}
@@ -166,13 +166,15 @@ export function jumpLetterIndex(label: string, letter: string): number {
 export function JumpLabel({ label, letter }: { label: string; letter?: string }) {
   const index = letter ? jumpLetterIndex(label, letter) : -1;
   if (index < 0) return label;
-  // One inline box: inside a flex row, bare pieces would each become a spaced item ("R e ad").
+  // One inline box: as loose children of a flex item the letter and its
+  // neighbours become separate boxes, and the accessible name splits ("P review").
   return (
-    <span className="min-w-0">
+    <span data-slot="menu-jump-label" className="min-w-0 truncate">
       {label.slice(0, index)}
       <u
         data-slot="menu-jump-letter"
-        className="no-underline decoration-muted-foreground underline-offset-[3px] [[data-opened-by=keyboard]_&]:underline"
+        // Spec `.mi u`: #bdb5a6 in dark, a step brighter than muted text.
+        className="no-underline decoration-[color-mix(in_srgb,var(--foreground)_40%,var(--muted-foreground))] underline-offset-[3px] [[data-opened-by=keyboard]_&]:underline"
       >
         {label[index]}
       </u>
@@ -190,7 +192,7 @@ export function MenuAcceleratorKey({ letter }: { letter: string }) {
     <kbd
       data-slot="menu-accelerator"
       // A jump letter is for the keyboard: a menu opened with the mouse shows only keys.
-      className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
+      className="w-4 shrink-0 pl-2 text-right font-sans text-label text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
     >
       {letter}
     </kbd>

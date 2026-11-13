@@ -13,6 +13,7 @@ import { NDPEndpointOperationView } from './ndp-endpoint-operation';
 import {
   endpointSections,
   isService,
+  NDP_SECTION_COPY,
   listingParameters,
   recordName,
   records,
@@ -20,6 +21,8 @@ import {
 } from './ndp-endpoint-data';
 import { NDPWorkflowForm, type NDPWorkflow } from './ndp-workflow-form';
 import { NDPSdkStreamActions } from './ndp-sdk-stream-actions';
+import { formatDateTime } from '@/lib/locale-format';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** Browse data domains first; the API console remains an optional diagnostic surface. */
 export function NDPEndpointBrowser({
@@ -39,6 +42,7 @@ export function NDPEndpointBrowser({
   const [workflow, setWorkflow] = useState<NDPWorkflow>();
   const [pageSize, setPageSize] = useState(50);
   const section = sections.find((row) => row.name === tab);
+  const copy = section ? NDP_SECTION_COPY[section.name] : undefined;
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query), 350);
     return () => clearTimeout(timer);
@@ -87,7 +91,7 @@ export function NDPEndpointBrowser({
     if (operation) setWorkflow({ title, operation, parameters, body, stationService });
   };
   const has = (id: string) => endpoint.operations.some((row) => row.id === id);
-  const archivedUrlOperation = ['GET /stream/segment/url', 'GET /pull/url'].find(has);
+  const archivedUrlOperation = ['GET /stream/segment/url', 'GET /pull/url'].find(has); // i18n-ignore: NDP operation id
   const createId =
     tab === 'Organizations'
       ? 'POST /organization'
@@ -104,24 +108,25 @@ export function NDPEndpointBrowser({
             : '';
   const createTitle =
     tab === 'Organizations'
-      ? 'Create organization'
+      ? t`Create organization`
       : tab === 'Services'
-        ? 'Register service'
+        ? t`Register service`
         : tab === 'Catalog'
-          ? 'Create dataset'
+          ? t`Create dataset`
           : has('SDK streaming_v2.open')
-            ? 'Open stream reader'
+            ? t`Open stream reader`
             : has('POST /streams')
-              ? 'Open stream view'
-              : 'Start stream';
+              ? t`Open stream view`
+              : t`Start stream`;
   const sample = (row: NDPRecord) => {
     if (tab === 'Files')
-      action('GET /pull/file/{filename}', 'Sample archived data', {
+      // i18n-ignore: NDP operation id
+      action('GET /pull/file/{filename}', t`Sample archived data`, {
         filename: String(row.filename ?? row.name),
         max_msgs: 100,
       });
     else if (tab === 'Stations')
-      action('POST /bridge/sessions', 'Start stream', {}, { sncl_codes: [recordName(row)] });
+      action('POST /bridge/sessions', t`Start stream`, {}, { sncl_codes: [recordName(row)] }); // i18n-ignore: NDP operation id
   };
   if (workflow)
     return (
@@ -145,7 +150,7 @@ export function NDPEndpointBrowser({
     <div className="space-y-3">
       {sections.length ? (
         <>
-          <div className="flex flex-wrap gap-1" aria-label="Endpoint data views">
+          <div className="flex flex-wrap gap-1" aria-label={t`Endpoint data views`}>
             {sections.map((row) => (
               <Button
                 key={row.name}
@@ -160,14 +165,14 @@ export function NDPEndpointBrowser({
                   setPageSize(50);
                 }}
               >
-                {row.name}
+                {NDP_SECTION_COPY[row.name].label}
               </Button>
             ))}
           </div>
           <div className="flex items-center gap-2">
             <Input
-              aria-label={`Search ${tab.toLowerCase()}`}
-              placeholder={`Search ${tab.toLowerCase()}…`}
+              aria-label={copy?.search}
+              placeholder={copy?.placeholder}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -176,7 +181,7 @@ export function NDPEndpointBrowser({
             />
             {['Catalog', 'Organizations', 'Services'].includes(tab) ? (
               <select
-                aria-label="Catalog scope"
+                aria-label={t`Catalog scope`}
                 className="h-9 rounded-md border bg-background px-2 text-sm"
                 value={server}
                 onChange={(event) => {
@@ -184,8 +189,8 @@ export function NDPEndpointBrowser({
                   setWorkflow(undefined);
                 }}
               >
-                <option value="local">Local</option>
-                <option value="global">Global</option>
+                <option value="local">{t`Local`}</option>
+                <option value="global">{t`Global`}</option>
               </select>
             ) : null}
             <Button
@@ -194,7 +199,7 @@ export function NDPEndpointBrowser({
               disabled={listing.isFetching}
               onClick={() => void listing.refetch()}
             >
-              Refresh
+              {t`Refresh`}
             </Button>
             {has(createId) && server === 'local' ? (
               <Button
@@ -215,17 +220,16 @@ export function NDPEndpointBrowser({
           </div>
           {tab === 'Files' ? (
             <p className="text-xs text-muted-foreground">
-              Archived files can be sampled or replayed; their measurements are not necessarily
-              live.
+              {t`Archived files can be sampled or replayed; their measurements are not necessarily live.`}
             </p>
           ) : null}
           {['Files', 'Streams'].includes(tab) && archivedUrlOperation ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => action(archivedUrlOperation, 'Sample archived URL', { max_msgs: 10 })}
+              onClick={() => action(archivedUrlOperation, t`Sample archived URL`, { max_msgs: 10 })}
             >
-              Sample CSV from URL
+              {t`Sample CSV from URL`}
             </Button>
           ) : null}
           {listing.error ? (
@@ -234,14 +238,14 @@ export function NDPEndpointBrowser({
               {/401|403|denied|account|role/i.test(listing.error.message) ? (
                 <p className="text-xs">
                   {endpoint.authentication === 'none'
-                    ? 'If access requires your connected NDP account, choose Edit endpoint → Use my NDP sign-in.'
-                    : 'Check this Endpoint’s required identity issuer and role.'}
+                    ? t`If access requires your connected NDP account, choose Edit endpoint → Use my NDP sign-in.`
+                    : t`Check this Endpoint’s required identity issuer and role.`}
                 </p>
               ) : null}
             </div>
           ) : null}
           {listing.isPending ? (
-            <div role="status" aria-label={`Loading ${tab.toLowerCase()}`} className="space-y-2">
+            <div role="status" aria-label={copy?.loading} className="space-y-2">
               <Skeleton className="h-10" />
               <Skeleton className="h-10" />
               <Skeleton className="h-10" />
@@ -250,25 +254,18 @@ export function NDPEndpointBrowser({
             <>
               {!listing.error ? (
                 <p role="status" className="text-xs text-muted-foreground">
-                  {rows.length.toLocaleString()}{' '}
-                  {tab === 'Catalog'
-                    ? rows.length === 1
-                      ? 'dataset'
-                      : 'datasets'
-                    : tab.toLowerCase()}
-                  {listing.isFetching ? ' Updating…' : ''}
+                  {copy?.count(rows.length)}
+                  {listing.isFetching ? ` ${t`Updating…`}` : ''}
                 </p>
               ) : null}
               {!rows.length && !listing.error ? (
                 <p className="text-sm text-muted-foreground">
-                  {query
-                    ? 'No matches. Try a shorter name.'
-                    : `No ${tab.toLowerCase()} returned by this Endpoint.`}
+                  {query ? t`No matches. Try a shorter name.` : copy?.empty}
                 </p>
               ) : null}
               <div
                 className="max-h-72 overflow-y-auto overscroll-contain divide-y divide-border/50"
-                aria-label={`${tab} results`}
+                aria-label={copy?.results}
               >
                 {rows.slice(0, pageSize).map((row, index) => (
                   <div key={`${String(row.id ?? row.name)}-${index}`} className="py-2 space-y-2">
@@ -287,7 +284,7 @@ export function NDPEndpointBrowser({
                             dateTime={row.created_at}
                             className="block text-xs text-muted-foreground"
                           >
-                            Opened {new Date(row.created_at).toLocaleString()}
+                            {t`Opened ${ph({ time: formatDateTime(row.created_at) })}`}
                           </time>
                         ) : null}
                       </div>
@@ -301,13 +298,15 @@ export function NDPEndpointBrowser({
                             setDebounced(String(row.name));
                           }}
                         >
-                          Browse data
+                          {t`Browse data`}
                         </Button>
                       ) : null}
                       {(tab === 'Files' && has('GET /pull/file/{filename}')) ||
                       (tab === 'Stations' && has('POST /bridge/sessions')) ? (
                         <Button variant="outline" size="sm" onClick={() => sample(row)}>
-                          {tab === 'Files' ? 'Sample' : 'Start stream'}
+                          {tab === 'Files'
+                            ? t({ message: 'Sample', context: 'verb' })
+                            : t`Start stream`}
                         </Button>
                       ) : null}
                       {tab === 'Streams' && has('SDK streaming_v2.read') ? (
@@ -319,15 +318,19 @@ export function NDPEndpointBrowser({
                             size="sm"
                             disabled={row.state === 'stopped'}
                             onClick={() =>
-                              action('GET /streams/{stream_id}/segment', 'Capture stream records', {
-                                stream_id: String(row.id),
-                                cursor: String(row.cursor),
-                                max_records: 100,
-                                seconds: 3,
-                              })
+                              action(
+                                'GET /streams/{stream_id}/segment', // i18n-ignore: NDP operation id
+                                t`Capture stream records`,
+                                {
+                                  stream_id: String(row.id),
+                                  cursor: String(row.cursor),
+                                  max_records: 100,
+                                  seconds: 3,
+                                },
+                              )
                             }
                           >
-                            Capture records
+                            {t`Capture records`}
                           </Button>
                           <Button
                             variant="outline"
@@ -335,14 +338,16 @@ export function NDPEndpointBrowser({
                             onClick={() =>
                               action(
                                 row.state === 'stopped'
-                                  ? 'POST /streams/{stream_id}/resume'
-                                  : 'DELETE /streams/{stream_id}',
-                                row.state === 'stopped' ? 'Resume stream view' : 'Stop stream view',
+                                  ? 'POST /streams/{stream_id}/resume' // i18n-ignore: NDP operation id
+                                  : 'DELETE /streams/{stream_id}', // i18n-ignore: NDP operation id
+                                row.state === 'stopped'
+                                  ? t`Resume stream view`
+                                  : t`Stop stream view`,
                                 { stream_id: String(row.id) },
                               )
                             }
                           >
-                            {row.state === 'stopped' ? 'Resume' : 'Stop'}
+                            {row.state === 'stopped' ? t`Resume` : t`Stop`}
                           </Button>
                         </div>
                       ) : tab === 'Streams' && has('DELETE /bridge/sessions/{session_id}') ? (
@@ -350,26 +355,34 @@ export function NDPEndpointBrowser({
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            action('DELETE /bridge/sessions/{session_id}', 'Stop stream', {
-                              session_id: String(row.session_id ?? row.id),
-                              delete_stream: false,
-                              delete_source_resource: false,
-                            })
+                            action(
+                              // i18n-ignore: NDP operation id
+                              'DELETE /bridge/sessions/{session_id}',
+                              t`Stop stream`,
+                              {
+                                session_id: String(row.session_id ?? row.id),
+                                delete_stream: false,
+                                delete_source_resource: false,
+                              },
+                            )
                           }
                         >
-                          Stop
+                          {t`Stop`}
                         </Button>
                       ) : tab === 'Streams' && has('POST /stop-stream') ? (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            action('POST /stop-stream', 'Stop replay', {
-                              filename: String(row.filename ?? row.name),
-                            })
+                            action(
+                              // i18n-ignore: NDP operation id
+                              'POST /stop-stream',
+                              t`Stop replay`,
+                              { filename: String(row.filename ?? row.name) },
+                            )
                           }
                         >
-                          Stop
+                          {t`Stop`}
                         </Button>
                       ) : null}
                     </div>
@@ -377,8 +390,11 @@ export function NDPEndpointBrowser({
                       <details className="text-xs">
                         <summary className="cursor-pointer text-muted-foreground">
                           {isService(row)
-                            ? 'Service details'
-                            : `${records(row.resources).length} resources`}
+                            ? t`Service details`
+                            : plural(records(row.resources).length, {
+                                one: '# resource',
+                                other: '# resources',
+                              })}
                         </summary>
                         <ul className="mt-2 space-y-2">
                           {records(row.resources).map((resource, ri) => (
@@ -398,9 +414,9 @@ export function NDPEndpointBrowser({
                                   onClick={() =>
                                     action(
                                       has('SDK streaming_v2.open')
-                                        ? 'SDK streaming_v2.open'
-                                        : 'POST /streams',
-                                      `Read ${recordName(resource)}`,
+                                        ? 'SDK streaming_v2.open' // i18n-ignore: NDP operation id
+                                        : 'POST /streams', // i18n-ignore: NDP operation id
+                                      t`Read ${ph({ name: recordName(resource) })}`,
                                       has('SDK streaming_v2.open')
                                         ? { resource_id: String(resource.id), start: 'earliest' }
                                         : {},
@@ -410,13 +426,13 @@ export function NDPEndpointBrowser({
                                     )
                                   }
                                 >
-                                  Read stream
+                                  {t`Read stream`}
                                 </Button>
                               ) : null}
                               {typeof resource.url === 'string' &&
                               /^https?:\/\//i.test(resource.url) ? (
                                 <ExternalLink href={resource.url} className="underline">
-                                  Open original
+                                  {t`Open original`}
                                 </ExternalLink>
                               ) : null}
                             </li>
@@ -430,22 +446,22 @@ export function NDPEndpointBrowser({
                         size="sm"
                         onClick={() =>
                           action(
-                            'GET /services/redirect/{service_identifier}/{path}',
-                            `Query ${recordName(row)}`,
+                            'GET /services/redirect/{service_identifier}/{path}', // i18n-ignore: NDP operation id
+                            t`Query ${ph({ name: recordName(row) })}`,
                             { service_identifier: String(row.name ?? row.id), path: 'query' },
                             undefined,
                             /fdsn.*station/i.test(JSON.stringify(row)),
                           )
                         }
                       >
-                        Query service
+                        {t`Query service`}
                       </Button>
                     ) : null}
                   </div>
                 ))}
                 {rows.length > pageSize ? (
                   <Button variant="ghost" onClick={() => setPageSize(pageSize + 50)}>
-                    Show more
+                    {t`Show more`}
                   </Button>
                 ) : null}
               </div>
@@ -454,13 +470,12 @@ export function NDPEndpointBrowser({
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
-          This API does not advertise a supported catalog or stream view. Its available requests are
-          under Advanced.
+          {t`This API does not advertise a supported catalog or stream view. Its available requests are under Advanced.`}
         </p>
       )}
       <details className="border-t pt-3">
         <summary className="cursor-pointer text-xs text-muted-foreground">
-          Advanced API tools
+          {t`Advanced API tools`}
         </summary>
         <div className="mt-3">
           <NDPEndpointOperationView workspaceId={workspaceId} endpoint={endpoint} />

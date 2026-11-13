@@ -1,6 +1,7 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import type { SshStepEvent } from '@/tauri/ssh-infrastructure-transport';
 import type { RecoveryProgress } from '@/tauri/ssh-recovery-progress';
+import { t, ph } from '@lingui/core/macro';
 
 export type DeployStageId =
   | 'recover'
@@ -57,16 +58,16 @@ export type DeployEvent =
   | { type: 'cancel'; at: number };
 
 const STAGES: ReadonlyArray<Pick<DeployStage, 'id' | 'label'>> = [
-  { id: 'recover', label: `Checking saved ${vocab.agent} installs` },
-  { id: 'connect', label: 'Connecting over SSH' },
-  { id: 'authenticate', label: 'Authenticating' },
-  { id: 'detect', label: 'Detecting platform' },
-  { id: 'claim', label: `Checking for a running ${vocab.agent}` },
-  { id: 'install', label: `Installing ${vocab.agent}` },
-  { id: 'start', label: 'Starting server' },
-  { id: 'tunnel', label: 'Opening tunnel' },
-  { id: 'open', label: `Connecting to ${vocab.agent}` },
-  { id: 'cleanup', label: 'Cleaning up' },
+  { id: 'recover', label: t`Checking saved ${ph({ agent: vocab.agent })} installs` },
+  { id: 'connect', label: t`Connecting over SSH` },
+  { id: 'authenticate', label: t`Authenticating` },
+  { id: 'detect', label: t`Detecting platform` },
+  { id: 'claim', label: t`Checking for a running ${ph({ agent: vocab.agent })}` },
+  { id: 'install', label: t`Installing ${ph({ agent: vocab.agent })}` },
+  { id: 'start', label: t`Starting server` },
+  { id: 'tunnel', label: t`Opening tunnel` },
+  { id: 'open', label: t`Connecting to ${ph({ agent: vocab.agent })}` },
+  { id: 'cleanup', label: t`Cleaning up` },
 ];
 
 const HIDDEN_UNTIL_RUN: ReadonlySet<DeployStageId> = new Set([
@@ -106,10 +107,10 @@ function skipReason(
   stage: DeployStage,
   next: DeployStageId,
 ): string | undefined {
-  if (stage.id === 'tunnel' && next === 'open') return 'Not needed: connected directly';
+  if (stage.id === 'tunnel' && next === 'open') return t`Not needed: connected directly`;
   const claim = progress.stages.find((row) => row.id === 'claim');
   if ((stage.id === 'install' || stage.id === 'start') && claim?.state === 'done')
-    return `Not needed: the ${vocab.agent} already running there was reused`;
+    return t`Not needed: the ${ph({ agent: vocab.agent })} already running there was reused`;
   return undefined;
 }
 
@@ -223,7 +224,7 @@ export function deployProgressReducer(
           // The outcome of a check or cleanup ("Stopped an old CLIO ...").
           detail: event.step.detail || undefined,
         });
-      const reason = event.step.detail || 'This step failed.';
+      const reason = event.step.detail || t`This step failed.`;
       return {
         ...update(entered, id, { state: 'failed', detail: reason, ...measured, endedAt }),
         failure: { stage: id, reason, log: event.step.log || undefined },
@@ -260,7 +261,7 @@ export function oneLineReason(message: string): string {
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines[lines.length - 1] ?? 'The deployment failed.';
+  return lines[lines.length - 1] ?? t`The deployment failed.`;
 }
 
 /** Elapsed time as `12s` or `1m 05s`. */

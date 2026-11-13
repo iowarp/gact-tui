@@ -7,6 +7,7 @@ import { useReducedMotionConfig } from 'motion/react';
 import { updateTextLayerGeometry, type TextLayerGeometry } from './text-layer-geometry';
 import { ZoomPanStatusLayer } from './zoom-pan-status';
 import { readThemeColor, resolveThemeColor } from '@/theme/runtime';
+import { t } from '@lingui/core/macro';
 
 /**
  * #1549 G9 #27 follow-up (adversarial review of #514): the wheel listener
@@ -20,7 +21,9 @@ import { readThemeColor, resolveThemeColor } from '@/theme/runtime';
  * own Ctrl/Meta gate is consistent, not a gap.
  */
 export function zoomScrollHint(): string {
-  return `${isMacOS() ? '⌘' : 'Ctrl'}+scroll or pinch to zoom, drag to pan`;
+  // i18n-ignore: the modifier key's name as printed on the keyboard
+  const key = isMacOS() ? '⌘' : 'Ctrl';
+  return t`${key}+scroll or pinch to zoom, drag to pan`;
 }
 
 export interface ZoomPanProps {
@@ -46,6 +49,8 @@ export interface ZoomPanProps {
     resetZoom: () => void;
     centerView: () => void;
     scalePercent: number;
+    /** Whether the view is at its fitted scale, so a zoom readout says nothing new. */
+    fitted: boolean;
   }) => React.ReactNode;
   isLoading?: boolean;
   loadingFallback?: React.ReactNode;
@@ -61,7 +66,7 @@ export interface ZoomPanProps {
 export function ZoomPan({
   imageSrc,
   selectableTextSvg,
-  ariaLabel = 'Interactive diagram canvas',
+  ariaLabel = t`Interactive diagram canvas`,
   children,
   minScale = 0.1,
   maxScale = 5,
@@ -328,16 +333,19 @@ export function ZoomPan({
     updateSmooth();
   }, [getCenterTransform, updateSmooth]);
 
-  const api = React.useMemo(
-    () => ({
+  const api = React.useMemo(() => {
+    const center = getCenterTransform();
+    const fitPercent =
+      center && Number.isFinite(center.scale) ? Math.round(center.scale * 100) : undefined;
+    return {
       zoomIn,
       zoomOut,
       resetZoom,
       centerView,
       scalePercent,
-    }),
-    [zoomIn, zoomOut, resetZoom, centerView, scalePercent],
-  );
+      fitted: fitPercent === undefined || Math.abs(fitPercent - scalePercent) <= 1,
+    };
+  }, [zoomIn, zoomOut, resetZoom, centerView, scalePercent, getCenterTransform]);
 
   // Mouse handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -704,6 +712,7 @@ export function ZoomPan({
         >
           <canvas
             aria-label={ariaLabel}
+            // i18n-ignore: key names the accessibility API reads, not copy
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - 0"
             ref={canvasRef}
             onKeyDown={handleKeyDown}

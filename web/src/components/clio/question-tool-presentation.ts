@@ -1,5 +1,6 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { interactionAnswerLabels, isCausalQuestionInteraction } from './agent-answer-domain';
+import { ph, t, plural } from '@lingui/core/macro';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -27,7 +28,7 @@ function questions(tool: ToolInvocation): Record<string, unknown>[] {
 /** Name the authored questions rather than the transport's generic task operation. */
 export function questionToolSummary(tool: ToolInvocation): string | undefined {
   const count = questions(tool).length;
-  return count ? `${count} ${count === 1 ? 'question' : 'questions'}` : undefined;
+  return count ? plural(count, { one: '# question', other: '# questions' }) : undefined;
 }
 
 /** The questions this call asked, linked by `source.invocation_id` (or its receipt's task handle). */
@@ -107,7 +108,9 @@ export function answeredQuestionReading(
         : [];
     return { prompt: String(question.question), options };
   });
-  const offered = new Set(questionsRead.flatMap((question) => question.options.map((o) => o.label)));
+  const offered = new Set(
+    questionsRead.flatMap((question) => question.options.map((o) => o.label)),
+  );
   const input = questionInput(tool);
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
   return {
@@ -124,6 +127,20 @@ export function withQuestionPresentation(
   interactions: readonly PendingInteraction[] = [],
 ): ToolInvocation {
   const rows = questions(tool);
+  const identity = tool.presentation?.blocks.find(
+    (block) => block.id === tool.presentation?.subject && /^task-\d+-identity$/u.test(block.id),
+  );
+  if (tool.name === 'ask_user' && !rows.length && identity) {
+    // A call with no question has nothing to name; the transport's "Task" is no target.
+    return {
+      ...tool,
+      presentation: {
+        ...tool.presentation!,
+        subject: undefined,
+        blocks: tool.presentation!.blocks.filter((block) => block !== identity),
+      },
+    };
+  }
   if (rows.length && tool.state === 'failed') {
     // A rejected ask names the question it tried, not the transport's "Task".
     const prompt = String(rows[0]!.question);
@@ -133,7 +150,7 @@ export function withQuestionPresentation(
       presentation: {
         ...tool.presentation,
         status: tool.presentation?.status ?? 'failed',
-        action: 'Ask you',
+        action: t`Ask you`,
         subject: 'question-subject',
         summary: '',
         blocks: [{ id: 'question-subject', type: 'text', text: prompt }, ...kept],
@@ -156,17 +173,17 @@ export function withQuestionPresentation(
             : [];
         })
       : question.kind === 'confirmation'
-        ? ['Yes', 'No']
+        ? [t`Yes`, t`No`]
         : [];
     return [
       {
         id: `question-prompt-${index}`,
         type: 'text',
-        label: rows.length === 1 ? 'Question' : `Question ${index + 1}`,
+        label: rows.length === 1 ? t`Question` : t`Question ${ph({ number: index + 1 })}`,
         text:
           String(question.question) +
           (options.length
-            ? `\n\nOptions:\n${options.map((option) => `• ${option}`).join('\n')}`
+            ? `\n\n${t`Options:`}\n${options.map((option) => `• ${option}`).join('\n')}`
             : ''),
       },
     ];
@@ -180,7 +197,7 @@ export function withQuestionPresentation(
   )
     blocks.unshift({ id: 'question-framing', type: 'text', text: framing });
   if (typeof reason === 'string' && reason.trim())
-    blocks.push({ id: 'question-reason', type: 'text', label: 'Why I’m asking', text: reason });
+    blocks.push({ id: 'question-reason', type: 'text', label: t`Why I’m asking`, text: reason });
   const { accepted, matches } = questionLink(tool, interactions);
   const interaction = matches.find((row) => row.status === 'pending') ?? matches[0];
   // Once answered, the ask folds into the spec's decision row: "Answered · 2020–2023".
@@ -192,17 +209,17 @@ export function withQuestionPresentation(
     blocks.push({
       id: 'question-state',
       type: 'text',
-      label: 'Answer',
+      label: t`Answer`,
       text:
         status === 'pending'
-          ? 'Waiting for your answer'
+          ? t`Waiting for your answer`
           : status === 'answered'
             ? answers.join(', ') || 'Answered'
             : status === 'cancelled'
-              ? 'Cancelled'
+              ? t`Cancelled`
               : status === 'expired'
-                ? 'Expired'
-                : 'Answer requested at this step',
+                ? t`Expired`
+                : t`Answer requested at this step`,
     });
   }
   if (answers.length)
@@ -211,11 +228,11 @@ export function withQuestionPresentation(
     ...tool,
     presentation: {
       ...tool.presentation,
-      action: answers.length ? 'Answered' : 'Ask you',
+      action: answers.length ? t`Answered` : t`Ask you`,
       subject: answers.length ? 'question-answer' : undefined,
       summary: answers.length
         ? ''
-        : `${rows.length} ${rows.length === 1 ? 'question' : 'questions'}`,
+        : plural(rows.length, { one: '# question', other: '# questions' }),
       blocks,
     },
   };

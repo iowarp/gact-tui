@@ -8,6 +8,7 @@ import { IconButton } from './primitives/icon-button';
 import { QuestionCard, QuestionFooter } from './interaction-frame-header';
 import { canDismissQuestion } from './question-card-model';
 import { useQuestionAnswer } from './question-answer-context';
+import { t } from '@lingui/core/macro';
 
 /** Link to a question's original view without mounting a second widget. */
 export function SurfaceQuestionNotice({
@@ -68,43 +69,44 @@ export function SurfaceQuestionNotice({
             <IconButton
               disabled={disabled || responding}
               icon={<CloseIcon aria-hidden="true" />}
-              label="Close question"
+              label={t`Close question`}
               onClick={onDismiss}
               size="sm"
             />
           </TooltipProvider>
         ) : undefined
       }
-      heading={interaction.prompt || interaction.title || 'Interactive question'}
+      heading={interaction.prompt || interaction.title || t`Interactive question`}
       interaction={interaction}
       ownerLabel={ownerLabel}
       showOwner={showOwner}
     >
       {!available ? (
-        <AskSubject className="text-[12px]">
+        <AskSubject className="text-meta">
           {!id
-            ? 'This response has no linked view.'
+            ? t`This response has no linked view.`
             : surface && surface.session_id !== interaction.owner_session_id
-              ? 'The linked view belongs to another conversation.'
+              ? t`The linked view belongs to another conversation.`
               : surface
-                ? 'The linked view is unavailable.'
-                : 'Loading the linked view…'}
+                ? t`The linked view is unavailable.`
+                : t`Loading the linked view…`}
         </AskSubject>
       ) : null}
       <AskError error={error} />
-      <AskOptions aria-label="Question">
+      <AskOptions aria-label={t`Question`}>
         <AskButton
           disabled={disabled || responding || !available || !open}
+          // i18n-ignore: key name
           hint="Enter"
           onClick={() => open?.(interaction)}
           primary
         >
           <span className="inline-flex items-center gap-1.5">
             <ArrowUpRightIcon aria-hidden="true" className="size-3.5" />
-            Go to question
+            {t`Go to question`}
           </span>
         </AskButton>
-        {!available && refetch ? <AskButton onClick={refetch}>Retry</AskButton> : null}
+        {!available && refetch ? <AskButton onClick={refetch}>{t`Retry`}</AskButton> : null}
       </AskOptions>
       <QuestionFooter
         disabled={disabled || responding}

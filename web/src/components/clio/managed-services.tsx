@@ -2,7 +2,6 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { installerRequestedLlamaCpp } from '@/lib/installer-infrastructure';
 import {
   INSTALL_FROM_SCRATCH_KEY,
-  type McpUserConfiguration,
   type ServiceActionInput,
   type ManagedServiceDefinition,
   type ProvenanceConnectionInput,
@@ -28,8 +27,6 @@ import {
   type ServiceAction,
   type ServiceActionFeedback,
 } from './managed-service-card';
-import { WebSearchServiceConnection } from './web-search-service-connection';
-import { webSearchConnectionMatchesTarget } from './web-search-configuration';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { ManagedServiceHostFacts } from './managed-service-host-facts';
 import type { SshTransportStatus } from '@/tauri/ssh-infrastructure-transport';
@@ -48,31 +45,18 @@ import {
 } from './managed-service-target-utils';
 import { ManagedServiceInventory } from './managed-service-inventory';
 import { engineId, servicesWithInstances } from './managed-service-gpus';
+import { t, ph } from '@lingui/core/macro';
 
 /** Desktop controls for CLIO-managed providers and supporting resources. */
 export function ManagedServices({
-  onConnectWebSearch,
-  onDisconnectWebSearch,
-  webSearchConnected = false,
-  webSearchConnection,
-  webSearchConnecting = false,
-  webSearchDisconnecting = false,
   connectedAgentLocation,
   onConnectExistingService,
   onConnectProvenance,
-  onManageWebSearch,
 }: {
-  onConnectWebSearch?: (remoteUrl: string) => void;
-  onDisconnectWebSearch?: () => void;
-  webSearchConnected?: boolean;
-  webSearchConnection?: McpUserConfiguration;
-  webSearchConnecting?: boolean;
-  webSearchDisconnecting?: boolean;
   connectedAgentLabel?: string;
   connectedAgentLocation?: string;
   onConnectExistingService?: () => void;
   onConnectProvenance?: (input: ProvenanceConnectionInput) => void;
-  onManageWebSearch?: () => void;
 }) {
   const desktop = inTauri();
   const repository = useRepository();
@@ -158,7 +142,7 @@ export function ManagedServices({
   const canManageSshTargets = desktop && isManagedConnection;
   const executionHostLabel =
     target === 'local'
-      ? 'Local'
+      ? t`Local`
       : targets.data?.find((row) => row.id === targetId)?.label || targetLabel(target, sshHost);
   // The NSIS installer's Infrastructure page records a llama.cpp request as a
   // PREFERENCE only — it never installs a runtime itself. When set, this
@@ -235,16 +219,20 @@ export function ManagedServices({
           operationId: result.id,
           text:
             result.action === 'status'
-              ? 'Status refreshed.'
+              ? t`Status refreshed.`
               : result.action === 'logs'
-                ? result.logs.trim() || 'No recent log output.'
-                : ['install', 'reinstall', 'start'].includes(result.action)
-                  ? `${result.action[0].toUpperCase()}${result.action.slice(1)} completed. View logs for the server output.`
-                  : result.action === 'uninstall'
-                    ? 'Runtime removal completed. Inspect storage for retained data.'
-                    : result.action === 'delete_data'
-                      ? 'Retained deployment data deleted.'
-                      : `${result.action} completed.`,
+                ? result.logs.trim() || t`No recent log output.`
+                : result.action === 'install'
+                  ? t`Install completed. View logs for the server output.`
+                  : result.action === 'reinstall'
+                    ? t`Reinstall completed. View logs for the server output.`
+                    : result.action === 'start'
+                      ? t`Start completed. View logs for the server output.`
+                      : result.action === 'uninstall'
+                        ? t`Runtime removal completed. Inspect storage for retained data.`
+                        : result.action === 'delete_data'
+                          ? t`Retained deployment data deleted.`
+                          : t`${ph({ action: result.action })} completed.`,
         },
       }));
       if (['install', 'reinstall'].includes(result.action)) setDeploying(false);
@@ -329,15 +317,12 @@ export function ManagedServices({
     const configuredModelServer = agentConnectionUrl
       ? modelRuntimeServer(savedServers.servers.data, engineId(service), agentConnectionUrl)
       : undefined;
-    const webSearchTargetConnected =
-      service.id === 'web_search' &&
-      webSearchConnectionMatchesTarget(webSearchConnected, webSearchConnection, agentConnectionUrl);
     return service.category === 'monitoring' && service.state === 'running' && onConnectProvenance
       ? {
-          label: 'Connect',
+          label: t`Connect`,
           blockedReason:
             targetId !== 'local'
-              ? `Connect to the ${vocab.agent} on this execution host to configure its local provenance settings.`
+              ? t`Connect to the ${ph({ agent: vocab.agent })} on this execution host to configure its local provenance settings.`
               : undefined,
           onSelect: () =>
             onConnectProvenance({
@@ -355,13 +340,13 @@ export function ManagedServices({
             (service.state === 'running' && (!service.observation || service.observation.serving)))
         ? configuredModelServer
           ? {
-              label: savedServers.remove.isPending ? 'Disconnecting…' : 'Disconnect',
+              label: savedServers.remove.isPending ? t`Disconnecting…` : t`Disconnect`,
               connected: true,
               pending: savedServers.remove.isPending,
               onSelect: () => savedServers.remove.mutate(configuredModelServer.id),
             }
           : {
-              label: savedServers.save.isPending ? 'Connecting…' : 'Connect',
+              label: savedServers.save.isPending ? t`Connecting…` : t`Connect`,
               connected: false,
               pending: savedServers.save.isPending,
               onSelect: () =>
@@ -371,28 +356,9 @@ export function ManagedServices({
                   presetId: engineId(service),
                 }),
             }
-        : service.id === 'web_search' && (webSearchTargetConnected || service.state === 'running')
-          ? {
-              label: webSearchTargetConnected
-                ? webSearchDisconnecting
-                  ? 'Disconnecting…'
-                  : 'Disconnect'
-                : webSearchConnecting
-                  ? 'Connecting…'
-                  : 'Connect',
-              connected: webSearchTargetConnected,
-              onSelect: webSearchTargetConnected
-                ? onDisconnectWebSearch
-                : !agentConnectionUrl
-                  ? undefined
-                  : () => onConnectWebSearch?.(agentConnectionUrl),
-              pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
-              blockedReason: undefined,
-            }
-          : undefined;
+        : undefined;
   };
   const renderService = (service: ManagedServiceDefinition, setup = false) => {
-    const agentConnectionUrl = service.connection_url;
     return (
       <ManagedServiceCard
         gpus={gpus}
@@ -407,15 +373,6 @@ export function ManagedServices({
             : (runningOperations[service.id]?.action as ServiceAction | undefined)
         }
         configuration={{ ...service.configuration, ...configuration[service.id] }}
-        connectionStatus={
-          service.id === 'web_search' && service.state === 'running' ? (
-            <WebSearchServiceConnection
-              connecting={action.isPending === false && webSearchConnecting}
-              connection={webSearchConnection}
-              targetUrl={agentConnectionUrl}
-            />
-          ) : undefined
-        }
         key={`${targetId}:${service.id}`}
         onAction={(requestedAction, options) => {
           const applying = requestedAction === 'install' || requestedAction === 'reinstall';
@@ -487,29 +444,29 @@ export function ManagedServices({
     <>
       {onConnectExistingService ? (
         <DropdownMenuItem onSelect={onConnectExistingService}>
-          <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
+          <MenuRow icon={<LinkIcon />} label={t`Connect an existing service`} />
         </DropdownMenuItem>
       ) : null}
       {onConnectExistingService ? <DropdownMenuSeparator /> : null}
       <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
-        <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
+        <MenuRow icon={<PlugIcon />} label={t`MCP services`} submenu />
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
-        <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
+        <MenuRow icon={<InfoIcon />} label={t`Computer details`} submenu />
       </DropdownMenuItem>
     </>
   );
 
   return (
-    <section aria-label="Services" className="flex min-w-0 flex-col gap-3 pt-2">
+    <section aria-label={t`Services`} className="flex min-w-0 flex-col gap-3 pt-2">
       <InfraTabActions
         fold={{
-          label: 'More service actions',
+          label: t`More service actions`,
           verb: (
             <SplitButton
               icon={<AddIcon />}
-              label="Install service"
-              menuLabel="More ways to add a service"
+              label={t`Install service`}
+              menuLabel={t`More ways to add a service`}
               onClick={startInstall}
               showLabel
               variant="default"
@@ -520,7 +477,7 @@ export function ManagedServices({
           menu: (
             <>
               <DropdownMenuItem onSelect={startInstall}>
-                <MenuRow icon={<AddIcon />} label="Install service" />
+                <MenuRow icon={<AddIcon />} label={t`Install service`} />
               </DropdownMenuItem>
               {serviceVariants}
             </>
@@ -554,7 +511,7 @@ export function ManagedServices({
           action={
             sshHost && canManageSshTargets && !registerTarget.isPending
               ? {
-                  label: 'Reconnect',
+                  label: t`Reconnect`,
                   onClick: () => void connectComputer(sshHost).catch(() => undefined),
                 }
               : undefined
@@ -571,15 +528,15 @@ export function ManagedServices({
         <StateView
           detail={
             target === 'ssh'
-              ? `Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing ${vocab.agent} services.`
-              : `Checking the operating system, Docker, local runtimes, acceleration, and existing ${vocab.agent} services.`
+              ? t`Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing ${ph({ agent: vocab.agent })} services.`
+              : t`Checking the operating system, Docker, local runtimes, acceleration, and existing ${ph({ agent: vocab.agent })} services.`
           }
           kind="loading"
           size="panel"
           title={
             target === 'ssh'
-              ? `Connecting to ${targetLabel(target, sshHost)}`
-              : 'Inspecting this computer'
+              ? t`Connecting to ${ph({ host: targetLabel(target, sshHost) })}`
+              : t`Inspecting this computer`
           }
         />
       ) : null}
@@ -587,22 +544,22 @@ export function ManagedServices({
         <StateView
           kind="unavailable"
           size="panel"
-          title={`Connect ${executionHostLabel} through Desktop to inspect and manage its services.`}
+          title={t`Connect ${executionHostLabel} through Desktop to inspect and manage its services.`}
         />
       ) : null}
       {catalog.error && !catalogErrorShownByPage ? (
         <StateView
-          action={{ label: 'Try again', onClick: () => void catalog.refetch() }}
+          action={{ label: t`Try again`, onClick: () => void catalog.refetch() }}
           detail={catalog.error.message}
           kind="error"
           size="panel"
-          title={`Could not inspect ${executionHostLabel}`}
+          title={t`Could not inspect ${executionHostLabel}`}
         />
       ) : null}
       {installerLlamaCpp.data && !llamaCppInstalled ? (
         <StateView
           action={{
-            label: 'Finish setup',
+            label: t`Finish setup`,
             onClick: () => {
               setSelectedProvider('llama_cpp');
               setDeploying(true);
@@ -611,12 +568,11 @@ export function ManagedServices({
           icon={CpuIcon}
           kind="unavailable"
           size="row"
-          title="Finish setting up your local model runtime"
+          title={t`Finish setting up your local model runtime`}
         />
       ) : null}
       <ManagedServiceInventory
         endpoint={settings.endpoint}
-        targetId={targetId}
         hostLabel={executionHostLabel}
         services={services.filter((row) => row.category !== 'remote_access' || target === 'ssh')}
         selected={selectedProvider}
@@ -624,7 +580,6 @@ export function ManagedServices({
         deploying={deploying}
         onDeploying={setDeploying}
         renderService={renderService}
-        onEditWebSearch={onManageWebSearch}
         onOpenTab={(id, tab) => setTabs((current) => ({ ...current, [id]: tab }))}
         operations={{
           ...Object.fromEntries(Object.entries(runningOperations).map(([id, row]) => [id, row.id])),
@@ -655,11 +610,15 @@ export function ManagedServices({
       />
       <DialogFrame
         className="w-[clamp(360px,52vw,720px)]"
-        description={`Model Context Protocol services the ${vocab.agent} on ${mcpComputerLabel ?? 'this computer'} uses.`}
+        description={
+          mcpComputerLabel
+            ? t`Model Context Protocol services the ${ph({ agent: vocab.agent })} on ${mcpComputerLabel} uses.`
+            : t`Model Context Protocol services the ${ph({ agent: vocab.agent })} on this computer uses.`
+        }
         icon={<PlugIcon />}
         onOpenChange={setMcpOpen}
         open={mcpOpen}
-        title="MCP services"
+        title={t`MCP services`}
       >
         <div className="clio-scrollbar max-h-[60dvh] overflow-y-auto">
           <ToolsSettings embedded computerLabel={mcpComputerLabel} />
@@ -672,19 +631,19 @@ export function ManagedServices({
         open={hostDetailsOpen}
         secondary={
           <RefreshButton
-            label="Inspect again"
+            label={t`Inspect again`}
             refreshing={catalog.isFetching}
             onRefresh={() => catalog.refetch()}
             size="sm"
             variant="ghost"
           />
         }
-        title="Computer details"
+        title={t`Computer details`}
       >
         {catalog.data ? (
           <ManagedServiceHostFacts facts={catalog.data.facts} />
         ) : (
-          <StateView kind="empty" size="row" title="Not inspected yet" />
+          <StateView kind="empty" size="row" title={t`Not inspected yet`} />
         )}
       </DialogFrame>
     </section>
@@ -692,10 +651,10 @@ export function ManagedServices({
 }
 function transportStateLabel(state: SshTransportStatus['state']): string {
   return {
-    connected: 'Connected',
-    reconnecting: 'Reconnecting',
-    reauthentication_required: 'Reauthentication required',
-    disconnected: 'Disconnected',
-    state_unknown: 'State unknown',
+    connected: t`Connected`,
+    reconnecting: t`Reconnecting`,
+    reauthentication_required: t`Reauthentication required`,
+    disconnected: t`Disconnected`,
+    state_unknown: t`State unknown`,
   }[state];
 }

@@ -51,15 +51,16 @@ import {
   type RowEditor,
 } from './settings-tools-options';
 import { ValueSummary } from './settings-tools-value-summary';
+import { t, ph } from '@lingui/core/macro';
 
-function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
+export function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
   return (
     <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
       <StatusIndicator
         className={cn(
           value === 'covered' && 'text-info',
-          value === 'unavailable' && 'text-faint',
-          'text-[12px]',
+          value === 'unavailable' && 'text-muted-foreground',
+          'text-meta',
         )}
         label={OUTCOME_TEXT[value]}
         tone={OUTCOME_TONE[value]}
@@ -81,7 +82,7 @@ function OutcomeMark({
   return (
     <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
       <StatusIndicator
-        className={cn('text-xs', !statusWordClass(OUTCOME_TONE[value]) && 'text-faint')}
+        className={cn('text-xs', !statusWordClass(OUTCOME_TONE[value]) && 'text-muted-foreground')}
         label={text}
         tone={OUTCOME_TONE[value]}
       />
@@ -100,6 +101,8 @@ export const ToolRow = memo(function ToolRow({
   setSize,
   measure,
   fold,
+  onOpen,
+  selected = false,
 }: {
   tool: ToolSetting;
   mode: string;
@@ -114,6 +117,10 @@ export const ToolRow = memo(function ToolRow({
   measure?: (element: Element | null) => void;
   /** The table's fold once measured: parts it hides aren't mounted. Unknown mounts every part. */
   fold?: ToolsFold;
+  /** Opens the tool's details; its name becomes the button. Keep it stable: rows are memoized. */
+  onOpen?: (tool: ToolSetting) => void;
+  /** Its details are open. */
+  selected?: boolean;
 }) {
   // What the container queries show at this fold; every part until the width is known.
   const shows = (from: ToolsFold, below: number = 4) =>
@@ -126,7 +133,7 @@ export const ToolRow = memo(function ToolRow({
   const kind = toolKind(tool);
   const byRule = !tool.permission && savedRules(tool).length > 0;
   const permissionLabel = PERMISSION_TEXT[permission.value].label;
-  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Unknown';
+  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : t`Unknown`;
   const permissionIcon = PERMISSION_ICON[permission.value];
   const callersIcon = callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon;
   const choosePermission = (value: ToolPermission) =>
@@ -140,8 +147,10 @@ export const ToolRow = memo(function ToolRow({
       className={cn(
         COLUMNS,
         'group/row relative min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
+        selected && 'bg-hover hover:bg-hover',
       )}
       data-index={index}
+      data-selected={selected || undefined}
       data-tool={tool.name}
       onKeyDown={moveAcrossCells}
       ref={measure}
@@ -155,12 +164,27 @@ export const ToolRow = memo(function ToolRow({
         <kind.icon className="size-4" />
       </span>
       <span className="grid min-w-0 gap-0.5">
-        <span
-          className="truncate font-mono text-[12.5px] font-medium text-foreground"
-          title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
-        >
-          {tool.name}
-        </span>
+        {onOpen ? (
+          <button
+            aria-current={selected || undefined}
+            aria-label={t`Details for ${ph({ tool: tool.name })}`}
+            // Above the narrow picker's row-wide hit area, so the name still opens details.
+            className="relative z-10 min-w-0 cursor-pointer justify-self-start truncate rounded-[3px] text-left font-mono text-menu font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            data-tool-open=""
+            onClick={() => onOpen(tool)}
+            title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
+            type="button"
+          >
+            {tool.name}
+          </button>
+        ) : (
+          <span
+            className="truncate font-mono text-menu font-medium text-foreground"
+            title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
+          >
+            {tool.name}
+          </span>
+        )}
         {status?.kind === 'error' ? (
           <span className="truncate text-xs text-destructive" role="alert" title={status.message}>
             {status.message}
@@ -171,7 +195,7 @@ export const ToolRow = memo(function ToolRow({
           // Below 44rem the line wraps inside a one-line clip, so an outcome
           // without room for a few letters of its label leaves whole rather
           // than as a bare dot.
-          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
+          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-muted-foreground @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
             {shows(2) ? (
               <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
             ) : null}
@@ -198,8 +222,10 @@ export const ToolRow = memo(function ToolRow({
                 className="shrink-0 @min-[44rem]/tools:hidden"
                 text={
                   outcome.direct === 'unavailable'
-                    ? "Agent can't call it"
-                    : `${OUTCOME_TEXT[outcome.direct]}${byRule ? ' by a rule' : ''}`
+                    ? t`Agent can't call it`
+                    : byRule
+                      ? t`${ph({ outcome: OUTCOME_TEXT[outcome.direct] })} by a rule`
+                      : OUTCOME_TEXT[outcome.direct]
                 }
                 value={outcome.direct}
               />
@@ -239,10 +265,10 @@ export const ToolRow = memo(function ToolRow({
           }
           isDefault={permission.isDefault}
           label={permissionLabel}
-          name={`Permission: ${tool.name}`}
+          name={t`Permission: ${ph({ name: tool.name })}`}
           onChoose={choosePermission}
           options={permissionOptions(permissionDefault)}
-          search={`Permission for ${tool.name}`}
+          search={t`Permission for ${ph({ name: tool.name })}`}
           selected={permission.value}
           title={valueTitle(permissionLabel, permission.isDefault)}
         />
@@ -255,15 +281,15 @@ export const ToolRow = memo(function ToolRow({
           icon={callersIcon}
           isDefault={callers.isDefault && Boolean(callers.value)}
           label={callersLabel}
-          name={`I/O: ${tool.name}`}
+          name={t`I/O: ${ph({ name: tool.name })}`}
           onChoose={chooseCallers}
           options={callersOptions(callersDefault)}
-          search={`I/O for ${tool.name}`}
+          search={t`I/O for ${ph({ name: tool.name })}`}
           selected={callers.value || undefined}
           title={
             callers.value
               ? valueTitle(callersLabel, callers.isDefault)
-              : "The plugin's default is known once a conversation loads the tool."
+              : t`The plugin's default is known once a conversation loads the tool.`
           }
         />
       ) : null}
@@ -276,20 +302,20 @@ export const ToolRow = memo(function ToolRow({
           disabled={busy}
           groups={[
             {
-              heading: 'Permission',
+              heading: t`Permission`,
               options: permissionOptions(permissionDefault),
               selected: permission.value,
               onChoose: (value) => choosePermission(value as ToolPermission),
             },
             {
-              heading: 'I/O',
+              heading: t`I/O`,
               options: callersOptions(callersDefault),
               selected: callers.value || undefined,
               onChoose: (value) => chooseCallers(value as ToolCallers),
             },
           ]}
-          name={`Permission and I/O: ${tool.name}`}
-          search={`Choices for ${tool.name}`}
+          name={t`Permission and I/O: ${ph({ name: tool.name })}`}
+          search={t`Choices for ${ph({ name: tool.name })}`}
         />
       ) : null}
     </li>
@@ -307,13 +333,10 @@ function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
           {tool.description}
         </span>
       ) : null}
-      <span>
-        {flagText(tool)}. {sourceText(tool)}.
-      </span>
+      <span>{t`${ph({ flags: flagText(tool) })}. ${ph({ source: sourceText(tool) })}.`}</span>
       {outcome ? (
         <span>
-          In {modeLabel(mode)}: {OUTCOME_TITLE[outcome.direct]}. From a script:{' '}
-          {OUTCOME_TITLE[outcome.script]}.
+          {t`In ${ph({ mode: modeLabel(mode) })}: ${ph({ direct: OUTCOME_TITLE[outcome.direct] })}. From a script: ${ph({ script: OUTCOME_TITLE[outcome.script] })}.`}
         </span>
       ) : null}
     </>
@@ -324,12 +347,12 @@ function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
 function rowActions(tool: ToolSetting, editor: RowEditor): PickerAction[] {
   return [
     {
-      label: 'Use defaults',
+      label: t`Use defaults`,
       disabled: !tool.permission && !tool.configured_callers,
       onSelect: () => editor.save({ tools: [tool.name], permission: null, callers: null }),
     },
     ...savedRules(tool).map((rule) => ({
-      label: `Remove rule: ${ruleText(rule.action, rule.where, rule.path_pattern)}`,
+      label: t`Remove rule: ${ph({ rule: ruleText(rule.action, rule.where, rule.path_pattern) })}`,
       onSelect: () => editor.removeRule(tool.name, rule),
     })),
   ];
@@ -351,10 +374,10 @@ function RowSlot({
     <span className="relative hidden size-6 place-items-center @min-[32rem]/tools:grid">
       {status?.kind === 'saved' ? (
         <span
-          aria-label="Saved"
+          aria-label={t`Saved`}
           className="grid place-items-center text-primary group-hover/row:invisible group-has-[:focus-visible]/row:invisible"
           role="status"
-          title="Saved"
+          title={t`Saved`}
         >
           <CheckIcon className="size-[15px]" />
         </span>
@@ -370,12 +393,12 @@ function RowSlot({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            aria-label={`More for ${tool.name}`}
+            aria-label={t`More for ${ph({ name: tool.name })}`}
             className={cn(
               'absolute inset-0 grid place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:visible focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:visible',
               'invisible group-hover/row:visible',
             )}
-            title="Rules and reset"
+            title={t`Rules and reset`}
             type="button"
           >
             <MoreIcon className="size-4" />

@@ -1,5 +1,6 @@
 import type { Session, SpotterAvailability } from '@clio/core/v3';
 import type { SessionBehaviorOption } from './session-behavior-options';
+import { t } from '@lingui/core/macro';
 
 /** One confirmation-policy option as a picker renders it right now. */
 export interface ApprovalOptionView<T extends string = Session['approval_mode']>
@@ -48,7 +49,7 @@ export function approvalOptionViews<T extends string>(
     }
     return {
       ...option,
-      description: 'Not available here.',
+      description: t`Not available here.`,
       disabled: true,
       unavailableDetail: spotter.message,
     };

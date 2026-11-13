@@ -35,7 +35,9 @@ import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
+import { ConversationRailDockContext, dockedRailWidth } from './conversation-rail-dock';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t } from '@lingui/core/macro';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -44,7 +46,7 @@ function TopBarSidebarTrigger() {
   if (!isMobile && state === 'expanded') return null;
   return (
     <span className="inline-flex">
-      <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+      <NamedTooltip label={t`Show the left bar`} shortcut="left-pocket">
         {/* Closed or a phone sheet, the left bar is this toggle: the tour points here instead. */}
         <SidebarTrigger
           aria-keyshortcuts={leftPocketKey?.aria}
@@ -167,7 +169,7 @@ function DesktopNavigationLayout({
           {navigation}
         </ResizablePanel>
         <ResizableHandle
-          aria-label="Resize navigation"
+          aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
         />
         {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
@@ -244,6 +246,13 @@ export function ClioAppShell({
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
+  // A pocket a reference opened stays open across conversations, like one the
+  // canvas button opened. A phone sheet still closes when you leave.
+  const [recordedRevealKey, setRecordedRevealKey] = useState<string>();
+  if (revealRequested && desktopWorkbench && workbenchRevealKey !== recordedRevealKey) {
+    setRecordedRevealKey(workbenchRevealKey);
+    setWorkbenchPreference(true);
+  }
   // A wide viewport makes the canvas available, but it does not imply that the
   // user asked to open it. Explicit resource requests still reveal it, and an
   // open/closed choice survives route changes while this shell stays mounted.
@@ -286,22 +295,32 @@ export function ClioAppShell({
     [setWorkbenchOpen, workbenchOpen],
   );
   // A drag on the separator ends here: remember the new width as a share of the
-  // window, or follow a drag that collapsed the panel.
+  // window, or follow a drag that collapsed the panel. The size is read two
+  // frames after the release, once the group has applied the drag's last move;
+  // read on pointerup, a quick release saved the width from one move earlier.
+  const synchronizeFrameRef = useRef(0);
   const synchronizeWorkbenchPanel = useCallback(() => {
-    const panel = workbenchPanelRef.current;
-    if (!panel) return;
-    const collapsed = panel.isCollapsed();
-    const pixels = panel.getSize().inPixels;
-    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
-      const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
-      if (share !== workbenchShareRef.current) {
-        workbenchShareRef.current = share;
-        window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
-        setConversationCrowded(conversationNeedsFoldedNavigation(share, window.innerWidth));
-      }
-    }
-    setWorkbenchOpen(!collapsed);
+    window.cancelAnimationFrame(synchronizeFrameRef.current);
+    synchronizeFrameRef.current = window.requestAnimationFrame(() => {
+      synchronizeFrameRef.current = window.requestAnimationFrame(() => {
+        synchronizeFrameRef.current = 0;
+        const panel = workbenchPanelRef.current;
+        if (!panel) return;
+        const collapsed = panel.isCollapsed();
+        const pixels = panel.getSize().inPixels;
+        if (!collapsed && window.innerWidth) {
+          const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
+          if (share !== workbenchShareRef.current) {
+            workbenchShareRef.current = share;
+            window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
+            setConversationCrowded(conversationNeedsFoldedNavigation(share, window.innerWidth));
+          }
+        }
+        setWorkbenchOpen(!collapsed);
+      });
+    });
   }, [setWorkbenchOpen]);
+  useEffect(() => () => window.cancelAnimationFrame(synchronizeFrameRef.current), []);
 
   useEffect(() => {
     if (!desktopWorkbench) return;
@@ -320,23 +339,35 @@ export function ClioAppShell({
     return () => document.body.removeAttribute('data-canvas-sheet');
   }, [workbenchSheetOpen]);
 
-  // The width is a share of the window, so a window resize re-applies it.
+  // The width is a share of the window, so a window resize re-applies it. It
+  // applies once the canvas's group has settled at its new width: two frames
+  // after the group's host changes width. Applied any sooner, a single large
+  // shrink (un-maximizing) landed before the group re-laid its panels out, and
+  // the pocket kept a few pixels too many.
+  const [workbenchHost, setWorkbenchHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    if (!hasWorkbench) return;
+    const host = workbenchHost;
+    if (!hasWorkbench || !host) return;
     let frame = 0;
-    const scheduleApply = () => {
-      if (frame) return;
+    let hostWidth = Math.round(host.getBoundingClientRect().width);
+    const observer = new ResizeObserver(() => {
+      const width = Math.round(host.getBoundingClientRect().width);
+      if (width === hostWidth) return;
+      hostWidth = width;
+      window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        applyWorkbenchShare();
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          applyWorkbenchShare();
+        });
       });
-    };
-    window.addEventListener('resize', scheduleApply);
+    });
+    observer.observe(host);
     return () => {
-      window.removeEventListener('resize', scheduleApply);
+      observer.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [applyWorkbenchShare, hasWorkbench]);
+  }, [applyWorkbenchShare, hasWorkbench, workbenchHost]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
   useRegionShortcuts();
@@ -366,6 +397,32 @@ export function ClioAppShell({
     window.addEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
     return () => window.removeEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
   }, [openTerminalPocket, sheetClosed]);
+  // User-directed: the conversation rail docks beside the conversation while the
+  // pocket is closed, as long as the conversation keeps its minimum width. Under
+  // the spec's 900 px rail rule, or with the pocket open, it floats or hides.
+  const [railHost, setRailHost] = useState<HTMLDivElement | null>(null);
+  const [conversationAreaWidth, setConversationAreaWidth] = useState(0);
+  useEffect(() => {
+    const area = railHost?.parentElement;
+    if (!area) return;
+    const measure = () => setConversationAreaWidth(Math.round(area.getBoundingClientRect().width));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [railHost]);
+  const railDock = useMemo(
+    () => ({
+      host: railHost,
+      pocketOpen: workbenchOpen,
+      dockable:
+        desktopWorkbench &&
+        !workbenchOpen &&
+        conversationAreaWidth - dockedRailWidth(currentWindowWidth()) >= MIN_CONVERSATION_WIDTH,
+    }),
+    [conversationAreaWidth, desktopWorkbench, railHost, workbenchOpen],
+  );
+
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),
@@ -377,38 +434,50 @@ export function ClioAppShell({
   );
 
   const sessionSurface = (
-    <section
-      className="flex h-full min-w-0 flex-col bg-background"
-      aria-label="Conversation workspace"
-      data-keyboard-region=""
-      data-slot="conversation-surface"
-    >
-      <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
-        {/* The update page brings its own header; the conversation's is stale while it runs. */}
-        <div className="min-w-0 flex-1">
-          {updating ? null : (
-            <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+    <ConversationRailDockContext.Provider value={railDock}>
+      <section
+        className="flex h-full min-w-0 flex-col bg-background"
+        aria-label={t`Conversation workspace`}
+        data-keyboard-region=""
+        data-slot="conversation-surface"
+      >
+        <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
+          {/* The update page brings its own header; the conversation's is stale while it runs. */}
+          <div className="min-w-0 flex-1">
+            {updating ? null : (
+              <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+            )}
+          </div>
+          {updating ? null : statusStrip}
+          {updating ? null : toolbarActions}
+          {hasWorkbench && !updating && (
+            <ToolbarAction
+              label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
+              onClick={toggleWorkbench}
+              shortcut="right-pocket"
+              aria-pressed={workbenchOpen}
+              {...tourAnchor('workbench-lists')}
+            >
+              <PanelRightIcon aria-hidden="true" />
+            </ToolbarAction>
           )}
-        </div>
-        {updating ? null : statusStrip}
-        {updating ? null : toolbarActions}
-        {hasWorkbench && !updating && (
-          <ToolbarAction
-            label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
-            onClick={toggleWorkbench}
-            shortcut="right-pocket"
-            aria-pressed={workbenchOpen}
-            {...tourAnchor('workbench-lists')}
+          <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
+        </DesktopWorkspaceToolbar>
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            {...tourAnchor('conversation-area')}
           >
-            <PanelRightIcon aria-hidden="true" />
-          </ToolbarAction>
-        )}
-        <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
-      </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden" {...tourAnchor('conversation-area')}>
-        {updating ? <UpdatePage /> : children}
-      </div>
-    </section>
+            {updating ? <UpdatePage /> : children}
+          </div>
+          <div
+            className="flex shrink-0 empty:hidden"
+            data-slot="conversation-rail-dock"
+            ref={setRailHost}
+          />
+        </div>
+      </section>
+    </ConversationRailDockContext.Provider>
   );
 
   const visibleWorkbench = (
@@ -424,12 +493,16 @@ export function ClioAppShell({
     >
       {/* The maximized canvas covers this section (the conversation), not the
           left bar; the rail hides while it is maximized. */}
-      <section aria-label="Session workspace" data-workbench-maximize-host="">
+      <section
+        aria-label={t`Session workspace`}
+        data-workbench-maximize-host=""
+        ref={setWorkbenchHost}
+      >
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
             <ResizableHandle
-              aria-label="Resize workspace canvas"
+              aria-label={t`Resize workspace canvas`}
               // Collapsed, the handle sits on the window edge and its 12 px grip
               // would cover the toolbar's last button; the toolbar toggle opens it.
               className={cn(
@@ -507,10 +580,9 @@ export function ClioAppShell({
             side="right"
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Workspace canvas</SheetTitle>
+              <SheetTitle>{t`Workspace canvas`}</SheetTitle>
               <SheetDescription>
-                Session activity, child conversations, files, artifacts, and the conversation’s
-                agent.
+                {t`Session activity, child conversations, files, artifacts, and the conversation’s agent.`}
               </SheetDescription>
             </SheetHeader>
             {visibleWorkbench}

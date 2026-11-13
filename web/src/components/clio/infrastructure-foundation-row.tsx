@@ -41,6 +41,7 @@ import {
   integrationTone,
 } from '@/routes/infrastructure-foundation';
 import { SandboxFoundationRow } from '@/routes/infrastructure-sandbox-row';
+import { t } from '@lingui/core/macro';
 
 const FOUNDATION_ICONS: Record<string, LucideIcon> = {
   api: FolderIcon,
@@ -88,18 +89,18 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
     (status === 'healthy' ? foundationMeaning(integration) || integration.summary : undefined);
   const facts: KeyValueItem[] = [
     {
-      label: 'Needed by the agent',
+      label: t`Needed by the agent`,
       icon: <ShieldCheckIcon />,
-      value: integration.required === false ? 'No' : 'Yes',
+      value: integration.required === false ? t`No` : t`Yes`,
       mono: true,
     },
     ...(integration.endpoint
-      ? [{ label: 'Endpoint', icon: <PlugIcon />, value: integration.endpoint, mono: true }]
+      ? [{ label: t`Endpoint`, icon: <PlugIcon />, value: integration.endpoint, mono: true }]
       : []),
     ...(integration.config_source
       ? [
           {
-            label: 'Configured in',
+            label: t`Configured in`,
             icon: <FolderIcon />,
             value: integration.config_source,
             mono: true,
@@ -113,7 +114,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
     [...new Set([integration.summary, integration.detail].filter(Boolean))].join('\n') ||
     JSON.stringify(integration, null, 2);
   const actionLink = action ? (
-    <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">
+    <Button asChild className="px-[9px] text-label" size="xs" variant="outline">
       <Link to={action.to}>
         <AdjustIcon aria-hidden="true" />
         {action.label}
@@ -128,21 +129,21 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
         expanded ? (
           <>
             {nextStep ? (
-              <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
+              <p className="text-meta whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
             <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {technical ? (
               <TechnicalDetails
                 beside={actionLink}
-                className="text-[12px]"
+                className="text-meta"
                 summaryClassName={buttonVariants({
-                  className: 'px-[9px] text-[11.5px] text-foreground',
+                  className: 'px-[9px] text-label text-foreground',
                   size: 'xs',
                   variant: 'ghost',
                 })}
-                title="Technical details"
+                title={t`Technical details`}
               >
-                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                   {technical}
                 </pre>
               </TechnicalDetails>
@@ -173,29 +174,28 @@ function foundationAction(
   if (integration.required === false) return undefined;
   if (integration.name === 'arc') {
     return {
-      description: 'Use the full conversation-memory service to restore complete agent behavior.',
-      label: 'Memory settings',
+      description: t`Use the full conversation-memory service to restore complete agent behavior.`,
+      label: t`Memory settings`,
       to: '/settings/memory',
     };
   }
   if (integration.name === 'lm_provider') {
     return {
-      description:
-        'Sign-in is stored locally. Check the provider connection and its available models.',
-      label: 'Provider setup',
+      description: t`Sign-in is stored locally. Check the provider connection and its available models.`,
+      label: t`Provider setup`,
       to: '/settings/providers',
     };
   }
   if (integration.name === 'child_parentage') {
     return {
-      description: 'Restart or clean up detached background work on the connected agent.',
-      label: 'System settings',
+      description: t`Restart or clean up detached background work on the connected agent.`,
+      label: t`System settings`,
       to: '/settings/system',
     };
   }
   return {
-    description: 'Review the technical details before using work that depends on this service.',
-    label: 'System settings',
+    description: t`Review the technical details before using work that depends on this service.`,
+    label: t`System settings`,
     to: '/settings/system',
   };
 }

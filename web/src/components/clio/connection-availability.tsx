@@ -4,6 +4,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { cn } from '@/lib/utils';
 import { AGENT_AVAILABILITY_TONE } from './connection-names';
+import { t } from '@lingui/core/macro';
 
 interface ConnectionAvailabilityIndicatorProps {
   availability: ConnectionAvailability;
@@ -31,7 +32,7 @@ export function ConnectionAvailabilityIndicator({
         >
           <StatusIndicator
             className={cn(
-              compact && 'text-[11px] group-data-selected/list-row:text-accent-foreground',
+              compact && 'text-caption group-data-selected/list-row:text-accent-foreground',
             )}
             label={availability.label}
             tone={AGENT_AVAILABILITY_TONE[availability.state]}
@@ -44,10 +45,10 @@ export function ConnectionAvailabilityIndicator({
           <div className="min-w-0">
             <p className="font-medium">{availability.label}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{availability.detail}</p>
-            <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{endpoint}</p>
+            <p className="mt-2 break-all font-mono text-caption text-muted-foreground">{endpoint}</p>
             {availability.diagnostics ? (
               <details className="mt-2 text-xs">
-                <summary>Diagnostic details</summary>
+                <summary>{t`Diagnostic details`}</summary>
                 <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
                   {availability.diagnostics}
                 </pre>

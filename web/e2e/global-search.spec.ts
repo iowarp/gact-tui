@@ -99,6 +99,7 @@ test('a file found from Settings opens in the remembered workspace canvas', asyn
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
   await expect(page.getByText('Review the study protocol.', { exact: true })).toBeAttached();
   await page.goto('/settings/appearance');
+  await expect(page.getByRole('button', { name: 'Search everywhere', exact: true })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+KeyK');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
   await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();

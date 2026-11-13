@@ -6,12 +6,13 @@ import {
   type ToolInvocation,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { useLiveStore } from '@/store/live-store';
-import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
+import { NestedToolCalls } from './nested-tool-calls';
+import { scriptCallsRecap } from './script-calls';
 import { PermissionResponse } from './permission-response';
 import { PresentationNavigation } from './presentation-navigation';
 
@@ -72,7 +73,7 @@ describe('run_code nesting', () => {
       />,
     );
     expect(
-      screen.getByRole('group', { name: '10 tool calls from this script (1 failed, 1 running)' }),
+      screen.getByRole('group', { name: '10 calls from this script (1 failed, 1 running)' }),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId('child')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Show all 10' }));
@@ -97,9 +98,7 @@ describe('run_code nesting', () => {
       tool('12', { parent_call_id: 'run' }),
     ]);
     render(<NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />);
-    expect(
-      screen.getByRole('group', { name: '13 tool calls from this script' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '13 calls from this script' })).toBeInTheDocument();
     expect(screen.getByText(/^Called 12 times/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Called \d+ times/)).toHaveLength(1);
   });
@@ -117,21 +116,38 @@ describe('run_code nesting', () => {
         <NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />
       </PresentationNavigation.Provider>,
     );
-    expect(screen.getByRole('group', { name: '1 tool call from this script' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '1 call from this script' })).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument();
   });
 
-  it('renders nothing for a call without children, and keeps its source until it has some', () => {
+  it('renders nothing for a call without children', () => {
     seed([tool('run', { name: 'run_code' })]);
     const { container } = render(
       <NestedToolCalls parentId="run" renderCall={() => <span>child</span>} />,
     );
     expect(container).toBeEmptyDOMElement();
-    cleanup();
-    render(<UnlessNestedCalls parentId="run">script source</UnlessNestedCalls>);
-    expect(screen.getByText('script source')).toBeInTheDocument();
-    act(() => seed([tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })]));
-    expect(screen.queryByText('script source')).not.toBeInTheDocument();
+  });
+
+  it('recaps what a script called and whether its images reached the model', () => {
+    const view = (id: string, overrides: Partial<ToolInvocation> = {}) =>
+      tool(id, {
+        name: 'view_image',
+        title: 'View image',
+        parent_call_id: 'run',
+        input: { path: `p${id}.png` },
+        ...overrides,
+      });
+    const old = seed([tool('run', { name: 'run_code' }), view('11'), view('12')]);
+    expect(scriptCallsRecap(old, 'run')?.label).toBe('View image ×2, not confirmed as seen');
+    const shown = seed([
+      tool('run', { name: 'run_code' }),
+      view('11', { output: { attached_to_model: true, delivery: 'script_result' } }),
+      view('12', {
+        state: 'failed',
+        error: 'view_image_script_limit: NOT shown to the model',
+      }),
+    ]);
+    expect(scriptCallsRecap(shown, 'run')?.label).toBe('View image ×2, 1 of 2 shown to the model');
   });
 });
 

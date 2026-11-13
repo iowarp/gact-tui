@@ -4,18 +4,19 @@ import { ArrowRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GoalIcon } from '@/lib/icon-vocabulary';
 import { PresentationNavigation } from './presentation-navigation';
+import { t } from '@lingui/core/macro';
 
 /** A retained Goal command result, with a single action to inspect its Work view. */
 export function GoalNotice({ block }: { block: Extract<MessageBlock, { type: 'notice' }> }) {
   const navigation = useContext(PresentationNavigation);
   const title =
     block.code === 'goal_started'
-      ? 'Goal started'
+      ? t`Goal started`
       : block.code === 'goal_stopped'
-        ? 'Goal stopped'
+        ? t`Goal stopped`
         : block.code === 'goal_rejected'
-          ? 'Goal could not start'
-          : 'Goal';
+          ? t`Goal could not start`
+          : t`Goal`;
   const content = (
     <>
       <GoalIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" data-slot="goal-icon" />
@@ -29,7 +30,7 @@ export function GoalNotice({ block }: { block: Extract<MessageBlock, { type: 'no
       </span>
       {navigation?.onOpenWork ? (
         <span className="inline-flex shrink-0 items-center gap-1 text-xs font-normal text-muted-foreground">
-          Open Work <ArrowRightIcon aria-hidden="true" className="size-3.5" />
+          {t`Open Work`} <ArrowRightIcon aria-hidden="true" className="size-3.5" />
         </span>
       ) : null}
     </>
@@ -42,7 +43,7 @@ export function GoalNotice({ block }: { block: Extract<MessageBlock, { type: 'no
       variant="ghost"
       className={className}
       data-slot="goal-notice"
-      aria-label={`${title}. Open Work`}
+      aria-label={t`${title}. Open Work`}
       onClick={navigation.onOpenWork}
     >
       {content}

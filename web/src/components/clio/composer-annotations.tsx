@@ -3,6 +3,7 @@ import { CameraIcon, ChartLineIcon, QuoteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { anchorPreview } from './comments/comment-model';
+import { t, ph } from '@lingui/core/macro';
 
 const ICONS = {
   'agent-answer': QuoteIcon,
@@ -11,9 +12,15 @@ const ICONS = {
 } as const;
 
 const KIND_LABELS = {
-  'agent-answer': 'Comment on an answer',
-  'a2ui-surface': 'Comment on a view',
-  'browser-page': 'Comment on a page',
+  'agent-answer': t`Comment on an answer`,
+  'a2ui-surface': t`Comment on a view`,
+  'browser-page': t`Comment on a page`,
+} as const;
+
+const REMOVE_LABELS = {
+  'agent-answer': t`Remove comment on an answer`,
+  'a2ui-surface': t`Remove comment on a view`,
+  'browser-page': t`Remove comment on a page`,
 } as const;
 
 /**
@@ -30,11 +37,9 @@ export function ClioComposerAnnotations({
 }) {
   if (!annotations.length) return null;
   const replace = (index: number, next?: CommentAttachment) =>
-    onChange(
-      annotations.flatMap((session, at) => (at !== index ? [session] : next ? [next] : [])),
-    );
+    onChange(annotations.flatMap((session, at) => (at !== index ? [session] : next ? [next] : [])));
   return (
-    <ol aria-label="Attached comments" className="grid w-full basis-full gap-1.5 px-2.5 pt-2">
+    <ol aria-label={t`Attached comments`} className="grid w-full basis-full gap-1.5 px-2.5 pt-2">
       {annotations.map((session, index) => {
         const Icon = ICONS[session.kind];
         return (
@@ -45,12 +50,12 @@ export function ClioComposerAnnotations({
           >
             <div className="flex min-w-0 items-center gap-2">
               <Icon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
-              <p className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-muted-foreground">
+              <p className="min-w-0 flex-1 truncate text-caption font-medium text-muted-foreground">
                 {KIND_LABELS[session.kind]}
                 {session.title ? `: ${session.title}` : ''}
               </p>
               <Button
-                aria-label={`Remove ${KIND_LABELS[session.kind].toLowerCase()}`}
+                aria-label={REMOVE_LABELS[session.kind]}
                 onClick={() => replace(index)}
                 size="icon-xs"
                 variant="ghost"
@@ -64,21 +69,26 @@ export function ClioComposerAnnotations({
                   <span className="rounded bg-primary px-1 text-[0.625rem] font-bold text-primary-foreground">
                     {mark.label}
                   </span>
-                  <span className="line-clamp-1 min-w-0 shrink text-xs" title={anchorPreview(mark.anchor)}>
+                  <span
+                    className="line-clamp-1 min-w-0 shrink text-xs"
+                    title={anchorPreview(mark.anchor)}
+                  >
                     {anchorPreview(mark.anchor)}
                   </span>
                   <input
-                    aria-label={`Comment for ${mark.label}`}
+                    aria-label={t`Comment for ${ph({ label: mark.label })}`}
                     className="min-w-0 flex-1 rounded border bg-background px-1.5 py-0.5 text-xs"
                     onChange={(event) =>
                       replace(index, {
                         ...session,
                         marks: session.marks.map((item) =>
-                          item.label === mark.label ? { ...item, comment: event.target.value } : item,
+                          item.label === mark.label
+                            ? { ...item, comment: event.target.value }
+                            : item,
                         ),
                       })
                     }
-                    placeholder="Comment (optional)"
+                    placeholder={t`Comment (optional)`}
                     value={mark.comment}
                   />
                 </li>

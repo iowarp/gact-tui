@@ -1,6 +1,7 @@
 import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { PROTOCOL, capitalize, vocab } from '@/lib/brand-vocabulary';
 import { toolDomainLabel } from '@/lib/tool-domain-labels';
+import { t, ph } from '@lingui/core/macro';
 
 export type ToolSource = 'all' | 'builtin' | 'mcp';
 
@@ -62,28 +63,32 @@ export function toolBundles(
 function clioDomain(tool: ToolCatalogItem): string {
   // The server's own declared domain (#1350) always wins; the name regex
   // below is the fallback for a tool that declared none.
+  const server = tool.server_id?.replace(/^mcp_/u, '');
   return (
     toolDomainLabel(tool.domain) ||
     clioDomainForName(tool.name) ||
-    humanize(tool.server_id?.replace(/^mcp_/u, '') || 'Other')
+    (server ? humanize(server) : t`Other`)
   );
 }
 
 function clioDomainForName(name: string): string | undefined {
   const groups: Array<[RegExp, string]> = [
     [/^(fs_|shell_)/u, capitalize(vocab.workspace)],
-    [/^(workspace_resource_|resource_)/u, 'Resources'],
-    [/^memory_/u, 'Memory'],
-    [/^(spawn_|observe_|wait_agent|get_agent|send_message|message_agent|loop_wakeup)/u, 'Agents'],
-    [/^(create_artifact|update_artifact|artifact_)/u, 'Artifacts'],
+    [/^(workspace_resource_|resource_)/u, t`Resources`],
+    [/^memory_/u, t`Memory`],
+    [/^(spawn_|observe_|wait_agent|get_agent|send_message|message_agent|loop_wakeup)/u, t`Agents`],
+    [/^(create_artifact|update_artifact|artifact_)/u, t`Artifacts`],
     [
       /^(create_plan|update_plan|plan_|create_todo|update_todo|write_todos|create_goal|update_goal|goal_|schedule_|cron_)/u,
-      'Planning',
+      t`Planning`,
     ],
-    [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, `${PROTOCOL.a2ui} surfaces`],
-    [/^(provider_|refresh_provider)/u, 'Models'],
-    [/^(run_flow|run_workflow|workflow_add_step|workflow_cancel_step)/u, 'Flows'],
-    [/^(log_entry|link|set_status|query_log|export_measurements)$/u, 'Science log'],
+    [
+      /^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u,
+      t`${ph({ a2ui: PROTOCOL.a2ui })} surfaces`,
+    ],
+    [/^(provider_|refresh_provider)/u, t`Models`],
+    [/^(run_flow|run_workflow|workflow_add_step|workflow_cancel_step)/u, t`Flows`],
+    [/^(log_entry|link|set_status|query_log|export_measurements)$/u, t`Science log`],
   ];
   return groups.find(([pattern]) => pattern.test(name))?.[1];
 }
@@ -106,7 +111,7 @@ export function isBuiltinMcp(server: McpServerDefinition): boolean {
 
 export function domainDescription(server: McpServerDefinition): string | undefined {
   if (isBuiltinMcp(server))
-    return `Included with ${vocab.agent} and available in this ${vocab.workspace}.`;
+    return t`Included with ${ph({ agent: vocab.agent })} and available in this ${ph({ workspace: vocab.workspace })}.`;
   return serverDescription(server);
 }
 

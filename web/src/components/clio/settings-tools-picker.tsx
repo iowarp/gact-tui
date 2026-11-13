@@ -25,13 +25,14 @@ import { KeyCap } from './primitives/key-chip';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { t } from '@lingui/core/macro';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 const MENU_HINTS = [
-  { id: 'menu-move', label: 'move' },
-  { id: 'menu-pick', label: 'choose' },
-  { id: 'menu-close', label: 'close' },
+  { id: 'menu-move', label: t({ message: 'move', context: 'menu key hint' }) },
+  { id: 'menu-pick', label: t({ message: 'choose', context: 'menu key hint' }) },
+  { id: 'menu-close', label: t({ message: 'close', context: 'menu key hint' }) },
 ] as const;
 /** An icon with a small D when its value is a default. */
 export function ValueMark({
@@ -50,7 +51,7 @@ export function ValueMark({
     >
       <Glyph className={cn('size-3.5', className)} />
       {isDefault ? (
-        <b className="absolute -right-1.5 -bottom-[5px] rounded-[3px] bg-faint/70 px-[2px] py-px text-[8.5px] leading-none font-bold text-foreground">
+        <b className="absolute -right-1.5 -bottom-[5px] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
           D
         </b>
       ) : null}
@@ -134,7 +135,7 @@ export function ChoicePicker<Value extends string>({
               )}
             >
               {label}
-              {isDefault ? <span className="sr-only">, default</span> : null}
+              {isDefault ? <span className="sr-only">{t`, default`}</span> : null}
             </span>
           }
         />
@@ -143,7 +144,7 @@ export function ChoicePicker<Value extends string>({
         <Command className="rounded-none! p-0" defaultValue={current?.label} loop>
           <CommandInput aria-label={search} placeholder={search} />
           <CommandList className="max-h-80 p-1">
-            <CommandEmpty>No choice matches.</CommandEmpty>
+            <CommandEmpty>{t`No choice matches.`}</CommandEmpty>
             {options.map((option) => (
               <OptionItem
                 key={option.value}
@@ -187,7 +188,9 @@ function OptionItem<Value extends string>({
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-semibold">{option.label}</span>
-          {option.isDefault ? <span className="shrink-0 text-xs text-faint">Default</span> : null}
+          {option.isDefault ? (
+            <span className="shrink-0 text-xs text-muted-foreground">{t`Default`}</span>
+          ) : null}
         </span>
         <span className="truncate text-xs text-muted-foreground" title={option.description}>
           {option.description}
@@ -260,7 +263,7 @@ export function SummaryPicker({
         <Command className="rounded-none! p-0" loop>
           <CommandInput aria-label={search} placeholder={search} />
           <CommandList className="max-h-80 p-1">
-            <CommandEmpty>No choice matches.</CommandEmpty>
+            <CommandEmpty>{t`No choice matches.`}</CommandEmpty>
             {groups.map((group) => (
               <CommandGroup heading={group.heading} key={group.heading}>
                 {group.options.map((option) => (
@@ -278,7 +281,7 @@ export function SummaryPicker({
               </CommandGroup>
             ))}
             {actions.length ? (
-              <CommandGroup heading="More">
+              <CommandGroup heading={t`More`}>
                 {actions.map((action) => (
                   <CommandItem
                     disabled={action.disabled}
@@ -326,16 +329,16 @@ export function OutcomeModeField({
   return (
     <span className={cn('flex min-w-0 shrink-0 items-center gap-2.5', className)}>
       <span className="text-xs whitespace-nowrap text-muted-foreground" id={id}>
-        Outcomes in
+        {t`Outcomes in`}
       </span>
       <ChoicePicker
         className="h-[1.875rem] w-44 pl-2.5"
         icon={current?.icon ?? HelpIcon}
         label={modeLabel(value)}
-        name="Outcomes in"
+        name={t`Outcomes in`}
         onChoose={onChange}
         options={options}
-        search="Approval mode"
+        search={t`Approval mode`}
         selected={value}
       />
     </span>
@@ -367,7 +370,7 @@ export function ToolFilterField({
   return (
     <label
       className={cn(
-        'flex h-[1.875rem] min-w-0 items-center gap-2 rounded-md border border-input bg-input/30 pr-1 pl-2.5 text-[0.78125rem] focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
+        'flex h-[1.875rem] min-w-0 items-center gap-2 rounded-md border border-input bg-input/30 pr-1 pl-2.5 text-menu focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
         className,
       )}
       // With text in the field, the first Esc clears it; the window closes only on the next.
@@ -376,7 +379,7 @@ export function ToolFilterField({
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
         {...identifierInputProps}
-        aria-label="Filter tools"
+        aria-label={t`Filter tools`}
         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint [&::-webkit-search-cancel-button]:appearance-none"
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
@@ -385,12 +388,12 @@ export function ToolFilterField({
             onChange('');
           }
         }}
-        placeholder="Filter tools"
+        placeholder={t`Filter tools`}
         ref={input}
         type="search"
         value={value}
       />
-      <span aria-hidden="true" title="Press / to filter">
+      <span aria-hidden="true" title={t`Press / to filter`}>
         <KeyCap>/</KeyCap>
       </span>
     </label>
@@ -401,21 +404,21 @@ export function ToolFilterField({
 export function DefaultLegend() {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-[7px] text-xs whitespace-nowrap text-faint"
-      title="D marks a default value. Choose a value to override it."
+      className="inline-flex shrink-0 items-center gap-[7px] text-xs whitespace-nowrap text-muted-foreground"
+      title={t`D marks a default value. Choose a value to override it.`}
     >
       <ValueMark className="text-faint" icon={HelpIcon} isDefault />
-      Default
+      {t`Default`}
     </span>
   );
 }
 
 export function ToolTableFooter() {
   return (
-    <p className="flex h-9 min-w-0 items-center gap-2.5 text-xs whitespace-nowrap text-faint">
+    <p className="flex h-9 min-w-0 items-center gap-2.5 text-xs whitespace-nowrap text-muted-foreground">
       <CheckIcon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="truncate">
-        Choices save at once. A ✓ shows for 2 s, an error stays on the row.
+        {t`Choices save at once. A ✓ shows for 2 s, an error stays on the row.`}
       </span>
     </p>
   );

@@ -9,16 +9,26 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { ph, t } from '@lingui/core/macro';
 
 const FIELD = 'h-[1.875rem] rounded-md';
-const INPUT = 'h-full text-right font-mono text-[0.78125rem] tabular-nums';
-const UNIT = 'pr-2 text-[0.71875rem] text-muted-foreground';
+const INPUT = 'h-full text-right font-mono text-menu tabular-nums';
+const UNIT = 'pr-2 text-label text-muted-foreground';
 const SHORT_UNITS: Record<string, string> = {
   milliseconds: 'ms',
   seconds: 's',
   minutes: 'min',
   hours: 'h',
   days: 'd',
+};
+
+/** The unit's name, for the field's tooltip. */
+const UNIT_NAMES: Record<string, string> = {
+  milliseconds: t`milliseconds`,
+  seconds: t`seconds`,
+  minutes: t`minutes`,
+  hours: t`hours`,
+  days: t`days`,
 };
 
 /** A right-aligned mono number with its short unit ("120 s") inside a 96px field. */
@@ -69,7 +79,7 @@ export function SettingsNumberInput({
         value={value}
       />
       {unit ? (
-        <InputGroupText className={UNIT} title={unit}>
+        <InputGroupText className={UNIT} title={UNIT_NAMES[unit] ?? unit}>
           {SHORT_UNITS[unit] ?? unit}
         </InputGroupText>
       ) : null}
@@ -100,11 +110,11 @@ export function SettingsLimitInput({
   return (
     <span className="flex min-w-0 items-center gap-3">
       <label
-        className="flex shrink-0 items-center gap-1.5 text-[0.75rem] whitespace-nowrap text-muted-foreground"
+        className="flex shrink-0 items-center gap-1.5 text-meta whitespace-nowrap text-muted-foreground"
         htmlFor={`${id}-unlimited`}
       >
         <Switch
-          aria-label={`Unlimited ${label.toLowerCase()}`}
+          aria-label={t`Unlimited ${ph({ setting: label.toLowerCase() })}`}
           checked={unlimited}
           disabled={disabled}
           id={`${id}-unlimited`}
@@ -113,7 +123,7 @@ export function SettingsLimitInput({
             onChange(checked ? '0' : previous.current);
           }}
         />
-        Unlimited
+        {t`Unlimited`}
       </label>
       <SettingsNumberInput
         disabled={disabled || unlimited}
@@ -202,7 +212,7 @@ export function SettingsPresetInput({
           {preset.label}
         </SelectItem>
       ))}
-      <SelectItem value="custom">Custom…</SelectItem>
+      <SelectItem value="custom">{t`Custom…`}</SelectItem>
     </SelectContent>
   );
 
@@ -214,8 +224,8 @@ export function SettingsPresetInput({
         value={custom ? 'custom' : String(matched.value)}
       >
         <SelectTrigger
-          aria-label={`Choose ${label.toLowerCase()} preset`}
-          className={cn(FIELD, 'w-full min-w-0 text-[0.78125rem]', custom && 'w-auto shrink')}
+          aria-label={t`Choose ${ph({ setting: label.toLowerCase() })} preset`}
+          className={cn(FIELD, 'w-full min-w-0 text-menu', custom && 'w-auto shrink')}
           id={custom ? undefined : id}
           size="sm"
         >

@@ -1,6 +1,14 @@
 import type { ScienceEntry, ScienceStudy, ScienceView, SubagentRun } from '@clio/core/v3';
 import { FocusIcon, GitBranchIcon, ListIcon } from 'lucide-react';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -41,6 +49,7 @@ import type { SubagentOpenTarget } from './subagent-card';
 import { useWorkbenchListSearch } from './workbench-list-search';
 import { WorkbenchTabList, WorkbenchTabListToggle } from './workbench-tab-list';
 import { WorkbenchTabListSlot, useWorkbenchTabListPicked } from './workbench-tab-list-context';
+import { plural, t } from '@lingui/core/macro';
 
 export interface ScienceLogTabProps {
   sessionId: string;
@@ -61,17 +70,17 @@ export function ScienceLogTab({
   const log = useScienceLog(sessionId);
   const openTask = useOpenTaskHandle(onOpenSubagent);
   const viewInTranscript = useTranscriptJump(sessionId, workspaceId);
-  if (log.isPending) return <StateView kind="loading" title="Loading the study" />;
+  if (log.isPending) return <StateView kind="loading" title={t`Loading the study`} />;
   if (log.error)
     return (
       <StateView
         detail={log.error.message}
         kind="error"
-        title="The science log could not be read"
+        title={t`The science log could not be read`}
       />
     );
   if (!log.data.in_study)
-    return <StateView kind="empty" title="This session is not part of a study" />;
+    return <StateView kind="empty" title={t`This session is not part of a study`} />;
   return (
     <ScienceLogView
       key={sessionId}
@@ -114,8 +123,8 @@ type LogFilter =
   | { kind: 'view'; entry: string };
 
 const MODES = [
-  { value: 'log', label: 'Log', icon: ListIcon },
-  { value: 'graph', label: 'Lineage', icon: GitBranchIcon, shortcut: 'lineage' },
+  { value: 'log', label: t`Log`, icon: ListIcon },
+  { value: 'graph', label: t`Lineage`, icon: GitBranchIcon, shortcut: 'lineage' },
 ] as const;
 
 /**
@@ -140,7 +149,7 @@ function chooseStudyMode(study: string, mode: LogMode): void {
 
 /** A message can reference files, artifacts and sessions, not a study's entries. */
 const NO_MESSAGE_REFERENCE = {
-  reason: 'Science log entries cannot be added to a message yet',
+  reason: t`Science log entries cannot be added to a message yet`,
   onSelect: () => undefined,
 };
 
@@ -191,7 +200,7 @@ export function ScienceLogView({
     { region: keyRegion },
   );
   const [scope, setScope] = useState<StudyGraphScope>('all');
-  const search = useWorkbenchListSearch('Search the study');
+  const search = useWorkbenchListSearch(t`Search the study`);
   const picked = useWorkbenchTabListPicked();
   const slot = useContext(WorkbenchTabListSlot);
 
@@ -275,16 +284,16 @@ export function ScienceLogView({
     filter.kind === 'view' ? study.views.find((view) => view.entry === filter.entry) : undefined;
   const crumbs: FrameCrumb[] =
     filter.kind === 'all'
-      ? [{ label: 'Science log' }]
+      ? [{ label: t`Science log` }]
       : [
-          { label: 'Science log', onSelect: () => setFilter({ kind: 'all' }) },
+          { label: t`Science log`, onSelect: () => setFilter({ kind: 'all' }) },
           {
             label:
               filter.kind === 'topic'
-                ? (topic?.node.title ?? 'Topic')
+                ? (topic?.node.title ?? t`Topic`)
                 : filter.kind === 'group'
-                  ? `${shown.length} observations`
-                  : openedView?.title || 'Untitled view',
+                  ? plural(shown.length, { one: '# observation', other: '# observations' })
+                  : openedView?.title || t`Untitled view`,
           },
         ];
   const take = scienceLogTake({
@@ -340,7 +349,7 @@ export function ScienceLogView({
         actions={
           <FrameTalkTake
             addToMessage={NO_MESSAGE_REFERENCE}
-            comments={<FrameCommentsUnavailable reason="Not available for the science log" />}
+            comments={<FrameCommentsUnavailable reason={t`Not available for the science log`} />}
             copy={take.copy}
             open={take.open}
           />
@@ -348,7 +357,7 @@ export function ScienceLogView({
         format={
           <>
             <FileModeControls
-              label="Science log views"
+              label={t`Science log views`}
               modes={MODES}
               onChange={(value) => setMode(value === 'graph' ? 'graph' : 'log')}
               value={mode}
@@ -357,16 +366,16 @@ export function ScienceLogView({
               <IconButton
                 aria-pressed={scope === 'linked'}
                 className="[&_svg]:size-3.5"
-                disabledReason={selected ? undefined : 'Select an entry first'}
+                disabledReason={selected ? undefined : t`Select an entry first`}
                 icon={<FocusIcon aria-hidden="true" />}
-                label="Only the selected entry and its links"
+                label={t`Only the selected entry and its links`}
                 onClick={() => setScope(scope === 'linked' ? 'all' : 'linked')}
               />
             ) : null}
             <WorkbenchTabListToggle />
           </>
         }
-        label="Science log"
+        label={t`Science log`}
         what={
           mode === 'graph' && graph ? (
             <>
@@ -383,7 +392,7 @@ export function ScienceLogView({
       <div className="flex min-h-0 min-w-0 flex-1">
         {slot ? null : (
           <aside
-            aria-label="Study"
+            aria-label={t`Study`}
             className="w-56 shrink-0 overflow-y-auto border-r max-sm:hidden"
           >
             {list}
@@ -409,8 +418,8 @@ export function ScienceLogView({
               kind="empty"
               title={
                 filter.kind === 'all'
-                  ? 'This study has written no entries yet'
-                  : 'No entries here yet'
+                  ? t`This study has written no entries yet`
+                  : t`No entries here yet`
               }
             />
           )}
@@ -419,12 +428,12 @@ export function ScienceLogView({
           {graph && !graph.empty ? (
             <StudyGraph graph={graph} onSelectEntry={setSelected} selectedEntry={selected} />
           ) : (
-            <StateView kind="empty" title="No entries to graph yet" />
+            <StateView kind="empty" title={t`No entries to graph yet`} />
           )}
         </TabsContent>
       </div>
       {slot ? (
-        <WorkbenchTabList actions={search.toggle} title="Study">
+        <WorkbenchTabList actions={search.toggle} title={t`Study`}>
           {list}
         </WorkbenchTabList>
       ) : null}
@@ -465,7 +474,7 @@ function useTranscriptJump(sessionId: string, workspaceId: string) {
         }
       }
       if (!messageId) {
-        toast.error('That tool call is not in the transcript.');
+        toast.error(t`That tool call is not in the transcript.`);
         return;
       }
       const hash = `#message-${encodeURIComponent(messageId)}/activity-${encodeURIComponent(callId)}`;

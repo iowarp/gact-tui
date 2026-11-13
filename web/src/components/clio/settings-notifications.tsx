@@ -27,11 +27,15 @@ import {
   type FinishedWorkMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const SELECT_TRIGGER =
-  'w-[150px] px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-[150px] px-[9px] text-menu data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 /** Sound, desktop alerts, finished work and where the bell's settings icon leads. */
+const { agent } = vocab;
+
 export function NotificationSettings() {
   const {
     attentionSound,
@@ -62,16 +66,16 @@ export function NotificationSettings() {
   // Both desktop choices need the system's permission before they are kept.
   const allowDesktopAlerts = async () => {
     if (!supported) {
-      toast.error('Desktop notifications are not available here');
+      toast.error(t`Desktop notifications are not available here`);
       return false;
     }
     const answer = await requestNotificationPermission();
     setPermission(answer);
     if (answer !== 'granted') {
-      toast.error('Desktop notifications were not enabled', {
+      toast.error(t`Desktop notifications were not enabled`, {
         description: inTauri()
-          ? 'Allow notifications for this app in System Settings › Notifications.'
-          : 'Allow notifications for this site in your browser settings.',
+          ? t`Allow notifications for this app in System Settings › Notifications.`
+          : t`Allow notifications for this site in your browser settings.`,
       });
       return false;
     }
@@ -84,65 +88,61 @@ export function NotificationSettings() {
     if (mode !== 'desktop' || (await allowDesktopAlerts())) setFinishedWork(mode);
   };
   const permissionNote = !supported
-    ? 'Not available here'
+    ? t`Not available here`
     : blocked
       ? inTauri()
-        ? 'Turned off in system settings'
-        : 'Blocked in browser settings'
+        ? t`Turned off in system settings`
+        : t`Blocked in browser settings`
       : permission === 'default' && (desktopNotifications || finishedWork === 'desktop')
-        ? 'Not allowed yet'
+        ? t`Not allowed yet`
         : undefined;
 
   return (
     <div>
       <SettingsSectionHeading
-        title="Notifications"
-        info={`How ${vocab.agent} alerts you when a session needs your approval or answer. The sidebar attention marker stays visible with sound and alerts off.`}
+        title={t`Notifications`}
+        info={t`How ${agent} alerts you when a session needs your approval or answer. The sidebar attention marker stays visible with sound and alerts off.`}
       />
-      <SettingsRow title="Sound">
+      <SettingsRow title={t`Sound`}>
         <SettingsChoice
           id="attention-sound"
-          label="Sound"
+          label={t`Sound`}
           value={attentionSound}
           onChange={(value) => setAttentionSound(value as AttentionSoundMode)}
           options={[
             {
               value: 'background',
-              label: 'In background',
-              description: 'Sound only while this app is not focused.',
+              label: t`In background`,
+              description: t`Sound only while this app is not focused.`,
             },
-            { value: 'always', label: 'Always', description: 'Sound even while you are here.' },
-            { value: 'off', label: 'Off', description: 'No sound.' },
+            { value: 'always', label: t`Always`, description: t`Sound even while you are here.` },
+            { value: 'off', label: t`Off`, description: t`No sound.` },
           ]}
         />
         <IconButton
           icon={<Volume2Icon />}
-          label="Play test sound"
+          label={t`Play test sound`}
           onClick={() => {
             void playAttentionSound().then((played) => {
-              if (!played) toast.error('This browser could not play the attention sound');
+              if (!played) toast.error(t`This browser could not play the attention sound`);
             });
           }}
         />
       </SettingsRow>
       <SettingsRow
-        title="Desktop alerts"
+        title={t`Desktop alerts`}
         htmlFor="desktop-attention-notifications"
-        info="When to show a system notice while the app is in the background. The system asks for permission the first time."
+        info={t`When to show a system notice while the app is in the background. The system asks for permission the first time.`}
         note={permissionNote}
       >
         {permission === 'default' && (desktopNotifications || finishedWork === 'desktop') ? (
           <Button onClick={() => void allowDesktopAlerts()} size="sm" variant="outline">
-            Allow
+            {t`Allow`}
           </Button>
         ) : null}
         {blocked && inTauri() ? (
-          <Button
-            onClick={() => void openNotificationSettings()}
-            size="sm"
-            variant="outline"
-          >
-            Open System Settings
+          <Button onClick={() => void openNotificationSettings()} size="sm" variant="outline">
+            {t`Open System Settings`}
           </Button>
         ) : null}
         <Select
@@ -154,15 +154,15 @@ export function NotificationSettings() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
-            <SelectItem value="needs-you">Needs you</SelectItem>
-            <SelectItem value="off">Off</SelectItem>
+            <SelectItem value="needs-you">{t`Needs you`}</SelectItem>
+            <SelectItem value="off">{t`Off`}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>
       <SettingsRow
-        title="Finished work"
+        title={t`Finished work`}
         htmlFor="finished-work-notifications"
-        info="Where a finished or stopped run tells you. Desktop alert also shows a system notice while the app is in the background."
+        info={t`Where a finished or stopped run tells you. Desktop alert also shows a system notice while the app is in the background.`}
       >
         <Select
           value={finishedWork}
@@ -172,27 +172,29 @@ export function NotificationSettings() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
-            <SelectItem value="bell">Bell only</SelectItem>
+            <SelectItem value="bell">{t`Bell only`}</SelectItem>
             <SelectItem disabled={!supported} value="desktop">
-              Desktop alert
+              {t`Desktop alert`}
             </SelectItem>
-            <SelectItem value="off">Off</SelectItem>
+            <SelectItem value="off">{t`Off`}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>
       <p
-        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
         data-slot="settings-footnote"
       >
         <BellIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
         <span className="flex min-w-0 items-center gap-1 truncate">
-          {'The bell\u2019s'}
-          <SettingsIcon
-            aria-label="Notification settings"
-            role="img"
-            className="size-[0.8125rem] shrink-0"
-          />
-          opens this page.
+          <Trans>
+            The bell’s
+            <SettingsIcon
+              aria-label={t`Notification settings`}
+              role="img"
+              className="size-[0.8125rem] shrink-0"
+            />
+            opens this page.
+          </Trans>
         </span>
       </p>
     </div>

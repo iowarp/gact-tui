@@ -7,7 +7,7 @@ import {
   StepperSeparator,
   StepperTitle,
 } from '@/components/reui/stepper';
-import type { ProviderActionStage } from './provider-actions';
+import { providerActionStageLabel, type ProviderActionStage } from './provider-actions';
 import {
   FLOW_STEPS,
   providerActionStageFlow,
@@ -38,7 +38,7 @@ export function ProviderActionSteps({
       data-slot="provider-action-steps"
       role="status"
     >
-      <span className="sr-only">{stage}</span>
+      <span className="sr-only">{providerActionStageLabel(stage)}</span>
       <Stepper
         aria-hidden="true"
         indicators={{

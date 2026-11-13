@@ -58,6 +58,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { listen } from '@tauri-apps/api/event';
+import { ph, t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 /** The name the user gave the desktop-managed local service (never in `recents`). */
@@ -149,7 +152,7 @@ export function ArchiveConnectionProvider({ children }: { children: ReactNode })
   return (
     <ConnectionContext.Provider
       value={{
-        settings: { endpoint: 'https://archive.invalid', label: 'Offline archive' },
+        settings: { endpoint: 'https://archive.invalid', label: t`Offline archive` },
         readOnly: true,
         recents: [],
         credentialsReady: true,
@@ -289,9 +292,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .catch((error: unknown) => {
         if (cancelled) return;
         setCredentialError(
-          error instanceof Error
-            ? error.message
-            : `The managed ${vocab.agent} service is unavailable.`,
+          error instanceof Error ? error.message : t`The managed ${agent} service is unavailable.`,
         );
       })
       .finally(() => {
@@ -358,13 +359,13 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
             try {
               target = await controller.createInfrastructureTarget(sshTargetDefinition(route));
             } catch {
-              throw new InfrastructureTargetGoneError(next.label || 'This connection');
+              throw new InfrastructureTargetGoneError(next.label || t`This connection`);
             }
           }
           rebuilt = true;
         }
         if (!target) {
-          throw new InfrastructureTargetGoneError(next.label || 'This connection');
+          throw new InfrastructureTargetGoneError(next.label || t`This connection`);
         }
         let confirmed = target;
         const status = await attachInfrastructureSshTransport(
@@ -381,13 +382,17 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           });
           for (let attempt = 0; current.state !== 'connected' && attempt < 3_600; attempt += 1) {
             if (cancelledSsh.current.delete(current.session_id)) {
-              throw new Error(`SSH authentication for ${confirmed.label} was cancelled.`);
+              throw new Error(
+                t`SSH authentication for ${ph({ host: confirmed.label })} was cancelled.`,
+              );
             }
             await new Promise((resolve) => window.setTimeout(resolve, 250));
             try {
               current = await sshTransportStatus(current.session_id);
               if (current.state === 'disconnected') {
-                throw new Error(current.failure || `OpenSSH disconnected from ${confirmed.label}.`);
+                throw new Error(
+                  current.failure || t`OpenSSH disconnected from ${ph({ host: confirmed.label })}.`,
+                );
               }
             } catch (error) {
               await controller.setInfrastructureTransportState(
@@ -407,7 +412,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         }
         await controller.setInfrastructureTransportState(confirmed.id, current.state);
         if (current.state !== 'connected')
-          throw new Error(`SSH authentication timed out for ${confirmed.label}.`);
+          throw new Error(t`SSH authentication timed out for ${ph({ host: confirmed.label })}.`);
         await attachInfrastructureSshTransport(controllerEndpoint, controllerToken, confirmed);
         if (rebuilt) {
           // No confirmed service record exists yet for this (re)built target,
@@ -445,7 +450,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
             } catch (error) {
               if (error instanceof NewClioInstance && route && error.conflict.owner) {
                 port += 1;
-                if (port > 65535) throw new Error('Choose a lower port to start another agent.');
+                if (port > 65535) throw new Error(t`Choose a lower port to start another agent.`);
                 const nextRoute = {
                   ...route,
                   installRoot: `${error.conflict.owner}-instance-${port}`,
@@ -470,7 +475,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
                 continue;
               }
               if (error instanceof DOMException && error.name === 'AbortError') {
-                throw new Error(`Connecting to ${confirmed.label} was cancelled.`);
+                throw new Error(t`Connecting to ${ph({ host: confirmed.label })} was cancelled.`);
               }
               throw error;
             }
@@ -482,7 +487,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         );
         if (service?.state !== 'running' || !service.connection_url) {
           throw new Error(
-            `The managed ${vocab.agent} service is not running on ${confirmed.label}.`,
+            t`The managed ${agent} service is not running on ${ph({ host: confirmed.label })}.`,
           );
         }
         next = {
@@ -656,6 +661,8 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     ],
   );
 
+  const sshLabel = pendingSsh?.label ?? '';
+  const conflictLabel = pendingConflict?.label ?? '';
   return (
     <ConnectionContext.Provider value={value}>
       {children}
@@ -670,9 +677,9 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Connect to {pendingSsh?.label}</DialogTitle>
+            <DialogTitle>{t`Connect to ${sshLabel}`}</DialogTitle>
             <DialogDescription className="sr-only">
-              Answer the prompts from system OpenSSH.
+              {t`Answer the prompts from system OpenSSH.`}
             </DialogDescription>
           </DialogHeader>
           {pendingSsh?.status.prompt ? (
@@ -682,7 +689,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
             />
           ) : pendingSsh ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-              <Spinner aria-hidden="true" /> Connecting…
+              <Spinner aria-hidden="true" /> {t`Connecting…`}
             </p>
           ) : null}
           <DialogFooter>
@@ -696,7 +703,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
               type="button"
               variant="outline"
             >
-              Cancel
+              {t`Cancel`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -710,11 +717,9 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {vocab.agent} already on {pendingConflict?.label}
-            </DialogTitle>
+            <DialogTitle>{t`${agent} already on ${conflictLabel}`}</DialogTitle>
             <DialogDescription className="sr-only">
-              Choose whether to connect to the running {vocab.agent} or replace it.
+              {t`Choose whether to connect to the running ${agent} or replace it.`}
             </DialogDescription>
           </DialogHeader>
           {pendingConflict ? (
@@ -725,8 +730,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
             />
           ) : null}
           <p className="text-xs text-muted-foreground">
-            Agents started here stop when this Desktop closes unless the saved connection opted to
-            keep them running.
+            {t`Agents started here stop when this Desktop closes unless the saved connection opted to keep them running.`}
           </p>
           <DialogFooter>
             <Button
@@ -734,7 +738,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
               type="button"
               variant="outline"
             >
-              Cancel
+              {t`Cancel`}
             </Button>
           </DialogFooter>
         </DialogContent>

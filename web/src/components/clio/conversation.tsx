@@ -55,6 +55,8 @@ import {
 
 const VIRTUALIZATION_THRESHOLD = 80;
 const ESTIMATED_ROW_PX = 180;
+/** The spec's `.tr` top padding: the first message never sits against the top bar. */
+const TRANSCRIPT_TOP_INSET_PX = 28;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 import { ConversationMessageRow } from './conversation-message-row';
@@ -67,6 +69,7 @@ import {
   liveActivityIterationId,
 } from './conversation-activity-placement';
 import { loadMarkdownText } from '@/components/ai-elements/markdown-text-loader';
+import { t } from '@lingui/core/macro';
 
 // Message text reflows once the markdown renderer arrives; request it with the
 // transcript instead of after the first rows mount, so the tail paints formatted.
@@ -293,6 +296,7 @@ function ConversationBody({
     // update instead of trying to flush another render inside that commit.
     useFlushSync: false,
     estimateSize: () => ESTIMATED_ROW_PX,
+    paddingStart: TRANSCRIPT_TOP_INSET_PX,
     getScrollElement: () => scrollRef.current,
     overscan: 7,
     rangeExtractor: useCallback(
@@ -481,7 +485,7 @@ function ConversationBody({
           re-positioned rows, silently moved the reader back to the bottom right
           after they scrolled up, even on a finished conversation. */}
       <div
-        aria-label="Conversation"
+        aria-label={t`Conversation`}
         className={cn(
           'clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]',
           outlineGutter && 'pl-3',
@@ -560,9 +564,9 @@ function ConversationBody({
             ) : null}
             <ConversationEmptyState
               className="h-full"
-              description="Send a message to begin. Live reasoning, tools, approvals, and artifacts will stay in causal order here."
+              description={t`Send a message to begin. Live reasoning, tools, approvals, and artifacts will stay in causal order here.`}
               icon={<GitBranchIcon className="size-7" />}
-              title="This session has no messages"
+              title={t`This session has no messages`}
             />
           </>
         ) : (
@@ -583,7 +587,7 @@ function ConversationBody({
               style={
                 virtualized
                   ? { height: virtualizer.getTotalSize() + virtualizedRowsOverflow }
-                  : undefined
+                  : { paddingTop: TRANSCRIPT_TOP_INSET_PX }
               }
             >
               {(virtualized

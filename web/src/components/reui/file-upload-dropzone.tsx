@@ -2,6 +2,7 @@ import type { DragEvent, HTMLAttributes } from 'react';
 import { UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 export interface FileUploadDropzoneProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onDrop'> {
   dragging?: boolean;
@@ -32,7 +33,7 @@ export function FileUploadDropzone({
 
   return (
     <div
-      aria-label="File drop area"
+      aria-label={t`File drop area`}
       className={cn(
         'relative rounded-xl border border-dashed p-8 text-center transition-colors',
         dragging
@@ -58,17 +59,17 @@ export function FileUploadDropzone({
           <UploadIcon aria-hidden="true" />
         </div>
         <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold">Drop files to attach</h3>
+          <h3 className="text-lg font-semibold">{t`Drop files to attach`}</h3>
           <p className="text-sm text-muted-foreground">
-            Drop them anywhere in this window, or choose files from your device.
+            {t`Drop them anywhere in this window, or choose files from your device.`}
           </p>
           {maxSizeLabel ? (
-            <p className="text-xs text-muted-foreground">Up to {maxSizeLabel} per file</p>
+            <p className="text-xs text-muted-foreground">{t`Up to ${maxSizeLabel} per file`}</p>
           ) : null}
         </div>
         <Button onClick={onSelectFiles} type="button">
           <UploadIcon aria-hidden="true" data-icon="inline-start" />
-          Select files
+          {t`Select files`}
         </Button>
       </div>
     </div>

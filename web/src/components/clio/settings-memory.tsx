@@ -35,10 +35,10 @@ import { ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StatusIndicator } from './primitives/status-indicator';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { ph, t } from '@lingui/core/macro';
 
 const TABS = ['memories', 'review', 'create', 'log'] as const;
 type Tab = (typeof TABS)[number];
@@ -74,17 +74,19 @@ function AccountMemoryRow({
   return (
     <SettingsRow
       htmlFor="memory-use-account"
-      info={`Facts about you that every workspace can use. This switch applies to ${workspaceName}.`}
+      info={t`Facts about you that every workspace can use. This switch applies to ${workspaceName}.`}
       fullWidth
       inlineControl
       note={
-        setting.error ? `Could not read this setting. ${memoryErrorText(setting.error)}` : undefined
+        setting.error
+          ? t`Could not read this setting. ${ph({ error: memoryErrorText(setting.error) })}`
+          : undefined
       }
-      title="Use account memory"
+      title={t`Use account memory`}
     >
       {setting.isPending ? (
         // Never show "off" for a setting that hasn't been read yet.
-        <StatusIndicator label="Loading" tone="running" />
+        <StatusIndicator label={t`Loading`} tone="running" />
       ) : (
         <Switch
           checked={checked}
@@ -161,8 +163,8 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
   useEffect(
     () =>
       defineShortcuts([
-        { id: IMPORT_SHORTCUT, name: 'Import memory', group: 'tab', keys: ['I'] },
-        { id: SEARCH_SHORTCUT, name: 'Search memories', group: 'tab', keys: ['/'] },
+        { id: IMPORT_SHORTCUT, name: t`Import memory`, group: 'tab', keys: ['I'] },
+        { id: SEARCH_SHORTCUT, name: t`Search memories`, group: 'tab', keys: ['/'] },
       ]),
     [],
   );
@@ -236,35 +238,34 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
       <MemoryCreationLog
         onSessionIds={sessions.request}
         sessionHref={sessionHref}
-        sessionTitle={(id) => sessions.get(id)?.title || 'Conversation not loaded'}
+        sessionTitle={(id) => sessions.get(id)?.title || t`Conversation not loaded`}
         targetLabel={(name) => targetLabel(name)}
       />
     ),
   }[tab];
   return (
-    <div className="grid min-w-0" onKeyDown={rowArrowKeyDown} ref={rootRef}>
-      <AnnounceStates />
+    <div className="grid min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown} ref={rootRef}>
       <SettingsSectionHeading
-        info="Saved facts and preferences the agent can use in later conversations."
-        title="Memory and instructions"
+        info={t`Saved facts and preferences the agent can use in later conversations.`}
+        title={t`Memory and instructions`}
       />
       <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2" ref={toolbar}>
         <SegmentedControl
           className="min-w-0 overflow-hidden"
           iconOnly={foldViews ? 'others' : false}
-          label="Memory views"
+          label={t`Memory views`}
           onValueChange={setTab}
           options={[
-            { value: 'memories', label: 'Memories', icon: foldViews ? <BrainIcon /> : undefined },
+            { value: 'memories', label: t`Memories`, icon: foldViews ? <BrainIcon /> : undefined },
             {
               value: 'review',
-              label: 'Under review',
+              label: t`Under review`,
               icon: foldViews ? <InboxIcon /> : undefined,
               count: inbox || undefined,
               badge: inbox ? (
                 <span
-                  aria-label={`${inbox} waiting`}
-                  className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10.5px] leading-none font-semibold text-background tabular-nums"
+                  aria-label={t`${inbox} waiting`}
+                  className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[0.65625rem] leading-none font-semibold text-background tabular-nums"
                 >
                   {inbox}
                 </span>
@@ -272,10 +273,10 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
             },
             {
               value: 'create',
-              label: 'Create memories',
+              label: t`Create memories`,
               icon: foldViews ? <SparklesIcon /> : undefined,
             },
-            { value: 'log', label: 'Creation log', icon: foldViews ? <HistoryIcon /> : undefined },
+            { value: 'log', label: t`Creation log`, icon: foldViews ? <HistoryIcon /> : undefined },
           ]}
           value={tab}
         />
@@ -283,7 +284,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         {tab === 'review' ? (
           <IconButton
             icon={<UploadIcon />}
-            label="Import memory"
+            label={t`Import memory`}
             onClick={() => setImporting(true)}
             shortcut={IMPORT_SHORTCUT}
           />
@@ -291,15 +292,15 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         <IconButton
           disabled={exportAll.isPending || !documents.data?.length}
           icon={<DownloadIcon />}
-          label="Export all memory"
+          label={t`Export all memory`}
           onClick={() => exportAll.mutate()}
         />
       </div>
       {summary.data && !summary.data.enabled ? (
-        <div className="flex min-w-0 items-center gap-2 py-2 text-[12.5px] text-muted-foreground">
-          <StatusIndicator label="Memory is off" tone="stopped" />
+        <div className="flex min-w-0 items-center gap-2 py-2 text-menu text-muted-foreground">
+          <StatusIndicator label={t`Memory is off`} tone="stopped" />
           <span className="min-w-0 truncate">
-            Saved memories are kept. Turn memory on under Create memories.
+            {t`Saved memories are kept. Turn memory on under Create memories.`}
           </span>
         </div>
       ) : null}
@@ -324,8 +325,8 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
               onTabChange={setPaneTab}
               scopeLabel={
                 opened.startsWith('user/')
-                  ? 'Account memory'
-                  : `Workspace memory: ${memoryScopeTitle(scopeOf(opened), workspaceNames)}`
+                  ? t`Account memory`
+                  : t`Workspace memory: ${ph({ scope: memoryScopeTitle(scopeOf(opened), workspaceNames) })}`
               }
               sessionHref={sessionHref}
               tab={paneTab}

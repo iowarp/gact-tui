@@ -29,6 +29,9 @@ import { SERVICE_COLUMNS } from './managed-service-groups';
 import { HostPathPicker } from './host-path-picker';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** Inventory of attached monitoring endpoints, scoped to the connected CLIO. */
 export function ProvenanceConnections({
@@ -53,21 +56,21 @@ export function ProvenanceConnections({
   const refresh = () => client.invalidateQueries({ queryKey: key });
   const errorShownByPage = useShownByPage(query.error);
   return (
-    <section aria-label="Connected provenance services" className="min-w-0 pt-3 empty:hidden">
+    <section aria-label={t`Connected provenance services`} className="min-w-0 pt-3 empty:hidden">
       {query.error && !errorShownByPage ? (
         <StateView
-          action={{ label: 'Retry', onClick: () => void query.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void query.refetch() }}
           detail={query.error.message}
           kind="error"
           size="row"
-          title="Provenance connections could not load"
+          title={t`Provenance connections could not load`}
         />
       ) : null}
       {query.isPending ? (
-        <StateView kind="loading" size="row" title="Loading provenance connections" />
+        <StateView kind="loading" size="row" title={t`Loading provenance connections`} />
       ) : null}
       {query.data?.length ? (
-        <InfraList heading="Provenance connections" {...SERVICE_COLUMNS}>
+        <InfraList heading={t`Provenance connections`} {...SERVICE_COLUMNS}>
           {query.data.map((row) => (
             <ConnectionRow key={`${scope}:${row.id}`} row={row} onChanged={refresh} />
           ))}
@@ -90,11 +93,11 @@ function connectionStatus(row: ProvenanceConnection): InfraStatus {
   const restartPending = row.selected !== row.active;
   if (row.active)
     return row.selected
-      ? { tone: row.verified ? 'success' : 'warning', label: 'In use' }
-      : { tone: 'warning', label: 'Disconnect after restart' };
-  if (row.selected) return { tone: 'warning', label: 'Restart to activate' };
-  if (row.verified && !restartPending) return { tone: 'success', label: 'Verified' };
-  return { tone: 'idle', label: 'Not verified' };
+      ? { tone: row.verified ? 'success' : 'warning', label: t`In use` }
+      : { tone: 'warning', label: t`Disconnect after restart` };
+  if (row.selected) return { tone: 'warning', label: t`Restart to activate` };
+  if (row.verified && !restartPending) return { tone: 'success', label: t`Verified` };
+  return { tone: 'idle', label: t`Not verified` };
 }
 
 const stopRowClick = (event: { stopPropagation: () => void }) => event.stopPropagation();
@@ -129,8 +132,8 @@ function ConnectionRow({
               icon: <CheckConnectionIcon />,
               label:
                 action.isPending && action.variables === 'verify'
-                  ? 'Verifying…'
-                  : 'Verify connection',
+                  ? t`Verifying…`
+                  : t`Verify connection`,
               onSelect: () => action.mutate('verify'),
             },
             ...(!row.selected && !row.active
@@ -138,26 +141,26 @@ function ConnectionRow({
                   {
                     disabled: action.isPending,
                     icon: <DeleteIcon />,
-                    label: 'Forget connection',
+                    label: t`Forget connection`,
                     onSelect: () => action.mutate('forget'),
                   },
                 ]
               : []),
           ]}
-          label={`More actions for ${row.label}`}
+          label={t`More actions for ${ph({ label: row.label })}`}
         />
       }
-      aria-label={`${row.label} connection`}
+      aria-label={t`${ph({ label: row.label })} connection`}
       className="cursor-pointer"
       description={
-        row.service_id === 'flowcept' ? 'Workflow provenance records' : 'Provenance records'
+        row.service_id === 'flowcept' ? t`Workflow provenance records` : t`Provenance records`
       }
       details={
         showDetails ? (
           <>
             {restartPending ? (
-              <p className="text-[12px]" role="status">
-                Saved. Restart the connected {vocab.agent} to apply this choice.
+              <p className="text-meta" role="status">
+                {t`Saved. Restart the connected ${agent} to apply this choice.`}
               </p>
             ) : null}
             {action.error ? (
@@ -165,30 +168,26 @@ function ConnectionRow({
                 detail={action.error.message}
                 kind="error"
                 size="row"
-                title="This connection action did not finish"
+                title={t`This connection action did not finish`}
               />
             ) : null}
             {expanded ? (
               <>
                 <KeyValueGrid
-                  items={[{ label: 'Address', icon: <LinkIcon />, value: row.url, mono: true }]}
+                  items={[{ label: t`Address`, icon: <LinkIcon />, value: row.url, mono: true }]}
                 />
-                <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
-                  This {vocab.agent} connects to the service; the owner keeps its deployment and
-                  data.
-                  <InfoTip label={`About ${row.label} connection`}>
-                    This {vocab.agent} connects to the service; its deployment and data stay under
-                    the service owner's control. Verification writes a small provenance record and
-                    reads it back. Attention readiness needs a separate instrumented inference
-                    check.
+                <p className="flex items-center gap-1 text-meta text-muted-foreground">
+                  {t`This ${agent} connects to the service; the owner keeps its deployment and data.`}
+                  <InfoTip label={t`About ${ph({ label: row.label })} connection`}>
+                    {t`This ${agent} connects to the service; its deployment and data stay under the service owner's control. Verification writes a small provenance record and reads it back. Attention readiness needs a separate instrumented inference check.`}
                     {row.service_id === 'flowcept'
-                      ? ' In use, it is also where SPOTTER and the provenance views read from.'
+                      ? ` ${t`In use, it is also where SPOTTER and the provenance views read from.`}`
                       : null}
                   </InfoTip>
                 </p>
                 {Object.keys(row.verification).length ? (
-                  <TechnicalDetails className="text-[12px]" title="Verification receipt">
-                    <pre className="mt-1 font-mono text-[11px] break-all whitespace-pre-wrap text-muted-foreground">
+                  <TechnicalDetails className="text-meta" title={t`Verification receipt`}>
+                    <pre className="mt-1 font-mono text-caption break-all whitespace-pre-wrap text-muted-foreground">
                       {JSON.stringify(row.verification, null, 2)}
                     </pre>
                   </TechnicalDetails>
@@ -206,7 +205,7 @@ function ConnectionRow({
             <IconButton
               disabled={action.isPending || !row.verified}
               icon={<PlayIcon />}
-              label="Use for provenance"
+              label={t`Use for provenance`}
               onClick={() => action.mutate('use')}
               size="sm"
             />
@@ -214,7 +213,7 @@ function ConnectionRow({
             <IconButton
               disabled={action.isPending}
               icon={<UnlinkIcon />}
-              label="Disconnect on restart"
+              label={t`Disconnect on restart`}
               onClick={() => action.mutate('disconnect')}
               size="sm"
             />
@@ -267,7 +266,9 @@ function ConnectDialog({
     },
   });
   const flowcept = draft.service_id === 'flowcept';
+  // i18n-ignore: product names
   const label = flowcept ? 'Flowcept' : 'HPE CMF';
+  const hostLabel = settings.label || t`this ${agent}`;
   return (
     <Dialog
       open
@@ -277,14 +278,16 @@ function ConnectDialog({
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Connect {label}</DialogTitle>
+          <DialogTitle>{t`Connect ${label}`}</DialogTitle>
           <DialogDescription>
-            Connection and paths belong to {settings.label || `the connected ${vocab.agent}`}.
+            {settings.label
+              ? t`Connection and paths belong to ${ph({ host: settings.label })}.`
+              : t`Connection and paths belong to the connected ${agent}.`}
           </DialogDescription>
         </DialogHeader>
         {onBack ? (
           <Button size="sm" variant="ghost" className="w-fit" onClick={onBack}>
-            Choose another service
+            {t`Choose another service`}
           </Button>
         ) : null}
         <form
@@ -296,15 +299,15 @@ function ConnectDialog({
         >
           <div className="flex items-center gap-2">
             <ManagedServiceLogo service={{ id: draft.service_id }} />
-            <InfoTip label={`About connecting ${label}`}>
+            <InfoTip label={t`About connecting ${label}`}>
               {flowcept
-                ? `Provide its query API URL and a Flowcept settings file already on this ${vocab.agent} host. The file contains its Redis/Mongo connection settings. The external collector remains the sole persistence owner; this client does not start another collector.`
-                : 'Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required.'}{' '}
-              Verification and activation are separate actions after connecting.
+                ? t`Provide its query API URL and a Flowcept settings file already on this ${agent} host. The file contains its Redis/Mongo connection settings. The external collector remains the sole persistence owner; this client does not start another collector.`
+                : t`Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required.`}{' '}
+              {t`Verification and activation are separate actions after connecting.`}
             </InfoTip>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="provenance-label">Name</Label>
+            <Label htmlFor="provenance-label">{t`Name`}</Label>
             <Input
               id="provenance-label"
               autoFocus
@@ -314,7 +317,7 @@ function ConnectDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="provenance-url">Service URL from this {vocab.agent}</Label>
+            <Label htmlFor="provenance-url">{t`Service URL from this ${agent}`}</Label>
             <Input
               id="provenance-url"
               type="url"
@@ -328,7 +331,7 @@ function ConnectDialog({
             <>
               <div className="space-y-1">
                 <Label htmlFor="provenance-settings">
-                  Settings file on {settings.label || `this ${vocab.agent}`}
+                  {t`Settings file on ${ph({ host: hostLabel })}`}
                 </Label>
                 <Input
                   id="provenance-settings"
@@ -336,9 +339,8 @@ function ConnectDialog({
                   value={draft.settings_path ?? ''}
                   onChange={(event) => setDraft({ ...draft, settings_path: event.target.value })}
                 />
-                <InfoTip label="About private Flowcept settings">
-                  Only the path is saved here. File contents and verification diagnostics stay
-                  outside the model and transcript.
+                <InfoTip label={t`About private Flowcept settings`}>
+                  {t`Only the path is saved here. File contents and verification diagnostics stay outside the model and transcript.`}
                 </InfoTip>
               </div>
               <div className="flex items-center gap-2">
@@ -347,17 +349,15 @@ function ConnectDialog({
                   checked={draft.capture_attention ?? false}
                   onCheckedChange={(checked) => setDraft({ ...draft, capture_attention: checked })}
                 />
-                <Label htmlFor="provenance-attention">Capture attention context</Label>
-                <InfoTip label="About attention context">
-                  Records full model-call payloads in the selected provenance service for token
-                  alignment. Use this only with a trusted service. The inference runtime must also
-                  have its attention probe enabled.
+                <Label htmlFor="provenance-attention">{t`Capture attention context`}</Label>
+                <InfoTip label={t`About attention context`}>
+                  {t`Records full model-call payloads in the selected provenance service for token alignment. Use this only with a trusted service. The inference runtime must also have its attention probe enabled.`}
                 </InfoTip>
               </div>
               {draft.capture_attention ? (
                 <div className="space-y-1">
                   <Label htmlFor="provenance-captures">
-                    Attention files on {settings.label || `this ${vocab.agent}`}
+                    {t`Attention files on ${ph({ host: hostLabel })}`}
                   </Label>
                   <Input
                     id="provenance-captures"
@@ -369,8 +369,8 @@ function ConnectDialog({
                   />
                   <HostPathPicker
                     targetId="local"
-                    hostLabel={settings.label || `this ${vocab.agent}`}
-                    label="Attention files"
+                    hostLabel={hostLabel}
+                    label={t`Attention files`}
                     path={draft.attention_files_dir || '~'}
                     onChoose={(path) => setDraft({ ...draft, attention_files_dir: path })}
                   />
@@ -385,10 +385,10 @@ function ConnectDialog({
           ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button type="submit" disabled={connect.isPending}>
-              {connect.isPending ? 'Connecting…' : 'Connect'}
+              {connect.isPending ? t`Connecting…` : t`Connect`}
             </Button>
           </div>
         </form>

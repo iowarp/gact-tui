@@ -19,16 +19,17 @@ import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionOperationLabel } from './permission-operation-labels';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import { t, ph, plural } from '@lingui/core/macro';
 
 const SCOPES = [
-  { action: 'allow', label: 'Allow once', name: 'Allow once' },
-  { action: 'allow_session', label: 'This session', name: 'Allow for this session' },
-  { action: 'allow_workspace', label: 'This workspace', name: 'Allow for this workspace' },
+  { action: 'allow', label: t`Allow once`, name: t`Allow once` },
+  { action: 'allow_session', label: t`This session`, name: t`Allow for this session` },
+  { action: 'allow_workspace', label: t`This workspace`, name: t`Allow for this workspace` },
   // Offered only on a question asked from a run_code script.
   {
     action: 'allow_script',
-    label: 'Rest of this script',
-    name: 'Allow for the rest of this script',
+    label: t`Rest of this script`,
+    name: t`Allow for the rest of this script`,
   },
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
@@ -59,17 +60,18 @@ function argumentParts(
   );
   const facts = entries
     .filter(([, value]) => !multiline(value) || shown(value))
-    .map(([key, value]): KeyValueItem =>
-      shown(value)
-        ? {
-            label: key,
-            value: <span className="text-muted-foreground">same as Script above</span>,
-          }
-        : {
-            label: key,
-            mono: true,
-            value: typeof value === 'string' ? value : JSON.stringify(value),
-          },
+    .map(
+      ([key, value]): KeyValueItem =>
+        shown(value)
+          ? {
+              label: key,
+              value: <span className="text-muted-foreground">{t`same as Script above`}</span>,
+            }
+          : {
+              label: key,
+              mono: true,
+              value: typeof value === 'string' ? value : JSON.stringify(value),
+            },
     );
   return { blocks, facts };
 }
@@ -87,9 +89,9 @@ function permissionTitle(interaction: PendingInteraction, toolName: string | und
   if (!legacy) return interaction.title;
   if (toolName === 'connected_data_connect')
     return typeof fields.label === 'string' && fields.label.trim()
-      ? `Connect ${fields.label}`
-      : 'Connect source';
-  if (toolName === 'connected_data_download') return 'Download source';
+      ? t`Connect ${ph({ source: String(fields.label) })}`
+      : t`Connect source`;
+  if (toolName === 'connected_data_download') return t`Download source`;
   return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
 }
 
@@ -117,9 +119,9 @@ function askedBy(
   if (!show) return [];
   return [
     {
-      label: 'Asked by',
+      label: t`Asked by`,
       icon: <UserRoundIcon />,
-      title: ownerLabel ?? `Requested by session ${interaction.owner_session_id}`,
+      title: ownerLabel ?? t`Requested by session ${ph({ session: interaction.owner_session_id })}`,
       // Who asked moves into Technical details at a fifth of the window.
       narrow: false,
       value: ownerLabel ? (
@@ -128,7 +130,7 @@ function askedBy(
           <span className="min-w-0 truncate text-accent-foreground">{ownerLabel}</span>
         </span>
       ) : (
-        <span className="min-w-0 truncate text-muted-foreground">Session not listed yet</span>
+        <span className="min-w-0 truncate text-muted-foreground">{t`Session not listed yet`}</span>
       ),
     },
   ];
@@ -145,7 +147,12 @@ function spokenToolCall(
   if (code) {
     const lines = code.replace(/\n$/u, '').split('\n');
     const first = lines.find((line) => line.trim())?.trim() ?? '';
-    return clip(`${toolName}, ${lines.length} ${lines.length === 1 ? 'line' : 'lines'}: ${first}`);
+    return clip(
+      plural(lines.length, {
+        one: `${toolName}, # line: ${first}`,
+        other: `${toolName}, # lines: ${first}`,
+      }),
+    );
   }
   if (args && typeof args === 'object' && !Array.isArray(args)) {
     const values = Object.entries(args)
@@ -188,9 +195,9 @@ export function PermissionResponse({
   // The script block carries the lines run_code's own title summarises ("Run a Python script
   // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const title = flowTrust
-    ? `Running flow ${flowTrust.flow}`
+    ? t`Running flow ${ph({ flow: flowTrust.flow })}`
     : script && !interaction.payload?.script
-      ? 'Run script'
+      ? t`Run script`
       : permissionTitle(interaction, toolName);
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
   const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
@@ -207,21 +214,21 @@ export function PermissionResponse({
     ...(owner.length
       ? [
           {
-            label: 'Asked by',
+            label: t`Asked by`,
             title: owner[0]?.title,
             // Beside the facts while they show it; here once they give it up, at a fifth.
             wide: false as const,
             value: (
               <span className="min-w-0 truncate text-accent-foreground">
-                {ownerLabel ?? `session ${interaction.owner_session_id}`}
+                {ownerLabel ?? t`session ${ph({ session: interaction.owner_session_id })}`}
               </span>
             ),
           },
         ]
       : []),
-    ...(toolName && !flowTrust ? [{ label: 'Tool', value: toolName, mono: true }] : []),
+    ...(toolName && !flowTrust ? [{ label: t`Tool`, value: toolName, mono: true }] : []),
     ...((toolName === 'web_fetch' || toolName === 'web_search') && cwd
-      ? [{ label: 'Working folder', value: cwd, mono: true }]
+      ? [{ label: t`Working folder`, value: cwd, mono: true }]
       : []),
     ...(parts?.facts ?? []),
   ];
@@ -257,50 +264,54 @@ export function PermissionResponse({
         <AskCode
           className={cn('flex flex-col', scriptLines > 2 && 'min-h-20 shrink-[100]')}
           code={script.code}
-          copyLabel="Copy script"
+          copyLabel={t`Copy script`}
           icon={FileCode2Icon}
-          label="Script"
+          label={t`Script`}
           language="python"
-          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
+          meta={plural(scriptLines, { one: 'Python, # line', other: 'Python, # lines' })}
           name="Script"
           onOpen={
-            onOpenScript && scriptCallId
-              ? () => onOpenScript(interaction, scriptCallId)
-              : undefined
+            onOpenScript && scriptCallId ? () => onOpenScript(interaction, scriptCallId) : undefined
           }
           wrapToggle
         />
       ) : null}
       <AskError error={responseError} />
-      <AskOptions aria-label="Decision">
+      <AskOptions aria-label={t`Decision`}>
         {scopes.map((scope, index) => (
           <AskButton
-            aria-label={flowTrust ? 'Trust and run' : scope.name}
+            aria-label={flowTrust ? t`Trust and run` : scope.name}
             disabled={disabled}
+            // i18n-ignore: key name
             hint={index === 0 ? 'Enter' : undefined}
             key={scope.action}
             number={index + 1}
             onClick={() => respond(scope.action)}
             primary={index === 0}
           >
-            {flowTrust ? 'Trust and run' : scope.label}
+            {flowTrust ? t`Trust and run` : scope.label}
           </AskButton>
         ))}
         {(interaction.actions ?? [])
           .filter((action) => !KNOWN_ACTIONS.has(action))
           .map((action) => (
-            <AskButton disabled key={action} title={`This client cannot offer "${action}" yet.`}>
+            <AskButton disabled key={action} title={t`This client cannot offer "${action}" yet.`}>
               {action}
             </AskButton>
           ))}
         {offered('deny') ? (
-          <AskButton disabled={disabled} hint="Escape" onClick={() => respond('deny')}>
-            Deny
+          <AskButton
+            disabled={disabled}
+            // i18n-ignore: key name
+            hint="Escape"
+            onClick={() => respond('deny')}
+          >
+            {t`Deny`}
           </AskButton>
         ) : null}
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
-        <AskDetails hint="raw arguments, as the agent sent them">
+        <AskDetails hint={t`raw arguments, as the agent sent them`}>
           <div className="grid gap-2.5">
             {detailFacts.length ? (
               <div data-slot="ask-details-facts">
@@ -321,11 +332,15 @@ export function PermissionResponse({
                   <AskCode
                     className="mt-1 ml-0"
                     code={code}
-                    copyLabel={`Copy ${key}`}
+                    copyLabel={t`Copy ${key}`}
                     key={key}
-                    label={`Argument ${key}`}
+                    label={t`Argument ${key}`}
                     language={codeLanguage}
-                    meta={`${codeLanguage === 'python' ? 'Python, ' : ''}${lines} ${lines === 1 ? 'line' : 'lines'}`}
+                    meta={
+                      codeLanguage === 'python'
+                        ? plural(lines, { one: 'Python, # line', other: 'Python, # lines' })
+                        : plural(lines, { one: '# line', other: '# lines' })
+                    }
                     name={key}
                     previewLines={12}
                   />
@@ -335,8 +350,8 @@ export function PermissionResponse({
               <AskCode
                 className="mt-1 ml-0"
                 code={JSON.stringify(args, null, 2)}
-                copyLabel="Copy arguments"
-                label="Arguments"
+                copyLabel={t`Copy arguments`}
+                label={t`Arguments`}
                 language="json"
                 name="Arguments"
                 previewLines={12}

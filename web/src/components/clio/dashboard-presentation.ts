@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import { readThemeColor, useThemeKey } from '@/theme/runtime';
 import { isJsonObject } from './chart-spec-guard';
+import { t } from '@lingui/core/macro';
 
 /**
  * Set by a saved dashboard. Its metrics read as one compact stat row, and its
@@ -99,7 +100,7 @@ export function dashboardChartSpec(
   const next = withoutAxisTitles(spec, titles, referenceColor);
   const y = titles.y.join(', ');
   const x = titles.x.join(', ');
-  const caption = y && x ? `${y} against ${x}` : y || x || undefined;
+  const caption = y && x ? t`${y} against ${x}` : y || x || undefined;
   return { spec: next, caption };
 }
 

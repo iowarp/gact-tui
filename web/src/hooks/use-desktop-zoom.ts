@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { t } from '@lingui/core/macro';
 import { toast } from 'sonner';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
@@ -23,7 +24,8 @@ export interface DesktopZoom {
 }
 
 function announce(level: number): void {
-  toast(`Zoom ${Math.round(level * 100)}%`, { id: 'desktop-zoom', duration: 1200 });
+  const percent = Math.round(level * 100);
+  toast(t`Zoom ${percent}%`, { id: 'desktop-zoom', duration: 1200 });
 }
 
 /**

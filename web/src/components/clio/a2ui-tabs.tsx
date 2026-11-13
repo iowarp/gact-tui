@@ -5,6 +5,7 @@ import { SurfaceQuestionTabs } from '@/lib/a2ui/question-navigation';
 import { z } from 'zod';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isBoundToPath } from './selection-state';
+import { t } from '@lingui/core/macro';
 
 /** Workspace Tabs add one declared binding; the upstream Basic catalog stays immutable. */
 export const ClioTabs = createComponentImplementation(
@@ -44,7 +45,7 @@ export const ClioTabs = createComponentImplementation(
         data-a2ui-component-id={context.componentModel.id}
         data-visual-state={invalid ? 'failed' : 'ready'}
       >
-        {invalid && <p role="alert">The selected dashboard tab is unavailable.</p>}
+        {invalid && <p role="alert">{t`The selected dashboard tab is unavailable.`}</p>}
         <Tabs
           value={active}
           onValueChange={(value) => {

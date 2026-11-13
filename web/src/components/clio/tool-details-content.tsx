@@ -4,6 +4,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { ResultDialogContent } from './result-dialog-content';
 import { ActivityBody } from './activity-row';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 /** Bound an inline readable result (the row's framed body) or a result dialog. */
 export function ToolDetailsContent({
@@ -12,7 +13,7 @@ export function ToolDetailsContent({
   children,
   bounded = true,
   flush = false,
-  description = 'Original tool arguments, result, and diagnostics.',
+  description = t`Original tool arguments, result, and diagnostics.`,
 }: {
   inline: boolean;
   title: string;

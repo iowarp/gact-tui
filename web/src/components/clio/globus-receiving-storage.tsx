@@ -11,22 +11,22 @@ import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
 import { SourceField, sourceInputClass } from './source-form-parts';
 import { SourceProviderLogo } from './source-provider-logo';
+import { t, ph } from '@lingui/core/macro';
 
 /** Configure the host destination beside the Globus source that needs it. */
 export function GlobusReceivingStorageControl({ hostLabel }: { hostLabel: string }) {
   const [open, setOpen] = useState(false);
   return (
     <details
-      className="text-[12px]"
+      className="text-meta"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="flex min-h-[26px] cursor-pointer items-center text-muted-foreground hover:text-foreground">
-        Receiving storage on {hostLabel}
+        {t`Receiving storage on ${hostLabel}`}
       </summary>
-      <p className="mt-1 text-[11px] leading-[1.45] text-faint">
-        Globus downloads need a receiving collection on this host. Other sources download directly
-        into workspace storage.
+      <p className="mt-1 text-caption leading-[1.45] text-faint">
+        {t`Globus downloads need a receiving collection on this host. Other sources download directly into workspace storage.`}
       </p>
       {open ? <GlobusReceivingStorage hostLabel={hostLabel} /> : null}
     </details>
@@ -63,30 +63,28 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
     setDraft({ ...current, [name]: value });
   };
   return (
-    <section className="space-y-3 py-4" aria-label="Globus receiving storage">
+    <section className="space-y-3 py-4" aria-label={t`Globus receiving storage`}>
       <div className="flex items-center gap-3">
         <SourceProviderLogo provider="globus" />
         <div className="min-w-0 flex-1">
-          <h3 className="font-medium">Globus receiving storage</h3>
+          <h3 className="font-medium">{t`Globus receiving storage`}</h3>
           <p className="text-xs text-muted-foreground">{hostLabel}</p>
         </div>
-        <InfoTip label="About Globus receiving storage">
-          {vocab.agent} detects Globus Connect Personal on this host. Institutional collections can
-          be connected once here. Every workspace reuses this receiving collection; transfers are
-          checked before files become available in the workspace.
+        <InfoTip label={t`About Globus receiving storage`}>
+          {t`${ph({ agent: vocab.agent })} detects Globus Connect Personal on this host. Institutional collections can be connected once here. Every workspace reuses this receiving collection; transfers are checked before files become available in the workspace.`}
         </InfoTip>
       </div>
       <p role="status" className="text-sm text-muted-foreground">
         {query.isPending
-          ? 'Checking this host…'
+          ? t`Checking this host…`
           : query.data?.origin === 'detected'
-            ? 'Globus Connect Personal detected'
+            ? t`Globus Connect Personal detected`
             : query.data?.origin === 'configured'
-              ? 'Receiving collection saved'
-              : 'No receiving collection found on this host'}
+              ? t`Receiving collection saved`
+              : t`No receiving collection found on this host`}
       </p>
       <details>
-        <summary className="cursor-pointer text-sm">Connect an existing collection</summary>
+        <summary className="cursor-pointer text-sm">{t`Connect an existing collection`}</summary>
         <form
           className="mt-3 space-y-3"
           onSubmit={(event) => {
@@ -94,7 +92,7 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
             save.mutate(current);
           }}
         >
-          <SourceField label="Collection ID" htmlFor="receiving-collection">
+          <SourceField label={t`Collection ID`} htmlFor="receiving-collection">
             <Input
               id="receiving-collection"
               className={sourceInputClass}
@@ -103,7 +101,7 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
               onChange={(e) => change('collection_id', e.target.value)}
             />
           </SourceField>
-          <SourceField label="Collection folder" htmlFor="receiving-collection-root">
+          <SourceField label={t`Collection folder`} htmlFor="receiving-collection-root">
             <Input
               id="receiving-collection-root"
               className={sourceInputClass}
@@ -113,12 +111,11 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
             />
           </SourceField>
           <SourceField
-            label={`Same folder on ${hostLabel}`}
+            label={t`Same folder on ${hostLabel}`}
             htmlFor="receiving-local-root"
             aside={
-              <InfoTip label="About the receiving folder">
-                This maps the collection folder to the same directory on this host. It must contain
-                the source storage folder shown below. Sign-in stays in each source's trusted setup.
+              <InfoTip label={t`About the receiving folder`}>
+                {t`This maps the collection folder to the same directory on this host. It must contain the source storage folder shown below. Sign-in stays in each source's trusted setup.`}
               </InfoTip>
             }
           >
@@ -133,17 +130,17 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
               <HostPathPicker
                 targetId="local"
                 hostLabel={hostLabel}
-                label="Receiving folder"
+                label={t`Receiving folder`}
                 path={current.local_root}
                 onChoose={(path) => change('local_root', path)}
               />
             </div>
           </SourceField>
           <p className="break-all text-xs text-muted-foreground">
-            Source storage: {query.data?.storage_root}
+            {t`Source storage: ${ph({ storage_root: query.data?.storage_root ?? '' })}`}
           </p>
           <Button type="submit" disabled={save.isPending || query.isPending}>
-            {save.isPending ? 'Saving…' : 'Save receiving storage'}
+            {save.isPending ? t`Saving…` : t`Save receiving storage`}
           </Button>
         </form>
       </details>

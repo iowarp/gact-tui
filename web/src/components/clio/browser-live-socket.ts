@@ -5,6 +5,7 @@ import {
   type BrowserLiveState,
   type DocumentAnchor,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /** What the person sends to the shared page, in page CSS pixels. */
 export type BrowserInput =
@@ -119,10 +120,10 @@ export interface BrowserLiveConnection {
 
 /** The plain-language reason for a refused live view. */
 export function liveRefusalMessage(code: number, reason: string): string {
-  if (code === 4401) return 'This browser view needs the connection’s access token.';
-  if (code === 4403) return 'This window may not open the live view of this page.';
-  if (code === 4404) return 'This page is closed.';
-  return reason || 'The live view ended.';
+  if (code === 4401) return t`This browser view needs the connection’s access token.`;
+  if (code === 4403) return t`This window may not open the live view of this page.`;
+  if (code === 4404) return t`This page is closed.`;
+  return reason || t`The live view ended.`;
 }
 
 function base64Url(value: string): string {

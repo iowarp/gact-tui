@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ListRow } from './primitives/list-row';
 import { TranscriptMessagePreview } from './transcript-message-preview';
+import { t } from '@lingui/core/macro';
 
 interface ClioTranscriptOutlineProps {
   activeIndex: number;
@@ -57,14 +58,14 @@ export function ClioTranscriptOutline({
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [onlyMarked, setOnlyMarked] = useState(false);
   const count = messages.filter((message) => marks.markedMessageIds?.has(message.id)).length;
-  const label = 'Transcript outline';
-  const triggerName = heat ? 'Transcript outline with attention' : label;
+  const label = t`Transcript outline`;
+  const triggerName = heat ? t`Transcript outline with attention` : label;
   return (
     <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
       <PopoverTrigger asChild>
         <Button
-          aria-label={`Open ${triggerName.toLowerCase()}`}
-          className="absolute top-2 -left-0.5 z-10 rounded-full"
+          aria-label={heat ? t`Open transcript outline with attention` : t`Open transcript outline`}
+          className="absolute top-2 left-1 z-10 rounded-full"
           data-attention={heat ? '' : undefined}
           size="icon-xs"
           title={triggerName}
@@ -92,7 +93,7 @@ export function ClioTranscriptOutline({
             variant="ghost"
             className="h-7 text-xs"
           >
-            Marked ({count})
+            {t`Marked (${count})`}
           </Button>
         </div>
         <TranscriptOutlineList
@@ -151,7 +152,7 @@ function TranscriptOutlineList({
     >
       {indices.length === 0 ? (
         <p className="px-2 py-4 text-sm text-muted-foreground">
-          No marked messages yet. Use the bookmark beside a message or in its rail preview.
+          {t`No marked messages yet. Use the bookmark beside a message or in its rail preview.`}
         </p>
       ) : null}
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -217,7 +218,19 @@ function TranscriptOutlineItem({
 }) {
   const preview = previews.get(message.id)!;
   const marked = markedMessageIds?.has(message.id) ?? false;
-  const share = heat ? `${formatSharePercent(heat.conversationShare)} of attention` : undefined;
+  const percent = heat ? formatSharePercent(heat.conversationShare) : undefined;
+  const share = percent ? t`${percent} of attention` : undefined;
+  const role = message.role;
+  const number = index + 1;
+  const target = t`Jump to ${role} message ${number}`;
+  const jumpLabel =
+    marked && share
+      ? t`${target}, marked, ${share}`
+      : marked
+        ? t`${target}, marked`
+        : share
+          ? `${target}, ${share}`
+          : target;
   const previewDismissedRef = useRef(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const jump = () => {
@@ -237,8 +250,8 @@ function TranscriptOutlineItem({
       <HoverCardTrigger asChild>
         <ListRow
           aria-current={active ? 'location' : undefined}
-          aria-label={`Jump to ${message.role} message ${index + 1}${marked ? ', marked' : ''}${share ? `, ${share}` : ''}`}
-          className="absolute top-0 right-1 left-0 cursor-pointer text-[12.5px] text-foreground"
+          aria-label={jumpLabel}
+          className="absolute top-0 right-1 left-0 cursor-pointer text-menu text-foreground"
           data-heat={heat?.heated ? heat.bucket : undefined}
           data-index={position}
           data-slot="transcript-outline-row"
@@ -253,13 +266,13 @@ function TranscriptOutlineItem({
             ) : undefined
           }
           meta={
-            <span className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
-              {active ? <span>Here</span> : null}
+            <span className="flex items-center gap-2 text-caption text-muted-foreground tabular-nums">
+              {active ? <span>{t`Here`}</span> : null}
               {heat ? (
                 <span
                   className={cn(heat.heated && 'text-chart-5')}
                   data-slot="transcript-outline-attention"
-                  title={`${formatSharePercent(heat.conversationShare)} of the attention on the conversation`}
+                  title={percent ? t`${percent} of the attention on the conversation` : undefined}
                 >
                   {formatSharePercent(heat.conversationShare)}
                 </span>
@@ -278,6 +291,7 @@ function TranscriptOutlineItem({
           }}
           role="button"
           selected={active}
+          // i18n-ignore: CSS transform, not copy
           style={{ transform: `translateY(${start}px)` }}
           tabIndex={0}
           title={preview.title}
@@ -285,7 +299,7 @@ function TranscriptOutlineItem({
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
-        aria-label={`${message.role} message ${index + 1} preview`}
+        aria-label={t`${role} message ${number} preview`}
         className="w-72 max-w-[calc(100vw-2rem)] p-3"
         role="region"
         side="right"

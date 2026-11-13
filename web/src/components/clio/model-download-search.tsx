@@ -1,4 +1,13 @@
-import { memo, useCallback, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { RegistryModel } from '@clio/core/v3';
 import { CheckIcon, LockIcon } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -19,13 +28,15 @@ import { modelFactSummary, parameterSizeLabel } from '@/lib/model-facts';
 import { ModelPickerSearch } from './model-picker-search';
 import { StateView } from './primitives/state-view';
 import { hubSearchFacets } from '@/lib/hub-search-facets';
+import { formatLocale } from '@/lib/locale-format';
+import { ph, plural, t } from '@lingui/core/macro';
 
 type RepositoryModel = Pick<
   RegistryModel,
   'repository' | 'revision' | 'task' | 'gated' | 'downloads' | 'capability_tags' | 'model_facts'
 > & { size_bytes?: number | null };
 
-const compactCount = new Intl.NumberFormat(undefined, {
+const compactCount = new Intl.NumberFormat(formatLocale(), {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
@@ -52,10 +63,10 @@ function resultFacts(model: RepositoryModel) {
   const detail = [...words];
   const fullDetail = [...words];
   if (model.downloads != null) {
-    detail.push(`${compactCount.format(model.downloads)} downloads`);
-    fullDetail.push(`${model.downloads.toLocaleString()} downloads`);
+    detail.push(t`${ph({ count: compactCount.format(model.downloads) })} downloads`);
+    fullDetail.push(plural(model.downloads, { one: '# download', other: '# downloads' }));
   }
-  if (model.gated) fullDetail.push('Requires access');
+  if (model.gated) fullDetail.push(t`Requires access`);
   return { meta, detail: detail.join(', '), fullDetail: fullDetail.join(', ') };
 }
 
@@ -76,7 +87,7 @@ const ResultRow = memo(function ResultRow({
   return (
     <div
       className={cn(
-        'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-[12.5px] whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
+        'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-menu whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
         chosen ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-hover',
       )}
       title={fullDetail ? `${model.repository}\n${fullDetail}` : model.repository}
@@ -100,7 +111,7 @@ const ResultRow = memo(function ResultRow({
         <span className="truncate">{model.repository}</span>
         {detail ? (
           <small
-            className={cn('truncate text-[11px]', chosen ? 'text-accent-foreground' : 'text-faint')}
+            className={cn('truncate text-caption', chosen ? 'text-accent-foreground' : 'text-faint')}
           >
             {detail}
           </small>
@@ -110,7 +121,7 @@ const ResultRow = memo(function ResultRow({
       <span className="relative ml-auto grid shrink-0 grid-cols-[58px_34px] items-center gap-x-2 pl-2">
         <span
           className={cn(
-            'truncate text-right text-[11px] tabular-nums',
+            'truncate text-right text-caption tabular-nums',
             chosen ? 'text-accent-foreground' : 'text-faint',
           )}
         >
@@ -120,8 +131,8 @@ const ResultRow = memo(function ResultRow({
           {model.gated ? (
             <span
               role="img"
-              aria-label="Requires access"
-              title="Requires access"
+              aria-label={t`Requires access`}
+              title={t`Requires access`}
               className="grid size-4 place-items-center"
             >
               <LockIcon aria-hidden="true" className="size-3.5" />
@@ -130,8 +141,8 @@ const ResultRow = memo(function ResultRow({
           {chosen ? (
             <span
               role="img"
-              aria-label="Selected"
-              title="Selected"
+              aria-label={t`Selected`}
+              title={t`Selected`}
               className="grid size-4 place-items-center"
             >
               <CheckIcon aria-hidden="true" className="size-3.5" />
@@ -224,7 +235,7 @@ export function ModelDownloadSearch({
   const facets = useMemo(() => {
     const loadedFacets = buildModelFacets(entries, tokens)
       .filter((tab) => tab.chipCount > 0)
-      .map((tab) => (tab.id === 'providers' ? { ...tab, label: 'Organizations' } : tab));
+      .map((tab) => (tab.id === 'providers' ? { ...tab, label: t`Organizations` } : tab));
     return hubFacets ? hubSearchFacets(loadedFacets, tokens) : loadedFacets;
   }, [entries, tokens, hubFacets]);
   const availableTokens = useMemo(
@@ -271,8 +282,35 @@ export function ModelDownloadSearch({
     event.preventDefault();
     rows[next].focus();
   };
+  // A search that lands after a pick replaces the rows. Keep focus in the chooser (the chosen
+  // row, else the search field) instead of letting it fall to the dialog, outside the form's keys.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const rowFocused = useRef(false);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !rowFocused.current) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && root.contains(active)) return;
+    if (active && active !== document.body && !active.matches('[role="dialog"]')) return;
+    const rows = [...root.querySelectorAll<HTMLButtonElement>('button[data-repository]')];
+    const target =
+      rows.find((row) => row.dataset.repository === selected) ??
+      root.querySelector<HTMLInputElement>('#model-search');
+    rowFocused.current = false;
+    target?.focus();
+  }, [models, visible, selected, searching]);
   return (
     <div
+      ref={rootRef}
+      onFocus={(event) => {
+        rowFocused.current = Boolean((event.target as HTMLElement).dataset.repository);
+      }}
+      onBlur={(event) => {
+        // A removed row blurs with no next target; anywhere else ends the watch.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          rowFocused.current = false;
+        }
+      }}
       className="flex min-h-0 min-w-0 flex-col gap-2.5"
       onKeyDownCapture={(event) => {
         if (event.key === 'Escape' && facetsOpen) {
@@ -284,11 +322,11 @@ export function ModelDownloadSearch({
     >
       <Field>
         <FieldLabel htmlFor="model-search" className="sr-only">
-          Find on Hugging Face
+          {t`Find on Hugging Face`}
         </FieldLabel>
         <ModelPickerSearch
           inputId="model-search"
-          label="Find on Hugging Face"
+          label={t`Find on Hugging Face`}
           query={query}
           onQueryChange={onQuery}
           onSearch={onSearch}
@@ -307,26 +345,26 @@ export function ModelDownloadSearch({
       </Field>
       <div className="-mx-2 flex min-h-0 min-w-0 flex-1 flex-col">
         {heading ? (
-          <div className="flex min-w-0 items-center gap-1.5 px-2 pt-1.5 pb-0.5 text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5 px-2 pt-1.5 pb-0.5 text-caption font-semibold whitespace-nowrap text-muted-foreground">
             <span className="min-w-0 truncate">{heading}</span>
             {headingAction}
           </div>
         ) : null}
-        {searching ? <StateView kind="loading" size="row" title="Searching models…" /> : null}
+        {searching ? <StateView kind="loading" size="row" title={t`Searching models…`} /> : null}
         {error && !searching ? (
           <div title={error.message}>
             <StateView
-              action={{ label: 'Retry', onClick: onSearch }}
+              action={{ label: t`Retry`, onClick: onSearch }}
               kind="error"
               size="row"
-              title="The agent could not search Hugging Face."
+              title={t`The agent could not search Hugging Face.`}
             />
           </div>
         ) : null}
         {models ? (
           <div
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-            aria-label="Model search results"
+            aria-label={t`Model search results`}
             onFocus={(event) => {
               const repository = (event.target as HTMLElement).dataset.repository;
               if (repository) setFocusedRow(repository);
@@ -338,7 +376,7 @@ export function ModelDownloadSearch({
               <StateView
                 kind="empty"
                 size="row"
-                title="No models match. Change the search or the filters."
+                title={t`No models match. Change the search or the filters.`}
               />
             ) : (
               visible.map((model) => (
@@ -355,11 +393,11 @@ export function ModelDownloadSearch({
               <button
                 type="button"
                 disabled={loadMore.loading}
-                className="flex min-h-[30px] w-full shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-accent-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-transparent"
+                className="flex min-h-[30px] w-full shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-menu whitespace-nowrap text-accent-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-transparent"
                 onClick={loadMore.onLoad}
               >
                 <AddIcon aria-hidden="true" className="size-[15px] shrink-0" />
-                {loadMore.loading ? 'Loading…' : 'Load more models'}
+                {loadMore.loading ? t`Loading…` : t`Load more models`}
               </button>
             ) : null}
           </div>

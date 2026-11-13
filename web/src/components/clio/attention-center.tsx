@@ -33,7 +33,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { useNotificationPreferences } from '@/providers/notification-preferences-provider';
-import { type AwayTone, awayRows } from './attention-away';
+import { type AwayTone, awaySentence, awayRows } from './attention-away';
 import { NoticeFrame } from './attention-notice-frame';
 import { sessionPath } from './session-path';
 import { AttentionUpdateRows } from './attention-update-rows';
@@ -42,6 +42,8 @@ import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { permissionCommand } from './permission-operation-labels';
 import { ClioRelativeTime } from './relative-time';
+import { plural, select, t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 interface AttentionProps {
   activeSessionId: string;
@@ -51,8 +53,7 @@ interface AttentionProps {
   workspaces?: readonly Workspace[];
 }
 
-const NOTIFICATION_ASK_DETAIL =
-  'A system notice and sound when a conversation needs your answer or approval, or finishes while you are away.';
+const NOTIFICATION_ASK_DETAIL = t`A system notice and sound when a conversation needs your answer or approval, or finishes while you are away.`;
 
 /** Rows "While you were away" shows before folding the rest into "N earlier". */
 const AWAY_VISIBLE = 5;
@@ -73,20 +74,53 @@ function suggestedFrom(sessionIds: readonly string[], sessions: readonly Session
     const title = titles.get(id);
     return title ? [title] : [];
   });
-  if (named.length === 0) return 'Suggested from your conversations';
-  if (named.length === 1) return `Suggested from ${named[0]}`;
-  if (named.length === 2) return `Suggested from ${named[0]} and ${named[1]}`;
-  return `Suggested from ${named[0]}, ${named[1]} and ${named.length - 2} more`;
+  if (named.length === 0) return t`Suggested from your conversations`;
+  if (named.length === 1) return t`Suggested from ${ph({ first: named[0] })}`;
+  if (named.length === 2)
+    return t`Suggested from ${ph({ first: named[0] })} and ${ph({ second: named[1] })}`;
+  return t`Suggested from ${ph({ first: named[0] })}, ${ph({ second: named[1] })} and ${ph({ more: named.length - 2 })} more`;
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
+/** What a conversation is waiting on, as a stable id; `attentionSentence` words it. */
+type AttentionVerb =
+  | 'approval'
+  | 'question'
+  | 'value'
+  | 'form'
+  | 'request'
+  | 'command'
+  | 'needsYou';
+
+/** The conversation's name with what it waits on: "Survey wants approval". */
+function attentionSentence(verb: AttentionVerb, title: string): string {
+  return select(verb, {
+    approval: `${title} wants approval`,
+    question: `${title} asked a question`,
+    value: `${title} needs a value`,
+    form: `${title} shows a form`,
+    request: `${title} sent a request`,
+    command: `${title} wants to run a command`,
+    other: `${title} needs you`,
+  });
+}
+
+/** A sentence with the conversation's name in it, the name set in bold. */
+function NamedSentence({ sentence, name }: { sentence: string; name: string }) {
+  const at = name ? sentence.indexOf(name) : -1;
+  if (at < 0) return <>{sentence}</>;
+  return (
+    <>
+      {sentence.slice(0, at)}
+      <span className="font-semibold text-foreground">{name}</span>
+      {sentence.slice(at + name.length)}
+    </>
+  );
 }
 
 interface AttentionKind {
   icon: LucideIcon;
-  /** Follows the conversation's name: "Survey wants approval". */
-  verb: string;
+  /** What the conversation waits on: "Survey wants approval". */
+  verb: AttentionVerb;
   /** The row's one action word. */
   action: string;
 }
@@ -98,47 +132,57 @@ interface AttentionKind {
 function attentionSummary(attention: SessionAttention): { words: string; kind: AttentionKind } {
   const parts: string[] = [];
   let kind: AttentionKind | undefined;
-  const add = (count: number, one: string, many: string, next: AttentionKind) => {
+  const add = (count: number, words: string, next: AttentionKind) => {
     if (!count) return;
-    parts.push(plural(count, one, many));
+    parts.push(words);
     kind ??= next;
   };
-  add(attention.permissionIds.length, 'approval', 'approvals', {
+  const approvals = attention.permissionIds.length;
+  const questions = attention.questionIds.length;
+  const taskInputs = attention.mcpTaskInputIds.length;
+  const surfaces = attention.a2uiIds.length;
+  const unknown = attention.unknownIds.length;
+  const a2ui = PROTOCOL.a2ui;
+  add(approvals, plural(approvals, { one: '# approval', other: '# approvals' }), {
     icon: ShieldQuestionIcon,
-    verb: 'wants approval',
-    action: 'Review',
+    verb: 'approval',
+    action: t`Review`,
   });
-  add(attention.questionIds.length, 'question', 'questions', {
+  add(questions, plural(questions, { one: '# question', other: '# questions' }), {
     icon: MessageCircleQuestionIcon,
-    verb: 'asked a question',
-    action: 'Answer',
+    verb: 'question',
+    action: t`Answer`,
   });
-  add(attention.mcpTaskInputIds.length, 'task input', 'task inputs', {
+  add(taskInputs, plural(taskInputs, { one: '# task input', other: '# task inputs' }), {
     icon: TextCursorInputIcon,
-    verb: 'needs a value',
-    action: 'Open',
+    verb: 'value',
+    action: t`Open`,
   });
-  add(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`, `${PROTOCOL.a2ui} surfaces`, {
+  add(surfaces, plural(surfaces, { one: `# ${a2ui} surface`, other: `# ${a2ui} surfaces` }), {
     icon: LayoutTemplateIcon,
-    verb: 'shows a form',
-    action: 'Open',
+    verb: 'form',
+    action: t`Open`,
   });
-  add(attention.unknownIds.length, 'unrecognized request', 'unrecognized requests', {
-    icon: InfoIcon,
-    verb: 'sent a request',
-    action: 'Open',
-  });
+  add(
+    unknown,
+    plural(unknown, { one: '# unrecognized request', other: '# unrecognized requests' }),
+    {
+      icon: InfoIcon,
+      verb: 'request',
+      action: t`Open`,
+    },
+  );
   return {
     words: parts.join(', '),
-    kind: kind ?? { icon: InfoIcon, verb: 'needs you', action: 'Open' },
+    kind: kind ?? { icon: InfoIcon, verb: 'needsYou', action: t`Open` },
   };
 }
 
 const REQUEST_KINDS: Readonly<Record<string, AttentionKind>> = {
-  permission: { icon: ShieldQuestionIcon, verb: 'wants approval', action: 'Open' },
-  question: { icon: MessageCircleQuestionIcon, verb: 'asked a question', action: 'Answer' },
-  mcp_task_input: { icon: TextCursorInputIcon, verb: 'needs a value', action: 'Open' },
-  a2ui: { icon: LayoutTemplateIcon, verb: 'shows a form', action: 'Open' },
+  permission: { icon: ShieldQuestionIcon, verb: 'approval', action: t`Open` },
+  question: { icon: MessageCircleQuestionIcon, verb: 'question', action: t`Answer` },
+  mcp_task_input: { icon: TextCursorInputIcon, verb: 'value', action: t`Open` },
+  a2ui: { icon: LayoutTemplateIcon, verb: 'form', action: t`Open` },
 };
 
 interface NeedRow {
@@ -158,10 +202,10 @@ function requestRow(session: Session, request: PendingInteraction): NeedRow {
   const row = { key: request.id, session, timestamp: request.created_at };
   const kind = REQUEST_KINDS[request.kind];
   if (!kind) {
-    const detail = "This version can't show it.";
+    const detail = t`This version can't show it.`;
     return {
       ...row,
-      kind: { icon: InfoIcon, verb: 'sent a request', action: 'Open' },
+      kind: { icon: InfoIcon, verb: 'request', action: t`Open` },
       detail,
       detailText: detail,
     };
@@ -171,17 +215,18 @@ function requestRow(session: Session, request: PendingInteraction): NeedRow {
     const permission = actions.includes('allow') && actions.includes('deny') ? request : undefined;
     const { command, computer } = permissionCommand(request);
     if (command) {
-      const where = computer ? ` on ${computer}` : '';
+      const code = <code className="font-mono text-caption text-foreground/85">{command}</code>;
       return {
         ...row,
-        kind: { ...kind, verb: 'wants to run a command' },
-        detail: (
-          <>
-            <code className="font-mono text-[11px] text-foreground/85">{command}</code>
-            {where}
-          </>
+        kind: { ...kind, verb: 'command' },
+        detail: computer ? (
+          <Trans>
+            {code} on {computer}
+          </Trans>
+        ) : (
+          code
         ),
-        detailText: `${command}${where}`,
+        detailText: computer ? t`${command} on ${computer}` : command,
         permission,
       };
     }
@@ -318,8 +363,8 @@ export function ClioAttentionCenter({
       });
     },
     onError: (_, session) =>
-      toast.error("Couldn't retry the run", {
-        description: `Open ${session.title} to retry it there.`,
+      toast.error(t`Couldn't retry the run`, {
+        description: t`Open ${ph({ title: session.title })} to retry it there.`,
       }),
   });
   // Read only while the bell is open: the badge counts Needs you, not these.
@@ -344,20 +389,31 @@ export function ClioAttentionCenter({
   const unread = away.some((row) => !row.read);
   const empty =
     rows.length === 0 && away.length === 0 && !updateShown && memoryCount === 0 && !askPending;
+  const firstTitle = entries[0]?.session.title ?? '';
+  const sessionCount = entries.length;
+  const agentName = vocab.agent;
+  const memoryTitle = plural(memoryCount, {
+    one: '# memory to review',
+    other: '# memories to review',
+  });
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
       ? updateReady
-        ? 'Notifications: update ready'
+        ? t`Notifications: update ready`
         : askPending
-          ? 'Notifications: turn on alerts'
-          : 'Notifications'
-      : `${
-          entries.length === 1
-            ? `${entries[0]!.session.title} needs your response`
-            : `${entries.length} sessions need your response`
-        }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
-  const groupLabel = 'px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground';
+          ? t`Notifications: turn on alerts`
+          : t`Notifications`
+      : entries.length === 1
+        ? plural(responseCount, {
+            one: `${firstTitle} needs your response; # response pending`,
+            other: `${firstTitle} needs your response; # responses pending`,
+          })
+        : plural(responseCount, {
+            one: `${sessionCount} sessions need your response; # response pending`,
+            other: `${sessionCount} sessions need your response; # responses pending`,
+          });
+  const groupLabel = 'px-2 pt-2.5 pb-1 text-caption font-semibold text-muted-foreground';
   // Spec `.nf`: at least 46px, 6px 8px, so the age and the action share the right column.
   const rowFrame =
     'min-h-[46px] rounded-[6px] px-2 py-1.5 hover:bg-hover has-[a:focus-visible]:bg-hover';
@@ -379,7 +435,14 @@ export function ClioAttentionCenter({
           )}
           count={responseCount || undefined}
           countTone="warning"
-          hoverLabel={responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`}
+          hoverLabel={
+            responseCount === 0
+              ? undefined
+              : plural(responseCount, {
+                  one: 'Notifications, # need you',
+                  other: 'Notifications, # need you',
+                })
+          }
           icon={<BellIcon />}
           label={label}
           shortcut="notifications"
@@ -401,9 +464,9 @@ export function ClioAttentionCenter({
         side="bottom"
       >
         <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
-          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <PopoverTitle className="text-ui font-semibold">{t`Notifications`}</PopoverTitle>
           <button
-            className="ml-auto rounded-[6px] px-1.5 py-0.5 text-[11.5px] font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
+            className="ml-auto rounded-[6px] px-1.5 py-0.5 text-label font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
             disabled={!unread}
             onClick={() =>
               markAllNotificationsRead(
@@ -414,11 +477,11 @@ export function ClioAttentionCenter({
             }
             type="button"
           >
-            Mark all read
+            {t`Mark all read`}
           </button>
           <IconButton
             icon={<SettingsIcon />}
-            label="Notification settings"
+            label={t`Notification settings`}
             onClick={() => {
               setOpen(false);
               navigate('/settings/notifications');
@@ -427,7 +490,7 @@ export function ClioAttentionCenter({
           />
         </div>
         {empty ? (
-          <p className="px-4 pt-4 pb-3 text-[12.5px] text-muted-foreground">Nothing needs you.</p>
+          <p className="px-4 pt-4 pb-3 text-menu text-muted-foreground">{t`Nothing needs you.`}</p>
         ) : null}
         <div
           className="clio-scrollbar flex max-h-[min(30rem,70vh)] flex-col overflow-y-auto px-1.5 pb-2"
@@ -438,7 +501,7 @@ export function ClioAttentionCenter({
           {rows.length > 0 ? (
             <section aria-labelledby="attention-needs-you">
               <h3 className={cn('flex items-center gap-1.5', groupLabel)} id="attention-needs-you">
-                <span>Needs you</span>
+                <span>{t`Needs you`}</span>
                 <span className="text-faint tabular-nums">{responseCount}</span>
               </h3>
               {rows.map((row) => {
@@ -453,8 +516,8 @@ export function ClioAttentionCenter({
                     { interaction: row.permission, action },
                     {
                       onError: () =>
-                        toast.error("Couldn't send your answer", {
-                          description: `Open ${session.title} to answer it there.`,
+                        toast.error(t`Couldn't send your answer`, {
+                          description: t`Open ${ph({ title: session.title })} to answer it there.`,
                         }),
                     },
                   );
@@ -464,12 +527,12 @@ export function ClioAttentionCenter({
                     className={rowFrame}
                     data-slot="attention-request"
                     key={row.key}
-                    subject={`${session.title} ${row.kind.verb}`}
+                    subject={attentionSentence(row.kind.verb, session.title)}
                   >
                     {(expanded) => (
                       <>
                         <Link
-                          aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                          aria-label={`${attentionSentence(row.kind.verb, session.title)}: ${row.detailText}`}
                           className="block outline-none"
                           onClick={() => setOpen(false)}
                           to={to}
@@ -477,53 +540,51 @@ export function ClioAttentionCenter({
                           <ListRow
                             description={row.detail}
                             hoverText={{
-                              title: `${session.title} ${row.kind.verb}`,
+                              title: attentionSentence(row.kind.verb, session.title),
                               description: row.detailText,
                             }}
                             icon={<KindIcon aria-hidden="true" className="text-warning" />}
                             meta={
                               <ClioRelativeTime
-                                className="text-[11px] text-faint"
+                                className="text-caption text-faint"
                                 compact
-                                label="Asked"
+                                label={t`Asked`}
                                 timestamp={row.timestamp}
                               />
                             }
                             expanded={expanded}
                             primaryAction={row.permission ? undefined : row.kind.action}
                             title={
-                              <>
-                                <span className="font-semibold text-foreground">
-                                  {session.title}
-                                </span>{' '}
-                                {row.kind.verb}
-                              </>
+                              <NamedSentence
+                                name={session.title}
+                                sentence={attentionSentence(row.kind.verb, session.title)}
+                              />
                             }
                             variant="notice"
                           />
                         </Link>
                         {row.permission ? (
                           <div
-                            aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                            aria-label={t`Decide: ${ph({ request: attentionSentence(row.kind.verb, session.title) })}`}
+                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
                             role="group"
                           >
                             <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
                               disabled={deciding}
                               onClick={() => decide('allow')}
                               size="xs"
                             >
-                              Allow
+                              {t`Allow`}
                             </Button>
                             <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
                               disabled={deciding}
                               onClick={() => decide('deny')}
                               size="xs"
                               variant="secondary"
                             >
-                              Deny
+                              {t`Deny`}
                             </Button>
                             <Link
                               aria-hidden="true"
@@ -547,7 +608,7 @@ export function ClioAttentionCenter({
           {away.length > 0 ? (
             <section aria-labelledby="attention-away">
               <h3 className={groupLabel} id="attention-away">
-                While you were away
+                {t`While you were away`}
               </h3>
               {shownAway.map((row) => (
                 <NoticeFrame
@@ -555,12 +616,12 @@ export function ClioAttentionCenter({
                   data-read={row.read || undefined}
                   data-slot="attention-away"
                   key={row.session.id}
-                  subject={`${row.session.title} ${row.verb}`}
+                  subject={awaySentence(row.verb, row.session.title)}
                 >
                   {(expanded) => (
                     <>
                       <Link
-                        aria-label={`${row.session.title} ${row.verb}: ${row.detail}`}
+                        aria-label={`${awaySentence(row.verb, row.session.title)}: ${row.detail}`}
                         className="block outline-none"
                         onClick={() => setOpen(false)}
                         to={sessionPath(row.session)}
@@ -568,48 +629,46 @@ export function ClioAttentionCenter({
                         <ListRow
                           description={row.detail}
                           hoverText={{
-                            title: `${row.session.title} ${row.verb}`,
+                            title: awaySentence(row.verb, row.session.title),
                             description: row.detail,
                           }}
                           expanded={expanded}
                           icon={AWAY_ICON[row.tone]}
                           meta={
                             <ClioRelativeTime
-                              className="text-[11px] text-faint"
+                              className="text-caption text-faint"
                               compact
-                              label="Ended"
+                              label={t`Ended`}
                               timestamp={row.timestamp}
                             />
                           }
                           primaryAction={
-                            row.action === 'Retry' ? (
+                            row.retry ? (
                               <span aria-hidden="true" className="invisible">
-                                Retry
+                                {t`Retry`}
                               </span>
                             ) : (
                               row.action
                             )
                           }
                           title={
-                            <>
-                              <span className="font-semibold text-foreground">
-                                {row.session.title}
-                              </span>{' '}
-                              {row.verb}
-                            </>
+                            <NamedSentence
+                              name={row.session.title}
+                              sentence={awaySentence(row.verb, row.session.title)}
+                            />
                           }
                           variant="notice"
                         />
                       </Link>
-                      {row.action === 'Retry' ? (
+                      {row.retry ? (
                         <button
-                          aria-label={`Retry ${row.session.title}`}
-                          className="absolute right-2 bottom-1.5 text-[11.5px] leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
+                          aria-label={t`Retry ${ph({ title: row.session.title })}`}
+                          className="absolute right-2 bottom-1.5 text-label leading-4.5 font-semibold text-accent-foreground hover:underline disabled:opacity-50"
                           disabled={retry.isPending && retry.variables?.id === row.session.id}
                           onClick={() => retry.mutate(row.session)}
                           type="button"
                         >
-                          Retry
+                          {t`Retry`}
                         </button>
                       ) : null}
                     </>
@@ -634,43 +693,46 @@ export function ClioAttentionCenter({
                       <ListRow
                         description={NOTIFICATION_ASK_DETAIL}
                         expanded={expanded}
-                        hoverText={{ description: NOTIFICATION_ASK_DETAIL }}
-                        icon={<BellIcon className="text-info" />}
+                        hoverText={{
+                          title: t`Get notified when ${ph({ agent: agentName })} needs you`,
+                          description: NOTIFICATION_ASK_DETAIL,
+                        }}
+                        icon={<BellIcon />}
                         title={
-                          <span className="font-semibold text-foreground">
-                            Get notified when {vocab.agent} needs you
-                          </span>
+                          <Trans>
+                            <span className="font-semibold text-foreground">Get notified</span> when{' '}
+                            {agentName} needs you
+                          </Trans>
                         }
                         variant="notice"
                       />
                       <div
-                        aria-label="Desktop alerts"
-                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
+                        aria-label={t`Desktop alerts`}
+                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
                         role="group"
                       >
                         <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
                           onClick={() =>
                             void answerNotificationAsk(true).then((answer) => {
                               if (answer === 'denied') {
-                                toast('Notifications are off', {
-                                  description:
-                                    'Turn them on in Settings › Notifications at any time.',
+                                toast(t`Notifications are off`, {
+                                  description: t`Turn them on in Settings › Notifications at any time.`,
                                 });
                               }
                             })
                           }
                           size="xs"
                         >
-                          Allow
+                          {t`Allow`}
                         </Button>
                         <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
                           onClick={() => void answerNotificationAsk(false)}
                           size="xs"
                           variant="secondary"
                         >
-                          Not now
+                          {t`Not now`}
                         </Button>
                       </div>
                     </>
@@ -693,14 +755,13 @@ export function ClioAttentionCenter({
                       <ListRow
                         description={memorySources}
                         expanded={expanded}
-                        hoverText={{ description: memorySources }}
+                        hoverText={{
+                          title: memoryTitle,
+                          description: memorySources,
+                        }}
                         icon={<BrainCircuitIcon />}
-                        primaryAction="Review"
-                        title={
-                          <span className="font-semibold text-foreground">
-                            {plural(memoryCount, 'memory', 'memories')} to review
-                          </span>
-                        }
+                        primaryAction={t`Review`}
+                        title={<span className="font-semibold text-foreground">{memoryTitle}</span>}
                         variant="notice"
                       />
                     </Link>
@@ -711,12 +772,12 @@ export function ClioAttentionCenter({
           ) : null}
           {earlier > 0 ? (
             <button
-              className="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-left text-[11.5px] text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
+              className="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-left text-label text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
               onClick={() => setShowEarlier(true)}
               type="button"
             >
               <ChevronDownIcon aria-hidden="true" className="size-3.5" />
-              {earlier} earlier
+              {t`${earlier} earlier`}
             </button>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
 import type { SourceMode } from '@clio/core/v3';
 import type { DownloadAccess, LinkAccess } from './connected-source-labels';
+import { t } from '@lingui/core/macro';
 
 /** The spec's Access rows, shared by connecting a source and managing one. */
 export type SourceAccess = 'read_only' | 'editable' | 'write';
@@ -9,9 +10,9 @@ export const sourceAccessRows: ReadonlyArray<{
   label: string;
   detail?: string;
 }> = [
-  { value: 'read_only', label: 'Read only' },
-  { value: 'editable', label: 'Editable download', detail: 'Edit locally, publish later' },
-  { value: 'write', label: 'Read and write link', detail: 'Update originals on save' },
+  { value: 'read_only', label: t`Read only` },
+  { value: 'editable', label: t`Editable download`, detail: t`Edit locally, publish later` },
+  { value: 'write', label: t`Read and write link`, detail: t`Update originals on save` },
 ];
 
 /** A new source's access is its mode: read only, a working copy, or write-enabled. */
@@ -35,7 +36,7 @@ export function unavailableAccess(provider: {
     const mode = accessModes[access];
     if (!provider.capabilities.supported_modes.includes(mode))
       result[access] =
-        provider.capabilities.unavailable_reasons?.[mode] ?? 'Not offered by this source';
+        provider.capabilities.unavailable_reasons?.[mode] ?? t`Not offered by this source`;
   }
   return result;
 }

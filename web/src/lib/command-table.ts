@@ -1,4 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export interface CommandGroup {
   heading: string;
@@ -19,12 +20,12 @@ export function commandGroups(commands: readonly CommandDefinition[]): CommandGr
     } else runnable.push(command);
   }
   return [
-    { heading: 'Commands', rows: runnable },
-    { heading: 'Skills', rows: skills },
+    { heading: t`Commands`, rows: runnable },
+    { heading: t`Skills`, rows: skills },
     ...[...servers]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([server, rows]) => ({
-        heading: `${server} prompts`,
+        heading: t`${server} prompts`,
         rows,
       })),
   ].filter((group) => group.rows.length > 0);

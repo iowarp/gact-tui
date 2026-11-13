@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { ScenegraphEvent, View } from 'vega';
 import type { ChartRow } from './chart-data';
 import { embedChart, prepareChartSpec, type ChartRenderer } from './chart-embed';
-import { useThemeKey } from '@/theme/runtime';
+import { useInterfaceScale, useThemeKey } from '@/theme/runtime';
 import { withDefaultProjectionFit } from './chart-projection-fit';
 import { withSeriesLegend } from './chart-series-legend';
 import {
@@ -28,6 +28,7 @@ import {
 } from './chart-box-selection';
 import { cloneRows } from './chart-view-helpers';
 import type { SelectionState, SelectionWriter } from './selection-state';
+import { t } from '@lingui/core/macro';
 
 interface ChartViewOptions {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -106,8 +107,10 @@ export function useChartView({
   const additiveBrushRef = useRef(false);
   const setSelectionRef = useRef(setSelection);
   const [embedError, setEmbedError] = useState('');
-  // Colors are resolved from the theme at embed time, so a theme change re-embeds.
+  // Colors and type sizes are resolved at embed time, so a theme or Interface
+  // size change re-embeds.
   const theme = useThemeKey();
+  const scale = useInterfaceScale();
   // Use the unfiltered source domain: hiding a category must not recolour the rest
   // or rebuild the view and lose the person's zoom/selection. New categories can
   // extend the domain, retaining the identities of those already present.
@@ -120,7 +123,7 @@ export function useChartView({
       embedSpec &&
       withChartCategoryColors(embedSpec, JSON.parse(categoryDomainKey) as ChartCategoryDomains),
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [embedSpec, categoryDomainKey, theme],
+    [embedSpec, categoryDomainKey, theme, scale],
   );
   const [zoomActive, setZoomActive] = useState(false);
   const [linkable, setLinkable] = useState(true);
@@ -310,10 +313,10 @@ export function useChartView({
             },
           });
         } else if (boxSelectMode) {
-          setEmbedError('Box selection is unavailable for this chart.');
+          setEmbedError(t`Box selection is unavailable for this chart.`);
         }
         if (!canLink) {
-          if (boxSelectMode) setEmbedError('Selection is unavailable for this chart.');
+          if (boxSelectMode) setEmbedError(t`Selection is unavailable for this chart.`);
           return;
         }
         const binding = bindChartSelection(view, {

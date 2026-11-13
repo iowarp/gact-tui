@@ -62,7 +62,7 @@ export function ScienceStatus({ state, className }: { state: ScienceState; class
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-end gap-1 text-[11.5px] leading-4 text-muted-foreground',
+        'inline-flex shrink-0 items-center justify-end gap-1 text-label leading-4 text-muted-foreground',
         state.tone === 'supported' && 'text-status-supported-foreground',
         state.tone === 'refuted' && 'text-destructive',
         className,

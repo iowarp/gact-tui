@@ -21,15 +21,15 @@ const buttonVariants = cva(
           'bg-destructive/10 text-destructive-text hover:bg-destructive/20 focus-visible:border-destructive focus-visible:ring-destructive dark:bg-destructive/20 dark:hover:bg-destructive/30',
         // A confirm that deletes for good: the one solid red button (spec `.xb.dz`).
         danger:
-          'border-destructive bg-destructive text-background hover:border-destructive/90 hover:bg-destructive/90 focus-visible:border-ring focus-visible:ring-foreground',
+          'border-destructive-solid bg-destructive-solid text-destructive-solid-foreground hover:border-destructive-solid/90 hover:bg-destructive-solid/90 focus-visible:border-ring focus-visible:ring-foreground',
         link: 'text-link underline-offset-4 hover:underline',
       },
       size: {
         default:
-          'h-7 gap-1.5 rounded-[7px] px-2.5 text-[12.5px] has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
+          'h-7 gap-1.5 rounded-[7px] px-2.5 text-menu has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         compact:
-          "h-6 gap-1 rounded-[6px] px-[9px] text-[11.5px] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+          "h-6 gap-1 rounded-[6px] px-[9px] text-label has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: 'h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
         icon: 'size-7 rounded-[6px]',

@@ -1,17 +1,33 @@
 import type { RunState, Session, Workspace } from '@clio/core/v3';
 import type { SessionAttention } from '@/lib/session-attention';
 import type { NotificationReads } from '@/lib/notification-reads';
+import { select, t } from '@lingui/core/macro';
 
 export type AwayTone = 'success' | 'error' | 'warning' | 'stopped';
 
+/** What happened to the run, as a stable id; `awaySentence` words it. */
+export type AwayVerb = 'finished' | 'stopped' | 'needsRecovery' | 'paused';
+
+/** The conversation's name with what happened to it: "Survey finished". */
+export function awaySentence(verb: AwayVerb, title: string): string {
+  return select(verb, {
+    finished: `${title} finished`,
+    stopped: `${title} stopped`,
+    needsRecovery: `${title} needs recovery`,
+    paused: `${title} paused`,
+    other: `${title} stopped`,
+  });
+}
+
 interface AwayKind {
-  /** Follows the conversation's name: "Survey finished". */
-  verb: string;
+  verb: AwayVerb;
   /** What happened, when the conversation's place is unknown. */
   detail?: string;
   tone: AwayTone;
   /** The row's one action word; a finished run needs none. */
   action?: string;
+  /** The action retries the run. */
+  retry?: boolean;
   /** The run is over: Finished work "Off" leaves these out. Paused and recovery wait on a person. */
   ended: boolean;
 }
@@ -21,42 +37,45 @@ const AWAY_KINDS: Partial<Record<RunState, AwayKind>> = {
   completed: { verb: 'finished', tone: 'success', ended: true },
   failed: {
     verb: 'stopped',
-    detail: 'The run ended with an error',
+    detail: t`The run ended with an error`,
     tone: 'error',
-    action: 'Retry',
+    action: t`Retry`,
+    retry: true,
     ended: true,
   },
   interrupted: {
     verb: 'stopped',
-    detail: 'The run stopped before it finished',
+    detail: t`The run stopped before it finished`,
     tone: 'error',
-    action: 'Retry',
+    action: t`Retry`,
+    retry: true,
     ended: true,
   },
   recovery_required: {
-    verb: 'needs recovery',
-    detail: 'Open it to recover the run',
+    verb: 'needsRecovery',
+    detail: t`Open it to recover the run`,
     tone: 'warning',
-    action: 'Open',
+    action: t`Open`,
     ended: false,
   },
   paused: {
     verb: 'paused',
-    detail: 'The run is waiting to continue',
+    detail: t`The run is waiting to continue`,
     tone: 'warning',
-    action: 'Review',
+    action: t`Review`,
     ended: false,
   },
-  stopped: { verb: 'stopped', detail: 'The run was stopped', tone: 'stopped', ended: true },
-  cancelled: { verb: 'stopped', detail: 'The run was cancelled', tone: 'stopped', ended: true },
+  stopped: { verb: 'stopped', detail: t`The run was stopped`, tone: 'stopped', ended: true },
+  cancelled: { verb: 'stopped', detail: t`The run was cancelled`, tone: 'stopped', ended: true },
 };
 
 export interface AwayRow {
   session: Session;
-  verb: string;
+  verb: AwayVerb;
   detail: string;
   tone: AwayTone;
   action?: string;
+  retry: boolean;
   ended: boolean;
   timestamp: string;
   /** Before "Mark all read": shown faint. */
@@ -95,13 +114,14 @@ export function awayRows(
     if (ended <= since || ended <= time(reads.seen[session.id])) continue;
     const place = names.get(session.workspace_id);
     // The run's own reason is not in the session yet, so the place is the detail.
-    const detail = place ? `In ${place}` : (kind.detail ?? 'Its turn is done');
+    const detail = place ? t`In ${place}` : (kind.detail ?? t`Its turn is done`);
     rows.push({
       session,
       verb: kind.verb,
       detail,
       tone: kind.tone,
       action: kind.action,
+      retry: Boolean(kind.retry),
       ended: kind.ended,
       timestamp: session.updated_at,
       read: ended <= readThrough,

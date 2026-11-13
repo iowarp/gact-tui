@@ -31,6 +31,7 @@ import {
   keepFocusInFrame,
   type FileViewerModeSlot,
 } from './file-viewer-modes';
+import { t } from '@lingui/core/macro';
 
 export interface FileMode {
   value: string;
@@ -206,7 +207,7 @@ export function FileModeControls({
   modes,
   value,
   onChange,
-  label = 'File representations',
+  label = t`File representations`,
 }: {
   modes: readonly FileMode[];
   value: string;

@@ -9,7 +9,6 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
 import { SETTINGS_COLUMN } from '@/lib/settings-fold';
-import { cn } from '@/lib/utils';
 import { ClioModelPicker } from './model-picker';
 import type { ProviderGroup } from './model-picker-model';
 import { ListDetailLayout } from './primitives/detail-pane';
@@ -21,6 +20,7 @@ import { ModelServerRow } from './settings-model-server-row';
 import { resolveActivePreset } from './settings-models-form';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Settings > Providers: the model servers on this computer or the person's
@@ -29,6 +29,8 @@ import { SettingsSectionHeading } from './settings-section-heading';
  * in the model picker, which this page opens, on the provider asked for when
  * the page was reached with `?provider=`.
  */
+const { agent } = vocab;
+
 export function ProvidersSettings() {
   const [searchParams] = useSearchParams();
   const requestedProvider = searchParams.get('provider');
@@ -135,23 +137,23 @@ export function ProvidersSettings() {
   const requestedCloud = cloud.find((preset) => preset.id === requestedProvider);
 
   const list = (
-    // One setting column (spec `.xrw`) for the list and the rows, so their right
-    // edges meet; beside an open details pane the column is the list's whole side.
-    <div className={cn('pb-4', !opened && SETTINGS_COLUMN)}>
+    // Lists fill the pane, as on every list page (spec 1722); beside an open
+    // details pane the column is the list's whole side.
+    <div className="pb-4">
       {/* The list's name is a search result: Ctrl K lands here. */}
       <div data-setting="Model servers">
         <SettingsGroupLabel
-          addLabel="Add server"
+          addLabel={t`Add server`}
           className="mt-2"
-          info="Model servers on this computer or your own machines."
+          info={t`Model servers on this computer or your own machines.`}
           onAdd={() => setAdding(true)}
         >
-          Model servers
+          {t`Model servers`}
         </SettingsGroupLabel>
         {rows.length ? (
           <ItemList
             className="border-t border-border/70"
-            label={`Model servers, ${running} of ${rows.length} running`}
+            label={t`Model servers, ${running} of ${ph({ total: rows.length })} running`}
           >
             {rows.map((row) => (
               <div
@@ -181,12 +183,8 @@ export function ProvidersSettings() {
             ))}
           </ItemList>
         ) : (
-          <StateView
-            action={{ label: 'Add server', onClick: () => setAdding(true) }}
-            kind="empty"
-            size="row"
-            title="No model servers yet"
-          />
+          // The group label's + is the one add (spec 1721).
+          <StateView kind="empty" size="row" title={t`No model servers yet`} />
         )}
       </div>
       {apply.error ? (
@@ -198,12 +196,12 @@ export function ProvidersSettings() {
           {apply.error.message}
         </p>
       ) : null}
-      <SettingsGroupLabel className="mt-6">Cloud and subscription providers</SettingsGroupLabel>
+      <SettingsGroupLabel className="mt-6">{t`Cloud and subscription providers`}</SettingsGroupLabel>
       <div className="@container" data-slot="cloud-providers">
         <SettingsRow
           fullWidth
-          info="Cloud and subscription providers are set up from the model picker."
-          title="Keys and sign-ins"
+          info={t`Cloud and subscription providers are set up from the model picker.`}
+          title={t`Keys and sign-ins`}
         >
           <ClioModelPicker
             catalogStatus={catalogStatus}
@@ -220,12 +218,12 @@ export function ProvidersSettings() {
                       }
                     : undefined
                 }
-                className="h-[1.875rem] px-3 text-[0.78125rem]"
+                className="h-[1.875rem] px-3 text-menu"
                 size="sm"
                 type="button"
                 variant="outline"
               >
-                Open model picker
+                {t`Open model picker`}
               </Button>
             }
           />
@@ -237,14 +235,14 @@ export function ProvidersSettings() {
   return (
     <div className="flex flex-col" data-slot="providers-settings">
       <SettingsSectionHeading
-        info={`Where ${vocab.agent}'s models come from: model servers you run, and cloud or subscription accounts.`}
-        title="Providers"
+        info={t`Where ${agent}'s models come from: model servers you run, and cloud or subscription accounts.`}
+        title={t`Providers`}
       />
       {error ? (
         <div className={SETTINGS_COLUMN} title={error.message}>
           <StateView
             action={{
-              label: 'Retry',
+              label: t`Retry`,
               onClick: () => {
                 void configuration.refetch();
                 void servers.refetch();
@@ -252,11 +250,11 @@ export function ProvidersSettings() {
             }}
             kind="error"
             size="row"
-            title="The agent could not load providers."
+            title={t`The agent could not load providers.`}
           />
         </div>
       ) : loading ? (
-        <StateView kind="loading" size="row" title="Loading providers…" />
+        <StateView kind="loading" size="row" title={t`Loading providers…`} />
       ) : (
         <ListDetailLayout
           detail={

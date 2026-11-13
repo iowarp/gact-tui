@@ -1,4 +1,5 @@
 import type { TransportFrame } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /**
  * The live events a person has to be told about, because refreshing a query
@@ -38,9 +39,9 @@ export function streamNoticeForFrame(frame: TransportFrame): StreamNotice | unde
   return {
     code: 'queued_message.promotion_failed',
     id: `queued_message.promotion_failed:${entityId(frame)}`,
-    title: 'A queued message could not be sent',
+    title: t`A queued message could not be sent`,
     description: recoverable(frame)
-      ? 'It is still in the queue. Send it again once the current turn settles.'
-      : 'It is still in the queue, and the service will not retry it on its own.',
+      ? t`It is still in the queue. Send it again once the current turn settles.`
+      : t`It is still in the queue, and the service will not retry it on its own.`,
   };
 }

@@ -24,6 +24,7 @@ import {
   readAttentionEvidence,
   type AttentionEvidenceInspection,
 } from '@/lib/attention-evidence-navigation';
+import { t, ph } from '@lingui/core/macro';
 
 type Item = { reference: ContentSelection; label: string };
 function itemFor(target: SelectionTarget): Item | undefined {
@@ -146,7 +147,7 @@ function ScopedAttentionLookup({
         ) {
           setResult(undefined);
           setError(
-            'The referenced capture or aggregation profile is unavailable. No replacement was selected.',
+            t`The referenced capture or aggregation profile is unavailable. No replacement was selected.`,
           );
           return;
         }
@@ -176,7 +177,7 @@ function ScopedAttentionLookup({
         }
       } catch (failure) {
         if (!controller.signal.aborted)
-          setError(failure instanceof Error ? failure.message : 'Attention lookup failed.');
+          setError(failure instanceof Error ? failure.message : t`Attention lookup failed.`);
       } finally {
         if (!controller.signal.aborted) setBusy(false);
       }
@@ -201,10 +202,10 @@ function ScopedAttentionLookup({
       inspectedHash.current = window.location.hash;
       const link = readAttentionEvidence(window.location.hash, sessionId);
       if (!link) return;
-      const selected = link.selections.map((reference) => ({
-        reference,
-        label: `Evidence: ${reference.field ?? 'content'}`,
-      }));
+      const selected = link.selections.map((reference) => {
+        const field = reference.field ?? 'content';
+        return { reference, label: t`Evidence: ${field}` };
+      });
       setItems(selected);
       setDirection(link.direction);
       setProfile(link.profile);
@@ -230,7 +231,7 @@ function ScopedAttentionLookup({
       unique.set(JSON.stringify(item.reference), item);
       const next = [...unique.values()];
       if (next.length > 32) {
-        setError('Inspect up to 32 selections at a time.');
+        setError(t`Inspect up to 32 selections at a time.`);
         return false;
       }
       request.current?.abort();
@@ -253,7 +254,7 @@ function ScopedAttentionLookup({
     () => [
       {
         id: 'attention-set',
-        label: 'Add to attention set',
+        label: t`Add to attention set`,
         icon: LayersIcon,
         order: 31,
         kinds: ['agent-answer-text', 'transcript-content'],
@@ -262,7 +263,7 @@ function ScopedAttentionLookup({
       },
       {
         id: 'attention-later-use',
-        label: 'Trace later use',
+        label: t`Trace later use`,
         icon: RadarIcon,
         order: 32,
         kinds: ['agent-answer-text', 'transcript-content'],
@@ -277,14 +278,13 @@ function ScopedAttentionLookup({
   if (!items.length) return null;
   return (
     <section
-      aria-label="Attention inspector"
+      aria-label={t`Attention inspector`}
       className="max-h-[45vh] shrink-0 overflow-y-auto border-b bg-muted/20 px-4 py-2"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">Attention set ({items.length})</span>
-        <InfoTip label="About attention selections">
-          Select more transcript passages to combine them. Overlapping captured tokens count once.
-          Heat is a measurement, not evidence of intent or poisoning.
+        <span className="text-sm font-medium">{t`Attention set (${ph({ count: items.length })})`}</span>
+        <InfoTip label={t`About attention selections`}>
+          {t`Select more transcript passages to combine them. Overlapping captured tokens count once. Heat is a measurement, not evidence of intent or poisoning.`}
         </InfoTip>
         <Button
           variant={direction === 'generated_to_source' ? 'secondary' : 'ghost'}
@@ -295,7 +295,7 @@ function ScopedAttentionLookup({
             void inspect(items, 'generated_to_source');
           }}
         >
-          Inspect sources
+          {t`Inspect sources`}
         </Button>
         <Button
           variant={direction === 'source_to_generation' ? 'secondary' : 'ghost'}
@@ -306,7 +306,7 @@ function ScopedAttentionLookup({
             void inspect(items, 'source_to_generation');
           }}
         >
-          Trace later use
+          {t`Trace later use`}
         </Button>
         <Button
           variant="ghost"
@@ -320,9 +320,9 @@ function ScopedAttentionLookup({
             setError('');
           }}
         >
-          Clear
+          {t({ message: 'Clear', context: 'verb' })}
         </Button>
-        {busy ? <Spinner aria-label="Reading captures" /> : null}
+        {busy ? <Spinner aria-label={t`Reading captures`} /> : null}
       </div>
       <div className="my-1 flex flex-wrap gap-1">
         {items.map((item, index) => (
@@ -331,7 +331,7 @@ function ScopedAttentionLookup({
             size="sm"
             variant="outline"
             className="max-w-56 text-xs"
-            aria-label={`Remove selection ${index + 1}: ${item.label}`}
+            aria-label={t`Remove selection ${ph({ number: index + 1 })}: ${ph({ label: item.label })}`}
             onClick={() => {
               request.current?.abort();
               leaveEvidenceLink();
@@ -377,7 +377,7 @@ function ScopedAttentionLookup({
           variant="outline"
           onClick={() => void inspect(items, direction, profile, result.next_cursor!)}
         >
-          Inspect more model calls
+          {t`Inspect more model calls`}
         </Button>
       ) : null}
     </section>

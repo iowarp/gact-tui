@@ -1,14 +1,35 @@
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { interfaceScale } from '@/theme/runtime';
+import { t } from '@lingui/core/macro';
 
 /** Open a native terminal rooted at an existing CLIO workspace. */
 export async function openWorkspaceTerminal(path: string): Promise<string> {
   if (!inTauri()) {
-    throw new Error('Workspace terminals are available in the installed desktop app.');
+    throw new Error(t`Workspace terminals are available in the installed desktop app.`);
   }
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<string>('open_workspace_terminal', { path });
+}
+
+/** Show an existing CLIO workspace folder in the system file manager. */
+export async function openWorkspaceFolder(path: string): Promise<string> {
+  if (!inTauri()) {
+    throw new Error(t`Opening folders is available in the installed desktop app.`);
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('open_workspace_folder', { path });
+}
+
+/**
+ * The "Open folder" menu's item for the system file manager, named as this computer calls
+ * it. Whole phrases, since the name takes an article in some languages and not others.
+ */
+export function openInFileManagerLabel(platform = globalThis.navigator?.userAgent ?? ''): string {
+  if (/Mac/i.test(platform)) return t`In Finder`;
+  if (/Windows/i.test(platform)) return t`In File Explorer`;
+  return t`In file manager`;
 }
 
 export const TERMINAL_FONT_FAMILY =
@@ -69,7 +90,12 @@ export function loadXterm(): Promise<XtermModule> {
  * `id` in the payload — mirroring the `gact:sse` bridge's keyed channel)
  * are implemented in `desktop/src-tauri/src/terminal_pty.rs`.
  */
-async function invokeTerminalOpen(id: string, cwd: string, cols: number, rows: number): Promise<void> {
+async function invokeTerminalOpen(
+  id: string,
+  cwd: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('terminal_open', { id, cwd, cols, rows });
 }
@@ -89,7 +115,10 @@ async function invokeTerminalClose(id: string): Promise<void> {
   await invoke('terminal_close', { id });
 }
 
-async function listenTerminalData(id: string, handler: (bytes: Uint8Array) => void): Promise<() => void> {
+async function listenTerminalData(
+  id: string,
+  handler: (bytes: Uint8Array) => void,
+): Promise<() => void> {
   const { listen } = await import('@tauri-apps/api/event');
   return listen<TerminalDataPayload>('clio:terminal-data', (event) => {
     if (event.payload.id !== id) return;
@@ -154,13 +183,24 @@ function setStatus(entry: EmbeddedTerminalEntry, status: EmbeddedTerminalStatus)
  * rest of the open sequence is statically known to have a real instance —
  * no `entry.term!` assertions needed.
  */
+/** 13px at the default interface size; xterm draws in px, so it follows Interface size here. */
+function terminalFontSize(): number {
+  return 13 * interfaceScale();
+}
+
+/** Applies a changed Interface size before a fit, which then re-measures the cells. */
+function syncTerminalFontSize(term: Terminal): void {
+  const size = terminalFontSize();
+  if (term.options.fontSize !== size) term.options.fontSize = size;
+}
+
 async function ensureTerm(entry: EmbeddedTerminalEntry): Promise<Terminal> {
   if (entry.term) return entry.term;
   const { Terminal: TerminalCtor, FitAddon: FitAddonCtor } = await loadXterm();
   const term = new TerminalCtor({
     cursorBlink: true,
     fontFamily: TERMINAL_FONT_FAMILY,
-    fontSize: 13,
+    fontSize: terminalFontSize(),
   });
   const fitAddon = new FitAddonCtor();
   term.loadAddon(fitAddon);
@@ -181,7 +221,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   } catch (error) {
     setStatus(entry, {
       kind: 'error',
-      message: error instanceof Error ? error.message : 'Could not load the terminal.',
+      message: error instanceof Error ? error.message : t`Could not load the terminal.`,
     });
     return;
   }
@@ -189,7 +229,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   if (!inTauri()) {
     setStatus(entry, {
       kind: 'error',
-      message: 'The embedded terminal is available in the installed desktop app.',
+      message: t`The embedded terminal is available in the installed desktop app.`,
     });
     return;
   }
@@ -207,7 +247,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   } catch (error) {
     setStatus(entry, {
       kind: 'error',
-      message: error instanceof Error ? error.message : 'Could not open the terminal.',
+      message: error instanceof Error ? error.message : t`Could not open the terminal.`,
     });
   }
 }
@@ -226,7 +266,9 @@ export interface EnsureEmbeddedTerminalOptions {
  * remounts for the SAME tab gets back the exact same `Terminal` instance
  * and never re-opens the pty.
  */
-export function ensureEmbeddedTerminal(options: EnsureEmbeddedTerminalOptions): EmbeddedTerminalEntry {
+export function ensureEmbeddedTerminal(
+  options: EnsureEmbeddedTerminalOptions,
+): EmbeddedTerminalEntry {
   const existing = entriesByTabId.get(options.tabId);
   if (existing) return existing;
 
@@ -274,6 +316,7 @@ export function attachEmbeddedTerminalContainer(tabId: string, container: HTMLEl
     } else {
       entry.term.open(container);
     }
+    syncTerminalFontSize(entry.term);
     entry.fitAddon.fit();
   });
 }
@@ -297,6 +340,7 @@ export function subscribeEmbeddedTerminalStatus(
 export function fitEmbeddedTerminal(tabId: string): void {
   const entry = entriesByTabId.get(tabId);
   if (!entry || !entry.term || !entry.fitAddon) return;
+  syncTerminalFontSize(entry.term);
   entry.fitAddon.fit();
   void invokeTerminalResize(entry.id, entry.term.cols, entry.term.rows);
 }

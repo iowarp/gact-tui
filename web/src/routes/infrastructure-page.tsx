@@ -7,12 +7,10 @@ import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { InfrastructureServicesSection } from '@/components/clio/infrastructure-services-section';
@@ -31,13 +29,15 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
-import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent-hosts';
+import { ph, t } from '@lingui/core/macro';
+
+const { workspace } = vocab;
 
 /**
  * Narrow (under 600px), a section with more than one tab action (the host and the
@@ -63,14 +63,12 @@ export function InfrastructurePage() {
     ? section
     : 'overview';
   const repository = useRepository();
-  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const [toolScope, setToolScope] = useState<'session' | 'agent'>('session');
   const sessionToolScope = Boolean(sessionId) && toolScope === 'session';
-  const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
     enabled: currentSection === 'agent',
     queryKey: queryKeys.key('service-health', settings.endpoint),
@@ -109,21 +107,15 @@ export function InfrastructurePage() {
       sessionId ? ((await repository.effectiveAgentToolset(sessionId, signal)) ?? null) : null,
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
-  const webSearchConfiguration = useQuery({
-    enabled: currentSection === 'services' || currentSection === 'overview',
-    queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-    queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
-  });
   const error =
     currentSection === 'agent'
       ? health.error
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
-        : (servers.error ?? webSearchConfiguration.error);
+        : servers.error;
   const agentUnanswered = noAnswer(error);
   const retrySection = () => {
-    for (const query of [health, servers, tools, effectiveToolset, webSearchConfiguration]) {
+    for (const query of [health, servers, tools, effectiveToolset]) {
       if (query.error) void query.refetch();
     }
   };
@@ -134,68 +126,6 @@ export function InfrastructurePage() {
     : (tools.data ?? []);
   const toolsPending =
     tools.isPending || servers.isPending || (sessionToolScope && effectiveToolset.isPending);
-  const webSearch = servers.data?.find(isWebSearchServer);
-  const webSearchReady =
-    webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
-  const webSearchConfigured = webSearchConfiguration.data?.configured ?? Boolean(webSearch);
-  const refreshWebSearchQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.key('mcp-servers', settings.endpoint),
-      }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-      }),
-    ]);
-  };
-  const connectDetectedWebSearch = useMutation({
-    mutationFn: (remoteUrl: string) =>
-      repository.configureMcpServer('web', {
-        name: 'CLIO Web Search',
-        transport: 'stdio',
-        command: WEB_MCP_COMMAND,
-        args: webSearchMcpArgs(remoteUrl),
-        env: WEB_MCP_ENV,
-        always_load: true,
-      }),
-    onSuccess: async (result) => {
-      queryClient.setQueryData(
-        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-        result,
-      );
-      await refreshWebSearchQueries();
-      if (result.status === 'ready') {
-        toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
-      } else {
-        toast.error('CLIO Web Search could not complete the connection', {
-          description: result.error ?? 'The service is saved, but its tools did not respond.',
-        });
-      }
-    },
-    onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be connected', {
-        description: connectionError.message,
-      }),
-  });
-  const disconnectWebSearch = useMutation({
-    mutationFn: () => repository.removeMcpConfiguration('web'),
-    onSuccess: async (result) => {
-      queryClient.setQueryData(
-        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-        result,
-      );
-      await refreshWebSearchQueries();
-      toast.success('CLIO Web Search disconnected', {
-        description: 'The deployment is still running and can be connected again at any time.',
-      });
-    },
-    onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be disconnected', {
-        description: connectionError.message,
-      }),
-  });
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
   const sectionTabs = INFRASTRUCTURE_SECTIONS.map(({ id, icon, label }) => ({
@@ -239,15 +169,15 @@ export function InfrastructurePage() {
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <FrameClioMenu className="bottom-0 left-2 sm:left-3" covered={settingsWindowOpen} />
         <div className={TAB_ROW}>
-          <NamedTooltip label={`Back to ${vocab.workspace}`}>
+          <NamedTooltip label={t`Back to ${workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
-              <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
+              <Link aria-label={t`Back to ${workspace}`} to={workspaceRoute}>
                 <ChevronLeftIcon aria-hidden="true" />
               </Link>
             </Button>
           </NamedTooltip>
-          <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
-          <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
+          <h1 className="sr-only">{t`Infrastructure: ${ph({ label: sectionDefinition.label })}`}</h1>
+          <NavTabs active={currentSection} label={t`Infrastructure sections`} tabs={sectionTabs} />
           <span
             className={TAB_ACTIONS}
             data-slot="infrastructure-tab-actions"
@@ -270,25 +200,18 @@ export function InfrastructurePage() {
                   icon={NetworkIcon}
                   title={
                     agentUnanswered
-                      ? `Can't reach ${agentIdentity(settings.endpoint, settings.label, settings.location).name}`
-                      : 'This section could not load completely'
+                      ? t`Can't reach ${ph({ name: agentIdentity(settings.endpoint, settings.label, settings.location).name })}`
+                      : t`This section could not load completely`
                   }
                   detail={error.message}
-                  action={{ label: 'Retry', onClick: retrySection }}
+                  action={{ label: t`Retry`, onClick: retrySection }}
                 />
               ) : null}
 
               {currentSection === 'overview' ||
               currentSection === 'models' ||
               currentSection === 'activity' ? (
-                <InfrastructureInventory
-                  section={currentSection}
-                  overview={{
-                    webSearch: webSearchConfiguration.data,
-                    webSearchConnected: webSearchReady,
-                    onManageWebSearch: () => setWebSearchOpen(true),
-                  }}
-                />
+                <InfrastructureInventory section={currentSection} />
               ) : null}
 
               {currentSection === 'tools' ? (
@@ -302,23 +225,9 @@ export function InfrastructurePage() {
                 />
               ) : null}
 
-              {currentSection === 'services' ? (
-                <InfrastructureServicesSection
-                  webSearch={{
-                    connection: webSearchConfiguration.data,
-                    connected: webSearchReady,
-                    configured: webSearchConfigured,
-                    connecting: connectDetectedWebSearch.isPending,
-                    disconnecting: disconnectWebSearch.isPending,
-                    onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
-                    onDisconnect: () => disconnectWebSearch.mutate(),
-                  }}
-                />
-              ) : null}
+              {currentSection === 'services' ? <InfrastructureServicesSection /> : null}
 
               {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
-
-              <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
             </section>
           </div>
         </AgentUnansweredProvider>
@@ -381,9 +290,4 @@ function effectiveToolCatalog(
     });
   }
   return [...projected.values()];
-}
-
-function isWebSearchServer(server: McpServerDefinition): boolean {
-  const identity = `${server.id} ${server.name}`.toLowerCase();
-  return identity.includes('web-search') || identity.includes('web search') || identity === 'web';
 }

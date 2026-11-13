@@ -127,6 +127,7 @@ function isNamedSource(value: unknown): boolean {
 /** Every guard violation in `spec`, in the same order as the Python guard (empty when it passes). */
 export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
   if (!isJsonObject(spec)) {
+    // i18n-ignore: spec violation returned to the agent
     return [{ code: 'spec_not_object', path: '', message: 'a chart spec must be a JSON object' }];
   }
   const depth = specDepth(spec);
@@ -135,6 +136,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
       {
         code: 'spec_too_deep',
         path: '',
+        // i18n-ignore: spec violation returned to the agent
         message: `spec nests ${depth} levels; the limit is ${guardRules.maxDepth}`,
       },
     ];
@@ -148,6 +150,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
     violations.push({
       code: 'spec_too_large',
       path: '',
+      // i18n-ignore: spec violation returned to the agent
       message: `spec is ${size} bytes; the limit is ${guardRules.maxSpecBytes}`,
     });
   }
@@ -156,6 +159,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
       violations.push({
         code: 'top_level_key_not_allowed',
         path: pointer('', key),
+        // i18n-ignore: spec violation returned to the agent
         message: `top-level key '${key}' is not allowed`,
       });
     }
@@ -165,6 +169,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
     violations.push({
       code: 'too_many_views',
       path: '',
+      // i18n-ignore: spec violation returned to the agent
       message: `spec has ${views} views; the limit is ${guardRules.maxViews}`,
     });
   }
@@ -179,6 +184,7 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
           violations.push({
             code: 'forbidden_key',
             path: pointer(path, key),
+            // i18n-ignore: spec violation returned to the agent
             message: `'${key}' is not allowed anywhere`,
           });
         } else if (key === 'bind' && isJsonObject(child) && 'element' in child) {

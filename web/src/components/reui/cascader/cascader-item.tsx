@@ -69,7 +69,7 @@ const ROW_THEME_CLASS =
  */
 const ROW_GAP_CLASS = 'gap-2';
 
-const ROW_TEXT_CLASS = 'text-[12.5px]';
+const ROW_TEXT_CLASS = 'text-[length:var(--text-menu)]';
 
 const ROW_SHELL_CLASS = `${ROW_THEME_CLASS} relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 ${ROW_INSET_CLASS}`;
 
@@ -195,11 +195,19 @@ const CascaderOptionItem = React.memo(function CascaderOptionItem({
     toggleExpanded,
     commit,
     virtualized,
+    listGeneration,
     loadMore,
     retryLevel,
   } = useCascaderActions();
   // Render props come from an always-current context, or a closure goes stale.
   const { renderItem, renderLabel } = useCascaderRender();
+  const forwardedRef = (props as { ref?: React.Ref<HTMLElement> }).ref;
+  // A new identity per list generation, so Base UI's merged ref detaches and
+  // attaches again and the row re-registers in the list (see `listGeneration`).
+  const relinkRef = React.useMemo<React.RefCallback<HTMLElement>>(() => {
+    void listGeneration;
+    return (element) => assignRef(forwardedRef, element);
+  }, [forwardedRef, listGeneration]);
 
   const branch = branchProp ?? isBranch(node);
   const selectable = selectableProp ?? isSelectable(node);
@@ -776,11 +784,18 @@ const CascaderOptionItem = React.memo(function CascaderOptionItem({
       onClick={handleClick}
       onMouseUp={handleMouseUp}
       {...props}
+      ref={relinkRef}
     >
       {body}
     </ComboboxPrimitive.Item>
   );
 });
+
+function assignRef<E>(ref: React.Ref<E> | undefined, element: E | null) {
+  if (typeof ref === 'function') return ref(element);
+  if (ref) ref.current = element;
+  return undefined;
+}
 
 /** Ancestor chain under a deep-search result: "Name" alone is ambiguous. */
 function CascaderItemPath({ node }: { node: CascaderNode }) {

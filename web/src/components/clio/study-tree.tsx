@@ -6,34 +6,40 @@ import type { StudyNode, StudyTopic } from './science-log-model';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 import { MetaValue } from './primitives/tag';
 import { StateView } from './primitives/state-view';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** The node's kind in text, so a fork, a step and a reframe read differently without color. */
 function studyKindLabel(node: StudyNode): string {
-  if (node.kind === 'question') return 'Question';
-  if (node.kind === 'hypothesis') return 'Hypothesis';
-  if (node.kind === 'reframe') return 'Reframe';
+  if (node.kind === 'question') return t`Question`;
+  if (node.kind === 'hypothesis') return t`Hypothesis`;
+  if (node.kind === 'reframe') return t`Reframe`;
   switch (node.branchRelation) {
     case 'fork':
-      return 'Fork';
+      return t`Fork`;
     case 'step':
-      return 'Step';
+      return t`Step`;
     case 'delegated':
-      return 'Delegated';
+      return t`Delegated`;
     case 'branch':
-      return 'Branch';
+      return t`Branch`;
     case 'root':
-      return 'Root';
+      return t`Root`;
     default:
-      return 'Branch';
+      return t`Branch`;
   }
 }
 
 function tooltip(node: StudyNode): string {
-  const parts = [`${studyKindLabel(node)}: ${node.title}`, `State: ${node.state.label}`];
+  const parts = [
+    t`${ph({ kind: studyKindLabel(node) })}: ${ph({ title: node.title })}`,
+    t`State: ${ph({ state: node.state.label })}`,
+  ];
   if (node.relation) parts.push(node.relation);
-  if (node.note) parts.push(`Note: ${node.note}`);
+  if (node.note) parts.push(t`Note: ${ph({ note: node.note })}`);
   if (node.derivedFrom.length)
-    parts.push(`Derived from ${node.derivedFrom.map((edge) => edge.title).join(', ')}`);
+    parts.push(
+      t`Derived from ${ph({ sources: node.derivedFrom.map((edge) => edge.title).join(', ') })}`,
+    );
   return parts.join('. ');
 }
 
@@ -119,18 +125,18 @@ export function StudyTree({
     [needle, topics, selected],
   );
   const views = needle
-    ? allViews.filter((view) => (view.title || 'Untitled view').toLowerCase().includes(needle))
+    ? allViews.filter((view) => (view.title || t`Untitled view`).toLowerCase().includes(needle))
     : allViews;
   if (needle && !shown.length && !views.length)
-    return <StateView kind="empty" size="row" title="Nothing in this study matches" />;
+    return <StateView kind="empty" size="row" title={t`Nothing in this study matches`} />;
   return (
     <div
-      aria-label="Study tree"
+      aria-label={t`Study tree`}
       className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-0.5 px-1.5 py-1"
       role="group"
     >
       <h3 className="sr-only" id="study-tree-study">
-        Study
+        {t`Study`}
       </h3>
       <div
         aria-labelledby="study-tree-study"
@@ -147,8 +153,13 @@ export function StudyTree({
               ? shown[index + 1]?.depth === topic.depth + 1
               : undefined;
           const label = root
-            ? `Study: ${name}, ${count} ${count === 1 ? 'entry' : 'entries'}`
-            : `${studyKindLabel(node)}: ${node.title}, ${node.state.label}${count ? `, ${count} ${count === 1 ? 'entry' : 'entries'}` : ''}`;
+            ? plural(count, { one: `Study: ${name}, # entry`, other: `Study: ${name}, # entries` })
+            : count
+              ? plural(count, {
+                  one: `${ph({ kind: studyKindLabel(node) })}: ${ph({ title: node.title })}, ${ph({ state: node.state.label })}, # entry`,
+                  other: `${ph({ kind: studyKindLabel(node) })}: ${ph({ title: node.title })}, ${ph({ state: node.state.label })}, # entries`,
+                })
+              : t`${ph({ kind: studyKindLabel(node) })}: ${ph({ title: node.title })}, ${ph({ state: node.state.label })}`;
           return (
             <div
               data-kind={node.kind}
@@ -179,7 +190,7 @@ export function StudyTree({
       {views.length ? (
         <>
           <ListGroupLabel className="mt-2" id="study-tree-views">
-            Views
+            {t`Views`}
           </ListGroupLabel>
           <div
             aria-labelledby="study-tree-views"
@@ -188,12 +199,12 @@ export function StudyTree({
           >
             {views.map((view) => {
               const key = `view:${view.entry}`;
-              const title = view.title || 'Untitled view';
+              const title = view.title || t`Untitled view`;
               return (
                 <div key={view.entry} role="listitem" title={view.purpose || title}>
                   <ListRow
                     aria-disabled={onOpenView ? undefined : true}
-                    aria-label={`View: ${title}`}
+                    aria-label={t`View: ${title}`}
                     aria-pressed={selected === key}
                     className={`cursor-default ${SELECTED_ROW}`}
                     icon={<LayoutGridIcon />}

@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { MenuRow } from './menu-row';
+import { t, ph } from '@lingui/core/macro';
 
 export interface NavTab {
   id: string;
@@ -105,7 +106,7 @@ export const NavTabs = memo(function NavTabs({
             aria-current={current ? 'page' : undefined}
             aria-label={tabLabel}
             className={cn(
-              'relative flex shrink-0 items-center gap-1.5 rounded-sm px-[7px] text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+              'relative flex shrink-0 items-center gap-1.5 rounded-sm px-[7px] text-menu text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
               current &&
                 'min-w-0 shrink pr-2.5 font-medium text-foreground after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary',
             )}
@@ -131,10 +132,10 @@ export const NavTabs = memo(function NavTabs({
       })}
       {listed.length ? (
         <DropdownMenu modal={false}>
-          <NamedTooltip label={`${listed.length} more`}>
+          <NamedTooltip label={t`${ph({ count: listed.length })} more`}>
             <DropdownMenuTrigger
-              aria-label={`${listed.length} more: ${listed.map((tab) => tab.label).join(', ')}`}
-              className="ml-auto flex h-[26px] shrink-0 items-center gap-[3px] self-center rounded-md px-1.5 text-[11.5px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
+              aria-label={t`${ph({ count: listed.length })} more: ${ph({ tabs: listed.map((tab) => tab.label).join(', ') })}`}
+              className="ml-auto flex h-[26px] shrink-0 items-center gap-[3px] self-center rounded-md px-1.5 text-label text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
             >
               {listed.length}
               <ChevronDownIcon aria-hidden="true" className="size-3" />

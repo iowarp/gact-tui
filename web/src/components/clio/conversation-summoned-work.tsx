@@ -9,6 +9,7 @@ import {
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { t, ph } from '@lingui/core/macro';
 
 interface Summons {
   subagents: string[];
@@ -124,16 +125,17 @@ function PromptRow({ prompt }: { prompt: McpPrompt }) {
       <CollapsibleTrigger className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
         <MessageSquareQuoteIcon aria-hidden="true" className="size-3.5 shrink-0" />
         <span className="min-w-0 truncate">
-          Prompt {prompt.prompt} from {prompt.server}
-          {args ? ` (${args})` : ''}
+          {args
+            ? t`Prompt ${ph({ prompt: prompt.prompt })} from ${ph({ server: prompt.server })} (${args})`
+            : t`Prompt ${ph({ prompt: prompt.prompt })} from ${ph({ server: prompt.server })}`}
         </span>
         <span className="sr-only">
-          {open ? 'Hide the fetched prompt' : 'Show the fetched prompt'}
+          {open ? t`Hide the fetched prompt` : t`Show the fetched prompt`}
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-2 text-xs">
-          {prompt.text || 'The prompt returned no text.'}
+          {prompt.text || t`The prompt returned no text.`}
         </pre>
       </CollapsibleContent>
     </Collapsible>
@@ -141,14 +143,34 @@ function PromptRow({ prompt }: { prompt: McpPrompt }) {
 }
 
 /** A summoned target in words: `explore`, `the workflow draft-review`. */
-function named(kind: string, target: string, start = false): string {
-  if (kind !== 'workflow' && kind !== 'flow') return target;
-  return `${start ? 'The' : 'the'} ${kind} ${target}`;
+/** "You asked for the workflow survey on this message". */
+function askedForLabel(kind: string, target: string): string {
+  if (kind === 'workflow') return t`You asked for the workflow ${target} on this message`;
+  if (kind === 'flow') return t`You asked for the flow ${target} on this message`;
+  return t`You asked for ${target} on this message`;
 }
 
-/** Why a summoned target did not start, when there is more to say than that it was not. */
-function notStartedReason(reason: string): string {
-  return !reason || reason === 'not_called' ? '' : `: ${reason}`;
+/** "Started the workflow survey as you asked". */
+function startedLabel(kind: string, target: string): string {
+  if (kind === 'workflow') return t`Started the workflow ${target} as you asked`;
+  if (kind === 'flow') return t`Started the flow ${target} as you asked`;
+  return t`Started ${target} as you asked`;
+}
+
+/** "The workflow survey was not started", with why when there is more to say than that it was not. */
+function notStartedLabel(kind: string, target: string, why: string): string {
+  const reason = !why || why === 'not_called' ? '' : why;
+  if (kind === 'workflow') {
+    return reason
+      ? t`The workflow ${target} was not started: ${reason}`
+      : t`The workflow ${target} was not started`;
+  }
+  if (kind === 'flow') {
+    return reason
+      ? t`The flow ${target} was not started: ${reason}`
+      : t`The flow ${target} was not started`;
+  }
+  return reason ? t`${target} was not started: ${reason}` : t`${target} was not started`;
 }
 
 function kindIcon(kind: string) {
@@ -185,12 +207,12 @@ export function ConversationSummonedWork({ metadata }: { metadata?: Record<strin
     <div className="mt-2 grid min-w-0 gap-1" data-slot="summoned-work">
       {asked.map((row) => (
         <Row icon={kindIcon(row.kind)} key={`asked:${row.kind}:${row.target}`}>
-          You asked for {named(row.kind, row.target)} on this message
+          {askedForLabel(row.kind, row.target)}
         </Row>
       ))}
       {outcome?.started.map((row) => (
         <Row icon={kindIcon(row.kind)} key={`started:${row.kind}:${row.target}`}>
-          Started {named(row.kind, row.target)} as you asked
+          {startedLabel(row.kind, row.target)}
         </Row>
       ))}
       {outcome?.notStarted.map((row) => (
@@ -198,7 +220,7 @@ export function ConversationSummonedWork({ metadata }: { metadata?: Record<strin
           icon={<CircleSlashIcon aria-hidden="true" className="size-3.5 shrink-0" />}
           key={`not-started:${row.kind}:${row.target}`}
         >
-          {named(row.kind, row.target, true)} was not started{notStartedReason(row.reason)}
+          {notStartedLabel(row.kind, row.target, row.reason)}
         </Row>
       ))}
       {summons?.failed.map((row) => (
@@ -206,17 +228,19 @@ export function ConversationSummonedWork({ metadata }: { metadata?: Record<strin
           icon={<BotIcon aria-hidden="true" className="size-3.5 shrink-0" />}
           key={`failed:${row.role}`}
         >
-          {row.role} did not start: {row.error || 'no reason was given'}
+          {row.error
+            ? t`${ph({ role: row.role })} did not start: ${ph({ error: row.error })}`
+            : t`${ph({ role: row.role })} did not start: no reason was given`}
         </Row>
       ))}
       {summons?.servers.map((server) => (
         <Row icon={<WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />} key={server}>
-          You pointed this message at the {server} tools
+          {t`You pointed this message at the ${server} tools`}
         </Row>
       ))}
       {loadedSkill ? (
         <Row icon={<BookOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />}>
-          Loaded skill {loadedSkill}
+          {t`Loaded skill ${loadedSkill}`}
         </Row>
       ) : null}
       {prompt ? <PromptRow prompt={prompt} /> : null}

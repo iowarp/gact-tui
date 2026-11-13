@@ -11,17 +11,19 @@ import {
   defaultOnceAt,
   parseCron,
   toLocalInput,
+  everyWeekday,
   weekdayLabels,
   type RepeatPreset,
   type ScheduleKind,
 } from './settings-schedule-time';
 import { SettingsChoice, SettingsRow } from './settings-row';
+import { ph, t } from '@lingui/core/macro';
 
 const repeatOptions: ScheduleSelectOption[] = [
-  { value: 'daily', label: 'Every day' },
-  { value: 'weekdays', label: 'Weekdays' },
-  { value: 'weekly', label: 'Every week' },
-  { value: 'advanced', label: 'Advanced schedule' },
+  { value: 'daily', label: t`Every day` },
+  { value: 'weekdays', label: t`Weekdays` },
+  { value: 'weekly', label: t`Every week` },
+  { value: 'advanced', label: t`Advanced schedule` },
 ];
 
 const dayOptions: ScheduleSelectOption[] = weekdayLabels.map(([value, label]) => ({
@@ -88,10 +90,10 @@ export function ScheduleDialog({
   const timeCaption = /^\d{2}:\d{2}$/u.test(repeatTime) ? repeatTime : '';
   const repeatCaption =
     preset === 'daily'
-      ? 'Every day'
+      ? t`Every day`
       : preset === 'weekdays'
-        ? 'Every weekday'
-        : `Every ${weekdayLabels.find(([value]) => value === weekday)?.[1]}`;
+        ? t`Every weekday`
+        : everyWeekday(weekday);
   const canSubmit =
     Boolean(sessionId && question.trim()) &&
     (kind === 'once'
@@ -128,60 +130,60 @@ export function ScheduleDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Saving…' : schedule ? 'Save changes' : 'Schedule work',
+        label: pending ? t`Saving…` : schedule ? t`Save changes` : t`Schedule work`,
         onConfirm: submit,
         disabled: !canSubmit || pending,
       }}
-      description="The service runs it on time, even while this app is closed."
+      description={t`The service runs it on time, even while this app is closed.`}
       icon={<ScheduleIcon className="size-4" />}
       onOpenChange={onOpenChange}
       open={open}
-      title={schedule ? 'Edit scheduled work' : 'New scheduled work'}
+      title={schedule ? t`Edit scheduled work` : t`New scheduled work`}
     >
       <div className="@container grid min-w-0" data-slot="schedule-form">
         <SettingsRow
-          info="What the session is asked to do when the time comes."
+          info={t`What the session is asked to do when the time comes.`}
           htmlFor="schedule-instruction"
-          title="Instruction"
+          title={t`Instruction`}
         >
           <Textarea
-            className="min-h-[1.875rem] resize-none px-2.5 py-1.5 text-[0.78125rem] whitespace-normal md:text-[0.78125rem]"
+            className="min-h-[1.875rem] resize-none px-2.5 py-1.5 text-menu whitespace-normal md:text-menu"
             data-initial-focus=""
             id="schedule-instruction"
             onChange={(event) => update({ question: event.target.value })}
-            placeholder="Review new campaign results and summarize material changes."
+            placeholder={t`Review new campaign results and summarize material changes.`}
             rows={2}
             value={question}
           />
         </SettingsRow>
         <SettingsRow
-          info="It runs in this session with the session's agent, model, context and access rules."
+          info={t`It runs in this session with the session's agent, model, context and access rules.`}
           htmlFor="schedule-session"
-          title="Session"
+          title={t`Session`}
         >
           <ScheduleSelect
             id="schedule-session"
             onChange={(value) => update({ sessionId: value })}
             options={sessions}
-            placeholder="Choose a session"
+            placeholder={t`Choose a session`}
             value={sessionId}
           />
         </SettingsRow>
-        <SettingsRow title="Runs">
+        <SettingsRow title={t`Runs`}>
           <SettingsChoice
             id="schedule-kind"
-            label="Runs"
+            label={t`Runs`}
             onChange={(value) => update({ kind: value as ScheduleKind })}
             options={[
               {
                 value: 'once',
-                label: 'Once',
-                description: 'Continue at a specific date and time.',
+                label: t`Once`,
+                description: t`Continue at a specific date and time.`,
               },
               {
                 value: 'repeating',
-                label: 'Repeats',
-                description: 'Continue on a daily or weekly rhythm.',
+                label: t`Repeats`,
+                description: t`Continue on a daily or weekly rhythm.`,
               },
             ]}
             value={kind}
@@ -192,16 +194,16 @@ export function ScheduleDialog({
             error={
               validOnce
                 ? undefined
-                : `Choose a future date and time that exists in ${deviceTimezone}.`
+                : t`Choose a future date and time that exists in ${deviceTimezone}.`
             }
             htmlFor="schedule-once-at"
-            title="Date and time"
+            title={t`Date and time`}
           >
             <div className={fieldWithoutLabel}>
               <DateTimeField
                 compact
                 id="schedule-once-at"
-                label="Date and time"
+                label={t`Date and time`}
                 onChange={(value) => update({ onceAt: value })}
                 value={onceAt}
               />
@@ -213,10 +215,10 @@ export function ScheduleDialog({
               htmlFor="schedule-repeat"
               note={
                 serviceTimezone && timeCaption && preset !== 'advanced'
-                  ? `${repeatCaption} at ${timeCaption}`
+                  ? t`${repeatCaption} at ${ph({ time: timeCaption })}`
                   : undefined
               }
-              title="Repeat"
+              title={t`Repeat`}
             >
               <ScheduleSelect
                 id="schedule-repeat"
@@ -226,7 +228,7 @@ export function ScheduleDialog({
               />
             </SettingsRow>
             {preset === 'weekly' ? (
-              <SettingsRow htmlFor="schedule-weekday" title="Day">
+              <SettingsRow htmlFor="schedule-weekday" title={t`Day`}>
                 <ScheduleSelect
                   id="schedule-weekday"
                   onChange={(value) => update({ weekday: value })}
@@ -237,12 +239,12 @@ export function ScheduleDialog({
             ) : null}
             {preset === 'advanced' ? (
               <SettingsRow
-                info="A five-part schedule expression: minute, hour, day of month, month and day of week. Use it only when the presets do not describe the timing you need."
+                info={t`A five-part schedule expression: minute, hour, day of month, month and day of week. Use it only when the presets do not describe the timing you need.`}
                 htmlFor="schedule-expression"
-                title="Expression"
+                title={t`Expression`}
               >
                 <Input
-                  className="h-[1.875rem] font-mono text-[0.78125rem] md:text-[0.78125rem]"
+                  className="h-[1.875rem] font-mono text-menu md:text-menu"
                   id="schedule-expression"
                   onChange={(event) => update({ customCron: event.target.value })}
                   placeholder="0 9 * * 1-5"
@@ -250,12 +252,12 @@ export function ScheduleDialog({
                 />
               </SettingsRow>
             ) : (
-              <SettingsRow htmlFor="schedule-repeat-time" title="Time">
+              <SettingsRow htmlFor="schedule-repeat-time" title={t`Time`}>
                 <div className={fieldWithoutLabel}>
                   <DateTimeField
                     enableDate={false}
                     id="schedule-repeat-time"
-                    label="Time"
+                    label={t`Time`}
                     onChange={(value) => update({ repeatTime: value })}
                     value={repeatTime}
                   />
@@ -267,13 +269,13 @@ export function ScheduleDialog({
         <SettingsRow
           info={
             kind === 'once'
-              ? 'A one-time run uses the time zone of this device.'
-              : 'Repeating work follows the time zone of the connected service.'
+              ? t`A one-time run uses the time zone of this device.`
+              : t`Repeating work follows the time zone of the connected service.`
           }
-          title="Time zone"
+          title={t`Time zone`}
         >
-          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
-            {kind === 'once' ? deviceTimezone : (serviceTimezone ?? 'Loading…')}
+          <span className="min-w-0 truncate text-menu text-muted-foreground">
+            {kind === 'once' ? deviceTimezone : (serviceTimezone ?? t`Loading…`)}
           </span>
         </SettingsRow>
       </div>

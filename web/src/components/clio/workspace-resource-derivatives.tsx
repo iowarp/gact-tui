@@ -27,6 +27,7 @@ import { processingStateLabel } from './resource-processing-presentation';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { ImageResourceView, TextResourceView } from './resource-viewers';
+import { t, ph } from '@lingui/core/macro';
 
 // The native PDF plugin renders a blank pane on WebKitGTK with no fallback, so
 // every PDF in the product goes through the same PDF.js viewer.
@@ -73,7 +74,7 @@ export function WorkspaceResourceDerivativesView({
           queryKey: queryKeys.workspaceResourceStructureNode(endpoint, workspaceId, resourceId),
         }),
       ]);
-      toast.success('Document processing started');
+      toast.success(t`Document processing started`);
     },
     onError: (mutationError) => toast.error(mutationError.message),
   });
@@ -88,7 +89,7 @@ export function WorkspaceResourceDerivativesView({
           queryKey: queryKeys.workspaceResources(endpoint, workspaceId),
         }),
       ]);
-      toast.success('Document conversion cancelled');
+      toast.success(t`Document conversion cancelled`);
     },
     onError: (mutationError) => toast.error(mutationError.message),
   });
@@ -110,13 +111,16 @@ export function WorkspaceResourceDerivativesView({
     Boolean(processing) &&
     (processingActive || hasProblem || (derivatives.length === 0 && hasActivity));
 
-  if (error) return <ResourceUnavailable detail={error} label="Derivatives unavailable" />;
+  if (error) return <ResourceUnavailable detail={error} label={t`Derivatives unavailable`} />;
   if (selected) {
     return (
-      <section className="flex h-full min-h-0 flex-col" aria-label={`Preview ${selected.name}`}>
+      <section
+        className="flex h-full min-h-0 flex-col"
+        aria-label={t`Preview ${ph({ name: selected.name })}`}
+      >
         <div className="flex h-11 shrink-0 items-center gap-2 border-b px-2">
           <Button
-            aria-label="Back to derivatives"
+            aria-label={t`Back to derivatives`}
             className="size-8"
             onClick={() => setSelectedId(undefined)}
             size="icon-sm"
@@ -127,7 +131,7 @@ export function WorkspaceResourceDerivativesView({
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {selected.name || selected.id}
           </span>
-          <Badge variant="outline">{selected.kind || 'Derivative'}</Badge>
+          <Badge variant="outline">{selected.kind || t`Derivative`}</Badge>
         </div>
         <div className="min-h-0 flex-1">
           <DerivativePreview
@@ -144,30 +148,30 @@ export function WorkspaceResourceDerivativesView({
     <ScrollArea className="h-full p-3">
       <div className="mb-3 flex items-center gap-2">
         <FileStackIcon aria-hidden="true" className="size-4 text-primary" />
-        <span className="text-sm font-medium">Structured processing</span>
+        <span className="text-sm font-medium">{t`Structured processing`}</span>
         <Badge className="ml-auto" variant="outline">
-          {pending ? 'Checking…' : processingStateLabel(processing?.state)}
+          {pending ? t`Checking…` : processingStateLabel(processing?.state)}
         </Badge>
         {processingActive ? (
           <Button
-            aria-label="Cancel conversion"
+            aria-label={t`Cancel conversion`}
             className="size-8"
             disabled={cancelProcessing.isPending}
             onClick={() => cancelProcessing.mutate()}
             size="icon-sm"
-            title="Cancel conversion"
+            title={t`Cancel conversion`}
             variant="ghost"
           >
             <CircleStopIcon aria-hidden="true" />
           </Button>
         ) : null}
         <RefreshAction
-          label="Reprocess resource"
+          label={t`Reprocess resource`}
           className="size-8"
           refreshing={reprocess.isPending || processingActive}
           onRefresh={() => reprocess.mutateAsync()}
           size="icon-sm"
-          title="Reprocess resource"
+          title={t`Reprocess resource`}
           variant="ghost"
         />
       </div>
@@ -185,8 +189,8 @@ export function WorkspaceResourceDerivativesView({
                 {derivative.name || derivative.id}
               </span>
               <span className="mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                <span>{derivative.kind || 'Derivative'}</span>
-                <span>{derivative.media_type || 'Type unavailable'}</span>
+                <span>{derivative.kind || t`Derivative`}</span>
+                <span>{derivative.media_type || t`Type unavailable`}</span>
                 {derivative.size === undefined ? null : (
                   <span>{formatResourceSize(derivative.size)}</span>
                 )}
@@ -195,12 +199,12 @@ export function WorkspaceResourceDerivativesView({
             <EyeIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           </button>
         ))}
-        {pending ? <ResourceLoading label="Loading derivatives" /> : null}
+        {pending ? <ResourceLoading label={t`Loading derivatives`} /> : null}
         {showActivity && processing ? <ConversionActivity processing={processing} /> : null}
         {!pending && !derivatives.length && !showActivity ? (
           <ResourceUnavailable
-            detail="No derived representations have been recorded for this resource."
-            label="No derivatives"
+            detail={t`No derived representations have been recorded for this resource.`}
+            label={t`No derivatives`}
           />
         ) : null}
       </div>
@@ -214,9 +218,9 @@ function ConversionActivity({ processing }: { processing: WorkspaceResourceProce
   const waiting = processing.state === 'submitted' || processing.state === 'processing';
 
   return (
-    <section aria-label="Conversion activity" className="overflow-hidden rounded-lg border">
+    <section aria-label={t`Conversion activity`} className="overflow-hidden rounded-lg border">
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
-        <span className="text-sm font-medium">Conversion activity</span>
+        <span className="text-sm font-medium">{t`Conversion activity`}</span>
         {processing.progress_kind === 'measured' ? (
           <span className="ml-auto text-xs tabular-nums text-muted-foreground">
             {processing.progress}%
@@ -232,7 +236,9 @@ function ConversionActivity({ processing }: { processing: WorkspaceResourceProce
       ) : (
         <p className="px-3 py-3 text-sm text-muted-foreground">
           {fallback ||
-            (waiting ? 'Waiting for converter activity.' : 'No conversion activity was reported.')}
+            (waiting
+              ? t`Waiting for converter activity.`
+              : t`No conversion activity was reported.`)}
         </p>
       )}
     </section>
@@ -247,7 +253,7 @@ function ConversionActivityRow({ event }: { event: WorkspaceResourceProcessingEv
     <li className="flex min-w-0 items-start gap-2 px-3 py-2 text-sm">
       {warning ? (
         <TriangleAlertIcon
-          aria-label={event.level === 'error' ? 'Error' : 'Warning'}
+          aria-label={event.level === 'error' ? t`Error` : t`Warning`}
           className="mt-0.5 size-3.5 shrink-0 text-destructive"
         />
       ) : (
@@ -305,9 +311,9 @@ function DerivativePreview({
   const mediaType = derivative.media_type || 'application/octet-stream';
 
   if (content.error) {
-    return <ResourceUnavailable detail={content.error.message} label="Derivative unavailable" />;
+    return <ResourceUnavailable detail={content.error.message} label={t`Derivative unavailable`} />;
   }
-  if (!content.data) return <ResourceLoading className="p-4" label="Loading derivative" />;
+  if (!content.data) return <ResourceLoading className="p-4" label={t`Loading derivative`} />;
   if (isTextMediaType(mediaType)) {
     return (
       <TextResourceView
@@ -335,8 +341,8 @@ function DerivativePreview({
   }
   return (
     <ResourceUnavailable
-      detail="This derivative is retained and available to bounded tools, but has no safe inline renderer."
-      label="Metadata-only derivative"
+      detail={t`This derivative is retained and available to bounded tools, but has no safe inline renderer.`}
+      label={t`Metadata-only derivative`}
     />
   );
 }

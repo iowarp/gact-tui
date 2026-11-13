@@ -4,10 +4,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { deleteFailure } from '@/lib/resource-delete';
 import { ClioPathPicker } from './path-picker';
 import { DialogFrame } from './primitives/dialog-frame';
+import { t } from '@lingui/core/macro';
 
-const TEXT_FIELD = 'h-[30px] text-[12.5px] md:text-[12.5px]';
+const { workspace } = vocab;
+/** The brand's workspace noun as a field-label start; the noun itself is not translated. */
+const Workspace = capitalize(workspace);
+
+const TEXT_FIELD = 'h-[30px] text-menu md:text-menu';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -24,8 +30,6 @@ export interface ResourceActions {
   ) => Promise<void>;
   grantWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
   revokeWorkspaceFolder: (workspaceId: string, path: string) => Promise<void>;
-  workspaceMemory?: (workspaceId: string) => Promise<{ use_account_memory: boolean }>;
-  setWorkspaceMemory?: (workspaceId: string, useAccountMemory: boolean) => Promise<void>;
   renameSession: (sessionId: string, title: string) => Promise<void>;
   setWorkspacePinned: (workspaceId: string, pinned: boolean) => Promise<void>;
   setSessionPinned: (sessionId: string, pinned: boolean) => Promise<void>;
@@ -42,6 +46,8 @@ export interface ResourceActions {
   shareSession?: (sessionId: string, ttlSeconds: number) => Promise<string>;
   /** Desktop only: opens the OS terminal app at a workspace folder. */
   openSystemTerminal?: (workspacePath: string) => Promise<void>;
+  /** Desktop only: shows a workspace folder in the system file manager. */
+  openSystemFolder?: (workspacePath: string) => Promise<void>;
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -129,14 +135,14 @@ function CreateWorkspaceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Creating?' : `Create ${vocab.workspace}`,
+        label: pending ? t`Creating?` : t`Create ${workspace}`,
         disabled: pending || !rootPath.trim(),
         onConfirm: () => void submit(),
       }}
-      description="Name it and choose the folder it works in."
+      description={t`Name it and choose the folder it works in.`}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={`New ${vocab.workspace}`}
+      title={t`New ${workspace}`}
     >
       <WorkspaceFields
         name={workspaceName}
@@ -146,7 +152,7 @@ function CreateWorkspaceDialog({
         workspaces={workspaces}
       />
       {error ? (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="mt-2 text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -169,20 +175,20 @@ function WorkspaceFields({
 }) {
   return (
     <div className="grid gap-3">
-      <StackedField htmlFor="new-workspace-name" label={`${capitalize(vocab.workspace)} name`}>
+      <StackedField htmlFor="new-workspace-name" label={t`${Workspace} name`}>
         <Input
           autoFocus
           className={TEXT_FIELD}
           id="new-workspace-name"
           onChange={(event) => onNameChange(event.target.value)}
-          placeholder="EarthScope analysis"
+          placeholder={t`EarthScope analysis`}
           value={name}
         />
       </StackedField>
       <StackedField
-        description={`Becomes the ${vocab.workspace} boundary. Files aren’t moved.`}
+        description={t`Becomes the ${workspace} boundary. Files aren’t moved.`}
         htmlFor="new-workspace-folder"
-        label={`${capitalize(vocab.workspace)} folder`}
+        label={t`${Workspace} folder`}
       >
         <ClioPathPicker
           className="h-[30px]"
@@ -204,7 +210,7 @@ function WorkspaceFields({
             })),
           )}
           onChange={onPathChange}
-          placeholder="Choose a folder"
+          placeholder={t`Choose a folder`}
           value={path}
         />
       </StackedField>
@@ -235,7 +241,7 @@ function StackedField({
       {children}
       {description ? (
         <p
-          className="truncate text-[11.5px] leading-snug text-muted-foreground"
+          className="truncate text-label leading-snug text-muted-foreground"
           title={description}
         >
           {description}
@@ -277,23 +283,23 @@ export function RenameResourceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Saving…' : 'Save name',
+        label: pending ? t`Saving…` : t`Save name`,
         disabled: pending || !name,
         onConfirm: confirm,
       }}
-      description="Its files and history stay as they are."
+      description={t`Its files and history stay as they are.`}
       icon={<EditIcon />}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={target.kind === 'session' ? 'Rename conversation' : `Rename ${vocab.workspace}`}
+      title={target.kind === 'session' ? t`Rename conversation` : t`Rename ${workspace}`}
     >
       {/* Label over a full-width field (spec .xf), so the current name reads in full. */}
       <div className="grid gap-1.5">
         <Label htmlFor="rename-resource" className="text-xs font-normal text-muted-foreground">
-          Name
+          {t`Name`}
         </Label>
         <Input
-          className="h-[30px] text-[12.5px] md:text-[12.5px]"
+          className="h-[30px] text-menu md:text-menu"
           data-initial-focus=""
           id="rename-resource"
           onChange={(event) => setValue(event.target.value)}
@@ -306,7 +312,7 @@ export function RenameResourceDialog({
         />
       </div>
       {error ? (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="mt-2 text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -333,7 +339,7 @@ export function DeleteResourceDialog({
       else await actions.deleteSession(target.id);
       onClose();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(deleteFailure(reason));
     } finally {
       setPending(false);
     }
@@ -342,23 +348,23 @@ export function DeleteResourceDialog({
   return (
     <DialogFrame
       alert
-      cancelLabel={session ? 'Keep conversation' : `Keep ${vocab.workspace}`}
+      cancelLabel={session ? t`Keep conversation` : t`Keep ${workspace}`}
       confirm={{
         label: session
           ? pending
-            ? 'Deleting…'
-            : 'Delete permanently'
+            ? t`Deleting…`
+            : t`Delete permanently`
           : pending
-            ? 'Removing…'
-            : `Remove ${vocab.workspace}`,
+            ? t`Removing…`
+            : t`Remove ${workspace}`,
         tone: 'destructive',
         disabled: pending,
         onConfirm: () => void remove(),
       }}
       description={
         session
-          ? 'Removes it and its record from the service. This can’t be undone.'
-          : `Unregisters the ${vocab.workspace} and removes its conversations from the service. Files on disk are not deleted.`
+          ? t`Removes it and its record from the service. This can’t be undone.`
+          : t`Unregisters the ${workspace} and removes its conversations from the service. Files on disk are not deleted.`
       }
       icon={<DeleteIcon />}
       onOpenChange={(open) => !open && onClose()}
@@ -366,7 +372,7 @@ export function DeleteResourceDialog({
       title={`${session ? 'Delete' : 'Remove'} ${target.label}?`}
     >
       {error ? (
-        <p className="text-[12.5px] text-destructive" role="alert">
+        <p className="text-menu text-destructive" role="alert">
           {error}
         </p>
       ) : null}

@@ -102,9 +102,13 @@ test('compact shell failures expose the recorded reason before a long command', 
     },
   });
   const row = page.getByRole('button', { name: 'Show result for Run command' });
-  // The status mark names the recorded reason; the outcome word carries it on hover.
-  await expect(page.getByRole('img', { name: `Failed: ${failure}` })).toBeVisible();
-  await expect(page.locator('[data-slot="activity-outcome"]')).toHaveAttribute('title', failure);
+  // The status mark names the recorded reason; the outcome word carries it on hover, both
+  // read as a sentence.
+  await expect(page.getByRole('img', { name: `Failed: ${failure}.`, exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="activity-outcome"]')).toHaveAttribute(
+    'title',
+    `${failure}.`,
+  );
   await row.click();
   const result = page.getByRole('region', { name: 'Run command: Result' });
   // The output already names the reason, so it is not repeated as an alert, and the
@@ -390,9 +394,10 @@ for (const type of ['diff', 'terminal']) {
     await page.setViewportSize({ width: 1003, height: 1037 });
     await openFixture(page, type);
     const activity = page.locator('[data-slot="tool-activity"]').first();
+    // The diff's Changes table sits in its own bounded scroll viewport.
     const body =
       type === 'diff'
-        ? activity.getByRole('table', { name: 'Changes' })
+        ? activity.getByRole('table', { name: 'Changes' }).locator('..')
         : activity.locator('[data-slot="transcript-terminal"] pre').last().locator('..');
     await expect(body).toBeVisible();
     expect(await body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);

@@ -7,6 +7,7 @@ import { DismissToastsOnOpen } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
 import { useModalFocusReturn } from './modal-focus';
+import { t } from '@lingui/core/macro';
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -71,7 +72,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
               <XIcon />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{t`Close`}</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -110,7 +111,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">{t`Close`}</Button>
         </DialogPrimitive.Close>
       )}
     </div>

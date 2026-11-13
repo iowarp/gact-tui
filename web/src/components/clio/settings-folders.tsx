@@ -28,13 +28,13 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
 import { StateView } from './primitives/state-view';
 import { useFolderGrants } from './sandbox-boundary-grants';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { ColourSwatches, IconSelect } from './settings-folders-appearance';
 import { AllowFolderDialog, ChangePrimaryDialog } from './settings-folders-dialogs';
 import { useWorkspaceAppearance, workspaceFolders } from './settings-folders-model';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t, ph } from '@lingui/core/macro';
 
 const ACTIONS_WIDTH = 60;
 const SLOT_WIDTH = 84;
@@ -72,16 +72,18 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
 
   let body: ReactNode;
   if (workspaces.isPending) {
-    body = <StateView kind="loading" size="row" title="Loading folders…" />;
+    body = <StateView kind="loading" size="row" title={t`Loading folders…`} />;
   } else if (workspaces.isError) {
     body = (
       <StateView
-        action={{ label: 'Retry', onClick: () => void workspaces.refetch() }}
+        action={{ label: t`Retry`, onClick: () => void workspaces.refetch() }}
         className={ROW_STATE_WRAP}
         kind="error"
         size="row"
         title={
-          workspaces.isFetching ? 'Trying again…' : 'This workspace’s folders could not be loaded.'
+          workspaces.isFetching
+            ? t`Trying again…`
+            : t`This workspace’s folders could not be loaded.`
         }
       />
     );
@@ -90,7 +92,7 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
       <StateView
         kind="unavailable"
         size="row"
-        title={list.length ? 'This workspace is no longer available.' : 'No workspaces yet.'}
+        title={list.length ? t`This workspace is no longer available.` : t`No workspaces yet.`}
       />
     );
   } else {
@@ -100,19 +102,18 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
   return (
     <SettingsScopeContext.Provider value={scope}>
       <div className="min-w-0" data-slot="folders-settings">
-        <AnnounceStates />
         <SettingsSectionHeading
-          info="Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
-          title="Folders"
+          info={t`Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device.`}
+          title={t`Folders`}
         />
         {picker ? (
-          <SettingsRow htmlFor="folders-workspace" title="Workspace">
+          <SettingsRow htmlFor="folders-workspace" title={t`Workspace`}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SettingsSelectField
                   icon={<FolderIcon />}
                   id="folders-workspace"
-                  placeholder="Choose a workspace"
+                  placeholder={t`Choose a workspace`}
                   title={workspace?.path}
                   value={workspace ? workspaceName(workspace) : undefined}
                 />
@@ -143,7 +144,7 @@ interface Draft {
 
 function FolderTitle({ folder }: { folder: WorkspaceSourceFolder }) {
   return (
-    <span className="font-mono text-[0.78125rem] font-normal" title={folder.path}>
+    <span className="font-mono text-menu font-normal" title={folder.path}>
       {folder.path}
     </span>
   );
@@ -212,7 +213,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
     },
     onSuccess: () => {
       setDraft({});
-      announce('Workspace saved');
+      announce(t`Workspace saved`);
     },
   });
 
@@ -232,20 +233,22 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
     try {
       await repository.revokeWorkspaceFolder(workspace.id, folder.path);
       await refresh();
-      toast.success(`Removed ${folder.name}`, {
-        description: 'Its files are untouched.',
+      toast.success(t`Removed ${ph({ name: folder.name })}`, {
+        description: t`Its files are untouched.`,
         action: {
-          label: 'Undo',
+          label: t`Undo`,
           onClick: () =>
             void allow(folder.path).catch((reason: unknown) =>
-              toast.error(`Could not allow ${folder.name} again`, {
+              toast.error(t`Could not allow ${ph({ name: folder.name })} again`, {
                 description: errorText(reason),
               }),
             ),
         },
       });
     } catch (reason) {
-      toast.error(`Could not remove ${folder.name}`, { description: errorText(reason) });
+      toast.error(t`Could not remove ${ph({ name: folder.name })}`, {
+        description: errorText(reason),
+      });
     } finally {
       setRemoving((current) => current.filter((path) => path !== folder.path));
     }
@@ -253,11 +256,11 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
   const copyAction = (folder: WorkspaceSourceFolder) => (
     <IconButton
       icon={<CopyIcon />}
-      label={`Copy path of ${folder.name}`}
+      label={t`Copy path of ${ph({ name: folder.name })}`}
       onClick={() =>
         void navigator.clipboard
           ?.writeText(folder.path)
-          .then(() => toast.success('Folder path copied', { description: folder.path }))
+          .then(() => toast.success(t`Folder path copied`, { description: folder.path }))
       }
     />
   );
@@ -266,18 +269,16 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
     <div className="min-w-0">
       {fixedName ? (
         <SettingsRow
-          info="Conversations started outside a project folder. This workspace can’t be renamed."
-          title="Name"
+          info={t`Conversations started outside a project folder. This workspace can’t be renamed.`}
+          title={t`Name`}
         >
-          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
-            {fixedName}
-          </span>
+          <span className="min-w-0 truncate text-menu text-muted-foreground">{fixedName}</span>
         </SettingsRow>
       ) : (
-        <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
+        <SettingsRow dirty={nameDirty} htmlFor="folders-name" title={t`Name`}>
           <Input
             aria-invalid={nameDirty && !name.trim() ? true : undefined}
-            className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
+            className="h-[1.875rem] w-full text-menu md:text-menu"
             disabled={save.isPending}
             id="folders-name"
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
@@ -286,14 +287,14 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
           />
         </SettingsRow>
       )}
-      <SettingsRow dirty={colourDirty} title="Colour">
+      <SettingsRow dirty={colourDirty} title={t`Colour`}>
         <ColourSwatches
           disabled={save.isPending}
           onChange={(next) => setDraft((current) => ({ ...current, colour: next }))}
           value={colour}
         />
       </SettingsRow>
-      <SettingsRow dirty={iconDirty} htmlFor="folders-icon" title="Icon">
+      <SettingsRow dirty={iconDirty} htmlFor="folders-icon" title={t`Icon`}>
         <IconSelect
           disabled={save.isPending}
           id="folders-icon"
@@ -303,19 +304,24 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
       </SettingsRow>
 
       {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
-      <div className={SETTINGS_COLUMN} data-slot="folders-lists" onKeyDown={rowArrowKeyDown}>
-        <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
-          Primary folder
+      <div
+        className={SETTINGS_COLUMN}
+        data-slot="folders-lists"
+        data-row-keys=""
+        onKeyDown={rowArrowKeyDown}
+      >
+        <SettingsGroupLabel info={t`Conversations start here. Changing it never moves files.`}>
+          {t`Primary folder`}
         </SettingsGroupLabel>
-        <ItemList label="Primary folder">
+        <ItemList label={t`Primary folder`}>
           <ItemRow
             actions={copyAction(primary)}
             actionsWidth={ACTIONS_WIDTH}
             icon={<FolderIcon />}
-            meta="Workspace folder"
+            meta={t`Workspace folder`}
             slot={
               <Button onClick={openChange} size="sm" variant="outline">
-                Change
+                {t`Change`}
               </Button>
             }
             slotWidth={SLOT_WIDTH}
@@ -324,22 +330,22 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         </ItemList>
 
         <SettingsGroupLabel
-          addLabel="Add folder"
-          info="Commands may create, change and delete files in these folders too. Removing one revokes access and deletes nothing."
+          addLabel={t`Add folder`}
+          info={t`Commands may create, change and delete files in these folders too. Removing one revokes access and deletes nothing.`}
           onAdd={openAllow}
         >
-          Additional folders
+          {t`Additional folders`}
         </SettingsGroupLabel>
-        <ItemList label="Additional folders">
+        <ItemList label={t`Additional folders`}>
           {additional.length ? (
             additional.map((folder) => {
               const fromSandbox = granted[folder.path] === 'granted';
               const busy = removing.includes(folder.path);
               const words = busy
-                ? 'Removing…'
+                ? t`Removing…`
                 : fromSandbox
-                  ? 'Allowed by you from a sandbox block'
-                  : 'Read and write';
+                  ? t`Allowed by you from a sandbox block`
+                  : t`Read and write`;
               return (
                 <ItemRow
                   actions={
@@ -348,7 +354,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
                       <IconButton
                         disabled={busy}
                         icon={<RemoveIcon />}
-                        label={`Remove ${folder.name}`}
+                        label={t`Remove ${ph({ name: folder.name })}`}
                         onClick={() => void remove(folder)}
                       />
                     </>
@@ -367,17 +373,17 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
               className={ROW_STATE_WRAP}
               kind="empty"
               size="row"
-              title="No additional folders. Commands write only in the primary folder."
+              title={t`No additional folders. Commands write only in the primary folder.`}
             />
           )}
         </ItemList>
         <p
-          className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+          className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
           data-slot="folders-note"
         >
           <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
           <span className="min-w-0 truncate">
-            Running tools pick up folder changes when they finish.
+            {t`Running tools pick up folder changes when they finish.`}
           </span>
         </p>
       </div>

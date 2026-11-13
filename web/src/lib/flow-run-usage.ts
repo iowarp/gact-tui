@@ -1,11 +1,12 @@
 import type { FlowRunUsage } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /** Why a child runs on its model, by `model_choice.source`. */
 export const MODEL_CHOICE_SOURCE: Record<string, string> = {
-  explicit: `named for this call`,
-  prefers: 'its preference',
-  inherited: 'the caller’s model',
-  person: 'chosen by you',
+  explicit: t`named for this call`,
+  prefers: t`its preference`,
+  inherited: t`the caller’s model`,
+  person: t`chosen by you`,
 };
 
 export function shortModel(ref: string): string {
@@ -18,5 +19,6 @@ export function callModel(usage: FlowRunUsage | undefined, handle: string | unde
   if (!row?.model) return undefined;
   const source = row.choice?.source ?? '';
   const why = MODEL_CHOICE_SOURCE[source] ?? source;
-  return `${shortModel(row.model)}${why ? ` (${why})` : ''}`;
+  const model = shortModel(row.model);
+  return why ? t`${model} (${why})` : model;
 }

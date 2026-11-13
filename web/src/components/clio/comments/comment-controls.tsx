@@ -11,9 +11,21 @@ import {
 } from '@/components/ui/select';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { MODE_LABELS } from './comment-model';
+import { t } from '@lingui/core/macro';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+interface DragState {
+  /** Where the pointer and the panel were when the drag began. */
+  x: number;
+  y: number;
+  left: number;
+  top: number;
+  /** The panel's place for the latest pointer position, drawn on the next frame. */
+  next: { x: number; y: number };
+  frame: number;
 }
 
 /** One mark as the controls list it: its label and comment. */
@@ -46,9 +58,10 @@ export function CommentControls({
   onSend,
   sendDisabled,
   busy,
-  busyLabel = 'Capturing…',
+  busyLabel = t`Capturing…`,
   onClose,
   error,
+  conflict,
   initialPosition,
   children,
 }: {
@@ -73,51 +86,78 @@ export function CommentControls({
   busyLabel?: string;
   onClose: () => void;
   error?: string;
+  /** A send that needs the person's choice, offered in place of the send control. */
+  conflict?: { message: string; actions: readonly { label: string; onClick: () => void }[] };
   initialPosition?: { x: number; y: number };
   children?: ReactNode;
 }) {
   const [listOpen, setListOpen] = useState(false);
   const [position, setPosition] = useState(initialPosition);
-  const drag = useRef<{ x: number; y: number; left: number; top: number } | undefined>(undefined);
+  const panel = useRef<HTMLDivElement>(null);
+  const drag = useRef<DragState | undefined>(undefined);
   const placed = position ?? {
     x: Math.max(8, window.innerWidth - 272),
     y: Math.max(8, window.innerHeight - 220),
   };
+  // The drag moves the panel with a transform written once per frame; React only learns
+  // the final place when the pointer lets go, so no render sits between pointer and panel.
+  const endDrag = () => {
+    const state = drag.current;
+    if (!state) return;
+    drag.current = undefined;
+    cancelAnimationFrame(state.frame);
+    const element = panel.current;
+    if (element) {
+      element.style.left = `${state.next.x}px`;
+      element.style.top = `${state.next.y}px`;
+      element.style.transform = '';
+    }
+    setPosition(state.next);
+  };
   return (
     <div
-      aria-label={`Comments on ${title}`}
+      aria-label={t`Comments on ${title}`}
       className="fixed z-[90] w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
       data-capture-ui="true"
       data-slot="comment-controls"
+      ref={panel}
       role="group"
       style={{ left: placed.x, top: placed.y }}
     >
       <div className="flex items-center gap-1">
         <button
-          aria-label="Move capture controls"
-          className="cursor-move touch-none rounded p-1 text-muted-foreground hover:bg-muted"
+          aria-label={t`Move capture controls`}
+          className="cursor-move touch-none rounded p-1 text-muted-foreground select-none hover:bg-muted"
+          onLostPointerCapture={endDrag}
+          onPointerCancel={endDrag}
           onPointerDown={(event) => {
-            drag.current = { x: event.clientX, y: event.clientY, left: placed.x, top: placed.y };
+            if (event.button !== 0) return;
+            event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
+            drag.current = {
+              x: event.clientX,
+              y: event.clientY,
+              left: placed.x,
+              top: placed.y,
+              next: placed,
+              frame: 0,
+            };
           }}
           onPointerMove={(event) => {
-            if (drag.current)
-              setPosition({
-                x: clamp(
-                  drag.current.left + event.clientX - drag.current.x,
-                  0,
-                  window.innerWidth - 250,
-                ),
-                y: clamp(
-                  drag.current.top + event.clientY - drag.current.y,
-                  0,
-                  window.innerHeight - 60,
-                ),
-              });
+            const state = drag.current;
+            if (!state) return;
+            state.next = {
+              x: clamp(state.left + event.clientX - state.x, 0, window.innerWidth - 250),
+              y: clamp(state.top + event.clientY - state.y, 0, window.innerHeight - 60),
+            };
+            if (state.frame) return;
+            state.frame = requestAnimationFrame(() => {
+              state.frame = 0;
+              if (drag.current !== state || !panel.current) return;
+              panel.current.style.transform = `translate3d(${state.next.x - state.left}px, ${state.next.y - state.top}px, 0)`;
+            });
           }}
-          onPointerUp={() => {
-            drag.current = undefined;
-          }}
+          onPointerUp={endDrag}
           type="button"
         >
           <GripVerticalIcon aria-hidden="true" className="size-4" />
@@ -131,11 +171,11 @@ export function CommentControls({
           size="sm"
           variant={selecting ? 'secondary' : 'ghost'}
         >
-          Select
+          {t`Select`}
         </Button>
         <Button
           aria-expanded={listOpen}
-          aria-label="Selections list"
+          aria-label={t`Selections list`}
           onClick={() => setListOpen((open) => !open)}
           size="icon-sm"
           variant="ghost"
@@ -146,7 +186,7 @@ export function CommentControls({
           <span className="text-xs tabular-nums text-muted-foreground">{marks.length}</span>
         ) : null}
         <Button
-          aria-label="Close capture"
+          aria-label={t`Close capture`}
           className="ml-auto"
           onClick={onClose}
           size="icon-sm"
@@ -157,9 +197,9 @@ export function CommentControls({
       </div>
       {modes.length > 1 && mode && onMode ? (
         <div className="mt-2 flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Mark</span>
+          <span className="text-muted-foreground">{t`Mark`}</span>
           <Select value={mode} onValueChange={(value) => onMode(value as CommentMode)}>
-            <SelectTrigger aria-label="Comment mode" className="h-7 flex-1" size="sm">
+            <SelectTrigger aria-label={t`Comment mode`} className="h-7 flex-1" size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[95]">
@@ -180,7 +220,7 @@ export function CommentControls({
           size="sm"
           variant="outline"
         >
-          Add region
+          {t`Add region`}
         </Button>
       ) : null}
       {listOpen || !marks.length ? (
@@ -193,7 +233,7 @@ export function CommentControls({
                 onClick={() => onOpenMark(mark.label)}
                 type="button"
               >
-                {mark.label}: {mark.comment || 'Add a comment'}
+                {mark.label}: {mark.comment || t`Add a comment`}
                 {mark.note ? (
                   <span className="block truncate text-muted-foreground" data-slot="mark-note">
                     {mark.note}
@@ -206,7 +246,24 @@ export function CommentControls({
           )}
         </div>
       ) : null}
-      {marks.length && sendLabel && onSend ? (
+      {conflict ? (
+        <div className="mt-2 space-y-1.5 border-t pt-2" data-slot="comment-conflict" role="alert">
+          <p className="text-xs text-muted-foreground">{conflict.message}</p>
+          {conflict.actions.map((action) => (
+            <Button
+              className="w-full"
+              disabled={busy}
+              key={action.label}
+              onClick={action.onClick}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      ) : marks.length && sendLabel && onSend ? (
         <Button
           className="mt-2 w-full"
           disabled={busy || sendDisabled}

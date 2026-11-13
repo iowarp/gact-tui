@@ -8,10 +8,12 @@ import {
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import { keepEqualBytes } from '@/lib/keep-equal-bytes';
-import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
+import type { Artifact, CommentTarget, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { CodeIcon, EyeIcon } from 'lucide-react';
+import { BookOpenIcon, CodeIcon, EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
 
 import { FileTextView } from './file-text-view';
 import {
@@ -45,13 +47,15 @@ import {
 } from './artifact-custody';
 
 import { ClioDocumentWorkspace } from './document-workspace';
+import { PREPARING_PDF_EXPORT } from './document-open-menu';
+import { useFileViewerActions } from './file-viewer-action-context';
 
 import { HtmlFileInBrowser } from './html-in-browser';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { FileSourceView } from './file-source-view';
 import { ClioPdfPreview } from './pdf-preview';
-import { PendingZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, PendingZoomControls } from './viewer-zoom-controls';
 import {
   ResourceLoading,
   ViewerNoPreview,
@@ -67,7 +71,16 @@ import { isStreamArtifact } from './stream-artifact';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 import { WorkspaceTextView } from './workspace-text-view';
+import { t, ph } from '@lingui/core/macro';
 export { TextResourceView } from './workspace-text-view';
+
+const PREPARING_PDF_ROWS = [PREPARING_PDF_EXPORT];
+
+/** While an Office file loads, its Download ▾ already holds Export to PDF, off. */
+function PreparingPdfExport() {
+  useFileViewerActions(PREPARING_PDF_ROWS);
+  return null;
+}
 
 export function WorkspaceFileView({
   workspaceId,
@@ -161,7 +174,7 @@ export function WorkspaceFileView({
       mediaType={detected}
     />
   ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
-    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+    <Suspense fallback={<ResourceLoading label={t`Loading ${ph({ name: fileName(path) })}`} />}>
       {/\.nc$/iu.test(path) ? (
         <WorkspaceNetcdfView
           locator={locator}
@@ -191,9 +204,9 @@ export function WorkspaceFileView({
             <WorkspaceBinaryView
               mediaType={detected}
               path={path}
-              reason="It can't run here right now."
+              reason={t`It can't run here right now.`}
               size={size}
-              title="Preview needs the document runtime"
+              title={t`Preview needs the document runtime`}
               workspaceId={workspaceId}
             />
           }
@@ -210,8 +223,9 @@ export function WorkspaceFileView({
       }
       loading={
         <>
-          <PendingZoomControls label="PDF zoom" />
-          <ResourceLoading label={`Opening ${fileName(path)}`} />
+          <PreparingPdfExport />
+          <PendingZoomControls label={t`PDF zoom`} readout={<PendingPageReadout />} />
+          <ResourceLoading label={t`Opening ${ph({ name: fileName(path) })}`} />
         </>
       }
       mediaType={officeMediaType(path)!}
@@ -226,7 +240,12 @@ export function WorkspaceFileView({
       source={source}
       showIdentity={!embedded}
       identity={embedded ? identity : undefined}
-      tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
+      tabs={[
+        // An Office file reads as its document from first paint, as it will once loaded.
+        officeMediaType(path)
+          ? { value: 'preview', label: t`Read document`, icon: BookOpenIcon, content: preview }
+          : { value: 'preview', label: t`Preview`, icon: EyeIcon, content: preview },
+      ]}
       lineage={
         embedded ? undefined : (
           <WorkspaceFileLineage path={path} sessionId={sessionId} workspaceId={workspaceId} />
@@ -283,14 +302,15 @@ function WorkspaceNetcdfView({
     retry: false,
     staleTime: Infinity,
   });
-  if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
+  if (magic.isPending)
+    return <ResourceLoading label={t`Loading ${ph({ name: fileName(path) })}`} />;
   if (magic.isError)
     return <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />;
   if (isClassicNetcdf(magic.data?.subarray(0, 4)))
     return (
       <ViewerNoPreview
-        format="classic NetCDF"
-        reason="This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
+        format={t`classic NetCDF`}
+        reason={t`This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5.`}
         source={source}
       />
     );
@@ -415,6 +435,8 @@ type ArtifactViewProps = {
   onOpenActivity?: (activity: LineageActivity) => void;
   /** The open conversation, which holds a stream's watch lease while it is shown. */
   sessionId?: string;
+  /** Whatever frames the viewer already names the file. */
+  showIdentity?: boolean;
 };
 
 /** An artifact in the side panel: a stream reads from clio-core, anything else is a file. */
@@ -433,10 +455,29 @@ function ArtifactFileView({
   onOpenArtifact,
   onOpenWorkspaceFile,
   onOpenActivity,
+  showIdentity,
 }: Omit<ArtifactViewProps, 'sessionId'>) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [asText, setAsText] = useState(false);
+  // This view shows one fixed version; marking again on a newer one opens that version.
+  const openVersion = useMemo(
+    () =>
+      onOpenArtifact
+        ? (target: CommentTarget) =>
+            void repository
+              .artifactDetail(target.artifact_id)
+              .then((detail) =>
+                onOpenArtifact(
+                  artifactDetailVersionEntity(detail, target.artifact_id, artifact.session_id),
+                ),
+              )
+              .catch((cause: unknown) =>
+                toast.error(cause instanceof Error ? cause.message : String(cause)),
+              )
+        : undefined,
+    [artifact.session_id, onOpenArtifact, repository],
+  );
   const canPreviewText = asText || isTextArtifact(artifact.media_type, artifact.name);
   // A dashboard's frame draws Render, Definition (its JSON) and Lineage.
   const isDashboard =
@@ -521,7 +562,7 @@ function ArtifactFileView({
         variant="outline"
         onClick={() => onOpenWorkspaceFile(currentFile)}
       >
-        Open current workspace file
+        {t`Open current workspace file`}
       </Button>
     ) : null;
   const source: FileViewerSource = {
@@ -552,7 +593,7 @@ function ArtifactFileView({
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
-        <ArtifactVersionComments artifact={artifact} text>
+        <ArtifactVersionComments artifact={artifact} onOpenVersion={openVersion} text>
           <FileTextView
             name={artifact.name}
             content={text.data.content}
@@ -565,17 +606,18 @@ function ArtifactFileView({
         error={
           text.error instanceof ArtifactRecoveryError
             ? text.error.message
-            : 'The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.'
+            : t`The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.`
         }
         onRetry={() => void text.refetch()}
       />
     ) : (
-      <ResourceLoading label={`Loading ${artifact.name}`} />
+      <ResourceLoading label={t`Loading ${ph({ name: artifact.name })}`} />
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
       <ArtifactVersionComments
         artifact={artifact}
+        onOpenVersion={openVersion}
         svg={
           isSvg(artifact.media_type || imageMediaType(artifact.name))
             ? image.data?.bytes
@@ -598,14 +640,15 @@ function ArtifactFileView({
   return (
     <FileViewerShell
       source={source}
+      showIdentity={showIdentity}
       hasDocumentActions={
         !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
       }
-      label="Artifact views"
+      label={t`Artifact views`}
       tabs={[
         {
           value: 'preview',
-          label: isDashboard ? 'Render' : 'Preview',
+          label: isDashboard ? t`Render` : t`Preview`,
           icon: EyeIcon,
           content: (
             <>
@@ -615,7 +658,7 @@ function ArtifactFileView({
                   <div className="min-h-0 flex-1">{preview}</div>
                   {image.data?.recovered ? (
                     <p className="shrink-0 text-xs text-muted-foreground">
-                      Recovered from the matching workspace file.
+                      {t`Recovered from the matching workspace file.`}
                     </p>
                   ) : null}
                 </div>
@@ -625,6 +668,7 @@ function ArtifactFileView({
                   fallbackPreview={preview}
                   fallbackSource={text.data?.content}
                   key={artifact.id}
+                  onOpenVersion={openVersion}
                 />
               ) : (
                 <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -632,7 +676,7 @@ function ArtifactFileView({
                   <div className="min-h-0 flex-1 overflow-auto">{preview}</div>
                   {text.data?.recovered ? (
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Recovered from the matching workspace file.
+                      {t`Recovered from the matching workspace file.`}
                     </p>
                   ) : null}
                 </div>
@@ -644,7 +688,7 @@ function ArtifactFileView({
           ? [
               {
                 value: 'source',
-                label: 'Definition',
+                label: t`Definition`,
                 icon: CodeIcon,
                 content: <FileSourceView name={artifact.name} content={text.data.content} />,
               },
@@ -667,12 +711,14 @@ function ArtifactVersionComments({
   artifact,
   svg,
   text = false,
+  onOpenVersion,
   children,
 }: {
   artifact: Artifact;
   /** An SVG's bytes, so element marks can pick its elements. */
   svg?: Uint8Array;
   text?: boolean;
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   if (!artifact.sha256 || !artifact.version) return <>{children}</>;
@@ -680,6 +726,7 @@ function ArtifactVersionComments({
     <ArtifactComments
       artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
       modes={text ? ['text'] : svg ? ['region', 'element'] : ['region']}
+      onOpenVersion={onOpenVersion}
       regionAnchor={text ? undefined : imageRegionAnchor}
       svg={svg}
     >

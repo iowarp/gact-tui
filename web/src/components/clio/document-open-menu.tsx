@@ -8,6 +8,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { documentApplications, type DocumentApplication } from '@/tauri/documents';
 import { AssociatedApplicationItems } from './associated-application-items';
 import type { FileViewerAction } from './file-viewer-action-context';
+import { t } from '@lingui/core/macro';
 
 export interface DocumentOpenTarget {
   kind: 'native';
@@ -32,6 +33,20 @@ export function documentHasPdf(manifest: DocumentManifest | undefined) {
 }
 
 /**
+ * Export to PDF while an Office file's capabilities are still loading: the bar
+ * shows Download ▾ from its first paint, as it will once the file has loaded.
+ */
+export const PREPARING_PDF_EXPORT: FileViewerAction = {
+  kind: 'download',
+  label: 'PDF',
+  icon: FileTextIcon,
+  pending: true,
+  disabled: true,
+  description: t`Preparing the PDF…`,
+  onSelect: () => undefined,
+};
+
+/**
  * A document's rows in the frame's Open ▾, so it has one Open like any file:
  * With another app edits its working copy (or shows a desktop copy in its
  * folder), PDF copy opens the rendition in a PDF app, Close working copy ends
@@ -42,6 +57,7 @@ export function documentHasPdf(manifest: DocumentManifest | undefined) {
 export function useDocumentOpenActions({
   artifact,
   manifest,
+  expectPdf = false,
   openPending,
   pdfPending,
   pdfUnavailable,
@@ -55,6 +71,8 @@ export function useDocumentOpenActions({
 }: {
   artifact: Artifact;
   manifest?: DocumentManifest;
+  /** Before its manifest loads, the document is known to have a PDF (an Office file). */
+  expectPdf?: boolean;
   openPending: boolean;
   pdfPending: boolean;
   /** Why no PDF can be made here, which turns Export to PDF off. */
@@ -80,15 +98,15 @@ export function useDocumentOpenActions({
   });
   const busy = openPending || pdfPending || revealPending;
   return useMemo<FileViewerAction[]>(() => {
-    if (!manifest) return [];
+    if (!manifest) return expectPdf ? [PREPARING_PDF_EXPORT] : [];
     const open = (application: DocumentApplication, format: DocumentOpenTarget['format']) =>
       onOpen({ kind: 'native', application, format });
     const rows: FileViewerAction[] = [];
     if (native)
       rows.push({
         kind: 'open',
-        label: 'With another app',
-        description: nativeOpen ? 'Edits become new revisions' : undefined,
+        label: t`With another app`,
+        description: nativeOpen ? t`Edits become new revisions` : undefined,
         icon: ExternalLinkIcon,
         pending: openPending,
         onSelect: () => undefined,
@@ -108,7 +126,7 @@ export function useDocumentOpenActions({
             ) : null}
             <DropdownMenuItem disabled={busy} onSelect={onReveal}>
               <FolderOpenIcon aria-hidden="true" />
-              Open in folder
+              {t`Open in folder`}
             </DropdownMenuItem>
           </>
         ),
@@ -116,7 +134,7 @@ export function useDocumentOpenActions({
     if (native && pdf)
       rows.push({
         kind: 'open',
-        label: 'PDF copy with another app',
+        label: t`PDF copy with another app`,
         icon: FileTextIcon,
         onSelect: () => undefined,
         submenu: (
@@ -133,8 +151,8 @@ export function useDocumentOpenActions({
     if (workingCopyActive)
       rows.push({
         kind: 'open',
-        label: 'Close working copy',
-        description: closePending ? 'Closing…' : undefined,
+        label: t`Close working copy`,
+        description: closePending ? t`Closing…` : undefined,
         icon: CloseIcon,
         disabled: closePending,
         pending: closePending,
@@ -153,6 +171,7 @@ export function useDocumentOpenActions({
     return rows;
   }, [
     manifest,
+    expectPdf,
     native,
     nativeOpen,
     pdf,

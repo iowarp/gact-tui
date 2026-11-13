@@ -21,6 +21,7 @@ import {
 import { accessModes, unavailableAccess, type SourceAccess } from './source-access';
 import { useSourceFrameFooter } from './use-source-frame-footer';
 import { SourceProviderInfo } from './source-provider-info';
+import { t, ph } from '@lingui/core/macro';
 
 const order: SourceChoiceId[] = [
   'local',
@@ -34,10 +35,10 @@ const order: SourceChoiceId[] = [
 ];
 
 const signInSentences: Partial<Record<SourceProvider['id'], string>> = {
-  github: "Public repositories don't need sign-in.",
-  google_drive: 'Sign in to Google Drive to reach your folders.',
-  globus: 'Sign in to Globus to reach your collections.',
-  ndp: 'Sign in for private datasets and your groups.',
+  github: t`Public repositories don't need sign-in.`,
+  google_drive: t`Sign in to Google Drive to reach your folders.`,
+  globus: t`Sign in to Globus to reach your collections.`,
+  ndp: t`Sign in for private datasets and your groups.`,
 };
 
 /**
@@ -80,7 +81,7 @@ export function ConnectedSourceForm({
     if (id === 'upload')
       return localConnection && !uploadFiles?.length
         ? []
-        : [{ id, name: 'Upload from this computer' }];
+        : [{ id, name: t`Upload from this computer` }];
     const provider = providers.find((row) => row.id === id);
     if (!provider) return [];
     return [
@@ -89,8 +90,8 @@ export function ConnectedSourceForm({
         name:
           id === 'local'
             ? localConnection
-              ? 'This computer'
-              : `Folder on ${hostLabel}`
+              ? t`This computer`
+              : t`Folder on ${hostLabel}`
             : provider.name,
       },
     ];
@@ -186,7 +187,9 @@ export function ProviderAccount({
         icon={<CheckIcon />}
         actions={<ConnectedAccountActions provider={provider} />}
       >
-        Signed in{provider.account_name ? ` as ${provider.account_name}` : ''}
+        {provider.account_name
+          ? t`Signed in as ${ph({ account: provider.account_name })}`
+          : t`Signed in`}
       </SourceStatusLine>
     );
   return (
@@ -197,15 +200,15 @@ export function ProviderAccount({
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Sign in to ${provider.name}`}
+          aria-label={t`Sign in to ${ph({ name: provider.name })}`}
           onClick={() => onSignIn(provider)}
         >
           <SourceProviderGlyph provider={provider.id} className="size-3.5" />
-          Sign in
+          {t`Sign in`}
         </Button>
       }
     >
-      {signInSentences[provider.id] ?? `Sign in to ${provider.name}.`}
+      {signInSentences[provider.id] ?? t`Sign in to ${ph({ name: provider.name })}.`}
     </SourceStatusLine>
   );
 }
@@ -258,12 +261,12 @@ function ProviderForm({
   };
   const footer = useSourceFrameFooter({
     confirm: {
-      label: connect.isPending ? 'Connecting…' : 'Connect',
+      label: connect.isPending ? t`Connecting…` : t`Connect`,
       disabled: !fields.ready || connect.isPending,
     },
     onConfirm: submit,
     start: onBack
-      ? { label: 'Back', back: true, onClick: onBack, disabled: connect.isPending }
+      ? { label: t`Back`, back: true, onClick: onBack, disabled: connect.isPending }
       : undefined,
   });
   return (

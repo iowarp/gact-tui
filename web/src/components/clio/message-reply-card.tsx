@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { replyUsedRows, type ReplyToolCounts } from './message-reply-facts';
+import { t } from '@lingui/core/macro';
 /**
  * "This reply used": the agent, model, behavior and usage behind one answer.
  * The card's content mounts only while it is open.
@@ -44,8 +45,8 @@ function ReplyUsedDetails({
 }) {
   const { setup, usage } = replyUsedRows(message, agentName, counts);
   return (
-    <section aria-label="This reply used">
-      <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">This reply used</p>
+    <section aria-label={t`This reply used`}>
+      <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">{t`This reply used`}</p>
       <KeyValueGrid variant="card" items={setup} />
       {usage.length ? (
         <>

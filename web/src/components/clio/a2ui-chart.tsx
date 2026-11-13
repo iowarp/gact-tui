@@ -64,6 +64,7 @@ import {
   describeQueryFilter,
   mergeFilters,
 } from './data-query-filters';
+import { chartZoneDescription } from './chart-zone-description';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
   isSelectionValue,
@@ -86,6 +87,7 @@ import {
   type SurfaceExportFormat,
 } from './surface-toolbar';
 import { downloadInlineRowsAsCsv, downloadServerTableExport } from './table-export-client';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ClioChartProps {
   accessibility?: A2UIAccessibility;
@@ -421,7 +423,9 @@ export function ClioChart(props: ClioChartProps) {
         .map((field) => row[field])
         .filter(isSelectionValue)
         .join(', ');
-    return label || `Row ${typeof candidate === 'number' ? candidate + 1 : candidate}`;
+    return (
+      label || t`Row ${ph({ row: typeof candidate === 'number' ? candidate + 1 : candidate })}`
+    );
   };
   const handleSelectCandidate = (raw: string) => {
     const value = selectionCandidates.find((candidate) => String(candidate) === raw);
@@ -452,7 +456,7 @@ export function ClioChart(props: ClioChartProps) {
     void zoomChartToRows(view, zoomParam, selectedZoomRows, xField, yField, xAxisType, yAxisType)
       .then((applied) => {
         if (applied) setZoomActive(true);
-        else setEmbedError('Zoom unavailable: selected rows have no numeric x and y values.');
+        else setEmbedError(t`Zoom unavailable: selected rows have no numeric x and y values.`);
       })
       .catch((error: unknown) =>
         setEmbedError(error instanceof Error ? error.message : String(error)),
@@ -461,9 +465,9 @@ export function ClioChart(props: ClioChartProps) {
 
   const failure = built.error || dataError || embedError;
 
-  const heading = title || 'Chart';
+  const heading = title || t`Chart`;
   const description = describeChart(spec, displayRows, loading, note);
-  const label = a2uiAccessibilityLabel(accessibility) ?? `${heading} chart`;
+  const label = a2uiAccessibilityLabel(accessibility) ?? t`${heading} chart`;
   const buildReference = (): DataZoneReference => {
     const shownRows = (displayRows ?? []).length;
     const totalRows = props.dataUri ? (matchedRows ?? shownRows) : shownRows;
@@ -482,11 +486,14 @@ export function ClioChart(props: ClioChartProps) {
           selectedZoomRows.some((selectedRow) => selectedRow[entityField] === row[entityField]),
         ).length === selectedZoomRows.length,
     );
-    const zoneDescription = selected
-      ? completeCurves
-        ? `${selectedCurves.toLocaleString()} selected ${selectedCurves === 1 ? 'curve' : 'curves'} containing ${selectedZoomRows.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
-        : `${selectedZoomRows.length.toLocaleString()} selected ${selectsSeries ? (selectedZoomRows.length === 1 ? 'point' : 'points') : selectedZoomRows.length === 1 ? 'row' : 'rows'} of ${totalRows.toLocaleString()}`
-      : `the filtered current view (${totalRows.toLocaleString()} rows)`;
+    const zoneDescription = chartZoneDescription({
+      selected: Boolean(selected),
+      completeCurves,
+      selectsSeries: Boolean(selectsSeries),
+      selectedCurves,
+      selectedRows: selectedZoomRows.length,
+      totalRows,
+    });
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(props.dataUri) ?? props.dataUri ?? 'inline data',
@@ -521,7 +528,7 @@ export function ClioChart(props: ClioChartProps) {
   const exportFormats: SurfaceExportFormat[] = [
     {
       id: 'png',
-      label: 'PNG image',
+      label: t`PNG image`,
       run: async () => {
         if (!viewRef.current)
           throw new Error('Chart image is unavailable until the chart finishes rendering.');
@@ -531,7 +538,7 @@ export function ClioChart(props: ClioChartProps) {
     },
     {
       id: 'svg',
-      label: 'SVG image',
+      label: t`SVG image`,
       run: async () => {
         if (!viewRef.current)
           throw new Error('Chart SVG is unavailable until the chart finishes rendering.');
@@ -540,7 +547,7 @@ export function ClioChart(props: ClioChartProps) {
     },
     {
       id: 'jpg',
-      label: 'JPG image',
+      label: t`JPG image`,
       run: async () => {
         if (!viewRef.current)
           throw new Error('Chart image is unavailable until the chart finishes rendering.');
@@ -550,7 +557,7 @@ export function ClioChart(props: ClioChartProps) {
     },
     {
       id: 'csv',
-      label: dataUri ? 'CSV (current view)' : 'CSV data',
+      label: dataUri ? t`CSV (current view)` : t`CSV data`,
       run: async () => {
         if (dataUri) {
           await downloadServerTableExport({
@@ -571,7 +578,7 @@ export function ClioChart(props: ClioChartProps) {
       ? [
           {
             id: 'csv-full',
-            label: 'CSV (full dataset)',
+            label: t`CSV (full dataset)`,
             run: () =>
               downloadServerTableExport({
                 dataUri,
@@ -590,13 +597,9 @@ export function ClioChart(props: ClioChartProps) {
       {linkable && markSelectionField && selectionCandidates.length > 0 ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            Select a{' '}
-            {selectsSeries
-              ? entityField
-              : markSelectionField === '__row'
-                ? 'row'
-                : markSelectionField}{' '}
-            by keyboard
+            {selectsSeries || markSelectionField !== '__row'
+              ? t`Select a ${ph({ field: (selectsSeries ? entityField : markSelectionField) ?? '' })} by keyboard`
+              : t`Select a row by keyboard`}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup onValueChange={handleSelectCandidate} value={selectedCandidate}>
@@ -635,7 +638,7 @@ export function ClioChart(props: ClioChartProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label={selectsSeries ? 'Box select chart points' : 'Box select chart rows'}
+              aria-label={selectsSeries ? t`Box select chart points` : t`Box select chart rows`}
               aria-pressed={boxSelectMode}
               className={cn(
                 'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
@@ -653,8 +656,8 @@ export function ClioChart(props: ClioChartProps) {
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom">
             {selectsSeries
-              ? `Drag to select points. ${keys.primary}-drag selects whole curves. Shift adds or removes.`
-              : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
+              ? t`Drag to select points. ${ph({ primary: keys.primary })}-drag selects whole curves. Shift adds or removes.`
+              : t`Box select. Drag a rectangle to select rows. Click again to exit.`}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -683,8 +686,8 @@ export function ClioChart(props: ClioChartProps) {
       linkable && selectionField ? (
         <span>
           {zoomParam
-            ? `Click a point to select it. ${keys.primary}-click selects its curve. Shift-click toggles a point; ${keys.primaryShift}-click merges or removes a curve. Drag selects points; ${keys.primary}-drag selects curves. ${keys.alt}-drag pans and ${keys.primary}-scroll zooms.`
-            : 'Choose Box select or hold Shift and drag to select matching rows.'}
+            ? t`Click a point to select it. ${ph({ primary: keys.primary })}-click selects its curve. Shift-click toggles a point; ${ph({ primaryShift: keys.primaryShift })}-click merges or removes a curve. Drag selects points; ${ph({ primary: keys.primary })}-drag selects curves. ${ph({ alt: keys.alt })}-drag pans and ${ph({ primary: keys.primary })}-scroll zooms.`
+            : t`Choose Box select or hold Shift and drag to select matching rows.`}
         </span>
       ) : undefined,
   };
@@ -714,7 +717,7 @@ export function ClioChart(props: ClioChartProps) {
           </>
         }
       />
-      {refreshing ? <LoadingFeedback label="Updating chart…" /> : null}
+      {refreshing ? <LoadingFeedback label={t`Updating chart…`} /> : null}
       <SurfaceFullScreenHost
         fullscreen={fullscreen}
         headerExtra={
@@ -734,7 +737,7 @@ export function ClioChart(props: ClioChartProps) {
         <div className="min-w-0">
           {failure ? (
             <LoadingFailure
-              title="Chart unavailable"
+              title={t`Chart unavailable`}
               detail={failure}
               onRetry={dataError ? retry : undefined}
             />
@@ -751,13 +754,13 @@ export function ClioChart(props: ClioChartProps) {
             >
               {!hasRows || !spec ? (
                 <LoadingFeedback
-                  label="Loading chart…"
+                  label={t`Loading chart…`}
                   variant="skeleton"
                   className="absolute inset-0"
                 />
               ) : null}
               {boxSelectMode && !boxReady && hasRows && spec ? (
-                <LoadingFeedback label="Preparing box selection" variant="overlay" />
+                <LoadingFeedback label={t`Preparing box selection`} variant="overlay" />
               ) : null}
               {/* Vega owns this node's children; React never renders into it. */}
               <div

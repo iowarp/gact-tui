@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { resetsIn } from '@/lib/fleet-usage';
 import type { ModelExhausted } from '@/lib/turn-model-exhausted';
+import { t } from '@lingui/core/macro';
 
 /**
  * The person's choice after their model's usage window ran out: when it
@@ -29,14 +30,15 @@ export function TurnModelExhausted({
       });
     },
   });
+  const { model } = exhausted;
   const when = exhausted.resetsAt ? resetsIn(exhausted.resetsAt) : '';
   return (
     <div className="mt-2 grid gap-2" data-slot="turn-model-exhausted">
       <p className="text-sm">
-        {exhausted.model} has used its window{when ? `; it ${when}` : ''}.
+        {when ? t`${model} has used its window; it ${when}.` : t`${model} has used its window.`}{' '}
         {exhausted.alternatives.length
-          ? ' Answer this turn on another model:'
-          : ' No other connected model can answer now.'}
+          ? t`Answer this turn on another model:`
+          : t`No other connected model can answer now.`}
       </p>
       {exhausted.alternatives.length ? (
         <div className="flex flex-wrap gap-1.5">

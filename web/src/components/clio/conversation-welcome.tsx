@@ -1,6 +1,7 @@
 import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import type { ReactNode } from 'react';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ClioConversationWelcomeProps {
   /** The composer, under the welcome line. */
@@ -13,19 +14,19 @@ export interface ClioConversationWelcomeProps {
 export function ClioConversationWelcome({ children, context }: ClioConversationWelcomeProps) {
   return (
     <section
-      aria-label={`${brand.name} conversation welcome`}
+      aria-label={t`${ph({ name: brand.name })} conversation welcome`}
       className="mx-auto flex w-full max-w-4xl min-w-0 flex-col"
     >
       <div className="flex flex-col items-center gap-2.5 pb-3 text-center text-muted-foreground">
         <BrandIcon className="size-[22px]" />
-        <h3 className="font-heading text-[18px] leading-6 font-medium text-foreground">
+        <h3 className="font-heading text-welcome leading-6 font-medium text-foreground">
           {brand.workspace.greeting}
         </h3>
       </div>
       {context ? (
         <div
           data-slot="conversation-welcome-context"
-          className="mb-3.5 flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap text-[12.5px] text-muted-foreground"
+          className="mb-3.5 flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap text-menu text-muted-foreground"
         >
           {context}
         </div>

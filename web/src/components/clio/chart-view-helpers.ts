@@ -1,6 +1,7 @@
 import type { ChartAxisType } from './chart-box-selection';
 import { sourceColumn, type ChartRow } from './chart-data';
 import { isJsonObject } from './chart-spec-guard';
+import { plural, t } from '@lingui/core/macro';
 
 /** Vega stamps its own id onto each tuple, so it gets copies, never the data model's rows. */
 export function cloneRows(rows: readonly ChartRow[]): ChartRow[] {
@@ -30,7 +31,8 @@ function chartUnits(
 }
 
 function chartChannelDefinitions(
-  spec: Record<string, unknown>, channel: string,
+  spec: Record<string, unknown>,
+  channel: string,
 ): (Record<string, unknown> | undefined)[] {
   const units = chartUnits(spec);
   if (units.some((unit) => !unit)) return [undefined];
@@ -41,13 +43,15 @@ function chartChannelDefinitions(
   const observations = valid.filter((unit) =>
     ['point', 'circle', 'square', 'line', 'trail'].includes(String(unit.mark)),
   );
-  const selectable = observations.length ? observations : valid.filter((unit) => {
-    if (unit.mark !== 'rule') return true;
-    return ['x', 'y'].every((axis) => {
-      const definition = unit.encoding[axis];
-      return isJsonObject(definition) && typeof definition.field === 'string';
-    });
-  });
+  const selectable = observations.length
+    ? observations
+    : valid.filter((unit) => {
+        if (unit.mark !== 'rule') return true;
+        return ['x', 'y'].every((axis) => {
+          const definition = unit.encoding[axis];
+          return isJsonObject(definition) && typeof definition.field === 'string';
+        });
+      });
   return selectable.map((unit) => {
     const definition = unit.encoding[channel];
     return isJsonObject(definition) ? definition : undefined;
@@ -89,9 +93,9 @@ export function describeChart(
   loading: boolean,
   note: string,
 ): string {
-  if (loading) return 'Loading rows…';
+  if (loading) return t`Loading rows…`;
   const summary = spec && typeof spec.description === 'string' ? spec.description : '';
-  const count = rows ? `${rows.length.toLocaleString()} rows` : '';
-  if (summary && count) return `${summary} (${count})`;
-  return summary || count || (note ? note : 'No rows');
+  const count = rows ? plural(rows.length, { one: '# row', other: '# rows' }) : '';
+  if (summary && count) return t`${summary} (${count})`;
+  return summary || count || (note ? note : t`No rows`);
 }

@@ -6,6 +6,7 @@ import {
   knownReasoningEffort,
   type ModelReasoningLevels,
 } from '@/lib/reasoning-levels';
+import { t } from '@lingui/core/macro';
 
 interface BehaviorSelection {
   behavior: MessageBehavior;
@@ -86,8 +87,8 @@ export function useComposerBehavior({
     }
     void onBehaviorChange(next).catch((error: unknown) => {
       setSelection(recorded(previous, selection.effortPicked));
-      toast.error('Session behavior was not changed', {
-        description: error instanceof Error ? error.message : 'The service rejected the change.',
+      toast.error(t`Session behavior was not changed`, {
+        description: error instanceof Error ? error.message : t`The service rejected the change.`,
       });
     });
   };

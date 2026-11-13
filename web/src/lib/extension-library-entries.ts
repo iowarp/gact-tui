@@ -15,16 +15,17 @@ import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { copyText } from '@/lib/clipboard';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
 import { catalogMatches, catalogRoots } from '@/lib/plugin-catalog-tree';
+import { plural, t, ph } from '@lingui/core/macro';
 
 export type ExtensionType = 'all' | 'plugins' | 'marketplaces' | 'mcp' | 'skills';
 
 /** The type tabs, in order. */
 export const EXTENSION_TYPE_LABELS: Record<ExtensionType, string> = {
-  all: 'All',
-  plugins: 'Plugins',
-  marketplaces: 'Marketplaces',
-  mcp: 'MCP connections',
-  skills: 'Skills',
+  all: t`All`,
+  plugins: t`Plugins`,
+  marketplaces: t`Marketplaces`,
+  mcp: t`MCP connections`,
+  skills: t`Skills`,
 };
 
 /** What Add does for the type in view. */
@@ -72,12 +73,9 @@ export type ExtensionEntry =
       remote: boolean;
     });
 
-export const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
-
 /** Where a plugin comes from, in the words of the list: your library reads "Yours". */
 export function sourceName(marketplace: string): string {
-  return marketplace === LOCAL_MARKETPLACE ? 'Yours' : marketplace;
+  return marketplace === LOCAL_MARKETPLACE ? t`Yours` : marketplace;
 }
 
 /** A local plugin that is one skill of the same name reads as that skill. */
@@ -96,27 +94,37 @@ export function isStandaloneSkill(plugin: PluginEntry): boolean {
 
 /** The two largest things a plugin brings, so the meta line stays one short line. */
 export function pluginContents(plugin: PluginEntry): string {
-  if (plugin.kind === 'pack') return plural(plugin.members.length, 'plugin');
+  if (plugin.kind === 'pack')
+    return plural(plugin.members.length, { one: '# plugin', other: '# plugins' });
   const parts = (
     [
-      [plugin.skills.length, 'skill'],
-      [plugin.mcp_servers.length, 'server'],
-      [plugin.tools.length, 'tool'],
-      [plugin.commands.length, 'command'],
-      [plugin.subagents.length, 'subagent'],
-      [plugin.flows.length, 'flow'],
-      [plugin.hooks.length, 'hook'],
-      [plugin.fragments.length, 'prompt fragment'],
+      [plugin.skills.length, (n: number) => plural(n, { one: '# skill', other: '# skills' })],
+      [
+        plugin.mcp_servers.length,
+        (n: number) => plural(n, { one: '# server', other: '# servers' }),
+      ],
+      [plugin.tools.length, (n: number) => plural(n, { one: '# tool', other: '# tools' })],
+      [plugin.commands.length, (n: number) => plural(n, { one: '# command', other: '# commands' })],
+      [
+        plugin.subagents.length,
+        (n: number) => plural(n, { one: '# subagent', other: '# subagents' }),
+      ],
+      [plugin.flows.length, (n: number) => plural(n, { one: '# flow', other: '# flows' })],
+      [plugin.hooks.length, (n: number) => plural(n, { one: '# hook', other: '# hooks' })],
+      [
+        plugin.fragments.length,
+        (n: number) => plural(n, { one: '# prompt fragment', other: '# prompt fragments' }),
+      ],
     ] as const
   )
     .filter(([count]) => count > 0)
     .slice(0, 2)
-    .map(([count, word]) => plural(count, word));
-  return parts.join(', ') || 'Nothing of its own';
+    .map(([count, label]) => label(count));
+  return parts.join(', ') || t`Nothing of its own`;
 }
 
 export function formatName(format: string): string {
-  return format === 'claude-code' ? 'Claude Code format' : 'Agent Plugins format';
+  return format === 'claude-code' ? t`Claude Code format` : t`Agent Plugins format`;
 }
 
 function problems(diagnostics: readonly { severity: string }[]): number {
@@ -124,11 +132,12 @@ function problems(diagnostics: readonly { severity: string }[]): number {
 }
 
 export function pluginStatus(plugin: PluginEntry): ExtensionStatus {
-  if (plugin.pending_trust) return { tone: 'warning', label: 'Update waits for trust' };
-  if (!plugin.trusted) return { tone: 'warning', label: 'Not trusted' };
+  if (plugin.pending_trust) return { tone: 'warning', label: t`Update waits for trust` };
+  if (!plugin.trusted) return { tone: 'warning', label: t`Not trusted` };
   const errors = problems(plugin.diagnostics);
-  if (errors) return { tone: 'error', label: plural(errors, 'problem') };
-  return { tone: 'success', label: 'Trusted' };
+  if (errors)
+    return { tone: 'error', label: plural(errors, { one: '# problem', other: '# problems' }) };
+  return { tone: 'success', label: t`Trusted` };
 }
 
 export function pluginRow(plugin: PluginEntry): ExtensionEntry {
@@ -138,7 +147,7 @@ export function pluginRow(plugin: PluginEntry): ExtensionEntry {
     title: plugin.id,
     plugin,
     meta: [
-      { text: plugin.kind === 'pack' ? 'Pack' : 'Plugin' },
+      { text: plugin.kind === 'pack' ? t`Pack` : t`Plugin` },
       { text: pluginContents(plugin) },
       { text: sourceName(plugin.marketplace) },
     ],
@@ -156,8 +165,8 @@ export function skillRow(plugin: PluginEntry, skill: string): ExtensionEntry {
     plugin,
     skill,
     meta: own
-      ? [{ text: 'Skill' }, { text: 'Yours' }]
-      : [{ text: 'Skill' }, { text: plugin.id }, { text: sourceName(plugin.marketplace) }],
+      ? [{ text: t`Skill` }, { text: t`Yours` }]
+      : [{ text: t`Skill` }, { text: plugin.id }, { text: sourceName(plugin.marketplace) }],
     // A skill carries its plugin's trust, so every row of the list has a status word.
     status,
   };
@@ -181,7 +190,7 @@ export function marketplaceShipped(marketplace: PluginMarketplace): boolean {
 }
 
 export function marketplaceTitle(marketplace: Pick<PluginMarketplace, 'name'>): string {
-  return marketplace.name === LOCAL_MARKETPLACE ? 'Private local marketplace' : marketplace.name;
+  return marketplace.name === LOCAL_MARKETPLACE ? t`Private local marketplace` : marketplace.name;
 }
 
 export function marketplaceRow(
@@ -193,28 +202,32 @@ export function marketplaceRow(
   ).length;
   const errors = problems(marketplace.diagnostics);
   const status: ExtensionStatus = !marketplace.trusted
-    ? { tone: 'warning', label: 'Not trusted' }
+    ? { tone: 'warning', label: t`Not trusted` }
     : pendingUpdates
       ? {
           tone: 'warning',
-          label: `${pendingUpdates === 1 ? '1 update waits' : `${pendingUpdates} updates wait`} for trust`,
+          label: plural(pendingUpdates, {
+            one: '# update waits for trust',
+            other: '# updates wait for trust',
+          }),
         }
       : errors
-        ? { tone: 'error', label: plural(errors, 'problem') }
-        : { tone: 'success', label: 'Trusted' };
-  const meta: ExtensionMetaPart[] = [{ text: 'Marketplace' }];
+        ? { tone: 'error', label: plural(errors, { one: '# problem', other: '# problems' }) }
+        : { tone: 'success', label: t`Trusted` };
+  const meta: ExtensionMetaPart[] = [{ text: t`Marketplace` }];
   // Your library is a collection, not a source: its format and folder stay in its details.
-  if (marketplace.name === LOCAL_MARKETPLACE) meta.push({ text: 'On this host' });
+  if (marketplace.name === LOCAL_MARKETPLACE) meta.push({ text: t`On this host` });
   else {
     meta.push({ text: formatName(marketplace.format) });
     meta.push(
       marketplaceShipped(marketplace)
-        ? { text: 'Shipped' }
+        ? { text: t`Shipped` }
         : { text: shortSource(marketplace.source), mono: true },
     );
   }
-  if (marketplace.parent) meta.push({ text: `Via ${marketplace.parent}` });
-  if (errors && status.tone !== 'error') meta.push({ text: plural(errors, 'problem') });
+  if (marketplace.parent) meta.push({ text: t`Via ${ph({ parent: marketplace.parent })}` });
+  if (errors && status.tone !== 'error')
+    meta.push({ text: plural(errors, { one: '# problem', other: '# problems' }) });
   return {
     kind: 'marketplace',
     key: `marketplace:${marketplace.name}`,
@@ -257,11 +270,11 @@ function mcpRow(
     server,
     remote,
     meta: [
-      { text: 'MCP connection' },
-      { text: remote ? 'remote service' : 'local command' },
+      { text: t`MCP connection` },
+      { text: remote ? t`remote service` : t`local command` },
       // The count is only known once the server has listed its tools.
       ...(server?.status === 'ready' && server.tools_count
-        ? [{ text: plural(server.tools_count, 'tool') }]
+        ? [{ text: plural(server.tools_count, { one: '# tool', other: '# tools' }) }]
         : []),
     ],
     status: serviceStatus(server),
@@ -335,9 +348,9 @@ export function extensionEntries({
 
 export function copyReference(reference: string) {
   void copyText(reference).then(
-    () => toast.success('Reference copied', { description: reference }),
+    () => toast.success(t`Reference copied`, { description: reference }),
     (error: unknown) =>
-      toast.error('Could not copy the reference', {
+      toast.error(t`Could not copy the reference`, {
         description: error instanceof Error ? error.message : reference,
       }),
   );
@@ -363,9 +376,9 @@ export function markdownSummary(text: string | undefined): string {
 
 export function copyAddress(address: string) {
   void copyText(address).then(
-    () => toast.success('Copied', { description: address }),
+    () => toast.success(t`Copied`, { description: address }),
     (error: unknown) =>
-      toast.error('Could not copy', {
+      toast.error(t`Could not copy`, {
         description: error instanceof Error ? error.message : address,
       }),
   );

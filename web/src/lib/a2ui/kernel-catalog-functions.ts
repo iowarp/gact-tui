@@ -1,8 +1,4 @@
-import {
-  BASIC_FUNCTIONS,
-  OpenUrlApi,
-  createFunctionImplementation,
-} from '@a2ui/web_core/v0_9';
+import { BASIC_FUNCTIONS, OpenUrlApi, createFunctionImplementation } from '@a2ui/web_core/v0_9';
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
 import { checkA2uiUrlScheme } from '@clio/core/v3';
 import { z } from 'zod';
@@ -10,6 +6,7 @@ import type { SelectionState } from '@/components/clio/selection-state';
 import { openExternalUrl } from '@/tauri/external-url';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 import { activeA2uiOpenViewRuntime } from './open-view';
+import { t } from '@lingui/core/macro';
 
 /**
  * Catalog FUNCTIONS the kernel renderer implements — split out of
@@ -36,7 +33,7 @@ const openArtifactFunction = createFunctionImplementation(
     if (!runtime || !artifact) {
       void context.surface.dispatchError({
         code: 'ARTIFACT_UNAVAILABLE',
-        message: 'The requested artifact is not available in this session.',
+        message: t`The requested artifact is not available in this session.`,
       });
       return;
     }
@@ -69,6 +66,7 @@ const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context)
   openExternalUrl(args.url).catch((error: unknown) => {
     void context.surface.dispatchError({
       code: 'VALIDATION_FAILED',
+      // i18n-ignore: a VALIDATION_FAILED message is posted to the agent
       message: error instanceof Error ? error.message : `Could not open ${args.url}.`,
     });
   });
@@ -102,6 +100,7 @@ const selectDataFunction = createFunctionImplementation(
     if (surfaceId !== undefined && surfaceId !== context.surface.id) {
       void context.surface.dispatchError({
         code: 'VALIDATION_FAILED',
+        // i18n-ignore: a VALIDATION_FAILED message is posted to the agent
         message: `selectData can only select on its own surface, not ${surfaceId}.`,
       });
       return;
@@ -151,7 +150,7 @@ const openViewFunction = createFunctionImplementation(
     if (!runtime) {
       void context.surface.dispatchError({
         code: 'ARTIFACT_UNAVAILABLE',
-        message: 'Opening another view needs a live workspace.',
+        message: t`Opening another view needs a live workspace.`,
       });
       return;
     }

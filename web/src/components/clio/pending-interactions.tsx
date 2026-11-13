@@ -13,7 +13,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStableCallback } from '@/hooks/use-stable-callback';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { ATTENTION_REVEAL_EVENT, pendingInteractionDomId } from './interaction-control';
+import {
+  ATTENTION_REVEAL_EVENT,
+  focusLost,
+  isEmptyComposer,
+  pendingInteractionDomId,
+} from './interaction-control';
 import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
@@ -22,6 +27,7 @@ import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
 import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
+import { plural, t } from '@lingui/core/macro';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -175,10 +181,29 @@ export function ClioPendingInteractions({
     setSelection({ id: pending[next]!.id, index: next });
   };
   const hasInteractiveSurface = selected?.kind === 'a2ui' || Boolean(selected?.source.surface_id);
+  // The control that answered each card, so a failed answer hands focus back to
+  // it once the card is enabled again rather than leaving focus on the page.
+  const answeredFrom = useRef(new Map<string, HTMLElement>());
+  useEffect(() => {
+    for (const [id, control] of answeredFrom.current) {
+      if (respondingIds.has(id)) continue;
+      answeredFrom.current.delete(id);
+      if (!responseErrors.has(id) || !focusLost()) continue;
+      const usable =
+        control.isConnected && !(control instanceof HTMLButtonElement && control.disabled);
+      const card = document
+        .getElementById(pendingInteractionDomId(id))
+        ?.closest<HTMLElement>('[data-slot="ask-card"]');
+      (usable ? control : card)?.focus({ preventScroll: true });
+    }
+  }, [respondingIds, responseErrors]);
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
       responseInFlight.current.add(interaction.id);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && dockRef.current?.contains(active))
+        answeredFrom.current.set(interaction.id, active);
       setRespondingIds(new Set(responseInFlight.current));
       setResponseErrors((current) => dropEntry(current, interaction.id));
       try {
@@ -207,7 +232,7 @@ export function ClioPendingInteractions({
   return (
     <section
       ref={dockRef}
-      aria-label="Agent needs your attention"
+      aria-label={t`Agent needs your attention`}
       // A separate card docked 8px above the composer, at the composer's width.
       className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
       data-slot="pending-interactions"
@@ -229,7 +254,10 @@ export function ClioPendingInteractions({
         type="scroll"
         viewportProps={{
           ref: viewportRef,
-          'aria-label': `${pending.length} pending responses`,
+          'aria-label': plural(pending.length, {
+            one: '# pending response',
+            other: '# pending responses',
+          }),
           className: 'pending-interactions-viewport overscroll-contain',
           onKeyDown: handleScrollableRegionKeys,
           // The sticky card header draws its hairline only while content is under it.
@@ -247,8 +275,7 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface &&
-                '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
@@ -360,10 +387,10 @@ export function ClioPendingInteractions({
 }
 
 const KIND_NAMES: Record<string, string> = {
-  permission: 'Permission',
-  question: 'Question',
-  a2ui: 'Question',
-  mcp_task_input: 'Input',
+  permission: t`Permission`,
+  question: t`Question`,
+  a2ui: t`Question`,
+  mcp_task_input: t`Input`,
 };
 
 /** The dock as the workspace mounts it: it renders again only when its props change. */
@@ -384,11 +411,6 @@ function announcement(interaction: PendingInteraction, index: number, total: num
   return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
     .filter(Boolean)
     .join('. ');
-}
-
-function isEmptyComposer(element: Element | null): boolean {
-  const editor = element?.closest('[data-slot="clio-composer"] [contenteditable="true"]');
-  return Boolean(editor && !editor.textContent?.trim());
 }
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {

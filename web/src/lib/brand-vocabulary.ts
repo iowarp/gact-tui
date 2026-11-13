@@ -19,11 +19,6 @@ export const vocab = {
   workspace: brand.workspaceNoun,
 } as const;
 
-/** The noun with its indefinite article: `A CLIO`, `An Agent`. */
-export function withArticle(noun: string): string {
-  return `${/^[aeiou]/iu.test(noun) ? 'An' : 'A'} ${noun}`;
-}
-
 /** Upper-case the first letter — for a vocabulary noun used as a title/header. */
 export function capitalize(value: string): string {
   return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
@@ -37,6 +32,8 @@ export function capitalize(value: string): string {
  * spelling the acronym inline, so the wording never drifts.
  */
 export const PROTOCOL = {
+  // i18n-ignore: protocol name, identical in every language
   a2ui: 'A2UI protocol',
+  // i18n-ignore: protocol name, identical in every language
   gact: 'GACT protocol',
 } as const;

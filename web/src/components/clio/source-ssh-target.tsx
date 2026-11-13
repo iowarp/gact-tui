@@ -18,8 +18,11 @@ import { SshAuthentication } from './managed-service-target';
 import { SshHostPicker } from './ssh-host-picker';
 import { SshHostsManagerDialog } from './ssh-hosts-manager-dialog';
 import { connectSshTarget, registerSshTarget } from './ssh-target-connection';
+import { t } from '@lingui/core/macro';
 
 /** Attach uses the complete host editor and transport also used to deploy CLIO. */
+const { agent } = vocab;
+
 function DesktopSourceSshTarget({
   onChange,
   initialTargetId,
@@ -89,10 +92,10 @@ function DesktopSourceSshTarget({
 
   return (
     <SourceField
-      label="SSH host"
+      label={t`SSH host`}
       aside={
         <IconButton
-          label="Manage SSH hosts"
+          label={t`Manage SSH hosts`}
           icon={<ConfigureIcon />}
           disabled={connecting}
           onClick={() => setManaging(true)}
@@ -136,7 +139,7 @@ function DesktopSourceSshTarget({
         disabled={!host || incomplete || connecting}
         onClick={() => void connect()}
       >
-        {connecting ? 'Connecting…' : 'Connect host'}
+        {connecting ? t`Connecting…` : t`Connect host`}
       </Button>
       {(error || initial.error) && (
         <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
@@ -160,6 +163,6 @@ export function SourceSshTarget(props: {
   return inTauri() ? (
     <DesktopSourceSshTarget {...props} />
   ) : (
-    <SourceSftpTarget {...props} hostLabel={props.hostLabel ?? `the connected ${vocab.agent}`} />
+    <SourceSftpTarget {...props} hostLabel={props.hostLabel ?? t`the connected ${agent}`} />
   );
 }

@@ -19,6 +19,7 @@ import { dtypeName, entityKind, firstArrayDataset, observeView, shapeOf } from '
 import { observeMemory, restoreMemory } from './memory';
 import { applyPalette, applyTheme } from './theme';
 import { observeSlicers } from './slicer';
+import { observeTicks } from './ticks';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
 
 type Init = Extract<HostMessage, { type: 'init' }>;
@@ -81,6 +82,7 @@ function Viewer() {
     showRef.current = view.show;
     openedRef.current = view.opened;
     const stopSlicers = observeSlicers(root);
+    const stopTicks = observeTicks(root);
     const memory = observeMemory(
       root,
       () => locatorRef.current,
@@ -105,6 +107,7 @@ function Viewer() {
       openedRef.current = undefined;
       memory.dispose();
       stopSlicers();
+      stopTicks();
       view.dispose();
     };
   }, [bridge, init]);

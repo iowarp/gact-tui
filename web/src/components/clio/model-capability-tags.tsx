@@ -84,7 +84,7 @@ export function ModelCapabilityTags({
                 </Badge>
               </TooltipTrigger>
               {/* Below the tag: above it sits the model name the tag describes. */}
-              <TooltipContent className="block max-w-xs leading-5" side="bottom" sideOffset={4}>
+              <TooltipContent className="block max-w-xs px-[9px] py-1.5 leading-5" side="bottom" sideOffset={4}>
                 <span className="block" data-slot="tag-meaning">
                   {modelCapabilityTagMeaning(tag)}
                 </span>

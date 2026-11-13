@@ -5,6 +5,7 @@ import type {
   TargetFacts,
 } from '@clio/core/v3';
 import { PARAMETER_PREFIX, parametersForVariant } from './managed-service-target-utils';
+import { ph, t } from '@lingui/core/macro';
 
 /** A named instance of an engine: `vllm@<name>`. The server enforces the same rule. */
 export const INSTANCE_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/u;
@@ -35,14 +36,16 @@ export function devicesLabel(value: string | undefined): string {
     .split(',')
     .map((token) => token.trim())
     .filter(Boolean);
-  if (!tokens.length) return 'All GPUs';
-  return tokens.length === 1 ? `GPU ${tokens[0]}` : `GPUs ${tokens.join(',')}`;
+  if (!tokens.length) return t`All GPUs`;
+  return tokens.length === 1
+    ? t`GPU ${ph({ device: tokens[0] ?? '' })}`
+    : t`GPUs ${ph({ devices: tokens.join(',') })}`;
 }
 
 /** "GPU 1, A100-SXM4-40GB, 40 GB". */
 export function gpuLabel(gpu: GpuFact): string {
   return [
-    `GPU ${gpu.index}`,
+    t`GPU ${ph({ index: gpu.index })}`,
     gpu.name,
     gpu.memory_total_mib ? `${Math.round(gpu.memory_total_mib / 1024)} GB` : '',
   ]
@@ -89,7 +92,7 @@ export function deploymentDevices(
     facts?.gpus?.length &&
     parametersForVariant(service.parameters, service.recommended_variant).some(isDeviceParameter)
   )
-    return 'All GPUs';
+    return t`All GPUs`;
   return undefined;
 }
 
@@ -142,10 +145,10 @@ export function instanceNameProblem(
   base: Pick<ManagedServiceDefinition, 'id'>,
   existing: string[],
 ): string | undefined {
-  if (!name) return 'Name this instance.';
+  if (!name) return t`Name this instance.`;
   if (!INSTANCE_NAME_PATTERN.test(name))
-    return 'Use up to 32 lowercase letters, digits or hyphens, starting and ending with a letter or digit.';
-  if (existing.includes(`${base.id}@${name}`)) return `An instance named ${name} already exists.`;
+    return t`Use up to 32 lowercase letters, digits or hyphens, starting and ending with a letter or digit.`;
+  if (existing.includes(`${base.id}@${name}`)) return t`An instance named ${name} already exists.`;
   return undefined;
 }
 

@@ -11,6 +11,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ProviderActionStage } from './provider-actions';
+import { t } from '@lingui/core/macro';
 
 /** How often running installs are read back while any runs. */
 export const PROVIDER_INSTALL_POLL_MS = 1000;
@@ -23,7 +24,7 @@ const INSTALL_JOBS_STALE_MS = 2000;
  * successful install, or why the install failed.
  */
 interface ProviderInstallOutcome {
-  stage?: Extract<ProviderActionStage, 'Checking…' | 'Finding models…'>;
+  stage?: Extract<ProviderActionStage, 'checking' | 'finding-models'>;
   check?: ProviderHandshake;
   failure?: string;
 }
@@ -80,8 +81,8 @@ export function providerInstallStage(
   job: ProviderInstallJob | undefined,
   outcome: ProviderInstallOutcome | undefined,
 ): ProviderActionStage | undefined {
-  if (job?.state === 'queued') return 'Waiting to install…';
-  if (job?.state === 'installing') return 'Installing…';
+  if (job?.state === 'queued') return 'install-waiting';
+  if (job?.state === 'installing') return 'installing';
   return outcome?.stage;
 }
 
@@ -140,7 +141,7 @@ export function useSettleProviderInstall() {
       const providerId = job.provider_id;
       const key = outcomeKey(settings.endpoint, providerId);
       if (job.state === 'failed') {
-        const failure = job.error?.message || 'The install failed.';
+        const failure = job.error?.message || t`The install failed.`;
         update(key, { failure });
         toast.error(failure);
         return;
@@ -151,9 +152,9 @@ export function useSettleProviderInstall() {
         .getQueryData<LanguageModelConfiguration>(configurationKey)
         ?.presets.find((preset) => preset.id === providerId)?.api_base;
       try {
-        update(key, { stage: 'Checking…' });
+        update(key, { stage: 'checking' });
         const check = await repository.providerHandshake(providerId, { apiBase, refresh: true });
-        update(key, { stage: 'Finding models…', check });
+        update(key, { stage: 'finding-models', check });
         if (check.connectivity === 'ok' && check.auth === 'ok') {
           queryClient.setQueryData(modelsKey, await repository.providerModels(providerId));
         }
@@ -169,7 +170,7 @@ export function useSettleProviderInstall() {
         update(key, { check });
       } catch (error) {
         update(key, {
-          failure: error instanceof Error ? error.message : 'Could not check the provider.',
+          failure: error instanceof Error ? error.message : t`Could not check the provider.`,
         });
       }
     },

@@ -10,6 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { t } from '@lingui/core/macro';
 
 export interface AgentSwitchMenuProps {
   /** Installed and saved agents; `undefined` while loading. */
@@ -38,26 +39,26 @@ export function AgentSwitchMenu({
         {children}
       </PopoverTrigger>
       <PopoverContent
-        aria-label="Switch agent"
+        aria-label={t`Switch agent`}
         align="start"
         className="w-[min(24rem,calc(100vw-2rem))] p-0"
       >
-        <Command label="Search agents">
-          <CommandInput aria-label="Search agents" placeholder="Search agents…" />
+        <Command label={t`Search agents`}>
+          <CommandInput aria-label={t`Search agents`} placeholder={t`Search agents…`} />
           <CommandList className="max-h-[min(20rem,60dvh)]">
             {agents === undefined && !agentsError ? (
               <p className="p-4 text-sm text-muted-foreground" role="status">
-                Loading agents…
+                {t`Loading agents…`}
               </p>
             ) : null}
             {agentsError ? (
               <p className="p-4 text-sm text-destructive" role="alert">
-                Agents could not be listed: {agentsError}
+                {t`Agents could not be listed: ${agentsError}`}
               </p>
             ) : null}
-            {agents !== undefined ? <CommandEmpty>No matching agents.</CommandEmpty> : null}
+            {agents !== undefined ? <CommandEmpty>{t`No matching agents.`}</CommandEmpty> : null}
             {agents?.length ? (
-              <CommandGroup heading="Agents">
+              <CommandGroup heading={t`Agents`}>
                 {agents.map((agent) => {
                   const active = agent.ref === current;
                   return (
@@ -81,7 +82,7 @@ export function AgentSwitchMenu({
                         <span className="flex min-w-0 items-baseline gap-2">
                           <span className="truncate font-medium">{agent.name || agent.id}</span>
                           <span className="shrink-0 text-xs text-muted-foreground">
-                            {active ? 'Current' : agent.kind === 'user' ? 'Yours' : agent.ref}
+                            {active ? t`Current` : agent.kind === 'user' ? t`Yours` : agent.ref}
                           </span>
                         </span>
                         {agent.description ? (

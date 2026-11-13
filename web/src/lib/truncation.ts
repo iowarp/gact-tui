@@ -31,6 +31,9 @@ export function isTextTruncated(element: HTMLElement): boolean {
   if (lineClamp(style) !== 'none') return element.scrollHeight > element.clientHeight + 1;
   if (style.textOverflow !== 'ellipsis') return false;
   if (element.scrollWidth > element.clientWidth) return true;
+  // Parts that clip their own text (a name cut beside a label) overflow only
+  // inside themselves; their container is cut only when its scroll width says so.
+  if (clipsWithin(element)) return false;
   // scrollWidth rounds, so a sub-pixel cut (just the ellipsis) reads as fitting.
   const range = document.createRange();
   range.selectNodeContents(element);
@@ -38,18 +41,53 @@ export function isTextTruncated(element: HTMLElement): boolean {
   return range.getBoundingClientRect().width > element.clientWidth - padding + 0.5;
 }
 
+/** Overflow values that hide what does not fit. */
+const CLIPPING = new Set(['hidden', 'clip', 'auto', 'scroll']);
+
+/** Whether an HTML part inside `element` hides its own overflow (icons do not count). */
+function clipsWithin(element: HTMLElement): boolean {
+  const descendants = element.querySelectorAll('*');
+  if (descendants.length > 40) return false;
+  return Array.from(descendants).some(
+    (part) => part instanceof HTMLElement && CLIPPING.has(getComputedStyle(part).overflowX),
+  );
+}
+
 /**
- * The nearest element at or above `start` that cuts its text and is cut now.
- * Stops at `data-truncation-hint="off"` and at editable fields. Text under a
- * `title` is left to the native tooltip, which already reads it on hover.
+ * A line read as one text (`data-truncation-scope`): a state and a name set
+ * apart only by spacing. When any part is cut, the whole line is the hint.
+ */
+const SCOPE = '[data-truncation-scope]';
+
+function scopeCut(scope: HTMLElement): boolean {
+  return Array.from(scope.querySelectorAll<HTMLElement>('*')).some(
+    (part) => cutsText(part) && isTextTruncated(part),
+  );
+}
+
+/**
+ * The nearest element at or above `start` that cuts its text and is cut now,
+ * or the line scope holding it. Stops at `data-truncation-hint="off"` and at
+ * editable fields. Text under a `title` is left to the native tooltip, which
+ * already reads it on hover.
  */
 export function truncatedTextAt(start: EventTarget | null): HTMLElement | null {
-  let node = start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
+  const from =
+    start instanceof Element ? start : start instanceof Node ? start.parentElement : null;
+  let node = from;
   for (let depth = 0; node && depth < MAX_DEPTH; depth += 1, node = node.parentElement) {
     if (!(node instanceof HTMLElement) || node === document.body) return null;
     if (node.dataset.truncationHint === 'off' || node.matches(EDITABLE)) return null;
-    if (cutsText(node) && isTextTruncated(node))
-      return node.closest('[title], [data-truncation-hint="off"]') ? null : node;
+    const scope = node.matches(SCOPE) && scopeCut(node);
+    if (scope || (cutsText(node) && isTextTruncated(node))) {
+      const cut = scope ? node : (node.closest<HTMLElement>(SCOPE) ?? node);
+      // A part of a line that names itself (its status dot) raises no second hint.
+      if (cut.matches(SCOPE)) {
+        const titled = from?.closest('[title], [data-slot="status-indicator"]');
+        if (titled && cut.contains(titled)) return null;
+      }
+      return cut.closest('[title], [data-truncation-hint="off"]') ? null : cut;
+    }
   }
   return null;
 }
@@ -67,7 +105,10 @@ export function truncatedTextWithin(root: HTMLElement, limit = 60): HTMLElement[
   for (const element of [root, ...Array.from(descendants)]) {
     if (element.closest('[data-truncation-hint="off"]')) continue;
     if (found.some((outer) => outer.contains(element))) continue;
-    if (cutsText(element) && isTextTruncated(element)) found.push(element);
+    if (cutsText(element) && isTextTruncated(element)) {
+      const scope = element.closest<HTMLElement>(SCOPE);
+      found.push(scope && root.contains(scope) ? scope : element);
+    }
   }
   return found;
 }
@@ -96,19 +137,31 @@ export function truncatedTextForFocus(control: HTMLElement): HTMLElement[] {
 /** A wide space, so parts the row sets apart with a gap or margin stay apart. */
 const PART_GAP = '\u2003';
 
+/** A container whose parts read as one phrase ("Agent @ this computer") marks itself so. */
+const gapOf = (element: Element) =>
+  element instanceof HTMLElement && element.dataset.truncationGap === 'space' ? ' ' : PART_GAP;
+
 /**
  * Text as the row reads it. `textContent` glues parts that only a flex gap or a
- * margin separates ("Tool actionOne conversation"); those parts get a gap here.
+ * margin separates ("Tool actionOne conversation"); those parts get a gap here,
+ * or a plain space under `data-truncation-gap="space"`.
  */
 function readableText(element: HTMLElement): string {
   const parts: string[] = [];
-  const walk = (node: Node, gapped: boolean) => {
+  const walk = (node: Element, gapped: boolean) => {
+    const gap = gapOf(node);
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
         parts.push(child.textContent ?? '');
         continue;
       }
       if (!(child instanceof Element)) continue;
+      // A drawn separator (a gap read as a comma) says how it reads.
+      const said = child instanceof HTMLElement ? child.dataset.truncationText : undefined;
+      if (said !== undefined) {
+        parts.push(said);
+        continue;
+      }
       const style = getComputedStyle(child);
       if (style.display === 'none') continue;
       const apart =
@@ -116,9 +169,9 @@ function readableText(element: HTMLElement): string {
         style.display !== 'inline' ||
         parseFloat(style.marginLeft) > 0 ||
         parseFloat(style.marginRight) > 0;
-      if (apart) parts.push(PART_GAP);
+      if (apart) parts.push(gap);
       walk(child, parseFloat(style.columnGap) > 0);
-      if (apart) parts.push(PART_GAP);
+      if (apart) parts.push(gap);
     }
   };
   walk(element, parseFloat(getComputedStyle(element).columnGap) > 0);

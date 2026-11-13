@@ -3,6 +3,7 @@ import { useReducedMotionConfig } from 'motion/react';
 import { useNow } from '@/hooks/use-now';
 import { useSessionWork } from './use-session-work';
 import type { ReactNode } from 'react';
+import { t } from '@lingui/core/macro';
 
 /** The independent judge has its own visible activity, separate from model work. */
 export function SessionResponseFeedback({
@@ -40,10 +41,10 @@ export function GoalCheckFeedback({
       data-slot="goal-check-feedback"
     >
       {reducedMotion ? (
-        <span>Checking goal completion</span>
+        <span>{t`Checking goal completion`}</span>
       ) : (
         <Shimmer as="span" duration={1.5}>
-          Checking goal completion
+          {t`Checking goal completion`}
         </Shimmer>
       )}
       {seconds !== null ? (

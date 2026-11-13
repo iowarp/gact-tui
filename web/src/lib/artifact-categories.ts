@@ -1,16 +1,17 @@
 import { artifactDisplayName, isDashboardArtifact } from './dashboard-presentation';
 import type { Artifact } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export const ARTIFACT_CATEGORIES = [
-  { value: 'dashboards', label: 'Dashboards' },
-  { value: 'plans', label: 'Plans' },
-  { value: 'scripts', label: 'Scripts' },
-  { value: 'images', label: 'Images' },
-  { value: 'slides', label: 'Slides' },
+  { value: 'dashboards', label: t`Dashboards` },
+  { value: 'plans', label: t`Plans` },
+  { value: 'scripts', label: t`Scripts` },
+  { value: 'images', label: t`Images` },
+  { value: 'slides', label: t`Slides` },
   { value: 'models', label: '3D models' },
-  { value: 'data', label: 'Data' },
-  { value: 'documents', label: 'Documents' },
-  { value: 'other', label: 'Other' },
+  { value: 'data', label: t`Data` },
+  { value: 'documents', label: t`Documents` },
+  { value: 'other', label: t`Other` },
 ] as const;
 
 export type ArtifactCategory = (typeof ARTIFACT_CATEGORIES)[number]['value'];

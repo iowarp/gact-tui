@@ -110,18 +110,20 @@ describe('Composer SPOTTER model', () => {
     renderComposer({ onSpotterModelChange });
 
     expect(
-      await screen.findByRole('button', { name: 'SPOTTER model: Conversation model' }),
+      await screen.findByRole('button', { name: 'SPOTTER model: Settings default' }),
     ).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Use conversation model for SPOTTER' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Use the Settings default for SPOTTER' }),
+    ).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Choose SPOTTER model' }));
     expect(onSpotterModelChange).toHaveBeenCalledWith('server-vllm-spotter/qwen3');
     expect(
       screen.getByRole('button', { name: 'SPOTTER model: Spotter vLLM / Qwen3' }),
     ).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Use conversation model for SPOTTER' }));
+    await user.click(screen.getByRole('button', { name: 'Use the Settings default for SPOTTER' }));
     expect(onSpotterModelChange).toHaveBeenLastCalledWith('');
-    expect(screen.getByRole('button', { name: 'SPOTTER model: Conversation model' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'SPOTTER model: Settings default' })).toBeVisible();
   });
 
   it('names a stored reference the catalog does not list', async () => {
@@ -144,7 +146,7 @@ describe('Composer SPOTTER model', () => {
         description: 'Unknown fleet model server-vllm-spotter/qwen3.',
       }),
     );
-    expect(screen.getByRole('button', { name: 'SPOTTER model: Conversation model' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'SPOTTER model: Settings default' })).toBeVisible();
   });
 
   it('is hidden under another confirmation policy', async () => {

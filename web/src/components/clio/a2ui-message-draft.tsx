@@ -16,6 +16,7 @@ import { copyText } from '@/lib/clipboard';
 import gmailMark from '../../../../branding/provider-logos/gmail.svg';
 import outlookMark from '../../../../branding/provider-logos/outlook.svg';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { ph, select, t } from '@lingui/core/macro';
 
 const versionSchema = z
   .object({
@@ -89,6 +90,7 @@ function draftText(version: Version, kind: MessageDraftProps['kind']): string {
   const headers = [
     ...(version.to?.length ? [`To: ${version.to.join(', ')}`] : []),
     ...(version.cc?.length ? [`Cc: ${version.cc.join(', ')}`] : []),
+    // i18n-ignore: email header field names in the draft text
     ...(version.subject ? [`Subject: ${version.subject}`] : []),
   ];
   return headers.length ? `${headers.join('\n')}\n\n${version.body}` : version.body;
@@ -165,16 +167,18 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
   const copy = async () => {
     try {
       await copyText(text);
-      toast.success('Draft copied');
+      toast.success(t`Draft copied`);
     } catch (error) {
-      toast.error('Could not copy the draft', {
+      toast.error(t`Could not copy the draft`, {
         description: error instanceof Error ? error.message : String(error),
       });
     }
   };
   return (
     <section
-      aria-label={title ?? `${kind} draft`}
+      aria-label={
+        title ?? select(kind, { email: 'email draft', slack: 'slack draft', other: 'text draft' })
+      }
       className="overflow-hidden rounded-xl border border-border/70 bg-card/40"
       data-slot="a2ui-message-draft"
     >
@@ -182,7 +186,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
       {versions.length > 1 ? (
         <Tabs onValueChange={setActive} value={active}>
           <TabsList
-            aria-label="Draft versions"
+            aria-label={t`Draft versions`}
             className="max-w-full flex-wrap justify-start px-3 pt-3"
             variant="line"
           >
@@ -198,21 +202,19 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
         <div className="space-y-1 border-y border-border/60 px-4 py-2 text-sm">
           {(
             [
-              ['To', 'to'],
-              ['Cc', 'cc'],
-              ['Subject', 'subject'],
+              { field: 'to', label: t`To`, placeholder: t`Add recipient` },
+              { field: 'cc', label: t`Cc`, placeholder: t`Add Cc` },
+              { field: 'subject', label: t`Subject`, placeholder: t`Add subject` },
             ] as const
-          ).map(([label, field]) => (
+          ).map(({ field, label, placeholder }) => (
             <label className="flex min-w-0 items-center gap-2" key={field}>
               <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
               <input
                 {...(field === 'subject' ? null : identifierInputProps)}
-                aria-label={`${label} for ${draft.label} draft`}
+                aria-label={t`${label} for ${ph({ draft: draft.label })} draft`}
                 className="min-w-0 flex-1 rounded px-1 py-1.5 text-foreground outline-none hover:bg-muted/30 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-primary/60"
                 onChange={(event) => update(field, event.target.value)}
-                placeholder={
-                  label === 'Cc' ? 'Add Cc' : label === 'To' ? 'Add recipient' : 'Add subject'
-                }
+                placeholder={placeholder}
                 type="text"
                 value={draft[field]}
               />
@@ -222,7 +224,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
       ) : null}
       <div className="px-4 py-4">
         <textarea
-          aria-label={`Body for ${draft.label} draft`}
+          aria-label={t`Body for ${ph({ draft: draft.label })} draft`}
           className="min-h-24 w-full resize-none rounded-md bg-transparent p-1 text-sm leading-relaxed outline-none hover:bg-muted/20 focus-visible:bg-muted/30 focus-visible:ring-2 focus-visible:ring-primary/60"
           onChange={(event) => update('body', event.target.value)}
           ref={bodyRef}
@@ -232,14 +234,14 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
       <div className="flex flex-wrap justify-end gap-2 px-4 pb-4">
         <Button onClick={() => void copy()} size="sm" type="button" variant="secondary">
           <CopyIcon aria-hidden="true" />
-          Copy
+          {t`Copy`}
         </Button>
         {kind === 'email' ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" type="button" variant="secondary">
                 <MailIcon aria-hidden="true" />
-                Open in Mail
+                {t`Open in Mail`}
                 <ChevronDownIcon aria-hidden="true" className="size-3.5 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
@@ -247,13 +249,14 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
               <DropdownMenuItem asChild className="gap-3 whitespace-nowrap">
                 <a href={webMailHref(version, 'gmail')} rel="noopener noreferrer" target="_blank">
                   <GmailMark />
+                  {/* i18n-ignore: product name */}
                   Gmail
                 </a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="gap-3 whitespace-nowrap">
                 <a href={webMailHref(version, 'outlook')} rel="noopener noreferrer" target="_blank">
                   <OutlookMark />
-                  Outlook work or school
+                  {t`Outlook work or school`}
                 </a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="gap-3 whitespace-nowrap">
@@ -263,6 +266,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
                   target="_blank"
                 >
                   <OutlookMark />
+                  {/* i18n-ignore: product name */}
                   Outlook.com
                 </a>
               </DropdownMenuItem>
@@ -270,13 +274,13 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
                 <a
                   href={mailtoHref(version)}
                   onClick={() =>
-                    toast.info('Opening your default mail app', {
-                      description: 'If nothing opens, choose Gmail or Outlook instead.',
+                    toast.info(t`Opening your default mail app`, {
+                      description: t`If nothing opens, choose Gmail or Outlook instead.`,
                     })
                   }
                 >
                   <SendIcon aria-hidden="true" className="size-5 shrink-0" />
-                  Default mail app
+                  {t`Default mail app`}
                 </a>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -292,7 +296,7 @@ export function ClioMessageDraft({ kind, title, versions }: MessageDraftProps) {
           type="button"
         >
           <PenLineIcon aria-hidden="true" />
-          Use this version
+          {t`Use this version`}
         </Button>
       </div>
     </section>

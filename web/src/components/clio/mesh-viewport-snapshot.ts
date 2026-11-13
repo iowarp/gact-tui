@@ -50,6 +50,7 @@ export function composeSnapshot(
     const barHeight = Math.round(10 * scale);
     for (let x = 0; x < width; x += 1) {
       const [r, g, b] = turbo(x / Math.max(1, width - 1));
+      // i18n-ignore: CSS color value
       ctx.fillStyle = `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)})`;
       ctx.fillRect(pad + x, barTop, 1, barHeight);
     }

@@ -19,6 +19,10 @@ import type { ClioWorkbenchOpenRequest } from './workbench';
 import { ClioConversation } from './conversation';
 import { NamedTooltip } from './primitives/icon-button';
 import { useKeysAria } from '@/lib/shortcuts/hooks';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+
+const { agent } = vocab;
 
 /** Back to the results: Shift+Tab from the question, or Esc anywhere in the assistant. */
 const BACK_KEYS = ['Shift+Tab', 'Esc'] as const;
@@ -50,6 +54,7 @@ export function ClioSearchAssistant({
   const held = useRef<Session | undefined>(undefined);
   const alive = useRef(true);
   const sending = useRef(false);
+  const question = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
@@ -73,8 +78,8 @@ export function ClioSearchAssistant({
       held.current = undefined;
       if (previous)
         void repository.deleteSession(previous.id).catch((reason: unknown) =>
-          toast.error(`${vocab.agent} Search could not be closed`, {
-            description: reason instanceof Error ? reason.message : 'The service rejected it.',
+          toast.error(t`${agent} Search could not be closed`, {
+            description: reason instanceof Error ? reason.message : t`The service rejected it.`,
           }),
         );
     };
@@ -114,7 +119,7 @@ export function ClioSearchAssistant({
         setError(
           reason instanceof Error
             ? reason.message
-            : 'The connected service could not start the search assistant.',
+            : t`The connected service could not start the search assistant.`,
         );
     } finally {
       sending.current = false;
@@ -124,11 +129,11 @@ export function ClioSearchAssistant({
   return (
     <div className="flex min-h-0 flex-col" data-slot="search-assistant">
       <div className="flex items-center gap-2 border-b px-3 py-2">
-        <NamedTooltip label="Back to search results" keys={BACK_KEYS}>
+        <NamedTooltip label={t`Back to search results`} keys={BACK_KEYS}>
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Back to search results"
+            aria-label={t`Back to search results`}
             aria-keyshortcuts={backAria}
             onClick={onBack}
           >
@@ -136,35 +141,50 @@ export function ClioSearchAssistant({
           </Button>
         </NamedTooltip>
         <SparklesIcon aria-hidden="true" className="size-4 text-info" />
-        <span className="text-sm font-semibold">{vocab.agent} Search</span>
+        <span className="text-sm font-semibold">{t`${agent} Search`}</span>
         <ClioModelPicker
-          title={`Choose ${vocab.agent} Search model`}
+          title={t`Choose ${agent} Search model`}
           options={options}
-          model={model?.id ?? session?.model_id ?? fleet.data?.search?.model_id}
-          provider={model?.providerId ?? session?.provider_id ?? fleet.data?.search?.provider_id}
+          model={
+            model?.id ??
+            session?.model_id ??
+            fleet.data?.search?.model_id ??
+            fleet.data?.fast?.model_id
+          }
+          provider={
+            model?.providerId ??
+            session?.provider_id ??
+            fleet.data?.search?.provider_id ??
+            fleet.data?.fast?.provider_id
+          }
           catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
           onRetryCatalog={() => void catalog.refetch()}
           onChange={setModel}
+          // After a pick, typing resumes in the question; Enter must ask, not reopen the picker.
+          returnFocus={() => question.current?.focus()}
           trigger={
             <Button
               variant="ghost"
               size="sm"
               className="ml-auto min-w-0 max-w-[45%] shrink gap-1 px-1.5 text-xs font-normal"
-              aria-label={`Choose ${vocab.agent} Search model`}
+              aria-label={t`Choose ${agent} Search model`}
               disabled={submitting || active || unavailable}
             >
               <span className="truncate">
                 {model?.id ??
                   session?.model_id ??
                   fleet.data?.search?.model_id ??
-                  'Conversation or service model'}
+                  fleet.data?.fast?.model_id ??
+                  (fleet.data?.fast === undefined
+                    ? t`Conversation or service model`
+                    : t`Fast model`)}
               </span>
               <ChevronDownIcon aria-hidden="true" className="size-3 shrink-0" />
             </Button>
           }
         />
         <Link className="text-xs text-primary" to="/settings/fleet" onClick={onClose}>
-          Fleet
+          {t`Fleet`}
         </Link>
       </div>
       <form
@@ -175,9 +195,10 @@ export function ClioSearchAssistant({
         }}
       >
         <Input
+          ref={question}
           autoFocus
-          aria-label={`Ask ${vocab.agent} Search`}
-          placeholder="Ask about conversations, messages, and files…"
+          aria-label={t`Ask ${agent} Search`}
+          placeholder={t`Ask about conversations, messages, and files…`}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={(event) => {
@@ -189,18 +210,18 @@ export function ClioSearchAssistant({
         />
         <Button
           type="submit"
-          aria-label={`Search with ${vocab.agent}`}
+          aria-label={t`Search with ${agent}`}
           disabled={!query.trim() || submitting || active || unavailable}
         >
           <SendIcon className="size-4" />
         </Button>
       </form>
       <p className="px-3 pb-2 text-xs text-muted-foreground">
-        Read-only search across this connected service’s workspaces.
+        {t`Read-only search across this connected service’s workspaces.`}
       </p>
       {unavailable ? (
         <p role="status" className="px-3 pb-3 text-sm">
-          Search is unavailable on this connection. Update its agent to enable it.
+          {t`Search is unavailable on this connection. Update its agent to enable it.`}
         </p>
       ) : null}
       {error ? (
@@ -241,14 +262,16 @@ export function ClioSearchAssistant({
         </div>
       ) : (
         <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-          Find a previous decision, locate a passage, or ask what your files say.
-          <br />
-          Press Enter to search with the selected model.
+          <Trans>
+            Find a previous decision, locate a passage, or ask what your files say.
+            <br />
+            Press Enter to search with the selected model.
+          </Trans>
         </div>
       )}
       {submitting || active ? (
         <p role="status" className="px-3 pb-3 text-xs text-muted-foreground">
-          Searching…
+          {t`Searching…`}
         </p>
       ) : null}
     </div>

@@ -6,6 +6,7 @@ import type {
 } from '@clio/core/v3';
 import type { McpAppResponseActivityData } from './mcp-app-surface';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
+import { t } from '@lingui/core/macro';
 
 type McpAppBlock = Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>;
 
@@ -117,7 +118,7 @@ function actionContextFromText(text: string): Record<string, unknown> | undefine
 
 function actionChoiceLabel(context: Record<string, unknown>): string {
   if (typeof context.approved === 'boolean') {
-    return context.approved ? 'Approval given' : 'Approval declined';
+    return context.approved ? t`Approval given` : t`Approval declined`;
   }
   const selectedId = context.selected_id;
   const selectedName = context.equipment ?? context.name ?? context.label;
@@ -129,10 +130,10 @@ function actionChoiceLabel(context: Record<string, unknown>): string {
       typeof selectedName === 'string' && selectedName.length <= 60
         ? `${selectedName} (${selectedId})`
         : String(selectedId);
-    return `Selected: ${name}`;
+    return t`Selected: ${name}`;
   }
   const entries = Object.entries(context);
-  if (entries.length !== 1) return 'Choice sent';
+  if (entries.length !== 1) return t`Choice sent`;
   const [key, value] = entries[0]!;
   const readableValue = Array.isArray(value)
     ? value.length <= 5 &&
@@ -142,7 +143,7 @@ function actionChoiceLabel(context: Record<string, unknown>): string {
     : typeof value === 'string' || typeof value === 'number'
       ? String(value)
       : undefined;
-  if (!readableValue || readableValue.length > 100) return 'Choice sent';
+  if (!readableValue || readableValue.length > 100) return t`Choice sent`;
   const readableKey = key.replaceAll('_', ' ');
   return `${readableKey[0]?.toUpperCase() ?? ''}${readableKey.slice(1)}: ${readableValue}`;
 }
@@ -170,7 +171,7 @@ export function projectA2UIActionMessages(messages: readonly DomainMessage[]): D
         context && typeof context === 'object' && !Array.isArray(context)
           ? (context as Record<string, unknown>)
           : actionContextFromText(text);
-      const label = choices ? actionChoiceLabel(choices) : 'Action sent';
+      const label = choices ? actionChoiceLabel(choices) : t`Action sent`;
       return {
         ...message,
         blocks: message.blocks.map((block) =>

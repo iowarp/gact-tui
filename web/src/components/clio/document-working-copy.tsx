@@ -1,12 +1,13 @@
 import { brand } from '@brand';
 import type { DocumentWorkingCopy } from '@clio/core/v3';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 /** "CLIO saved version 5 while you were editing. Keep its version, or save yours as version 6." */
 function conflictDetail(headVersion: number | undefined) {
   return headVersion === undefined
-    ? `${brand.agentName} saved a newer version while you were editing. Keep its version, or save yours as the next one.`
-    : `${brand.agentName} saved version ${headVersion} while you were editing. Keep its version, or save yours as version ${headVersion + 1}.`;
+    ? t`${ph({ agentName: brand.agentName })} saved a newer version while you were editing. Keep its version, or save yours as the next one.`
+    : t`${ph({ agentName: brand.agentName })} saved version ${headVersion} while you were editing. Keep its version, or save yours as version ${headVersion + 1}.`;
 }
 
 /**
@@ -32,28 +33,31 @@ export function WorkingCopyState({
     return (
       <StateView
         action={{
-          label: 'Use mine',
+          label: t`Use mine`,
           disabled: pending,
           onClick: () => onResolve('use-working-copy'),
         }}
         detail={conflictDetail(headVersion)}
         kind="changed-elsewhere"
         secondaryAction={{
-          label: 'Keep current',
+          label: t`Keep current`,
           disabled: pending,
           onClick: () => onResolve('keep-current'),
         }}
         size="viewer"
-        title="Changed since you opened it"
+        title={t`Changed since you opened it`}
       />
     );
   return (
     <StateView
-      action={{ label: 'Back to the document', onClick: onDismiss }}
-      detail={copy.error ?? `Your edits after version ${copy.head_version} were not saved`}
+      action={{ label: t`Back to the document`, onClick: onDismiss }}
+      detail={
+        copy.error ??
+        t`Your edits after version ${ph({ head_version: copy.head_version })} were not saved`
+      }
       kind="unavailable"
       size="viewer"
-      title="The working copy stopped saving"
+      title={t`The working copy stopped saving`}
     />
   );
 }
