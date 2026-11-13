@@ -110,6 +110,7 @@ function PlanPreview({
   const [cramped, setCramped] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const clip = clipRef.current;
     const body = bodyRef.current;
@@ -131,6 +132,27 @@ function PlanPreview({
   const clipped = !expanded && overflowing;
   const hidden = !expanded && cramped;
   const footer = footerText(plan);
+  const hasFooter = Boolean(footer || opens || toggles);
+  // Once the button has taken its own line, the summary has the row to itself and wraps whole.
+  const [stacked, setStacked] = useState(false);
+  useLayoutEffect(() => {
+    const row = footerRef.current;
+    if (!row) return;
+    const measure = () => {
+      const first = row.firstElementChild as HTMLElement | null;
+      const last = row.lastElementChild as HTMLElement | null;
+      setStacked(
+        Boolean(
+          first && last && first !== last && last.offsetTop >= first.offsetTop + first.offsetHeight,
+        ),
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [hasFooter]);
   return (
     <AskSection
       // Under the card's height cap the reading area gives up height; the footer stays whole.
@@ -169,8 +191,9 @@ function PlanPreview({
           <PlanGuidance plan={plan} />
         </div>
       </div>
-      {footer || opens || toggles ? (
+      {hasFooter ? (
         <div
+          ref={footerRef}
           // rem, so the footer grows with its button at larger interface sizes. When the summary
           // can't keep a readable width beside the button, the button takes its own line.
           className={cn(
@@ -179,7 +202,15 @@ function PlanPreview({
           )}
           data-slot="plan-preview-footer"
         >
-          <span className={cn('min-w-0 truncate', footer && 'flex-[1_1_4.5rem]')} title={footer}>
+          <span
+            className={cn(
+              'min-w-0',
+              stacked ? 'whitespace-normal' : 'truncate',
+              footer && 'flex-[1_1_4.5rem]',
+            )}
+            data-plan-summary-stacked={stacked || undefined}
+            title={footer}
+          >
             {footer}
           </span>
           {!keys && content ? (
