@@ -17,6 +17,11 @@ export interface McpAppLiveEntry extends McpAppTabTarget {
   repository?: LiveSetRepository;
   /** The server no longer has the record (404); its tab stays to say so. */
   gone?: boolean;
+  /**
+   * The transcript card this App was reopened from (MA19). A reopened view stands in
+   * for its card: when that card is the conversation's latest, so is the view.
+   */
+  card?: string;
 }
 
 interface McpAppLiveSetState {
@@ -79,8 +84,19 @@ function closeOnServer(entry: McpAppLiveEntry): void {
   void entry.repository?.closeMcpApp(mcpAppIdentity(entry)).catch(() => undefined);
 }
 
+function isLatestIn(state: McpAppLiveSetState, entry: McpAppLiveEntry): boolean {
+  const latest = state.latest[entry.sessionId];
+  return latest === entry.appInstanceId || (entry.card !== undefined && latest === entry.card);
+}
+
 function isLatest(entry: McpAppLiveEntry): boolean {
-  return useMcpAppLiveSetStore.getState().latest[entry.sessionId] === entry.appInstanceId;
+  return isLatestIn(useMcpAppLiveSetStore.getState(), entry);
+}
+
+/** A view reopened from a transcript card stands in for that card (MA19). */
+export function standInForCard(appInstanceId: string, card: string): void {
+  const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];
+  if (entry && entry.card !== card && appInstanceId !== card) update(appInstanceId, { card });
 }
 
 function requestTab(entry: McpAppTabTarget): void {
@@ -224,13 +240,22 @@ export function useMcpAppLiveSet(
     });
     const previous = previousId ? state.apps[previousId] : undefined;
     if (previous?.placement === 'inline') closeOnServer(previous);
+    // A view reopened from the previous latest card is that card's inline App too (MA5).
+    if (previousId) {
+      for (const entry of Object.values(state.apps)) {
+        if (entry.card === previousId && entry.placement === 'inline') closeOnServer(entry);
+      }
+    }
   }, [apps, latestKey, repository, session]);
 }
 
 /** What a card shows: the App's placement and whether it is its conversation's latest. */
 export function useMcpAppPresence(appInstanceId: string, sessionId: string) {
   const placement = useMcpAppLiveSetStore((state) => state.apps[appInstanceId]?.placement);
-  const latest = useMcpAppLiveSetStore((state) => state.latest[sessionId] === appInstanceId);
+  const latest = useMcpAppLiveSetStore((state) => {
+    const entry = state.apps[appInstanceId];
+    return entry ? isLatestIn(state, entry) : state.latest[sessionId] === appInstanceId;
+  });
   return { placement: placement ?? 'inline', latest };
 }
 
@@ -240,7 +265,7 @@ export function useShownMcpAppIds(): ReadonlySet<string> {
     [
       ...Object.values(state.latest),
       ...Object.values(state.apps)
-        .filter((entry) => entry.placement === 'tab')
+        .filter((entry) => entry.placement === 'tab' || (entry.card && isLatestIn(state, entry)))
         .map((entry) => entry.appInstanceId),
     ]
       .sort()
