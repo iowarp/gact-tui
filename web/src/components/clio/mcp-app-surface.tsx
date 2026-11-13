@@ -74,6 +74,8 @@ export interface McpAppSurfaceHandle {
   callAppTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   /** Send `ui/notifications/tool-input` with new arguments. */
   sendToolInput: (args: Record<string, unknown>) => void;
+  /** Send `ui/notifications/tool-result` for a call the host made for the view (MA21). */
+  sendToolResult: (result: unknown) => void;
   /** Send any request to the view (`tools/list`, …) and wait for its answer. */
   request: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 }
@@ -164,6 +166,13 @@ const McpAppSurfaceInstance = forwardRef<
           jsonrpc: '2.0',
           method: 'ui/notifications/tool-input',
           params: { arguments: args },
+        });
+      },
+      sendToolResult: (result) => {
+        channel.current.post?.({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/tool-result',
+          params: isRecord(result) ? result : {},
         });
       },
     };
