@@ -15,8 +15,10 @@ export function ChartHeader({
   actions: ReactNode;
 }) {
   return (
-    // A narrow dashboard gives the title the full width. Its actions take no line: they float
-    // over the chart's top corner once the chart is hovered or, on touch, tapped (`group/chart`).
+    // A narrow dashboard gives the title the full width. With a mouse its actions take no
+    // line: they float over the chart's top corner once the chart is hovered (`group/chart`).
+    // On touch there is no hover to find them by, so they keep a line of their own under the
+    // title and stay visible: scrubbing and selection by keyboard live in their More menu.
     <div
       className={cn(
         'mb-2 flex min-w-0 items-start gap-3',
@@ -50,7 +52,7 @@ export function ChartHeader({
         className={cn(
           'flex shrink-0 items-center gap-0.5',
           dashboard &&
-            'relative z-10 @max-[24rem]/dashboard:ms-auto @max-[24rem]/dashboard:h-0 @max-[24rem]/dashboard:items-start [@media(hover:none)]:@max-[24rem]/dashboard:invisible [@media(hover:none)]:@max-[24rem]/dashboard:group-focus-within/chart:visible',
+            'relative z-10 @max-[24rem]/dashboard:ms-auto @max-[24rem]/dashboard:items-start [@media(hover:hover)]:@max-[24rem]/dashboard:h-0',
         )}
       >
         {actions}

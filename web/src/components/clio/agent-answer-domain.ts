@@ -95,11 +95,23 @@ export function deniedPermissionForTool(
   });
 }
 
+/**
+ * The typed refusal of a call held by a connector setup card that the person declined
+ * (the service's `connector_declined` code, `gact/connector_setup.py`).
+ */
+export const CONNECTOR_DECLINED = 'connector_declined';
+
+function declinedConnectorSetup(tool: ToolInvocation): boolean {
+  return typeof tool.error === 'string' && tool.error.startsWith(`${CONNECTOR_DECLINED}:`);
+}
+
 /** The call as the person decided it: a refused call is denied, not failed. */
 export function withPermissionDecision(
   tool: ToolInvocation,
   interactions: readonly PendingInteraction[] | undefined,
 ): ToolInvocation {
+  // The person declined the connector's setup, not the call's approval: say which.
+  if (declinedConnectorSetup(tool)) return asDenied(tool, 'connector setup declined');
   // The call's own projection decides the wording, so it never changes when the
   // service later drops the resolved approval record. Since the server projects a
   // refused call `denied`, the record only adds detail.

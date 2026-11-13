@@ -278,6 +278,29 @@ describe('readable compact tool results', () => {
     expect(name).toHaveTextContent('Denied');
     expect(screen.getByText('you denied it')).toBeInTheDocument();
   });
+
+  it('names the tool and the declined connector setup on a call with no target', () => {
+    const { container } = render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'call_1',
+            session_id: 's',
+            name: 'fixture-secret_fixture_secret_check',
+            state: 'denied',
+            input: {},
+            error:
+              'connector_declined: the person declined to set up the Fixture Secret connector (fixture-secret), so fixture-secret_fixture_secret_check was not called.',
+          }}
+        />
+      </TooltipProvider>,
+    );
+    // "Denied · <the tool> · connector setup declined", not a bare "Denied".
+    expect(container).toHaveTextContent(/Denied.*fixture-secret_fixture_secret_check/u);
+    expect(screen.getByText('connector setup declined')).toBeInTheDocument();
+    expect(screen.queryByText('you denied it')).not.toBeInTheDocument();
+  });
 });
 
 describe('recorded failure detail selection', () => {
