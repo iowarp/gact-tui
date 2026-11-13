@@ -28,6 +28,7 @@ vi.mock('@/providers/connection-provider', () => ({
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { connectorStatus, offeredPlugins } from '@/lib/connector-presentation';
 import { extensionEntries } from '@/lib/extension-library-entries';
+import { monogramInitials } from '@/lib/monogram';
 import { draftValues, unfilledRequired } from '@/lib/connector-draft';
 import { ConnectorPane } from './connector-pane';
 import { ClioPendingInteractions } from './pending-interactions';
@@ -92,6 +93,13 @@ describe('connector state in words', () => {
       connectorStatus(connector({ state: { status: 'ready', needs: [] }, tool_count: 1 })).label,
     ).toBe('Ready, 1 tool');
     expect(connectorStatus(connector({ enabled: false })).label).toBe('Not enabled');
+  });
+
+  it('makes a monogram from the first and last words, or a single word’s parts', () => {
+    expect(monogramInitials('Fixture Sign-in')).toBe('FS');
+    expect(monogramInitials('Jaime Cernuda')).toBe('JC');
+    expect(monogramInitials('fixture-address')).toBe('FA');
+    expect(monogramInitials('')).toBe('');
   });
 
   it('lists connectors first, keeps a following plugin out of the plugin rows and pickers', () => {
