@@ -350,8 +350,10 @@ const McpAppSurfaceInstance = forwardRef<
       });
     };
     const themeObserver = new MutationObserver(notifyContext);
+    // A theme switch changes the class (dark) or data-theme (the family): resend
+    // theme and styles so the view follows.
     themeObserver.observe(document.documentElement, {
-      attributeFilter: ['class'],
+      attributeFilter: ['class', 'data-theme'],
       attributes: true,
     });
     // A tab's size is the view's container: report every change of it.

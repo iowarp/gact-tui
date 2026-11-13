@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkedLink, McpAppRpcFailure, resolveDisplayMode } from './mcp-app-bridge';
+import { mcpAppStyleVariables } from './mcp-app-host-styles';
 import {
   OPEN_MCP_APP_TAB_EVENT,
   openMcpAppInTab,
@@ -219,6 +220,35 @@ describe('MCP App host features', () => {
         expect.objectContaining({ code: -32601, data: { reason: 'unsupported_method' } }),
       ),
     );
+  });
+});
+
+describe('host styles', () => {
+  it("hands views CLIO's notebook tokens as the standardized variables", async () => {
+    const root = document.documentElement;
+    root.style.setProperty('--background', '#f3efe6');
+    root.style.setProperty('--foreground', '#2b2a26');
+    root.style.setProperty('--info', '#3a6690');
+    root.style.setProperty('--radius', '0.5rem');
+    try {
+      const variables = mcpAppStyleVariables();
+      expect(variables['--color-background-primary']).toBe('#f3efe6');
+      expect(variables['--color-text-primary']).toBe('#2b2a26');
+      expect(variables['--color-background-info']).toBe(
+        'color-mix(in oklab, #3a6690 14%, #f3efe6)',
+      );
+      expect(variables['--border-radius-md']).toBe('calc(0.5rem - 2px)');
+      expect(variables).not.toHaveProperty('--color-text-secondary');
+      const { reply } = await mountView(repository());
+      const init = reply('init')?.result as {
+        hostContext: { theme: string; styles: { variables: Record<string, string> } };
+      };
+      expect(init.hostContext.theme).toBe('light');
+      expect(init.hostContext.styles.variables['--color-background-primary']).toBe('#f3efe6');
+    } finally {
+      for (const token of ['--background', '--foreground', '--info', '--radius'])
+        root.style.removeProperty(token);
+    }
   });
 });
 

@@ -3,17 +3,26 @@ import { create } from 'zustand';
 import type { WorkbenchTab } from './workbench-shared';
 
 /**
- * Whether the workbench shows an App tab: on a phone the sheet then docks
- * between the conversation's header and its composer.
+ * The workbench's App tabs, for the phone shell: while one is open the closed
+ * sheet stays mounted (hidden), so closing and reopening it never reloads the
+ * App's view; while one is shown the sheet docks between the conversation's
+ * header and its composer. Kept after the workbench unmounts.
  */
-export const useWorkbenchAppTabs = create<{ shown: boolean }>(() => ({ shown: false }));
+export const useWorkbenchAppTabs = create<{ open: boolean; shown: boolean }>(() => ({
+  open: false,
+  shown: false,
+}));
 
-/** The workbench publishes whether its active tab is an App. */
-export function usePublishWorkbenchAppTabs(activeTab: WorkbenchTab | undefined): void {
+/** The workbench publishes its App tabs. */
+export function usePublishWorkbenchAppTabs(
+  tabs: readonly WorkbenchTab[],
+  activeTab: WorkbenchTab | undefined,
+): void {
+  const open = tabs.some((tab) => tab.kind === 'mcp-app');
   const shown = activeTab?.kind === 'mcp-app';
   useEffect(() => {
-    useWorkbenchAppTabs.setState({ shown });
-  }, [shown]);
+    useWorkbenchAppTabs.setState({ open, shown });
+  }, [open, shown]);
 }
 
 function measure(): CSSProperties | undefined {
