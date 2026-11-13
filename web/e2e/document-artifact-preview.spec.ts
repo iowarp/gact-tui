@@ -289,11 +289,11 @@ for (const layout of [
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe('rgba(0, 0, 0, 0)');
-        // An opened file widens the canvas, so on a desktop the zoom icons stay in
-        // the bar; at its narrowest fold (workbench-lineage step 6) they are rows in ⋯.
+        // An opened file widens the canvas, yet the Format icons fold before anything
+        // else (#1220): once the bar folds its tools, the zoom icons are rows in ⋯.
         await expect(toolbar.locator('[data-slot="viewer-zoom-controls"]')).toBeAttached();
         await frameSettled(toolbar);
-        const zoomInMenu = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        const zoomInMenu = (await toolbar.getAttribute('data-fold-tools')) !== null;
         await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible({
           visible: !zoomInMenu,
         });

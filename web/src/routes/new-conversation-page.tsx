@@ -389,9 +389,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     >
       <div className="flex h-full min-h-0 flex-col justify-center overflow-y-auto px-4 py-8 sm:px-8">
         <WorkspaceActionAlerts
-          actionError={
+          notice={
             // A failed send is reported once, by the composer's own toast with a
             // plain reason and Retry; it is not repeated here as raw HTTP text.
+            // A failed warm-up is no action of the person's, so it is not "That action
+            // didn't run": the row says what failed and that sending still works.
             // While the agent is unreachable the left bar already says so; a warm-up
             // that failed for the same reason is not a separate failure. The probe can
             // read live for a while after a drop, and for a frame before the re-run
