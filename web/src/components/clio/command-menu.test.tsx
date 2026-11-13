@@ -341,6 +341,27 @@ describe('ClioCommandMenu workspace search', () => {
     expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('steps back from a typed type prefix before closing', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
+    await user.keyboard('>dark');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).toHaveAttribute('aria-selected', 'true');
+    const footer = () => document.querySelector('[data-slot="picker-footer"]');
+    expect(footer()).toHaveTextContent(/Back/u);
+    expect(footer()).not.toHaveTextContent(/Close/u);
+
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(input).toHaveValue('dark');
+    expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
+    expect(footer()).toHaveTextContent(/Close/u);
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('counts only the result types that found something', async () => {
     const user = userEvent.setup();
     renderMenu();

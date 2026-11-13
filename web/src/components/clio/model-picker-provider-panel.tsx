@@ -1,11 +1,5 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import {
-  CircleArrowUpIcon,
-  DownloadIcon,
-  KeyRoundIcon,
-  LoaderCircleIcon,
-  LogInIcon,
-} from 'lucide-react';
+import { DownloadIcon, KeyRoundIcon, LoaderCircleIcon, LogInIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
@@ -19,6 +13,7 @@ import { useProviderActions } from './provider-actions';
 import { ProviderLoginButton } from './provider-login-button';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { ProviderSetupAction } from './provider-setup-action';
+import { ProviderUpdateButton } from './provider-update-button';
 import { providerActionError, providerSetupFlow } from './provider-setup-state';
 import { RefreshButton } from './refresh-button';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
@@ -185,18 +180,11 @@ export function useProviderPanel({
       {componentUpdate.stage}
     </span>
   ) : updateTo ? (
-    <Button
-      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground"
-      data-slot="provider-update-available"
+    <ProviderUpdateButton
       disabled={Boolean(providerActions.stage)}
-      onClick={componentUpdate.update}
-      size="xs"
-      type="button"
-      variant="outline"
-    >
-      <CircleArrowUpIcon aria-hidden="true" className="size-3" />
-      {t`Update to ${updateTo}`}
-    </Button>
+      onUpdate={componentUpdate.update}
+      updateTo={updateTo}
+    />
   ) : null;
   const manageSettings = settingsLink('size-[22px] [&_svg]:size-[13px]');
   const settingsMenuItem = (label: string) => (

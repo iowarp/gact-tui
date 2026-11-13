@@ -306,7 +306,11 @@ export function ClioModelPicker({
         {open && catalogOptions && shellPainted && Catalog ? (
           <div
             ref={catalogContent}
-            className="flex min-h-0 flex-1 flex-col"
+            className={cn(
+              'flex min-h-0 flex-1 flex-col',
+              // Rows fold their facts by the picker's width; a content-sized popover cannot be queried.
+              (placement !== 'composer' || composerFrame) && '@container/model-picker',
+            )}
             style={POSITION_VARIABLES_STOP}
           >
             <Catalog

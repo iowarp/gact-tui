@@ -3374,6 +3374,10 @@ msgstr "{state, select, sent {Sent message to an agent} sending {Sending message
 msgid "{status} on port {port}"
 msgstr "{status} on port {port}"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}, {checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}, chosen"
@@ -37309,6 +37313,7 @@ msgstr "Upcoming scheduled work"
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr "Update"
@@ -37435,7 +37440,7 @@ msgstr "Update the connected agent service to use this extension setup"
 msgid "Update this connection’s agent to enable search."
 msgstr "Update this connection’s agent to enable search."
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr "Update to {updateTo}"
 

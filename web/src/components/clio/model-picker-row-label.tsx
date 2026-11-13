@@ -225,7 +225,8 @@ export function PickerRowLabel({
       )}
       <span
         className={cn(
-          'min-w-0 truncate text-start font-normal',
+          // A floor the facts and ↵ never take: the selected row always shows its name.
+          'min-w-[min(6rem,50%)] truncate text-start font-normal',
           state.selected && 'text-accent-foreground',
         )}
         data-slot="model-row-name"
@@ -239,7 +240,11 @@ export function PickerRowLabel({
         inputPrice={facts?.facts.inputPrice}
         tags={displayedTags(allTags)}
       />
-      <KeyCap size="row" className="hidden in-data-highlighted:inline-flex">
+      <KeyCap
+        size="row"
+        // Under 25rem the facts fold away, so the keycap ends the row itself.
+        className="hidden in-data-highlighted:inline-flex @max-[25rem]/model-picker:ms-auto"
+      >
         ↵
       </KeyCap>
     </span>

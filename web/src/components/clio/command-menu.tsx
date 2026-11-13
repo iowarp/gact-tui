@@ -126,10 +126,14 @@ export function ClioCommandMenu({
         }}
         onEscapeKeyDown={(event) => {
           // Back one step, then close: the assistant returns to the list, and a
-          // chosen type returns to All.
+          // chosen type, picked or typed as a prefix (#pipe), returns to All.
           if (aiMode) {
             event.preventDefault();
             setAiMode(false);
+          } else if (parseCommandMenuQuery(query).prefixScope) {
+            event.preventDefault();
+            setQuery(withoutCommandMenuPrefix(query));
+            setScope('all');
           } else if (scope !== 'all') {
             event.preventDefault();
             setScope('all');
@@ -399,7 +403,11 @@ function CommandMenuBody({
           const settingsRoute = settingsResultsRoute(global, counts);
           const openAllResults = allResultsAction(counts, settingsRoute);
           const hints: PickerHint[] = [
-            { label: scope === 'all' ? t`Close` : t`Back`, shortcut: 'menu-close', optional: true },
+            {
+              label: activeScope === 'all' ? t`Close` : t`Back`,
+              shortcut: 'menu-close',
+              optional: true,
+            },
             activeScope !== 'all' && !searchText
               ? { label: t`All types`, shortcut: 'menu-all-types', optional: true }
               : { label: t`Change type`, shortcut: 'menu-type', optional: true },

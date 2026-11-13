@@ -3367,6 +3367,10 @@ msgstr ""
 msgid "{status} on port {port}"
 msgstr ""
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr ""
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr ""
@@ -37291,6 +37295,7 @@ msgstr ""
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr ""
@@ -37417,7 +37422,7 @@ msgstr ""
 msgid "Update this connection’s agent to enable search."
 msgstr ""
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr ""
 

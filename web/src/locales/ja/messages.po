@@ -3374,6 +3374,10 @@ msgstr "{state, select, sent {エージェントにメッセージを送信し�
 msgid "{status} on port {port}"
 msgstr "{status}（ポート{port}）"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}、{checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}、選択済み"
@@ -37309,6 +37313,7 @@ msgstr "今後のスケジュール作業"
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr "アップデート"
@@ -37435,7 +37440,7 @@ msgstr "この拡張機能の設定を使うには、接続中のエージェン
 msgid "Update this connection’s agent to enable search."
 msgstr "検索を有効にするには、この接続のエージェントをアップデートしてください。"
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr "{updateTo} にアップデート"
 

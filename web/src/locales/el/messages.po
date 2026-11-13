@@ -3374,6 +3374,10 @@ msgstr "{state, select, sent {Στάλθηκε μήνυμα σε πράκτορ�
 msgid "{status} on port {port}"
 msgstr "{status} στη θύρα {port}"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}, {checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}, επιλέχθηκε"
@@ -37309,6 +37313,7 @@ msgstr "Επερχόμενη προγραμματισμένη εργασία"
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr "Ενημέρωση"
@@ -37435,7 +37440,7 @@ msgstr "Ενημερώστε τη συνδεδεμένη υπηρεσία πρά
 msgid "Update this connection’s agent to enable search."
 msgstr "Ενημερώστε τον πράκτορα αυτής της σύνδεσης για να ενεργοποιήσετε την αναζήτηση."
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr "Ενημέρωση σε {updateTo}"
 
