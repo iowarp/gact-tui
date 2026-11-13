@@ -40,7 +40,11 @@ export function MetaLine({
       {rows.map((part, index) => (
         <span
           className={cn(
-            wrap ? 'max-w-full min-w-0 break-words' : index ? 'ml-2.5' : undefined,
+            wrap
+              ? 'max-w-full min-w-0 break-words [word-break:auto-phrase]'
+              : index
+                ? 'ml-2.5'
+                : undefined,
             wrap && part.mono && 'truncate',
             part.mono && 'font-mono text-label',
             part.mono && index && '@max-sm:hidden',
