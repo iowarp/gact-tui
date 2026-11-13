@@ -22,6 +22,7 @@ export const GACT_V3_EVENT_TYPES = [
   'message.canvas',
   'message.completed',
   'message.upserted',
+  'mcp_app_closed',
   'mcp_app_tool_call',
   'pending_steer.cancelled',
   'provider_catalog.refreshed',
