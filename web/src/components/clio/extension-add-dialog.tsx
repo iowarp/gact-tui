@@ -25,13 +25,14 @@ export type ExtensionAdd = {
   category?: 'marketplaces' | 'mcp' | 'skills' | 'plugins';
 };
 
-const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
+// The raw connection form takes a URL or a command; `local` opens it on Command.
+const CHOICES: ExtensionAdd['kind'][] = ['remote', 'import', 'upload', 'skill', 'plugin'];
 // The same field size as the other Settings dialogs' setting rows.
 const FIELD = 'h-[1.875rem] text-[0.78125rem]';
 
 const ADD_LABELS = {
-  remote: 'MCP server URL',
-  local: 'Local MCP command',
+  remote: 'Add by URL or command',
+  local: 'Add by command',
   import: 'Repository or host folder',
   upload: 'Upload ZIP',
   skill: 'Create a skill',
@@ -71,7 +72,7 @@ export function ExtensionAddMenu({
           ? 'Add plugin'
           : 'Add';
   const kinds = CHOICES.filter((kind) => {
-    if (mcp) return kind === 'remote' || kind === 'local';
+    if (mcp) return kind === 'remote';
     if (category === 'skills') return kind === 'skill' || kind === 'import' || kind === 'upload';
     if (category === 'plugins') return kind === 'plugin' || kind === 'import' || kind === 'upload';
     return true;
@@ -104,7 +105,7 @@ export function ExtensionAddMenu({
   );
 }
 const TITLES = {
-  remote: 'Add an MCP connection',
+  remote: 'Add by URL or command',
   local: 'Add a local MCP',
   import: 'Add from a repository or folder',
   skill: 'Create a skill',
@@ -424,7 +425,8 @@ function PluginChoices({
 }) {
   const catalog = usePluginCatalog();
   const items = (catalog.data?.plugins ?? [])
-    .filter((row) => row.id !== 'core' && !row.pending_trust)
+    // A plugin that follows a connector comes with it and is not offered on its own.
+    .filter((row) => row.id !== 'core' && !row.pending_trust && !row.follows)
     .map((row) => ({
       id: row.ref,
       title: row.id,

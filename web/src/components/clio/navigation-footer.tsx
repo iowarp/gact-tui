@@ -10,6 +10,7 @@ import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { HeldKeyBadge } from './primitives/key-chip';
+import { Monogram } from './primitives/monogram';
 import { useLocalProfile } from './settings-profile-store';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
@@ -30,7 +31,6 @@ export function NavigationFooter({
   onOpenArchived: () => void;
 }) {
   const profileName = useLocalProfile().profile.name.trim();
-  const initials = profileInitials(profileName);
   const returnState = { endpoint, from };
   return (
     <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
@@ -40,9 +40,10 @@ export function NavigationFooter({
           state={returnState}
           to="/settings/profile"
         >
-          <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
-            {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
-          </span>
+          <Monogram
+            fallback={<UserRoundIcon aria-hidden="true" className="size-3.5" />}
+            name={profileName}
+          />
           <span className="flex min-w-0 flex-1 flex-col leading-[1.25]">
             <span className="truncate text-[13px] text-foreground">
               {profileName || 'Your profile'}
@@ -136,14 +137,4 @@ function InfrastructureLink({
 /** A reachable service that reports itself limited; History mode is a choice, not a fault. */
 function serviceNeedsYou(availability: ConnectionAvailability | undefined): boolean {
   return availability?.state === 'degraded' && availability.label !== HISTORY_MODE_LABEL;
-}
-
-/** Up to two initials from the profile name, e.g. "Jaime Cernuda" → "JC". */
-function profileInitials(name: string): string {
-  const words = name.split(/\s+/).filter(Boolean);
-  const letters = words.length > 1 ? [words[0], words[words.length - 1]] : words;
-  return letters
-    .map((word) => Array.from(word)[0] ?? '')
-    .join('')
-    .toUpperCase();
 }

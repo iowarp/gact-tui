@@ -4,6 +4,7 @@
  * each row is, where it comes from and what state it is in.
  */
 import type {
+  Connector,
   McpServerDefinition,
   PluginEntry,
   PluginMarketplace,
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import type { ExtensionAdd } from '@/components/clio/extension-add-dialog';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { copyText } from '@/lib/clipboard';
+import { connectorStatus, connectorText } from '@/lib/connector-presentation';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
 import { catalogMatches, catalogRoots } from '@/lib/plugin-catalog-tree';
 
@@ -23,7 +25,7 @@ export const EXTENSION_TYPE_LABELS: Record<ExtensionType, string> = {
   all: 'All',
   plugins: 'Plugins',
   marketplaces: 'Marketplaces',
-  mcp: 'MCP connections',
+  mcp: 'Connectors',
   skills: 'Skills',
 };
 
@@ -36,6 +38,20 @@ export function defaultAdd(type: ExtensionType): ExtensionAdd {
 }
 
 export const LOCAL_MARKETPLACE = 'private-local';
+
+/** The private local marketplace before anything is saved to it. */
+export const LOCAL_PLACEHOLDER: PluginMarketplace = {
+  name: LOCAL_MARKETPLACE,
+  source: '',
+  commit: '',
+  format: '',
+  trusted: true,
+  trust_reason: 'local',
+  default: false,
+  parent: '',
+  installed_at: '',
+  diagnostics: [],
+};
 
 export interface ExtensionMetaPart {
   text: string;
@@ -56,6 +72,7 @@ interface EntryBase {
 }
 
 export type ExtensionEntry =
+  | (EntryBase & { kind: 'connector'; connector: Connector })
   | (EntryBase & { kind: 'plugin'; plugin: PluginEntry })
   | (EntryBase & { kind: 'skill'; plugin: PluginEntry; skill: string })
   | (EntryBase & {
@@ -226,6 +243,22 @@ export function marketplaceRow(
   };
 }
 
+/** A connector: its logo, name and state in words (CN3, CN12). */
+export function connectorRow(connector: Connector): ExtensionEntry {
+  const status = connectorStatus(connector);
+  return {
+    kind: 'connector',
+    key: `connector:${connector.id}`,
+    title: connector.name,
+    connector,
+    meta: [
+      { text: 'Connector' },
+      { text: connector.source === 'custom' ? 'Added by you' : connector.description },
+    ],
+    status: { tone: status.tone, label: status.label },
+  };
+}
+
 /** Your MCP connections: every saved service, joined with what the listing reports. */
 export function mcpRows(
   saved: readonly SavedMcpService[],
@@ -274,6 +307,7 @@ function shippedLast<T>(rows: readonly T[], shipped: (row: T) => boolean): T[] {
 }
 
 export function entryText(entry: ExtensionEntry): string {
+  if (entry.kind === 'connector') return connectorText(entry.connector);
   const extra =
     entry.kind === 'plugin' || entry.kind === 'skill'
       ? [entry.plugin.description, entry.plugin.ref]
@@ -292,6 +326,7 @@ export function extensionEntries({
   marketplaces,
   saved,
   servers,
+  connectors = [],
   term = '',
 }: {
   type: ExtensionType;
@@ -299,14 +334,21 @@ export function extensionEntries({
   marketplaces: readonly PluginMarketplace[];
   saved: readonly SavedMcpService[];
   servers: readonly McpServerDefinition[];
+  connectors?: readonly Connector[];
   term?: string;
 }): ExtensionEntry[] {
   const query = term.trim().toLocaleLowerCase();
   const shipped = new Set(marketplaces.filter(marketplaceShipped).map((row) => row.name));
   const rows: ExtensionEntry[] = [];
+  // Connectors come first, above plugins and skills (CN12).
+  if (type === 'all' || type === 'mcp')
+    rows.push(
+      ...connectors.map(connectorRow).filter((row) => !query || entryText(row).includes(query)),
+    );
   if (type === 'all' || type === 'plugins') {
     const roots = shippedLast(
-      catalogRoots(plugins).filter((plugin) => !isStandaloneSkill(plugin)),
+      // A plugin that follows a connector is shown with its connector, never on its own.
+      catalogRoots(plugins).filter((plugin) => !isStandaloneSkill(plugin) && !plugin.follows),
       (plugin) => shipped.has(plugin.marketplace),
     );
     rows.push(
@@ -328,8 +370,16 @@ export function extensionEntries({
     );
     rows.push(...skills.filter((row) => !query || entryText(row).includes(query)));
   }
-  if (type === 'all' || type === 'mcp')
-    rows.push(...mcpRows(saved, servers).filter((row) => !query || entryText(row).includes(query)));
+  if (type === 'all' || type === 'mcp') {
+    // A connection a connector owns is that connector's row (its id is the connection name).
+    const owned = new Set(connectors.map((connector) => connector.id));
+    rows.push(
+      ...mcpRows(saved, servers).filter(
+        (row) =>
+          row.kind === 'mcp' && !owned.has(row.name) && (!query || entryText(row).includes(query)),
+      ),
+    );
+  }
   return rows;
 }
 
