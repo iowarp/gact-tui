@@ -46,16 +46,23 @@ describe('graph fit', () => {
     expect(fitWidth(undefined, 640, 14)).toBe(1);
   });
 
-  it('opens a wide drawing on its focus, clamped to the drawing’s edges', () => {
+  it('opens a drawing on its focus, on both axes, clamped to the drawing’s edges', () => {
     const pane = { w: 400, h: 300 };
-    // Fits: anchored top-left like the other graphs.
+    // Fits: moves toward centring the focus only while the whole drawing stays in view.
     expect(
       focusViewport({ pane, width: 300, height: 200, focus: { x: 250, y: 50 }, zoom: 1 }),
-    ).toEqual({ x: GRAPH_MARGIN, y: GRAPH_MARGIN, zoom: 1 });
-    // Wider than the pane: the focus is centred across, still top-anchored down.
+    ).toEqual({ x: GRAPH_MARGIN, y: 300 - GRAPH_MARGIN - 200, zoom: 1 });
+    expect(
+      focusViewport({ pane, width: 100, height: 60, focus: { x: 50, y: 30 }, zoom: 1 }),
+    ).toEqual({ x: 150, y: 120, zoom: 1 });
+    // Wider than the pane: the focus is centred across, and as near centre as fits down.
     expect(
       focusViewport({ pane, width: 1600, height: 200, focus: { x: 800, y: 50 }, zoom: 1 }),
-    ).toEqual({ x: -600, y: GRAPH_MARGIN, zoom: 1 });
+    ).toEqual({ x: -600, y: 300 - GRAPH_MARGIN - 200, zoom: 1 });
+    // Taller than the pane too: the focus sits mid-pane.
+    expect(
+      focusViewport({ pane, width: 1600, height: 1200, focus: { x: 800, y: 600 }, zoom: 1 }),
+    ).toEqual({ x: -600, y: -450, zoom: 1 });
     // A focus at the far end stops at the drawing's last column, not past it.
     expect(
       focusViewport({ pane, width: 1600, height: 200, focus: { x: 1590, y: 50 }, zoom: 1 }).x,

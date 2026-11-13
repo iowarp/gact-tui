@@ -84,9 +84,9 @@ export function topLeftViewport(zoom: number) {
 }
 
 /**
- * The drawing at `zoom`, anchored top-left like `topLeftViewport` when it fits;
- * along an axis where it doesn't, it scrolls just far enough to centre `focus`
- * (a point in graph units) without running past the drawing's own edge.
+ * The drawing at `zoom` with `focus` (a point in graph units) as near the pane's
+ * middle as it can be, on both axes: along an axis where the drawing fits it stays
+ * wholly in view, and where it doesn't it never scrolls past its own edge.
  */
 export function focusViewport({
   pane,
@@ -105,8 +105,8 @@ export function focusViewport({
 }) {
   const along = (paneSize: number, size: number, at: number) => {
     const last = paneSize - margin - size * zoom;
-    if (last >= margin) return margin;
-    return Math.min(margin, Math.max(last, paneSize / 2 - at * zoom));
+    const [low, high] = last >= margin ? [margin, last] : [last, margin];
+    return Math.min(high, Math.max(low, paneSize / 2 - at * zoom));
   };
   if (!pane || !focus) return { x: margin, y: margin, zoom };
   return {

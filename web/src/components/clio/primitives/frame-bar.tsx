@@ -28,15 +28,18 @@ import { IconButton, NamedTooltip } from './icon-button';
  * How far the frame bar has folded, one group per step: the secondary facts,
  * then the position fact (a page, a row count; marked `data-frame-position`),
  * so every fact has gone to the hover name before anything else moves
- * (workbench-lineage step 2), then folders, Open, Copy, @, then the modes
+ * (workbench-lineage step 2), then folders, then the renderer's Format icons
+ * (`tools`: zoom out and in, wrap, a tree toggle; see `useFrameTool`) move into
+ * the … menu, so every viewer keeps one order: modes outlast @, which outlasts
+ * Copy and Open, which outlast the icons. Then Open, Copy, @, then the modes
  * folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
- * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
+ * `useFrameModes`), and the
  * group rules go: only the name, comments and the … menu remain (Download stays
  * so the original bytes are one click away). Modes and icons leave only a bar
  * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
- * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
+ * on a bar without a … menu a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
  * or ⌘ with the wheel still zooms, and the … menu lists them), keeping the
  * position readout between them ("200 / 250"). Then the readout's zoom % goes
  * (`zoom-fact`, `data-readout-zoom`), so the page never folds before it. The name is
@@ -52,6 +55,7 @@ const FRAME_FOLDS = [
   'facts',
   'position',
   'folders',
+  'tools',
   'open',
   'copy',
   'talk',
@@ -78,7 +82,7 @@ const FRAME_ICON_FOLDED = FRAME_FOLDS.indexOf('icon') + 1;
 
 /**
  * The name keeps its full width until everything else that folds has folded:
- * facts, folders, Open, Copy, @, the modes, the folders' …, the modes into the
+ * facts, folders, the Format icons, Open, Copy, @, the modes, the folders' …, the modes into the
  * … menu, the rules, zoom and the zoom % (workbench-lineage: "Name and comments stay").
  * Only then may it truncate, and below `FRAME_NAME_MIN` it goes (`where`).
  */
@@ -264,7 +268,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-readout-zoom]]:group-data-[fold-zoom-fact]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-tools]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-readout-zoom]]:group-data-[fold-zoom-fact]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
           {format}
         </div>

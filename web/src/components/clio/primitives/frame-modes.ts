@@ -15,8 +15,8 @@ export interface FrameModesEntry {
 
 /**
  * A renderer's own icon in the bar's Format (zoom out, zoom in), offered to the
- * … menu so it can leave the bar with the modes (workbench-lineage step 6: only
- * the name, comments and … remain). Choosing the row clicks the icon itself.
+ * … menu so it can leave the bar first, before Open, Copy and @ (one fold order
+ * on every viewer). Choosing the row clicks the icon itself.
  */
 export interface FrameToolEntry {
   label: string;
@@ -72,24 +72,27 @@ function useBarEntry<T>(
   }, [registry, inside, active, scope]);
 }
 
-/** What the … menu inside `element`'s bar lists, in bar order, once the bar has folded to `modes-menu`. */
+/** What the … menu inside `element`'s bar lists, in bar order, once the bar has folded to `step`. */
 function barEntries<T>(
   registry: Registry<T>,
   element: HTMLElement | null,
+  step: 'tools' | 'modes-menu',
 ): { anchor: HTMLElement; entry: T }[] {
   const bar = element?.closest('[data-slot="frame-bar"]');
-  if (!bar?.hasAttribute('data-fold-modes-menu')) return [];
-  return [...(registry.get(bar) ?? [])]
-    // A renderer kept mounted under another view (Lineage) hides its host; its tools don't apply.
-    .filter(
-      ({ anchor }) =>
-        anchor.isConnected &&
-        !anchor.closest('[data-slot="frame-format-host"]')?.classList.contains('hidden'),
-    )
-    .sort(({ anchor: a }, { anchor: b }) =>
-      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
-    )
-    .flatMap(({ anchor, entry }) => (entry.current ? [{ anchor, entry: entry.current }] : []));
+  if (!bar?.hasAttribute(`data-fold-${step}`)) return [];
+  return (
+    [...(registry.get(bar) ?? [])]
+      // A renderer kept mounted under another view (Lineage) hides its host; its tools don't apply.
+      .filter(
+        ({ anchor }) =>
+          anchor.isConnected &&
+          !anchor.closest('[data-slot="frame-format-host"]')?.classList.contains('hidden'),
+      )
+      .sort(({ anchor: a }, { anchor: b }) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      )
+      .flatMap(({ anchor, entry }) => (entry.current ? [{ anchor, entry: entry.current }] : []))
+  );
 }
 
 /**
@@ -105,12 +108,12 @@ export function useFrameModes(
 
 /** The mode groups the … menu inside `element`'s bar should list, when the bar has folded them there. */
 export function foldedFrameModes(element: HTMLElement | null): FrameModesEntry[] {
-  return barEntries(frameModes, element).map(({ entry }) => entry);
+  return barEntries(frameModes, element, 'modes-menu').map(({ entry }) => entry);
 }
 
 /**
  * Offers a Format icon to the bar's … menu, which lists it once the bar folds
- * to `modes-menu` and the icon leaves the bar. `button` is the icon itself;
+ * to `tools`, before Open, Copy and @ leave, and the icon leaves the bar. `button` is the icon itself;
  * only icons inside the bar's Format register.
  */
 export function useFrameTool(
@@ -122,5 +125,8 @@ export function useFrameTool(
 
 /** The Format icons the … menu inside `element`'s bar should list, when the bar has folded them there. */
 export function foldedFrameTools(element: HTMLElement | null): FrameToolEntry[] {
-  return barEntries(frameTools, element).map(({ anchor, entry }) => ({ ...entry, button: anchor }));
+  return barEntries(frameTools, element, 'tools').map(({ anchor, entry }) => ({
+    ...entry,
+    button: anchor,
+  }));
 }

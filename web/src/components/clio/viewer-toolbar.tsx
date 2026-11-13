@@ -11,7 +11,7 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
  * A compact viewer action: the shared IconButton (required name, hover name
  * with its key, inside focus ring) at the toolbar's 14px icon size. In a frame
  * bar's Format it is one of the renderer's icons, which move into the bar's …
- * menu at the narrowest fold (see `useFrameTool`).
+ * menu first as the bar narrows (see `useFrameTool`).
  */
 export function ToolbarAction({
   label,
