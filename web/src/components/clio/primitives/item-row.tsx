@@ -164,9 +164,7 @@ export const ItemRow = memo(
           <span
             className={cn(
               'min-w-0 truncate text-foreground',
-              size === 'line'
-                ? 'max-w-full shrink-0 text-menu'
-                : 'text-ui font-medium',
+              size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
             )}
             data-slot="item-row-title"
           >
@@ -209,7 +207,9 @@ export const ItemRow = memo(
               className={cn(
                 'pointer-events-none absolute inset-y-0 right-full flex items-center justify-end gap-px bg-hover pl-1 opacity-0',
                 'group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100',
-                hasSlot && 'mr-2',
+                // A touch screen has no hover and a tap doesn't focus the row: keep them in the row.
+                'pointer-coarse:pointer-events-auto pointer-coarse:static pointer-coarse:bg-transparent pointer-coarse:pl-0 pointer-coarse:opacity-100',
+                hasSlot && 'mr-2 pointer-coarse:mr-0',
               )}
               data-slot="item-row-actions"
             >
