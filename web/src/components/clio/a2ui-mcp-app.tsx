@@ -98,7 +98,8 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
       (settled) => {
         if (!active) return;
         if (settled.ok) {
-          holdSurfaceApp(surfaceAppTarget(sessionId, settled.view, label), repository);
+          const title = settled.savedCall?.label?.trim() || label;
+          holdSurfaceApp(surfaceAppTarget(sessionId, settled.view, title), repository);
         }
         setSettled({ key: openKey, outcome: settled });
       },
@@ -174,13 +175,19 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
       {...props}
       serverTools={outcome.serverTools}
       sessionId={sessionId}
+      title={outcome.savedCall?.label}
       view={outcome.view}
     />
   );
 }
 
 function OpenedMcpApp(
-  props: ClioMcpAppProps & { serverTools: string[]; sessionId: string; view: McpAppReopenedView },
+  props: ClioMcpAppProps & {
+    serverTools: string[];
+    sessionId: string;
+    title?: string;
+    view: McpAppReopenedView;
+  },
 ) {
   const repository = useRepository();
   const { view, sessionId, dataContext, serverTools } = props;
@@ -254,6 +261,7 @@ function OpenedMcpApp(
         appInstanceId={identity.appInstanceId}
         dataRef={identity.dataRef}
         height={props.height}
+        label={mcpAppLabel(view.toolName, view.sourceServer, props.title)}
         onModelContext={(context) => bridge.current?.report(context)}
         placement="surface"
         ref={handle}
