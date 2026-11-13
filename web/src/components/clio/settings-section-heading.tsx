@@ -63,13 +63,17 @@ export function SettingsSectionHeading({
           </div>
         ) : null}
       </div>
+      {/* The scope caption wraps whole under the title (translations and large type run
+          long); its icon stays centred on the first line. */}
       {scope ? (
         <p
-          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-muted-foreground"
+          className="mt-0.5 flex min-w-0 items-start gap-[0.3125rem] text-xs text-muted-foreground"
           data-slot="settings-scope"
         >
-          <SettingsScopeIcon className="size-[0.8125rem] shrink-0" group={scope.group} />
-          <span className="min-w-0 truncate">{scope.line}</span>
+          <span aria-hidden="true" className="flex h-[1lh] shrink-0 items-center">
+            <SettingsScopeIcon className="size-[0.8125rem]" group={scope.group} />
+          </span>
+          <span className="min-w-0 text-pretty [overflow-wrap:anywhere]">{scope.line}</span>
         </p>
       ) : null}
     </div>
