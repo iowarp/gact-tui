@@ -244,14 +244,21 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     ),
   }[tab];
   return (
-    <div className="grid min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+    <div
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
+      data-row-keys=""
+      onKeyDown={rowArrowKeyDown}
+      ref={rootRef}
+    >
       <SettingsSectionHeading
         info={t`Saved facts and preferences the agent can use in later conversations.`}
         title={t`Memory and instructions`}
       />
-      <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2" ref={toolbar}>
+      <div
+        className="mb-1.5 flex min-h-[2.125rem] min-w-0 flex-wrap items-center gap-2 gap-y-1.5"
+        ref={toolbar}
+      >
         <SegmentedControl
-          className="min-w-0 overflow-hidden"
           iconOnly={foldViews ? 'others' : false}
           label={t`Memory views`}
           onValueChange={setTab}
@@ -280,21 +287,22 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
           ]}
           value={tab}
         />
-        <span className="flex-1" />
-        {tab === 'review' ? (
+        <span className="ml-auto flex items-center gap-2">
+          {tab === 'review' ? (
+            <IconButton
+              icon={<UploadIcon />}
+              label={t`Import memory`}
+              onClick={() => setImporting(true)}
+              shortcut={IMPORT_SHORTCUT}
+            />
+          ) : null}
           <IconButton
-            icon={<UploadIcon />}
-            label={t`Import memory`}
-            onClick={() => setImporting(true)}
-            shortcut={IMPORT_SHORTCUT}
+            disabled={exportAll.isPending || !documents.data?.length}
+            icon={<DownloadIcon />}
+            label={t`Export all memory`}
+            onClick={() => exportAll.mutate()}
           />
-        ) : null}
-        <IconButton
-          disabled={exportAll.isPending || !documents.data?.length}
-          icon={<DownloadIcon />}
-          label={t`Export all memory`}
-          onClick={() => exportAll.mutate()}
-        />
+        </span>
       </div>
       {summary.data && !summary.data.enabled ? (
         <div className="flex min-w-0 items-center gap-2 py-2 text-menu text-muted-foreground">
