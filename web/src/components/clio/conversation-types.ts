@@ -153,7 +153,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   measureElement?: (element: Element | null) => void;
   virtualized?: boolean;
   onDisplayModeChange: (mode: ConversationDisplayMode) => void;
-  activeMcpAppId?: string;
   mcpAppResponse?: McpAppResponseActivityData;
   /** The compactions positioned after this message's content. */
   messageCompactions?: readonly PendingCompaction[];

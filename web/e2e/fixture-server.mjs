@@ -128,7 +128,7 @@ const mcpAppHtml = `<!doctype html>
         params: {
           protocolVersion: '2026-01-26',
           appInfo: { name: 'V2 exerciser', version: '1.0.0' },
-          appCapabilities: { availableDisplayModes: ['inline'] }
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] }
         }
       });
     </script>

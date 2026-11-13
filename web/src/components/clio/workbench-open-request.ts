@@ -10,7 +10,7 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { ObservabilityView } from './observability-view-storage';
 import { activityTab } from './workbench-activity-tab';
-import { fileName, type WorkbenchTab } from './workbench-shared';
+import { fileName, mcpAppTab, type McpAppTabTarget, type WorkbenchTab } from './workbench-shared';
 
 export type CanvasResourceKind =
   | 'session'
@@ -62,6 +62,8 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'tool-call'; callId: string; sessionId?: string; label: string }
   /** Ctrl K's results for a query, as a tab (Ctrl Enter on mixed results). */
   | { kind: 'search'; query: string; scope?: CommandMenuScope }
+  /** An MCP App's view in a tab (its fullscreen display mode). */
+  | { kind: 'mcp-app'; app: McpAppTabTarget }
   /** A variant run's tries as tabs, `tryIndex` in front. */
   | {
       kind: 'variant-try';
@@ -188,6 +190,8 @@ export function tabForOpenRequest(
       );
     case 'variant-try':
       return variantTryTab(request, request.tryIndex, sessionId, workspaceId);
+    case 'mcp-app':
+      return mcpAppTab(request.app);
   }
 }
 

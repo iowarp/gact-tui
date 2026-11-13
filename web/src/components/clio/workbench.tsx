@@ -84,6 +84,7 @@ import {
 } from './workbench-list-column';
 import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
+import { useMcpAppTabSync } from './mcp-app-tab-sync';
 
 export interface ClioWorkbenchProps {
   workspaceId: string;
@@ -302,6 +303,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       canvasControl?.hide?.();
     };
     const closeTabOrCanvas = (tabId: string) => closeTabsOrCanvas([tabId]);
+    useMcpAppTabSync(orderedTabs, closeTabsOrCanvas, canvasControl?.hide);
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -656,14 +658,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
                 // Every tab holds its own controls, so the panel itself is not a stop.
                 <TabsContent
-                  className="isolate m-0 min-h-0 overflow-hidden"
+                  className="isolate m-0 min-h-0 overflow-hidden data-[state=inactive]:hidden"
+                  // An App's tab stays mounted while hidden: its view must not reload.
+                  forceMount={tab.kind === 'mcp-app' || undefined}
                   key={tab.id}
                   tabIndex={-1}
                   value={tab.id}
                 >
                   {/* Only the active tab: Radix Presence renders an outgoing panel once more
                     before unmounting it, which would mount a tab that is being left. */}
-                  {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
+                  {(canvasVisible && requestsSettled && tab.id === activeTab?.id) ||
+                  tab.kind === 'mcp-app' ? (
                     <WorkbenchTabFrame
                       artifacts={artifacts}
                       back={backFor(tab)}
