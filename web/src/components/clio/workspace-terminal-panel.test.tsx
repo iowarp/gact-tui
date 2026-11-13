@@ -30,7 +30,10 @@ const xterm = vi.hoisted(() => {
       this.element = document.createElement('div');
       container.appendChild(this.element);
     });
-    constructor() {
+    // xterm keeps its constructor options as live, writable `options`.
+    options: { fontSize?: number };
+    constructor(options: { fontSize?: number } = {}) {
+      this.options = { ...options };
       MockTerminal.instances.push(this);
     }
   }
@@ -101,6 +104,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  document.documentElement.style.fontSize = '';
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -194,8 +198,11 @@ describe('WorkspaceTerminalPanel', () => {
     await waitFor(() => expect(terminalObserver()).toBeDefined());
 
     const term = xterm.MockTerminal.instances[0];
+    expect(term.options.fontSize).toBe(13);
     term.cols = 120;
     term.rows = 40;
+    // Interface size 125%: the settled fit redraws the cells at the scaled px size.
+    document.documentElement.style.fontSize = '20px';
     const observer = terminalObserver()!;
 
     // Simulate a drag: several observed resizes in quick succession must
@@ -219,6 +226,7 @@ describe('WorkspaceTerminalPanel', () => {
     expect(
       mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_resize').length,
     ).toBe(1);
+    expect(term.options.fontSize).toBe(16.25);
   });
 
   it('shows a restart action once the shell exits', async () => {
