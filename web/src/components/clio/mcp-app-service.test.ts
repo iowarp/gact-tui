@@ -23,6 +23,8 @@ function descriptor(serviceUrl: string | null): McpAppDescriptor {
     tool_result: {},
     sandbox_url: 'http://localhost:8100/v1/sessions/sess_1/mcp-apps/app1/sandbox?data_ref=cap-1',
     service_url: serviceUrl,
+    display_mode: 'inline',
+    pinned: false,
   };
 }
 

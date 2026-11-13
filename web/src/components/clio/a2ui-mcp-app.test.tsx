@@ -18,7 +18,9 @@ const surface = vi.hoisted(() => ({
 
 const repository = vi.hoisted(() => ({
   openMcpAppFromCall: vi.fn(),
-  callMcpAppTool: vi.fn(async () => ({ content: [{ type: 'text', text: 'moved' }] })),
+  callMcpAppTool: vi.fn(
+    async (): Promise<unknown> => ({ content: [{ type: 'text', text: 'moved' }] }),
+  ),
   closeMcpApp: vi.fn(async () => undefined),
   pinMcpApp: vi.fn(async () => ({ display_mode: 'inline', pinned: true })),
   setMcpAppDisplayMode: vi.fn(),
