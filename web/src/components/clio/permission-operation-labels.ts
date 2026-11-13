@@ -5,6 +5,7 @@ const OPERATIONS: Record<string, string> = {
   fs_read_file: t`Read file`,
   fs_write_file: t`Write file`,
   fs_edit_file: t`Edit file`,
+  fs_git_commit: t`Commit changes to git`,
   shell_bash: t`Run command`,
   'workspace.read': t`Read file`,
   'workspace.write': t`Write file`,

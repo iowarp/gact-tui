@@ -9770,7 +9770,12 @@ msgstr ""
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
 msgstr ""
 
 #: src/components/clio/github-revision-picker.tsx
@@ -27091,6 +27096,10 @@ msgstr ""
 
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
+msgstr ""
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
 msgstr ""
 
 #: src/components/clio/provenance-connections.tsx

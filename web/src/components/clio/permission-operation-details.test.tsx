@@ -295,3 +295,32 @@ it('shows a readable title for retained requests with the old generic summary', 
     screen.queryByText('destructive tool call: connected_data_connect'),
   ).not.toBeInTheDocument();
 });
+
+it('names a git commit request instead of showing its tool identifier', () => {
+  render(
+    <ClioPendingInteractions
+      viewedSessionId="s"
+      onResponse={vi.fn(async () => undefined)}
+      interactions={[
+        {
+          ...permission('read_only'),
+          id: 'commit-survey',
+          title: 'destructive tool call: fs_git_commit',
+          source: { protocol: 'native', tool_name: 'fs_git_commit' },
+          payload: {
+            tool_call: {
+              tool_name: 'fs_git_commit',
+              input: {
+                path: '/work/field-survey',
+                message: 'Initial commit of the field survey',
+                init: true,
+              },
+            },
+          },
+        },
+      ]}
+    />,
+  );
+  expect(screen.getByText('Commit changes to git')).toBeVisible();
+  expect(screen.queryByText('destructive tool call: fs_git_commit')).not.toBeInTheDocument();
+});

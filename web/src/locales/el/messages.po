@@ -9778,8 +9778,13 @@ msgstr "Τα σχόλια, το ιστορικό αναθεωρήσεων και
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
 msgstr "Commit"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
+msgstr "Καταχώριση αλλαγών στο git"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Commit ID"
@@ -27109,6 +27114,10 @@ msgstr "Η καταγραφή χρειάζεται προσοχή"
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
 msgstr "Η καταγραφή δεν είναι διαθέσιμη"
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
+msgstr "Καταγράφει στο git τις αλλαγές ενός φακέλου του χώρου εργασίας και δημιουργεί το αποθετήριο όταν ζητηθεί· τα hooks του αποθετηρίου δεν εκτελούνται ποτέ."
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Records full model-call payloads in the selected provenance service for token alignment. Use this only with a trusted service. The inference runtime must also have its attention probe enabled."
