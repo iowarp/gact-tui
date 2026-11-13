@@ -2,17 +2,19 @@ import type { ToolPresentationBlock } from '@clio/core/v3';
 import type { BundledLanguage } from 'shiki';
 import { bundledLanguages } from 'shiki/langs';
 import { useMemo, useState } from 'react';
-import { FileIcon } from 'lucide-react';
+import { FileIcon, ImageIcon } from 'lucide-react';
 import { CodeBlock, HANGING_SOURCE_WRAP } from '@/components/ai-elements/code-block';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { parsePrintedValue } from './python-literal';
 import { workspaceImages } from './image-reach';
 import { WorkspaceImageStrip } from './workspace-image-thumbnail';
 import { fileName } from './resource-media-types';
-import { attached } from './script-run';
+import { attached, type PrintedLine, printedLines } from './script-run';
 import { DetailsSection, NumberedCode } from './tool-technical-details';
+import { type CompleteBlockText, useCompleteBlockText } from './use-complete-block-text';
 
 /** Lines of a script or its output shown before "N more lines". */
 const PREVIEW_LINES = 14;
@@ -143,7 +145,8 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
 }
 
 function ScriptSource({ block }: { block: ToolPresentationBlock }) {
-  const code = (block.text ?? '').replace(/\r?\n$/u, '');
+  const complete = useCompleteBlockText(block);
+  const code = complete.text.replace(/\r?\n$/u, '');
   const lines = code.split('\n');
   const [all, setAll] = useState(false);
   const shown = all ? code : lines.slice(0, PREVIEW_LINES).join('\n');
@@ -181,8 +184,30 @@ function ScriptSource({ block }: { block: ToolPresentationBlock }) {
             </Button>
           </div>
         ) : null}
+        <RestOfBlock complete={complete} />
       </div>
     </DetailsSection>
+  );
+}
+
+/** What is still on the agent when a long block arrived as a preview. */
+function RestOfBlock({ complete }: { complete: CompleteBlockText }) {
+  if (!complete.remaining && !complete.error) return null;
+  return (
+    <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
+      <span className={cn('truncate', complete.error && 'text-destructive')}>
+        {complete.error
+          ? `Could not load the rest: ${complete.error}`
+          : complete.loading
+            ? 'Loading the rest…'
+            : `${complete.remaining.toLocaleString()} more characters on the agent`}
+      </span>
+      {complete.loading ? null : (
+        <Button variant="ghost" className="ml-auto h-6 px-2 text-meta" onClick={complete.loadAll}>
+          {complete.error ? 'Retry' : 'Load the rest'}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -193,16 +218,21 @@ function ScriptResult({
   block: ToolPresentationBlock;
   shownPaths: ReadonlySet<string | undefined>;
 }) {
-  const text = block.text ?? '';
+  const complete = useCompleteBlockText(block);
+  const text = complete.text;
   const title =
     block.id === 'value' ? 'Returned' : block.id === 'output' ? 'Printed' : block.label || 'Result';
   const reading = useMemo(() => {
-    const parsed = parsePrintedValue(text);
-    if (!parsed) return { kind: 'text' as const, text: text.replace(/^\n+|\s+$/gu, '') };
+    const parsed = complete.remaining ? undefined : parsePrintedValue(text);
+    if (!parsed) {
+      const lines = printedLines(text);
+      if (lines.some((line) => line.kind === 'image')) return { kind: 'lines' as const, lines };
+      return { kind: 'text' as const, text: text.replace(/^\n+|\s+$/gu, '') };
+    }
     const images = workspaceImages(parsed.value);
     if (images) return { kind: 'images' as const, images };
     return { kind: 'data' as const, text: JSON.stringify(parsed.value, null, 2) };
-  }, [text]);
+  }, [text, complete.remaining]);
   // Images the model was shown appear once, below; the script itself only got their descriptions.
   if (reading.kind === 'images' && reading.images.every((image) => shownPaths.has(image.path)))
     return (
@@ -223,9 +253,95 @@ function ScriptResult({
         <WorkspaceImageStrip images={reading.images} />
       </DetailsSection>
     );
+  if (reading.kind === 'lines')
+    return (
+      <DetailsSection title={title} copy={text}>
+        <PrintedOutput lines={reading.lines} shownPaths={shownPaths} complete={complete} />
+      </DetailsSection>
+    );
   return (
     <DetailsSection title={title} copy={text}>
       <NumberedCode text={reading.text} json={reading.kind === 'data'} limit={PREVIEW_LINES} />
+      {complete.remaining || complete.error ? (
+        <div className="mt-1 overflow-hidden rounded-lg border border-border">
+          <RestOfBlock complete={complete} />
+        </div>
+      ) : null}
     </DetailsSection>
+  );
+}
+
+/**
+ * Printed lines with each printed image descriptor read as its image: the file, its
+ * size, and whether the model was shown it below.
+ */
+function PrintedOutput({
+  lines,
+  shownPaths,
+  complete,
+}: {
+  lines: readonly PrintedLine[];
+  shownPaths: ReadonlySet<string | undefined>;
+  complete: CompleteBlockText;
+}) {
+  const [all, setAll] = useState(false);
+  const shown = all ? lines : lines.slice(0, PREVIEW_LINES);
+  const hidden = lines.length - shown.length;
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
+      data-slot="script-printed"
+    >
+      <div className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90">
+        {shown.map((line, index) => (
+          <span className="contents" key={index}>
+            <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
+              {index + 1}
+            </span>
+            {line.kind === 'text' ? (
+              <code className="break-all whitespace-pre-wrap">{line.text || ' '}</code>
+            ) : (
+              <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 font-sans">
+                {line.images.map((image, at) => (
+                  <span
+                    key={`${image.path}-${at}`}
+                    className="inline-flex min-w-0 items-center gap-1.5"
+                    title={image.path}
+                  >
+                    <ImageIcon
+                      aria-hidden="true"
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                    />
+                    <span className="truncate font-mono">{fileName(image.path)}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {[
+                        'image description',
+                        image.sizeBytes !== undefined ? formatBytes(image.sizeBytes) : undefined,
+                        shownPaths.has(image.path) ? 'pixels shown to the model below' : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+      {hidden > 0 ? (
+        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
+          <span className="truncate">{hidden} more lines</span>
+          <Button
+            variant="ghost"
+            className="ml-auto h-6 px-2 text-meta"
+            onClick={() => setAll(true)}
+          >
+            Show all
+          </Button>
+        </div>
+      ) : null}
+      <RestOfBlock complete={complete} />
+    </div>
   );
 }

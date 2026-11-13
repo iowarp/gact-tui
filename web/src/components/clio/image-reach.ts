@@ -56,8 +56,19 @@ function refusal(tool: ToolInvocation): string | undefined {
     (value): value is string => typeof value === 'string' && NOT_SHOWN.test(value),
   );
   if (code) return code;
-  return /NOT shown to the model/u.test(tool.error ?? '') ? 'not_shown' : undefined;
+  // Agents through #2272 carry the refusal only as text: the error, the output or the
+  // presentation's error block, depending on how the history reached the client.
+  const texts = [
+    tool.error,
+    typeof tool.output === 'string' ? tool.output : undefined,
+    ...(tool.presentation?.blocks ?? []).map((block) => block.text),
+  ];
+  const text = texts.find((value) => typeof value === 'string' && NOT_SHOWN_TEXT.test(value));
+  if (!text) return undefined;
+  return /already attached \d+|script(?:'s)? limit/iu.test(text) ? 'script_limit' : 'not_shown';
 }
+
+const NOT_SHOWN_TEXT = /NOT shown to the model/u;
 
 /**
  * Whether a viewed file's pixels reached the model. The agent says so itself
