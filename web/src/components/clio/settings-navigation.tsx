@@ -21,6 +21,11 @@ import { cn } from '@/lib/utils';
 import { CloseIcon, SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Tag } from '@/components/clio/primitives/tag';
+import {
+  cappedLabelRoom,
+  inputTextRoom,
+  useFittingText,
+} from '@/components/clio/primitives/use-fitting-text';
 import { identifierInputProps } from '@/lib/identifier-input';
 import { ph, plural, t } from '@lingui/core/macro';
 
@@ -123,7 +128,11 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
       type="button"
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-left @max-[4.75rem]:hidden">{t`Search`}</span>
+      {/* Whole or not at all: a word cut to "Αναζήτ…" reads worse than the icon alone. */}
+      <span className="flex h-[1lh] min-w-0 flex-1 flex-wrap overflow-hidden">
+        <span aria-hidden="true" className="h-full w-0" />
+        <span className="shrink-0">{t`Search`}</span>
+      </span>
       <ShortcutKeys id="search" variant="caps" capSize="sm" className="max-[599px]:hidden" />
     </button>
   );
@@ -160,6 +169,7 @@ export function SettingsQueryField({
     const frame = requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, []);
+  const placeholder = useFittingText(input, [t`Search settings`, t`Search`], inputTextRoom);
   return (
     <div
       className={cn(
@@ -167,6 +177,7 @@ export function SettingsQueryField({
         'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
       )}
       data-escape-scope
+      data-window-search-field
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
@@ -183,7 +194,7 @@ export function SettingsQueryField({
           event.preventDefault();
           onClear();
         }}
-        placeholder={t`Search settings`}
+        placeholder={placeholder}
         ref={input}
         spellCheck={false}
         type="text"
@@ -229,7 +240,11 @@ export function SettingsSectionPicker({
   unavailable = {},
   counts,
   onClearFilter,
-}: SettingsNavigationProps) {
+  compact = false,
+}: SettingsNavigationProps & {
+  /** Icon and chevron only, so a query field beside it keeps the row's width. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const openingSearch = useRef(false);
@@ -237,11 +252,15 @@ export function SettingsSectionPicker({
   const active = sections.find((item) => item.id === current);
   const ActiveIcon = counts ? SearchIcon : active?.icon;
   const activeLabel = counts ? t`Results` : (active?.label ?? t`Sections`);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // A name too long for the capped picker gives way whole; the page's heading names it.
+  const shownLabel = useFittingText(trigger, [activeLabel, ''], cappedLabelRoom);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           aria-label={t`Choose settings section`}
+          ref={trigger}
           className={cn(
             'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-ui font-medium whitespace-nowrap text-foreground outline-none',
             'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
@@ -258,7 +277,11 @@ export function SettingsSectionPicker({
           {ActiveIcon ? (
             <ActiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-          <span className="min-w-0 truncate">{activeLabel}</span>
+          {compact || !shownLabel ? null : (
+            <span className="min-w-0 truncate" data-fitting-text>
+              {shownLabel}
+            </span>
+          )}
           <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>

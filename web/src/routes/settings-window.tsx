@@ -262,7 +262,7 @@ export function SettingsWindow() {
         if (!open) close();
       }}
       open
-      picker={<SettingsSectionPicker {...navigation} />}
+      picker={<SettingsSectionPicker {...navigation} compact={searching} />}
       rail={<SettingsNavRail {...navigation} />}
       search={
         searching ? (

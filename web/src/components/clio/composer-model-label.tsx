@@ -15,8 +15,8 @@ import { t } from '@lingui/core/macro';
  * The route and the model, with the full selection on hover or keyboard focus.
  * The route is named only when it isn't the model maker's own API (codex / luna 6.1,
  * but luna 6.1 through OpenAI). The `text` appearance is the composer row's bare
- * button: the route drops when it doesn't fit beside the model, and under 270px
- * only the logo stays.
+ * button: it gives up the route before anything else on the row yields, then keeps
+ * the whole model name (no cut word) until only the logo fits, as under 270px.
  */
 export function ComposerModelButton({
   option,
@@ -52,8 +52,13 @@ export function ComposerModelButton({
             aria-keyshortcuts={presentation?.aria}
             className={cn(
               shortcut && 'relative',
+              // Shrinks first, but not below the logo and the whole name (its
+              // min-content) until a fifth-width row, where only the logo may stay.
+              // The weight is large enough that the mode button's share of the
+              // shrinking stays under a layout unit (its word stays whole) until
+              // this button stops at that minimum.
               text &&
-                'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-meta font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
+                'h-[26px] shrink-[1000000] gap-1.5 rounded-[6px] px-1.5 text-meta font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover @max-[300px]/composer:min-w-0',
               className,
             )}
           >
@@ -65,8 +70,10 @@ export function ComposerModelButton({
                 />
                 {/* One line: the model sits first and the route wraps off the line
                     (clipped) when both don't fit, so a short route stays at narrow
-                    widths and a long one never squeezes the model. Order keeps the
-                    reading order route → model for assistive technology. */}
+                    widths and a long one never squeezes the model. The model wraps
+                    off whole too, behind an empty lead, rather than losing letters.
+                    Order keeps the reading order route → model for assistive
+                    technology. */}
                 <span
                   className={cn(
                     'flex min-w-0 flex-1 items-center text-left',
@@ -76,12 +83,15 @@ export function ComposerModelButton({
                   )}
                   data-slot="model-choice-label"
                 >
+                  {text ? <span aria-hidden="true" className="h-full w-0" /> : null}
                   {route ? (
                     <span
                       className={cn(
                         'min-w-0',
+                        // pre-wrap: only its longest word counts towards the
+                        // button's minimum, so the name sets that floor.
                         text
-                          ? 'order-2 shrink-0 whitespace-pre @max-[270px]/composer:hidden'
+                          ? 'order-2 shrink-0 whitespace-pre-wrap @max-[270px]/composer:hidden'
                           : 'flex max-w-32 items-center gap-1',
                       )}
                     >
@@ -96,8 +106,10 @@ export function ComposerModelButton({
                   ) : null}
                   <span
                     className={cn(
-                      'min-w-0 grow truncate',
-                      text && 'order-1 grow-0 @max-[270px]/composer:hidden',
+                      'min-w-0',
+                      text
+                        ? 'order-1 shrink-0 whitespace-nowrap @max-[270px]/composer:hidden'
+                        : 'grow truncate',
                     )}
                     data-slot="model-choice-model"
                   >

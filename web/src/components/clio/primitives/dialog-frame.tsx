@@ -425,7 +425,8 @@ export const WindowShell = memo(function WindowShell({
           >
             {title}
           </DialogTitle>
-          {/* The picker keeps its full label; the search beside it gives up the width. */}
+          {/* The picker keeps its full label; the search beside it gives up the width
+              (Settings' query field takes it back by showing a label-less picker). */}
           {picker ? <div className="flex min-w-0 shrink-0 min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
