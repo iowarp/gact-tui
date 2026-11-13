@@ -122,8 +122,8 @@ describe('ClioRepository MCP App adapter', () => {
     });
     expect(transport.requests[0]).toMatchObject({
       method: 'POST',
-      path: '/v1/sessions/s%201/mcp-apps/open',
-      body: call,
+      path: '/v1/sessions/s%201/mcp-apps/reopen',
+      body: { call, save: false },
     });
   });
 });
