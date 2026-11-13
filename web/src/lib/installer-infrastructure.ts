@@ -1,40 +1,7 @@
 import { toast } from 'sonner';
-import { finishInstallerNativeSearch } from '@/lib/installer-native-search';
 import { createRepository, type ConnectionSettings } from '@/lib/connection';
-import {
-  WEB_MCP_COMMAND,
-  WEB_MCP_ENV,
-  WEB_SEARCH_DEFAULT_LOCAL_URL,
-  webSearchMcpArgs,
-} from '@/lib/web-search-service';
-import {
-  completeInstallerWebSearch,
-  readInstallerOptions,
-  type InstallerOptions,
-} from '@/tauri/installer-options';
+import { readInstallerOptions, type InstallerOptions } from '@/tauri/installer-options';
 import { t } from '@lingui/core/macro';
-
-const WEB_SEARCH_CONNECT_ATTEMPTS = 6;
-const WEB_SEARCH_CONNECT_RETRY_MS = 2_000;
-
-async function waitForInfrastructureOperation(
-  repository: ReturnType<typeof createRepository>,
-  operationId: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const operation = await repository.infrastructureOperation(operationId);
-    if (operation.state === 'succeeded') return;
-    if (operation.state === 'failed' || operation.state === 'cancelled') {
-      throw new Error(operation.error || operation.progress || 'CLIO Search installation failed.');
-    }
-    await wait(500);
-  }
-  throw new Error('CLIO Search installation is still running.');
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-}
 
 /**
  * Resolve the installer's recorded provider selection, if any. `provider_ids`
@@ -101,72 +68,6 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
       });
     }
   }
-  if (options.web_search === 'not_requested' || options.web_search === 'configured') return;
-  if (options.web_search === 'native_requested') {
-    await finishInstallerNativeSearch(repository);
-    return;
-  }
-  const catalog = await repository.managedServiceCatalog('local');
-  const service = catalog.services.find((candidate) => candidate.id === 'web_search');
-  const variant = service?.variants.find((candidate) => candidate.compatible);
-  if (!service || !variant) {
-    toast.warning(t`CLIO Search still needs setup`, {
-      id: 'installer-web-search-needs-attention',
-      description: service?.variants[0]?.reason || t`Open Infrastructure to inspect this computer.`,
-    });
-    return;
-  }
-  if (service.state !== 'running') {
-    const operation = await repository.runManagedServiceAction('web_search', {
-      target_id: 'local',
-      action: service.state === 'stopped' ? 'start' : 'install',
-      variant_id: variant.id,
-      configuration: {},
-    });
-    await waitForInfrastructureOperation(repository, operation.id);
-  }
-  let result = await repository.configureMcpServer('web', {
-    // i18n-ignore: the MCP server's configured name, stored by the server
-    name: 'CLIO Web Search',
-    transport: 'stdio',
-    command: WEB_MCP_COMMAND,
-    args: webSearchMcpArgs(WEB_SEARCH_DEFAULT_LOCAL_URL),
-    env: WEB_MCP_ENV,
-    always_load: true,
-  });
-  // Docker can report the container as started before its HTTP endpoint is
-  // accepting requests.  The installer deliberately leaves the durable state
-  // as `deployed` until this succeeds, so use that window for a bounded,
-  // idempotent retry instead of making the user race startup with a manual
-  // Connect click.
-  for (
-    let attempt = 1;
-    result.status !== 'ready' && attempt < WEB_SEARCH_CONNECT_ATTEMPTS;
-    attempt += 1
-  ) {
-    await wait(WEB_SEARCH_CONNECT_RETRY_MS);
-    result = await repository.configureMcpServer('web', {
-      // i18n-ignore: the MCP server's configured name, stored by the server
-      name: 'CLIO Web Search',
-      transport: 'stdio',
-      command: WEB_MCP_COMMAND,
-      args: webSearchMcpArgs(WEB_SEARCH_DEFAULT_LOCAL_URL),
-      env: WEB_MCP_ENV,
-      always_load: true,
-    });
-  }
-  if (result.status !== 'ready') {
-    toast.warning(t`CLIO Search was installed but is not ready`, {
-      id: 'installer-web-search-not-ready',
-      description: result.error ?? t`Open Infrastructure to inspect the service.`,
-    });
-    return;
-  }
-  await completeInstallerWebSearch();
-  toast.success(t`CLIO Search is ready`, {
-    id: 'installer-web-search-ready',
-    description: t`Web search is available to your agents. Document conversion is an optional service feature.`,
-  });
 }
 
 const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';

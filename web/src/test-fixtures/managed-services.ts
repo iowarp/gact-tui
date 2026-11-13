@@ -14,7 +14,7 @@ export const localServiceFacts = {
 const serviceLabels: Array<[ManagedServiceDefinition['id'], string]> = [
   ['vllm', 'vLLM'],
   ['llama_cpp', 'llama.cpp'],
-  ['web_search', `${vocab.agent} Web Search`],
+  ['notebook_server', 'Notebook server'],
   ['relay', `${vocab.agent} Relay`],
 ];
 
@@ -31,8 +31,8 @@ export const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]
   supports_api_key: id === 'vllm' || id === 'llama_cpp',
   recommended_variant: `${id}-default`,
   supports_stop: id !== 'relay',
-  state: id === 'web_search' ? 'running' : 'not_installed',
-  connection_url: id === 'web_search' ? 'http://127.0.0.1:8089' : undefined,
+  state: id === 'notebook_server' ? 'running' : 'not_installed',
+  connection_url: id === 'notebook_server' ? 'http://127.0.0.1:8089' : undefined,
   configuration_fields: [],
   parameters: [],
   effective_parameters: [],

@@ -11,8 +11,6 @@ export function infrastructureServiceName(id: string): string {
   const [engine, instance] = id.split('@', 2);
   if (instance) return `${infrastructureServiceName(engine!)} (${instance})`;
   const names: Record<string, string> = {
-    searxng: 'SearXNG',
-    web_search: t`${agent} Web Search`,
     relay: t`${agent} Relay`,
     vllm: 'vLLM',
     llama_cpp: 'llama.cpp',

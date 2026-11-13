@@ -16,8 +16,6 @@ const repository = vi.hoisted(() => ({
   catalogTools: vi.fn(),
   tools: vi.fn(),
   mcpConfiguration: vi.fn(),
-  configureMcpServer: vi.fn(),
-  removeMcpConfiguration: vi.fn(),
   configureRelay: vi.fn(),
   deleteMcpServer: vi.fn(),
   sandboxStatus: vi.fn(),
@@ -184,34 +182,6 @@ beforeEach(() => {
       output_schema: { type: 'object' },
     },
   ]);
-  repository.mcpConfiguration.mockResolvedValue({
-    name: 'web',
-    configured: false,
-    scope: 'user',
-    status: 'local_fallback',
-    tools_count: 0,
-    tools: [],
-    retryable: false,
-  });
-  repository.configureMcpServer.mockResolvedValue({
-    name: 'web',
-    configured: true,
-    scope: 'user',
-    status: 'ready',
-    transport: 'stdio',
-    tools_count: 2,
-    tools: ['web_search', 'web_fetch'],
-    retryable: false,
-  });
-  repository.removeMcpConfiguration.mockResolvedValue({
-    name: 'web',
-    configured: false,
-    scope: 'user',
-    status: 'local_fallback',
-    tools_count: 0,
-    tools: [],
-    retryable: false,
-  });
   repository.sandboxStatus.mockResolvedValue({
     name: 'sandbox',
     status: 'ready',
@@ -623,118 +593,19 @@ describe('InfrastructurePage', () => {
     expect(restartClioMock).toHaveBeenCalled();
   });
 
-  it('connects a running Web Search service as a structured MCP', async () => {
-    repository.mcpServers.mockResolvedValue([
-      {
-        id: 'unrelated_web_search',
-        name: 'CLIO Web Search',
-        status: 'failed',
-        transport: 'stdio',
-        tools_count: 0,
-        tools: [],
-        spec: { command: 'someone-elses-server' },
-      },
-    ]);
+  it('offers no search service to connect: web search is built in and set up in Settings', async () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
     await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
-    await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-    const dialog = screen.getByRole('dialog', { name: 'Connect CLIO Web Search' });
-    expect(
-      within(dialog).getByText(
-        `A search service run outside ${vocab.agent}. ${vocab.agent} checks it and uses its tools.`,
-      ),
-    ).toBeVisible();
-    const address = screen.getByLabelText('Service address');
-    await user.clear(address);
-    await user.type(address, 'http://10.0.0.102:8089');
-    await user.click(screen.getByRole('button', { name: 'Connect' }));
-
-    await waitFor(() =>
-      expect(repository.configureMcpServer).toHaveBeenCalledWith('web', {
-        name: 'CLIO Web Search',
-        transport: 'stdio',
-        command: 'clio-kit',
-        args: ['mcp-server', 'web', '--remote-url', 'http://10.0.0.102:8089'],
-        env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
-        always_load: true,
-      }),
-    );
-    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
-  });
-
-  it('disconnects an explicitly connected Web Search deployment without stopping it', async () => {
-    repository.mcpConfiguration.mockResolvedValue({
-      name: 'web',
-      configured: true,
-      scope: 'user',
-      status: 'ready',
-      transport: 'stdio',
-      tools_count: 3,
-      tools: ['search', 'fetch', 'fetch_events'],
-      spec: {
-        args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
-      },
-      retryable: false,
-    });
-    const user = userEvent.setup();
-    renderPage(undefined, 'services');
-
-    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit connection CLIO Web Search' }),
-    );
-    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
-
-    await waitFor(() => expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('web'));
-    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
-  });
-
-  it('keeps an unreachable remote configuration visible and retryable', async () => {
-    repository.mcpConfiguration.mockResolvedValue({
-      name: 'web',
-      configured: true,
-      scope: 'user',
-      status: 'degraded',
-      transport: 'stdio',
-      tools_count: 0,
-      tools: [],
-      spec: {
-        args: ['clio-kit', 'mcp-server', 'web', '--remote-url', 'http://offline:8089'],
-      },
-      error: 'ConnectionError: service offline',
-      retryable: true,
-    });
-    const user = userEvent.setup();
-    renderPage(undefined, 'services');
-
-    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit connection CLIO Web Search' }),
-    );
-    expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
-    expect(
-      screen.getByText('Saved, but the service isn’t answering. Start it or fix the address.'),
-    ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Retry connection' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeVisible();
-  });
-
-  it('keeps MCP connection setup readable without restoring a separate relay dialog', async () => {
-    const user = userEvent.setup();
-    renderPage(undefined, 'services');
-
-    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
-    await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
-    expect(screen.getByRole('dialog')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Close' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Connect an existing service' });
+    expect(within(dialog).getByRole('button', { name: 'Connect Flowcept' })).toBeVisible();
+    expect(within(dialog).queryByText(/Web Search/u)).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
 
     expect(screen.queryByRole('button', { name: 'Connect Relay' })).not.toBeInTheDocument();
+    expect(repository.mcpConfiguration).not.toHaveBeenCalled();
   });
 });

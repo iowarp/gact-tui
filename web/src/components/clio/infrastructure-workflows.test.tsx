@@ -51,7 +51,7 @@ const data = infrastructureInventorySchema.parse({
     {
       id: 'failed',
       action: 'install',
-      service_id: 'searxng',
+      service_id: 'flowcept',
       target_id: 'homelab',
       state: 'failed',
       updated_at: '2026-10-15T04:00:00Z',
@@ -63,7 +63,7 @@ const data = infrastructureInventorySchema.parse({
     {
       id: 'done',
       action: 'stop',
-      service_id: 'searxng',
+      service_id: 'flowcept',
       target_id: 'local',
       state: 'succeeded',
       updated_at: '2026-10-15T05:00:00Z',
@@ -121,13 +121,13 @@ async function chooseFilter(trigger: string, option: RegExp) {
 it('filters failure history and offers a way back without losing the operation log', async () => {
   show(<InfrastructureActivity data={data} />);
   await chooseFilter('Activity filter: All', /^Failed/);
-  expect(screen.queryByText('Stop SearXNG')).not.toBeInTheDocument();
-  const row = screen.getByRole('button', { name: 'Install SearXNG details' });
+  expect(screen.queryByText('Stop Flowcept')).not.toBeInTheDocument();
+  const row = screen.getByRole('button', { name: 'Install Flowcept details' });
   expect(row).toHaveAttribute('aria-expanded', 'false');
   await userEvent.click(row);
   expect(row).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByText('Disk full')).toBeVisible();
-  expect(screen.getByLabelText('Log for Install SearXNG')).toHaveTextContent(
+  expect(screen.getByLabelText('Log for Install Flowcept')).toHaveTextContent(
     'Install could not continue.',
   );
   expect(screen.getByRole('link', { name: 'Go to service' })).toHaveAttribute(
@@ -147,7 +147,7 @@ it('filters failure history and offers a way back without losing the operation l
   );
   expect(screen.getByText('No matching activity.')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-  expect(screen.getByText('Stop SearXNG')).toBeVisible();
+  expect(screen.getByText('Stop Flowcept')).toBeVisible();
 });
 
 it('keeps a long failure reason behind technical details without losing its original bytes', async () => {
@@ -158,7 +158,7 @@ it('keeps a long failure reason behind technical details without losing its orig
       data={{ ...data, model_acquisitions: [], operations: [{ ...data.operations[0], error }] }}
     />,
   );
-  await userEvent.click(screen.getByRole('button', { name: 'Install SearXNG details' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Install Flowcept details' }));
   expect(screen.getByText('Installation stopped before it answered.')).toBeVisible();
   const rawMatch = (_: string, node: Element | null) =>
     node?.tagName === 'PRE' && node.textContent === error;
@@ -182,8 +182,8 @@ it('shows byte progress before opening an active download and searches the visib
     screen.getAllByRole('searchbox', { name: 'Search actions, computers or results' })[0]!,
     'completed',
   );
-  expect(screen.getByText('Stop SearXNG')).toBeVisible();
-  expect(screen.queryByText('Install SearXNG')).not.toBeInTheDocument();
+  expect(screen.getByText('Stop Flowcept')).toBeVisible();
+  expect(screen.queryByText('Install Flowcept')).not.toBeInTheDocument();
 });
 
 it('cancels an active download and retries a failed one from the activity row', async () => {
