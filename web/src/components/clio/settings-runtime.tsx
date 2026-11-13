@@ -195,7 +195,7 @@ export function RuntimeSettingsPanel({
   const trailing = insertBefore?.content;
   if (current.isError && !source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
         <SettingsLoadError
@@ -210,7 +210,7 @@ export function RuntimeSettingsPanel({
     );
   if (!source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
         <StateView kind="loading" size="row" title={t`Loading configuration…`} />
@@ -271,7 +271,9 @@ export function RuntimeSettingsPanel({
     );
   };
   return (
-    <div className="grid">
+    // One track no wider than the page: a nowrap row (a retention line) would otherwise
+    // widen the page past a phone's width and push the heading's caption off screen.
+    <div className="grid grid-cols-[minmax(0,1fr)]">
       {heading}
       <UnofferedLine />
       {groups.map((group) => (

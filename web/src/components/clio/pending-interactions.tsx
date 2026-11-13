@@ -245,10 +245,11 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation's height; a visual answer gets more.
+          // The card stops at 45% of the conversation's height, but never below 20rem (its
+          // options grow with the interface size) nor past 75%. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[calc(var(--conversation-h,100dvh)*0.45)]',
+            : 'max-h-[min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -276,7 +277,8 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface &&
+                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
@@ -413,15 +415,40 @@ function announcement(interaction: PendingInteraction, index: number, total: num
         : interaction.title;
   const position = index + 1;
   return [
-    t({ message: `${kind}: ${words}`, comment: 'Screen-reader announcement: request kind, then its title' }),
+    t({
+      message: `${kind}: ${words}`,
+      comment: 'Screen-reader announcement: request kind, then its title',
+    }),
     why,
     total > 1 ? t`${position} of ${total}` : undefined,
   ]
     .filter((sentence): sentence is string => Boolean(sentence))
     .reduce((text, sentence) =>
-      t({ message: `${text}. ${sentence}`, comment: 'Joins sentences of a screen-reader announcement' }),
+      // A title that already ends a sentence ("…flat-ndp?") takes no second stop. Half-width
+      // punctuation still needs a gap before the next sentence, even in Japanese.
+      LATIN_SENTENCE_END.test(text)
+        ? t({
+            message: `${text} ${sentence}`,
+            context: 'after half-width sentence punctuation',
+            comment:
+              'Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …',
+          })
+        : WIDE_SENTENCE_END.test(text)
+          ? t({
+              message: `${text} ${sentence}`,
+              comment:
+                'Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！',
+            })
+          : t({
+              message: `${text}. ${sentence}`,
+              comment: 'Joins sentences of a screen-reader announcement',
+            }),
     );
 }
+
+// ";" and U+037E are the Greek question mark.
+const LATIN_SENTENCE_END = /[?!.;\u037e…]\s*$/u;
+const WIDE_SENTENCE_END = /[。？！]\s*$/u;
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
   if (!map.has(key)) return map;
