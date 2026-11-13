@@ -370,7 +370,7 @@ export function ConnectionsSettings() {
             );
           })}
           {others.length === 0 ? (
-            <p className="flex h-11 items-center border-b border-border/70 px-2 text-xs text-faint">
+            <p className="flex h-11 items-center border-b border-border/70 px-2 text-xs text-muted-foreground">
               No other agents saved. Add one to switch between them.
             </p>
           ) : null}

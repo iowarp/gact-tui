@@ -1,10 +1,8 @@
 import type { FleetAccount, FleetSpend } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import {
@@ -21,6 +19,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { DelegationSwitch } from './delegation-switch';
 import { SpendSummary, UsageSummary } from './fleet-usage';
 import { InfoTip } from './info-tip';
 import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
@@ -48,33 +47,6 @@ function storedMode(): UsageMode {
   } catch {
     return 'used';
   }
-}
-
-function useDelegation(account: FleetAccount) {
-  const repository = useRepository();
-  const queryClient = useQueryClient();
-  const { settings } = useConnectionSettings();
-  return useMutation({
-    mutationFn: (allowed: boolean) => repository.setDelegationAllowed(account.id, allowed),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.key('fleet', settings.endpoint) }),
-    onError: (error: Error) => toast.error(error.message),
-  });
-}
-
-function DelegationSwitch({ account, id }: { account: FleetAccount; id?: string }) {
-  const toggle = useDelegation(account);
-  return (
-    <Switch
-      aria-label={`${vocab.agent} may use ${account.label} for delegated work`}
-      checked={account.delegation_allowed}
-      disabled={toggle.isPending}
-      id={id}
-      onCheckedChange={(checked) => toggle.mutate(checked)}
-      size="sm"
-      title={`${vocab.agent} may use this account for delegated work`}
-    />
-  );
 }
 
 function AccountRow({
@@ -363,7 +335,7 @@ function EstimatedNote({ count }: { count: number }) {
   const text = `${count} older conversation${count === 1 ? ' is' : 's are'} counted under the model ${count === 1 ? 'it was' : 'they were'} set to: they predate per-model usage.`;
   return (
     <p
-      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"
+      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground max-[599px]:h-auto max-[599px]:min-h-[1.875rem] max-[599px]:items-start max-[599px]:py-1.5"
       data-slot="settings-footnote"
       title={text}
     >

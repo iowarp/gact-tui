@@ -3,7 +3,10 @@ import { CpuIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { useFleetSettings } from '@/hooks/use-fleet-settings';
 import { vocab } from '@/lib/brand-vocabulary';
+import type { ClioModelOption } from '@/lib/model-options';
+import { FleetModelField } from './fleet-model-field';
 import { SettingsSelectField } from './model-select-field';
 import { SettingsChoice, SettingsRow } from './settings-row';
 
@@ -14,7 +17,7 @@ export const SHOW_DIFFUSION = 'show_diffusion';
 function NotOffered({ children = 'Not offered' }: { children?: ReactNode }) {
   return (
     <span
-      className="shrink-0 text-label whitespace-nowrap text-faint"
+      className="shrink-0 text-label whitespace-nowrap text-muted-foreground"
       data-slot="settings-unavailable"
     >
       {children}
@@ -22,21 +25,68 @@ function NotOffered({ children = 'Not offered' }: { children?: ReactNode }) {
   );
 }
 
-/** Fast model: titles, summaries and other small calls. The agent has no separate one yet. */
-export function FastModelRow() {
+/**
+ * Fast model: titles, summaries and other small calls, and every helper model
+ * left unset. Unset uses the conversation account's own fast model. An older
+ * agent without one reads as not offered.
+ */
+export function FastModelRow({
+  options,
+  catalogStatus,
+  onRetryCatalog,
+}: {
+  options: ClioModelOption[];
+  catalogStatus: 'loading' | 'error' | 'ready';
+  onRetryCatalog: (providerId?: string) => void;
+}) {
+  const { query, save } = useFleetSettings();
+  const data = query.data;
+  if (!data || data.fast === undefined)
+    return (
+      <SettingsRow
+        description="Titles, summaries and other small calls."
+        info={
+          data
+            ? `This ${vocab.agent} version doesn't offer a separate fast model, so these calls use the default model.`
+            : undefined
+        }
+        note={data ? 'Not offered by this agent' : undefined}
+        title="Fast model"
+      >
+        <SettingsSelectField
+          aria-label="Fast model"
+          disabled
+          icon={<CpuIcon />}
+          placeholder={query.isPending ? 'Loading…' : 'Same as default model'}
+          title={
+            query.error ? query.error.message : `This ${vocab.agent} version has no fast model`
+          }
+        />
+      </SettingsRow>
+    );
   return (
     <SettingsRow
-      description="Titles, summaries and other small calls."
-      info={`${vocab.agent} doesn't offer a separate fast model yet, so these calls use the default model.`}
-      note="Not offered by this agent"
+      description="Titles, summaries and other small calls. Helper models use it unless you choose one."
+      htmlFor="settings-fast-model"
+      info="Unset uses the fast model of the account the conversation runs on, such as Haiku for Claude."
+      note={save.error?.message}
       title="Fast model"
     >
-      <SettingsSelectField
-        aria-label="Fast model"
-        disabled
-        icon={<CpuIcon />}
-        placeholder="Same as default model"
-        title={`${vocab.agent} doesn't offer a separate fast model yet`}
+      <FleetModelField
+        busy={save.isPending}
+        catalogStatus={catalogStatus}
+        choice={data.fast}
+        id="settings-fast-model"
+        label="Fast model"
+        onChoose={(model) =>
+          save.mutate({ ...data, fast: { provider_id: model.providerId, model_id: model.id } })
+        }
+        onReset={() => save.mutate({ ...data, fast: null })}
+        onRetryCatalog={onRetryCatalog}
+        options={options}
+        pickerTitle="Choose the fast model"
+        resetLabel="Use the account's fast model"
+        unset="Account's fast model"
       />
     </SettingsRow>
   );

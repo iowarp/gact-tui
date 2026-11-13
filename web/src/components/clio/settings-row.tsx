@@ -129,7 +129,7 @@ export function SettingsRow({
           </div>
           {note ? (
             <div
-              className={cn('mt-0.5 truncate text-label text-faint', NARROW_HIDDEN)}
+              className={cn('mt-0.5 truncate text-label text-muted-foreground', NARROW_HIDDEN)}
               data-slot="settings-note"
             >
               {note}
@@ -180,7 +180,7 @@ export function SettingsGroupLabel({
   return (
     <div
       className={cn(
-        'mt-4 flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-faint',
+        'mt-4 flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-muted-foreground',
         className,
       )}
       data-slot="settings-group-label"

@@ -6,6 +6,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 
 import { useReducedMotionConfig } from 'motion/react';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversation } from '@/components/clio/conversation';
+import { preloadScientificMapView } from '@/components/clio/scientific-map-view-loader';
+import { ClioMapArtifactSource } from '@/components/clio/a2ui-map-data-source';
+import type { SelectionWriter } from '@/components/clio/selection-state';
 import { ActivityRunsFold } from '@/components/clio/transcript-disclosure-context';
 import { ArtifactView } from '@/components/clio/resource-viewers';
 import { ADD_COMMENT_SESSION_EVENT } from '@/components/clio/comments/comment-model';
@@ -27,6 +30,7 @@ import { findTourAnchor, tourAnchor } from '@/lib/onboarding/tour-anchors';
 import {
   practiceConversation,
   practicePlot,
+  PRACTICE_TRACKS_MAP,
   type PracticeProgress,
 } from '@/lib/onboarding/tour-practice-data';
 import type { TourPracticeEvent, TourStep } from '@/lib/onboarding/tour-script';
@@ -44,6 +48,30 @@ import { useTheme } from '@/providers/appearance-provider';
 const COMPOSER_EVENTS = [ADD_COMMENT_SESSION_EVENT, 'clio:use-message-draft', 'clio:message-sent'];
 /** How long a scripted reply "works" before it answers. */
 const WORKING_MS = 1400;
+
+const keepSelection: SelectionWriter = () => undefined;
+
+/**
+ * The tracks map, drawn out of sight until the reply that shows it. When it
+ * unmounts, MapLibre pools its instance (`reuseMaps`) with the style, tiles
+ * and rows already loaded, so the reply's map is drawn on its first frame.
+ */
+function TracksMapWarmup() {
+  return (
+    <div
+      aria-hidden="true"
+      // MapLibre's open attribution sets `visibility: visible`, escaping `invisible`. The
+      // controls are hidden only here: the pooled instance keeps its attribution for the reply.
+      className="pointer-events-none invisible absolute inset-0 overflow-hidden [&_.maplibregl-control-container]:hidden"
+      data-tour-map-warmup=""
+      inert
+    >
+      <div className="mx-auto w-full max-w-4xl px-4">
+        <ClioMapArtifactSource {...PRACTICE_TRACKS_MAP} setSelection={keepSelection} />
+      </div>
+    </div>
+  );
+}
 
 /** A scripted catalog: the picker, levels and badges render from it exactly as from a live one. */
 const PRACTICE_MODELS: readonly ClioModelOption[] = [
@@ -242,9 +270,9 @@ export function TourPracticeStage({
 
   useEffect(() => () => client.clear(), [client]);
 
-  // The tracks map loads its renderer lazily; fetch it now so the map step opens drawn.
+  // The tracks map's renderer and MapLibre load now, so the map step mounts without a fallback.
   useEffect(() => {
-    void import('../scientific-map-view');
+    void preloadScientificMapView();
   }, []);
 
   // The composer reports its model's image input app-wide; restore the real one's afterwards.
@@ -353,6 +381,7 @@ export function TourPracticeStage({
               </header>
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative flex min-w-0 flex-1 flex-col">
+                  {progress.turns < 2 || progress.working ? <TracksMapWarmup /> : null}
                   {progress.turns === 0 ? (
                     <div
                       className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground"

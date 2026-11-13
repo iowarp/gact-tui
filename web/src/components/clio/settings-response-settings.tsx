@@ -134,7 +134,7 @@ export function SettingsResponseSettings({
       <Collapsible data-slot="response-settings" onOpenChange={setOpen} open={open}>
         <div className="mt-4 flex h-7 items-center" data-slot="settings-group-label">
           <CollapsibleTrigger
-            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-label whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-label whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             type="button"
           >
             <ChevronRightIcon
@@ -169,7 +169,7 @@ export function SettingsResponseSettings({
 
 function UnusedNote({ unused }: { unused: ReturnType<typeof unusedResponseSettings> }) {
   return (
-    <p className="mt-2 truncate text-xs text-faint" data-slot="response-settings-unused">
+    <p className="mt-2 truncate text-xs text-muted-foreground" data-slot="response-settings-unused">
       Saved but not used by this model:{' '}
       {unused.map((item, index) => (
         <span key={item.name}>
@@ -278,7 +278,7 @@ function ParameterRow({
         info={info}
         title={parameter.label}
       >
-        <span className="shrink-0 text-label text-faint" data-slot="response-default">
+        <span className="shrink-0 text-label text-muted-foreground" data-slot="response-default">
           {defaultText(parameter)}
         </span>
         <Slider

@@ -110,6 +110,30 @@ describe('CommentThreadList', () => {
     expect(screen.getByText('The agent made a new version.')).toBeTruthy();
   });
 
+  it('says an unreadable earlier version is unavailable, not changed', async () => {
+    const threads = list([
+      thread({
+        id: 'rev_gone',
+        label: 'S1',
+        text: 'Gone.',
+        anchor_state: 'outdated',
+        anchor_error: 'integrity_violation',
+      }),
+      thread({
+        id: 'rev_old',
+        label: 'S2',
+        text: 'Changed.',
+        artifact_version: 2,
+        anchor_state: 'outdated',
+      }),
+    ]);
+    threads.head.version = 3;
+    repository.commentThreads.mockResolvedValue(threads);
+    renderList();
+    expect(await screen.findByText('Outdated: version 1 is no longer available')).toBeTruthy();
+    expect(screen.getByText('Outdated: version 3 changed this part')).toBeTruthy();
+  });
+
   it('shows no reply block before the agent answers', async () => {
     repository.commentThreads.mockResolvedValue(list([thread()]));
     renderList();

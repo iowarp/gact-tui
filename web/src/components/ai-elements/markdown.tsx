@@ -3,6 +3,7 @@ import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } 
 import { defaultRemarkPlugins, Streamdown, type ExtraProps } from 'streamdown';
 import { ExternalLink } from '@/components/ui/external-link';
 import { deferredModule } from '@/lib/deferred-chunk';
+import { isCodeOnlyCell } from '@/lib/markdown-cells';
 import { pendingMathPlugin } from '@/lib/pending-math';
 import {
   normalizeMathMarkdown,
@@ -64,7 +65,19 @@ function MarkdownLink({
   );
 }
 
-const streamdownComponents = { a: MarkdownLink, ol: MarkdownOrderedList };
+const streamdownComponents = { a: MarkdownLink, ol: MarkdownOrderedList, td: MarkdownTableCell };
+
+/** Streamdown's table cell, marked `data-code-only` when it holds just an identifier. */
+function MarkdownTableCell({ className, node, ...props }: ComponentProps<'td'> & ExtraProps) {
+  return (
+    <td
+      {...props}
+      className={cn('px-4 py-2 text-sm', className)}
+      data-code-only={isCodeOnlyCell(node?.children) ? '' : undefined}
+      data-streamdown="table-cell"
+    />
+  );
+}
 
 /**
  * Streamdown's ordered list, plus the digit count of its widest marker
