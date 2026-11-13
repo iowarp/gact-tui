@@ -56,6 +56,7 @@ function SheetContent({
   overlayClassName,
   ref,
   onCloseAutoFocus,
+  forceMount,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -65,9 +66,10 @@ function SheetContent({
 }) {
   const focusReturn = useModalFocusReturn({ ref, onCloseAutoFocus })
   return (
-    <SheetPortal>
+    <SheetPortal forceMount={forceMount}>
       <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
+        forceMount={forceMount}
         data-slot="sheet-content"
         data-side={side}
         className={cn(

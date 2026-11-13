@@ -66,7 +66,10 @@ const reopenResponseSchema = z.union([
         source_server: z.string(),
         tool_name: z.string().default(''),
         display_mode: displayModeSchema.optional(),
-        metadata: z.object({ display_mode: displayModeSchema.optional() }).passthrough().default({}),
+        metadata: z
+          .object({ display_mode: displayModeSchema.optional() })
+          .passthrough()
+          .default({}),
       })
       .passthrough(),
     saved_call: savedCallSchema.nullable().default(null),

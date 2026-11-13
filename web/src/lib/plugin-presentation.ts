@@ -12,7 +12,8 @@ import {
 /**
  * Where an active plugin came from, as a person reads it: core (every agent
  * carries it), an agent layer such as standard or science, a pack, a hard
- * requirement of another plugin, or the person's own addition.
+ * requirement of another plugin, the person's own addition, or a connector the
+ * person enabled (its plugin comes and goes with it).
  */
 export function provenanceLabel(provenance: PluginProvenance): string {
   switch (provenance.source) {
@@ -26,6 +27,8 @@ export function provenanceLabel(provenance: PluginProvenance): string {
       return provenance.via ? `Required by ${provenance.via}` : 'Required by another plugin';
     case 'user':
       return 'Added by you';
+    case 'connector':
+      return provenance.label || `From connector ${provenance.via}`;
     default:
       return provenance.label || 'Origin not reported';
   }
@@ -44,6 +47,8 @@ export function provenanceDetail(provenance: PluginProvenance): string {
       return `${provenance.via || 'Another plugin'} needs this plugin. Removing it also removes what needs it.`;
     case 'user':
       return 'You added this plugin to the conversation.';
+    case 'connector':
+      return 'It follows a connector you enabled in Extensions, and leaves when you disable it.';
     default:
       return 'The service reported an origin this app does not recognize yet.';
   }

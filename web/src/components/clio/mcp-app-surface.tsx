@@ -390,8 +390,10 @@ const McpAppSurfaceInstance = forwardRef<
       });
     };
     const themeObserver = new MutationObserver(notifyContext);
+    // A theme switch changes the class (dark) or data-theme (the family): resend
+    // theme and styles so the view follows.
     themeObserver.observe(document.documentElement, {
-      attributeFilter: ['class'],
+      attributeFilter: ['class', 'data-theme'],
       attributes: true,
     });
     // A tab's size is the view's container: report every change of it.
@@ -443,7 +445,13 @@ const McpAppSurfaceInstance = forwardRef<
       <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
-        <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+        {error ? (
+          <ClioStatus label="Unavailable" value="unavailable" />
+        ) : descriptor?.service_refusal ? (
+          <ClioStatus label="Service unavailable" value="unavailable" />
+        ) : (
+          <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+        )}
         {comments ? (
           <McpAppCommentsIcon disabledReason={ready ? undefined : 'The view is still loading.'} />
         ) : null}
@@ -465,7 +473,7 @@ const McpAppSurfaceInstance = forwardRef<
           <>
             {descriptor.service_refusal ? (
               <p
-                className="border-b px-3 py-2 text-xs text-muted-foreground"
+                className="relative z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground"
                 data-mcp-app-service-refusal={descriptor.service_refusal.reason}
                 role="status"
               >

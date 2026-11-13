@@ -6,6 +6,7 @@ import {
   type McpAppViewTool,
   type TransportFrame,
 } from '@clio/core/v3';
+import { mcpAppEnded } from './mcp-app-live-set';
 
 /** MA14: the limits Claude publishes for app tools. A view over either offers none. */
 export const MAX_VIEW_TOOLS = 64;
@@ -94,11 +95,20 @@ export class McpAppViewTools {
 
   /** After `ui/notifications/initialized`: list the view's tools and listen for calls. */
   start(): void {
-    if (!this.offersTools || this.stopped) return;
+    if (this.stopped) return;
+    if (!this.offersTools) {
+      // The view has no tools of its own: say so once, so a call to a tool of an earlier
+      // view of this server does not wait for this one to list any.
+      void this.repository.updateMcpAppTools(this.identity, [], this.holder).catch(() => undefined);
+      return;
+    }
     const key = handlerKey(this.identity.sessionId, this.identity.appInstanceId);
-    callHandlers.set(key, (call) => void this.runAgentCall(call));
+    const handler: CallHandler = (call) => void this.runAgentCall(call);
+    callHandlers.set(key, handler);
+    // A newer mount of the same App (the frame moved between card and tab) may already
+    // hold the key: only this mount's own handler leaves with it.
     this.unregister = () => {
-      if (callHandlers.get(key)) callHandlers.delete(key);
+      if (callHandlers.get(key) === handler) callHandlers.delete(key);
     };
     void this.refresh();
   }
@@ -137,7 +147,8 @@ export class McpAppViewTools {
     if (this.stopped) return;
     this.stopped = true;
     this.unregister?.();
-    if (this.published) {
+    // A closed App's tools left with it on the server; its record answers 404 now.
+    if (this.published && !mcpAppEnded(this.identity.appInstanceId)) {
       void this.repository.updateMcpAppTools(this.identity, [], this.holder).catch(() => undefined);
     }
   }

@@ -5,6 +5,7 @@ import {
   type McpAppIdentity,
   type McpAppSavedDownload,
 } from '@clio/core/v3';
+import { mcpAppStyleVariables } from './mcp-app-host-styles';
 
 /** The MCP Apps revision CLIO declares; draft features are offered by capability. */
 export const MCP_APPS_PROTOCOL_VERSION = '2026-01-26';
@@ -142,6 +143,8 @@ export function hostContext(
   return {
     ...extra,
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+    // CLIO's notebook look, as the spec's standardized variables (mcp-app-host-styles.ts).
+    styles: { variables: mcpAppStyleVariables() },
     displayMode: displayModeFor(placement),
     availableDisplayModes: placement === 'surface' ? ['inline'] : [...AVAILABLE_DISPLAY_MODES],
     // A tab fixes the view's size; a card lets the view choose its height.

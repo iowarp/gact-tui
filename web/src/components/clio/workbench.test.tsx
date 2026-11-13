@@ -431,7 +431,6 @@ describe('ClioWorkbench canvas', () => {
     // The lit icon of the only tab closes it, and with it the canvas.
     await user.click(strip().getByRole('button', { name: 'Activity' }));
     expect(hide).toHaveBeenCalledTimes(1);
-    // Restoring re-parents the canvas out of the maximize host: query it again.
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).not.toHaveAttribute(
       'data-maximized',
     );
