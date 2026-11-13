@@ -2429,6 +2429,11 @@ msgstr "{lines, plural, one {# γραμμή} other {# γραμμές}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # γραμμή} other {Python, # γραμμές}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list} και {item}"
+
 #. A short list, one more item
 #: src/lib/locale-format.ts
 msgid "{list}, {item}"

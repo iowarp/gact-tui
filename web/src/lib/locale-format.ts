@@ -6,18 +6,27 @@ export function formatLocale(): string {
   return i18n.locale === 'pseudo' ? 'en' : i18n.locale;
 }
 
-/** A short list in the interface language: "a, b, c" (Japanese "a、b、c"). */
-export function formatList(items: readonly string[]): string {
+function joinItem(list: string, item: string, last: boolean): string {
+  return last
+    ? t({ message: `${list} and ${item}`, comment: 'A short list, its last item' })
+    : t({ message: `${list}, ${item}`, comment: 'A short list, one more item' });
+}
+
+/**
+ * A short list in the interface language: "a, b, c" (Japanese "a、b、c"), or with
+ * `and`, "a, b and c".
+ */
+export function formatList(items: readonly string[], options: { and?: boolean } = {}): string {
   return items.length
-    ? items.reduce((list, item) =>
-        t({ message: `${list}, ${item}`, comment: 'A short list, one more item' }),
+    ? items.reduce((list, item, index) =>
+        joinItem(list, item, Boolean(options.and) && index === items.length - 1),
       )
     : '';
 }
 
-/** The separator `formatList` puts between items, for lists of styled parts. */
-export function listSeparator(): string {
-  return formatList(['', '']);
+/** What `formatList` puts before an item, for lists of styled parts. */
+export function listSeparator(options: { last?: boolean } = {}): string {
+  return joinItem('', '', Boolean(options.last));
 }
 
 /**
