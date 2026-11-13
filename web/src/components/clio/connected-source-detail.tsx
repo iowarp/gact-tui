@@ -729,7 +729,9 @@ function SourceManage({
                   reason:
                     !browsingCopies && !source.linked
                       ? linkable
-                        ? `${linkLabel} to add its files to a message.`
+                        ? files
+                          ? t`Link the selected files to add them to a message.`
+                          : t`Link this folder to add its files to a message.`
                         : t`Link this source to add its files to a message.`
                       : undefined,
                   onClick: () =>

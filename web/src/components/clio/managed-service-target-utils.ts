@@ -362,10 +362,10 @@ export function runtimeFactLines(facts: TargetFacts): RuntimeFactLine[] {
   return runtimes.map((fact) => ({
     name: fact.name,
     text: fact.usable
-      ? `${[RUNTIME_NAMES[fact.name], fact.version].filter(Boolean).join(' ')} is ready.`
+      ? t`${ph({ runtime: [RUNTIME_NAMES[fact.name], fact.version].filter(Boolean).join(' ') })} is ready.`
       : fact.installed
         ? unusableText(fact, facts.os)
-        : `${RUNTIME_NAMES[fact.name]} is not installed.`,
+        : t`${ph({ runtime: RUNTIME_NAMES[fact.name] })} is not installed.`,
     detail: fact.usable ? '' : fact.detail,
   }));
 }

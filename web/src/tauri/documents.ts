@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
 export type DocumentApplication = {
@@ -28,7 +29,7 @@ export async function documentApplications(
 
 /** Open a server-confined working copy in a freshly validated OS handler. */
 export async function openDocumentWorkingCopy(path: string, application: string): Promise<void> {
-  if (!inTauri()) throw new Error('Opening desktop apps requires the desktop application.');
+  if (!inTauri()) throw new Error(t`Opening desktop apps requires the desktop application.`);
   await desktopCommand<string>('open_document_path', { path, application });
 }
 
@@ -38,12 +39,12 @@ export async function openFileBytes(
   bytes: Uint8Array,
   application: string,
 ): Promise<string> {
-  if (!inTauri()) throw new Error('Opening desktop apps requires the desktop application.');
+  if (!inTauri()) throw new Error(t`Opening desktop apps requires the desktop application.`);
   return desktopCommand<string>('open_file_bytes', { name, bytes: Array.from(bytes), application });
 }
 
 /** Reveal an exact local copy even when the OS has no handler for this file type. */
 export async function revealFileBytes(name: string, bytes: Uint8Array): Promise<string> {
-  if (!inTauri()) throw new Error('Opening a folder requires the desktop application.');
+  if (!inTauri()) throw new Error(t`Opening a folder requires the desktop application.`);
   return desktopCommand<string>('reveal_file_bytes', { name, bytes: Array.from(bytes) });
 }

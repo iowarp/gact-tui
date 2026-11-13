@@ -1189,6 +1189,10 @@ msgstr "{agent}はこのアカウントを使用できます"
 msgid "{agent} may use this account for delegated work"
 msgstr "{agent}は委任された作業にこのアカウントを使用できます"
 
+#: src/components/clio/agent-question-dialog.tsx
+msgid "{agent} needs your answer to continue."
+msgstr "続行するには、{agent}への回答が必要です。"
+
 #: src/tauri/ssh-transport-attachment.ts
 msgid "{agent} no longer has this SSH host saved. Choose the host again, then deploy."
 msgstr "{agent} にはこの SSH ホストが保存されていません。ホストをもう一度選んでから、デプロイしてください。"
@@ -1242,6 +1246,14 @@ msgstr "{agent} の試行"
 #: src/tauri/managed-backend.ts
 msgid "{agent} update failed."
 msgstr "{agent} のアップデートに失敗しました。"
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the app is {installed}, expected {target}."
+msgstr "{agent}のアップデートが完了していません。アプリは{installed}ですが、{target}である必要があります。"
+
+#: src/tauri/clio-update-verification.ts
+msgid "{agent} update is incomplete: the runtime is {runtime}, expected {target}."
+msgstr "{agent}のアップデートが完了していません。ランタイムは{runtime}ですが、{target}である必要があります。"
 
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
@@ -2213,6 +2225,10 @@ msgstr "{label} はインストールされていますが、実行されてい�
 msgid "{label} is installed but your account is not allowed to use it."
 msgstr "{label} はインストールされていますが、お使いのアカウントには使用が許可されていません。"
 
+#: src/lib/html-in-browser.ts
+msgid "{label} is no longer on disk."
+msgstr "{label}はディスク上にもうありません。"
+
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{label} is not available"
 msgstr "{label} は利用できません"
@@ -2220,6 +2236,10 @@ msgstr "{label} は利用できません"
 #: src/lib/connection.ts
 msgid "{label} is not known on this computer. Remove it and deploy it again to reconnect."
 msgstr "{label} はこのコンピューターで認識されていません。再接続するには、削除してからもう一度デプロイしてください。"
+
+#: src/lib/html-in-browser.ts
+msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
+msgstr "{label}はこの会話が読み取れるフォルダーの外にあるため、ブラウザーで開けません。"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
@@ -2988,6 +3008,10 @@ msgstr "{profiles, plural, one {#個のプロファイル} other {#個のプロ�
 msgid "{protocol} surface"
 msgstr "{protocol}サーフェス"
 
+#: src/hooks/use-execution-provenance.ts
+msgid "{provider} execution provenance is unavailable."
+msgstr "{provider}の実行の来歴を利用できません。"
+
 #: src/components/ai-elements/model-selector.tsx
 msgid "{provider} logo"
 msgstr "{provider}のロゴ"
@@ -3164,6 +3188,14 @@ msgstr "{running} 件実行中"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{runningAtQuit, plural, one {# conversation is still running. Quitting stops it and {product}'s local services.} other {# conversations are still running. Quitting stops them and {product}'s local services.}}"
 msgstr "{runningAtQuit, plural, one {# 件の会話がまだ実行中です。終了すると、会話と {product} のローカルサービスが停止します。} other {# 件の会話がまだ実行中です。終了すると、会話と {product} のローカルサービスが停止します。}}"
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is not installed."
+msgstr "{runtime}はインストールされていません。"
+
+#: src/components/clio/managed-service-target-utils.ts
+msgid "{runtime} is ready."
+msgstr "{runtime}を使用できます。"
 
 #: src/components/clio/composer-queue.tsx
 msgid "{saved, plural, one {# saved draft} other {# saved drafts}}"
@@ -3764,6 +3796,10 @@ msgstr "{unknown, plural, one {認識できないリクエスト # 件} other {�
 msgid "{unknownCount, plural, =1 {Unrecognized request} other {# unrecognized requests}}"
 msgstr "{unknownCount, plural, =1 {認識できないリクエスト} other {# 件の認識できないリクエスト}}"
 
+#: src/components/clio/composer-references.tsx
+msgid "{unreadable, plural, one {# reference could not be read from this workspace.} other {# references could not be read from this workspace.}}"
+msgstr "{unreadable, plural, one {このワークスペースから#件の参照を読み取れませんでした。} other {このワークスペースから#件の参照を読み取れませんでした。}}"
+
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount, plural, one {# task needs inspection} other {# tasks need inspection}}"
 msgstr "{unresolvedWorkCount, plural, one {確認が必要なタスク # 件} other {確認が必要なタスク # 件}}"
@@ -3771,6 +3807,10 @@ msgstr "{unresolvedWorkCount, plural, one {確認が必要なタスク # 件} ot
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "{unresolvedWorkCount} to inspect"
 msgstr "確認待ち {unresolvedWorkCount} 件"
+
+#: src/components/clio/composer-references.tsx
+msgid "{unsupported, plural, one {# reference needs a newer version of this app.} other {# references need a newer version of this app.}}"
+msgstr "{unsupported, plural, one {#件の参照には、このアプリの新しいバージョンが必要です。} other {#件の参照には、このアプリの新しいバージョンが必要です。}}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{updates, plural, one {received # update} other {received # updates}}"
@@ -17317,6 +17357,14 @@ msgstr "インタラクティブな Mermaid 図"
 msgid "Interactive question"
 msgstr "インタラクティブな質問"
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH testing requires {product}."
+msgstr "対話型の SSH テストには{product}が必要です。"
+
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "Interactive SSH transport requires {product}."
+msgstr "対話型の SSH トランスポートには{product}が必要です。"
+
 #: src/components/clio/surface-toolbar.tsx
 msgid "Interactive surface"
 msgstr "インタラクティブサーフェス"
@@ -18141,6 +18189,14 @@ msgstr "フォルダーをリンク"
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link selected files"
 msgstr "選択したファイルをリンク"
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link the selected files to add them to a message."
+msgstr "選択したファイルをメッセージに追加するには、ファイルをリンクしてください。"
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Link this folder to add its files to a message."
+msgstr "ファイルをメッセージに追加するには、このフォルダーをリンクしてください。"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link this source to add its files to a message."
@@ -23534,6 +23590,10 @@ msgstr "開いています"
 msgid "Opening {name}"
 msgstr "{name} を開いています"
 
+#: src/tauri/documents.ts
+msgid "Opening a folder requires the desktop application."
+msgstr "フォルダーを開くにはデスクトップアプリが必要です。"
+
 #: src/components/clio/more-details-panel.tsx
 msgid "Opening a side conversation…"
 msgstr "サイド会話を開いています…"
@@ -23546,6 +23606,14 @@ msgstr "別のビューを開くには、アクティブなワークスペース
 #: src/routes/workspace-page.tsx
 msgid "Opening conversation"
 msgstr "会話を開いています"
+
+#: src/tauri/documents.ts
+msgid "Opening desktop apps requires the desktop application."
+msgstr "他のアプリで開くにはデスクトップアプリが必要です。"
+
+#: src/tauri/workspace-terminal.ts
+msgid "Opening folders is available in the installed desktop app."
+msgstr "フォルダーを開く機能は、インストール済みのデスクトップアプリで利用できます。"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Opening GitHub…"
@@ -29854,6 +29922,10 @@ msgstr "セクション"
 msgid "Sections"
 msgstr "セクション"
 
+#: src/tauri/secure-credentials.ts
+msgid "Secure credential storage is unavailable."
+msgstr "安全な資格情報ストレージを利用できません。"
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
 msgstr "すべて表示"
@@ -31968,6 +32040,14 @@ msgstr "SSHパスワード"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "SSH private key file"
 msgstr "SSH秘密キーファイル"
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH profiles can be saved only in {product}."
+msgstr "SSH プロファイルは{product}でのみ保存できます。"
+
+#: src/tauri/ssh-profiles.ts
+msgid "SSH routes can be saved only in {product}."
+msgstr "SSH ルートは{product}でのみ保存できます。"
 
 #: src/components/clio/connected-ssh-host-picker.tsx
 msgid "SSH starts on the connected {agent}. Add hops to reach the computer hosting the API."
@@ -34123,6 +34203,10 @@ msgstr "リンクされたビューを利用できません。"
 msgid "The live view ended."
 msgstr "ライブビューが終了しました。"
 
+#: src/tauri/clio-update-verification.ts
+msgid "The local {agent} service did not report its running version."
+msgstr "ローカルの{agent}サービスが実行中のバージョンを報告しませんでした。"
+
 #: src/tauri/desktop-updater.ts
 msgid "The local installation needs repair"
 msgstr "ローカルのインストールに修復が必要です"
@@ -34895,6 +34979,10 @@ msgstr "サイド会話は開いていません。"
 msgid "The side conversation was not closed"
 msgstr "サイド会話は閉じられませんでした"
 
+#: src/tauri/oauth.ts
+msgid "The sign-in service did not return a sign-in state."
+msgstr "サインインサービスからサインイン状態が返されませんでした。"
+
 #: src/components/clio/agent-item-details.tsx
 msgid "The skill couldn’t be read"
 msgstr "スキルを読み込めませんでした"
@@ -34983,6 +35071,10 @@ msgstr "クエリで指定された列が表にありません。"
 msgid "the table is larger than this server will query."
 msgstr "表が、このサーバーでクエリできるサイズを超えています。"
 
+#: src/tauri/ssh-infrastructure-transport.ts
+msgid "The target is not an SSH host."
+msgstr "ターゲットは SSH ホストではありません。"
+
 #: src/components/clio/task-flow-state.ts
 msgid "The task {execution}, but the checkpoint still says running."
 msgstr "タスクは {execution} ですが、チェックポイントはまだ実行中を示しています。"
@@ -35035,9 +35127,25 @@ msgstr "アップデートチャネルが変更されました。もう一度ア
 msgid "The update service did not respond."
 msgstr "アップデートサービスが応答しませんでした。"
 
+#: src/tauri/clio-update-verification.ts
+msgid "The update target was not retained. Check {agent} versions before retrying."
+msgstr "アップデート先のバージョンが保持されていませんでした。再試行する前に{agent}のバージョンを確認してください。"
+
 #: src/components/clio/version-check-issue.ts
 msgid "The update was rejected: its signature did not match."
 msgstr "アップデートは拒否されました：署名が一致しませんでした。"
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local {agent} service is not ready."
+msgstr "更新されたローカルの{agent}サービスの準備ができていません。"
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service could not start: {detail}"
+msgstr "更新されたローカルサービスを起動できませんでした: {detail}"
+
+#: src/tauri/clio-update-verification.ts
+msgid "The updated local service did not become ready in time."
+msgstr "更新されたローカルサービスの準備が時間内に完了しませんでした。"
 
 #: src/components/clio/composer-attachments.tsx
 msgid "The upload failed."
@@ -37101,6 +37209,7 @@ msgstr "単位 {unit}"
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr "不明"
 
@@ -39210,6 +39319,10 @@ msgstr "ワークスペースの設定…"
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Workspace sources"
 msgstr "ワークスペースのソース"
+
+#: src/tauri/workspace-terminal.ts
+msgid "Workspace terminals are available in the installed desktop app."
+msgstr "ワークスペースのターミナルは、インストール済みのデスクトップアプリで利用できます。"
 
 #: src/components/clio/archived-sessions-dialog.tsx
 #: src/components/clio/command-menu-result-groups.tsx
