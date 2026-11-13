@@ -396,8 +396,8 @@ function folded(element: HTMLElement | null) {
 
 /**
  * Talk and Take, the end of every frame bar: @ Add to message, Comments,
- * Copy ▾, Download, Open ▾ and the … menu. As the frame narrows, Open, Copy
- * and @ fold into the … menu in that order; Download, the comments and the …
+ * Copy ▾, Download, Open ▾ and the … menu. As the frame narrows, the
+ * renderer's Format icons, then Open, Copy and @ fold into the … menu in that order; Download, the comments and the …
  * menu never leave, so the original bytes are always one click away.
  * Without menu rows of its own the … menu shows only while something is folded.
  */
@@ -510,7 +510,12 @@ export function FrameTalkTake({
         <span
           ref={menuRef}
           data-frame-modes-menu=""
-          className={menu ? 'contents' : 'hidden group-data-[fold-open]/frame:contents'}
+          className={
+            menu
+              ? 'contents'
+              : // Shown once something has folded into it: the Format icons, else Open.
+                'hidden group-data-[fold-open]/frame:contents [[data-fold-tools]:has([data-slot=frame-format-host]:not(.hidden)_[data-frame-tool])_&]:contents'
+          }
         >
           <DropdownMenuTrigger asChild>
             <ToolbarAction label={menuLabel} aria-busy={busy}>

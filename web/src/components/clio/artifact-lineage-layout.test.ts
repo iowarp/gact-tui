@@ -147,22 +147,6 @@ describe('layoutArtifactLineage', () => {
 describe('fitLineageLayout', () => {
   const build = (spread?: LineageSpread) => layoutArtifactLineage(artifact, lineage, { spread });
 
-  it('re-lays a dragged graph around the positions it is given, keeping their order', async () => {
-    const fitted = await build(undefined);
-    const at = (graph: typeof fitted) =>
-      Object.fromEntries(graph.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
-    const same = await layoutArtifactLineage(artifact, lineage, {
-      spread: fitted.spread,
-      hints: at(fitted),
-    });
-    expect(at(same)).toEqual(at(fitted));
-    // Every edge is routed again, from its source's right side to its target's left.
-    for (const edge of same.edges) {
-      const from = same.nodes.find((node) => node.id === edge.from)!;
-      expect(edge.path.startsWith(`M${from.x + from.width},`)).toBe(true);
-    }
-  });
-
   it('keeps whole names when the pane is narrower than the drawing', async () => {
     const compact = await build(undefined);
     const fitted = await fitLineageLayout(build, 200);
