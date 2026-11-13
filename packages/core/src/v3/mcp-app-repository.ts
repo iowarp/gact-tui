@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import type {
+  McpAppCall,
   McpAppDescriptor,
   McpAppIdentity,
   McpAppMessageAcknowledgement,
+  McpAppOpened,
+  McpAppOpenFailure,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 
@@ -25,6 +28,31 @@ const acknowledgementSchema = z.object({
   delivery: z.string(),
   state: z.string(),
 });
+
+const callSchema = z.object({
+  server: z.string(),
+  tool: z.string(),
+  arguments: z.record(z.string(), z.unknown()),
+});
+
+const openOutcomeSchema = z.union([
+  z.object({
+    part: z.object({
+      type: z.literal('mcp_app'),
+      app_instance_id: z.string().min(1),
+      data_ref: z.string().min(1),
+      resource_uri: z.string(),
+      source_server: z.string(),
+      tool_name: z.string(),
+    }),
+    saved_call: callSchema,
+    server_tools: z.array(z.string()).default([]),
+  }),
+  z.object({
+    error: z.object({ reason: z.string(), detail: z.string() }),
+    saved_call: callSchema,
+  }),
+]);
 
 function appPath(identity: McpAppIdentity, suffix = ''): string {
   const session = encodeURIComponent(identity.sessionId);
@@ -99,6 +127,21 @@ export class McpAppRepository extends InteractionRepository {
       path: appPath(identity, '/messages'),
       body: message,
       decode: (value) => acknowledgementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Make a call that opens a view and admit the view without adding it to the transcript. */
+  public openMcpAppFromCall(
+    sessionId: string,
+    call: McpAppCall,
+    signal?: AbortSignal,
+  ): Promise<McpAppOpened | McpAppOpenFailure> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/open`,
+      body: call,
+      decode: (value) => openOutcomeSchema.parse(value) as McpAppOpened | McpAppOpenFailure,
       signal,
     });
   }
