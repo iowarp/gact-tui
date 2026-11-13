@@ -215,7 +215,12 @@ export function McpAppReopenableCard({
     if (reopened) standInForCard(reopened.appInstanceId, block.app_instance_id);
   });
   const { placement, latest } = useMcpAppPresence(effective.app_instance_id, session);
-  const wantsFrame = placement === 'inline' && (latest || Boolean(reopened));
+  // Only the conversation's latest App lives inline (MA5): a reopened view mounts in its card
+  // only when that card is the latest. One reopened from an older card lives in its tab.
+  const cardLatest = useMcpAppLiveSetStore((state) =>
+    [undefined, block.app_instance_id].includes(state.latest[session]),
+  );
+  const wantsFrame = placement === 'inline' && (latest || (Boolean(reopened) && cardLatest));
   const held = useMcpAppHeld(
     repository,
     session,
@@ -232,7 +237,10 @@ export function McpAppReopenableCard({
       setReopenedMcpApp(session, block.app_instance_id, view);
       noteMcpApp(target, repository);
       standInForCard(view.appInstanceId, block.app_instance_id);
-      if (view.displayMode === 'fullscreen') openMcpAppInTab(target, repository);
+      const latestCard = useMcpAppLiveSetStore.getState().latest[session];
+      const older = latestCard !== undefined && latestCard !== block.app_instance_id;
+      // An older card has no live inline place (MA5), so its view opens in its tab (MA7).
+      if (view.displayMode === 'fullscreen' || older) openMcpAppInTab(target, repository);
     },
     [block.app_instance_id, block.title, repository, session],
   );

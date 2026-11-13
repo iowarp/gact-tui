@@ -1,8 +1,9 @@
 import type { Connector, ConnectorScope, ConnectorValues } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
+import type { ConnectorChange } from '@/lib/connector-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
@@ -61,6 +62,29 @@ export function useConnectorLogo(connector: Pick<Connector, 'id' | 'logo_url'>) 
   });
 }
 
+/** Enable and turn-off calls share this key, so every place a connector appears sees them. */
+const CONNECTOR_CHANGE = 'connector-change';
+
+/**
+ * The connectors with an Enable or Turn off still running, by id (CN3): the card, the
+ * Extensions row and the scope controls all say "Starting…" while it runs.
+ */
+export function useConnectorChanges(): ReadonlyMap<string, ConnectorChange> {
+  const pending = useMutationState({
+    filters: { mutationKey: [CONNECTOR_CHANGE], status: 'pending' },
+    select: (mutation) => ({
+      change: mutation.options.mutationKey?.[1] as ConnectorChange,
+      variables: mutation.state.variables as { id: string } | string | undefined,
+    }),
+  });
+  const changes = new Map<string, ConnectorChange>();
+  for (const { change, variables } of pending) {
+    const id = typeof variables === 'string' ? variables : variables?.id;
+    if (id) changes.set(id, change);
+  }
+  return changes;
+}
+
 export function useInvalidateConnectors() {
   const client = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -99,6 +123,7 @@ export function useConnectorActions() {
       toast.error('The values were not saved', { description: error.message }),
   });
   const enable = useMutation({
+    mutationKey: [CONNECTOR_CHANGE, 'starting'],
     mutationFn: ({ id, scope }: { id: string; scope: ConnectorScope }) =>
       repository.enableConnector(id, scope),
     onSuccess: settle,
@@ -106,6 +131,7 @@ export function useConnectorActions() {
       toast.error('The connector was not enabled', { description: error.message }),
   });
   const disable = useMutation({
+    mutationKey: [CONNECTOR_CHANGE, 'turning-off'],
     mutationFn: (id: string) => repository.disableConnector(id),
     onSuccess: settle,
     onError: (error: Error) =>

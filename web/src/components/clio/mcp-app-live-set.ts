@@ -160,6 +160,17 @@ export function mcpAppCanReturn(appInstanceId: string): boolean {
   return Boolean(entry && isLatest(entry));
 }
 
+/**
+ * A tab the workbench restored holds its App's frame (MA19), so it claims the App
+ * before the transcript notes it as inline. Without the claim, a restored tab of a
+ * transcript App (not a reopened one) read as "left" and closed at once, and the
+ * latest card asked the service, found the view gone after a restart and ended it.
+ */
+export function claimRestoredMcpAppTab(target: McpAppTabTarget): void {
+  const entry = noteMcpApp(target, undefined, 'tab');
+  if (entry.placement === 'inline') update(target.appInstanceId, { placement: 'tab' });
+}
+
 /** A frame found the record already in its tab (the descriptor says `fullscreen`). */
 export function adoptMcpAppTab(appInstanceId: string): void {
   const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];
