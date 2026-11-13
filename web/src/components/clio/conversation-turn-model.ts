@@ -190,7 +190,12 @@ function fallbackIterations(
     }
   };
   let previousPartId = '';
+  // Prose the agent wrote on both sides of a script's call is one passage once the
+  // call moves under its script; split, it would break Markdown spans.
+  let joinText: boolean = false;
   for (const { block } of ordered) {
+    const followsText: boolean = joinText;
+    joinText = false;
     insertFeedback(previousPartId);
     previousPartId = block.id;
     // Transport-only instructions have no visible boundary to split.
@@ -289,6 +294,7 @@ function fallbackIterations(
       if (isNestedToolInvocation(tool, tools)) {
         // A run_code script's call shows under the script's row, not as its own.
         consumed.add(block.id);
+        joinText = followsText;
         continue;
       }
       if (!alreadyInLane(current, 'tool', tool.id)) {
@@ -375,7 +381,23 @@ function fallbackIterations(
         block.channel === 'answer' &&
         !current.activity.some((entry) => entry.kind === 'tool'),
     );
-    segments.push({ kind: 'block', block });
+    const previous = segments.at(-1);
+    if (
+      followsText &&
+      block.type === 'text' &&
+      previous?.kind === 'block' &&
+      previous.block.type === 'text' &&
+      (previous.block.channel ?? null) === (block.channel ?? null)
+    ) {
+      previous.block = {
+        ...previous.block,
+        text: previous.block.text + block.text,
+        streaming: block.streaming,
+      };
+    } else {
+      segments.push({ kind: 'block', block });
+    }
+    joinText = block.type === 'text';
   }
   insertFeedback(previousPartId);
   flush(

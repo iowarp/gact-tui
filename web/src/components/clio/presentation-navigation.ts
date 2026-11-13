@@ -14,6 +14,7 @@ type Navigation = Pick<
   | 'onOpenFileReference'
   | 'onOpenWork'
   | 'onOpenTasks'
+  | 'onOpenToolCall'
   | 'onOpenWebPage'
   | 'onOpenSubagent'
   | 'onOpenFlow'
@@ -69,6 +70,7 @@ export function usePresentationNavigation({
   onOpenResource,
   onOpenSubagent,
   onOpenTasks,
+  onOpenToolCall,
   onOpenWebPage,
   onOpenWork,
   resources,
@@ -91,6 +93,7 @@ export function usePresentationNavigation({
       onOpenResource,
       onOpenSubagent,
       onOpenTasks,
+      onOpenToolCall,
       onOpenWebPage,
       onOpenWork,
       resources,
@@ -112,6 +115,7 @@ export function usePresentationNavigation({
       onOpenResource,
       onOpenSubagent,
       onOpenTasks,
+      onOpenToolCall,
       onOpenWebPage,
       onOpenWork,
       resources,

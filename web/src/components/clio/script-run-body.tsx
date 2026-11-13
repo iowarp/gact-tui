@@ -14,8 +14,15 @@ import { parsePrintedValue } from './python-literal';
 import { workspaceImages } from './image-reach';
 import { WorkspaceImageStrip } from './workspace-image-thumbnail';
 import { fileName } from './resource-media-types';
-import { attached, type PrintedLine, printedLines } from './script-run';
-import { DetailsSection, NumberedCode } from './tool-technical-details';
+import { attached, backgroundTaskLink, type PrintedLine, printedLines } from './script-run';
+import { PresentationLink } from './presentation-link';
+import {
+  DetailsSection,
+  LONG_BLOCK_BOUND,
+  MoreLines,
+  NumberedCode,
+  WrappedCodeLine,
+} from './tool-technical-details';
 import { type CompleteBlockText, useCompleteBlockText } from './use-complete-block-text';
 
 /** Lines of a script or its output shown before "N more lines". */
@@ -51,18 +58,31 @@ export function ScriptRunBody({
   blocks,
   failure,
   stopped = false,
+  taskName,
+  onOpen,
 }: {
   blocks: readonly ToolPresentationBlock[];
   /** Why the run failed, usually its traceback, or how it was stopped. */
   failure?: string;
   stopped?: boolean;
+  /** A background script's name, which its task carries under Work. */
+  taskName?: string;
+  /** Opens the whole call in a workbench tab, for a block too long to read here. */
+  onOpen?: () => void;
 }) {
   const script = blocks.find((block) => block.type === 'code');
   const shown = blocks.filter(attached);
   const declared = blocks.filter((block) => block.severity === 'error');
+  const taskLink = blocks.find(backgroundTaskLink);
   const results = blocks.filter(
     (block) =>
-      block !== script && !attached(block) && !declared.includes(block) && block.text?.trim(),
+      block !== script &&
+      block !== taskLink &&
+      // The task's sentence names its raw handle; the line below says it in words.
+      !(taskLink && block.id === 'task') &&
+      !attached(block) &&
+      !declared.includes(block) &&
+      block.text?.trim(),
   );
   const errors = [
     ...new Set(
@@ -75,14 +95,25 @@ export function ScriptRunBody({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="grid min-w-0 gap-2.5" data-slot="script-run-body">
-        {script?.text ? <ScriptSource block={script} /> : null}
+        {script?.text ? <ScriptSource block={script} onOpen={onOpen} /> : null}
+        {taskLink ? (
+          <p className="min-w-0 text-muted-foreground" data-slot="script-background">
+            {taskName
+              ? t`Runs in the background as the task “${ph({ name: taskName })}”. Its progress and a cancel control are in Work, under Background tasks.`
+              : t`Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks.`}{' '}
+            <PresentationLink
+              block={{ ...taskLink, label: t`Show the task in Work` }}
+              className="text-label"
+            />
+          </p>
+        ) : null}
         {results.map((block) =>
           block.id === 'silent' ? (
             <p key={block.id} className="text-muted-foreground">
               {block.text}
             </p>
           ) : (
-            <ScriptResult key={block.id} block={block} shownPaths={shownPaths} />
+            <ScriptResult key={block.id} block={block} shownPaths={shownPaths} onOpen={onOpen} />
           ),
         )}
         {errors.map((text) => (
@@ -146,13 +177,14 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
   );
 }
 
-function ScriptSource({ block }: { block: ToolPresentationBlock }) {
+function ScriptSource({ block, onOpen }: { block: ToolPresentationBlock; onOpen?: () => void }) {
   const complete = useCompleteBlockText(block);
-  const code = complete.text.replace(/\r?\n$/u, '');
+  const code = complete.text.replace(/\r\n?/gu, '\n').replace(/\n$/u, '');
   const lines = code.split('\n');
   const [all, setAll] = useState(false);
   const shown = all ? code : lines.slice(0, PREVIEW_LINES).join('\n');
   const hidden = all ? 0 : lines.length - PREVIEW_LINES;
+  const long = lines.length > PREVIEW_LINES;
   const language =
     block.language && block.language in bundledLanguages
       ? (block.language as BundledLanguage)
@@ -166,29 +198,25 @@ function ScriptSource({ block }: { block: ToolPresentationBlock }) {
       copy={code}
     >
       <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
-        <CodeBlock
-          code={shown}
-          language={language}
-          showLineNumbers
-          className={cn(
-            'rounded-none border-0 [&_:is(pre,code)]:text-label [&_:is(pre,code)]:leading-[1.65] [&_pre]:py-1.5',
-            HANGING_SOURCE_WRAP,
-          )}
+        <div
+          className={cn('clio-source-wrap-marks', all && long && LONG_BLOCK_BOUND)}
+          tabIndex={all && long ? 0 : undefined}
+        >
+          <CodeBlock
+            code={shown}
+            language={language}
+            showLineNumbers
+            className={cn(
+              'rounded-none border-0 [&_:is(pre,code)]:text-label [&_:is(pre,code)]:leading-[1.65] [&_pre]:py-1.5',
+              HANGING_SOURCE_WRAP,
+            )}
+          />
+        </div>
+        <MoreLines
+          hidden={hidden}
+          onShowAll={() => setAll(true)}
+          onOpen={long ? onOpen : undefined}
         />
-        {hidden > 0 ? (
-          <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-            <span className="truncate">
-              {plural(hidden, { one: '# more line', other: '# more lines' })}
-            </span>
-            <Button
-              variant="ghost"
-              className="ml-auto h-6 px-2 text-meta"
-              onClick={() => setAll(true)}
-            >
-              {t`Show all`}
-            </Button>
-          </div>
-        ) : null}
         <RestOfBlock complete={complete} />
       </div>
     </DetailsSection>
@@ -219,12 +247,14 @@ function RestOfBlock({ complete }: { complete: CompleteBlockText }) {
 function ScriptResult({
   block,
   shownPaths,
+  onOpen,
 }: {
   block: ToolPresentationBlock;
   shownPaths: ReadonlySet<string | undefined>;
+  onOpen?: () => void;
 }) {
   const complete = useCompleteBlockText(block);
-  const text = complete.text;
+  const text = useMemo(() => complete.text.replace(/\r\n?/gu, '\n'), [complete.text]);
   const title =
     block.id === 'value'
       ? t`Returned`
@@ -265,12 +295,22 @@ function ScriptResult({
   if (reading.kind === 'lines')
     return (
       <DetailsSection title={title} copy={text}>
-        <PrintedOutput lines={reading.lines} shownPaths={shownPaths} complete={complete} />
+        <PrintedOutput
+          lines={reading.lines}
+          shownPaths={shownPaths}
+          complete={complete}
+          onOpen={onOpen}
+        />
       </DetailsSection>
     );
   return (
     <DetailsSection title={title} copy={text}>
-      <NumberedCode text={reading.text} json={reading.kind === 'data'} limit={PREVIEW_LINES} />
+      <NumberedCode
+        text={reading.text}
+        json={reading.kind === 'data'}
+        limit={PREVIEW_LINES}
+        onOpen={onOpen}
+      />
       {complete.remaining || complete.error ? (
         <div className="mt-1 overflow-hidden rounded-lg border border-border">
           <RestOfBlock complete={complete} />
@@ -288,28 +328,39 @@ function PrintedOutput({
   lines,
   shownPaths,
   complete,
+  onOpen,
 }: {
   lines: readonly PrintedLine[];
   shownPaths: ReadonlySet<string | undefined>;
   complete: CompleteBlockText;
+  onOpen?: () => void;
 }) {
   const [all, setAll] = useState(false);
   const shown = all ? lines : lines.slice(0, PREVIEW_LINES);
   const hidden = lines.length - shown.length;
+  const long = lines.length > PREVIEW_LINES;
   return (
     <div
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="script-printed"
     >
-      <div className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90">
-        {shown.map((line, index) => (
-          <span className="contents" key={index}>
-            <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
-              {index + 1}
-            </span>
-            {line.kind === 'text' ? (
-              <code className="break-all whitespace-pre-wrap">{line.text || ' '}</code>
-            ) : (
+      <div
+        className={cn(
+          'grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
+          all && long && LONG_BLOCK_BOUND,
+        )}
+        tabIndex={all && long ? 0 : undefined}
+      >
+        {shown.map((line, index) =>
+          line.kind === 'text' ? (
+            <WrappedCodeLine key={index} number={index + 1} indent={line.text}>
+              {line.text || ' '}
+            </WrappedCodeLine>
+          ) : (
+            <span className="contents" key={index}>
+              <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
+                {index + 1}
+              </span>
               <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 font-sans">
                 {line.images.map((image, at) => (
                   <span
@@ -328,24 +379,15 @@ function PrintedOutput({
                   </span>
                 ))}
               </span>
-            )}
-          </span>
-        ))}
+            </span>
+          ),
+        )}
       </div>
-      {hidden > 0 ? (
-        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-          <span className="truncate">
-            {plural(hidden, { one: '# more line', other: '# more lines' })}
-          </span>
-          <Button
-            variant="ghost"
-            className="ml-auto h-6 px-2 text-meta"
-            onClick={() => setAll(true)}
-          >
-            {t`Show all`}
-          </Button>
-        </div>
-      ) : null}
+      <MoreLines
+        hidden={hidden}
+        onShowAll={() => setAll(true)}
+        onOpen={long ? onOpen : undefined}
+      />
       <RestOfBlock complete={complete} />
     </div>
   );

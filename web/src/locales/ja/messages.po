@@ -1998,7 +1998,6 @@ msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {他#件のファイル} other {他#件のファイル}}"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {あと#行} other {あと#行}}"
@@ -23327,6 +23326,7 @@ msgid "Open in system terminal"
 msgstr "システムのターミナルで開く"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr "タブで開く"
 
@@ -28796,6 +28796,14 @@ msgstr "コマンドを実行します"
 msgid "Runs directly on this computer"
 msgstr "このコンピューター上で直接実行"
 
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "タスクとしてバックグラウンドで実行されます。進行状況の確認とキャンセルは、［作業］の［バックグラウンドタスク］から行えます。"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "タスク「{name}」としてバックグラウンドで実行されます。進行状況の確認とキャンセルは、［作業］の［バックグラウンドタスク］から行えます。"
+
 #: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
@@ -30948,7 +30956,6 @@ msgstr "{title} を表示"
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/plan-exit-interaction.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Show all"
 msgstr "すべて表示"
@@ -31239,6 +31246,10 @@ msgstr "元の回答を表示"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "スクリプトを作業で表示"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Show the task in Work"
+msgstr "［作業］でタスクを表示"
 
 #: src/components/clio/variant-pick-card.tsx
 msgid "Show the tries"

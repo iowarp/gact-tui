@@ -16,7 +16,7 @@ import { useScriptCallsRecap } from './script-calls';
 import { imageReach } from './image-reach';
 import { WorkspaceImageThumbnail } from './workspace-image-thumbnail';
 import { ScriptRunBody } from './script-run-body';
-import { isScriptBody } from './script-run';
+import { isScriptBody, scriptLabel } from './script-run';
 import { DelegateCalls } from './delegate-calls';
 import { delegateTone } from './delegate-tone';
 import { TranscriptDiffBody, TranscriptTerminalBody } from './transcript-tool-bodies';
@@ -344,7 +344,17 @@ export function ClioToolInvocation({
           </ToolDetailsContent>
         ) : expanded && scriptBody ? (
           <ToolDetailsContent inline title={t`${actionLabel}: Result`}>
-            <ScriptRunBody blocks={contentBlocks} failure={failure} stopped={stopped} />
+            <ScriptRunBody
+              blocks={contentBlocks}
+              failure={failure}
+              stopped={stopped}
+              taskName={scriptLabel(tool.input)}
+              onOpen={
+                navigation?.onOpenToolCall
+                  ? () => navigation.onOpenToolCall?.(tool, actionLabel)
+                  : undefined
+              }
+            />
           </ToolDetailsContent>
         ) : expanded && !delegateOnly ? (
           <ToolDetailsContent

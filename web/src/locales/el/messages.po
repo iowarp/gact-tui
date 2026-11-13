@@ -1998,7 +1998,6 @@ msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# ακόμη αρχείο} other {# ακόμη αρχεία}}"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# ακόμη γραμμή} other {# ακόμη γραμμές}}"
@@ -23327,6 +23326,7 @@ msgid "Open in system terminal"
 msgstr "Άνοιγμα στο τερματικό του συστήματος"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr "Άνοιγμα σε καρτέλα"
 
@@ -28796,6 +28796,14 @@ msgstr "Εκτελεί εντολές"
 msgid "Runs directly on this computer"
 msgstr "Εκτελείται απευθείας σε αυτόν τον υπολογιστή"
 
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Εκτελείται στο παρασκήνιο ως εργασία. Την πρόοδό της και την ακύρωσή της θα τα βρείτε στην Εργασία, στις Εργασίες στο παρασκήνιο."
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Εκτελείται στο παρασκήνιο ως η εργασία «{name}». Την πρόοδό της και την ακύρωσή της θα τα βρείτε στην Εργασία, στις Εργασίες στο παρασκήνιο."
+
 #: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
@@ -30948,7 +30956,6 @@ msgstr "Εμφάνιση {title}"
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/plan-exit-interaction.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Show all"
 msgstr "Εμφάνιση όλων"
@@ -31239,6 +31246,10 @@ msgstr "Εμφάνιση της αρχικής απάντησης"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Εμφάνιση του σεναρίου στην Εργασία"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Show the task in Work"
+msgstr "Εμφάνιση της εργασίας στην Εργασία"
 
 #: src/components/clio/variant-pick-card.tsx
 msgid "Show the tries"

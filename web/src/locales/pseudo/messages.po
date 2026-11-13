@@ -1998,7 +1998,6 @@ msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr ""
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr ""
@@ -23310,6 +23309,7 @@ msgid "Open in system terminal"
 msgstr ""
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr ""
 
@@ -28779,6 +28779,14 @@ msgstr ""
 msgid "Runs directly on this computer"
 msgstr ""
 
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+msgstr ""
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
+msgstr ""
+
 #: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
@@ -30931,7 +30939,6 @@ msgstr ""
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/plan-exit-interaction.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Show all"
 msgstr ""
@@ -31221,6 +31228,10 @@ msgstr ""
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
+msgstr ""
+
+#: src/components/clio/script-run-body.tsx
+msgid "Show the task in Work"
 msgstr ""
 
 #: src/components/clio/variant-pick-card.tsx

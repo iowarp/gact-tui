@@ -1998,7 +1998,6 @@ msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# archivo más} other {# archivos más}}"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# línea más} other {# líneas más}}"
@@ -23327,6 +23326,7 @@ msgid "Open in system terminal"
 msgstr "Abrir en el terminal del sistema"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr "Abrir en una pestaña"
 
@@ -28796,6 +28796,14 @@ msgstr "Ejecuta comandos"
 msgid "Runs directly on this computer"
 msgstr "Se ejecuta directamente en este equipo"
 
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as a task. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Se ejecuta en segundo plano como tarea. Puedes seguir su progreso y cancelarla en Trabajo, en Tareas en segundo plano."
+
+#: src/components/clio/script-run-body.tsx
+msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
+msgstr "Se ejecuta en segundo plano como la tarea «{name}». Puedes seguir su progreso y cancelarla en Trabajo, en Tareas en segundo plano."
+
 #: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
@@ -30948,7 +30956,6 @@ msgstr "Mostrar {title}"
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/plan-exit-interaction.tsx
-#: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Show all"
 msgstr "Mostrar todo"
@@ -31239,6 +31246,10 @@ msgstr "Mostrar la respuesta original"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Mostrar el script en Trabajo"
+
+#: src/components/clio/script-run-body.tsx
+msgid "Show the task in Work"
+msgstr "Ver la tarea en Trabajo"
 
 #: src/components/clio/variant-pick-card.tsx
 msgid "Show the tries"

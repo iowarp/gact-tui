@@ -1,5 +1,5 @@
 import type { AttentionBlock, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon, PanelRightIcon } from 'lucide-react';
 import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useLiveStore } from '@/store/live-store';
 import { jsonLine } from './json-line';
+import { WRAP_MARKS } from './ask-code-lines';
 import { DialogFrame } from './primitives/dialog-frame';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { PresentationLink } from './presentation-link';
@@ -96,52 +97,122 @@ export function DetailsSection({
   );
 }
 
+/** Leading spaces of a line, a tab as four, so wrapped rows hang at the line's own indent. */
+function indentColumns(line: string): number {
+  return (/^[ \t]*/u.exec(line)?.[0] ?? '').replaceAll('\t', '    ').length;
+}
+
+/**
+ * One numbered line that wraps at spaces (only a token wider than the block breaks
+ * inside), hangs its continuation rows at its indent and marks them ↪ in the gutter.
+ */
+export function WrappedCodeLine({
+  number,
+  indent,
+  children,
+}: {
+  number: number;
+  /** The line's text, for its indent; the children are what is drawn. */
+  indent: string;
+  children: ReactNode;
+}) {
+  const columns = indentColumns(indent);
+  return (
+    <span className="contents">
+      <span aria-hidden="true" className="relative pr-3 text-right text-faint select-none">
+        {number}
+        <span
+          className="absolute inset-x-0 top-[1.65em] bottom-0 bg-warning"
+          data-slot="code-wrap-marks"
+          style={WRAP_MARKS}
+        />
+      </span>
+      <code
+        className="whitespace-pre-wrap [overflow-wrap:anywhere]"
+        style={columns ? { paddingLeft: `${columns}ch`, textIndent: `-${columns}ch` } : undefined}
+      >
+        {children}
+      </code>
+    </span>
+  );
+}
+
+/** A long block's footer: what is folded, Show all, and Open in tab where a tab can show it. */
+export function MoreLines({
+  hidden,
+  onShowAll,
+  onOpen,
+}: {
+  hidden: number;
+  onShowAll?: () => void;
+  onOpen?: () => void;
+}) {
+  if (hidden <= 0 && !onOpen) return null;
+  return (
+    <div className="flex h-[30px] items-center gap-1 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
+      <span className="mr-auto truncate">
+        {hidden > 0 ? plural(hidden, { one: '# more line', other: '# more lines' }) : null}
+      </span>
+      {hidden > 0 && onShowAll ? (
+        <Button variant="ghost" className="h-6 px-2 text-meta" onClick={onShowAll}>
+          {t`Show all`}
+        </Button>
+      ) : null}
+      {onOpen ? (
+        <Button variant="ghost" className="h-6 gap-1.5 px-2 text-meta" onClick={onOpen}>
+          <PanelRightIcon aria-hidden="true" className="size-3.5" />
+          {t`Open in tab`}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/** A shown-in-full long block scrolls inside this height instead of lengthening the transcript. */
+export const LONG_BLOCK_BOUND = 'clio-scrollbar max-h-[min(28rem,60dvh)] overflow-y-auto';
+
 /** Line-numbered code in a bordered block; JSON in theme syntax colors. */
 export function NumberedCode({
   text,
   json,
   limit = CODE_LINES,
+  onOpen,
 }: {
   text: string;
   json: boolean;
   /** Lines shown before "N more lines" and Show all. */
   limit?: number;
+  /** Opens the whole block in a workbench tab, offered once the block is longer than `limit`. */
+  onOpen?: () => void;
 }) {
-  const lines = useMemo(() => text.split('\n'), [text]);
+  const lines = useMemo(() => text.replace(/\r\n?/gu, '\n').split('\n'), [text]);
   const [all, setAll] = useState(false);
   const shown = all ? lines : lines.slice(0, limit);
   const hidden = lines.length - shown.length;
+  const long = lines.length > limit;
   return (
     <div
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="details-code"
     >
-      <pre className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90">
+      <pre
+        className={cn(
+          'grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
+          all && long && LONG_BLOCK_BOUND,
+        )}
+        tabIndex={all && long ? 0 : undefined}
+      >
         {shown.map((line, index) => (
-          <span className="contents" key={index}>
-            <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
-              {index + 1}
-            </span>
-            <code className="break-all whitespace-pre-wrap">
-              {line ? (json ? jsonLine(line) : line) : ' '}
-            </code>
-          </span>
+          <WrappedCodeLine key={index} number={index + 1} indent={line}>
+            {line ? (json ? jsonLine(line) : line) : ' '}
+          </WrappedCodeLine>
         ))}
       </pre>
-      {hidden > 0 ? (
-        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-          <span className="truncate">
-            {plural(hidden, { one: '# more line', other: '# more lines' })}
-          </span>
-          <Button
-            variant="ghost"
-            className="ml-auto h-6 px-2 text-meta"
-            onClick={() => setAll(true)}
-          >
-            {t`Show all`}
-          </Button>
-        </div>
-      ) : null}
+      <MoreLines
+        hidden={hidden}
+        onShowAll={() => setAll(true)}
+        onOpen={long ? onOpen : undefined}
+      />
     </div>
   );
 }
@@ -308,9 +379,7 @@ export function ToolTechnicalDetailsDialog({
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const items: KeyValueItem[] = [
     { label: t`Tool`, value: tool.name, mono: true },
-    ...(parent
-      ? [{ label: t`Called by`, value: callerName(parent), title: parent.name }]
-      : []),
+    ...(parent ? [{ label: t`Called by`, value: callerName(parent), title: parent.name }] : []),
     ...(duration !== undefined
       ? [
           {

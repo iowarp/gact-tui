@@ -588,6 +588,23 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+/* A highlighted source's wrapped line marks its continuation rows ↪ under the
+   line number, as the numbered code blocks do. */
+.clio-source-wrap-marks pre code > span::after {
+  content: '';
+  position: absolute;
+  top: 1.65em;
+  bottom: 0;
+  left: 0;
+  width: 2rem;
+  background: var(--warning);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 10 5 5-5 5'/%3E%3Cpath d='M4 4v7a4 4 0 0 0 4 4h12'/%3E%3C/svg%3E");
+  mask-position: right top;
+  mask-repeat: repeat-y;
+  mask-size: 9px 1.65em;
+  pointer-events: none;
+}
+
 /* Radix scroll and select viewports draw their own thin scrollbars and hide
    the native ones with a runtime <style> element. The desktop CSP carries a
    nonce, so that element is blocked there and WebView2 paints native arrow

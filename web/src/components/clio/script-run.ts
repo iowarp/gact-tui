@@ -5,6 +5,17 @@ import { parsePrintedValue } from './python-literal';
 /** A file the script viewed, which rode its result to the model (`attached-N`). */
 export const attached = (block: ToolPresentationBlock) => block.id.startsWith('attached-');
 
+/** A background script's link to its task under Work; its sentence names the raw handle. */
+export const backgroundTaskLink = (block: ToolPresentationBlock) =>
+  block.type === 'link' && block.target === 'task' && Boolean(block.uri);
+
+/** The name the agent gave its script (`label`), which its background task carries. */
+export function scriptLabel(input: unknown): string | undefined {
+  const label =
+    input && typeof input === 'object' ? (input as { label?: unknown }).label : undefined;
+  return typeof label === 'string' && label.trim() ? label.trim() : undefined;
+}
+
 /** A run_code call's own blocks: its source, what it returned or printed, what it showed the model. */
 export function isScriptBody(blocks: readonly ToolPresentationBlock[]): boolean {
   return (
@@ -14,6 +25,7 @@ export function isScriptBody(blocks: readonly ToolPresentationBlock[]): boolean 
         (!block.severity || (block.severity === 'error' && block.type === 'text')) &&
         (block.type === 'code' ||
           block.type === 'text' ||
+          backgroundTaskLink(block) ||
           (block.type === 'workspace_file' && attached(block) && !block.content_ref)),
     )
   );
