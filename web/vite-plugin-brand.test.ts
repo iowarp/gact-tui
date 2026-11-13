@@ -305,6 +305,7 @@ describe('brand copy in other languages', () => {
     expect(
       resolveBrandLocales({
         es: {
+          wordmark: ' Espacio de trabajo ',
           tagline: ' Tu espacio ',
           landing: { headline: 'Tu trabajo, en un lugar.', description: '  ' },
           workspace: { greeting: '¿En qué puedo ayudarte?' },
@@ -314,6 +315,7 @@ describe('brand copy in other languages', () => {
       }),
     ).toEqual({
       es: {
+        wordmark: 'Espacio de trabajo',
         tagline: 'Tu espacio',
         landing: { headline: 'Tu trabajo, en un lugar.' },
         workspace: { greeting: '¿En qué puedo ayudarte?' },
@@ -326,7 +328,13 @@ describe('brand copy in other languages', () => {
   it('lays the active language over the base brand when the module loads', async () => {
     const brand = {
       ...loadBrand(resolve(import.meta.dirname, '../branding'), 'gact'),
-      locales: { es: { landing: { headline: 'Hola' }, workspace: { greeting: 'Buenas' } } },
+      locales: {
+        es: {
+          wordmark: 'Espacio',
+          landing: { headline: 'Hola' },
+          workspace: { greeting: 'Buenas' },
+        },
+      },
     };
     const source = brandModuleSource(brand);
     // The module body with its import and exports removed, run against a stub instance.
@@ -337,10 +345,12 @@ describe('brand copy in other languages', () => {
     const evaluate = (locale: string) =>
       new Function('i18n', `'use strict';\n${body}`)({ locale }) as typeof brand;
     const spanish = evaluate('es');
+    expect(spanish.wordmark).toBe('Espacio');
     expect(spanish.landing.headline).toBe('Hola');
     expect(spanish.landing.eyebrow).toBe(brand.landing.eyebrow);
     expect(spanish.workspace.greeting).toBe('Buenas');
     expect(spanish).not.toHaveProperty('locales');
     expect(evaluate('ja').landing.headline).toBe(brand.landing.headline);
+    expect(evaluate('ja').wordmark).toBe(brand.wordmark);
   });
 });

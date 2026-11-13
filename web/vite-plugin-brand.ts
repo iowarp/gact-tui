@@ -51,6 +51,8 @@ interface RawBrand {
 
 /** The brand fields that are words a person reads, which may differ by language. */
 export interface BrandCopy {
+  /** Only for a generic-noun wordmark; a product name stays as it is. */
+  wordmark?: string;
   tagline?: string;
   taglineAccent?: string;
   agentName?: string;
@@ -154,7 +156,13 @@ export function resolveBrandLocales(
       throw new Error(`[brand] ${brandPath}: locales.${locale} is not a language tag`);
     }
     const entry: BrandCopy = {};
-    for (const key of ['tagline', 'taglineAccent', 'agentName', 'workspaceNoun'] as const) {
+    for (const key of [
+      'wordmark',
+      'tagline',
+      'taglineAccent',
+      'agentName',
+      'workspaceNoun',
+    ] as const) {
       const value = trimmed(copy?.[key]);
       if (value) entry[key] = value;
     }

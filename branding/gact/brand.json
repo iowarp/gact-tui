@@ -21,6 +21,7 @@
   "agentReleaseUrl": "https://github.com/iowarp/gact-tui/releases",
   "locales": {
     "es": {
+      "wordmark": "Espacio de trabajo",
       "tagline": "Un espacio de trabajo para agentes, sin marca de producto",
       "landing": {
         "eyebrow": "Espacio de trabajo para agentes",
@@ -32,6 +33,7 @@
       }
     },
     "ja": {
+      "wordmark": "ワークスペース",
       "tagline": "製品ブランドに依存しないエージェントワークスペース",
       "landing": {
         "eyebrow": "エージェントワークスペース",
@@ -43,6 +45,7 @@
       }
     },
     "el": {
+      "wordmark": "Χώρος εργασίας",
       "tagline": "Ένας ουδέτερος χώρος εργασίας για πράκτορες",
       "landing": {
         "eyebrow": "Χώρος εργασίας πρακτόρων",
