@@ -128,14 +128,17 @@ export const ItemRow = memo(
           '@max-2xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
           overlay &&
             '@max-xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+          // Stacked, the slot track fits its button: a localized "Update" outgrows the fixed column.
           stacks &&
             (folds
-              ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_1.625rem_var(--item-slot)]'
+              ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_1.625rem_minmax(var(--item-slot),max-content)]'
               : !overlay
-                ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
-                : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
+                ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-actions)_minmax(var(--item-slot),max-content)]'
+                : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_minmax(var(--item-slot),max-content)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
+          // Stacked, an empty slot kept only for alignment gives its width to the name and status.
+          stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
           // Floating actions: the name, then a slot that is only as wide as its content.
           floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
@@ -234,6 +237,8 @@ export const ItemRow = memo(
                 // Pinned with the actions that float over it, so the slot keeps its column.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1',
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
+                // Beside a slot button, the status line runs under it too, so its words stay whole.
+                stacks && hasSlot && !folds && '@max-sm:col-[2/-1]',
               )}
               data-slot="item-row-status"
             >
@@ -258,7 +263,10 @@ export const ItemRow = memo(
               className={cn(
                 // Spec `.xi .btn`: slot buttons read 12px/500 whatever size they were given.
                 'flex min-w-0 items-center justify-end gap-2 [&_[data-slot=button]]:text-xs',
-                stacks && '@max-sm:row-span-2',
+                stacks &&
+                  (hasSlot && !folds
+                    ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
+                    : '@max-sm:row-span-2'),
               )}
               data-slot="item-row-slot"
             >

@@ -47,11 +47,12 @@ export function ValueMark({
   return (
     <span
       aria-hidden="true"
-      className="relative inline-grid size-[15px] shrink-0 place-items-center"
+      // In rem like its glyph: a px box lets a larger interface size push the glyph low and into the label.
+      className="relative inline-grid size-[0.9375rem] shrink-0 place-items-center"
     >
       <Glyph className={cn('size-3.5', className)} />
       {isDefault ? (
-        <b className="absolute -right-1.5 -bottom-[5px] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
+        <b className="absolute -right-1.5 -bottom-[0.3125rem] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
           D
         </b>
       ) : null}
