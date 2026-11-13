@@ -1158,6 +1158,10 @@ msgstr ""
 msgid "{agent} downloads and prepares {thing}. This can take several minutes."
 msgstr ""
 
+#: src/tauri/managed-backend.ts
+msgid "{agent} finished installing, but the app could not find the installed service to start it. Reopen the app to repair the installation."
+msgstr ""
+
 #: src/components/clio/artifact-lineage-layout.ts
 msgid "{agent} has no record of what made this file."
 msgstr ""
