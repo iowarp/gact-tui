@@ -145,6 +145,8 @@ export const flowRunSchema = z.object({
         handle: z.string().default(''),
         invocation: z.string().default(''),
         detail: z.string().default(''),
+        /** The question the flow gave this child (a research direction), when it has one. */
+        question: z.string().default(''),
       }),
     )
     .optional(),

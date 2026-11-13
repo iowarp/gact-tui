@@ -7378,6 +7378,7 @@ msgstr "Blank page"
 msgid "Block"
 msgstr "Block"
 
+#: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-access-rule-model.ts
@@ -17929,6 +17930,10 @@ msgstr "Invalid result continuation cursor."
 msgid "Invalid result fragment boundary."
 msgstr "Invalid result fragment boundary."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Investigates"
+msgstr "Investigates"
+
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
 msgid "is"
@@ -28321,6 +28326,10 @@ msgstr "Reranker"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "Rerankers can't hold a conversation."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Research was blocked"
+msgstr "Research was blocked"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx

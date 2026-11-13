@@ -37,7 +37,10 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
 } {
   if (run.status === 'running') return { value: 'running', label: t`Running` };
   if (run.status === 'completed') return { value: 'completed', label: t`Completed` };
-  if (run.status === 'flow_stall') return { value: 'failed', label: t`Stalled` };
+  if (run.status === 'flow_stall')
+    return run.outcome?.stall === 'research_blocked'
+      ? { value: 'failed', label: t`Blocked` }
+      : { value: 'failed', label: t`Stalled` };
   if (run.status === 'task_state_uncertain')
     return { value: 'task_state_uncertain', label: t`Needs inspection` };
   if (run.status === 'cancelled') return { value: 'cancelled', label: t`Cancelled` };
@@ -293,6 +296,8 @@ export interface FlowStep {
   note?: string;
   /** How many times it ran: more than one after a retry or an editor's repair. */
   attempts: number;
+  /** The question this step was given (a research direction), when the flow recorded one. */
+  asked?: string;
   /** A fork: the step it is a copy of, drawn beside it (`<step>~<n>`). */
   forkOf?: string;
   /** The forks of the steps this one waits on: its wait covers them too. */
@@ -321,6 +326,7 @@ export function workflowSteps(run: FlowRun, agentRef: string): FlowStep[] {
         ...(row.handle ? { handle: row.handle } : {}),
         kind: row.kind === 'flow' ? 'flow' : row.kind === 'action' ? 'action' : 'agent',
         ...(row.detail ? { note: row.detail } : {}),
+        ...(row.question ? { asked: row.question } : {}),
         ...(limits.get(row.invocation) ? { gatherLimit: limits.get(row.invocation) } : {}),
         attempts: row.status === 'not_run' ? 0 : 1,
       };

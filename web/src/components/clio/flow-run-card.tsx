@@ -1,6 +1,6 @@
 import { useNearViewport } from '@/hooks/use-near-viewport';
 import { Maximize2Icon, PanelRightOpenIcon, WorkflowIcon } from 'lucide-react';
-import { useCallback, useContext, useState, useRef } from 'react';
+import { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import {
   Artifact,
   ArtifactAction,
@@ -73,6 +73,13 @@ export function FlowRunCard({
   // No checkpoint: a flow that ended before writing one reads from its task, not as unstarted.
   const task = useFlowTaskRecord(flow.handle, near && data === null);
   const ended = data === null && task.data ? settledTaskStatus(task.data) : undefined;
+  // A card shown before the run wrote its first checkpoint keeps asking for it while the
+  // task runs; once it exists, the run's own polling takes over.
+  const awaitingCheckpoint = data === null && Boolean(task.data) && !ended;
+  const refetchRun = run.refetch;
+  useEffect(() => {
+    if (awaitingCheckpoint) void refetchRun();
+  }, [awaitingCheckpoint, task.dataUpdatedAt, refetchRun]);
   const status = data ? flowRunStatus(data) : ended;
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const rows = data?.view || data?.execution?.length ? steps : members;

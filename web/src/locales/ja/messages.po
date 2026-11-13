@@ -7378,6 +7378,7 @@ msgstr "空白ページ"
 msgid "Block"
 msgstr "ブロック"
 
+#: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-access-rule-model.ts
@@ -17929,6 +17930,10 @@ msgstr "結果の継続カーソルが無効です。"
 msgid "Invalid result fragment boundary."
 msgstr "結果フラグメントの境界が無効です。"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Investigates"
+msgstr "調査内容"
+
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
 msgid "is"
@@ -28321,6 +28326,10 @@ msgstr "リランカー"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "リランカーは会話できません。"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Research was blocked"
+msgstr "調査がブロックされました"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
