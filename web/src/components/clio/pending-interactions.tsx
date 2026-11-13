@@ -7,6 +7,7 @@ import type {
   PendingInteractionResponse,
 } from '@clio/core/v3';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { ConnectorSetupResponse } from './connector-setup-response';
 import { PermissionResponse } from './permission-response';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -247,8 +248,7 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface &&
-                '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
@@ -280,6 +280,17 @@ export function ClioPendingInteractions({
                         ownerLabel={ownerLabel}
                         responseError={responseError}
                         showOwner={showOwner}
+                      />
+                    );
+                  }
+                  if (interaction.kind === 'connector_setup') {
+                    return (
+                      <ConnectorSetupResponse
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onResponse={handleResponse}
+                        responseError={responseError}
                       />
                     );
                   }
@@ -364,6 +375,7 @@ const KIND_NAMES: Record<string, string> = {
   question: 'Question',
   a2ui: 'Question',
   mcp_task_input: 'Input',
+  connector_setup: 'Setup',
 };
 
 /** The dock as the workspace mounts it: it renders again only when its props change. */

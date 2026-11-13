@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient, type Query, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
+import { CONNECTOR_DEPENDENT_READS } from '@/hooks/use-connectors';
 import { queryKeys } from '@/lib/query-keys';
 import {
   CONNECTION_PROBE_TIMEOUT_MS,
@@ -334,6 +335,8 @@ function isPendingInteractionEvent(eventName: string): boolean {
     'agent_task.',
     'task.',
     'agent_elicitation_',
+    // A connector's setup card in the conversation (CN5).
+    'connector.setup.',
   ].some((prefix) => eventName.startsWith(prefix));
 }
 
@@ -484,6 +487,11 @@ export function queryInvalidationKeysForEvent({
   // A browser page opened, changed or closed: the Browser tabs and the Work rail refresh.
   if (eventName.startsWith('browser.page.')) {
     keys.push(['browser-pages', endpoint, sessionId]);
+  }
+  // A connector's values, state or scope changed (an agent-set value included, CN6):
+  // its card and everything it starts refresh.
+  if (eventName.startsWith('connector.')) {
+    keys.push(...CONNECTOR_DEPENDENT_READS.map((key) => queryKeys.key(key, endpoint)));
   }
   if (isModelConfigurationEvent(eventName)) {
     keys.push(
