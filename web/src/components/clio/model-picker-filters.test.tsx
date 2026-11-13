@@ -250,20 +250,32 @@ describe('ClioModelPicker filter tokens', () => {
     expect(sdxl).not.toHaveAttribute('aria-selected', 'true');
   });
 
-  it('clicking a row tag adds its token; free + input:pdf narrows to the one match', async () => {
-    const user = await openOpenRouter();
+  it('a row tag is display only and chooses its model; free + input:pdf narrows to the one match', async () => {
+    const onChange = vi.fn();
+    const user = await openOpenRouter(onChange);
 
     const gemma = screen
       .getByText('gemma-free')
       .closest('[data-slot="cascader-item"]') as HTMLElement;
     await user.click(within(gemma).getByRole('img', { name: 'Free' }));
+    // The facet bar filters by tags; a click on one chooses the row's model.
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: expect.stringContaining('gemma-free') }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(tokens()).toEqual(['input:text', 'output:text']);
+    const input = screen.getByRole('combobox', { name: 'Search providers and models' });
+    await user.type(input, 'free ');
     expect(tokens()).toEqual(['input:text', 'output:text', 'free']);
     expect(count()).toHaveTextContent('3 / 7'); // gemma-free, pdf-reader, the free router
 
     const reader = screen
       .getByText('pdf-reader')
       .closest('[data-slot="cascader-item"]') as HTMLElement;
-    await user.click(within(reader).getByRole('img', { name: 'PDF' }));
+    expect(within(reader).getByRole('img', { name: 'PDF' })).toBeVisible();
+    await user.type(input, 'input:pdf ');
     expect(tokens()).toEqual(['input:text', 'output:text', 'free', 'input:pdf']);
     await waitFor(() => expect(modelNames()).toEqual(['pdf-reader']));
   });
