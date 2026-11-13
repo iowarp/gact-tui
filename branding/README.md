@@ -44,7 +44,7 @@ Only `name` is required. The workspace currently consumes:
 | `landing.headline`            | Primary product promise on the connection screen                                                                                               |
 | `landing.description`         | Supporting product description on the connection screen                                                                                        |
 
-| `locales` | Optional copy in other interface languages, keyed by locale: `tagline`, `taglineAccent`, `agentName`, `workspaceNoun`, `landing.*`, `workspace.greeting` |
+| `locales` | Optional copy in other interface languages, keyed by locale: `wordmark`, `tagline`, `taglineAccent`, `agentName`, `workspaceNoun`, `landing.*`, `workspace.greeting` |
 
 The landing fields are deliberately product-owned. Transport versions, replay
 cursors, process topology, and similar implementation details do not belong in
@@ -52,7 +52,9 @@ them.
 
 The interface itself is translated (see [docs/i18n.md](../docs/i18n.md)), but a
 brand's own words are the brand's. `locales` gives them in other languages;
-fields a locale leaves out stay in the base language:
+fields a locale leaves out stay in the base language. A product name such as
+CLIO stays the same in every language. Translate `wordmark` only when it is a
+generic noun, as in the neutral profile's "Workspace". For example:
 
 ```json
 "locales": {
