@@ -70,11 +70,17 @@ export function ToolSettingsTable({
   mode,
   editor,
   label,
+  onOpenTool,
+  openTool,
 }: {
   sections: readonly ToolTableSection[];
   mode: string;
   editor: ToolEditor;
   label: string;
+  /** Each tool's name opens its details. Keep it stable: rows are memoized. */
+  onOpenTool?: (tool: ToolSetting) => void;
+  /** The tool whose details are open, marked selected. */
+  openTool?: string;
 }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const toggle = useCallback(
@@ -169,7 +175,9 @@ export function ToolSettingsTable({
       key={tool.name}
       measure={at ? virtualizer.measureElement : undefined}
       mode={mode}
+      onOpen={onOpenTool}
       position={at?.[1]}
+      selected={openTool === tool.name}
       setSize={at ? section.tools.length : undefined}
       status={editor.status[tool.name]}
       tool={tool}

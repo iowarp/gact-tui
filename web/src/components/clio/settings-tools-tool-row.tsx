@@ -52,7 +52,7 @@ import {
 } from './settings-tools-options';
 import { ValueSummary } from './settings-tools-value-summary';
 
-function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
+export function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
   return (
     <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
       <StatusIndicator
@@ -100,6 +100,8 @@ export const ToolRow = memo(function ToolRow({
   setSize,
   measure,
   fold,
+  onOpen,
+  selected = false,
 }: {
   tool: ToolSetting;
   mode: string;
@@ -114,6 +116,10 @@ export const ToolRow = memo(function ToolRow({
   measure?: (element: Element | null) => void;
   /** The table's fold once measured: parts it hides aren't mounted. Unknown mounts every part. */
   fold?: ToolsFold;
+  /** Opens the tool's details; its name becomes the button. Keep it stable: rows are memoized. */
+  onOpen?: (tool: ToolSetting) => void;
+  /** Its details are open. */
+  selected?: boolean;
 }) {
   // What the container queries show at this fold; every part until the width is known.
   const shows = (from: ToolsFold, below: number = 4) =>
@@ -140,8 +146,10 @@ export const ToolRow = memo(function ToolRow({
       className={cn(
         COLUMNS,
         'group/row relative min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
+        selected && 'bg-hover hover:bg-hover',
       )}
       data-index={index}
+      data-selected={selected || undefined}
       data-tool={tool.name}
       onKeyDown={moveAcrossCells}
       ref={measure}
@@ -155,12 +163,27 @@ export const ToolRow = memo(function ToolRow({
         <kind.icon className="size-4" />
       </span>
       <span className="grid min-w-0 gap-0.5">
-        <span
-          className="truncate font-mono text-menu font-medium text-foreground"
-          title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
-        >
-          {tool.name}
-        </span>
+        {onOpen ? (
+          <button
+            aria-current={selected || undefined}
+            aria-label={`Details for ${tool.name}`}
+            // Above the narrow picker's row-wide hit area, so the name still opens details.
+            className="relative z-10 min-w-0 cursor-pointer justify-self-start truncate rounded-[3px] text-left font-mono text-menu font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            data-tool-open=""
+            onClick={() => onOpen(tool)}
+            title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
+            type="button"
+          >
+            {tool.name}
+          </button>
+        ) : (
+          <span
+            className="truncate font-mono text-menu font-medium text-foreground"
+            title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
+          >
+            {tool.name}
+          </span>
+        )}
         {status?.kind === 'error' ? (
           <span className="truncate text-xs text-destructive" role="alert" title={status.message}>
             {status.message}

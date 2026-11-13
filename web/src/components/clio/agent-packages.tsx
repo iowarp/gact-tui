@@ -12,9 +12,9 @@ import {
   provenanceLabel,
 } from '@/lib/plugin-presentation';
 import { AgentPluginMenu } from './agent-plugin-menu';
+import { PackageItemRow } from './agent-package-item-row';
 import {
   bringsLabel,
-  CATEGORY_ICONS,
   countOf,
   packageItems,
   PACKAGE_CATEGORY,
@@ -291,7 +291,6 @@ function PackageContents({
     >
       <p className="truncate pb-1 text-label text-muted-foreground">{heading}</p>
       {groups.map((group) => {
-        const Icon = CATEGORY_ICONS[group];
         const info = PACKAGE_CATEGORY[group];
         return (
           <ItemList
@@ -305,25 +304,7 @@ function PackageContents({
               </p>
             ) : null}
             {items[group].map((item) => (
-              <ItemRow
-                aria-label={item.id}
-                className="cursor-pointer"
-                data-package-category={group}
-                data-package-item={item.id}
-                icon={<Icon />}
-                key={`${group}:${item.id}`}
-                meta={item.note ? `${item.note}. ${item.description}` : item.description}
-                onClick={() => onOpenItem(item)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  onOpenItem(item);
-                }}
-                role="button"
-                size="line"
-                tabIndex={0}
-                title={item.id}
-              />
+              <PackageItemRow item={item} key={`${group}:${item.id}`} onOpen={onOpenItem} />
             ))}
           </ItemList>
         );
