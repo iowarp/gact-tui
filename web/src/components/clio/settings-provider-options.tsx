@@ -1,6 +1,7 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { Input } from '@/components/ui/input';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { localizeProviderOption } from './settings-schema-copy';
 import { t } from '@lingui/core/macro';
 
 type ConfigurationField = NonNullable<LanguageModelPreset['configuration_fields']>[number];
@@ -32,17 +33,19 @@ export function SettingsProviderOptions({
       {fields.map((field) => {
         const choices = field.options ?? [];
         const id = `provider-option-${field.id}`;
+        const copy = localizeProviderOption(field);
+        const label = copy.label;
         return (
           <SettingsRow
-            description={field.description}
+            description={copy.description}
             dirty={dirty?.has(field.id) ?? false}
             htmlFor={id}
             key={field.id}
-            title={field.label}
+            title={label}
           >
             {choices.length > 0 ? (
               <select
-                aria-label={field.label}
+                aria-label={label}
                 className="h-[1.875rem] w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-menu outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
                 id={id}
                 onChange={(event) => onEdit(field.id, event.target.value)}
@@ -51,13 +54,13 @@ export function SettingsProviderOptions({
               >
                 {choices.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {copy.option(option)}
                   </option>
                 ))}
               </select>
             ) : (
               <Input
-                aria-label={field.label}
+                aria-label={label}
                 className="h-[1.875rem] text-menu"
                 id={id}
                 onChange={(event) => onEdit(field.id, event.target.value)}

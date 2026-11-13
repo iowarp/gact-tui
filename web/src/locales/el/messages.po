@@ -300,6 +300,11 @@ msgstr "{0, plural, one {# απόσπασμα σε {1, plural, one {# ενότη
 msgid "{0, plural, one {# fragment} other {# fragments}}"
 msgstr "{0, plural, one {# απόσπασμα} other {# αποσπάσματα}}"
 
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# hour} other {# hours}}"
+msgstr "{0, plural, one {# ώρα} other {# ώρες}}"
+
 #. placeholder {0}: images.length
 #. placeholder {0}: reading.images.length
 #: src/components/clio/script-run-body.tsx
@@ -655,6 +660,11 @@ msgstr "{0, plural, one {Βρέθηκε # πόρος χώρου εργασίας
 #: src/components/clio/stream-artifact-view.tsx
 msgid "{0, plural, one {# write; keeps the newest {window}.} other {# writes; keeps the newest {window}.}}"
 msgstr "{0, plural, one {# εγγραφή· διατηρεί τις {window} πιο πρόσφατες.} other {# εγγραφές· διατηρεί τις {window} πιο πρόσφατες.}}"
+
+#. placeholder {0}: 1
+#: src/components/clio/settings-schema-copy.ts
+msgid "{0, plural, one {# year} other {# years}}"
+msgstr "{0, plural, one {# έτος} other {# έτη}}"
 
 #. placeholder {0}: preview.rows.length
 #: src/components/clio/csv-view.tsx
@@ -1479,6 +1489,10 @@ msgstr "{count, plural, one {# σχόλιο} other {# σχόλια}}"
 msgid "{count, plural, one {# dataset} other {# datasets}}"
 msgstr "{count, plural, one {# σύνολο δεδομένων} other {# σύνολα δεδομένων}}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# day} other {# days}}"
+msgstr "{count, plural, one {# ημέρα} other {# ημέρες}}"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# entry} other {# entries}}"
 msgstr "{count, plural, one {# καταχώριση} other {# καταχωρίσεις}}"
@@ -1535,6 +1549,10 @@ msgstr "{count, plural, one {# μέλος} other {# μέλη}}"
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "{count, plural, one {# message} other {# messages}}"
 msgstr "{count, plural, one {# μήνυμα} other {# μηνύματα}}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "{count, plural, one {# minute} other {# minutes}}"
+msgstr "{count, plural, one {# λεπτό} other {# λεπτά}}"
 
 #: src/components/clio/settings-usage.tsx
 msgid "{count, plural, one {# older conversation is counted under the model it was set to: they predate per-model usage.} other {# older conversations are counted under the model they were set to: they predate per-model usage.}}"
@@ -4265,6 +4283,10 @@ msgstr "Ένα σενάριο"
 msgid "A script, {caller}"
 msgstr "Ένα σενάριο, {caller}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "A separate browser"
+msgstr "Ξεχωριστό πρόγραμμα περιήγησης"
+
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
 msgstr "Υπάρχει ήδη υπηρεσία με όνομα «{trimmed}»."
@@ -5269,6 +5291,10 @@ msgstr "Μετά από μια σειρά αναζητήσεων και αναγ
 msgid "After a tool runs"
 msgstr "Μετά την εκτέλεση ενός εργαλείου"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "After each completed turn"
+msgstr "Μετά από κάθε ολοκληρωμένο γύρο"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "After existing rules"
 msgstr "Μετά τους υπάρχοντες κανόνες"
@@ -5591,6 +5617,10 @@ msgstr "Όλα στις Ρυθμίσεις"
 #: src/components/clio/settings-usage.tsx
 msgid "All models"
 msgstr "Όλα τα μοντέλα"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "All new and updated memories"
+msgstr "Όλες τις νέες και ενημερωμένες αναμνήσεις"
 
 #: src/components/clio/ndp-organization-filter.tsx
 msgid "All organizations"
@@ -6092,6 +6122,10 @@ msgstr "Σύνδεση API"
 msgid "API URL"
 msgstr "URL του API"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "API version"
+msgstr "Έκδοση API"
+
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -6122,9 +6156,73 @@ msgstr "Εφαρμογή"
 msgid "applied, {lines}, {removed} removed"
 msgstr "εφαρμόστηκε, {lines}, {removed} αφαιρέθηκαν"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at once: open pages close, and the next page opens in the chosen browser."
+msgstr "Ισχύει αμέσως: οι ανοιχτές σελίδες κλείνουν και η επόμενη σελίδα ανοίγει στο επιλεγμένο πρόγραμμα περιήγησης."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next background pass."
+msgstr "Ισχύει στον επόμενο έλεγχο στο παρασκήνιο."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies at the next idle check."
+msgstr "Ισχύει στον επόμενο έλεγχο αδράνειας."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies immediately to inference admission. Active model calls finish; waiting calls use the new limit."
+msgstr "Ισχύει αμέσως για την αποδοχή κλήσεων συμπερασμού. Οι ενεργές κλήσεις μοντέλου ολοκληρώνονται· όσες περιμένουν χρησιμοποιούν το νέο όριο."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next background scheduler pass."
+msgstr "Ισχύει στην επόμενη εκτέλεση του χρονοπρογραμματιστή παρασκηνίου."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies on the next scheduler pass, normally checked once a minute."
+msgstr "Ισχύει στην επόμενη εκτέλεση του χρονοπρογραμματιστή, που κανονικά ελέγχει μία φορά το λεπτό."
+
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Applies to"
 msgstr "Ισχύει για"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to edits proposed from now on."
+msgstr "Ισχύει για τις αλλαγές που προτείνονται από εδώ και πέρα."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to forks made from now on."
+msgstr "Ισχύει για τις διακλαδώσεις που γίνονται από εδώ και πέρα."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to new subagents immediately. Existing descendants remain visible."
+msgstr "Ισχύει αμέσως για νέους υποπράκτορες. Οι υπάρχοντες απόγονοι παραμένουν ορατοί."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to proposals made after the change."
+msgstr "Ισχύει για τις προτάσεις που γίνονται μετά την αλλαγή."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions that start after the change."
+msgstr "Ισχύει για τις συνεδρίες που ξεκινούν μετά την αλλαγή."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to sessions without their own compaction threshold."
+msgstr "Ισχύει για τις συνεδρίες χωρίς δικό τους όριο συμπύκνωσης."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to steps proposed from now on."
+msgstr "Ισχύει για τα βήματα που προτείνονται από εδώ και πέρα."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to subsequent model requests."
+msgstr "Ισχύει για τα επόμενα αιτήματα στο μοντέλο."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies to upcoming session-recall requests."
+msgstr "Ισχύει για τα επόμενα αιτήματα ανάκλησης συνεδριών."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Applies when subsequent responses are saved."
+msgstr "Ισχύει όταν αποθηκεύονται οι επόμενες απαντήσεις."
 
 #: src/components/clio/date-time-field.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -6135,6 +6233,10 @@ msgstr "Εφαρμογή"
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "Apply {label} configuration?"
 msgstr "Εφαρμογή της διαμόρφωσης {label};"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Apply background changes without review"
+msgstr "Εφαρμογή αλλαγών παρασκηνίου χωρίς έλεγχο"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Apply configuration"
@@ -6779,6 +6881,7 @@ msgid "Automatic compaction"
 msgstr "Αυτόματη συμπύκνωση"
 
 #: src/components/clio/context-compaction-controls.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Automatic compaction threshold"
 msgstr "Όριο αυτόματης συμπύκνωσης"
 
@@ -6854,6 +6957,18 @@ msgstr "Αναμονή έγκρισης"
 #: src/components/clio/flow-run-edits.ts
 msgid "awaiting your approval"
 msgstr "αναμένει την έγκρισή σας"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS profile"
+msgstr "Προφίλ AWS"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "AWS region"
+msgstr "Περιοχή AWS"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Azure OpenAI API version."
+msgstr "Έκδοση του API του Azure OpenAI."
 
 #: src/components/clio/clio-menu.tsx
 msgctxt "menu key hint"
@@ -7365,6 +7480,7 @@ msgstr "Περιήγηση…"
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
 #: src/components/clio/workbench-open-request.ts
@@ -7483,6 +7599,10 @@ msgstr "Ενσωματωμένο"
 #: src/components/clio/provider-component-status.tsx
 msgid "Bundled {name}"
 msgstr "Ενσωματωμένο {name}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Bundled Chromium"
+msgstr "Ενσωματωμένο Chromium"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "by {by}"
@@ -8983,6 +9103,10 @@ msgstr "Επιλέξτε πού θα εκτελούνται οι υπηρεσί�
 msgid "Choose whether to connect to the running {agent} or replace it."
 msgstr "Επιλέξτε αν θα συνδεθείτε στον {agent} που εκτελείται ή αν θα τον αντικαταστήσετε."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Choose which new and updated memories save automatically. Retirement needs review."
+msgstr "Επιλέξτε ποιες νέες και ενημερωμένες αναμνήσεις αποθηκεύονται αυτόματα. Η απόσυρση χρειάζεται έλεγχο."
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -9801,6 +9925,10 @@ msgstr "Υπολογιστές"
 msgid "Conclusion"
 msgstr "Συμπέρασμα"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Concurrent subagents"
+msgstr "Ταυτόχρονοι υποπράκτορες"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Conditions"
 msgstr "Συνθήκες"
@@ -9958,7 +10086,7 @@ msgstr "Σύνδεση {label}"
 msgid "Connect {name}"
 msgstr "Σύνδεση {name}"
 
-#: src/components/clio/permission-response.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Connect {source}"
 msgstr "Σύνδεση {source}"
 
@@ -10056,7 +10184,6 @@ msgid "Connect over SSH…"
 msgstr "Σύνδεση μέσω SSH…"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Connect source"
 msgstr "Σύνδεση πηγής"
 
@@ -10381,6 +10508,10 @@ msgstr "Δεν ήταν δυνατή η σύμπτυξη του πλαισίου
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "Τα καρέ πλαισίου δεν είναι διαθέσιμα"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
+msgstr "Πληρότητα πλαισίου στην οποία το {agent} ετοιμάζει περίληψη. Οι προτιμήσεις της συνεδρίας έχουν προτεραιότητα."
 
 #: src/components/clio/context-control.tsx
 msgid "Context length"
@@ -11658,8 +11789,13 @@ msgid "Create GitHub repository"
 msgstr "Δημιουργία αποθετηρίου GitHub"
 
 #: src/components/clio/settings-memory.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Create memories"
 msgstr "Δημιουργία αναμνήσεων"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Create memories from conversations"
+msgstr "Δημιουργία αναμνήσεων από συνομιλίες"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Create organization"
@@ -12110,6 +12246,10 @@ msgstr "Προεπιλεγμένο μοντέλο"
 #: src/components/clio/settings-about.tsx
 msgid "default ref"
 msgstr "προεπιλεγμένο ref"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Default tool timeout"
+msgstr "Προεπιλεγμένο χρονικό όριο εργαλείων"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Default: {defaultBranch}"
@@ -13087,7 +13227,6 @@ msgid "Download selected files"
 msgstr "Λήψη επιλεγμένων αρχείων"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Download source"
 msgstr "Λήψη πηγής"
 
@@ -13359,6 +13498,10 @@ msgstr "Κατάργηση του τελευταίου φίλτρου"
 msgid "Drop them anywhere in this window, or choose files from your device."
 msgstr "Αποθέστε τα οπουδήποτε σε αυτό το παράθυρο ή επιλέξτε αρχεία από τη συσκευή σας."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Drop tokens less likely than this fraction of the most likely one."
+msgstr "Απορρίπτει tokens λιγότερο πιθανά από αυτό το κλάσμα του πιο πιθανού."
+
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
 msgstr "Δημιουργία αντιγράφου κανόνα"
@@ -13567,6 +13710,10 @@ msgstr "Επεξεργάστηκε εξωτερικά"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "editing files"
 msgstr "επεξεργάζεται αρχεία"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Editing rounds"
+msgstr "Γύροι επεξεργασίας"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Editor"
@@ -14125,6 +14272,7 @@ msgid "Execute plan"
 msgstr "Εκτέλεση σχεδίου"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "Εκτέλεση"
 
@@ -14415,6 +14563,10 @@ msgstr "Γεγονότα"
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "Γεγονότα για εσάς που μπορεί να χρησιμοποιήσει κάθε χώρος εργασίας. Αυτός ο διακόπτης ισχύει για {workspaceName}."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Facts I state directly"
+msgstr "Γεγονότα που δηλώνω ρητά"
 
 #: src/components/clio/memory-inbox.tsx
 msgid "Facts to apply, one per line"
@@ -15408,6 +15560,10 @@ msgstr "Διακλαδώθηκε σε νέα συνομιλία"
 msgid "Forking into a new conversation"
 msgstr "Διακλάδωση σε νέα συνομιλία"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Forks per task"
+msgstr "Διακλαδώσεις ανά εργασία"
+
 #: src/components/clio/agent-answer-domain.ts
 msgid "Form request"
 msgstr "Αίτημα φόρμας"
@@ -15907,6 +16063,14 @@ msgstr "Στόχοι"
 msgid "Good response"
 msgstr "Καλή απόκριση"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud location"
+msgstr "Τοποθεσία Google Cloud"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Google Cloud project"
+msgstr "Έργο Google Cloud"
+
 #: src/components/clio/source-fields.tsx
 msgid "Google Drive folder link"
 msgstr "Σύνδεσμος φακέλου Google Drive"
@@ -16214,6 +16378,10 @@ msgstr "Υπερισχύει η υψηλότερη προτεραιότητα. �
 msgid "Higher priority wins. A tie goes to the stricter rule. Rules save together: an invalid set leaves every saved rule unchanged."
 msgstr "Υπερισχύει η υψηλότερη προτεραιότητα. Σε ισοπαλία υπερισχύει ο αυστηρότερος κανόνας. Οι κανόνες αποθηκεύονται μαζί: ένα μη έγκυρο σύνολο αφήνει αμετάβλητους όλους τους αποθηκευμένους κανόνες."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Higher values make replies more varied; lower values more focused."
+msgstr "Υψηλότερες τιμές κάνουν τις απαντήσεις πιο ποικίλες· χαμηλότερες, πιο εστιασμένες."
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr "Tokens εξόδου με την υψηλότερη βαθμολογία, εμφανίζονται {shown} από {total}"
@@ -16361,9 +16529,21 @@ msgstr "Για πόσο"
 msgid "How long ago the model was released"
 msgstr "Πόσο καιρό πριν κυκλοφόρησε το μοντέλο"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "How many levels of subagents may be created. The first child is level 1."
+msgstr "Πόσα επίπεδα υποπρακτόρων μπορούν να δημιουργηθούν. Ο πρώτος θυγατρικός είναι στο επίπεδο 1."
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many replies the server works on at the same time."
+msgstr "Πόσες απαντήσεις επεξεργάζεται ο διακομιστής ταυτόχρονα."
+
 #: src/components/clio/settings-fleet.tsx
 msgid "How many searches and reads in a row before the suggestion, from 2 to 20."
 msgstr "Πόσες διαδοχικές αναζητήσεις και αναγνώσεις πριν από την πρόταση, από 2 έως 20."
+
+#: src/components/clio/settings-models-form.ts
+msgid "How many tokens the model can read at once on this server."
+msgstr "Πόσα tokens μπορεί να διαβάσει το μοντέλο ταυτόχρονα σε αυτόν τον διακομιστή."
 
 #: src/components/clio/settings-working-context.tsx
 msgid "How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn. Max: {reason}."
@@ -16878,6 +17058,10 @@ msgstr "Συμπερίληψη προδημοσιεύσεων. Οι εκδόσε
 msgid "Include quality-flagged stations"
 msgstr "Συμπερίληψη σταθμών με σήμανση ποιότητας"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Include sensitive topics"
+msgstr "Συμπερίληψη ευαίσθητων θεμάτων"
+
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
 msgstr "Συμπερίληψη άγνωστου πλαισίου"
@@ -17341,6 +17525,14 @@ msgstr "Εγκατεστημένο {name}"
 #: src/components/clio/settings-agents.tsx
 msgid "Installed agents"
 msgstr "Εγκατεστημένοι πράκτορες"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Google Chrome"
+msgstr "Εγκατεστημένο Google Chrome"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Installed Microsoft Edge"
+msgstr "Εγκατεστημένο Microsoft Edge"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17862,6 +18054,10 @@ msgstr "Να συνεχίσει να εκτελείται το {product};"
 msgid "Keep {workspace}"
 msgstr "Διατήρηση {workspace}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."
+msgstr "Διατήρηση ξεχωριστού αρχείου πρακτικών δίπλα στην αποθήκευση συνομιλιών. Τα υπάρχοντα αρχεία διατηρούνται."
+
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
 msgid "Keep asking"
@@ -17891,6 +18087,10 @@ msgstr "Διατήρηση"
 #: src/components/clio/model-inventory-row.tsx
 msgid "Keep model"
 msgstr "Διατήρηση μοντέλου"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Keep reasoning supplied by the provider with the saved response, when available."
+msgstr "Διατήρηση του συλλογισμού που παρέχει ο πάροχος μαζί με την αποθηκευμένη απάντηση, όταν υπάρχει."
 
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Keep resource"
@@ -18178,6 +18378,10 @@ msgstr "Μήκος"
 #: src/components/clio/session-behavior-options.ts
 msgid "Let AI review each action."
 msgstr "Αφήστε την ΤΝ να ελέγχει κάθε ενέργεια."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Let background memory keep facts about health, finances, beliefs and similar matters."
+msgstr "Επιτρέπει στη μνήμη παρασκηνίου να κρατά γεγονότα για υγεία, οικονομικά, πεποιθήσεις και παρόμοια θέματα."
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Let running conversations finish"
@@ -19671,9 +19875,25 @@ msgstr "Μεγιστοποίηση καμβά"
 msgid "Maximize or restore"
 msgstr "Μεγιστοποίηση ή επαναφορά"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum nesting depth"
+msgstr "Μέγιστο βάθος ένθεσης"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum reserved or in-flight child model calls at each nesting level. Tools and waits release permits. Agent-specific inference limits may be lower."
+msgstr "Μέγιστος αριθμός δεσμευμένων ή εκτελούμενων κλήσεων μοντέλου θυγατρικών σε κάθε επίπεδο ένθεσης. Τα εργαλεία και οι αναμονές αποδεσμεύουν άδειες. Τα όρια συμπερασμού ανά πράκτορα μπορεί να είναι χαμηλότερα."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum time for a model request. Provider limits may end a request sooner."
+msgstr "Μέγιστος χρόνος για ένα αίτημα στο μοντέλο. Τα όρια του παρόχου μπορεί να το τερματίσουν νωρίτερα."
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "Maximum token"
 msgstr "Μέγιστο token"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Maximum wait between pieces of a streamed response."
+msgstr "Μέγιστη αναμονή ανάμεσα στα τμήματα μιας ροής απάντησης."
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
@@ -19819,10 +20039,15 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των μνημών."
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/tool-result-resource-memory.tsx
 #: src/lib/tool-domain-labels.ts
 msgid "Memory"
 msgstr "Μνήμη"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Memory & history"
+msgstr "Μνήμη και ιστορικό"
 
 #: src/components/clio/settings-memory.tsx
 #: src/lib/application-destinations.ts
@@ -20193,6 +20418,14 @@ msgstr "Μοντέλο για νέα εργασία. Επίσης η προεπ�
 msgid "Model providers"
 msgstr "Πάροχοι μοντέλων"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model request timeout"
+msgstr "Χρονικό όριο αιτήματος μοντέλου"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Model retries"
+msgstr "Επαναλήψεις μοντέλου"
+
 #: src/components/clio/model-download-search.tsx
 msgid "Model search results"
 msgstr "Αποτελέσματα αναζήτησης μοντέλων"
@@ -20436,6 +20669,18 @@ msgstr "Περισσότεροι τρόποι σύνδεσης…"
 #: src/components/clio/provider-login-button.tsx
 msgid "More ways to log in"
 msgstr "Περισσότεροι τρόποι σύνδεσης"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most copies an agent may make of itself to try another direction, per task. Inside a workflow a fork counts as an added step instead."
+msgstr "Μέγιστος αριθμός αντιγράφων που μπορεί να φτιάξει ένας πράκτορας από τον εαυτό του για να δοκιμάσει άλλη κατεύθυνση, ανά εργασία. Μέσα σε ροή εργασιών μια διακλάδωση μετρά ως πρόσθετο βήμα."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most rounds of edits in one workflow run. A workflow may ask for fewer."
+msgstr "Μέγιστος αριθμός γύρων αλλαγών σε μία εκτέλεση ροής εργασιών. Μια ροή εργασιών μπορεί να ζητήσει λιγότερους."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
+msgstr "Μέγιστος αριθμός βημάτων που μπορούν να προσθέσουν οι επεξεργαστές μιας ροής εργασιών σε μία εκτέλεση. Μια ροή εργασιών μπορεί να ζητήσει λιγότερα."
 
 #: src/components/clio/settings-appearance.tsx
 #: src/lib/settings-search-rows.ts
@@ -20816,6 +21061,10 @@ msgstr "Ουδέτερο"
 #: src/widget-gallery-demos.ts
 msgid "Nevada"
 msgstr "Νεβάδα"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Never"
+msgstr "Ποτέ"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "New {workspace}"
@@ -22884,6 +23133,7 @@ msgstr "Θησαυροφυλάκιο Obsidian Sync"
 #: src/components/clio/managed-service-form.tsx
 #: src/components/clio/settings-notifications.tsx
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/reasoning-levels.ts
 msgid "Off"
 msgstr "Ανενεργό"
@@ -22956,6 +23206,7 @@ msgid "Ollama (this computer)"
 msgstr "Ollama (αυτός ο υπολογιστής)"
 
 #: src/components/clio/settings-reminders.tsx
+#: src/components/clio/settings-schema-copy.ts
 msgid "On"
 msgstr "Ενεργό"
 
@@ -23834,6 +24085,10 @@ msgstr "προαιρετικό"
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Προαιρετικό"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Optional shared AWS profile name."
+msgstr "Προαιρετικό όνομα κοινόχρηστου προφίλ AWS."
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -24934,6 +25189,14 @@ msgstr "τη θύρα {port} σε αυτόν τον κεντρικό υπολο�
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "Οι θύρες και η αποθήκευση χρησιμοποιούν τις προεπιλογές αυτού του υπολογιστή. Ανοίξτε τις Ρυθμίσεις για προχωρημένους για να τις αλλάξετε."
 
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values make the model repeat the same words less."
+msgstr "Θετικές τιμές κάνουν το μοντέλο να επαναλαμβάνει λιγότερο τις ίδιες λέξεις."
+
+#: src/components/clio/settings-models-form.ts
+msgid "Positive values push the model toward new topics."
+msgstr "Θετικές τιμές ωθούν το μοντέλο προς νέα θέματα."
+
 #: src/components/clio/document-workspace.tsx
 msgid "PowerPoint deck"
 msgstr "Παρουσίαση PowerPoint"
@@ -25306,6 +25569,10 @@ msgstr "Ιστότοπος προϊόντος"
 msgid "Profile"
 msgstr "Προφίλ"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Profile and preferences are always kept. Other retirement proposals need review."
+msgstr "Το προφίλ και οι προτιμήσεις διατηρούνται πάντα. Οι άλλες προτάσεις απόσυρσης χρειάζονται έλεγχο."
+
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
 msgstr "Το προφίλ αποθηκεύτηκε"
@@ -25326,6 +25593,10 @@ msgstr "Η πρόοδος συνεχίζεται αν κλείσετε αυτό 
 #: src/components/clio/model-acquisition.tsx
 msgid "Progress continues if you close this window."
 msgstr "Η πρόοδος συνεχίζεται αν κλείσετε αυτό το παράθυρο."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Project containing the model."
+msgstr "Το έργο που περιέχει το μοντέλο."
 
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/memory-import-dialog.tsx
@@ -26394,6 +26665,10 @@ msgctxt "verb: tool action"
 msgid "Recall"
 msgstr "Ανάκληση"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Recall earlier messages, separate from saved memories. Retrieved text can add model usage; no background jobs."
+msgstr "Ανάκληση παλαιότερων μηνυμάτων, ξεχωριστά από τις αποθηκευμένες αναμνήσεις. Το κείμενο που ανακτάται μπορεί να αυξήσει τη χρήση μοντέλου· χωρίς εργασίες παρασκηνίου."
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "received a task notice"
 msgstr "έλαβε ειδοποίηση εργασίας"
@@ -26814,6 +27089,10 @@ msgstr "Περιοχή"
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region (% of view)"
 msgstr "Περιοχή (% της προβολής)"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Region containing the model."
+msgstr "Η περιοχή που περιέχει το μοντέλο."
 
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Region height percent"
@@ -28045,6 +28324,18 @@ msgstr "Ζητήθηκε επανεκκίνηση"
 msgid "Restart subagent"
 msgstr "Επανεκκίνηση υποπράκτορα"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service for this change to take effect."
+msgstr "Επανεκκινήστε τη συνδεδεμένη υπηρεσία {agent} για να ισχύσει η αλλαγή."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing model clients."
+msgstr "Επανεκκινήστε τη συνδεδεμένη υπηρεσία {agent} για να ενημερωθούν οι υπάρχοντες πελάτες μοντέλων."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Restart the connected {agent} service to update existing tool clients."
+msgstr "Επανεκκινήστε τη συνδεδεμένη υπηρεσία {agent} για να ενημερωθούν οι υπάρχοντες πελάτες εργαλείων."
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Restart the shell"
 msgstr "Επανεκκίνηση του φλοιού"
@@ -28234,6 +28525,10 @@ msgstr "Διατηρημένα token"
 #: src/components/clio/memory-inbox.tsx
 msgid "Retire"
 msgstr "Απόσυρση"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Retries a temporary provider failure before any response has streamed."
+msgstr "Επαναλαμβάνει μια προσωρινή αποτυχία του παρόχου πριν αρχίσει η ροή της απάντησης."
 
 #: src/components/clio/resource-processing-presentation.ts
 msgid "Retrieval"
@@ -28502,6 +28797,10 @@ msgstr "Έλεγχος πριν από τη δημοσίευση"
 msgid "Review below"
 msgstr "Ελέγξτε παρακάτω"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review every change"
+msgstr "Έλεγχος κάθε αλλαγής"
+
 #: src/lib/pending-interaction-contract.ts
 msgid "Review execution plan"
 msgstr "Έλεγχος σχεδίου εκτέλεσης"
@@ -28545,6 +28844,10 @@ msgstr "Έλεγχος των δεδομένων"
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Review the technical details before using work that depends on this service."
 msgstr "Ελέγξτε τις τεχνικές λεπτομέρειες πριν χρησιμοποιήσετε εργασία που εξαρτάται από αυτήν την υπηρεσία."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Review unused memories after"
+msgstr "Έλεγχος αχρησιμοποίητων αναμνήσεων μετά από"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Reviewing"
@@ -28794,6 +29097,10 @@ msgstr "σε εκτέλεση"
 msgid "Running"
 msgstr "Σε εκτέλεση"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Running browser to connect to"
+msgstr "Ανοιχτό πρόγραμμα περιήγησης για σύνδεση"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "running commands"
 msgstr "εκτελεί εντολές"
@@ -28880,6 +29187,10 @@ msgstr "εκτελεί {target}, προτάθηκε από {by}"
 #: src/lib/mcp-service-presentation.ts
 msgid "Runs a command inside the workspace’s permitted folders."
 msgstr "Εκτελεί μια εντολή μέσα στους επιτρεπόμενους φακέλους του χώρου εργασίας."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Runs after a completed turn or idle delay, at the next background check."
+msgstr "Εκτελείται μετά από ολοκληρωμένο γύρο ή καθυστέρηση αδράνειας, στον επόμενο έλεγχο παρασκηνίου."
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Runs as"
@@ -29024,6 +29335,14 @@ msgstr "Διάρκεια δείγματος (δευτερόλεπτα)"
 msgid "Sample limits"
 msgstr "Όρια δείγματος"
 
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from the most likely tokens whose probabilities add up to this."
+msgstr "Δειγματοληψία μόνο από τα πιο πιθανά tokens των οποίων οι πιθανότητες αθροίζουν σε αυτή την τιμή."
+
+#: src/components/clio/settings-models-form.ts
+msgid "Sample only from this many of the most likely tokens (0 turns it off)."
+msgstr "Δειγματοληψία μόνο από τόσα από τα πιο πιθανά tokens (το 0 το απενεργοποιεί)."
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Sample size"
 msgstr "Μέγεθος δείγματος"
@@ -29165,6 +29484,10 @@ msgstr "Αποθήκευση τοποθεσιών"
 msgid "Save memory"
 msgstr "Αποθήκευση μνήμης"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save model reasoning"
+msgstr "Αποθήκευση συλλογισμού μοντέλου"
+
 #: src/components/clio/resource-dialogs.tsx
 msgid "Save name"
 msgstr "Αποθήκευση ονόματος"
@@ -29204,6 +29527,10 @@ msgstr "Αποθηκεύστε αυτή τη νέα προτροπή πριν τ
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Save to private marketplace"
 msgstr "Αποθήκευση στην ιδιωτική αγορά πρόσθετων"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Save transcript files"
+msgstr "Αποθήκευση αρχείων πρακτικών"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Save typed settings"
@@ -30503,6 +30830,10 @@ msgstr "Στάλθηκε στον πράκτορα ως έγχυση. Η προ�
 msgid "Sent to the agent as an instruction. Its system prompt updates at the next compaction."
 msgstr "Στάλθηκε στον πράκτορα ως οδηγία. Η προτροπή συστήματός του ενημερώνεται στην επόμενη συμπύκνωση."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Separate browser"
+msgstr "Ξεχωριστό πρόγραμμα περιήγησης"
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "Διαχωρίστε τις τιμές με κόμματα"
@@ -30781,6 +31112,10 @@ msgstr "Οι συνεδρίες και τα εργαλεία εκτελούντ�
 #: src/components/clio/settings-schedules.tsx
 msgid "Sessions could not be loaded"
 msgstr "Δεν ήταν δυνατή η φόρτωση των συνεδριών"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Set by the connected service's workspace configuration."
+msgstr "Ορίζεται από τη διαμόρφωση χώρου εργασίας της συνδεδεμένης υπηρεσίας."
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
@@ -31132,6 +31467,7 @@ msgid "Show details"
 msgstr "Εμφάνιση λεπτομερειών"
 
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "Εμφάνιση διάχυσης"
@@ -32641,6 +32977,10 @@ msgstr "Βήματα"
 msgid "Steps ({count})"
 msgstr "Βήματα ({count})"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Steps editors may add"
+msgstr "Βήματα που μπορούν να προσθέσουν οι επεξεργαστές"
+
 #: src/components/clio/plugin-flow-shape.tsx
 msgid "Steps of {label}"
 msgstr "Βήματα του {label}"
@@ -32911,6 +33251,10 @@ msgstr "Ροή δεδομένων"
 msgid "Stream {name}"
 msgstr "Ροή δεδομένων {name}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
+msgstr "Προβολή κάθε βήματος αποθορυβοποίησης ενός μοντέλου διάχυσης (όπως το Mercury) στη θέση του. Αποθηκεύεται μόνο η τελική απάντηση."
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "stream gap"
@@ -32919,6 +33263,10 @@ msgstr "κενό στη ροή δεδομένων"
 #: src/components/clio/status.tsx
 msgid "Stream gap"
 msgstr "Κενό στη ροή δεδομένων"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Stream idle timeout"
+msgstr "Χρονικό όριο αδράνειας ροής"
 
 #: src/components/clio/ndp-capture-result.tsx
 msgid "Stream reader ready. Checkpoint saved."
@@ -33075,6 +33423,7 @@ msgstr "Ο γύρος του υποπράκτορα ολοκληρώθηκε"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/settings-connection-runtime.ts
+#: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "Subagents"
 msgstr "Υποπράκτορες"
@@ -33902,6 +34251,10 @@ msgstr "Το πρόγραμμα περιήγησης απέκλεισε τη ν�
 msgid "The browser blocked this link. It has not been accepted."
 msgstr "Το πρόγραμμα περιήγησης απέκλεισε αυτόν τον σύνδεσμο. Δεν έχει γίνει αποδεκτός."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
+msgstr "Το πρόγραμμα περιήγησης που δείχνει τις σελίδες που ανοίγει ο πράκτορας. Ένα ξεχωριστό πρόγραμμα κρατά τις δικές του συνδέσεις· το ανοιχτό σας Chrome ή Edge έχει τις δικές σας."
+
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
 msgstr "Η εγγραφή της κλήσης δεν είναι διαθέσιμη: {message}"
@@ -34478,6 +34831,10 @@ msgstr "Η πιο πρόσφατη μετατροπή απέτυχε, επομέ
 msgid "The most recent conversion was cancelled, so this structure is from the run before it."
 msgstr "Η πιο πρόσφατη μετατροπή ακυρώθηκε, επομένως αυτή η δομή προέρχεται από την προηγούμενη εκτέλεση."
 
+#: src/components/clio/settings-models-form.ts
+msgid "The most tokens one reply may use."
+msgstr "Τα περισσότερα tokens που μπορεί να χρησιμοποιήσει μία απάντηση."
+
 #: src/components/clio/known-service-actions.tsx
 msgid "The name shown for this service on this device."
 msgstr "Το όνομα που εμφανίζεται για αυτήν την υπηρεσία σε αυτήν τη συσκευή."
@@ -34800,6 +35157,10 @@ msgstr "Η εκτέλεση διακόπηκε"
 #: src/tauri/desktop-updater.ts
 msgid "The runtime is {runtime}. Restore the app and runtime to the same release."
 msgstr "Το περιβάλλον εκτέλεσης είναι {runtime}. Επαναφέρετε την εφαρμογή και το περιβάλλον εκτέλεσης στην ίδια έκδοση."
+
+#: src/components/clio/settings-models-form.ts
+msgid "The same seed and settings repeat the same reply where the server supports it."
+msgstr "Ο ίδιος σπόρος και οι ίδιες ρυθμίσεις επαναλαμβάνουν την ίδια απάντηση, όπου το υποστηρίζει ο διακομιστής."
 
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "The sample catalog did not load."
@@ -36874,6 +37235,10 @@ msgstr "Τα Πρακτικά περιέχουν την καταγεγραμμέ
 msgid "Transcript content in this call"
 msgstr "Περιεχόμενο πρακτικών σε αυτή την κλήση"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Transcript files are required while this service uses in-memory conversation history."
+msgstr "Τα αρχεία πρακτικών απαιτούνται όσο αυτή η υπηρεσία κρατά το ιστορικό συνομιλιών στη μνήμη."
+
 #: src/components/clio/session-export-menu.tsx
 msgid "Transcript is always included"
 msgstr "Τα πρακτικά περιλαμβάνονται πάντα"
@@ -38058,6 +38423,10 @@ msgstr "Χρησιμοποιήστε ZIP μικρότερο από 2 MiB ή πρ
 msgid "Use account memory"
 msgstr "Χρήση μνήμης λογαριασμού"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use conversation history"
+msgstr "Χρήση ιστορικού συνομιλιών"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Use conversation model"
 msgstr "Χρήση μοντέλου συνομιλίας"
@@ -38091,6 +38460,10 @@ msgstr "Χρησιμοποιήστε γράμματα ή αριθμούς."
 msgid "Use local {agent}"
 msgstr "Χρήση τοπικού {agent}"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use memory"
+msgstr "Χρήση μνήμης"
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Use mine"
 msgstr "Χρήση της δικής μου"
@@ -38114,6 +38487,10 @@ msgstr "Χρησιμοποιήστε έναν μόνο προορισμό OpenSS
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Use Reprocess in Derivatives when a document processor is available."
 msgstr "Χρησιμοποιήστε την Επανεπεξεργασία στα Παράγωγα όταν είναι διαθέσιμος επεξεργαστής εγγράφων."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Use saved facts and preferences in later conversations. Turning this off keeps existing memories."
+msgstr "Χρήση αποθηκευμένων γεγονότων και προτιμήσεων σε επόμενες συνομιλίες. Αν το απενεργοποιήσετε, οι υπάρχουσες αναμνήσεις διατηρούνται."
 
 #: src/components/clio/a2ui-map.tsx
 msgid "Use selected location"
@@ -38232,6 +38609,18 @@ msgstr "Χρήση μέχρι στιγμής"
 msgid "used tools"
 msgstr "χρησιμοποίησε εργαλεία"
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used when a tool call has no explicit timeout. A tool can declare its own budget."
+msgstr "Χρησιμοποιείται όταν μια κλήση εργαλείου δεν έχει ρητό χρονικό όριο. Ένα εργαλείο μπορεί να δηλώσει το δικό του."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
+msgstr "Χρησιμοποιείται με ξεχωριστό πρόγραμμα περιήγησης: το ενσωματωμένο Chromium, που κατεβαίνει στην πρώτη χρήση, ή το Chrome ή Edge που είναι εγκατεστημένο σε εκείνον τον υπολογιστή, με δικό του προφίλ."
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
+msgstr "Χρησιμοποιείται με το ανοιχτό σας Chrome ή Edge: {chrome} ή {edge} για αυτό σε εκείνον τον υπολογιστή, αφού ενεργοποιήσετε την απομακρυσμένη αποσφαλμάτωση στο {page} (Chrome 144 ή νεότερο), ή μια διεύθυνση DevTools όπως {address}."
+
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-family-navigation.ts
 #: src/components/clio/conversation-relationships.tsx
@@ -38253,6 +38642,10 @@ msgstr "Όνομα χρήστη"
 #: src/components/clio/service-installation-method.tsx
 msgid "Uses a container runtime on this computer"
 msgstr "Χρησιμοποιεί περιβάλλον εκτέλεσης κοντέινερ σε αυτόν τον υπολογιστή"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Uses background model calls, which count toward model usage. Models are set in Fleet."
+msgstr "Χρησιμοποιεί κλήσεις μοντέλου στο παρασκήνιο, που μετρούν στη χρήση μοντέλου. Τα μοντέλα ορίζονται στον Στόλο."
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Uses it without asking."
@@ -38285,6 +38678,14 @@ msgstr "χρησιμοποιεί εργαλεία"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Utah cluster"
 msgstr "Συστοιχία Utah"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} available"
+msgstr "Η v{version} είναι διαθέσιμη"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} ready"
+msgstr "Η v{version} είναι έτοιμη"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"
@@ -38321,6 +38722,10 @@ msgstr "Τιμή {number}"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "Value. Mean: {MEAN_UNAVAILABLE}"
 msgstr "Τιμή. Μέσος όρος: {MEAN_UNAVAILABLE}"
+
+#: src/components/clio/settings-models-form.ts
+msgid "Values above 1 discourage repeating recent tokens; 1 turns it off."
+msgstr "Τιμές πάνω από 1 αποθαρρύνουν την επανάληψη πρόσφατων tokens· το 1 το απενεργοποιεί."
 
 #: src/gallery-skill-dialog.tsx
 msgid "Values: {values}"
@@ -38496,6 +38901,10 @@ msgstr "Εκδόσεις"
 #: src/components/clio/artifact-lineage-graph.tsx
 msgid "Versions of {name}"
 msgstr "Εκδόσεις του {name}"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Vertex region."
+msgstr "Περιοχή Vertex."
 
 #: src/widget-gallery-demos.ts
 msgid "Vertical displacement chart"
@@ -39163,6 +39572,10 @@ msgstr "Πού εκτελούνται οι υπηρεσίες και τα μον
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Πού ξεκινούν οι συνομιλίες αυτού του χώρου εργασίας και ποιους άλλους φακέλους μπορούν να αλλάξουν οι εντολές τους. Το χρώμα και το εικονίδιο διατηρούνται σε αυτή τη συσκευή."
 
+#: src/components/clio/settings-schema-copy.ts
+msgid "Which browser"
+msgstr "Ποιο πρόγραμμα περιήγησης"
+
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"
 msgstr "Όσο λείπατε"
@@ -39361,6 +39774,7 @@ msgid "Workflow unavailable"
 msgstr "Η ροή εργασιών δεν είναι διαθέσιμη"
 
 #: src/components/clio/composer-references.tsx
+#: src/components/clio/settings-schema-copy.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Workflows"
 msgstr "Ροές εργασιών"
@@ -39917,6 +40331,10 @@ msgstr "Η απάντησή σας επικυρώθηκε και επιστρά�
 #: src/components/clio/settings-tool-detail.tsx
 msgid "Your rules"
 msgstr "Οι κανόνες σας"
+
+#: src/components/clio/settings-schema-copy.ts
+msgid "Your running Chrome or Edge"
+msgstr "Το ανοιχτό σας Chrome ή Edge"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "Your service and saved work were not changed. Reload the workspace to reconnect and try the view again."

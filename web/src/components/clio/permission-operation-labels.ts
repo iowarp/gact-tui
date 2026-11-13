@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { t } from '@lingui/core/macro';
+import { ph, t } from '@lingui/core/macro';
 
 const OPERATIONS: Record<string, string> = {
   fs_read_file: t`Read file`,
@@ -25,6 +25,34 @@ export function permissionOperationLabel(
 ): string | undefined {
   if (name === 'web_fetch' && input.to_file === true) return t`Save web source`;
   return OPERATIONS[name];
+}
+
+/**
+ * A permission's title in the person's words. The agent's legacy titles ("destructive tool
+ * call: fs_write_file") name the known operation instead; any other title is the agent's own.
+ * The decision card and the bell share this, so both read the same in every locale.
+ */
+export function permissionTitle(
+  interaction: PendingInteraction,
+  toolName: string | undefined = interaction.payload?.tool_call?.tool_name ??
+    interaction.source.tool_name,
+): string {
+  const input = interaction.payload?.tool_call?.input;
+  const fields =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+  const legacy =
+    interaction.title === `destructive tool call: ${toolName}` ||
+    interaction.title === `tool call: ${toolName}` ||
+    interaction.title === `external MCP tool call: ${toolName}`;
+  if (!legacy) return interaction.title;
+  if (toolName === 'connected_data_connect')
+    return typeof fields.label === 'string' && fields.label.trim()
+      ? t`Connect ${ph({ source: String(fields.label) })}`
+      : t`Connect source`;
+  if (toolName === 'connected_data_download') return t`Download source`;
+  return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
 }
 
 /** The command a permission would run and the computer it runs on, when the request names them. */
