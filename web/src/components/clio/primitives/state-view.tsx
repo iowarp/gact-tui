@@ -184,7 +184,7 @@ export const StateView = memo(function StateView({
       className={cn(
         'flex min-w-0 text-muted-foreground',
         row
-          ? 'h-7 items-center gap-2 px-2 text-menu whitespace-nowrap'
+          ? 'min-h-7 items-center gap-2 px-2 py-1 text-menu whitespace-nowrap'
           : 'flex-col items-center justify-center gap-2.5 px-4 text-center text-ui',
         size === 'panel' && 'min-h-[170px] py-6',
         size === 'page' && 'min-h-[50vh] py-10',
@@ -218,9 +218,10 @@ export const StateView = memo(function StateView({
         <span
           title={typeof title === 'string' ? title : undefined}
           className={cn(
-            'min-w-0 max-w-full truncate',
-            // A row's title says what failed; its technical detail gives way first.
-            row && 'shrink-0',
+            'min-w-0 max-w-full',
+            // A row's title is a sentence: in a narrow column it wraps rather than hide its
+            // end, and its technical detail gives way first.
+            row ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate',
             !row && 'text-foreground',
           )}
         >
@@ -231,7 +232,7 @@ export const StateView = memo(function StateView({
             title={row ? detail : undefined}
             className={cn(
               row
-                ? 'min-w-0 max-w-full truncate font-mono text-caption text-muted-foreground tabular-nums'
+                ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
                 : // A panel's explanation is a sentence: it wraps rather than hide its end.
                   'max-w-[36ch] text-meta leading-[1.4] text-balance',
             )}
