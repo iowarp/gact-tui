@@ -143,7 +143,7 @@ export const GroupRow = memo(function GroupRow({
           {section.title}
         </h3>
         {section.notice || meta.length || summary ? (
-          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
+          <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-xs whitespace-nowrap text-muted-foreground">
             {section.notice ? (
               <span className="truncate" title={section.notice.title ?? section.notice.text}>
                 {section.notice.text}
@@ -153,7 +153,7 @@ export const GroupRow = memo(function GroupRow({
                 <span
                   className={cn(
                     // The count stays whole; a long server name gives way first.
-                    index === 0 && meta.length > 1 ? 'min-w-0 truncate' : 'shrink-0',
+                    index === 0 && meta.length > 1 ? 'max-w-full min-w-0 truncate' : 'shrink-0',
                   )}
                   key={part}
                   title={part}

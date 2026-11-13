@@ -327,12 +327,19 @@ export function OutcomeModeField({
   const options = [...known, ...other];
   const current = options.find((option) => option.value === value);
   return (
-    <span className={cn('flex min-w-0 shrink-0 items-center gap-2.5', className)}>
+    // Capped at its row: when the label and picker don't fit side by side, the
+    // picker moves under the label instead of pushing the page wider.
+    <span
+      className={cn(
+        'flex max-w-full min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1',
+        className,
+      )}
+    >
       <span className="text-xs whitespace-nowrap text-muted-foreground" id={id}>
         {t`Outcomes in`}
       </span>
       <ChoicePicker
-        className="h-[1.875rem] w-44 pl-2.5"
+        className="h-[1.875rem] w-44 max-w-full pl-2.5"
         icon={current?.icon ?? HelpIcon}
         label={modeLabel(value)}
         name={t`Outcomes in`}

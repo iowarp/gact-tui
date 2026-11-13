@@ -76,11 +76,12 @@ export function McpServiceMeta({ entry }: { entry: McpServiceEntry }) {
     .filter(Boolean)
     .join(', ');
   return (
-    <span title={words}>
-      <span>{origin}</span>
-      {total === undefined ? null : <span className="ml-2.5">{countWords(total)}</span>}
+    // Parts wrap onto their own lines on a narrow row, so the name keeps the width.
+    <span className="flex min-w-0 flex-wrap gap-x-2.5" title={words}>
+      <span className="min-w-0 break-words whitespace-normal">{origin}</span>
+      {total === undefined ? null : <span className="shrink-0">{countWords(total)}</span>}
       {target ? (
-        <span className="ml-2.5 font-mono text-label whitespace-nowrap">{target.short}</span>
+        <span className="max-w-full min-w-0 truncate font-mono text-label">{target.short}</span>
       ) : null}
     </span>
   );
@@ -302,7 +303,8 @@ function McpServiceRow({
       onClick={open}
       onKeyDown={onKeyDown}
       selected={selected}
-      slot={slot}
+      // The slot column exists only while some row needs it, so names get the width.
+      slot={showSlot ? slot : undefined}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       tabIndex={0}
       title={<span title={title}>{title}</span>}

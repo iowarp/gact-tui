@@ -185,12 +185,14 @@ export function SettingsGroupLabel({
   return (
     <div
       className={cn(
-        'mt-4 flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-muted-foreground',
+        // Wraps when the actions don't fit beside the label: they drop under it,
+        // so the label stays whole and nothing runs past the row.
+        'mt-4 flex min-h-7 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-label whitespace-nowrap text-muted-foreground',
         className,
       )}
       data-slot="settings-group-label"
     >
-      <h2 className="min-w-0 truncate font-normal">{children}</h2>
+      <h2 className="max-w-full min-w-0 shrink-0 truncate font-normal">{children}</h2>
       {info ? (
         <InfoTip
           className={cn('text-faint', NARROW_HIDDEN)}
@@ -199,10 +201,14 @@ export function SettingsGroupLabel({
           {info}
         </InfoTip>
       ) : null}
-      <span className="flex-1" />
-      {actions}
-      {onAdd ? (
-        <IconButton icon={<AddIcon />} label={addLabel ?? t`Add`} onClick={onAdd} size="sm" />
+      {actions || onAdd ? (
+        // ml-auto keeps the actions at the right end, also when they wrap under the label.
+        <span className="ml-auto flex max-w-full min-w-0 items-center justify-end gap-2">
+          {actions}
+          {onAdd ? (
+            <IconButton icon={<AddIcon />} label={addLabel ?? t`Add`} onClick={onAdd} size="sm" />
+          ) : null}
+        </span>
       ) : null}
     </div>
   );
