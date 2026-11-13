@@ -73,7 +73,10 @@ function repository(results: McpAppReopenResult[]) {
     updateMcpAppModelContext: vi.fn(),
     postMcpAppMessage: vi.fn(),
     closeMcpApp: vi.fn(async () => undefined),
-    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'fullscreen', pinned: true })),
+    setMcpAppDisplayMode: vi.fn(async () => ({
+      display_mode: 'fullscreen' as const,
+      pinned: true,
+    })),
     pinMcpApp: vi.fn(),
   };
 }

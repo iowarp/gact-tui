@@ -18,7 +18,9 @@ type ViewToolsClient = Pick<ClioRepository, 'updateMcpAppTools' | 'postMcpAppToo
 
 type CallHandler = (call: McpAppToolCallEvent) => void;
 
-const callHandlers = new Map<string, CallHandler>();
+/** Per view, every mount that holds it now; the newest runs the call. A card and a tab
+ * overlap while a frame moves between them, and either may unload first. */
+const callHandlers = new Map<string, CallHandler[]>();
 
 function handlerKey(sessionId: string, appInstanceId: string): string {
   return `${sessionId}:${appInstanceId}`;
@@ -35,7 +37,7 @@ export function dispatchMcpAppToolCallFrame(frame: TransportFrame): void {
   }
   const call = toolCall(payload);
   if (!call) return;
-  callHandlers.get(handlerKey(call.session_id, call.app_instance_id))?.(call);
+  callHandlers.get(handlerKey(call.session_id, call.app_instance_id))?.at(-1)?.(call);
 }
 
 function toolCall(value: unknown): McpAppToolCallEvent | undefined {
@@ -104,11 +106,13 @@ export class McpAppViewTools {
     }
     const key = handlerKey(this.identity.sessionId, this.identity.appInstanceId);
     const handler: CallHandler = (call) => void this.runAgentCall(call);
-    callHandlers.set(key, handler);
-    // A newer mount of the same App (the frame moved between card and tab) may already
-    // hold the key: only this mount's own handler leaves with it.
+    callHandlers.set(key, [...(callHandlers.get(key) ?? []), handler]);
+    // Another mount of the same App (the frame moved between card and tab) may hold the
+    // key too: only this mount's own handler leaves with it, and the other keeps answering.
     this.unregister = () => {
-      if (callHandlers.get(key) === handler) callHandlers.delete(key);
+      const rest = (callHandlers.get(key) ?? []).filter((held) => held !== handler);
+      if (rest.length) callHandlers.set(key, rest);
+      else callHandlers.delete(key);
     };
     void this.refresh();
   }
