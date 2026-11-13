@@ -189,10 +189,16 @@ function declaredTaskMatches(tool: ToolInvocation, context: OperationContext): O
 
 /**
  * A call that did not succeed and recorded no result (failed, stopped, interrupted or with an
- * unrecorded outcome): its error or outcome is what it returned, not a literal null.
+ * unrecorded outcome): its error or outcome is what it returned, not a literal null. An
+ * output that is only an error envelope restates that error; its codes stay in Technical details.
  */
 function endedWithoutOutput(tool: ToolInvocation, output: unknown): boolean {
-  return output === null && tool.state !== 'succeeded';
+  if (tool.state === 'succeeded') return false;
+  const record = asRecord(output);
+  return (
+    output === null ||
+    Boolean(record && Object.keys(record).join() === 'error' && tool.error?.trim())
+  );
 }
 
 /** A read-only semantic projection shared by transcript and Evidence. No fetches or cached indexes. */

@@ -347,6 +347,7 @@ export const ActivityInfoButton = forwardRef<
 export function ActivityNest({
   children,
   label,
+  heading,
   hidden = 0,
   onShowAll,
   showAllLabel,
@@ -354,6 +355,8 @@ export function ActivityNest({
 }: {
   children: ReactNode;
   label: string;
+  /** A quiet line above the rows that says where they came from ("4 calls from this script"). */
+  heading?: ReactNode;
   /** Rows not shown; adds a "Show all N" line. */
   hidden?: number;
   onShowAll?: () => void;
@@ -371,6 +374,15 @@ export function ActivityNest({
       data-slot={flat ? undefined : 'activity-nest'}
       className={flat ? 'contents' : 'ml-[15px] min-w-0 border-l border-border pl-1.5'}
     >
+      {heading && !flat ? (
+        <p
+          aria-hidden="true"
+          data-slot="activity-nest-heading"
+          className="flex h-6 min-w-0 items-center gap-1.5 pl-[30px] text-label whitespace-nowrap text-muted-foreground"
+        >
+          {heading}
+        </p>
+      ) : null}
       {children}
       {hidden > 0 && onShowAll ? (
         <Button

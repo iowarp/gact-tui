@@ -11,6 +11,8 @@ afterEach(() => {
 it('names the thought by its time and offers its recorded headings on the disclosure', () => {
   render(<TranscriptReasoningPassage text="**Reviewing the dataset****Delegating the audit**" />);
   expect(screen.getByText('Thought', { exact: true })).toBeVisible();
+  // The row says what the thought was about; a heading-only thought hides nothing behind it.
+  expect(screen.getByText('Reviewing the dataset Delegating the audit')).toBeVisible();
   const trigger = screen.getByRole('button', {
     name: 'Thinking: Reviewing the dataset Delegating the audit',
   });
@@ -87,7 +89,9 @@ it('preserves literal underscores and the source identity in a complete thought'
     />,
   );
   fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
-  expect(screen.getByText('Review input_values before the next step.')).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+    'Review input_values before the next step.',
+  );
   expect(view.container.querySelector('[data-part-id="r"]')).toHaveAttribute('data-field', 'text');
   expect(view.container.querySelector('[data-content-revision]')).not.toBeNull();
 });

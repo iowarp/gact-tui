@@ -16,8 +16,10 @@ import { PagedBlock } from './tool-result-primitives';
 import { ToolAttentionField } from './tool-attention-fields';
 import { CopyAction } from './tool-compact-row';
 import { toolResultRecord } from './tool-result-shared';
-import { getToolActionLabel } from './tool-presentation';
+import { callerName } from './tool-presentation';
 import type { SandboxBoundary } from './sandbox-boundary';
+
+/** The call a nested call came from, as its row names it: "Run script: Inspect cover". */
 function clock(at: string | undefined): string | undefined {
   if (!at) return undefined;
   const date = new Date(at);
@@ -83,10 +85,19 @@ export function DetailsSection({
 }
 
 /** Line-numbered code in a bordered block; JSON in theme syntax colors. */
-function NumberedCode({ text, json }: { text: string; json: boolean }) {
+export function NumberedCode({
+  text,
+  json,
+  limit = CODE_LINES,
+}: {
+  text: string;
+  json: boolean;
+  /** Lines shown before "N more lines" and Show all. */
+  limit?: number;
+}) {
   const lines = useMemo(() => text.split('\n'), [text]);
   const [all, setAll] = useState(false);
-  const shown = all ? lines : lines.slice(0, CODE_LINES);
+  const shown = all ? lines : lines.slice(0, limit);
   const hidden = lines.length - shown.length;
   return (
     <div
@@ -265,7 +276,13 @@ export function ToolTechnicalDetailsDialog({
   const items: KeyValueItem[] = [
     { label: 'Tool', value: tool.name, mono: true },
     ...(parent
-      ? [{ label: 'Called by', value: getToolActionLabel(parent), title: parent.name }]
+      ? [
+          {
+            label: 'Called by',
+            value: callerName(parent),
+            title: parent.name,
+          },
+        ]
       : []),
     ...(duration !== undefined
       ? [

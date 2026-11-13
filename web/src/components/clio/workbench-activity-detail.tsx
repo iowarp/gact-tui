@@ -37,6 +37,8 @@ import {
   type WorkbenchActivitySource,
 } from './workbench-activity-source';
 import { tabForOpenRequest } from './workbench-open-request';
+import { callerName } from './tool-presentation';
+import { useLiveStore } from '@/store/live-store';
 import type { WorkbenchTab } from './workbench-shared';
 
 type ActivityTab = Extract<WorkbenchTab, { kind: 'activity' }>;
@@ -430,6 +432,9 @@ function ToolDetail({
   interactions: readonly PendingInteraction[];
 }) {
   const output = tool.output_stream ?? (tool.output === undefined ? '' : json(tool.output));
+  const parent = useLiveStore((state) =>
+    tool.parent_call_id ? state.entities.tools[tool.parent_call_id] : undefined,
+  );
   const approval = interactions.find(
     (interaction) =>
       interaction.kind === 'permission' && interaction.source.invocation_id === tool.id,
@@ -437,7 +442,11 @@ function ToolDetail({
   const ranBy: KeyValueItem[] = [
     {
       label: 'Who',
-      value: tool.parent_call_id ? `A script (call ${tool.parent_call_id})` : vocab.agent,
+      value: tool.parent_call_id
+        ? parent
+          ? `A script, ${callerName(parent)}`
+          : 'A script'
+        : vocab.agent,
     },
     {
       label: 'Policy',

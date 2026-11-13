@@ -1,6 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { WrapTextIcon } from 'lucide-react';
-import { CodeBlock } from '@/components/ai-elements/code-block';
+import { CodeBlock, HANGING_SOURCE_WRAP } from '@/components/ai-elements/code-block';
 import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 import { FileSourceOptions } from './file-viewer-context';
@@ -93,11 +93,7 @@ export function FileSourceView({
           // Flush on the page, as the frame spec draws source: no filled panel.
           'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-label [&_:is(pre,code)]:leading-[1.65]',
           wrap
-            ? // Wrapped lines hang past the line numbers and the line's own indent, so a
-              // number marks only its own line and continuation rows keep the indent. The
-              // number and the indent sit outside the inline flow, so a row never breaks
-              // before the line's first word.
-              '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:relative [&_pre_code>span]:min-h-[1.65em] [&_pre_code>span]:[padding-left:calc(3rem_+_var(--indent,0ch))] [&_pre_code>span]:before:absolute [&_pre_code>span]:before:left-0 [&_pre_code>span>[data-indent]]:absolute'
+            ? HANGING_SOURCE_WRAP
             : '[&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',
           headerRow && HEADER_ROW_CLASS,
         )}

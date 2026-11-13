@@ -6,12 +6,17 @@ import type {
   ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
-import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
+import { NestedToolCalls } from './nested-tool-calls';
+import { useScriptCallsRecap } from './script-calls';
+import { imageReach } from './image-reach';
+import { WorkspaceImageThumbnail } from './workspace-image-thumbnail';
+import { ScriptRunBody } from './script-run-body';
+import { isScriptBody } from './script-run';
 import { DelegateCalls } from './delegate-calls';
 import { delegateTone } from './delegate-tone';
 import { TranscriptDiffBody, TranscriptTerminalBody } from './transcript-tool-bodies';
@@ -102,6 +107,7 @@ export function ClioToolInvocation({
     defaultOpen ?? (!compact && !['cancelled', 'interrupted'].includes(tool?.state ?? '')),
   );
   const duration = useToolDuration(tool);
+  const scriptRecap = useScriptCallsRecap(tool?.name === 'run_code' ? tool.id : undefined);
   const boundary = sandboxBoundary(tool?.output);
   useEffect(() => {
     let frame = 0;
@@ -170,6 +176,11 @@ export function ClioToolInvocation({
       );
     operation.subjects = [{ id: 'flow-subject', type: 'text', label: flow.label }];
   }
+  // What a script called, and whether a viewed image reached the model, read from the row.
+  const reach = imageReach(presentedTool);
+  if (scriptRecap) operation.metadata = scriptRecap.label;
+  else if (reach) operation.metadata = reach.label;
+  const recapTitle = scriptRecap?.title ?? reach?.detail;
   const catalogContent = isA2uiCatalogLookup(presentedTool)
     ? (presentedTool.presentation?.blocks ?? [])
         .filter(
@@ -247,19 +258,15 @@ export function ClioToolInvocation({
   const delegateChild = delegateOnly
     ? delegateRun(operation.tasks![0]!.key, tool, navigation?.subagents)
     : undefined;
-  // An opened script lists the calls it made; its source alone is not repeated above them.
-  const sourceOnly =
-    surface !== 'evidence' &&
+  // A script shows its source and what came back; its calls follow as rows one step in.
+  const scriptBody =
+    tool.name === 'run_code' &&
     operation.kind === 'declared' &&
     !flow?.handle &&
-    !failure &&
-    !declaredFailure &&
-    contentBlocks.length > 0 &&
-    contentBlocks.every((block) => block.type === 'code');
+    !waitingFor &&
+    isScriptBody(contentBlocks);
   const questionReading =
     surface !== 'evidence' ? answeredQuestionReading(tool, interactions) : undefined;
-  const gateSource = (node: ReactNode) =>
-    sourceOnly ? <UnlessNestedCalls parentId={tool.id}>{node}</UnlessNestedCalls> : node;
   return (
     <div
       className="min-w-0 scroll-m-6 rounded-[6px] focus:outline-2 focus:outline-offset-2 focus:outline-primary"
@@ -277,6 +284,7 @@ export function ClioToolInvocation({
           onExpandedChange={setResultOpen}
           duration={duration}
           surface={surface}
+          recapTitle={recapTitle}
           waiting={
             waitingFor || tool.state === 'pending' ? (
               <WaitingForYou interaction={waitingFor} />
@@ -305,6 +313,20 @@ export function ClioToolInvocation({
           <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
             {compactBody.kind === 'diff' ? (
               <TranscriptDiffBody block={compactBody.block} subject={subject} />
+            ) : compactBody.kind === 'file' &&
+              compactBody.block.path &&
+              compactBody.block.media_type?.startsWith('image/') ? (
+              <div className="grid min-w-0 gap-1.5 px-2.5 py-2" data-slot="viewed-image">
+                <WorkspaceImageThumbnail
+                  workspaceId={compactBody.block.workspace_id}
+                  image={{
+                    path: compactBody.block.path,
+                    mediaType: compactBody.block.media_type,
+                    sha256: compactBody.block.sha256,
+                  }}
+                />
+                {reach ? <p className="text-meta text-muted-foreground">{reach.detail}</p> : null}
+              </div>
             ) : compactBody.kind === 'file' ? (
               <WorkspaceFilePresentationBlock block={compactBody.block} />
             ) : (
@@ -318,9 +340,12 @@ export function ClioToolInvocation({
               />
             )}
           </ToolDetailsContent>
+        ) : expanded && scriptBody ? (
+          <ToolDetailsContent inline title={`${actionLabel}: Result`}>
+            <ScriptRunBody blocks={contentBlocks} failure={failure} stopped={stopped} />
+          </ToolDetailsContent>
         ) : expanded && !delegateOnly ? (
-          gateSource(
-            <ToolDetailsContent
+          <ToolDetailsContent
               inline
               title={`${actionLabel}: Result`}
               bounded={
@@ -360,8 +385,7 @@ export function ClioToolInvocation({
                   Scope: <PresentationLink block={operation.scope} />
                 </p>
               ) : null}
-            </ToolDetailsContent>,
-          )
+            </ToolDetailsContent>
         ) : null}
         {/* A script's own tool calls are rows one step in under it, not repeated in its result. */}
         {expanded && delegateChild ? (

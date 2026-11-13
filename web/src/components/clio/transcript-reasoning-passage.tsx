@@ -56,6 +56,7 @@ export function TranscriptReasoningPassage({
     .replace(/(\*\*|__)(.*?)\1/gu, '$2')
     .replace(/`([^`]+)`/gu, '$1')
     .trim();
+  const titled = heading.length > 0 && /^\s{0,3}(?:#{1,6}\s|\*\*|__)/u.test(firstLine);
   const name = thoughtName(duration, streaming);
   return (
     <Collapsible
@@ -83,6 +84,10 @@ export function TranscriptReasoningPassage({
             {name}
           </span>
         }
+        // A provider's recorded heading ("**Checking image visibility**") says what the
+        // thought was about; plain reasoning stays folded behind the row.
+        recap={titled ? heading : undefined}
+        recapTitle={titled ? heading : undefined}
         actions={trimmed ? <CopyAction value={trimmed} label="Copy thought" /> : null}
         elapsed={null}
         status={

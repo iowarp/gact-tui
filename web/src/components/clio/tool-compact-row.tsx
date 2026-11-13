@@ -38,9 +38,12 @@ export function ToolCompactRow({
   onExpandedChange,
   info,
   waiting,
+  recapTitle,
 }: {
   tool: ToolInvocation;
   operation: ToolOperation;
+  /** The recap's hover when it says more than its words (why an image did not reach the model). */
+  recapTitle?: string;
   attention?: ReactNode;
   /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
   waiting?: ReactNode;
@@ -221,7 +224,9 @@ export function ToolCompactRow({
       argument={delegate ? delegate.assignment : argument}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
       recap={operation.metadata}
-      recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
+      recapTitle={
+        recapTitle ?? (typeof operation.metadata === 'string' ? operation.metadata : undefined)
+      }
       outcome={outcome}
       outcomeTone="muted"
       outcomeTitle={failureText}
