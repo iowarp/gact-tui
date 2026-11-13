@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { DataReferenceThisButton } from './data-reference-this-button';
 import type { DataZoneReference } from './data-zone-reference';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
+import { DashboardCaptureTargetContext } from './dashboard-capture-action';
 import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
 import { ArtifactReferenceContext } from './artifact-reference-context';
 
@@ -303,6 +304,10 @@ export interface SurfaceToolbarProps {
 /** Renders every affordance `capabilities` declares, in the same order and shape everywhere. */
 export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbarProps) {
   const capture = useContext(A2uiRegionCaptureContext);
+  const dashboard = useContext(DashboardCaptureTargetContext);
+  // A chart's own capture inside a dashboard marks that chart only, and says so (FP-D6).
+  const partOfDashboard = Boolean(dashboard) && !capabilities.captureWholeSurface;
+  const captureLabel = partOfDashboard ? 'Mark regions in this chart' : 'Capture labelled regions';
   const attention = useContext(SurfaceAttentionContext);
   const artifactReference = useContext(ArtifactReferenceContext);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -406,7 +411,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
             <TooltipTrigger asChild>
               <span className="inline-flex">
                 <Button
-                  aria-label="Capture labelled regions"
+                  aria-label={captureLabel}
                   aria-pressed={
                     capture.selectingComponentId !== undefined &&
                     capture.selectingComponentId === capabilities.captureComponentId
@@ -438,7 +443,13 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                       container.dataset.a2uiComponentId ??
                       container.querySelector<HTMLElement>('[data-a2ui-component-id]')?.dataset
                         .a2uiComponentId;
-                    capture.start({ element, title, componentId, reference: buildReference });
+                    capture.start({
+                      element,
+                      title,
+                      componentId,
+                      reference: buildReference,
+                      wider: partOfDashboard ? dashboard : undefined,
+                    });
                   }}
                   size="icon-sm"
                   variant="ghost"
@@ -449,7 +460,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
             </TooltipTrigger>
             <TooltipContent side="bottom">
               {capture.allowed
-                ? 'Capture labelled regions'
+                ? captureLabel
                 : 'Choose a model that accepts images to capture a region'}
             </TooltipContent>
           </Tooltip>

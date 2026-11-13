@@ -538,6 +538,18 @@ export function A2uiRegionCaptureProvider({
               }
               title={target.title}
             >
+              {target.wider && !regions.length ? (
+                <Button
+                  className="mt-2 w-full"
+                  data-capture-wider="true"
+                  onClick={() => target.wider && start(target.wider)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Mark across the whole dashboard
+                </Button>
+              ) : null}
               {attention && regions.length ? (
                 <div className="mt-2 flex items-center gap-2">
                   <Button

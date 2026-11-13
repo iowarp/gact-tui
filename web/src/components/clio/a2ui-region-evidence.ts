@@ -15,6 +15,8 @@ export interface CaptureTarget {
   componentId?: string;
   title: string;
   reference?: () => { summary: string; query?: unknown };
+  /** The whole surface this part sits in (a dashboard around a chart), offered instead. */
+  wider?: CaptureTarget;
 }
 
 export interface CaptureSurface {
@@ -298,7 +300,9 @@ export function regionSource(
   const component = surfaceComponent(surface, target.componentId);
   const viewReference = target.reference?.();
   const activeQuery =
-    viewReference?.query && typeof viewReference.query === 'object' && !Array.isArray(viewReference.query)
+    viewReference?.query &&
+    typeof viewReference.query === 'object' &&
+    !Array.isArray(viewReference.query)
       ? (viewReference.query as Record<string, unknown>)
       : undefined;
   const activeDataQuery = activeQuery?.dataQuery as { filter?: unknown } | undefined;

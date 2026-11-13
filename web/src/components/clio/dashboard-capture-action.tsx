@@ -1,8 +1,14 @@
-import { useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { CameraIcon } from 'lucide-react';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import type { CaptureTarget } from './a2ui-region-evidence';
 import { useFileViewerActions } from './file-viewer-action-context';
+
+/**
+ * The whole dashboard as a capture target, for a chart inside it: the chart's own capture
+ * marks that chart, and offers this one instead (FP-D6).
+ */
+export const DashboardCaptureTargetContext = createContext<CaptureTarget | undefined>(undefined);
 
 /**
  * The frame's … menu row that captures the whole displayed dashboard, with
@@ -27,9 +33,9 @@ export function DashboardCaptureAction({
       start
         ? [
             {
-              label: 'Capture labelled regions',
+              label: 'Mark regions across the dashboard',
               description: allowed
-                ? 'Send the displayed dashboard, with its regions labelled, to the conversation'
+                ? 'Mark regions anywhere on the displayed dashboard, across its charts and views'
                 : 'Choose a model that accepts images to capture a region',
               icon: CameraIcon,
               disabled: !allowed || !target,

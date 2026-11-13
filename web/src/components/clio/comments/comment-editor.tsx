@@ -1,9 +1,10 @@
 import { CheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { RegionCoordinateInputs } from '../region-coordinate-inputs';
+import { placeCommentEditor } from './comment-editor-placement';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -28,7 +29,11 @@ type Box = { x: number; y: number; width: number; height: number };
 /** Whether the heading's title only repeats the quote shown under it. */
 function repeats(title: string, detail?: string): boolean {
   if (!detail) return false;
-  const plain = (text: string) => text.replace(/[“”"…]/g, '').trim().toLowerCase();
+  const plain = (text: string) =>
+    text
+      .replace(/[“”"…]/g, '')
+      .trim()
+      .toLowerCase();
   const head = plain(title);
   return Boolean(head) && plain(detail).startsWith(head);
 }
@@ -60,17 +65,32 @@ export function CommentEditor({
   const [text, setText] = useState(comment);
   const left = near ? near.left + near.width - 260 : window.innerWidth - 432;
   const top = near ? near.top + near.height + 12 : window.innerHeight - 560;
+  const box = useRef<HTMLDivElement>(null);
+  const [placed, setPlaced] = useState({
+    left: clamp(left, 8, Math.max(8, window.innerWidth - 424)),
+    top: clamp(top, 8, Math.max(8, window.innerHeight - 340)),
+  });
+  // Measured once it is drawn, so it opens clear of the comment controls (FP-D6).
+  useLayoutEffect(() => {
+    const own = box.current?.getBoundingClientRect();
+    const tray = document.querySelector('[data-slot="comment-controls"]')?.getBoundingClientRect();
+    if (!own?.width) return;
+    setPlaced(
+      placeCommentEditor({ left, top }, { width: own.width, height: own.height }, tray, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }),
+    );
+  }, [left, top]);
   return (
     <div
+      ref={box}
       aria-label={`Comment on ${label}`}
       className="fixed z-[90] max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
       data-capture-ui="true"
       data-slot="comment-editor"
       role="dialog"
-      style={{
-        left: clamp(left, 8, Math.max(8, window.innerWidth - 424)),
-        top: clamp(top, 8, Math.max(8, window.innerHeight - 340)),
-      }}
+      style={placed}
     >
       <p className="mb-2 text-sm font-semibold">
         {label}

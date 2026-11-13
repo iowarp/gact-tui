@@ -15,7 +15,7 @@ import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-ac
 import { visualCapturePixelRatio } from './a2ui-visual-viewer';
 import { useFileViewerFacts, useFileViewerTitle } from './file-viewer-facts';
 import { cn } from '@/lib/utils';
-import { DashboardCaptureAction } from './dashboard-capture-action';
+import { DashboardCaptureAction, DashboardCaptureTargetContext } from './dashboard-capture-action';
 import { dashboardTabCount } from './dashboard-tabs';
 import { DashboardPresentationContext } from './dashboard-presentation';
 
@@ -160,6 +160,13 @@ export function DashboardView({
     }),
     [reference, report.id],
   );
+  const wholeTarget = useMemo(
+    () =>
+      root && !offline
+        ? { element: root, title: report.title, componentId: 'root', reference: captureReference }
+        : undefined,
+    [root, offline, report.title, captureReference],
+  );
   return (
     <DashboardPresentationContext.Provider value>
       <ArtifactReferenceContext.Provider value={reference}>
@@ -203,19 +210,21 @@ export function DashboardView({
                 )}
               </header>
             )}
-            <ClioA2UISurface
-              surface={surface}
-              catalogRegistry={catalogRegistry}
-              readOnly
-              captureArtifactId={artifactId}
-              visualFeedback={!offline && Boolean(artifactId)}
-              onRemoteAction={async ({ action }) => {
-                // Modal opens locally. Its trigger Button's required action is
-                // not a command against a live chat surface for this saved artifact.
-                if (modalTriggers.has(action.sourceComponentId)) return;
-                throw new Error('Reference this dashboard in the conversation to ask the agent.');
-              }}
-            />
+            <DashboardCaptureTargetContext.Provider value={wholeTarget}>
+              <ClioA2UISurface
+                surface={surface}
+                catalogRegistry={catalogRegistry}
+                readOnly
+                captureArtifactId={artifactId}
+                visualFeedback={!offline && Boolean(artifactId)}
+                onRemoteAction={async ({ action }) => {
+                  // Modal opens locally. Its trigger Button's required action is
+                  // not a command against a live chat surface for this saved artifact.
+                  if (modalTriggers.has(action.sourceComponentId)) return;
+                  throw new Error('Reference this dashboard in the conversation to ask the agent.');
+                }}
+              />
+            </DashboardCaptureTargetContext.Provider>
           </article>
         </A2uiRegionCaptureProvider>
       </ArtifactReferenceContext.Provider>
