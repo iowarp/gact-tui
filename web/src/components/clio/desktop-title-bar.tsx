@@ -70,7 +70,7 @@ import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
-import { isMacOS } from '@/lib/platform';
+import { isMacOS, isWindows } from '@/lib/platform';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
@@ -221,6 +221,7 @@ export function DesktopTitleBar() {
   const [runningAtQuit, setRunningAtQuit] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
+  const [windows] = useState(isWindows);
   const desktopZoom = useDesktopZoom();
   const fullscreenKeys = useShortcutPresentation('fullscreen');
   const queryClient = useQueryClient();
@@ -596,9 +597,15 @@ export function DesktopTitleBar() {
           <AlertDialogHeader>
             <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep {vocab.product} available in{' '}
-              {macOS ? 'the menu bar' : 'the system tray (Windows hidden icons)'}, or quit and stop
-              its local services. Ongoing work can continue only while {vocab.product} is running.
+              Keep {vocab.product} available{' '}
+              {macOS
+                ? 'in the menu bar'
+                : windows
+                  ? 'in the system tray (hidden icons)'
+                  : 'in the system tray, if your desktop shows one'}
+              , or quit and stop its local services. Ongoing work can continue only while{' '}
+              {vocab.product} is running.
+              {macOS || windows ? null : ` Opening ${vocab.product} again brings this window back.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
