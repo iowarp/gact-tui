@@ -133,13 +133,16 @@ export function MemoryImportDialog({
           >
             <div className="flex w-full min-w-0 items-center gap-2">
               <span
-                className="flex h-[1.875rem] min-w-0 flex-1 items-center truncate rounded-md border border-input bg-input/30 px-2.5 font-mono text-meta text-foreground"
+                // Wraps whole at narrow widths: a file name breaks anywhere, "No file" between words.
+                className="flex min-h-[1.875rem] min-w-0 flex-1 items-center rounded-md border border-input bg-input/30 px-2.5 py-1 font-mono text-meta leading-snug text-foreground"
                 title={file?.name}
               >
                 {file ? (
-                  <span className="truncate">{file.name}</span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{file.name}</span>
                 ) : (
-                  <span className="truncate text-faint">{t`No file`}</span>
+                  <span className="min-w-0 break-words text-faint [word-break:auto-phrase]">
+                    {t`No file`}
+                  </span>
                 )}
               </span>
               <Button

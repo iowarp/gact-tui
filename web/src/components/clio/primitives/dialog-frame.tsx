@@ -272,12 +272,13 @@ export const DialogFrame = memo(function DialogFrame({
             // Prose starts under the title text (`.xd .bd`: 16px icon + 10px gap); setting
             // rows start at the frame's 18px edge (settings `.xdb`), whatever the icon.
             // No rule closes it, so a last settings row drops its own too. Its setting rows
-            // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
+            // stay inline (spec `.xdb .xr`): label 36% or its longest word, control the rest.
+            // A row under 18rem (a phone sheet at a larger interface size) stacks instead.
             className={cn(
               'min-w-0 pt-2 pr-[18px] text-ui [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
-              '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              '[&_[data-slot=settings-row]]:@min-[18rem]:grid-cols-[minmax(min-content,36%)_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
               '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
