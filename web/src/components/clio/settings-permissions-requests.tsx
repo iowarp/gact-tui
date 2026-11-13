@@ -5,7 +5,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
-import { permissionOperationLabel } from './permission-operation-labels';
+import {
+  legacyToolCallName,
+  permissionOperationLabel,
+  permissionOperationTitle,
+} from './permission-operation-labels';
 import { permissionReasonText, permissionSummaryText } from './permission-request-text';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
@@ -69,14 +73,17 @@ export function PermissionRequests() {
       <ItemList label={t`Requests`}>
         {rows.map((permission, index) => {
           const status = requestStatus(permission);
-          const operation = permissionOperationLabel(
-            permission.tool_name,
-            inputRecord(permission.input),
-          );
+          const input = inputRecord(permission.input);
+          const operation = permissionOperationLabel(permission.tool_name, input);
           const summary = permission.summary?.trim();
-          const title = summary
-            ? permissionSummaryText(summary)
-            : capitalize(operation || t`Protected action`);
+          // A pending request's summary is the agent's legacy "tool call: name" title, which
+          // says nothing beyond the operation, so it reads as the operation in every locale.
+          const legacy = legacyToolCallName(summary);
+          const title =
+            summary && legacy === undefined
+              ? permissionSummaryText(summary)
+              : (permissionOperationTitle(permission.tool_name || legacy || '', input) ??
+                (permission.tool_name || legacy || t`Protected action`));
           const meta = permissionReasonText(permission.reason);
           return (
             <ItemRow

@@ -219,5 +219,6 @@ function statusLine(
 }
 
 function placeWords(location: string): string {
-  return location === 'Local' ? t`this computer` : location;
+  // Its own message: the header has room for a short form ("τοπικά" in Greek).
+  return location === 'Local' ? t({ message: 'this computer', context: 'agent place' }) : location;
 }

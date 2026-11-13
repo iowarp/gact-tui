@@ -18,6 +18,7 @@ import { StateView } from './primitives/state-view';
 import { SettingsLoadError, UnofferedLine } from './settings-health-load-error';
 import { plainReason } from './settings-health-reason';
 import { RuntimeSettingControl } from './settings-runtime-control';
+import { localizeRuntimeSetting, runtimeGroupLabel } from './settings-schema-copy';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { t, ph } from '@lingui/core/macro';
@@ -229,15 +230,18 @@ export function RuntimeSettingsPanel({
         : (groupInfo[group] ?? t`Choose how context and response history are saved.`);
     return (
       <section
-        aria-label={only ? undefined : group}
+        aria-label={only ? undefined : runtimeGroupLabel(group)}
         className={anchor ? 'scroll-mt-4' : undefined}
         data-settings-anchor={anchor}
       >
         {only && !anchor ? null : (
-          <SettingsGroupLabel info={info || undefined}>{group}</SettingsGroupLabel>
+          <SettingsGroupLabel info={info || undefined}>
+            {runtimeGroupLabel(group)}
+          </SettingsGroupLabel>
         )}
         {source.settings
           .filter((setting) => setting.group === group)
+          .map(localizeRuntimeSetting)
           .map((setting) => {
             const value = draft?.changes[setting.key] ?? displayValue(setting);
             const resetting = draft?.changes[setting.key] === null;

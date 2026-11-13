@@ -14,7 +14,7 @@ import { t } from '@lingui/core/macro';
 /**
  * Setting row (B): label and ⓘ hint on the left, the control on the right, one
  * 44 px line. Explanation lives behind the ⓘ; `note` is a short visible state
- * line under the label ("Following your system, now dark"). Rows take 60% of a
+ * under the label ("Following your system, now dark"). Rows take 60% of a
  * wide page (`fullWidth` keeps the whole width, for a wide control such as a
  * path field) and stack their control under the label when narrow.
  */
@@ -36,7 +36,7 @@ export function SettingsRow({
   description?: ReactNode;
   /** More explanation behind the same ⓘ (source, effect, …). */
   info?: ReactNode;
-  /** Visible state under the label, one line. */
+  /** Visible state under the label; short, but wraps when a translation runs long. */
   note?: ReactNode;
   /** A validation message under the label. */
   error?: ReactNode;
@@ -102,12 +102,12 @@ export function SettingsRow({
             wideControl && 'flex-auto max-[1023px]:in-data-window-content:basis-full',
           )}
         >
-          <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+          {/* A long name (Greek, Japanese) wraps whole rather than ending in an ellipsis. */}
+          <div className="flex min-w-0 items-center gap-1.5">
             {htmlFor ? (
-              // Block, not the label's flex, so a long name ends in an ellipsis.
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 truncate text-ui leading-normal font-normal"
+                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words"
                 data-slot="settings-label"
                 title={title}
               >
@@ -115,7 +115,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 truncate text-ui font-normal"
+                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words"
                 data-slot="settings-label"
                 title={title}
               >
@@ -130,7 +130,11 @@ export function SettingsRow({
           </div>
           {note ? (
             <div
-              className={cn('mt-0.5 truncate text-label text-muted-foreground', NARROW_HIDDEN)}
+              // Wraps rather than cuts: a translated note runs longer than its English.
+              className={cn(
+                'mt-0.5 text-label text-pretty text-muted-foreground [overflow-wrap:anywhere]',
+                NARROW_HIDDEN,
+              )}
               data-slot="settings-note"
             >
               {note}

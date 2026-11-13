@@ -49,6 +49,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * `line` the 30px one-line row (name then muted meta) for pickers, menus and dense lists.
    */
   size?: 'default' | 'sm' | 'line';
+  /**
+   * The meta line may wrap to a second line instead of ending in an ellipsis,
+   * for descriptions that run long in some languages (Greek, Japanese).
+   */
+  wrapMeta?: boolean;
 }
 
 /**
@@ -82,6 +87,7 @@ export const ItemRow = memo(
       slotWidth = 84,
       selected = false,
       size = 'default',
+      wrapMeta = false,
       className,
       style,
       ...rest
@@ -173,7 +179,10 @@ export const ItemRow = memo(
           {meta ? (
             <span
               className={cn(
-                'min-w-0 truncate text-muted-foreground',
+                'min-w-0 text-muted-foreground',
+                wrapMeta && size !== 'line'
+                  ? 'line-clamp-2 leading-snug break-words whitespace-normal'
+                  : 'truncate',
                 size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
               data-slot="item-row-meta"

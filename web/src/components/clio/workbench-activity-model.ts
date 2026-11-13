@@ -14,6 +14,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatCompactBytes } from '@/lib/format';
 import type { EvidenceSource } from './observability-evidence-sources';
+import { permissionTitle } from './permission-operation-labels';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
 import { taskProgressLabel } from './task-progress-label';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
@@ -419,7 +420,7 @@ function interactionRows(interactions: readonly PendingInteraction[]): ActivityI
         kind: 'approval',
         filter: 'approvals',
         group: pending ? 'now' : 'earlier',
-        name: interaction.title || interaction.source.tool_name || t`Approval`,
+        name: permissionTitle(interaction) || interaction.source.tool_name || t`Approval`,
         trailing: pending ? t`approve` : stateWord(interaction.status),
         status: pending ? t`waiting for approval` : stateWord(interaction.status),
         running: false,

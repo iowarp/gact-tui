@@ -8,6 +8,7 @@ import type {
 } from '@clio/core/v3';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { PermissionResponse } from './permission-response';
+import { permissionTitle } from './permission-operation-labels';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStableCallback } from '@/hooks/use-stable-callback';
@@ -407,7 +408,9 @@ function announcement(interaction: PendingInteraction, index: number, total: num
   const words =
     interaction.kind === 'question'
       ? plainQuestionText(questionPrompt(interaction))
-      : interaction.title;
+      : interaction.kind === 'permission'
+        ? permissionTitle(interaction)
+        : interaction.title;
   return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
     .filter(Boolean)
     .join('. ');

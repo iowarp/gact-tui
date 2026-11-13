@@ -30,6 +30,7 @@ import { HostPathPicker } from './host-path-picker';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
 import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 const { agent } = vocab;
 
@@ -302,7 +303,7 @@ function ConnectDialog({
             <InfoTip label={t`About connecting ${label}`}>
               {flowcept
                 ? t`Provide its query API URL and a Flowcept settings file already on this ${agent} host. The file contains its Redis/Mongo connection settings. The external collector remains the sole persistence owner; this client does not start another collector.`
-                : t`Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required.`}{' '}
+                : t`Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required.`}{sentenceGap()}
               {t`Verification and activation are separate actions after connecting.`}
             </InfoTip>
           </div>
