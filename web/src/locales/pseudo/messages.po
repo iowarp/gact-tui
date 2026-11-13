@@ -3673,6 +3673,11 @@ msgstr ""
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr ""
 
+#. Joins sentences of a screen-reader announcement when the first already ends in ? ! or .
+#: src/components/clio/pending-interactions.tsx
+msgid "{text} {sentence}"
+msgstr ""
+
 #. Joins sentences of a screen-reader announcement
 #: src/components/clio/pending-interactions.tsx
 msgid "{text}. {sentence}"

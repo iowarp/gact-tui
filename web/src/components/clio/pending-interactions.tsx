@@ -415,15 +415,30 @@ function announcement(interaction: PendingInteraction, index: number, total: num
         : interaction.title;
   const position = index + 1;
   return [
-    t({ message: `${kind}: ${words}`, comment: 'Screen-reader announcement: request kind, then its title' }),
+    t({
+      message: `${kind}: ${words}`,
+      comment: 'Screen-reader announcement: request kind, then its title',
+    }),
     why,
     total > 1 ? t`${position} of ${total}` : undefined,
   ]
     .filter((sentence): sentence is string => Boolean(sentence))
     .reduce((text, sentence) =>
-      t({ message: `${text}. ${sentence}`, comment: 'Joins sentences of a screen-reader announcement' }),
+      // A title that already ends a sentence ("…flat-ndp?") takes no second stop.
+      SENTENCE_END.test(text)
+        ? t({
+            message: `${text} ${sentence}`,
+            comment:
+              'Joins sentences of a screen-reader announcement when the first already ends in ? ! or .',
+          })
+        : t({
+            message: `${text}. ${sentence}`,
+            comment: 'Joins sentences of a screen-reader announcement',
+          }),
     );
 }
+
+const SENTENCE_END = /[?!.。？！]\s*$/u;
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
   if (!map.has(key)) return map;
