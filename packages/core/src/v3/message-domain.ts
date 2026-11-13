@@ -148,6 +148,10 @@ export type MessageBlock = MessageBlockContext &
         data_ref: string;
         mime_type: string;
         height?: number;
+        /** The mode the part was made in; the descriptor has the current one. */
+        display_mode?: 'inline' | 'fullscreen';
+        /** The tool's human title, when it declares one. */
+        title?: string;
       }
     | { id: string; type: 'citation'; label: string; uri: string }
     | { id: string; type: 'diff'; path: string; unified_diff: string }

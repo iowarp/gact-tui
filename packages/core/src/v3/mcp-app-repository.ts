@@ -2,8 +2,11 @@ import { z } from 'zod';
 import type {
   McpAppCall,
   McpAppDescriptor,
+  McpAppDisplayMode,
   McpAppIdentity,
   McpAppMessageAcknowledgement,
+  McpAppPlacementState,
+  McpAppSavedDownload,
   McpAppOpenFromCallResult,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
@@ -21,6 +24,29 @@ const descriptorSchema = z.object({
   tool_input: z.record(z.string(), z.unknown()).default({}),
   tool_result: z.record(z.string(), z.unknown()).default({}),
   sandbox_url: z.string().url(),
+  display_mode: z.enum(['inline', 'fullscreen']).default('inline'),
+  pinned: z.boolean().default(false),
+  service_url: z.string().url().nullable().optional(),
+  service_refusal: z.object({ reason: z.string(), message: z.string() }).nullable().optional(),
+  csp_refused: z
+    .array(z.object({ directive: z.string(), source: z.string(), reason: z.string() }))
+    .optional(),
+});
+
+const placementSchema = z.object({
+  display_mode: z.enum(['inline', 'fullscreen']),
+  pinned: z.boolean(),
+});
+
+const downloadSchema = z.object({
+  files: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      artifact_id: z.string(),
+      artifact_skipped: z.string().optional(),
+    }),
+  ),
 });
 
 const acknowledgementSchema = z.object({
@@ -118,6 +144,21 @@ export class McpAppRepository extends InteractionRepository {
     });
   }
 
+  /** Record where the App's one frame is (MA4); `fullscreen` pins the record (MA6). */
+  public setMcpAppDisplayMode(
+    identity: McpAppIdentity,
+    mode: McpAppDisplayMode,
+    signal?: AbortSignal,
+  ): Promise<McpAppPlacementState> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/display-mode'),
+      body: { mode },
+      decode: (value) => placementSchema.parse(value),
+      signal,
+    });
+  }
+
   /** Replay a view's saved opening call; a failed replay is a result, not a throw. */
   public reopenMcpApp(
     sessionId: string,
@@ -152,6 +193,36 @@ export class McpAppRepository extends InteractionRepository {
           (value as { server_tools?: unknown } | null)?.server_tools,
         ),
       }),
+      signal,
+    });
+  }
+
+  /** Pin or unpin an App mounted in an A2UI surface (MA5/MA6). */
+  public pinMcpApp(
+    identity: McpAppIdentity,
+    pinned: boolean,
+    signal?: AbortSignal,
+  ): Promise<McpAppPlacementState> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/pin'),
+      body: { pinned },
+      decode: (value) => placementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Save a view's `ui/download-file` contents into the session's workspace (MA16). */
+  public saveMcpAppDownload(
+    identity: McpAppIdentity,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<{ files: McpAppSavedDownload[] }> {
+    return this.transport.request({
+      method: 'POST',
+      path: appPath(identity, '/downloads'),
+      body: params,
+      decode: (value) => downloadSchema.parse(value),
       signal,
     });
   }

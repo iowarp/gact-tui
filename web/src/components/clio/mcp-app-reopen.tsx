@@ -4,43 +4,35 @@ import {
   type McpAppReopenedView,
   type McpAppSavedCall,
 } from '@clio/core/v3';
-import { AlertTriangleIcon, PanelsTopLeftIcon, RotateCcwIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangleIcon, PanelsTopLeftIcon } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { McpAppSurface } from './mcp-app-surface';
-import { setReopenedMcpApp, useReopenedMcpApp } from './mcp-app-reopen-store';
+import { useRepository } from '@/hooks/use-repository';
+import { McpAppCard } from './mcp-app-card';
+import type { McpAppBlockFields } from './mcp-app-host-hooks';
+import {
+  markMcpAppEnded,
+  mcpAppLabel,
+  noteMcpApp,
+  openMcpAppInTab,
+  useMcpAppLiveSetStore,
+  useMcpAppPresence,
+} from './mcp-app-live-set';
+import {
+  formatArguments,
+  replaceReopenedMcpApp,
+  setReopenedMcpApp,
+  useMcpAppHeld,
+  useReopenedMcpApp,
+} from './mcp-app-reopen-store';
+import { McpAppTabPanel } from './mcp-app-tab-panel';
 import { humanizeToolName } from './tool-presentation';
+import { mcpAppTab, type McpAppTabTarget, type WorkbenchTab } from './workbench-shared';
 
 type ReopenClient = Pick<ClioRepository, 'reopenMcpApp'>;
-
-/**
- * Whether CLIO still holds a card's own view. Asked before mounting so that a
- * closed view reads as closed rather than as a failed descriptor request.
- */
-function useHeld(
-  repository: Pick<ClioRepository, 'mcpAppLive'>,
-  sessionId: string,
-  appInstanceId: string,
-  dataRef: string,
-  wanted: boolean,
-): boolean | undefined {
-  const [held, setHeld] = useState<{ key: string; value: boolean }>();
-  const key = `${sessionId}\n${appInstanceId}\n${dataRef}`;
-  useEffect(() => {
-    if (!wanted) return;
-    const controller = new AbortController();
-    void repository
-      .mcpAppLive({ sessionId, appInstanceId, dataRef }, controller.signal)
-      // An unreachable CLIO lets the surface mount and report its own error.
-      .catch(() => true)
-      .then((value) => {
-        if (!controller.signal.aborted) setHeld({ key, value });
-      });
-    return () => controller.abort();
-  }, [appInstanceId, dataRef, key, repository, sessionId, wanted]);
-  return held?.key === key ? held.value : undefined;
-}
 
 function McpAppPending() {
   return (
@@ -62,6 +54,8 @@ export interface McpAppReopenLineProps {
   appInstanceId: string;
   /** Replay at once instead of waiting for the person (a restored tab on first focus). */
   autoReopen?: boolean;
+  /** The App's name (its tool's title); the tool's name when absent. */
+  label?: string;
   onReopened: (view: McpAppReopenedView, savedCall: McpAppSavedCall | null) => void;
   repository: ReopenClient;
   sessionId: string;
@@ -106,7 +100,7 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
         setState({
           phase: 'failed',
           reason: 'request_failed',
-          detail: thrown instanceof Error ? thrown.message : 'CLIO could not be reached.',
+          detail: thrown instanceof Error ? thrown.message : `${vocab.agent} could not be reached.`,
           savedCall: null,
         });
       });
@@ -118,7 +112,8 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
     reopen();
   }, [autoReopen, reopen]);
 
-  const displayName = humanizeToolName(props.toolName || props.sourceServer || 'interactive_tool');
+  const displayName =
+    props.label || humanizeToolName(props.toolName || props.sourceServer || 'interactive_tool');
   if (state.phase === 'failed') {
     const retryable =
       state.reason === 'request_failed' || MCP_APP_RETRYABLE_REOPEN_REASONS.has(state.reason);
@@ -131,7 +126,7 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
           {state.savedCall ? <SavedCallLine call={state.savedCall} /> : null}
           {retryable ? (
             <Button className="justify-self-start" onClick={reopen} size="sm" variant="outline">
-              <RotateCcwIcon aria-hidden="true" />
+              <RetryIcon aria-hidden="true" />
               Retry
             </Button>
           ) : null}
@@ -151,7 +146,7 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
         {reopening ? 'Reopening' : 'View closed'}
       </span>
       <Button disabled={reopening} onClick={reopen} size="sm" variant="outline">
-        <RotateCcwIcon aria-hidden="true" />
+        <RetryIcon aria-hidden="true" />
         Reopen
       </Button>
     </div>
@@ -172,77 +167,162 @@ export function SavedCallLine({ call }: { call: McpAppSavedCall }) {
   );
 }
 
-export function formatArguments(call: McpAppSavedCall): string {
-  if (!call.arguments) return 'arguments not saved';
-  const entries = Object.entries(call.arguments);
-  if (!entries.length) return 'no arguments';
-  const text = entries.map(([name, value]) => `${name}: ${JSON.stringify(value)}`).join(', ');
-  return text.length > 240 ? `${text.slice(0, 239)}…` : text;
-}
-
-export interface McpAppCardProps {
-  appInstanceId: string;
-  dataRef: string;
-  height?: number;
-  /** Whether the transcript keeps this card's own view live. */
-  live: boolean;
-  repository: ClioRepository;
-  resourceUri: string;
-  sessionId: string;
-  sourceServer: string;
-  toolName: string;
-}
-
-/** A transcript card for one MCP App: its view, or the line that reopens it. */
-export function McpAppCard(props: McpAppCardProps) {
-  const { appInstanceId, sessionId } = props;
-  const reopened = useReopenedMcpApp(sessionId, appInstanceId);
-  // The view this card shows: the one it reopened, else its own while the transcript keeps it.
-  const target =
-    reopened ??
-    (props.live
-      ? {
-          appInstanceId,
-          dataRef: props.dataRef,
-          resourceUri: props.resourceUri,
-          sourceServer: props.sourceServer,
-          toolName: props.toolName,
-        }
-      : undefined);
-  const held = useHeld(
-    props.repository,
+function viewTarget(view: McpAppReopenedView, sessionId: string, title?: string): McpAppTabTarget {
+  return {
+    label: mcpAppLabel(view.toolName, view.sourceServer, title),
+    appInstanceId: view.appInstanceId,
+    dataRef: view.dataRef,
     sessionId,
-    target?.appInstanceId ?? '',
-    target?.dataRef ?? '',
-    Boolean(target),
+    resourceUri: view.resourceUri,
+    sourceServer: view.sourceServer,
+    toolName: view.toolName,
+  };
+}
+
+/**
+ * A transcript card for one MCP App, with reopening (MA19). The card shows the
+ * view it reopened when it has one, else its own. A view CLIO no longer holds,
+ * or an older card the live set closed, is the line that reopens it.
+ */
+export function McpAppReopenableCard({
+  block,
+  repository,
+  sessionId,
+}: {
+  block: McpAppBlockFields;
+  repository?: ClioRepository;
+  sessionId?: string;
+}) {
+  const session = sessionId ?? '';
+  const reopened = useReopenedMcpApp(session, block.app_instance_id);
+  const effective = useMemo<McpAppBlockFields>(
+    () =>
+      reopened
+        ? {
+            ...block,
+            app_instance_id: reopened.appInstanceId,
+            data_ref: reopened.dataRef,
+            resource_uri: reopened.resourceUri,
+            source_server: reopened.sourceServer,
+            tool_name: reopened.toolName,
+          }
+        : block,
+    [block, reopened],
   );
+  const { placement, latest } = useMcpAppPresence(effective.app_instance_id, session);
+  const wantsFrame = placement === 'inline' && (latest || Boolean(reopened));
+  const held = useMcpAppHeld(
+    repository,
+    session,
+    effective.app_instance_id,
+    effective.data_ref,
+    wantsFrame && Boolean(repository && sessionId),
+  );
+  useEffect(() => {
+    if (held === false) markMcpAppEnded(effective.app_instance_id);
+  }, [effective.app_instance_id, held]);
   const onReopened = useCallback(
-    (view: McpAppReopenedView) => setReopenedMcpApp(sessionId, appInstanceId, view),
-    [appInstanceId, sessionId],
+    (view: McpAppReopenedView) => {
+      const target = viewTarget(view, session, block.title);
+      setReopenedMcpApp(session, block.app_instance_id, view);
+      noteMcpApp(target, repository);
+      if (view.displayMode === 'fullscreen') openMcpAppInTab(target, repository);
+    },
+    [block.app_instance_id, block.title, repository, session],
   );
-  const line = (
-    <McpAppReopenLine
-      appInstanceId={appInstanceId}
-      onReopened={onReopened}
-      repository={props.repository}
-      sessionId={sessionId}
-      sourceServer={props.sourceServer}
-      toolName={props.toolName}
-    />
-  );
-  if (!target || held === false) return line;
-  if (held === undefined) return <McpAppPending />;
+
+  if (!repository || !sessionId) {
+    return <McpAppCard block={block} repository={repository} sessionId={sessionId} />;
+  }
+  const closed = placement === 'ended' || held === false || (placement === 'inline' && !wantsFrame);
+  if (closed) {
+    return (
+      <McpAppReopenLine
+        appInstanceId={block.app_instance_id}
+        label={mcpAppLabel(block.tool_name, block.source_server, block.title)}
+        onReopened={onReopened}
+        repository={repository}
+        sessionId={sessionId}
+        sourceServer={block.source_server}
+        toolName={block.tool_name}
+      />
+    );
+  }
+  if (wantsFrame && held === undefined) return <McpAppPending />;
   return (
-    <McpAppSurface
-      appInstanceId={target.appInstanceId}
-      dataRef={target.dataRef}
-      endedFallback={line}
-      height={props.height}
-      repository={props.repository}
-      resourceUri={target.resourceUri}
+    <McpAppCard
+      block={effective}
+      reopened={Boolean(reopened)}
+      repository={repository}
       sessionId={sessionId}
-      sourceServer={target.sourceServer}
-      toolName={target.toolName}
     />
+  );
+}
+
+/**
+ * An App tab (MA1) that may have been restored after CLIO restarted (MA19).
+ * While CLIO holds the view it is the ordinary tab panel. A restored tab whose
+ * view CLIO no longer holds replays its saved call the first time it is shown,
+ * then becomes the fresh view's tab; a failed replay stays in the tab with the
+ * reason, the saved call and Retry.
+ */
+export function McpAppRestoringTab({
+  onReplaceTab,
+  target,
+}: {
+  onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
+  target: McpAppTabTarget;
+}) {
+  const repository = useRepository();
+  const gone = useMcpAppLiveSetStore((state) => state.apps[target.appInstanceId]?.gone === true);
+  const held = useMcpAppHeld(
+    repository,
+    target.sessionId,
+    target.appInstanceId,
+    target.dataRef,
+    true,
+  );
+  const [shown, setShown] = useState(false);
+  const frame = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = frame.current;
+    if (!element || shown) return;
+    // A hidden tab panel is `display: none`, so it has no size until it is first shown.
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth > 0) setShown(true);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [shown]);
+  const onReopened = useCallback(
+    (view: McpAppReopenedView) => {
+      const next = viewTarget(view, target.sessionId);
+      next.label = target.label;
+      replaceReopenedMcpApp(target.sessionId, target.appInstanceId, view);
+      markMcpAppEnded(target.appInstanceId);
+      noteMcpApp(next, repository, 'tab');
+      onReplaceTab(`mcp-app:${target.appInstanceId}`, mcpAppTab(next));
+    },
+    [onReplaceTab, repository, target],
+  );
+
+  if (held === true && !gone) return <McpAppTabPanel target={target} />;
+  return (
+    <div className="grid h-full min-h-0 content-start p-4" ref={frame}>
+      {held === undefined ? (
+        <McpAppPending />
+      ) : (
+        <McpAppReopenLine
+          appInstanceId={target.appInstanceId}
+          autoReopen={shown && !gone}
+          label={target.label}
+          onReopened={onReopened}
+          repository={repository}
+          sessionId={target.sessionId}
+          sourceServer={target.sourceServer}
+          toolName={target.toolName}
+        />
+      )}
+    </div>
   );
 }

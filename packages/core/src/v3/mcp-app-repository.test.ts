@@ -53,23 +53,58 @@ describe('ClioRepository MCP App adapter', () => {
     expect(JSON.stringify(transport.requests)).not.toContain('<main>viewer</main>');
   });
 
+  it('moves, pins and saves downloads through the same capability', async () => {
+    const transport = new RecordingTransport([
+      { display_mode: 'fullscreen', pinned: true },
+      { display_mode: 'inline', pinned: true },
+      { files: [{ name: 'plot.svg', path: 'plot.svg', artifact_id: 'art_1' }] },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.setMcpAppDisplayMode(identity, 'fullscreen')).resolves.toEqual({
+      display_mode: 'fullscreen',
+      pinned: true,
+    });
+    await repository.pinMcpApp(identity, true);
+    const saved = await repository.saveMcpAppDownload(identity, { contents: [] });
+
+    expect(saved.files[0]?.path).toBe('plot.svg');
+    expect(
+      transport.requests.map((request) => [request.method, request.path, request.body]),
+    ).toEqual([
+      [
+        'PUT',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/display-mode?data_ref=opaque%20capability',
+        { mode: 'fullscreen' },
+      ],
+      [
+        'PUT',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/pin?data_ref=opaque%20capability',
+        { pinned: true },
+      ],
+      [
+        'POST',
+        '/v1/sessions/session%20root/mcp-apps/app%2Fone/downloads?data_ref=opaque%20capability',
+        { contents: [] },
+      ],
+    ]);
+  });
+
   it('opens a view from a call and decodes a typed failure with the call to retry', async () => {
     const part = {
+      id: 'p1',
       type: 'mcp_app',
       app_instance_id: 'app_1',
       data_ref: 'ref_1',
       resource_uri: 'ui://clock/view',
       source_server: 'clock',
       tool_name: 'clock_open',
+      metadata: {},
     };
     const call = { server: 'clock', tool: 'open', arguments: { time: 3 } };
     const transport = new RecordingTransport([
-      {
-        part: { ...part, id: 'p1', metadata: {} },
-        saved_call: call,
-        server_tools: ['open', 'set_time'],
-      },
-      { error: { reason: 'mcp_app_tool_not_found', detail: 'no tool' }, saved_call: call },
+      { part, saved_call: call, server_tools: ['open', 'set_time'] },
+      { error: { reason: 'tool_unavailable', detail: 'not connected' }, saved_call: call },
     ]);
     const repository = new ClioRepository(transport);
 
@@ -81,9 +116,8 @@ describe('ClioRepository MCP App adapter', () => {
     });
     await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toMatchObject({
       ok: false,
-      reason: 'mcp_app_tool_not_found',
-      detail: 'no tool',
-      savedCall: { server: 'clock', tool: 'open' },
+      reason: 'tool_unavailable',
+      detail: 'not connected',
       serverTools: [],
     });
     expect(transport.requests[0]).toMatchObject({

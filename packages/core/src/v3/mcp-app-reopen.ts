@@ -64,6 +64,7 @@ const reopenResponseSchema = z.union([
         resource_uri: z.string(),
         source_server: z.string(),
         tool_name: z.string().default(''),
+        display_mode: displayModeSchema.optional(),
         metadata: z.object({ display_mode: displayModeSchema.optional() }).passthrough().default({}),
       })
       .passthrough(),
@@ -92,7 +93,8 @@ export function decodeMcpAppReopen(value: unknown): McpAppReopenResult {
       resourceUri: part.resource_uri,
       sourceServer: part.source_server,
       toolName: part.tool_name,
-      displayMode: part.metadata.display_mode ?? savedCall?.display_mode ?? 'inline',
+      displayMode:
+        part.display_mode ?? part.metadata.display_mode ?? savedCall?.display_mode ?? 'inline',
     },
   };
 }

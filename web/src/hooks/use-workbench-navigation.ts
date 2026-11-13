@@ -5,6 +5,8 @@ import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge
 import { OPEN_VARIANT_TRY_EVENT, type OpenVariantTryDetail } from '@/lib/variant-try-tabs';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
+import { OPEN_MCP_APP_TAB_EVENT } from '@/components/clio/mcp-app-live-set';
+import type { McpAppTabTarget } from '@/components/clio/workbench-shared';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
@@ -143,6 +145,14 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     };
     window.addEventListener(OPEN_BROWSER_PAGE_EVENT, show);
     return () => window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, show);
+  }, [revealWorkbench]);
+
+  useEffect(() => {
+    const show = (event: Event) => {
+      revealWorkbench({ kind: 'mcp-app', app: (event as CustomEvent<McpAppTabTarget>).detail });
+    };
+    window.addEventListener(OPEN_MCP_APP_TAB_EVENT, show);
+    return () => window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, show);
   }, [revealWorkbench]);
 
   useEffect(() => {
