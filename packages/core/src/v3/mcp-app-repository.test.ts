@@ -69,14 +69,18 @@ describe('ClioRepository MCP App adapter', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toEqual({
-      part,
-      saved_call: call,
-      server_tools: ['open', 'set_time'],
+    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toMatchObject({
+      ok: true,
+      view: { appInstanceId: 'app_1', dataRef: 'ref_1', sourceServer: 'clock' },
+      savedCall: { server: 'clock', tool: 'open', arguments: { time: 3 } },
+      serverTools: ['open', 'set_time'],
     });
-    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toEqual({
-      error: { reason: 'mcp_app_tool_not_found', detail: 'no tool' },
-      saved_call: call,
+    await expect(repository.openMcpAppFromCall('s 1', call)).resolves.toMatchObject({
+      ok: false,
+      reason: 'mcp_app_tool_not_found',
+      detail: 'no tool',
+      savedCall: { server: 'clock', tool: 'open' },
+      serverTools: [],
     });
     expect(transport.requests[0]).toMatchObject({
       method: 'POST',

@@ -1,3 +1,5 @@
+import type { McpAppReopenResult } from './mcp-app-reopen.js';
+
 /** Public descriptor used to host one server-owned MCP App instance. */
 export interface McpAppDescriptor {
   protocol_version: string;
@@ -32,23 +34,5 @@ export interface McpAppCall {
   arguments: Record<string, unknown>;
 }
 
-/** A view opened from a call, outside the transcript (an A2UI surface, a reopen). */
-export interface McpAppOpened {
-  part: {
-    type: 'mcp_app';
-    app_instance_id: string;
-    data_ref: string;
-    resource_uri: string;
-    source_server: string;
-    tool_name: string;
-  };
-  saved_call: McpAppCall;
-  /** The server's tools the view may call, without the server's prefix. */
-  server_tools: string[];
-}
-
-/** Why a call could not open its view, with the call so the person can retry. */
-export interface McpAppOpenFailure {
-  error: { reason: string; detail: string };
-  saved_call: McpAppCall;
-}
+/** A view opened from a call (the reopen answer), with the server tools the view may call. */
+export type McpAppOpenFromCallResult = McpAppReopenResult & { serverTools: string[] };

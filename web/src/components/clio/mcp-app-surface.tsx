@@ -5,7 +5,7 @@ import {
   type McpAppIdentity,
 } from '@clio/core/v3';
 import { AlertTriangleIcon, CornerDownRightIcon, PanelsTopLeftIcon } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,6 +35,8 @@ interface JsonRpcMessage {
 export interface McpAppSurfaceProps {
   appInstanceId: string;
   dataRef: string;
+  /** Shown instead of the closed-view line once CLIO no longer holds the view. */
+  endedFallback?: ReactNode;
   height?: number;
   repository: McpAppClient;
   resourceUri: string;
@@ -223,6 +225,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
   }, [descriptor, identity, props.appInstanceId, props.repository]);
 
   if (ended) {
+    if (props.endedFallback !== undefined) return props.endedFallback;
     return <McpAppHistoryLine sourceServer={props.sourceServer} toolName={props.toolName} />;
   }
 

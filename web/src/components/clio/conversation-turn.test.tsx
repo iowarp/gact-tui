@@ -16,9 +16,22 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 vi.mock('./mcp-app-surface', () => ({
   McpAppHistoryLine: ({ toolName }: { toolName: string }) => <div>{`${toolName} closed`}</div>,
-  McpAppSurface: ({ appInstanceId }: { appInstanceId: string }) => (
-    <div data-testid="active-mcp-app">{appInstanceId}</div>
-  ),
+}));
+vi.mock('./mcp-app-reopen', () => ({
+  McpAppCard: ({
+    appInstanceId,
+    live,
+    toolName,
+  }: {
+    appInstanceId: string;
+    live: boolean;
+    toolName: string;
+  }) =>
+    live ? (
+      <div data-testid="active-mcp-app">{appInstanceId}</div>
+    ) : (
+      <div>{`${toolName} closed`}</div>
+    ),
 }));
 
 afterEach(cleanup);

@@ -14,7 +14,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
-import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
+import { McpAppCard } from './mcp-app-reopen';
+import { McpAppHistoryLine } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
@@ -340,11 +341,12 @@ function MessageBlockView({
       );
     }
     case 'mcp_app':
-      return block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
-        <McpAppSurface
+      return mcpAppRepository && messageSessionId ? (
+        <McpAppCard
           appInstanceId={block.app_instance_id}
           dataRef={block.data_ref}
           height={block.height}
+          live={block.app_instance_id === activeMcpAppId}
           repository={mcpAppRepository}
           resourceUri={block.resource_uri}
           sessionId={messageSessionId}
