@@ -63,9 +63,13 @@ describe('McpAppViewTools', () => {
     tools.declare({ availableDisplayModes: ['inline'] });
     tools.start();
     expect(fake.sent).toEqual([]);
+    // A view without tools still says so once, so nothing waits for it to list any.
+    expect(repository.updateMcpAppTools).toHaveBeenCalledWith(identity, [], expect.any(String));
+    repository.updateMcpAppTools.mockClear();
 
-    tools.declare({ tools: { listChanged: true } });
-    tools.start();
+    const listing = new McpAppViewTools(repository, identity, fake.ask);
+    listing.declare({ tools: { listChanged: true } });
+    listing.start();
     await vi.waitFor(() => expect(repository.updateMcpAppTools).toHaveBeenCalledTimes(1));
     const [, offered, holder] = repository.updateMcpAppTools.mock.calls[0] as unknown as [
       unknown,
@@ -76,7 +80,7 @@ describe('McpAppViewTools', () => {
     expect(holder).toBeTruthy();
     expect(fake.sent[0]).toMatchObject({ method: 'tools/list' });
 
-    tools.stop();
+    listing.stop();
     expect(repository.updateMcpAppTools).toHaveBeenLastCalledWith(identity, [], holder);
   });
 

@@ -94,7 +94,13 @@ export class McpAppViewTools {
 
   /** After `ui/notifications/initialized`: list the view's tools and listen for calls. */
   start(): void {
-    if (!this.offersTools || this.stopped) return;
+    if (this.stopped) return;
+    if (!this.offersTools) {
+      // The view has no tools of its own: say so once, so a call to a tool of an earlier
+      // view of this server does not wait for this one to list any.
+      void this.repository.updateMcpAppTools(this.identity, [], this.holder).catch(() => undefined);
+      return;
+    }
     const key = handlerKey(this.identity.sessionId, this.identity.appInstanceId);
     callHandlers.set(key, (call) => void this.runAgentCall(call));
     this.unregister = () => {
