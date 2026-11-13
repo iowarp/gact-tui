@@ -10602,6 +10602,7 @@ msgstr "Espacio de trabajo de la conversación: {label}"
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation.tsx
 #: src/lib/command-menu-scopes.ts
+#: src/lib/workspace-labels.ts
 msgid "Conversations"
 msgstr "Conversaciones"
 
