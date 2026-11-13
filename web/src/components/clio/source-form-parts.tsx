@@ -47,6 +47,13 @@ const glyphPaths: Record<SourceProviderId | 'upload', ReactNode> = {
       <path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0" />
     </>
   ),
+  // A bucket: a rim and a tapered body.
+  s3: (
+    <>
+      <ellipse cx="12" cy="6" rx="8" ry="2.5" />
+      <path d="M4 6l1.6 12.2a6.4 2 0 0 0 12.8 0L20 6" />
+    </>
+  ),
 };
 
 /** A provider as a 16px stroke glyph, the language of the connect form's Source switch. */

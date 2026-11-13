@@ -2,6 +2,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import type {
   ConnectedSourceState,
   CreateSourceInput,
+  S3Credentials,
   SftpCredentials,
   SourceMode,
   SourceProvider,
@@ -20,6 +21,7 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
   const [root, setRoot] = useState(source?.root ?? '');
   const [configuration, setConfiguration] = useState<Configuration>(source?.configuration ?? {});
   const [sftpCredentials, setSftpCredentials] = useState<SftpCredentials>();
+  const [s3Credentials, setS3Credentials] = useState<S3Credentials>();
   const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();
   const [githubValid, setGithubValid] = useState(provider.id !== 'github');
   const locationLocked = Boolean(source && !source.can_edit_location);
@@ -40,13 +42,22 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
     mode,
     configuration,
     ...(sftpCredentials ? { sftp_credentials: sftpCredentials } : {}),
+    ...(s3Credentials && configuration.s3_access === 'keys'
+      ? { s3_credentials: s3Credentials }
+      : {}),
   });
-  const ready = Boolean(root.trim()) && (provider.id !== 'github' || githubValid);
+  const s3Ready =
+    provider.id !== 's3' ||
+    (Boolean(configuration.s3_region) &&
+      (configuration.s3_access !== 'keys' ||
+        Boolean(s3Credentials?.access_key_id && s3Credentials.secret_access_key)));
+  const ready = Boolean(root.trim()) && (provider.id !== 'github' || githubValid) && s3Ready;
   const dirty = Boolean(
     source &&
       (label.trim() !== source.label ||
         location() !== source.root ||
         sftpCredentials ||
+        s3Credentials ||
         JSON.stringify({ ...source.configuration, ...configuration }) !==
           JSON.stringify(source.configuration)),
   );
@@ -61,6 +72,8 @@ export function useSourceFields(provider: SourceProvider, source?: ConnectedSour
     setConfiguration,
     sftpCredentials,
     setSftpCredentials,
+    s3Credentials,
+    setS3Credentials,
     sshFolder,
     setSshFolder,
     setGithubValid,

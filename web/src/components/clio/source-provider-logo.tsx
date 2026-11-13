@@ -10,6 +10,7 @@ import type { SourceProviderId } from '@clio/core/v3';
 import { FolderIcon, TerminalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sourceProviderUsesWordmark } from './source-provider-wordmark';
+import { SourceProviderGlyph } from './source-form-parts';
 
 /** Original provider artwork; protocol-based sources use the shared system glyphs. */
 export function SourceProviderLogo({
@@ -66,6 +67,8 @@ export function SourceProviderLogo({
           <img alt="" src={ndpLight} className={cn('object-contain dark:hidden', wordmark)} />
           <img alt="" src={ndpDark} className={cn('hidden object-contain dark:block', wordmark)} />
         </>
+      ) : provider === 's3' ? (
+        <SourceProviderGlyph provider="s3" className={glyph} />
       ) : provider === 'sftp' ? (
         <TerminalIcon aria-hidden="true" className={glyph} />
       ) : (

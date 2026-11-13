@@ -8,6 +8,7 @@ import { InfoTip } from './info-tip';
 import { SourceSshTarget } from './source-ssh-target';
 import { GitHubRevisionPicker } from './github-revision-picker';
 import { GlobusReceivingStorageControl } from './globus-receiving-storage';
+import { SourceS3Fields } from './source-s3-fields';
 import { browsedProviders, type SourceFieldsState } from './use-source-fields';
 import { FolderFace, SourceField, folderTriggerClass, sourceInputClass } from './source-form-parts';
 
@@ -16,12 +17,14 @@ const linkLabels: Partial<Record<SourceProvider['id'], string>> = {
   github: 'Repository or folder link',
   ndp: 'Dataset',
   globus: 'Folder in the collection',
+  s3: 'Bucket and prefix',
 };
 const placeholders: Partial<Record<SourceProvider['id'], string>> = {
   google_drive: 'https://drive.google.com/drive/folders/…',
   github: 'https://github.com/owner/repository/tree/main/folder',
   globus: '/path/to/data',
   ndp: 'Dataset name',
+  s3: 'bucket-name/prefix',
 };
 
 /**
@@ -217,6 +220,9 @@ export function SourceFields({
         />
       ) : null}
       {provider.id === 'globus' ? <GlobusReceivingStorageControl hostLabel={hostLabel} /> : null}
+      {provider.id === 's3' ? (
+        <SourceS3Fields fields={fields} formId={formId} disabled={lock} />
+      ) : null}
       {name}
     </>
   );

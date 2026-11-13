@@ -37,6 +37,7 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
   github: 'GitHub',
   obsidian: 'Obsidian',
   ndp: 'NDP endpoint',
+  s3: 'S3',
 };
 
 /** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */

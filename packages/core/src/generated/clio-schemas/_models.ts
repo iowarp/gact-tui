@@ -120,7 +120,7 @@ export type CreatedAt = string;
 /**
  * Where artifact bytes live and what custody guarantee applies.
  */
-export type Custody = 'cas' | 'workspace-referenced' | 'external-referenced';
+export type Custody = 'cas' | 'workspace-referenced' | 'external-referenced' | 'clio-core';
 export type CustodyGap = {
   [k: string]: unknown | undefined;
 } | null;
@@ -144,6 +144,7 @@ export type ArtifactKind =
   | 'config'
   | 'model'
   | 'ui_payload'
+  | 'stream'
   | 'other';
 export type KindWarning = string;
 /**
@@ -250,7 +251,15 @@ export type Mode = 'read_only' | 'working_copy' | 'write_enabled';
 export type OperationId = string | null;
 export type ClioId = string;
 export type HostId = string;
-export type Provider = 'local' | 'sftp' | 'google_drive' | 'globus' | 'github' | 'obsidian' | 'ndp';
+export type Provider =
+  | 'local'
+  | 'sftp'
+  | 'google_drive'
+  | 'globus'
+  | 'github'
+  | 'obsidian'
+  | 'ndp'
+  | 's3';
 export type Revision1 = string | null;
 export type Root = string;
 export type SchemaVersion3 = 1;
@@ -332,7 +341,7 @@ export type Total1 = number;
 export type Truncated1 = boolean;
 export type Warnings1 = string[];
 /**
- * Closed discriminated union of the 15 GACT 0.3 message-block types.
+ * Closed discriminated union of the 17 GACT 0.3 message-block types.
  */
 export type MessageBlock =
   | TextMessageBlock
@@ -349,7 +358,9 @@ export type MessageBlock =
   | ErrorMessageBlock
   | RoutingMessageBlock
   | InjectionMessageBlock
-  | NoticeMessageBlock;
+  | NoticeMessageBlock
+  | ResourceMessageBlock
+  | ContextReferenceMessageBlock;
 export type AgentId = string | null;
 export type Channel = string | null;
 export type Id1 = string;
@@ -481,6 +492,22 @@ export type CallId1 = string | null;
 export type Channel13 = string | null;
 export type CompactionId = string | null;
 export type Id15 = string;
+/**
+ * The messages the summary stands for; their count is the number summarized.
+ */
+export type CompactedMessageIds = string[] | null;
+/**
+ * The context segments the summary replaced.
+ */
+export type DerivedFrom = string[] | null;
+/**
+ * The messages the agent still sees verbatim after compaction.
+ */
+export type KeptMessageIds = string[] | null;
+/**
+ * The system prompt in force when the compaction ran. Absent when the agent has not recorded one, e.g. a manual compaction just after a restart.
+ */
+export type SystemPrompt = string | null;
 export type Sequence13 = number | null;
 export type Source5 = string;
 export type StreamSource13 = string | null;
@@ -494,12 +521,77 @@ export type Channel14 = string | null;
 export type Code3 = string | null;
 export type CompactionId1 = string | null;
 export type Id16 = string;
+/**
+ * The answer hook that added the notice.
+ */
+export type Hook = string | null;
+/**
+ * The answer part a hook's revision replaces.
+ */
+export type Revises = string | null;
 export type Sequence14 = number | null;
 export type Source6 = string;
 export type StreamSource14 = string | null;
 export type Text3 = string;
 export type Trigger1 = ('auto' | 'manual') | null;
 export type Type14 = 'notice';
+export type AgentId15 = string | null;
+export type Channel15 = string | null;
+/**
+ * What the delivery decision was based on.
+ */
+export type EvidenceSource = string | null;
+/**
+ * Why this representation was chosen, for display.
+ */
+export type Reason1 = string | null;
+export type Representation =
+  | 'native'
+  | 'bounded_tools'
+  | 'structured_document'
+  | 'sandbox'
+  | 'retrieval'
+  | 'metadata_only';
+export type Id17 = string;
+export type MediaType = string;
+/**
+ * Display name of the resource.
+ */
+export type Name5 = string;
+export type ResourceId = string;
+/**
+ * Revision of the resource the message refers to; a string, not a count.
+ */
+export type ResourceRevision = string;
+export type Sequence15 = number | null;
+export type StreamSource15 = string | null;
+export type Type15 = 'resource';
+export type WorkspaceId2 = string;
+export type AgentId16 = string | null;
+export type Channel16 = string | null;
+export type Id18 = string;
+/**
+ * Display name of the referenced item.
+ */
+export type Label5 = string;
+export type MediaType1 = string;
+export type RefId = string;
+export type RefKind =
+  | 'workspace_file'
+  | 'artifact'
+  | 'session'
+  | 'agent_run'
+  | 'evidence_source'
+  | 'context_frame'
+  | 'diff'
+  | 'plan';
+/**
+ * Revision the message refers to; a string, not a count.
+ */
+export type Revision5 = string;
+export type Sequence16 = number | null;
+export type StreamSource16 = string | null;
+export type Type16 = 'context_reference';
 /**
  * Every source that states this value; the first is the winning one.
  *
@@ -730,7 +822,7 @@ export type CrossWorkspaceBind = boolean;
 export type EdgeEvidence = 'schema-arg' | 'hash-pair' | 'lease-window' | 'authority' | 'assertion';
 export type ExternalRef = string;
 export type FenceProven = boolean;
-export type Name5 = string;
+export type Name6 = string;
 export type NetAt = string;
 export type NetDomain = string;
 export type NetMechanism = string;
@@ -743,7 +835,7 @@ export type Path5 = string;
 export type EdgeRole = 'used' | 'generated';
 export type Sha2562 = string | null;
 export type Version5 = number | null;
-export type AgentId15 = string;
+export type AgentId17 = string;
 /**
  * Whether the agent executed or annotated the transform.
  */
@@ -774,7 +866,7 @@ export type StartedAt1 = string;
 export type TransformStatus = 'success' | 'failed';
 export type TurnId = string;
 export type Used = ProvEdge[];
-export type WorkspaceId2 = string;
+export type WorkspaceId3 = string;
 
 /**
  * Aggregate of all canonical clio-schemas records with shared definitions emitted once. Used to generate TypeScript without duplicate declarations.
@@ -1568,8 +1660,10 @@ export interface RoutingMessageBlock {
  *
  * ``source: "summarization"`` is a compaction's record: ``text`` is the summary the
  * agent continues from, ``trigger`` says who asked for it (``auto`` or ``manual``)
- * and ``compaction_id`` names that compaction. ``variants_id`` / ``try_index`` mean
- * the block belongs to that variant try's tab (e.g. Refine advice given inside a try).
+ * and ``compaction_id`` names that compaction; ``metadata`` lists the messages it
+ * summarized and kept, and the system prompt in force. ``variants_id`` / ``try_index``
+ * mean the block belongs to that variant try's tab (e.g. Refine advice given inside a
+ * try).
  */
 export interface InjectionMessageBlock {
   agent_id?: AgentId13;
@@ -1577,6 +1671,7 @@ export interface InjectionMessageBlock {
   channel?: Channel13;
   compaction_id?: CompactionId;
   id: Id15;
+  metadata?: InjectionMetadata | null;
   sequence?: Sequence13;
   source: Source5;
   stream_source?: StreamSource13;
@@ -1585,6 +1680,16 @@ export interface InjectionMessageBlock {
   try_index?: TryIndex;
   type: Type13;
   variants_id?: VariantsId;
+}
+/**
+ * What a compaction's record (``source: "summarization"``) stands for: the messages
+ * it summarized, the messages kept verbatim beside it, and the system prompt in force.
+ */
+export interface InjectionMetadata {
+  compacted_message_ids?: CompactedMessageIds;
+  derived_from?: DerivedFrom;
+  kept_message_ids?: KeptMessageIds;
+  system_prompt?: SystemPrompt;
 }
 /**
  * A service notice recorded in the transcript, e.g. a failed compaction
@@ -1597,12 +1702,69 @@ export interface NoticeMessageBlock {
   code?: Code3;
   compaction_id?: CompactionId1;
   id: Id16;
+  metadata?: NoticeMetadata | null;
   sequence?: Sequence14;
   source: Source6;
   stream_source?: StreamSource14;
   text: Text3;
   trigger?: Trigger1;
   type: Type14;
+}
+/**
+ * Who produced a notice: an answer hook, and the answer part its revision replaces.
+ */
+export interface NoticeMetadata {
+  hook?: Hook;
+  revises?: Revises;
+}
+/**
+ * Reference to one workspace resource attached to the message (a composer upload).
+ */
+export interface ResourceMessageBlock {
+  agent_id?: AgentId15;
+  channel?: Channel15;
+  delivery?: ResourceDelivery | null;
+  id: Id17;
+  media_type: MediaType;
+  name: Name5;
+  resource_id: ResourceId;
+  resource_revision: ResourceRevision;
+  sequence?: Sequence15;
+  stream_source?: StreamSource15;
+  type: Type15;
+  workspace_id: WorkspaceId2;
+}
+/**
+ * How the agent was given an attached resource: its persisted delivery decision.
+ */
+export interface ResourceDelivery {
+  evidence_source?: EvidenceSource;
+  reason?: Reason1;
+  representation: Representation;
+}
+/**
+ * Something the user pointed the message at: a workspace file, artifact, session,
+ * agent run, evidence source, context frame, diff or plan, pinned at one revision.
+ */
+export interface ContextReferenceMessageBlock {
+  agent_id?: AgentId16;
+  channel?: Channel16;
+  id: Id18;
+  label: Label5;
+  media_type: MediaType1;
+  navigation?: Navigation;
+  ref_id: RefId;
+  ref_kind: RefKind;
+  revision: Revision5;
+  sequence?: Sequence16;
+  stream_source?: StreamSource16;
+  type: Type16;
+}
+/**
+ * Where a client opens the item, e.g. {workspace_id, path} for a file or {workspace_id, session_id} for a session.
+ */
+export interface Navigation {
+  [k: string]: string | undefined;
 }
 /**
  * Everything a model picker may tag one model with, each tag with its evidence.
@@ -1813,7 +1975,7 @@ export interface ProvEdge {
   evidence: EdgeEvidence;
   external_ref?: ExternalRef;
   fence_proven?: FenceProven;
-  name?: Name5;
+  name?: Name6;
   net_at?: NetAt;
   net_domain?: NetDomain;
   net_mechanism?: NetMechanism;
@@ -1828,7 +1990,7 @@ export interface ProvEdge {
  * One coarse transform keyed by the observer call id.
  */
 export interface TransformRecord {
-  agent_id?: AgentId15;
+  agent_id?: AgentId17;
   agent_role?: AgentRole;
   annotation?: Annotation1;
   call_id: CallId2;
@@ -1847,5 +2009,5 @@ export interface TransformRecord {
   status?: TransformStatus;
   turn_id?: TurnId;
   used?: Used;
-  workspace_id?: WorkspaceId2;
+  workspace_id?: WorkspaceId3;
 }
