@@ -151,20 +151,30 @@ export function ProviderPanelFooter({
         />
         {manage && !actions?.stage && !error && !(!busy && info) ? (
           // Ready says so with its age ("● Ready, checked 2m ago"); anything else says what is wrong.
-          <span
-            // A floor the update button never takes: the state stays in words.
-            className={cn('min-w-[min(5rem,40%)] flex-1 truncate', !ready && status.color)}
-            data-slot="provider-manage-status"
-            title={
-              (!ready && group.detail) ||
-              (group.freshness
-                ? t`Checked ${ph({ time: formatFreshness(group.freshness) })}`
-                : group.detail)
-            }
-          >
-            {status.label}
-            {ready && age ? <span className="text-faint">, {age.checked}</span> : null}
-          </span>
+          <>
+            <span
+              // A floor the update button never takes: the state stays in words.
+              className={cn('min-w-[min(5rem,40%)] grow truncate', !ready && status.color)}
+              data-slot="provider-manage-status"
+              title={
+                (!ready && group.detail) ||
+                (group.freshness
+                  ? t`Checked ${ph({ time: formatFreshness(group.freshness) })}`
+                  : group.detail)
+              }
+            >
+              {status.label}
+            </span>
+            {ready && age ? (
+              // The age only takes room left over, so it goes before the action is cut.
+              <span
+                className="-ms-[7px] min-w-0 shrink grow-[1000] basis-0 truncate text-faint"
+                data-slot="provider-manage-age"
+              >
+                , {age.checked}
+              </span>
+            ) : null}
+          </>
         ) : null}
         {!manage && !actions?.stage ? (
           // The dot never stands alone: the bar says the state in words too.
@@ -208,94 +218,95 @@ export function ProviderPanelFooter({
           >
             {info}
           </span>
-        ) : manage ? null : (
-          <span className="min-w-0 flex-1" />
-        )}
-        {update}
-        {manage && fold ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconButton
-                className={cn('shrink-0', iconClass)}
-                icon={<MoreIcon />}
-                label={t`${ph({ name: group.name })} actions`}
-                size="sm"
-                tooltipSide="top"
+        ) : null}
+        {/* The actions end the row without a spacer, whose gap the status word would pay for. */}
+        <span className={manage ? 'contents' : 'ms-auto flex min-w-0 items-center gap-1.5'}>
+          {update}
+          {manage && fold ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton
+                  className={cn('shrink-0', iconClass)}
+                  icon={<MoreIcon />}
+                  label={t`${ph({ name: group.name })} actions`}
+                  size="sm"
+                  tooltipSide="top"
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-44" side="top">
+                {setupItems}
+                {providerActions ? (
+                  <>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onSelect={() => void providerActions.handshake.mutateAsync()}
+                    >
+                      <CheckConnectionIcon aria-hidden="true" />
+                      {t`Refresh`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onSelect={() => void providerActions.refreshModels.mutateAsync()}
+                    >
+                      <RefreshIcon aria-hidden="true" />
+                      {t`Reload models`}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {logOut ? (
+                  <DropdownMenuItem disabled={busy} onSelect={logOut.run}>
+                    <LogOutIcon aria-hidden="true" />
+                    {logOut.label}
+                  </DropdownMenuItem>
+                ) : null}
+                {settingsItem}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {manage && !fold && setup && !actions?.stage ? setup : null}
+          {providerActions && !(manage && fold) ? (
+            <>
+              <RefreshButton
+                className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
+                iconOnly
+                label={t`Refresh`}
+                idleIcon={CheckConnectionIcon}
+                title={t`Refresh: check connection, sign-in and models`}
+                refreshing={providerActions.handshake.isPending}
+                disabled={busy}
+                onRefresh={() => providerActions.handshake.mutateAsync()}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
               />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44" side="top">
-              {setupItems}
-              {providerActions ? (
-                <>
-                  <DropdownMenuItem
-                    disabled={busy}
-                    onSelect={() => void providerActions.handshake.mutateAsync()}
-                  >
-                    <CheckConnectionIcon aria-hidden="true" />
-                    {t`Refresh`}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={busy}
-                    onSelect={() => void providerActions.refreshModels.mutateAsync()}
-                  >
-                    <RefreshIcon aria-hidden="true" />
-                    {t`Reload models`}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-              {logOut ? (
-                <DropdownMenuItem disabled={busy} onSelect={logOut.run}>
-                  <LogOutIcon aria-hidden="true" />
-                  {logOut.label}
-                </DropdownMenuItem>
-              ) : null}
-              {settingsItem}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-        {manage && !fold && setup && !actions?.stage ? setup : null}
-        {providerActions && !(manage && fold) ? (
-          <>
-            <RefreshButton
-              className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
-              iconOnly
-              label={t`Refresh`}
-              idleIcon={CheckConnectionIcon}
-              title={t`Refresh: check connection, sign-in and models`}
-              refreshing={providerActions.handshake.isPending}
+              <RefreshButton
+                className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
+                iconOnly
+                label={t`Reload models`}
+                title={t`Reload models, updating the provider client first if needed`}
+                refreshing={providerActions.refreshModels.isPending}
+                disabled={busy}
+                onRefresh={() => providerActions.refreshModels.mutateAsync()}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+              />
+            </>
+          ) : null}
+          {logOut && !(manage && fold) ? (
+            <IconButton
+              className={cn('shrink-0', iconClass)}
               disabled={busy}
-              onRefresh={() => providerActions.handshake.mutateAsync()}
-              size="icon-xs"
+              icon={<LogOutIcon aria-hidden="true" />}
+              label={logOut.label}
+              onClick={logOut.run}
+              size="sm"
+              tooltipSide="top"
               type="button"
-              variant="ghost"
             />
-            <RefreshButton
-              className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
-              iconOnly
-              label={t`Reload models`}
-              title={t`Reload models, updating the provider client first if needed`}
-              refreshing={providerActions.refreshModels.isPending}
-              disabled={busy}
-              onRefresh={() => providerActions.refreshModels.mutateAsync()}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            />
-          </>
-        ) : null}
-        {logOut && !(manage && fold) ? (
-          <IconButton
-            className={cn('shrink-0', iconClass)}
-            disabled={busy}
-            icon={<LogOutIcon aria-hidden="true" />}
-            label={logOut.label}
-            onClick={logOut.run}
-            size="sm"
-            tooltipSide="top"
-            type="button"
-          />
-        ) : null}
-        {manage && fold ? null : settings}
+          ) : null}
+          {manage && fold ? null : settings}
+        </span>
       </div>
     </TooltipProvider>
   );

@@ -37308,6 +37308,7 @@ msgstr ""
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr ""
@@ -37434,7 +37435,7 @@ msgstr ""
 msgid "Update this connection’s agent to enable search."
 msgstr ""
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr ""
 
