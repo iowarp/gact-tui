@@ -1,4 +1,9 @@
-import type { ClioRepository, McpAppIdentity, Message } from '@clio/core/v3';
+import {
+  decodeEventEnvelope,
+  type ClioRepository,
+  type McpAppIdentity,
+  type Message,
+} from '@clio/core/v3';
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import { humanizeToolName } from './tool-presentation';
@@ -159,6 +164,22 @@ export function mcpAppCanReturn(appInstanceId: string): boolean {
 export function adoptMcpAppTab(appInstanceId: string): void {
   const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];
   if (entry && entry.placement === 'inline') update(appInstanceId, { placement: 'tab' });
+}
+
+/** The session event CLIO publishes when it closes an App itself (reaped server, cleanup). */
+export const MCP_APP_CLOSED_EVENT = 'mcp_app_closed';
+
+/** A streamed `mcp_app_closed`: the App ended on the server; its card offers Reopen. */
+export function dispatchMcpAppClosedFrame(frame: { eventName?: string; data: unknown }): void {
+  if (frame.eventName !== MCP_APP_CLOSED_EVENT) return;
+  let payload: unknown;
+  try {
+    payload = decodeEventEnvelope(frame.data).payload;
+  } catch {
+    return; // Frame reduction owns malformed-envelope reporting.
+  }
+  const id = (payload as { app_instance_id?: unknown } | null)?.app_instance_id;
+  if (typeof id === 'string' && useMcpAppLiveSetStore.getState().apps[id]) markMcpAppEnded(id);
 }
 
 /** A frame found the record gone (404): the App ended on the server. */

@@ -401,6 +401,8 @@ const McpAppSurfaceInstance = forwardRef<
         <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
         {error ? (
           <ClioStatus label="Unavailable" value="unavailable" />
+        ) : descriptor?.service_refusal ? (
+          <ClioStatus label="Service unavailable" value="unavailable" />
         ) : (
           <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
         )}
@@ -422,7 +424,7 @@ const McpAppSurfaceInstance = forwardRef<
           <>
             {descriptor.service_refusal ? (
               <p
-                className="border-b px-3 py-2 text-xs text-muted-foreground"
+                className="relative z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground"
                 data-mcp-app-service-refusal={descriptor.service_refusal.reason}
                 role="status"
               >

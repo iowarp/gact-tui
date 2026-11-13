@@ -220,6 +220,25 @@ describe('McpAppSurface', () => {
     expect(screen.queryByTitle('vigil_open_viewer interactive view')).not.toBeInTheDocument();
   });
 
+  it('says the service is unavailable instead of Ready when its service does not answer', async () => {
+    const client = repository();
+    client.mcpAppDescriptor.mockResolvedValue({
+      ...descriptor,
+      sandbox_url:
+        'http://localhost:8788/v1/sessions/sess_1/mcp-apps/app_down/sandbox?data_ref=opaque-ref',
+      service_url: null,
+      service_refusal: {
+        reason: 'service_unreachable',
+        message: "This view's live service is not answering.",
+      },
+    } as typeof descriptor);
+    render(<McpAppSurface {...props} appInstanceId="app_down" repository={client} />);
+
+    expect(await screen.findByText('Service unavailable')).toBeVisible();
+    expect(screen.getByText("This view's live service is not answering.")).toBeVisible();
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+  });
+
   it('recovers from one transient descriptor connection failure', async () => {
     const client = repository();
     client.mcpAppDescriptor.mockRejectedValueOnce(
