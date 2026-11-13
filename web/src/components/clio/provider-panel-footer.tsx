@@ -152,7 +152,8 @@ export function ProviderPanelFooter({
         {manage && !actions?.stage && !error && !(!busy && info) ? (
           // Ready says so with its age ("● Ready, checked 2m ago"); anything else says what is wrong.
           <span
-            className={cn('min-w-0 flex-1 truncate', !ready && status.color)}
+            // A floor the update button never takes: the state stays in words.
+            className={cn('min-w-[min(5rem,40%)] flex-1 truncate', !ready && status.color)}
             data-slot="provider-manage-status"
             title={
               (!ready && group.detail) ||

@@ -186,16 +186,17 @@ export function useProviderPanel({
     </span>
   ) : updateTo ? (
     <Button
-      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground"
+      className="h-[22px] min-w-0 shrink gap-[5px] rounded-[6px] px-2 text-caption font-semibold text-accent-foreground"
       data-slot="provider-update-available"
       disabled={Boolean(providerActions.stage)}
       onClick={componentUpdate.update}
       size="xs"
+      title={t`Update to ${updateTo}`}
       type="button"
       variant="outline"
     >
-      <CircleArrowUpIcon aria-hidden="true" className="size-3" />
-      {t`Update to ${updateTo}`}
+      <CircleArrowUpIcon aria-hidden="true" className="size-3 shrink-0" />
+      <span className="min-w-0 truncate">{t`Update to ${updateTo}`}</span>
     </Button>
   ) : null;
   const manageSettings = settingsLink('size-[22px] [&_svg]:size-[13px]');
