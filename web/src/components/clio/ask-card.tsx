@@ -459,7 +459,8 @@ export function AskFooter({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex min-w-0 items-center gap-4 overflow-hidden text-label whitespace-nowrap text-muted-foreground',
+        // Hints that don't fit side by side take their own lines; a hint wider than the card wraps.
+        'mt-2.5 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-label whitespace-nowrap text-muted-foreground',
         className,
       )}
       data-slot="ask-footer"
@@ -486,7 +487,7 @@ export function AskHint({
       {...props}
     >
       {askKey ? <AskKeyChip askKey={askKey} /> : null}
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 text-start whitespace-normal">{children}</span>
     </button>
   );
 }
