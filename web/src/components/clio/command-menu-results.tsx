@@ -1,4 +1,4 @@
-import { workspaceName } from '@/lib/workspace-labels';
+import { workspaceName, workspaceSearchName } from '@/lib/workspace-labels';
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { BoxIcon, FileIcon, LayersIcon, MessageSquareTextIcon, ZapIcon } from 'lucide-react';
@@ -209,13 +209,20 @@ export function useCommandMenuResults({
       new Map((workspaces.data ?? []).map((workspace) => [workspace.id, workspaceName(workspace)])),
     [workspaces.data],
   );
+  const workspaceSearchNames = useMemo(
+    () =>
+      new Map(
+        (workspaces.data ?? []).map((workspace) => [workspace.id, workspaceSearchName(workspace)]),
+      ),
+    [workspaces.data],
+  );
   const visibleSessions = useMemo(() => {
     const candidates = (sessions.data ?? []).filter(
       (session) =>
         !session.archived &&
         isPrimarySession(session) &&
         (normalizedQuery
-          ? `${session.title} ${workspaceNames.get(session.workspace_id) ?? ''}`
+          ? `${session.title} ${workspaceSearchNames.get(session.workspace_id) ?? ''}`
               .toLocaleLowerCase()
               .includes(normalizedQuery)
           : true),
@@ -232,13 +239,13 @@ export function useCommandMenuResults({
     limits.searchedSessions,
     normalizedQuery,
     sessions.data,
-    workspaceNames,
+    workspaceSearchNames,
   ]);
   const memoryHits = serverQuery === searchText.trim() && local ? (memory.data?.hits ?? []) : [];
   const matchingWorkspaces = normalizedQuery
     ? (workspaces.data ?? [])
         .filter((item) =>
-          `${workspaceName(item)} ${item.display_name} ${item.name} ${item.path}`
+          `${workspaceSearchName(item)} ${item.display_name} ${item.name} ${item.path}`
             .toLocaleLowerCase()
             .includes(normalizedQuery),
         )
