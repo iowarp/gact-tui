@@ -38,6 +38,7 @@ import { mcpAppServiceHostContext } from './mcp-app-service';
 import { McpAppViewTools } from './mcp-app-view-tools';
 import {
   McpAppLooks,
+  registerViewSnapshot,
   snapshotAnswer,
   VIEW_SNAPSHOT_METHOD,
   type TakeSnapshot,
@@ -269,6 +270,7 @@ const McpAppSurfaceInstance = forwardRef<
         });
       }).then(snapshotAnswer);
     const looks = new McpAppLooks(latest.current.repository, identity, snapshot);
+    let withdrawSnapshot = () => undefined as void;
     const answer = (message: JsonRpcMessage) => {
       const pending = view.pending.get(String(message.id));
       if (!pending) return;
@@ -340,6 +342,7 @@ const McpAppSurfaceInstance = forwardRef<
         view.markReady();
         viewTools.start();
         snapshotRef.current = snapshot;
+        withdrawSnapshot = registerViewSnapshot(iframe, snapshot);
         looks.start();
         latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
@@ -406,6 +409,7 @@ const McpAppSurfaceInstance = forwardRef<
       viewTools.stop();
       looks.stop();
       snapshotRef.current = undefined;
+      withdrawSnapshot();
       view.post = undefined;
       for (const pending of view.pending.values())
         pending.reject(new Error('The interactive view closed.'));
