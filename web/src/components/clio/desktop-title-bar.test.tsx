@@ -7,6 +7,8 @@ import { brand } from '@brand';
 import { MENU_ACTION_EVENT, useMenuAction, type MenuAction } from '@/tauri/menu-actions';
 import type { ReactNode } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { KeyPlatformContext } from '@/lib/shortcuts/hooks';
+import type { KeyPlatform } from '@/lib/shortcuts/keys';
 import { DesktopTitleBar } from './desktop-title-bar';
 
 const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
@@ -100,13 +102,16 @@ function MenuWorkflows({ actions }: { actions: Partial<Record<MenuAction, () => 
 
 describe('DesktopTitleBar', () => {
   let queryClient: QueryClient;
-  const renderTitleBar = (workflows?: ReactNode) =>
+  // The page detects its key platform once, so a test that switches platform names it.
+  const renderTitleBar = (workflows?: ReactNode, keyPlatform: KeyPlatform | null = null) =>
     render(
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          {workflows}
-          <DesktopTitleBar />
-        </TooltipProvider>
+        <KeyPlatformContext.Provider value={keyPlatform}>
+          <TooltipProvider>
+            {workflows}
+            <DesktopTitleBar />
+          </TooltipProvider>
+        </KeyPlatformContext.Provider>
       </QueryClientProvider>,
     );
 
@@ -502,7 +507,7 @@ describe('DesktopTitleBar', () => {
     isMacOS.mockReturnValue(true);
     const action = vi.fn();
     window.addEventListener(MENU_ACTION_EVENT, action);
-    renderTitleBar();
+    renderTitleBar(undefined, 'mac');
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
     expect(await screen.findByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');

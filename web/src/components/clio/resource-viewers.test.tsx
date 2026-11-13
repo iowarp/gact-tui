@@ -410,7 +410,10 @@ describe('WorkspaceFileView', () => {
     await userEvent.keyboard('{Escape}');
     await userEvent.click(within(frame).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
-      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.grib2'),
+      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
+        'workspace_1',
+        'data/run.grib2',
+      ),
     );
     await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
@@ -501,7 +504,10 @@ describe('WorkspaceFileView', () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByRole('button', { name: 'Build this paper' })).toBeTruthy();
-    expect(await screen.findByText(/\\documentclass\{article\}/u)).toBeTruthy();
+    // Syntax colours split the line into tokens once the highlighter is ready.
+    expect(await screen.findByRole('region', { name: 'Source of main.tex' })).toHaveTextContent(
+      '\\documentclass{article}',
+    );
     expect(repository.commentTarget).toHaveBeenCalledWith(
       'workspace_1',
       'paper/main.tex',
