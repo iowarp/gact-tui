@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import { NamedTooltip } from './icon-button';
 import { MenuRow } from './menu-row';
+import { CLOSED_TAB, LIST_TRIGGER, OPEN_TAB_CHROME, oneLineWidth } from './nav-tabs-measure';
 import { t, ph } from '@lingui/core/macro';
 
 export interface NavTab {
@@ -30,21 +31,15 @@ export interface NavTab {
   state?: unknown;
 }
 
-// Widths drawn by the classes below: a closed tab is 7 + 14 + 7, plus the 2px gap;
-// the open tab adds its name, the 6px icon gap and 10px right padding. Px at the
-// default interface size; scaled by it, as the rem icons and gaps grow.
-const CLOSED_TAB = 30;
-const OPEN_TAB_CHROME = 37;
-const LIST_TRIGGER = 44;
-
 /**
  * Places within one page, as links: icon only, and the open tab adds its
  * name over a 2px primary underline; tabs fill the bar's height. Every closed tab keeps its name on hover and as its accessible name,
  * so the strip never wraps and nothing is unexplained. When the strip is squeezed,
- * closed tabs furthest from the open one go into an "N â–¾" list at its end, so the
+ * closed tabs furthest from the open one go into an "N ▾" list at its end, so the
  * open tab keeps its whole name (spec: "Icons past the edge go into a list. The
- * open tab stays"). Pair it with the catalog's previous-tab and next-tab keys on
- * the page that owns it.
+ * open tab stays"). Only when even the folded strip is too narrow does the name
+ * wrap, whole, onto a second line. Pair it with the catalog's previous-tab and
+ * next-tab keys on the page that owns it.
  */
 export const NavTabs = memo(function NavTabs({
   label,
@@ -82,7 +77,7 @@ export const NavTabs = memo(function NavTabs({
       const name = nav.querySelector<HTMLElement>('[data-tab-name]');
       const scale = interfaceScale();
       const closed = CLOSED_TAB * scale;
-      const open = name ? OPEN_TAB_CHROME * scale + name.scrollWidth + 1 : 0;
+      const open = name ? OPEN_TAB_CHROME * scale + oneLineWidth(name) + 1 : 0;
       if (open + closedCount * closed <= width) return setFit(closedCount);
       setFit(Math.max(0, Math.floor((width - open - LIST_TRIGGER * scale) / closed)));
     };
@@ -125,7 +120,10 @@ export const NavTabs = memo(function NavTabs({
           >
             <Icon aria-hidden="true" className="size-3.5 shrink-0" />
             {current ? (
-              <span className="truncate" data-tab-name="">
+              <span
+                className="min-w-0 py-1 leading-tight break-words whitespace-normal"
+                data-tab-name=""
+              >
                 {tabLabel}
               </span>
             ) : null}
@@ -143,6 +141,7 @@ export const NavTabs = memo(function NavTabs({
         <DropdownMenu modal={false}>
           <NamedTooltip label={t`${ph({ count: listed.length })} more`}>
             <DropdownMenuTrigger
+              data-tab-list=""
               aria-label={t`${ph({ count: listed.length })} more: ${ph({ tabs: listed.map((tab) => tab.label).join(', ') })}`}
               className="ml-auto flex h-[26px] shrink-0 items-center gap-[3px] self-center rounded-md px-1.5 text-label text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
             >
