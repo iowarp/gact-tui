@@ -61,6 +61,7 @@ examples/loop-test
 !branding/provider-logos/*.png
 # This fixture is imported by the bundled widget gallery at build time.
 !web/tests/fixtures/gallery-sample.png
+!web/tests/fixtures/gallery-sample-light.png
 # Original documentation images imported by the media carousel gallery.
 !web/tests/fixtures/docs-media/docs-message-preview.png
 !web/tests/fixtures/docs-media/docs-marked-messages.png

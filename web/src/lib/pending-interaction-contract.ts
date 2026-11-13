@@ -7,6 +7,7 @@ import type {
   UserQuestion,
 } from '@clio/core/v3';
 import { isUserBranch } from './session-state';
+import { t } from '@lingui/core/macro';
 
 export type PermissionAction =
   | 'allow'
@@ -123,7 +124,7 @@ export function legacyPendingInteractions(
         owner_session_id: question.session_id,
         attended_session_id: interactionRootSessionId(question.session_id, sessions).id,
         status: question.status,
-        title: planExit ? 'Review execution plan' : 'Question from agent',
+        title: planExit ? t`Review execution plan` : t`Question from agent`,
         prompt: question.prompt,
         source: {
           protocol: 'native',

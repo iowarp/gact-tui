@@ -15,6 +15,23 @@ import { PresentationNavigation } from './presentation-navigation';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { t } from '@lingui/core/macro';
+
+/** The child transcript's connection, as the lower-case word beside the crumbs. */
+function streamWord(stream: Parameters<typeof clioStatusLabel>[0]): string {
+  switch (stream) {
+    case 'connecting':
+      return t({ message: 'connecting', context: 'transcript connection state' });
+    case 'reconnecting':
+      return t({ message: 'reconnecting', context: 'transcript connection state' });
+    case 'gapped':
+      return t({ message: 'stream gap', context: 'transcript connection state' });
+    case 'offline':
+      return t({ message: 'offline', context: 'transcript connection state' });
+    default:
+      return clioStatusLabel(stream);
+  }
+}
 
 export interface ClioSubagentCanvasViewProps {
   activeSessionId: string;
@@ -46,7 +63,7 @@ function SubagentFrame({
     <div className="flex h-full min-h-0 flex-col bg-background">
       <FrameBar
         actions={actions}
-        label="Conversation actions"
+        label={t`Conversation actions`}
         what={what}
         where={
           <FrameCrumbs
@@ -108,10 +125,10 @@ export function ClioSubagentCanvasView({
       <SubagentFrame subagent={subagent}>
         <StateView
           className="min-h-0 flex-1"
-          detail="The service did not provide a child-session destination."
+          detail={t`The service did not provide a child-session destination.`}
           kind="unavailable"
           size="viewer"
-          title="Child conversation unavailable"
+          title={t`Child conversation unavailable`}
         />
       </SubagentFrame>
     );
@@ -121,11 +138,11 @@ export function ClioSubagentCanvasView({
     <SubagentFrame
       actions={
         childSessionId === activeSessionId ? (
-          <span className="px-1 text-[11px] text-muted-foreground">In the central column</span>
+          <span className="px-1 text-caption text-muted-foreground">{t`In the central column`}</span>
         ) : (
           <IconButton
             icon={<ArrowUpLeftIcon />}
-            label="Make central"
+            label={t`Make central`}
             onClick={() => onOpenConversation(subagent)}
             size="sm"
           />
@@ -139,21 +156,19 @@ export function ClioSubagentCanvasView({
           </span>
           {subagent.agent_id ? <span>{subagent.agent_id}</span> : null}
           {subagent.model_choice ? (
-            <span className="flex min-w-0 [&_[data-slot=subagent-model]]:border-0 [&_[data-slot=subagent-model]]:p-0 [&_[data-slot=subagent-model]]:text-[11px]">
+            <span className="flex min-w-0 [&_[data-slot=subagent-model]]:border-0 [&_[data-slot=subagent-model]]:p-0 [&_[data-slot=subagent-model]]:text-caption">
               <SubagentModel choice={subagent.model_choice} />
             </span>
           ) : null}
           {entities.stream === 'live' ? null : (
-            <span title="Child transcript connection">
-              {clioStatusLabel(entities.stream).toLowerCase()}
-            </span>
+            <span title={t`Child transcript connection`}>{streamWord(entities.stream)}</span>
           )}
         </>
       }
     >
       {transcript.error && messages.length > 0 ? (
         <Alert className="m-3 mb-0" variant="destructive">
-          <AlertTitle>Child transcript unavailable</AlertTitle>
+          <AlertTitle>{t`Child transcript unavailable`}</AlertTitle>
           <AlertDescription>{transcript.error.message}</AlertDescription>
         </Alert>
       ) : null}

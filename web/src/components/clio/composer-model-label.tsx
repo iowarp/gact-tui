@@ -9,6 +9,7 @@ import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
+import { t } from '@lingui/core/macro';
 
 /**
  * The route and the model, with the full selection on hover or keyboard focus.
@@ -19,7 +20,7 @@ import { TOOLTIP_KEY } from './primitives/tooltip-key';
  */
 export function ComposerModelButton({
   option,
-  placeholder = 'Choose a model',
+  placeholder = t`Choose a model`,
   problem,
   appearance = 'pill',
   shortcut,
@@ -40,7 +41,7 @@ export function ComposerModelButton({
   const route = option && !isVendorApi(option.providerId, option.id);
   const fullName = option
     ? `${option.providerName} / ${option.label}${option.label === option.id ? '' : ` (${option.id})`}`
-    : (problem?.detail ?? 'Choose the model this conversation uses');
+    : (problem?.detail ?? t`Choose the model this conversation uses`);
   return (
     <TooltipProvider delayDuration={450}>
       <Tooltip>
@@ -52,7 +53,7 @@ export function ComposerModelButton({
             className={cn(
               shortcut && 'relative',
               text &&
-                'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-[12px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
+                'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-meta font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
               className,
             )}
           >

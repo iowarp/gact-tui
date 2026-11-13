@@ -10,6 +10,7 @@ import {
 import { ExternalLink } from '@/components/ui/external-link';
 import { AddIcon, DeleteIcon, InfoIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 /** The same source-management menu for local and installed marketplace rows. */
 export function MarketplaceActions({
@@ -46,28 +47,28 @@ export function MarketplaceActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton icon={<MoreIcon />} label={`Actions for ${name}`} />
+        <IconButton icon={<MoreIcon />} label={t`Actions for ${name}`} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
         {onBackup ? (
           <DropdownMenuItem onSelect={onBackup}>
-            <GitBranchIcon aria-hidden="true" /> Back up with GitHub…
+            <GitBranchIcon aria-hidden="true" /> {t`Back up with GitHub…`}
           </DropdownMenuItem>
         ) : null}
         {onExport ? (
           <DropdownMenuItem disabled={busy || exportDisabled} onSelect={onExport}>
-            <DownloadIcon aria-hidden="true" /> Download marketplace ZIP
+            <DownloadIcon aria-hidden="true" /> {t`Download marketplace ZIP`}
           </DropdownMenuItem>
         ) : null}
         {onAddRemote ? (
           <DropdownMenuItem onSelect={onAddRemote}>
-            <AddIcon aria-hidden="true" /> Add remote marketplace…
+            <AddIcon aria-hidden="true" /> {t`Add remote marketplace…`}
           </DropdownMenuItem>
         ) : null}
         {url ? (
           <DropdownMenuItem asChild>
             <ExternalLink href={url}>
-              <LinkIcon aria-hidden="true" /> Open repository
+              <LinkIcon aria-hidden="true" /> {t`Open repository`}
             </ExternalLink>
           </DropdownMenuItem>
         ) : null}
@@ -75,35 +76,36 @@ export function MarketplaceActions({
           <DropdownMenuItem
             onSelect={() => {
               void navigator.clipboard.writeText(source).then(
-                () => toast.success('Source copied'),
-                () => toast.error('Could not copy source'),
+                () => toast.success(t`Source copied`),
+                () => toast.error(t`Could not copy source`),
               );
             }}
           >
-            <CopyIcon aria-hidden="true" /> Copy source
+            <CopyIcon aria-hidden="true" /> {t`Copy source`}
           </DropdownMenuItem>
         ) : null}
         {onDetails ? (
           <DropdownMenuItem onSelect={onDetails}>
-            <InfoIcon aria-hidden="true" /> Marketplace details
+            <InfoIcon aria-hidden="true" /> {t`Marketplace details`}
           </DropdownMenuItem>
         ) : null}
         {onUpdate || onCheck ? <DropdownMenuSeparator /> : null}
         {onUpdate ? (
           <DropdownMenuItem disabled={busy} onSelect={onUpdate}>
-            <RefreshIcon aria-hidden="true" /> {updating ? 'Updating…' : 'Update'}
+            <RefreshIcon aria-hidden="true" />{' '}
+            {updating ? t`Updating…` : t({ message: 'Update', context: 'verb' })}
           </DropdownMenuItem>
         ) : null}
         {onCheck ? (
           <DropdownMenuItem disabled={checking} onSelect={onCheck}>
-            {checking ? 'Checking…' : 'Check plugins'}
+            {checking ? t`Checking…` : t`Check plugins`}
           </DropdownMenuItem>
         ) : null}
         {onUninstall ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={busy} onSelect={onUninstall} variant="destructive">
-              <DeleteIcon aria-hidden="true" /> Uninstall
+              <DeleteIcon aria-hidden="true" /> {t`Uninstall`}
             </DropdownMenuItem>
           </>
         ) : null}

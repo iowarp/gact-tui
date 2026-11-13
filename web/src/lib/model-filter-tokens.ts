@@ -1,6 +1,7 @@
-import { TASK_LABELS, type ModelCapabilityTag } from './model-capability-tags';
+import type { ModelCapabilityTag } from './model-capability-tags';
 import { parseRangeToken } from './model-range-tokens';
 import { replaceRangeToken } from './model-range-scales';
+import { t } from '@lingui/core/macro';
 
 /**
  * The model picker's filter tokens: `key:value` strings (`input:image`,
@@ -128,13 +129,31 @@ export function filterTokenSuggestions(
   return [...available].filter((token) => token.startsWith(text) && !active.includes(token)).sort();
 }
 
+/** Why each model type (the keys of `TASK_LABELS`) cannot be picked as a chat model. */
+const NOT_CHAT_REASONS: Record<string, string> = {
+  chat: t`Chat models can't hold a conversation.`,
+  embedding: t`Embedding models can't hold a conversation.`,
+  rerank: t`Rerankers can't hold a conversation.`,
+  audio_transcription: t`Transcribers can't hold a conversation.`,
+  audio_speech: t`Speech generators can't hold a conversation.`,
+  image_generation: t`Image generators can't hold a conversation.`,
+  image_edit: t`Image editors can't hold a conversation.`,
+  video_generation: t`Video generators can't hold a conversation.`,
+  moderation: t`Moderators can't hold a conversation.`,
+  ocr: t`Text readers can't hold a conversation.`,
+  segmentation: t`Segmenters can't hold a conversation.`,
+  classification: t`Classifiers can't hold a conversation.`,
+  forecasting: t`Forecasters can't hold a conversation.`,
+  scientific_surrogate: t`Scientific surrogates can't hold a conversation.`,
+  other: t`Other models can't hold a conversation.`,
+};
+
 /** Why a model that is not a chat model cannot be picked as one, in one sentence. */
 export function surrogateChatReason(modelType: string | undefined): string {
-  const label = modelType ? TASK_LABELS[modelType] : undefined;
-  if (!label) return "This model can't hold a conversation.";
-  const plural =
-    label === 'Embeddings' ? 'Embedding models' : label.endsWith('s') ? label : `${label}s`;
-  return `${plural} can't hold a conversation.`;
+  return (
+    (modelType ? NOT_CHAT_REASONS[modelType] : undefined) ??
+    t`This model can't hold a conversation.`
+  );
 }
 
 const TOKEN_KEYS = [

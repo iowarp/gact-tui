@@ -5,6 +5,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import { t } from '@lingui/core/macro';
 
 /**
  * Rebuilds the session's variant runs (the draft tabs) after a reload, the
@@ -32,7 +33,7 @@ export function useVariantRunHydration({
   }, [hydration.data]);
   useEffect(() => {
     if (!hydration.error) return;
-    toast.error('Earlier drafts could not be loaded', {
+    toast.error(t`Earlier drafts could not be loaded`, {
       id: `variant-runs:${sessionId}`,
       description: hydration.error instanceof Error ? hydration.error.message : undefined,
     });

@@ -3,6 +3,8 @@ import { SyringeIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { pluginChangeLabel, pluginChangeTools } from '@/lib/plugin-presentation';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -16,6 +18,7 @@ export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
   const detailsId = useId();
   const label = pluginChangeLabel(block.text);
   const tools = pluginChangeTools(block.text);
+  const toolList = tools.join(', ');
   return (
     <section
       className="min-w-0 max-w-full py-0.5"
@@ -42,12 +45,13 @@ export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
           id={detailsId}
         >
           <p className="font-medium">
-            Sent to the agent as an instruction. Its system prompt updates at the next compaction.
+            {t`Sent to the agent as an instruction. Its system prompt updates at the next compaction.`}
           </p>
           {tools.length ? (
             <p className="text-xs">
-              The agent can call these tools now:{' '}
-              <span className="font-mono">{tools.join(', ')}</span>
+              <Trans>
+                The agent can call these tools now: <span className="font-mono">{toolList}</span>
+              </Trans>
             </p>
           ) : null}
           <pre className="min-w-0 rounded-md bg-muted p-2 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">

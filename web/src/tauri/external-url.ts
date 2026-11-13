@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { t } from '@lingui/core/macro';
 
 /** Open a trusted external URL in the operating system's default browser. */
 export async function openExternalUrl(url: string): Promise<void> {
@@ -43,6 +44,6 @@ export function prepareExternalUrl(): { open: (url: string) => Promise<void>; ca
  */
 export function openExternalUrlOrToast(url: string): void {
   openExternalUrl(url).catch((error: unknown) => {
-    toast.error(error instanceof Error ? error.message : 'Could not open the link.');
+    toast.error(error instanceof Error ? error.message : t`Could not open the link.`);
   });
 }

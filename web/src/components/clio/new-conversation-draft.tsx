@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { BrandIcon } from './brand-icon';
 import { WorkspaceCrumbMark } from './workspace-mark';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Where the draft lives: the workspace's mark and name (a chat bubble for
@@ -20,8 +21,8 @@ export function NewConversationBreadcrumb({
 }) {
   if (inTauri()) return null;
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-1.5 text-[13px] whitespace-nowrap">
+    <nav aria-label={t`Breadcrumb`} className="min-w-0">
+      <ol className="flex min-w-0 items-center gap-1.5 text-ui whitespace-nowrap">
         {workspaceLabel ? (
           // Phones drop the workspace crumb, as the conversation top bar does.
           <li className="flex min-w-0 shrink-[3] items-center gap-1.5 text-muted-foreground max-sm:hidden">
@@ -33,7 +34,7 @@ export function NewConversationBreadcrumb({
           </li>
         ) : null}
         <li aria-current="page" className="shrink-0 font-medium italic">
-          New conversation
+          {t`New conversation`}
         </li>
       </ol>
     </nav>
@@ -56,14 +57,14 @@ export function NewConversationDraft({
 }) {
   return (
     <section
-      aria-label={`${brand.name} new conversation`}
+      aria-label={t`${ph({ name: brand.name })} new conversation`}
       className="@container/draft mx-auto flex w-full max-w-2xl flex-col items-center"
     >
       <BrandIcon className="size-[22px] text-muted-foreground" />
-      <h1 className="mt-2.5 text-center font-heading text-[18px] leading-6 font-medium text-balance">
+      <h1 className="mt-2.5 text-center font-heading text-welcome leading-6 font-medium text-balance">
         {brand.workspace.greeting}
       </h1>
-      <div className="mt-3 flex max-w-full min-w-0 items-center gap-1.5 text-[12.5px] whitespace-nowrap text-muted-foreground">
+      <div className="mt-3 flex max-w-full min-w-0 items-center gap-1.5 text-menu whitespace-nowrap text-muted-foreground">
         {setup}
       </div>
       <div className="mt-3.5 w-full">{children}</div>

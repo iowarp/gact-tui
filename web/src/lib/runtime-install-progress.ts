@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /**
  * What a first-use runtime install is doing, read from the installer's own progress
  * lines (`install.ps1` / `install.sh`, streamed as `clio:install-progress`).
@@ -86,22 +87,22 @@ export function describeInstallProgress(
 ): { line: string; fraction?: number } {
   switch (progress.phase) {
     case 'resolving':
-      return { line: 'Finding the release to install' };
+      return { line: t`Finding the release to install` };
     case 'downloading': {
       const total = progress.totalMb;
       const done = Math.min(progress.downloadedMb ?? 0, total ?? Number.POSITIVE_INFINITY);
       if (now - progress.at >= DOWNLOAD_SILENCE_MS && (progress.downloadedMb ?? 0) > 0)
-        return { line: 'Unpacking the runtime' };
-      if (!total) return { line: `Downloading the runtime: ${done} MB` };
-      return { line: `Downloading the runtime: ${done} of ${total} MB`, fraction: done / total };
+        return { line: t`Unpacking the runtime` };
+      if (!total) return { line: t`Downloading the runtime: ${done} MB` };
+      return { line: t`Downloading the runtime: ${done} of ${total} MB`, fraction: done / total };
     }
     case 'unpacking':
-      return { line: 'Unpacking the runtime' };
+      return { line: t`Unpacking the runtime` };
     case 'packages':
-      return { line: 'Preparing the managed packages and Office' };
+      return { line: t`Preparing the managed packages and Office` };
     case 'store':
-      return { line: 'Updating your local data' };
+      return { line: t`Updating your local data` };
     case 'finishing':
-      return { line: 'Finishing the installation' };
+      return { line: t`Finishing the installation` };
   }
 }

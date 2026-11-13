@@ -30,11 +30,27 @@ import type { StatusTone } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
 import type { ClioStatusValue } from './status';
 import { remoteUrlFromSpec } from './web-search-configuration';
+import { ph, t } from '@lingui/core/macro';
 
 const MORE = [
-  { to: '/infrastructure/agent', label: 'Manage computers', short: 'Computers', icon: ServerIcon },
-  { to: '/infrastructure/models', label: 'Models & storage', short: 'Models', icon: HardDriveIcon },
-  { to: '/infrastructure/activity', label: 'View activity', short: 'Activity', icon: HistoryIcon },
+  {
+    to: '/infrastructure/agent',
+    label: t`Manage computers`,
+    short: t`Computers`,
+    icon: ServerIcon,
+  },
+  {
+    to: '/infrastructure/models',
+    label: t`Models & storage`,
+    short: t`Models`,
+    icon: HardDriveIcon,
+  },
+  {
+    to: '/infrastructure/activity',
+    label: t`View activity`,
+    short: t`Activity`,
+    icon: HistoryIcon,
+  },
 ] as const;
 
 /** Where the agent, inference and web research stand, then the map of what connects to what. */
@@ -86,32 +102,32 @@ export function InfrastructureOverview({
           aria-busy={inspect.isPending || undefined}
           disabled={inspect.isPending}
           icon={<RefreshIcon className={cn(inspect.isPending && 'motion-safe:animate-spin')} />}
-          label="Inspect again"
+          label={t`Inspect again`}
           onClick={() => inspect.mutate()}
         />
       </InfraTabActions>
-      <InfraList label="Your setup" meta={110} status={112}>
+      <InfraList label={t`Your setup`} meta={110} status={112}>
         <InfraRow
-          description={named('Sessions and tools run here.')}
+          description={named(t`Sessions and tools run here.`)}
           icon={<BrandIcon className="size-4" />}
           meta={agent}
-          primaryAction={<OpenLink label="Open Agent" to="/infrastructure/agent" />}
-          status={{ tone: 'success', label: 'Connected' }}
-          title={named('Agent')}
+          primaryAction={<OpenLink label={t`Open Agent`} to="/infrastructure/agent" />}
+          status={{ tone: 'success', label: t`Connected` }}
+          title={named(t`Agent`)}
         />
         <InfraRow
-          description={named('Connect an API or a model server on any host.')}
+          description={named(t`Connect an API or a model server on any host.`)}
           icon={<CpuIcon />}
           meta={inference.meta}
-          primaryAction={<OpenLink label="Open Inference" to="/infrastructure/services" />}
+          primaryAction={<OpenLink label={t`Open Inference`} to="/infrastructure/services" />}
           status={inference.status}
-          title={named('Inference')}
+          title={named(t`Inference`)}
         />
         <InfraRow
           description={named(research.description)}
           details={
             research.reason ? (
-              <p className="truncate text-[11px] text-muted-foreground" title={research.reason}>
+              <p className="truncate text-caption text-muted-foreground" title={research.reason}>
                 {research.reason}
               </p>
             ) : undefined
@@ -131,28 +147,28 @@ export function InfrastructureOverview({
             )
           }
           status={{ tone: statusTone(research.state), label: research.status }}
-          title={named('Web research')}
+          title={named(t`Web research`)}
         />
       </InfraList>
       {servers.error ? (
         <StateView
           kind="error"
           size="row"
-          title="Saved model servers could not load"
+          title={t`Saved model servers could not load`}
           detail={servers.error.message}
-          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void servers.refetch() }}
         />
       ) : null}
       {reconnectError ? (
         <StateView
           kind="error"
           size="row"
-          title="Could not connect this computer"
+          title={t`Could not connect this computer`}
           detail={reconnectError}
         />
       ) : null}
       <nav
-        aria-label="More infrastructure"
+        aria-label={t`More infrastructure`}
         className="flex min-w-0 items-center gap-1.5 overflow-hidden px-0.5 pt-2 pb-1"
       >
         {MORE.map(({ to, label, short, icon: Icon }) => (
@@ -180,7 +196,7 @@ export function InfrastructureOverview({
             : 'Direct'
         }
         className="mt-1.5 hidden flex-col border-t border-border @[520px]/overview:flex"
-        client={inTauri() ? 'Desktop app' : 'Browser'}
+        client={inTauri() ? t`Desktop app` : t`Browser`}
         data={data}
         reconnecting={reconnecting}
         onReconnect={onReconnect}
@@ -232,18 +248,21 @@ function inferenceRow(
   servers: SavedServer[] | undefined,
   failed: boolean,
 ): { status: InfraStatus; meta?: string } {
-  if (failed) return { status: { tone: 'error', label: 'Could not load' } };
-  if (!servers) return { status: { tone: 'running', label: 'Loading' } };
-  if (!servers.length) return { status: { tone: 'idle', label: 'None connected' } };
+  if (failed) return { status: { tone: 'error', label: t`Could not load` } };
+  if (!servers) return { status: { tone: 'running', label: t`Loading` } };
+  if (!servers.length) return { status: { tone: 'idle', label: t`None connected` } };
   const reachable = servers.filter((server) => server.check?.reachable);
   const meta = [...new Set((reachable.length ? reachable : servers).map((row) => row.label))].join(
     ', ',
   );
   if (reachable.length)
-    return { status: { tone: 'success', label: `${reachable.length} connected` }, meta };
+    return {
+      status: { tone: 'success', label: t`${ph({ count: reachable.length })} connected` },
+      meta,
+    };
   if (servers.some((server) => server.check))
-    return { status: { tone: 'warning', label: 'Not reachable' }, meta };
-  return { status: { tone: 'idle', label: 'Not checked' }, meta };
+    return { status: { tone: 'warning', label: t`Not reachable` }, meta };
+  return { status: { tone: 'idle', label: t`Not checked` }, meta };
 }
 
 /**
@@ -263,22 +282,22 @@ function webResearchRow(
   state: ClioStatusValue;
   to?: string;
 } {
-  const description = 'Add source reading and research tools to your agent.';
+  const description = t`Add source reading and research tools to your agent.`;
   if (connected) {
     const url = remoteUrlFromSpec(webSearch?.spec);
     return {
-      description: 'Source reading and research tools are connected.',
+      description: t`Source reading and research tools are connected.`,
       meta: url ? hostName(url, data) : undefined,
-      action: 'Manage web research',
-      status: 'Connected',
+      action: t`Manage web research`,
+      status: t`Connected`,
       state: 'healthy',
     };
   }
   if (webSearch?.configured)
     return {
       description,
-      action: 'Manage web research',
-      status: 'Needs attention',
+      action: t`Manage web research`,
+      status: t`Needs attention`,
       state: 'degraded',
     };
   const builtIn = data.services.find(
@@ -288,27 +307,27 @@ function webResearchRow(
     const status = managedServiceStatus(builtIn);
     const name = infrastructureServiceName(builtIn.service_id);
     return {
-      description: `Built-in search engine: ${name}`,
+      description: t`Built-in search engine: ${name}`,
       meta:
         builtIn.target_id === 'local'
           ? AGENT_COMPUTER
-          : data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
+          : data.targets.find((target) => target.id === builtIn.target_id)?.label || t`Local`,
       reason: status.reason,
       action:
         status.action === 'install'
-          ? `Install ${name}`
+          ? t`Install ${name}`
           : status.action === 'start'
-            ? `Start ${name}`
-            : 'Manage web research',
+            ? t`Start ${name}`
+            : t`Manage web research`,
       status: status.label,
       state: status.value,
       to: status.action ? '/infrastructure/services?target=local&service=searxng' : undefined,
     };
   }
   return {
-    description: 'No research service connected',
-    action: 'Connect web research',
-    status: 'Not connected',
+    description: t`No research service connected`,
+    action: t`Connect web research`,
+    status: t`Not connected`,
     state: 'unavailable',
   };
 }
@@ -322,7 +341,7 @@ function hostName(url: string, data: InfrastructureInventory): string | undefine
     return undefined;
   }
   if (!host) return undefined;
-  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) return 'This computer';
+  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) return t`This computer`;
   return data.targets.find((target) => target.ssh?.host === host)?.label || host;
 }
 
@@ -330,6 +349,6 @@ function hostName(url: string, data: InfrastructureInventory): string | undefine
 function agentDetail(label: string | undefined, endpoint: string, location?: string): string {
   const identity = agentIdentity(endpoint, label, location);
   return identity.kind === 'local' && identity.name === `${vocab.agent} local`
-    ? 'This computer'
+    ? t`This computer`
     : identity.name;
 }

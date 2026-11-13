@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { ComponentProps } from 'react';
 import { GENERIC_PROVIDER_LOGO_ID, providerLogoUrls } from './provider-logo-svgs';
+import { t } from '@lingui/core/macro';
 
 export type ModelSelectorLogoProps = Omit<ComponentProps<'span'>, 'children'> & {
   provider:
@@ -75,14 +76,14 @@ export const ModelSelectorLogo = ({ provider, className, ...props }: ModelSelect
   return (
     <span
       {...props}
-      aria-label={`${provider} logo`}
+      aria-label={t`${provider} logo`}
       className={cn(
         'inline-grid size-5 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground',
         className,
       )}
       data-provider-logo=""
       role="img"
-      title={`${provider} provider`}
+      title={t`${provider} provider`}
     >
       <span
         aria-hidden="true"

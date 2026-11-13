@@ -17,6 +17,7 @@ import {
   QUERY_RETRY_COUNT,
   STARTING_READ_RETRIES,
 } from '@/lib/runtime-limits';
+import { ph, t } from '@lingui/core/macro';
 
 /** The connect attempt as the page's mutation exposes it. */
 export interface ConnectAttempt {
@@ -92,13 +93,6 @@ export function serviceUnreachable(error: Error | null | undefined): boolean {
   );
 }
 
-const FAILURE_CAUSE: Readonly<Record<Exclude<UnavailableReason, 'failed'>, string>> = {
-  'no-answer': 'no answer',
-  timeout: 'no response in time',
-  incompatible: 'incompatible version',
-  error: 'the service reported an error',
-};
-
 /**
  * A failed service row's one line: the cause that was actually observed, in plain words.
  * "No answer" is only a network failure and names the address, since the row leads with
@@ -112,15 +106,20 @@ export function knownServiceFailure(
   attempt: ConnectAttempt,
 ): string {
   const error = attemptErrorFor(connection, attempt);
-  if (error && !noAnswer(error)) return "Can't connect";
-  const reason = availability.reason ?? 'failed';
-  const cause =
-    reason === 'failed'
-      ? availability.detail
-      : reason === 'no-answer'
-        ? `no answer from ${hostOf(connection.endpoint)}`
-        : FAILURE_CAUSE[reason];
-  return `Can't connect: ${cause}`;
+  if (error && !noAnswer(error)) return t`Can't connect`;
+  const reason: UnavailableReason = availability.reason ?? 'failed';
+  switch (reason) {
+    case 'no-answer':
+      return t`Can't connect: no answer from ${ph({ host: hostOf(connection.endpoint) })}`;
+    case 'timeout':
+      return t`Can't connect: no response in time`;
+    case 'incompatible':
+      return t`Can't connect: incompatible version`;
+    case 'error':
+      return t`Can't connect: the service reported an error`;
+    default:
+      return t`Can't connect: ${ph({ cause: availability.detail })}`;
+  }
 }
 
 function hostOf(endpoint: string): string {

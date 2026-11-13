@@ -23,6 +23,7 @@ import {
   type DenseGridSort,
 } from './dense-grid-data';
 import { StateView } from './state-view';
+import { t } from '@lingui/core/macro';
 
 export type { DenseGridColumn, DenseGridRow, DenseGridSort } from './dense-grid-data';
 
@@ -252,7 +253,7 @@ export const DenseGrid = memo(function DenseGrid({
               role="columnheader"
               style={{ width: gutterWidth }}
             >
-              <span className="sr-only">Row</span>
+              <span className="sr-only">{t`Row`}</span>
             </div>
             {columns.map((column, index) => {
               const sorted = sort?.key === column.key ? sort : undefined;
@@ -267,7 +268,7 @@ export const DenseGrid = memo(function DenseGrid({
                   style={{ flex: `${widths[index]} 0 ${widths[index]}px` }}
                 >
                   <button
-                    className="flex h-full w-full min-w-0 cursor-pointer items-center gap-1 px-2 text-left font-sans text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                    className="flex h-full w-full min-w-0 cursor-pointer items-center gap-1 px-2 text-left font-sans text-caption font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
                     onClick={() => toggleSort(column.key)}
                     title={column.label}
                     type="button"
@@ -302,7 +303,7 @@ export const DenseGrid = memo(function DenseGrid({
             ))}
           </div>
         ) : (
-          <StateView kind="empty" size="row" title="No rows" />
+          <StateView kind="empty" size="row" title={t`No rows`} />
         )}
       </div>
     </div>

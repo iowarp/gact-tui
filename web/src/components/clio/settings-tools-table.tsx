@@ -10,6 +10,7 @@ import { GroupRow } from './settings-tools-group-row';
 import type { RowEditor } from './settings-tools-options';
 import type { ToolTableSection } from './settings-tools-section';
 import { ToolRow } from './settings-tools-tool-row';
+import { t, ph } from '@lingui/core/macro';
 
 export type { ToolTableSection } from './settings-tools-section';
 
@@ -70,11 +71,17 @@ export function ToolSettingsTable({
   mode,
   editor,
   label,
+  onOpenTool,
+  openTool,
 }: {
   sections: readonly ToolTableSection[];
   mode: string;
   editor: ToolEditor;
   label: string;
+  /** Each tool's name opens its details. Keep it stable: rows are memoized. */
+  onOpenTool?: (tool: ToolSetting) => void;
+  /** The tool whose details are open, marked selected. */
+  openTool?: string;
 }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const toggle = useCallback(
@@ -169,7 +176,9 @@ export function ToolSettingsTable({
       key={tool.name}
       measure={at ? virtualizer.measureElement : undefined}
       mode={mode}
+      onOpen={onOpenTool}
       position={at?.[1]}
+      selected={openTool === tool.name}
       setSize={at ? section.tools.length : undefined}
       status={editor.status[tool.name]}
       tool={tool}
@@ -224,7 +233,7 @@ export function ToolSettingsTable({
                 />
               ) : null}
               {tools.length ? (
-                <ul className="grid" aria-label={`${section.title} tools`}>
+                <ul className="grid" aria-label={t`${ph({ title: section.title })} tools`}>
                   {tools.map(({ item, index }) =>
                     toolRow(section, item.tool, [index, item.position]),
                   )}
@@ -260,7 +269,7 @@ export function ToolSettingsTable({
             section={section}
           />
           {open && section.tools.length ? (
-            <ul className="grid" aria-label={`${section.title} tools`}>
+            <ul className="grid" aria-label={t`${ph({ title: section.title })} tools`}>
               {section.tools.map((tool) => toolRow(section, tool))}
             </ul>
           ) : open && section.reserveRows ? (

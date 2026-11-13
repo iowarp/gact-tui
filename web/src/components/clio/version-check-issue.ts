@@ -2,6 +2,7 @@ import type { useSystemVersionStatus } from '@/hooks/use-system-version-status';
 import type { LatestRelease } from '@clio/core/v3';
 import { ReleaseFeedRateLimited } from '@/lib/github-releases';
 import type { DesktopUpdateSnapshot } from '@/tauri/desktop-updater';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Why a version check did not produce an answer, in words for the person.
@@ -16,8 +17,7 @@ export interface VersionCheckIssue {
   text: string;
 }
 
-const STILL_PUBLISHING =
-  'Could not check for updates: the latest release is still being published.';
+const STILL_PUBLISHING = t`Could not check for updates: the latest release is still being published.`;
 
 /** The CLIO row: the server's typed `latest-release` degradation, or a failed request. */
 export function agentCheckIssue(
@@ -28,12 +28,15 @@ export function agentCheckIssue(
   const reason = release?.degradation?.reason;
   if (reason === 'manifest_not_published') return { state: 'unavailable', text: STILL_PUBLISHING };
   if (requestFailed && error instanceof ReleaseFeedRateLimited) {
-    return { state: 'unavailable', text: `Could not check for updates: ${error.message}` };
+    return {
+      state: 'unavailable',
+      text: t`Could not check for updates: ${ph({ message: error.message })}`,
+    };
   }
   if (reason || requestFailed) {
     return {
       state: 'unavailable',
-      text: 'Could not check for updates: the release server could not be reached.',
+      text: t`Could not check for updates: the release server could not be reached.`,
     };
   }
   return undefined;
@@ -46,25 +49,29 @@ export function desktopCheckIssue(snapshot: DesktopUpdateSnapshot): VersionCheck
     case 'version_mismatch':
       return { state: 'error', text: snapshot.message };
     case 'signature_mismatch':
-      return { state: 'error', text: 'The update was rejected: its signature did not match.' };
+      return { state: 'error', text: t`The update was rejected: its signature did not match.` };
     case 'manifest_not_published':
       return { state: 'unavailable', text: STILL_PUBLISHING };
     case 'rate_limited':
-      return { state: 'unavailable', text: `Could not check for updates: ${snapshot.message}` };
+      return {
+        state: 'unavailable',
+        text: t`Could not check for updates: ${ph({ message: snapshot.message })}`,
+      };
     case 'platform_not_published':
       return {
         state: 'unavailable',
-        text: 'Could not check for updates: no update is published for this computer yet.',
+        text: t`Could not check for updates: no update is published for this computer yet.`,
       };
     case 'release_not_published':
       return {
         state: 'unavailable',
-        text: `Could not check for updates: ${snapshot.message.charAt(0).toLowerCase()}${snapshot.message.slice(1)}`,
+        // The updater's own English sentence, continued after the colon.
+        text: t`Could not check for updates: ${ph({ message: `${snapshot.message.charAt(0).toLowerCase()}${snapshot.message.slice(1)}` })}`,
       };
     default:
       return {
         state: 'unavailable',
-        text: 'Could not check for updates: the update server could not be reached.',
+        text: t`Could not check for updates: the update server could not be reached.`,
       };
   }
 }

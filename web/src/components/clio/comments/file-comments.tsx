@@ -1,10 +1,9 @@
-import type { Artifact, CommentMode, DocumentAnchor } from '@clio/core/v3';
+import type { Artifact, CommentMode, CommentTarget, DocumentAnchor } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { MessageSquarePlusIcon, MessagesSquareIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -12,8 +11,10 @@ import { CommentCapture, CommentToggle } from './comment-capture';
 import type { Rect } from './comment-region-layer';
 import { CommentSessionProvider } from './comment-session';
 import { CommentThreadList } from './comment-thread-list';
+import { CommentThreadsPopover } from './comment-threads-popover';
 import { FrameCommentsIcon, FrameCommentsPortal, FrameCommentsUnavailable } from './frame-comments';
 import { useInFrameComments } from './frame-comments-slot';
+import { t } from '@lingui/core/macro';
 
 type RegionAnchor = (rect: Rect, host: HTMLElement) => DocumentAnchor | undefined;
 
@@ -21,6 +22,19 @@ interface Version {
   artifactId: string;
   version: number;
   sha256: string;
+}
+
+/**
+ * The file's newest known version. Registering answers once; after the agent saves the file
+ * again the target query is read anew, and its newer version wins.
+ */
+function newest(
+  registered: CommentTarget | null | undefined,
+  found: CommentTarget | null | undefined,
+): CommentTarget | null | undefined {
+  if (!registered) return found;
+  if (!found) return registered;
+  return found.version > registered.version ? found : registered;
 }
 
 function Commentable({
@@ -31,6 +45,7 @@ function Commentable({
   regionAnchor,
   svg,
   initiallyActive,
+  onOpenVersion,
   children,
 }: {
   title: string;
@@ -40,13 +55,21 @@ function Commentable({
   regionAnchor?: RegionAnchor;
   svg?: Uint8Array;
   initiallyActive?: boolean;
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   const inFrame = useInFrameComments();
-  const list = <CommentThreadList artifactId={version.artifactId} sessionId={sessionId} />;
+  const list = (
+    <CommentThreadList
+      artifactId={version.artifactId}
+      sessionId={sessionId}
+      version={version.version}
+    />
+  );
   return (
     <CommentSessionProvider
       initiallyActive={initiallyActive}
+      onOpenVersion={onOpenVersion}
       surface={{
         title,
         modes,
@@ -55,20 +78,19 @@ function Commentable({
       }}
       threadList={
         inFrame ? (
-          <Popover>
-            <PopoverTrigger asChild>
+          <CommentThreadsPopover
+            align="start"
+            beside
+            className="z-[95]"
+            trigger={
               <Button className="mt-2 w-full" size="sm" variant="ghost">
                 <MessagesSquareIcon aria-hidden="true" />
-                Earlier threads
+                {t`Earlier threads`}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="z-[95] max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-            >
-              {list}
-            </PopoverContent>
-          </Popover>
+            }
+          >
+            {list}
+          </CommentThreadsPopover>
         ) : undefined
       }
     >
@@ -78,19 +100,16 @@ function Commentable({
         ) : (
           <div className="absolute top-2 left-2 z-20 flex gap-1 rounded-md bg-background/90 p-0.5 shadow-sm">
             <CommentToggle />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button aria-label="Comment threads" size="sm" variant="ghost">
+            <CommentThreadsPopover
+              align="start"
+              trigger={
+                <Button aria-label={t`Comment threads`} size="sm" variant="ghost">
                   <MessagesSquareIcon aria-hidden="true" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
-              >
-                {list}
-              </PopoverContent>
-            </Popover>
+              }
+            >
+              {list}
+            </CommentThreadsPopover>
           </div>
         )}
         <CommentCapture regionAnchor={regionAnchor} sourcePath={title} svg={svg}>
@@ -110,17 +129,21 @@ export function ArtifactComments({
   modes,
   regionAnchor,
   svg,
+  onOpenVersion,
   children,
 }: {
   artifact: { id: string; name: string; session_id: string; version: number; sha256: string };
   modes: readonly CommentMode[];
   regionAnchor?: RegionAnchor;
   svg?: Uint8Array;
+  /** Open another version of the file; marking again on the newest version opens it. */
+  onOpenVersion?: (target: CommentTarget) => void;
   children: ReactNode;
 }) {
   return (
     <Commentable
       modes={modes}
+      onOpenVersion={onOpenVersion}
       regionAnchor={regionAnchor}
       svg={svg}
       sessionId={artifact.session_id}
@@ -172,14 +195,14 @@ export function WorkspaceFileComments({
     return inFrame ? (
       <>
         <FrameCommentsPortal>
-          <FrameCommentsUnavailable reason="Open a conversation to comment" />
+          <FrameCommentsUnavailable reason={t`Open a conversation to comment`} />
         </FrameCommentsPortal>
         {children}
       </>
     ) : (
       <>{children}</>
     );
-  const known = register.data ?? target.data;
+  const known = newest(register.data, target.data);
   if (!known) {
     if (inFrame)
       return (
@@ -205,7 +228,7 @@ export function WorkspaceFileComments({
             variant="ghost"
           >
             <MessageSquarePlusIcon aria-hidden="true" />
-            Comment
+            {t`Comment`}
           </Button>
         </div>
         {children}
@@ -279,7 +302,7 @@ export function WorkspaceDocumentView({
   const register = useMutation({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
   });
-  const known = register.data ?? target.data;
+  const known = newest(register.data, target.data);
   const { mutate: registerTarget } = register;
   // Open means preview: an unregistered file is registered once, as Preview and comment would.
   const autoRegister = Boolean(sessionId) && target.data === null && register.isIdle;
@@ -295,13 +318,13 @@ export function WorkspaceDocumentView({
           <FrameCommentsPortal>
             {sessionId ? (
               <FrameCommentsIcon
-                label="Preview and comment"
+                label={t`Preview and comment`}
                 busy={register.isPending || target.isPending}
                 disabledReason={register.error?.message}
                 onClick={() => register.mutate()}
               />
             ) : (
-              <FrameCommentsUnavailable reason="Open a conversation to comment" />
+              <FrameCommentsUnavailable reason={t`Open a conversation to comment`} />
             )}
           </FrameCommentsPortal>
           {fallback}
@@ -319,7 +342,7 @@ export function WorkspaceDocumentView({
               variant="secondary"
             >
               <MessageSquarePlusIcon aria-hidden="true" />
-              Preview and comment
+              {t`Preview and comment`}
             </Button>
           </div>
         ) : null}

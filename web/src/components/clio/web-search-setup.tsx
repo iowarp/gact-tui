@@ -16,6 +16,8 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { remoteUrlFromSpec } from './web-search-configuration';
+import { plural, t } from '@lingui/core/macro';
+import { formatDateTime } from '@/lib/locale-format';
 
 /** Connect an externally managed Web Search endpoint; deployment lives in ManagedServices. */
 export function WebSearchSetup({
@@ -27,6 +29,7 @@ export function WebSearchSetup({
   open: boolean;
   onBack?: () => void;
 }) {
+  const { agent } = vocab;
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -39,6 +42,7 @@ export function WebSearchSetup({
     queryFn: ({ signal }) => repository.externalServiceConnections(signal),
   });
   const external = connections.data?.find((candidate) => candidate.service_id === 'web_search');
+  const checked = external?.checked_at ? formatDateTime(external.checked_at) : undefined;
   const current = useQuery({
     enabled: open,
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
@@ -66,6 +70,7 @@ export function WebSearchSetup({
     mutationFn: async () => {
       const definition = {
         service_id: 'web_search',
+        // i18n-ignore: the service's registered name, stored by the server
         label: 'CLIO Web Search',
         url: effectiveUrl.trim(),
         credential_ref: effectiveCredentialRef.trim(),
@@ -75,6 +80,7 @@ export function WebSearchSetup({
         else await repository.createExternalServiceConnection(definition);
       }
       return repository.configureMcpServer('web', {
+        // i18n-ignore: the MCP server's configured name, stored by the server
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: WEB_MCP_COMMAND,
@@ -86,21 +92,26 @@ export function WebSearchSetup({
     onSuccess: async (result) => {
       await refresh();
       if (result.status !== 'ready') {
-        throw new Error(result.error ?? 'The endpoint did not report its tools.');
+        throw new Error(result.error ?? t`The endpoint did not report its tools.`);
       }
-      toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
+      toast.success(
+        plural(result.tools_count, {
+          one: 'CLIO Web Search connected with # tool',
+          other: 'CLIO Web Search connected with # tools',
+        }),
+      );
       onOpenChange(false);
     },
   });
   const check = useMutation({
     mutationFn: async () => {
-      if (!external) throw new Error('Save this endpoint before checking it.');
+      if (!external) throw new Error(t`Save this endpoint before checking it.`);
       return repository.checkExternalServiceConnection(external.id);
     },
     onSuccess: async (result) => {
       await refresh();
       toast[result.reachable ? 'success' : 'error'](
-        result.reachable ? 'Web Search is reachable' : 'Web Search did not answer',
+        result.reachable ? t`Web Search is reachable` : t`Web Search did not answer`,
       );
     },
   });
@@ -113,19 +124,19 @@ export function WebSearchSetup({
     },
     onSuccess: async () => {
       await refresh();
-      toast.success('Web Search disconnected');
+      toast.success(t`Web Search disconnected`);
       onOpenChange(false);
     },
   });
   const error = connect.error ?? check.error ?? disconnect.error;
 
   const connectLabel = connect.isPending
-    ? 'Checking…'
+    ? t`Checking…`
     : current.data?.status === 'degraded'
-      ? 'Retry connection'
+      ? t`Retry connection`
       : external
-        ? 'Save and reconnect'
-        : 'Connect';
+        ? t`Save and reconnect`
+        : t`Connect`;
 
   return (
     <DialogFrame
@@ -134,26 +145,26 @@ export function WebSearchSetup({
         disabled: !effectiveUrl.trim() || connect.isPending,
         onConfirm: () => connect.mutate(),
       }}
-      description={`A search service run outside ${vocab.agent}. ${vocab.agent} checks it and uses its tools.`}
+      description={t`A search service run outside ${agent}. ${agent} checks it and uses its tools.`}
       footerStart={
         onBack ? (
           <Button className="-ml-2" onClick={onBack} size="sm" variant="ghost">
             <ArrowLeftIcon aria-hidden="true" />
-            Back
+            {t`Back`}
           </Button>
         ) : undefined
       }
       icon={<GlobeIcon />}
       onOpenChange={onOpenChange}
       open={open}
-      title="Connect CLIO Web Search"
+      title={t`Connect CLIO Web Search`}
       titleActions={
         <>
           {external ? (
             <IconButton
               disabled={check.isPending}
               icon={check.isPending ? <Spinner aria-hidden="true" /> : <RefreshIcon />}
-              label="Recheck"
+              label={t`Recheck`}
               onClick={() => check.mutate()}
             />
           ) : null}
@@ -161,7 +172,7 @@ export function WebSearchSetup({
             <IconButton
               disabled={disconnect.isPending}
               icon={disconnect.isPending ? <Spinner aria-hidden="true" /> : <UnplugIcon />}
-              label="Disconnect"
+              label={t`Disconnect`}
               onClick={() => disconnect.mutate()}
             />
           ) : null}
@@ -171,10 +182,10 @@ export function WebSearchSetup({
       <div className="flex flex-col gap-3">
         <Field className="gap-1.5">
           <FieldLabel className="text-xs" htmlFor="existing-web-search-url">
-            Service address
+            {t`Service address`}
           </FieldLabel>
           <Input
-            className="h-[30px] font-mono text-[12.5px] md:text-[12.5px]"
+            className="h-[30px] font-mono text-menu md:text-menu"
             data-initial-focus=""
             id="existing-web-search-url"
             onChange={(event) => setUrl(event.target.value)}
@@ -185,23 +196,26 @@ export function WebSearchSetup({
         </Field>
         <Field className="gap-1.5">
           <FieldLabel className="text-xs" htmlFor="existing-web-search-credential">
-            Credential reference
+            {t`Credential reference`}
           </FieldLabel>
           <Input
-            className="h-[30px] text-[12.5px] md:text-[12.5px]"
+            className="h-[30px] text-menu md:text-menu"
             id="existing-web-search-credential"
             onChange={(event) => setCredentialRef(event.target.value)}
-            placeholder="Optional, e.g. infrastructure:nsf-search"
-            title={`A key in ${vocab.agent}’s credential source; the secret is never stored here.`}
+            placeholder={t`Optional, e.g. infrastructure:nsf-search`}
+            title={t`A key in ${agent}’s credential source; the secret is never stored here.`}
             value={effectiveCredentialRef}
           />
         </Field>
         {external ? (
           <p className="text-xs text-muted-foreground">
-            {external.reachable ? 'Reachable' : 'Not reachable'}
-            {external.checked_at
-              ? `, checked ${new Date(external.checked_at).toLocaleString()}`
-              : ''}
+            {checked
+              ? external.reachable
+                ? t`Reachable, checked ${checked}`
+                : t`Not reachable, checked ${checked}`
+              : external.reachable
+                ? t`Reachable`
+                : t`Not reachable`}
           </p>
         ) : null}
         {current.data?.status === 'degraded' ? (
@@ -209,7 +223,7 @@ export function WebSearchSetup({
             <StateView
               kind="error"
               size="row"
-              title="Saved, but the service isn’t answering. Start it or fix the address."
+              title={t`Saved, but the service isn’t answering. Start it or fix the address.`}
             />
           </div>
         ) : null}

@@ -8,6 +8,8 @@
 
 mod agent_port;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod app_language;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod app_location;
 mod blocking_command;
 mod brand_backend;
@@ -41,6 +43,7 @@ mod installer_runtime_stop;
 mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
+mod native_copy;
 mod net_util;
 mod notifications;
 mod package_stamp;
@@ -243,6 +246,7 @@ pub fn run() {
             storage_oauth::storage_oauth_receive,
             storage_oauth::storage_oauth_cancel,
             commands::get_backend,
+            native_copy::set_native_copy,
             commands::has_managed_runtime,
             commands::managed_runtime_update_mode,
             commands::retry_backend,
@@ -286,6 +290,7 @@ pub fn run() {
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
             workspace_terminal::open_workspace_terminal,
+            workspace_terminal::open_workspace_folder,
             terminal_pty::terminal_open,
             terminal_pty::terminal_write,
             terminal_pty::terminal_resize,
@@ -380,6 +385,8 @@ pub fn run() {
                 }
             }
 
+            // The tray and menu bar open in the language the interface last reported.
+            native_copy::load_saved(app.handle());
             tray::install_tray(app)?;
 
             // macOS keeps the native global application menu. Windows and
@@ -388,9 +395,7 @@ pub fn run() {
             // The tray menu above is independent and remains available.
             #[cfg(target_os = "macos")]
             {
-                let app_menu = menu::build_menu(app.handle())?;
-                app.set_menu(app_menu.clone())?;
-                menu::register_app_roles(&app_menu)?;
+                menu::install_menu(app.handle())?;
                 app.on_menu_event(|app, ev| {
                     menu::handle_menu_event(app, ev.id().as_ref());
                 });

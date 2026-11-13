@@ -2,6 +2,7 @@ import type { A2UISurface, Artifact, Message, ToolInvocation } from '@clio/core/
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import type { ClioConversationProps } from '@/components/clio/conversation-types';
 import { TOUR_PRACTICE_SESSION_ID as SESSION, TOUR_PRACTICE_WORKSPACE_ID } from './tour-transport';
+import { t } from '@lingui/core/macro';
 
 /*
  * The scripted practice conversation. Every id resolves to bundled sample data
@@ -51,15 +52,16 @@ const plotTool: ToolInvocation = {
   id: 'tour_plot',
   session_id: SESSION,
   name: 'run_code',
-  title: 'Run script',
+  title: t`Run script`,
   state: 'succeeded',
   input: { path: 'scripts/plot_bkl1.py', language: 'python', code: PLOT_SCRIPT },
+  // i18n-ignore: what the script printed, not interface copy
   output: { exit_code: 0, stdout: 'Saved figures/bkl1-vertical.png' },
   started_at: at(3),
   completed_at: at(5),
   duration_ms: 2100,
   presentation: {
-    action: 'Run script',
+    action: t`Run script`,
     subject: 'script',
     summary: 'exit 0',
     blocks: [
@@ -75,6 +77,7 @@ const plotTool: ToolInvocation = {
         id: 'terminal',
         type: 'terminal',
         command: 'python scripts/plot_bkl1.py',
+        // i18n-ignore: what the script printed, not interface copy
         text: 'Saved figures/bkl1-vertical.png\n',
         exit_code: 0,
       },
@@ -89,8 +92,26 @@ const plot: Artifact = {
   name: 'bkl1-vertical.png',
   media_type: 'image/png',
   uri: `artifact://${PLOT_ARTIFACT}`,
-  size: 53953,
   created_at: at(5),
+};
+
+/** The plot, sized for the variant the practice repository serves in each theme. */
+export function practicePlot(light: boolean): Artifact {
+  return { ...plot, size: light ? 53700 : 50870 };
+}
+
+/** The tracks map's fields, shared by the surface and the stage's out-of-sight warm-up copy. */
+export const PRACTICE_TRACKS_MAP = {
+  title: t`Atlantic hurricane tracks, 2017 and 2019`,
+  dataUri: TRACKS,
+  latitudeField: 'lat',
+  longitudeField: 'lon',
+  labelField: 'label',
+  idField: 'observation_id',
+  trackField: 'storm',
+  orderField: 'time',
+  filterFields: ['storm', 'year', 'wind_kt'],
+  selectionField: 'observation_id',
 };
 
 const surface: A2UISurface = {
@@ -118,17 +139,8 @@ const surface: A2UISurface = {
           {
             id: 'map',
             component: 'clio.map.v1',
-            title: 'Atlantic hurricane tracks, 2017 and 2019',
-            dataUri: TRACKS,
-            latitudeField: 'lat',
-            longitudeField: 'lon',
-            labelField: 'label',
-            idField: 'observation_id',
-            trackField: 'storm',
-            orderField: 'time',
-            filterFields: ['storm', 'year', 'wind_kt'],
+            ...PRACTICE_TRACKS_MAP,
             selection: { path: '/selection/tracks' },
-            selectionField: 'observation_id',
           },
           {
             id: 'table',
@@ -150,7 +162,7 @@ const PLOT_REPLY: Message['blocks'] = [
     id: 'plot-text',
     type: 'text',
     channel: 'answer',
-    text: 'BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70.',
+    text: t`BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70.`,
   },
   { id: 'plot-artifact', type: 'artifact', artifact_id: PLOT_ARTIFACT },
 ];
@@ -160,7 +172,7 @@ const TRACKS_REPLY: Message['blocks'] = [
     id: 'tracks-text',
     type: 'text',
     channel: 'answer',
-    text: 'Harvey, Maria and Dorian, 212 observations. The map and table share one selection.',
+    text: t`Harvey, Maria and Dorian, 212 observations. The map and table share one selection.`,
   },
   { id: 'tracks-surface', type: 'a2ui', surface_id: SURFACE_ID },
 ];
@@ -179,14 +191,17 @@ export interface PracticeProgress {
  * one is working, the first shows its script running and the second has no
  * answer yet.
  */
-export function practiceConversation(progress: PracticeProgress): ClioConversationProps {
+export function practiceConversation(
+  progress: PracticeProgress,
+  light = false,
+): ClioConversationProps {
   const { turns, working, sent } = progress;
   const messages: Message[] = [];
   const tools: Record<string, ToolInvocation> = {};
   if (turns >= 1) {
     const presentation = plotTool.presentation!;
     const busy = working && turns === 1;
-    messages.push(user('plot', sent[0] || 'Plot the vertical displacement at station BKL1.', 0));
+    messages.push(user('plot', sent[0] || t`Plot the vertical displacement at station BKL1.`, 0));
     messages.push(assistant('plot_reply', 2, busy ? PLOT_REPLY.slice(0, 1) : PLOT_REPLY));
     const {
       output: _output,
@@ -210,7 +225,7 @@ export function practiceConversation(progress: PracticeProgress): ClioConversati
   }
   if (turns >= 2) {
     messages.push(
-      user('tracks', sent[1] || 'Show the 2017 and 2019 Atlantic hurricane tracks.', 30),
+      user('tracks', sent[1] || t`Show the 2017 and 2019 Atlantic hurricane tracks.`, 30),
     );
     if (!working) messages.push(assistant('tracks_reply', 32, TRACKS_REPLY));
   }
@@ -221,10 +236,7 @@ export function practiceConversation(progress: PracticeProgress): ClioConversati
     tools,
     tasks: {},
     subagents: {},
-    artifacts: turns >= 1 && !(working && turns === 1) ? { [plot.id]: plot } : {},
+    artifacts: turns >= 1 && !(working && turns === 1) ? { [plot.id]: practicePlot(light) } : {},
     surfaces: turns >= 2 ? { [surface.id]: surface } : {},
   };
 }
-
-/** The opened plot, for the practice viewer. */
-export const PRACTICE_PLOT: Artifact = plot;

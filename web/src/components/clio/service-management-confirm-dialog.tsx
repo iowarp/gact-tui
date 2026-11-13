@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InstallExpectation } from './install-expectation';
 import type { ServiceAction } from './service-management-types';
+import { t, ph } from '@lingui/core/macro';
 
 /** Confirms a destructive or slow lifecycle verb before it runs on the host. */
 export function ServiceConfirmDialog({
@@ -50,25 +51,27 @@ export function ServiceConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {fromScratch
-              ? `Reinstall ${service.label} from scratch?`
+              ? t`Reinstall ${ph({ label: service.label })} from scratch?`
               : confirmation === 'delete_data'
-                ? `Delete retained ${service.label} data?`
+                ? t`Delete retained ${ph({ label: service.label })} data?`
                 : confirmation === 'reinstall'
                   ? changed
-                    ? `Apply ${service.label} configuration?`
-                    : `Reinstall ${service.label}${llama ? ' runtime' : ''}?`
-                  : `Remove ${service.label} runtime?`}
+                    ? t`Apply ${ph({ label: service.label })} configuration?`
+                    : llama
+                      ? t`Reinstall ${ph({ label: service.label })} runtime?`
+                      : t`Reinstall ${ph({ label: service.label })}?`
+                  : t`Remove ${ph({ label: service.label })} runtime?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {fromScratch
-              ? 'This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer.'
+              ? t`This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer.`
               : confirmation === 'delete_data'
-                ? 'This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained.'
+                ? t`This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained.`
                 : confirmation === 'reinstall'
-                  ? 'This stops and reinstalls the runtime on the selected host. Existing verification expires; run Verify setup again afterward.'
+                  ? t`This stops and reinstalls the runtime on the selected host. Existing verification expires; run Verify setup again afterward.`
                   : retainsData
-                    ? 'Stop and remove the runtime, retaining its databases, models, logs and evidence.'
-                    : 'Stop and remove this deployment and the resources listed under Storage.'}
+                    ? t`Stop and remove the runtime, retaining its databases, models, logs and evidence.`
+                    : t`Stop and remove this deployment and the resources listed under Storage.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {fromScratch || confirmation === 'reinstall' ? (
@@ -79,14 +82,14 @@ export function ServiceConfirmDialog({
         </p>
         <AlertDialogFooter>
           <AlertDialogCancel>
-            {confirmation === 'delete_data' ? 'Keep data' : 'Cancel'}
+            {confirmation === 'delete_data' ? t`Keep data` : t`Cancel`}
           </AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
             {fromScratch
-              ? 'Reinstall from scratch'
+              ? t`Reinstall from scratch`
               : confirmation
                 ? labels[confirmation]
-                : 'Continue'}
+                : t`Continue`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

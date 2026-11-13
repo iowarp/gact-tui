@@ -13,6 +13,7 @@ import {
   useConnectionAvailabilities,
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
+import { t } from '@lingui/core/macro';
 
 export type KnownConnectionSource = 'recent' | 'managed' | 'infrastructure';
 
@@ -30,8 +31,8 @@ export interface KnownConnection extends SavedConnection {
 
 const MANAGED_STARTING: ConnectionAvailability = {
   state: 'checking',
-  label: 'Starting',
-  detail: 'Starting the local service.',
+  label: t`Starting`,
+  detail: t`Starting the local service.`,
   starting: true,
 };
 
@@ -47,17 +48,25 @@ function managedRowAvailability(
   if (!supervisorReady) return MANAGED_STARTING;
   if (probed?.starting) return probed;
   if (probed?.state === 'healthy') {
-    return { state: 'healthy', label: 'Ready', detail: 'Running on this computer.' };
+    return { state: 'healthy', label: t`Ready`, detail: t`Running on this computer.` };
   }
   if (probed) return probed;
   return probeFailed
-    ? { state: 'checking', label: 'Checking', detail: 'Checking the local service.' }
+    ? { state: 'checking', label: t`Checking`, detail: t`Checking the local service.` }
     : MANAGED_STARTING;
 }
 
 const CONNECTED_TRANSPORT_STATES: ReadonlySet<InfrastructureTarget['transport_state']> = new Set([
   'connected',
 ]);
+
+// Module-level so the memoized list below reads constants, not the translation runtime.
+const THIS_COMPUTER = t`This computer`;
+const THIS_DEVICE = t`This device`;
+
+function runningOn(label: string): ConnectionAvailability {
+  return { state: 'healthy', label: t`Ready`, detail: t`Running on ${label}.` };
+}
 
 /**
  * Shared service inventory for opening, switching and managing connections: every CLIO the
@@ -157,8 +166,8 @@ export function useKnownConnections(): readonly KnownConnection[] {
       managed.push({
         endpoint: managedConnection.endpoint,
         token: managedConnection.token,
-        label: managedLabel ?? 'This computer',
-        location: 'This device',
+        label: managedLabel ?? THIS_COMPUTER,
+        location: THIS_DEVICE,
         source: 'managed',
         availability: managedRowAvailability(
           managedConnectionReady,
@@ -182,7 +191,7 @@ export function useKnownConnections(): readonly KnownConnection[] {
         location: target.label,
         infrastructure: { targetId: target.id, serviceId: 'clio_agent' },
         source: 'infrastructure',
-        availability: { state: 'healthy', label: 'Ready', detail: `Running on ${target.label}.` },
+        availability: runningOn(target.label),
       });
     });
 

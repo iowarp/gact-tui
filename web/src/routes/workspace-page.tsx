@@ -1,6 +1,14 @@
 import type { AgentEntry, RunState, Workspace, WorkspaceReference } from '@clio/core/v3';
 import type { ObservabilityView } from '@/components/clio/observability-view-storage';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -54,6 +62,7 @@ import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
+import { ph, t } from '@lingui/core/macro';
 
 const NO_AGENTS: readonly AgentEntry[] = [];
 const NO_WORKSPACES: readonly Workspace[] = [];
@@ -84,7 +93,7 @@ export function WorkspacePage() {
   const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
-  const diffActions = useSessionDiffActions();
+  const diffActions = useSessionDiffActions(sessionId);
   const sessionCommands = useSessionCommands(sessionId, workspaceId);
   const data = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const {
@@ -229,7 +238,7 @@ export function WorkspacePage() {
             kind: 'tool-call',
             callId,
             sessionId: interaction.owner_session_id,
-            label: 'Script',
+            label: t`Script`,
           }),
         ownerLabels: interactionOwnerLabels,
         surfaces: data.interactionSurfaces,
@@ -292,6 +301,9 @@ export function WorkspacePage() {
     ],
   );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
+  // The shell and left bar stay mounted across conversations; the conversation's own
+  // regions start fresh for each one.
+  const sessionKey = `${settings.endpoint}:${sessionId}`;
   // Loading and unavailable keep the hydrated tree's providers and shell key, so
   // the bars stay and finishing hydration updates the shell in place instead of
   // remounting the sidebar (which would close any menu opened meanwhile).
@@ -306,11 +318,13 @@ export function WorkspacePage() {
         <ClioAppShell
           key="shell"
           navigation={sideNavigation}
-          contextBar={<div className="min-w-0 truncate text-sm font-medium">{contextTitle}</div>}
-          statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
+          contextBar={<div className="min-w-0 truncate text-ui font-medium">{contextTitle}</div>}
+          statusStrip={
+            <WorkspaceLiveStatusStrip key={sessionKey} work={work} sessionId={sessionId} />
+          }
           workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
         >
-          {body}
+          <Fragment key={sessionKey}>{body}</Fragment>
         </ClioAppShell>
       </QuestionAnswerContext.Provider>
     </WorkspaceSessionProviders>
@@ -327,17 +341,19 @@ export function WorkspacePage() {
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
     return shellAround(
-      rememberedSession?.title ?? 'Opening conversation',
+      rememberedSession?.title ?? t`Opening conversation`,
       <WorkspaceHydrating />,
-      'Workspace canvas loading',
+      t`Workspace canvas loading`,
     );
   }
   if (!session) {
     return shellAround(
-      'Conversation unavailable',
+      t`Conversation unavailable`,
       <WorkspaceUnavailable
         back={{
-          label: activeWorkspace ? `Back to ${workspaceName(activeWorkspace)}` : 'Back to Conversations',
+          label: activeWorkspace
+            ? t`Back to ${ph({ workspace: workspaceName(activeWorkspace) })}`
+            : t`Back to Conversations`,
           to: newConversationRoute(activeWorkspace ? workspaceId : DEFAULT_WORKSPACE_ID),
         }}
         error={missingError}
@@ -352,7 +368,7 @@ export function WorkspacePage() {
         }}
         subject="conversation"
       />,
-      'Workspace canvas',
+      t`Workspace canvas`,
     );
   }
 
@@ -394,6 +410,7 @@ export function WorkspacePage() {
       <QuestionAnswerContext.Provider value={questionAnswering.context}>
         <ClioCommandMenu onOpenResource={revealWorkbench} />
         <ClioMoreDetails
+          key={sessionKey}
           composerDraft={composerDraft}
           focusComposer={() => setComposerFocusKey((key) => key + 1)}
           model={data.activeModel}
@@ -405,6 +422,7 @@ export function WorkspacePage() {
           key="shell"
           toolbarActions={
             <WorkspaceObservabilityDock
+              key={sessionKey}
               data={data}
               navigation={workbench}
               sessionId={sessionId}
@@ -418,6 +436,7 @@ export function WorkspacePage() {
           navigation={sideNavigation}
           contextBar={
             <WorkspaceContextBar
+              key={sessionKey}
               session={session}
               parentSession={data.parentSession}
               workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
@@ -430,6 +449,7 @@ export function WorkspacePage() {
           }
           workbench={
             <WorkspaceWorkbench
+              key={sessionKey}
               data={data}
               navigation={workbench}
               sessionId={sessionId}
@@ -448,6 +468,7 @@ export function WorkspacePage() {
           workbenchReveal={workbench.requests}
           statusStrip={
             <WorkspaceLiveStatusStrip
+              key={sessionKey}
               work={work}
               onInspectTasks={() => openObservability()}
               onOpenWork={openWork}
@@ -457,6 +478,7 @@ export function WorkspacePage() {
           }
         >
           <WorkspaceTranscript
+            key={sessionKey}
             surfaceRef={showcaseSurfaceRef}
             session={session}
             sessionId={sessionId}

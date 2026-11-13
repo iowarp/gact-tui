@@ -6,6 +6,7 @@ import {
   type WorkflowStep,
 } from '@clio/core/v3';
 import type { ClioStatusValue } from './status';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * How a step reads in a diagram: the class Pele draws it with and the word its
@@ -34,13 +35,13 @@ export function flowRunStatus(run: Pick<FlowRun, 'status' | 'outcome'>): {
   value: ClioStatusValue;
   label: string;
 } {
-  if (run.status === 'running') return { value: 'running', label: 'Running' };
-  if (run.status === 'completed') return { value: 'completed', label: 'Completed' };
-  if (run.status === 'flow_stall') return { value: 'failed', label: 'Stalled' };
+  if (run.status === 'running') return { value: 'running', label: t`Running` };
+  if (run.status === 'completed') return { value: 'completed', label: t`Completed` };
+  if (run.status === 'flow_stall') return { value: 'failed', label: t`Stalled` };
   if (run.status === 'task_state_uncertain')
-    return { value: 'task_state_uncertain', label: 'Needs inspection' };
-  if (run.status === 'cancelled') return { value: 'cancelled', label: 'Cancelled' };
-  return { value: 'failed', label: `Stopped: ${run.status.replaceAll('_', ' ')}` };
+    return { value: 'task_state_uncertain', label: t`Needs inspection` };
+  if (run.status === 'cancelled') return { value: 'cancelled', label: t`Cancelled` };
+  return { value: 'failed', label: t`Stopped: ${ph({ status: run.status.replaceAll('_', ' ') })}` };
 }
 
 /**
@@ -53,15 +54,15 @@ export function settledTaskStatus(
   const state = operationalRunStateSchema.parse(task.live_state || task.status);
   switch (state) {
     case 'completed':
-      return { value: state, label: 'Completed' };
+      return { value: state, label: t`Completed` };
     case 'failed':
-      return { value: state, label: 'Failed' };
+      return { value: state, label: t`Failed` };
     case 'cancelled':
-      return { value: state, label: 'Cancelled' };
+      return { value: state, label: t`Cancelled` };
     case 'interrupted':
-      return { value: state, label: 'Interrupted' };
+      return { value: state, label: t`Interrupted` };
     case 'stopped':
-      return { value: state, label: 'Stopped' };
+      return { value: state, label: t`Stopped` };
     default:
       return undefined;
   }
@@ -85,24 +86,59 @@ export function flowTaskHistoryUnavailable(
 export function workflowStepStatus(step: Pick<WorkflowStep, 'status'>, skipped = false): FlowState {
   switch (step.status) {
     case 'pending':
-      return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
+      return {
+        value: 'queued',
+        label: t`Waiting`,
+        word: t({ message: 'waiting', context: 'flow step state' }),
+        tone: 'waiting',
+      };
     case 'running':
-      return { value: 'running', label: 'Running', word: 'running', tone: 'running' };
+      return {
+        value: 'running',
+        label: t`Running`,
+        word: t({ message: 'running', context: 'flow step state' }),
+        tone: 'running',
+      };
     case 'completed':
-      return { value: 'completed', label: 'Completed', word: 'done', tone: 'done' };
+      return {
+        value: 'completed',
+        label: t`Completed`,
+        word: t({ message: 'done', context: 'flow step state' }),
+        tone: 'done',
+      };
     case 'failed':
-      return { value: 'failed', label: 'Failed', word: 'failed', tone: 'failed' };
+      return {
+        value: 'failed',
+        label: t`Failed`,
+        word: t({ message: 'failed', context: 'flow step state' }),
+        tone: 'failed',
+      };
     case 'cancelled':
       return skipped
-        ? { value: 'cancelled', label: 'Skipped', word: 'skipped', tone: 'cancelled' }
-        : { value: 'cancelled', label: 'Cancelled', word: 'cancelled', tone: 'cancelled' };
+        ? {
+            value: 'cancelled',
+            label: t`Skipped`,
+            word: t({ message: 'skipped', context: 'flow step state' }),
+            tone: 'cancelled',
+          }
+        : {
+            value: 'cancelled',
+            label: t`Cancelled`,
+            word: t({ message: 'cancelled', context: 'flow step state' }),
+            tone: 'cancelled',
+          };
     case 'repaired':
-      return { value: 'recovering', label: 'Repaired', word: 'repaired', tone: 'done' };
+      return {
+        value: 'recovering',
+        label: t`Repaired`,
+        word: t({ message: 'repaired', context: 'flow step state' }),
+        tone: 'done',
+      };
     default:
       return {
         value: 'unknown',
-        label: 'State not recognized',
-        word: 'state unknown',
+        label: t`State not recognized`,
+        word: t({ message: 'state unknown', context: 'flow step state' }),
         tone: 'unknown',
       };
   }
@@ -114,44 +150,104 @@ export function flowCallStatus(status: string): FlowState {
     case 'returned_after_stop':
       return {
         value: 'completed',
-        label: 'Returned after flow stopped',
-        word: 'returned after stop',
+        label: t`Returned after flow stopped`,
+        word: t({ message: 'returned after stop', context: 'flow step state' }),
         tone: 'done',
       };
     case 'unknown':
-      return { value: 'unknown', label: 'Not confirmed', word: 'not confirmed', tone: 'unknown' };
+      return {
+        value: 'unknown',
+        label: t`Not confirmed`,
+        word: t({ message: 'not confirmed', context: 'flow step state' }),
+        tone: 'unknown',
+      };
     case 'returned':
-      return { value: 'completed', label: 'Returned', word: 'returned', tone: 'done' };
+      return {
+        value: 'completed',
+        label: t`Returned`,
+        word: t({ message: 'returned', context: 'flow step state' }),
+        tone: 'done',
+      };
     case 'not_run':
     case 'not_accepted':
-      return { value: 'cancelled', label: 'Did not run', word: 'did not run', tone: 'cancelled' };
+      return {
+        value: 'cancelled',
+        label: t`Did not run`,
+        word: t({ message: 'did not run', context: 'flow step state' }),
+        tone: 'cancelled',
+      };
     case 'rejected':
-      return { value: 'failed', label: 'Rejected', word: 'rejected', tone: 'failed' };
+      return {
+        value: 'failed',
+        label: t`Rejected`,
+        word: t({ message: 'rejected', context: 'flow step state' }),
+        tone: 'failed',
+      };
     case 'output_rejected':
-      return { value: 'failed', label: 'Output rejected', word: 'output rejected', tone: 'failed' };
+      return {
+        value: 'failed',
+        label: t`Output rejected`,
+        word: t({ message: 'output rejected', context: 'flow step state' }),
+        tone: 'failed',
+      };
     case 'dispatching':
     case 'accepted':
-      return { value: 'running', label: 'Started', word: 'started', tone: 'running' };
+      return {
+        value: 'running',
+        label: t`Started`,
+        word: t({ message: 'started', context: 'flow step state' }),
+        tone: 'running',
+      };
     case 'pending':
     case 'queued':
-      return { value: 'queued', label: 'Waiting', word: 'waiting', tone: 'waiting' };
+      return {
+        value: 'queued',
+        label: t`Waiting`,
+        word: t({ message: 'waiting', context: 'flow step state' }),
+        tone: 'waiting',
+      };
     case 'running':
-      return { value: 'running', label: 'Running', word: 'running', tone: 'running' };
+      return {
+        value: 'running',
+        label: t`Running`,
+        word: t({ message: 'running', context: 'flow step state' }),
+        tone: 'running',
+      };
     case 'completed':
-      return { value: 'completed', label: 'Completed', word: 'done', tone: 'done' };
+      return {
+        value: 'completed',
+        label: t`Completed`,
+        word: t({ message: 'done', context: 'flow step state' }),
+        tone: 'done',
+      };
     case 'failed':
-      return { value: 'failed', label: 'Failed', word: 'failed', tone: 'failed' };
+      return {
+        value: 'failed',
+        label: t`Failed`,
+        word: t({ message: 'failed', context: 'flow step state' }),
+        tone: 'failed',
+      };
     case 'cancelled':
-      return { value: 'cancelled', label: 'Cancelled', word: 'cancelled', tone: 'cancelled' };
+      return {
+        value: 'cancelled',
+        label: t`Cancelled`,
+        word: t({ message: 'cancelled', context: 'flow step state' }),
+        tone: 'cancelled',
+      };
     case 'task_state_uncertain':
       return {
         value: 'task_state_uncertain',
-        label: 'Needs inspection',
-        word: 'needs inspection',
+        label: t`Needs inspection`,
+        word: t({ message: 'needs inspection', context: 'flow step state' }),
         tone: 'failed',
       };
     case '':
-      return { value: 'unknown', label: 'Not reported', word: 'not reported', tone: 'unknown' };
+      return {
+        value: 'unknown',
+        label: t`Not reported`,
+        word: t({ message: 'not reported', context: 'flow step state' }),
+        tone: 'unknown',
+      };
     default: {
       const label = status.replaceAll('_', ' ');
       return { value: 'unknown', label, word: label, tone: 'unknown' };
@@ -161,15 +257,18 @@ export function flowCallStatus(status: string): FlowState {
 
 const PROPOSED: FlowState = {
   value: 'waiting_user',
-  label: 'Awaiting approval',
-  word: 'awaiting approval',
+  label: t`Awaiting approval`,
+  word: t({ message: 'awaiting approval', context: 'flow step state' }),
   tone: 'proposed',
 };
 
+/** How the session's own agent reads as a call's target. */
+export const THIS_AGENT = t`this agent`;
+
 /** Who a call runs: the session's own agent reads as "this agent". */
 export function flowTargetLabel(target: string, agentRef: string): string {
-  if (!target) return 'Target not reported';
-  return target === 'self' || (agentRef !== '' && target === agentRef) ? 'this agent' : target;
+  if (!target) return t`Target not reported`;
+  return target === 'self' || (agentRef !== '' && target === agentRef) ? THIS_AGENT : target;
 }
 
 /** One step of a workflow as the transcript card, the panel and the diagram present it. */
@@ -382,6 +481,8 @@ export interface FlowMember {
   targetLabel: string;
   status: FlowState;
   handle?: string;
+  /** The label drawn on the track, e.g. "member 1"; `label` lower-cased when absent. */
+  drawnLabel?: string;
   /** The arena judge picked this entry. */
   chosen: boolean;
   /** The perspective a council member was asked to answer from, when the agent named one. */
@@ -455,16 +556,25 @@ export function flowMembers(
   return calls.map((call: FlowCall, index): FlowMember => {
     const nth = (seen.get(call.target) ?? 0) + 1;
     seen.set(call.target, nth);
+    const number = index + 1;
     const label =
       run.flow === 'council'
-        ? `Member ${index + 1}`
+        ? t`Member ${number}`
         : run.flow === 'arena'
-          ? `Entry ${index + 1}`
+          ? t`Entry ${number}`
           : named(call)
             ? (perTarget.get(call.target) ?? 0) > 1
               ? `${call.target} ${nth}`
               : call.target
-            : `Call ${index + 1}`;
+            : t`Call ${number}`;
+    const drawnLabel =
+      run.flow === 'council'
+        ? t`member ${number}`
+        : run.flow === 'arena'
+          ? t`entry ${number}`
+          : named(call)
+            ? label.toLowerCase()
+            : t`call ${number}`;
     const perspective =
       run.flow === 'council' && perspectives.length
         ? perspectives[index % perspectives.length]
@@ -472,6 +582,7 @@ export function flowMembers(
     return {
       key: call.invocation || `${index}`,
       label,
+      drawnLabel,
       target: call.target,
       targetLabel: flowTargetLabel(call.target, agentRef),
       status: flowCallStatus(call.status),
@@ -495,11 +606,26 @@ export function atOnce(...bounds: (number | undefined)[]): number {
   return set.length ? Math.min(...set) : 0;
 }
 
+/** How many rows a flow run has, named as the flow names them: "3 steps", "1 entry". */
+export function flowRowCount(count: number, stepwise: boolean, flow: string | undefined): string {
+  if (stepwise) return plural(count, { one: '# step', other: '# steps' });
+  if (flow === 'arena') return plural(count, { one: '# entry', other: '# entries' });
+  if (flow === 'council') return plural(count, { one: '# member', other: '# members' });
+  return plural(count, { one: '# task', other: '# tasks' });
+}
+
 /** Counts of steps by state, in words: "1 done, 1 failed, 3 skipped". */
 export function stepTally(states: readonly FlowState[]): string {
   const counts = new Map<string, number>();
   for (const state of states) counts.set(state.word, (counts.get(state.word) ?? 0) + 1);
-  return [...counts].map(([word, count]) => `${count} ${word}`).join(', ');
+  return [...counts]
+    .map(([word, count]) =>
+      t({
+        message: `${count} ${word}`,
+        comment: 'A count of steps and their state, e.g. "3 done"',
+      }),
+    )
+    .join(', ');
 }
 
 /**

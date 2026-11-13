@@ -12,6 +12,7 @@ import {
   type SettingsSearchResults,
 } from '@/lib/settings-search-results';
 import { cn } from '@/lib/utils';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * The filtered Settings window (Ctrl ? from the global search): every match,
@@ -37,10 +38,10 @@ export function SettingsResults({
   if (!results.blocks.length) {
     return (
       <StateView
-        action={{ label: 'Show every section', onClick: onClear }}
+        action={{ label: t`Show every section`, onClick: onClear }}
         kind="empty"
         size="row"
-        title={`No settings match \u201c${query.trim()}\u201d`}
+        title={t`No settings match “${ph({ query: query.trim() })}”`}
       />
     );
   }
@@ -83,12 +84,12 @@ function ResultBlock({
   const opener = (label: string) => (
     <SettingsRow inlineControl key={label} title={label}>
       <Button
-        className="h-6 gap-1 px-1.5 text-[0.71875rem] font-normal text-faint hover:text-foreground"
+        className="h-6 gap-1 px-1.5 text-label font-normal text-muted-foreground hover:text-foreground"
         onClick={onOpen}
         size="sm"
         variant="ghost"
       >
-        Open section
+        {t`Open section`}
         <ChevronRightIcon aria-hidden="true" className="size-3.5" />
       </Button>
     </SettingsRow>
@@ -102,7 +103,12 @@ function ResultBlock({
     <section aria-label={trail}>
       <SettingsGroupLabel
         actions={
-          <IconButton icon={<ChevronRightIcon />} label="Open section" onClick={onOpen} size="sm" />
+          <IconButton
+            icon={<ChevronRightIcon />}
+            label={t`Open section`}
+            onClick={onOpen}
+            size="sm"
+          />
         }
         className={cn('text-muted-foreground', SETTINGS_COLUMN)}
       >

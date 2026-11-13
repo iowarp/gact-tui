@@ -12,12 +12,13 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { WorkKind } from './work-kind';
+import { t } from '@lingui/core/macro';
 
 const kinds = {
-  agent: { label: 'Agent', icon: BotIcon },
-  question: { label: 'Question', icon: MessageCircleQuestionIcon },
-  tool: { label: 'Tool', icon: WrenchIcon },
-  workflow: { label: 'Flow', icon: WorkflowIcon },
+  agent: { label: t`Agent`, icon: BotIcon },
+  question: { label: t`Question`, icon: MessageCircleQuestionIcon },
+  tool: { label: t`Tool`, icon: WrenchIcon },
+  workflow: { label: t`Flow`, icon: WorkflowIcon },
 };
 
 /** Kind/state glyph for rail and Evidence/Work task lists, not transcript tool calls. */
@@ -57,9 +58,9 @@ export function WorkKindStatus({
   const cancelled = status === 'cancelled';
   const caption =
     status === 'waiting_permission'
-      ? 'Waiting for permission'
+      ? t`Waiting for permission`
       : waiting
-        ? 'Waiting for your answer'
+        ? t`Waiting for your answer`
         : status.replaceAll('_', ' ');
   const title = `${label}: ${caption}${detail ? ` — ${detail}` : ''}`;
   const Badge = running

@@ -2,6 +2,9 @@ import { useSyncExternalStore } from 'react';
 import { Spinner } from '@/components/ui/spinner';
 import { vocab } from '@/lib/brand-vocabulary';
 import { infrastructureRecovery, onInfrastructureRecovery } from '@/tauri/ssh-recovery-progress';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 function subscribe(changed: () => void): () => void {
   return onInfrastructureRecovery(changed);
@@ -23,7 +26,7 @@ export function SavedHostsCheck() {
   return (
     <p className="m-0 flex items-center gap-2 text-xs text-muted-foreground" role="status">
       <Spinner aria-hidden="true" className="size-3" />
-      Checking saved {vocab.agent} installs {progress}
+      {t`Checking saved ${agent} installs ${progress}`}
     </p>
   );
 }

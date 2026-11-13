@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useSharedNow } from '@/lib/shared-clock';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 const stepSchema = z
   .object({
@@ -82,10 +84,10 @@ function progressKey(storageId: string): string {
 }
 
 function timerLabel(seconds: number): string {
-  if (seconds < 60) return `${seconds} sec timer`;
+  if (seconds < 60) return t`${seconds} sec timer`;
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
-  return remainder === 0 ? `${minutes} min timer` : `${minutes} min ${remainder} sec timer`;
+  return remainder === 0 ? t`${minutes} min timer` : t`${minutes} min ${remainder} sec timer`;
 }
 
 function quantityUnit(amount: number, singular?: string, plural?: string): string {
@@ -107,7 +109,7 @@ export function ClioSteps({
   title,
   steps,
   ingredients = [],
-  scaleLabel = 'Amount',
+  scaleLabel = t`Amount`,
   baseAmount = 1,
   progress,
   setProgress,
@@ -167,7 +169,10 @@ export function ClioSteps({
           <div>
             <h3 className={cn('text-base font-semibold', fullscreen && 'sr-only')}>{title}</h3>
             <p className="text-xs text-muted-foreground">
-              {count}/{steps.length} steps complete
+              {plural(steps.length, {
+                one: `${count}/# step complete`,
+                other: `${count}/# steps complete`,
+              })}
             </p>
           </div>
           <div className="ms-auto flex items-center gap-2">
@@ -194,7 +199,7 @@ export function ClioSteps({
         {ingredients.length > 0 ? (
           <div className="space-y-2 border-b border-border/60 pb-4">
             <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Ingredients
+              {t`Ingredients`}
             </h4>
             <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
               {ingredients.map((ingredient, index) => {
@@ -212,7 +217,7 @@ export function ClioSteps({
                       ) : null}
                     </span>
                     <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
+                      {new Intl.NumberFormat(formatLocale(), { maximumFractionDigits: 3 }).format(
                         scaled,
                       )}{' '}
                       {unit}
@@ -236,7 +241,7 @@ export function ClioSteps({
               >
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    aria-label={`Complete ${step.title}`}
+                    aria-label={t`Complete ${ph({ title: step.title })}`}
                     checked={checked}
                     className="mt-1"
                     onCheckedChange={(value) =>
@@ -265,9 +270,9 @@ export function ClioSteps({
                       </span>
                       {step.quantity !== undefined ? (
                         <span className="text-xs tabular-nums text-muted-foreground">
-                          {new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
-                            (step.quantity * amount) / baseAmount,
-                          )}{' '}
+                          {new Intl.NumberFormat(formatLocale(), {
+                            maximumFractionDigits: 3,
+                          }).format((step.quantity * amount) / baseAmount)}{' '}
                           {quantityUnit(
                             (step.quantity * amount) / baseAmount,
                             step.quantityUnit,
@@ -289,8 +294,8 @@ export function ClioSteps({
                           {remaining === undefined
                             ? timerLabel(step.durationSeconds)
                             : remaining === 0
-                              ? 'Timer finished'
-                              : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')} left`}
+                              ? t`Timer finished`
+                              : t`${ph({ time: `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}` })} left`}
                         </span>
                         <Button
                           onClick={() => {
@@ -308,11 +313,11 @@ export function ClioSteps({
                           type="button"
                           variant="secondary"
                         >
-                          {remaining === undefined ? 'Start' : 'Restart'}
+                          {remaining === undefined ? t`Start` : t`Restart`}
                         </Button>
                         {remaining !== undefined ? (
                           <Button
-                            aria-label={`Clear timer for ${step.title}`}
+                            aria-label={t`Clear timer for ${ph({ title: step.title })}`}
                             onClick={() => {
                               const deadlines = { ...local.deadlines };
                               delete deadlines[step.id];

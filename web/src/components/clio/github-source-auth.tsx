@@ -6,6 +6,8 @@ import { ExternalLink } from '@/components/ui/external-link';
 import { prepareExternalUrl } from '@/tauri/external-url';
 import { ProviderLoginButton } from './provider-login-button';
 import { useStorageSignInPoll } from './use-storage-sign-in-poll';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type Repository = Pick<ClioRepository, 'startSourceSignIn' | 'completeSourceSignIn'>;
 type Flow = Awaited<ReturnType<Repository['startSourceSignIn']>>;
@@ -38,7 +40,7 @@ export function GitHubSourceAuth({
       poll.clearError();
       try {
         const next = await repository.startSourceSignIn(workspaceId, sourceId);
-        if (!next.user_code) throw new Error('GitHub did not return a sign-in code. Try again.');
+        if (!next.user_code) throw new Error(t`GitHub did not return a sign-in code. Try again.`);
         setFlow(next);
         await page.open(next.authorization_url);
       } catch (error) {
@@ -50,44 +52,46 @@ export function GitHubSourceAuth({
   });
 
   return (
-    <section className="space-y-3 rounded-lg border p-4" aria-label="GitHub sign in">
-      <h4 className="text-sm font-medium">Sign in with your GitHub account</h4>
+    <section className="space-y-3 rounded-lg border p-4" aria-label={t`GitHub sign in`}>
+      <h4 className="text-sm font-medium">{t`Sign in with your GitHub account`}</h4>
       <p className="text-sm text-muted-foreground">
-        Sign in with your own account. Public repositories do not need sign-in.
+        {t`Sign in with your own account. Public repositories do not need sign-in.`}
       </p>
       {appUrl && (
         <p className="text-sm text-muted-foreground">
-          For private repositories or saving changes,{' '}
-          <ExternalLink href={appUrl} className="underline">
-            choose repositories on GitHub
-          </ExternalLink>{' '}
-          and return here to sign in.
+          <Trans>
+            For private repositories or saving changes,{' '}
+            <ExternalLink href={appUrl} className="underline">
+              choose repositories on GitHub
+            </ExternalLink>{' '}
+            and return here to sign in.
+          </Trans>
         </p>
       )}
       {flow ? (
         <div className="space-y-3">
-          <p className="text-sm">Enter this code on GitHub:</p>
+          <p className="text-sm">{t`Enter this code on GitHub:`}</p>
           <output
-            aria-label="GitHub sign-in code"
+            aria-label={t`GitHub sign-in code`}
             className="block select-all rounded-md bg-muted p-3 text-center font-mono text-xl tracking-widest"
           >
             {flow.user_code}
           </output>
           <ExternalLink href={flow.authorization_url} className="text-sm underline">
-            Open GitHub sign-in
+            {t`Open GitHub sign-in`}
           </ExternalLink>
           <p role="status" className="text-sm text-muted-foreground">
-            Waiting for you to approve on GitHub…
+            {t`Waiting for you to approve on GitHub…`}
           </p>
           <Button variant="ghost" onClick={() => setFlow(undefined)}>
-            Cancel sign-in
+            {t`Cancel sign-in`}
           </Button>
         </div>
       ) : (
         <ProviderLoginButton
           disabled={start.isPending}
           onLogIn={() => start.mutate(prepareExternalUrl())}
-          label={start.isPending ? 'Opening GitHub…' : 'Sign in with GitHub'}
+          label={start.isPending ? t`Opening GitHub…` : t`Sign in with GitHub`}
         />
       )}
       {(start.error || poll.error) && (

@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogInIcon } from 'lucide-react';
 import { DialogFrame } from './primitives/dialog-frame';
+import { t, ph, plural } from '@lingui/core/macro';
 
 const TERMINAL = new Set(['connected', 'denied', 'expired', 'failed', 'cancelled']);
 
@@ -82,7 +83,7 @@ export function McpSignInDialog({
       client.setQueryData(['mcp-sign-in', scope, name, current.flow_id], result);
       setCallbackUrl('');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not finish signing in');
+      setError(reason instanceof Error ? reason.message : t`Could not finish signing in`);
     } finally {
       completing.current = false;
     }
@@ -127,8 +128,11 @@ export function McpSignInDialog({
         client.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) }),
       ),
     );
-    toast.success(`Connected ${title || name}`, {
-      description: `${flow.tools.length} ${flow.tools.length === 1 ? 'tool' : 'tools'} available`,
+    toast.success(t`Connected ${ph({ name: title || name })}`, {
+      description: plural(flow.tools.length, {
+        one: '# tool available',
+        other: '# tools available',
+      }),
     });
     onConnected?.();
   }, [flow, client, settings.endpoint, name, title, onConnected]);
@@ -158,7 +162,7 @@ export function McpSignInDialog({
       setClientSecret('');
       if (abort.signal.aborted) {
         void repository.cancelMcpSignIn(name, result.flow_id).catch(() => undefined);
-        throw new DOMException('Sign-in cancelled', 'AbortError');
+        throw new DOMException(t`Sign-in cancelled`, 'AbortError');
       }
       setStarted(result);
       active.current = result;
@@ -181,7 +185,7 @@ export function McpSignInDialog({
       }
     } catch (reason) {
       if (!abort.signal.aborted)
-        setError(reason instanceof Error ? reason.message : 'Could not start signing in');
+        setError(reason instanceof Error ? reason.message : t`Could not start signing in`);
       reserved?.cancel();
     } finally {
       setClientSecret('');
@@ -193,38 +197,41 @@ export function McpSignInDialog({
   const canStart = !pending && flow?.state !== 'connected';
   return (
     <DialogFrame
-      cancelLabel={flow?.state === 'connected' ? 'Done' : 'Cancel'}
+      cancelLabel={flow?.state === 'connected' ? t`Done` : t`Cancel`}
       confirm={
         canStart
-          ? { label: flow ? 'Try signing in again' : 'Sign in', onConfirm: () => void start() }
+          ? { label: flow ? t`Try signing in again` : t`Sign in`, onConfirm: () => void start() }
           : undefined
       }
-      description="Sign in with the service. Your credentials stay with this connection."
+      description={t`Sign in with the service. Your credentials stay with this connection.`}
       icon={<LogInIcon />}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       open={scope === initiatingScope}
-      title={`Connect ${title || name}`}
+      title={t`Connect ${ph({ name: title || name })}`}
     >
       <div className="grid gap-3">
         {pending ? (
           <p role="status">
             {flow?.state === 'authorizing'
-              ? 'Finish signing in in the browser window.'
+              ? t`Finish signing in in the browser window.`
               : flow?.state === 'connecting'
-                ? 'Checking the MCP connection…'
-                : 'Preparing sign-in…'}
+                ? t`Checking the MCP connection…`
+                : t`Preparing sign-in…`}
           </p>
         ) : null}
         {flow?.authorization_url ? (
           <ExternalLink href={flow.authorization_url} className="text-sm underline">
-            Continue signing in
+            {t`Continue signing in`}
           </ExternalLink>
         ) : null}
         {flow?.state === 'connected' ? (
           <p role="status">
-            Connected, {flow.tools.length} {flow.tools.length === 1 ? 'tool' : 'tools'} available
+            {plural(flow.tools.length, {
+              one: 'Connected, # tool available',
+              other: 'Connected, # tools available',
+            })}
           </p>
         ) : null}
         {error || flow?.error || state.error ? (
@@ -235,15 +242,14 @@ export function McpSignInDialog({
         {canStart ? (
           <details>
             <summary className="cursor-pointer text-muted-foreground">
-              Advanced sign-in settings
+              {t`Advanced sign-in settings`}
             </summary>
             <div className="grid gap-3 pt-3">
               <p className="text-muted-foreground">
-                Automatic registration is used when the server supports it. Enter a registered
-                client or a published client metadata URL only if your server requires one.
+                {t`Automatic registration is used when the server supports it. Enter a registered client or a published client metadata URL only if your server requires one.`}
               </p>
               <Label>
-                Client ID
+                {t`Client ID`}
                 <Input
                   value={clientId}
                   onChange={(event) => setClientId(event.target.value)}
@@ -251,7 +257,7 @@ export function McpSignInDialog({
                 />
               </Label>
               <Label>
-                Client secret
+                {t`Client secret`}
                 <Input
                   type="password"
                   value={clientSecret}
@@ -260,7 +266,7 @@ export function McpSignInDialog({
                 />
               </Label>
               <Label>
-                Published client metadata URL
+                {t`Published client metadata URL`}
                 <Input
                   type="url"
                   value={metadataUrl}
@@ -273,10 +279,10 @@ export function McpSignInDialog({
         {flow?.state === 'authorizing' && !inTauri() ? (
           <details>
             <summary className="cursor-pointer text-muted-foreground">
-              Finish with a return URL
+              {t`Finish with a return URL`}
             </summary>
             <div className="grid gap-2 pt-2">
-              <Label htmlFor="mcp-return-url">Browser return URL</Label>
+              <Label htmlFor="mcp-return-url">{t`Browser return URL`}</Label>
               <Input
                 id="mcp-return-url"
                 value={callbackUrl}
@@ -288,7 +294,7 @@ export function McpSignInDialog({
                 disabled={!callbackUrl.trim()}
                 onClick={() => void complete(callbackUrl)}
               >
-                Finish signing in
+                {t`Finish signing in`}
               </Button>
             </div>
           </details>

@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { AddIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { ph, t } from '@lingui/core/macro';
 
 type Row = { name: string; value: string };
 
@@ -65,15 +66,16 @@ export function EnvironmentTable({
             setRaw(nextRaw);
           }}
         />
-        Raw input
+        {t`Raw input`}
       </label>
       {raw ? (
         <Textarea
           {...identifierInputProps}
-          aria-label="Process settings"
+          aria-label={t`Process settings`}
           className="font-mono text-xs"
           id={id}
           onChange={(event) => onChange(event.target.value)}
+          // i18n-ignore: environment variable syntax example
           placeholder={'NAME=value\nSECOND_NAME=value'}
           rows={5}
           value={value}
@@ -88,13 +90,13 @@ export function EnvironmentTable({
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               <th className="font-medium" scope="col">
-                Variable
+                {t`Variable`}
               </th>
               <th className="pl-2 font-medium" scope="col">
-                Value
+                {t`Value`}
               </th>
               <th scope="col">
-                <span className="sr-only">Remove</span>
+                <span className="sr-only">{t`Remove`}</span>
               </th>
             </tr>
           </thead>
@@ -108,7 +110,7 @@ export function EnvironmentTable({
                     aria-invalid={Boolean(
                       row.name.trim() && environmentNameProblem(row.name.trim()),
                     )}
-                    aria-label={`Variable ${index + 1}`}
+                    aria-label={t`Variable ${ph({ number: index + 1 })}`}
                     className="font-mono text-xs"
                     id={index === 0 ? id : undefined}
                     onChange={(event) =>
@@ -122,7 +124,7 @@ export function EnvironmentTable({
                 </td>
                 <td className="pl-2">
                   <Input
-                    aria-label={`Value ${index + 1}`}
+                    aria-label={t`Value ${ph({ number: index + 1 })}`}
                     className="font-mono text-xs"
                     onChange={(event) =>
                       update(
@@ -135,7 +137,7 @@ export function EnvironmentTable({
                 </td>
                 <td className="text-right">
                   <Button
-                    aria-label={`Remove variable ${index + 1}`}
+                    aria-label={t`Remove variable ${ph({ number: index + 1 })}`}
                     onClick={() => {
                       const next = rows.filter((_, i) => i !== index);
                       update(next.length ? next : [{ name: '', value: '' }]);
@@ -167,7 +169,7 @@ export function EnvironmentTable({
           type="button"
           variant="outline"
         >
-          <AddIcon aria-hidden="true" /> Add variable
+          <AddIcon aria-hidden="true" /> {t`Add variable`}
         </Button>
       )}
     </div>

@@ -3,6 +3,7 @@ import type { WorkRecord } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
 
 /** Explicit user controls, scoped to the retained identity rather than list position. */
 export function WorkRecordControls({
@@ -31,29 +32,29 @@ export function WorkRecordControls({
   return (
     <>
       <details className="text-muted-foreground">
-        <summary className="cursor-pointer">Details</summary>
+        <summary className="cursor-pointer">{t`Details`}</summary>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 py-1">
           {Object.entries(record.details ?? {}).map(([name, value]) => (
             <div className="contents" key={name}>
               <dt>
                 {(
                   {
-                    max_goal_iters: 'Turn limit',
-                    max_iters: 'Iteration limit',
-                    max_wallclock_s: 'Time limit (seconds)',
-                    max_tokens: 'Token limit',
-                    max_usd: 'Cost limit (USD)',
-                    interval_s: 'Interval (seconds)',
-                    stop_text: 'Stop text',
-                    waiting_tasks: 'Waiting for',
-                    judge_reason: 'Judge guidance',
-                    progress: 'Verified progress',
+                    max_goal_iters: t`Turn limit`,
+                    max_iters: t`Iteration limit`,
+                    max_wallclock_s: t`Time limit (seconds)`,
+                    max_tokens: t`Token limit`,
+                    max_usd: t`Cost limit (USD)`,
+                    interval_s: t`Interval (seconds)`,
+                    stop_text: t`Stop text`,
+                    waiting_tasks: t`Waiting for`,
+                    judge_reason: t`Judge guidance`,
+                    progress: t`Verified progress`,
                   } as Record<string, string>
                 )[name] ?? name}
               </dt>
               <dd className="whitespace-pre-wrap [overflow-wrap:anywhere]">
                 {value === 0
-                  ? 'Unlimited'
+                  ? t`Unlimited`
                   : Array.isArray(value)
                     ? value.join(', ')
                     : String(value || '—')}
@@ -69,7 +70,7 @@ export function WorkRecordControls({
           disabled={control.isPending}
           onClick={() => control.mutate(active ? 'stop' : 'restart')}
         >
-          {active ? 'Stop' : 'Restart'}
+          {active ? t`Stop` : t`Restart`}
         </Button>
         <Button
           size="sm"
@@ -77,7 +78,7 @@ export function WorkRecordControls({
           disabled={control.isPending}
           onClick={() => control.mutate('delete')}
         >
-          Cancel and delete
+          {t`Cancel and delete`}
         </Button>
       </div>
       {control.error ? <p role="alert">{control.error.message}</p> : null}

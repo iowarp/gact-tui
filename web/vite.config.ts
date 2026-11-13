@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { lingui } from '@lingui/vite-plugin';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import { resolveBrandConfig } from '../branding/brand-config.mjs';
@@ -32,6 +33,9 @@ export default defineConfig({
   plugins: [
     brandPlugin(brandConfig.brandingRoot, brandConfig.profile),
     themeBootPlugin(),
+    // English stays in the bundle ('message'), so the source language renders
+    // with no catalog download and a missing translation falls back to it.
+    lingui({ macroTransform: { macro: { descriptorFields: 'message' } } }),
     react(),
     tailwindcss(),
     maplibreWorkerPlugin(),

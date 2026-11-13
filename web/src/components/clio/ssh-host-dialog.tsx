@@ -41,6 +41,7 @@ import {
 } from './ssh-jump-host-list';
 import { uniqueProfileName } from './ssh-route-utils';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The one SSH computer configuration dialog. The route's destination and
@@ -270,7 +271,7 @@ export function SshHostDialog({
     const selected = await openDialog({
       directory: false,
       multiple: false,
-      title: 'Choose an SSH private key',
+      title: t`Choose an SSH private key`,
     });
     if (typeof selected === 'string') {
       setIdentityFile(selected);
@@ -284,12 +285,12 @@ export function SshHostDialog({
       onOpenChange={changeOpen}
       icon={<TerminalSquareIcon />}
       title={dialogTitle(step, initial)}
-      srDescription="Address, account, route, and key for one SSH computer."
+      srDescription={t`Address, account, route, and key for one SSH computer.`}
       // The spec's dialog rule: 36% of the window, 340 to 640 px.
       className="w-[clamp(340px,36vw,640px)] overflow-y-auto"
       growDown
       confirm={{
-        label: saving ? 'Saving…' : 'Save host',
+        label: saving ? t`Saving…` : t`Save host`,
         disabled: !host.trim() || saving,
         // Submits the form, so its own validation and save path stay the one path.
         onConfirm: () => formRef.current?.requestSubmit(),
@@ -297,7 +298,7 @@ export function SshHostDialog({
       footerStart={
         routeConnection ? undefined : (
           <Button
-            aria-label={testing ? 'Testing connection…' : 'Test connection'}
+            aria-label={testing ? t`Testing connection…` : t`Test connection`}
             className="gap-[7px] text-foreground"
             disabled={!canTest}
             onClick={() => void testConnection()}
@@ -305,7 +306,7 @@ export function SshHostDialog({
             variant="outline"
           >
             <PlugIcon aria-hidden="true" />
-            {testing ? 'Testing…' : 'Test'}
+            {testing ? t`Testing…` : t({ message: 'Test', context: 'verb: test the connection' })}
             <span
               aria-hidden="true"
               className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden"
@@ -339,19 +340,19 @@ export function SshHostDialog({
         >
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
             <Field>
-              <FieldLabel htmlFor="ssh-host-address">Address</FieldLabel>
+              <FieldLabel htmlFor="ssh-host-address">{t`Address`}</FieldLabel>
               <Input
                 autoComplete="off"
                 data-initial-focus=""
                 id="ssh-host-address"
                 onChange={(event) => setHost(event.target.value)}
-                placeholder="10.0.0.102 or login.example.edu"
+                placeholder={t`10.0.0.102 or login.example.edu`}
                 required
                 value={host}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="ssh-host-port">Port</FieldLabel>
+              <FieldLabel htmlFor="ssh-host-port">{t`Port`}</FieldLabel>
               <Input
                 id="ssh-host-port"
                 max={65_535}
@@ -365,7 +366,7 @@ export function SshHostDialog({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="ssh-host-user">Username</FieldLabel>
+              <FieldLabel htmlFor="ssh-host-user">{t`Username`}</FieldLabel>
               <Input
                 autoComplete="username"
                 id="ssh-host-user"
@@ -376,14 +377,14 @@ export function SshHostDialog({
             </Field>
             <Field>
               <div className="flex items-baseline gap-1.5">
-                <FieldLabel htmlFor="ssh-host-label">Name</FieldLabel>
-                <span className="text-[12px] text-muted-foreground">optional</span>
+                <FieldLabel htmlFor="ssh-host-label">{t`Name`}</FieldLabel>
+                <span className="text-meta text-muted-foreground">{t`optional`}</span>
               </div>
               <Input
                 autoComplete="off"
                 id="ssh-host-label"
                 onChange={(event) => setLabel(event.target.value)}
-                placeholder="Utah cluster"
+                placeholder={t`Utah cluster`}
                 value={label}
               />
             </Field>
@@ -392,12 +393,12 @@ export function SshHostDialog({
           {via ? (
             via.length ? (
               <p className="text-sm text-muted-foreground" role="note">
-                Reached via {via.join(' → ')}
+                {t`Reached via ${ph({ route: via.join(' → ') })}`}
               </p>
             ) : null
           ) : isJump ? null : (
             <Field>
-              <FieldLabel>Connection route</FieldLabel>
+              <FieldLabel>{t`Connection route`}</FieldLabel>
               <div className="mt-2 grid gap-2">
                 <SshJumpHostList onChange={setJumpHosts} options={jumpOptions} value={jumpHosts} />
                 {typingJump ? (
@@ -428,13 +429,13 @@ export function SshHostDialog({
           {routeConnection ? (
             <Field>
               <FieldLabel htmlFor="ssh-host-identity-path">
-                Key file on {routeConnection.hostLabel}
+                {t`Key file on ${ph({ hostLabel: routeConnection.hostLabel })}`}
               </FieldLabel>
               <Input
                 id="ssh-host-identity-path"
                 value={identityFile}
                 onChange={(event) => setIdentityFile(event.target.value)}
-                placeholder="Use the SSH agent or OpenSSH configuration"
+                placeholder={t`Use the SSH agent or OpenSSH configuration`}
               />
             </Field>
           ) : fileConnection ? (
@@ -446,13 +447,13 @@ export function SshHostDialog({
           ) : (
             <Field>
               <FieldLabel className="flex items-center gap-1.5">
-                Authentication
-                <InfoTip label="About authentication">
-                  {`Passwords, Duo, security keys, and Kerberos are asked for by OpenSSH when you connect and never saved. A key is optional.`}
+                {t`Authentication`}
+                <InfoTip label={t`About authentication`}>
+                  {t`Passwords, Duo, security keys, and Kerberos are asked for by OpenSSH when you connect and never saved. A key is optional.`}
                 </InfoTip>
               </FieldLabel>
               <Field className="mt-2">
-                <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
+                <FieldLabel htmlFor="ssh-host-private-key">{t`Paste a private key`}</FieldLabel>
                 <Textarea
                   {...identifierInputProps}
                   autoComplete="off"
@@ -462,6 +463,7 @@ export function SshHostDialog({
                     setPrivateKey(event.target.value);
                     if (event.target.value) setIdentityFile('');
                   }}
+                  // i18n-ignore: key file format marker
                   placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
                   spellCheck={false}
                   value={privateKey}
@@ -469,20 +471,20 @@ export function SshHostDialog({
               </Field>
               <div className="mt-3 flex items-center gap-3">
                 <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
-                  <FileKey2Icon aria-hidden="true" /> Choose key file
+                  <FileKey2Icon aria-hidden="true" /> {t`Choose key file`}
                 </Button>
                 <span
                   className="min-w-0 truncate text-xs text-muted-foreground"
                   title={identityFile || undefined}
                 >
-                  {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
+                  {identityFile || t`Or use your SSH agent / OpenSSH configuration`}
                 </span>
                 {identityFile ? (
                   <Button
-                    aria-label="Use the SSH agent or OpenSSH configuration instead"
+                    aria-label={t`Use the SSH agent or OpenSSH configuration instead`}
                     onClick={() => setIdentityFile('')}
                     size="icon-sm"
-                    title="Use the SSH agent or OpenSSH configuration instead"
+                    title={t`Use the SSH agent or OpenSSH configuration instead`}
                     type="button"
                     variant="ghost"
                   >
@@ -500,7 +502,7 @@ export function SshHostDialog({
                 type="button"
                 variant="link"
               >
-                Advanced host settings
+                {t`Advanced host settings`}
                 <ChevronDownIcon
                   aria-hidden="true"
                   className="transition-transform group-data-[state=open]:rotate-180"
@@ -509,7 +511,7 @@ export function SshHostDialog({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <Field className="mt-3">
-                <FieldLabel htmlFor="ssh-host-platform">Remote platform</FieldLabel>
+                <FieldLabel htmlFor="ssh-host-platform">{t`Remote platform`}</FieldLabel>
                 <Select
                   onValueChange={(next) => setPlatform(next as typeof platform)}
                   value={platform}
@@ -518,15 +520,15 @@ export function SshHostDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Detect automatically</SelectItem>
-                    <SelectItem value="linux">Linux / macOS shell</SelectItem>
-                    <SelectItem value="windows">Windows PowerShell</SelectItem>
+                    <SelectItem value="auto">{t`Detect automatically`}</SelectItem>
+                    <SelectItem value="linux">{t`Linux / macOS shell`}</SelectItem>
+                    <SelectItem value="windows">{t`Windows PowerShell`}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
               <Field className="mt-3">
                 <FieldLabel htmlFor="ssh-host-install-root">
-                  {vocab.agent} install and runtime location
+                  {t`${ph({ agent: vocab.agent })} install and runtime location`}
                 </FieldLabel>
                 <Input
                   autoComplete="off"
@@ -543,7 +545,7 @@ export function SshHostDialog({
             <DeployFailure
               details={testLog}
               reason={authError}
-              title={routeConnection ? 'SSH host could not be saved' : 'SSH connection failed'}
+              title={routeConnection ? t`SSH host could not be saved` : t`SSH connection failed`}
             />
           ) : null}
         </form>
@@ -559,12 +561,12 @@ export function SshHostDialog({
         ) : null}
 
         {testSucceeded ? (
-          <p className="flex min-w-0 items-center gap-1.5 text-[12.5px]" role="status">
-            <StatusIndicator label="Connection succeeded" tone="success" />
+          <p className="flex min-w-0 items-center gap-1.5 text-menu" role="status">
+            <StatusIndicator label={t`Connection succeeded`} tone="success" />
             <span className="min-w-0 truncate text-foreground">
               {via?.length
-                ? `Reached ${host.trim()} via ${via.join(', ')}.`
-                : `Reached ${host.trim()}.`}
+                ? t`Reached ${ph({ host: host.trim() })} via ${ph({ route: via.join(', ') })}.`
+                : t`Reached ${ph({ host: host.trim() })}.`}
             </span>
           </p>
         ) : null}
@@ -574,7 +576,7 @@ export function SshHostDialog({
 }
 
 function dialogTitle(step: SshRouteStep, initial?: SshHost): string {
-  if (initial?.profile) return `Configure ${initial.label}`;
-  if (step.isDestination) return initial ? 'Configure the destination' : 'Add an SSH host';
-  return initial ? `Configure hop ${step.index + 1}` : 'Add a jump host';
+  if (initial?.profile) return t`Configure ${ph({ label: initial.label })}`;
+  if (step.isDestination) return initial ? t`Configure the destination` : t`Add an SSH host`;
+  return initial ? t`Configure hop ${ph({ hop: step.index + 1 })}` : t`Add a jump host`;
 }

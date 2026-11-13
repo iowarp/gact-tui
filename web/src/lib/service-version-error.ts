@@ -1,4 +1,5 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { t } from '@lingui/core/macro';
 
 function versionNumber(version: string): number {
   return Number.parseFloat(version.replace(/^v/iu, ''));
@@ -14,14 +15,15 @@ export class ServiceVersionError extends Error {
   constructor(required: string, offered: readonly string[]) {
     const wanted = versionNumber(required);
     const numbers = offered.map(versionNumber).filter(Number.isFinite);
+    const { agent } = vocab;
     super(
       !numbers.length
-        ? `The service at this address is not a ${vocab.agent} this app can open.`
+        ? t`The service at this address is not a ${agent} this app can open.`
         : numbers.every((value) => value < wanted)
-          ? `This ${vocab.agent} is older than this app. Update ${vocab.agent} to open it here.`
+          ? t`This ${agent} is older than this app. Update ${agent} to open it here.`
           : numbers.every((value) => value > wanted)
-            ? `This ${vocab.agent} is newer than this app. Update this app to open it.`
-            : `This ${vocab.agent} and this app are different releases. Update both to the same release.`,
+            ? t`This ${agent} is newer than this app. Update this app to open it.`
+            : t`This ${agent} and this app are different releases. Update both to the same release.`,
     );
     this.name = 'ServiceVersionError';
     this.details = { required, offered };

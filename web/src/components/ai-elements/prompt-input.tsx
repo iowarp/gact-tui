@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { t } from '@lingui/core/macro';
 
 // ============================================================================
 // Provider Context & Types
@@ -361,7 +362,7 @@ export const PromptInput = ({
       if (incoming.length && accepted.length === 0) {
         onError?.({
           code: 'accept',
-          message: 'No files match the accepted types.',
+          message: t`No files match the accepted types.`,
         });
         return;
       }
@@ -373,8 +374,8 @@ export const PromptInput = ({
           code: 'max_file_size',
           message:
             sized.length === 0
-              ? 'All files exceed the maximum size.'
-              : 'Some files exceed the maximum size.',
+              ? t`All files exceed the maximum size.`
+              : t`Some files exceed the maximum size.`,
           files: oversized,
         });
         if (sized.length === 0) return;
@@ -382,14 +383,12 @@ export const PromptInput = ({
 
       // Preview URLs are created outside the updater, which StrictMode runs twice.
       const capacity =
-        typeof maxFiles === 'number'
-          ? Math.max(0, maxFiles - filesRef.current.length)
-          : undefined;
+        typeof maxFiles === 'number' ? Math.max(0, maxFiles - filesRef.current.length) : undefined;
       const capped = typeof capacity === 'number' ? sized.slice(0, capacity) : sized;
       if (typeof capacity === 'number' && sized.length > capacity) {
         onError?.({
           code: 'max_files',
-          message: 'Too many files. Some were not added.',
+          message: t`Too many files. Some were not added.`,
         });
       }
       const next: (UploadableFilePart & { id: string })[] = capped.map((file) => ({
@@ -425,7 +424,7 @@ export const PromptInput = ({
       if (incoming.length && accepted.length === 0) {
         onError?.({
           code: 'accept',
-          message: 'No files match the accepted types.',
+          message: t`No files match the accepted types.`,
         });
         return;
       }
@@ -437,8 +436,8 @@ export const PromptInput = ({
           code: 'max_file_size',
           message:
             sized.length === 0
-              ? 'All files exceed the maximum size.'
-              : 'Some files exceed the maximum size.',
+              ? t`All files exceed the maximum size.`
+              : t`Some files exceed the maximum size.`,
           files: oversized,
         });
         if (sized.length === 0) return;
@@ -451,7 +450,7 @@ export const PromptInput = ({
       if (typeof capacity === 'number' && sized.length > capacity) {
         onError?.({
           code: 'max_files',
-          message: 'Too many files. Some were not added.',
+          message: t`Too many files. Some were not added.`,
         });
       }
 
@@ -674,12 +673,12 @@ export const PromptInput = ({
     <>
       <StableInput
         accept={accept}
-        aria-label="Upload files"
+        aria-label={t`Upload files`}
         className="hidden"
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
-        title="Upload files"
+        title={t`Upload files`}
         type="file"
       />
       <form className={cn('w-full', className)} onSubmit={handleSubmit} ref={formRef} {...props}>

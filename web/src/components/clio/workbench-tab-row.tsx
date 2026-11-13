@@ -44,6 +44,7 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { BrowserPageIcon } from './browser-page-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { FileTypeIcon } from './file-type-icon';
+import { AttachedFolderIcon, hostFolderOf } from './host-folder';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
@@ -60,9 +61,11 @@ import {
   workbenchTabIcons,
   workbenchTabLabel,
   workbenchTabPath,
+  workbenchTabVersions,
   type TabRowFit,
 } from './workbench-tab-icons';
 import type { WorkbenchTab } from './workbench-shared';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** The tab list's gap (gap-0.5). */
 const TAB_GAP_PX = 2;
@@ -78,6 +81,8 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
     return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
   // A tab that drops its name keeps a format icon that tells it apart (workbench-lineage).
   if (tab.kind === 'workspace-file') return <FileTypeIcon className="size-3.5" name={tab.path} />;
+  if (tab.kind === 'resource' && hostFolderOf(tab.resource))
+    return <AttachedFolderIcon aria-hidden="true" className="size-3.5" />;
   if (tab.kind === 'browser')
     return <BrowserPageIcon pageId={tab.pageId} sessionId={tab.sessionId} />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
@@ -165,8 +170,9 @@ export function WorkbenchTabRow({
   const pinnedKey = tabs.map((tab) => (pinnedIds.has(tab.id) ? '1' : '0')).join('');
   const tryLabels = useVariantTryTabLabels(tabs);
   const tabLabel = (tab: WorkbenchTab) => tryLabels?.get(tab.id) ?? workbenchTabLabel(tab);
+  const tabVersions = workbenchTabVersions(tabs, tabLabel);
   const fitKey = `${width}|${activeTabId}|${pinnedKey}|${tabs
-    .map((tab) => `${tab.id}:${tabLabel(tab)}`)
+    .map((tab) => `${tab.id}:${tabLabel(tab)}${tabVersions.get(tab.id) ?? ''}`)
     .join('|')}`;
   const [measured, setMeasured] = useState<{
     key: string;
@@ -190,6 +196,7 @@ export function WorkbenchTabRow({
     ]);
   const hidden = fit === 'overflow' ? overflowTabs(tabs, activeTabId, recency, measured.shown) : [];
   const hiddenIds = new Set(hidden.map((tab) => tab.id));
+  const moreTabs = plural(hidden.length, { one: '# more tab', other: '# more tabs' });
   const shownTabs = hidden.length ? tabs.filter((tab) => !hiddenIds.has(tab.id)) : tabs;
   // Inactive named tabs, the least recently used first: they become icons one
   // at a time, so the rest keep their names while there is room.
@@ -302,15 +309,15 @@ export function WorkbenchTabRow({
   const composerOpen = useComposerReferenceAvailable(workspaceId);
   const menuReference = menuTab ? workbenchTabReference(menuTab, workspaceId) : undefined;
   const addReason = !menuReference
-    ? 'Not a file or artifact'
+    ? t`Not a file or artifact`
     : !composerOpen
-      ? 'Open a conversation to add it to a message'
+      ? t`Open a conversation to add it to a message`
       : undefined;
 
   return (
     <div
       // A layout boundary: fitting and scrolling the tabs never re-lays out the page.
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
+      className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
       data-slot="canvas-header"
       ref={headerRef}
     >
@@ -358,6 +365,7 @@ export function WorkbenchTabRow({
                 {shownTabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = tabLabel(tab);
+                  const version = tabVersions.get(tab.id);
                   const path = workbenchTabPath(tab);
                   return (
                     // dnd-kit's {...attributes} would give this wrapper role="button",
@@ -387,7 +395,8 @@ export function WorkbenchTabRow({
                         pinned={pinnedIds.has(tab.id)}
                         ref={active ? activeTabRef : undefined}
                         style={cappedIds?.has(tab.id) ? { maxWidth: cap } : undefined}
-                        title={path ?? label}
+                        title={[path ?? label, version].filter(Boolean).join(' ')}
+                        version={version}
                         renderTrigger={({ className, children }) => (
                           <SortableItemHandle asChild>
                             <TabsTrigger
@@ -429,7 +438,7 @@ export function WorkbenchTabRow({
                 <MenuRow
                   accelerator="P"
                   icon={pinnedIds.has(menuTab.id) ? <PinOffIcon /> : <PinIcon />}
-                  label={pinnedIds.has(menuTab.id) ? 'Unpin' : 'Pin'}
+                  label={pinnedIds.has(menuTab.id) ? t`Unpin` : t`Pin`}
                 />
               </ContextMenuItem>
               <ContextMenuItem
@@ -437,18 +446,18 @@ export function WorkbenchTabRow({
                 disabled={addReason !== undefined}
                 onSelect={() => {
                   if (menuReference && addReferenceToComposer(menuReference, workspaceId))
-                    toast.success(`Added ${menuReference.label} to the message.`);
+                    toast.success(t`Added ${ph({ label: menuReference.label })} to the message.`);
                 }}
                 title={addReason}
               >
-                <MenuRow accelerator="A" icon={<AtSignIcon />} label="Add to message" />
+                <MenuRow accelerator="A" icon={<AtSignIcon />} label={t`Add to message`} />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="F"
                 disabled={menuPath === undefined}
                 onSelect={() => onShowInFiles(menuTab)}
               >
-                <MenuRow accelerator="F" icon={<FolderIcon />} label="Show in Files" />
+                <MenuRow accelerator="F" icon={<FolderIcon />} label={t`Show in Files`} />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="Y"
@@ -457,35 +466,35 @@ export function WorkbenchTabRow({
                   if (menuPath) void navigator.clipboard?.writeText(menuPath);
                 }}
               >
-                <MenuRow accelerator="Y" icon={<CopyIcon />} label="Copy path" />
+                <MenuRow accelerator="Y" icon={<CopyIcon />} label={t`Copy path`} />
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem data-accelerator="C" onSelect={() => onClose(menuTab.id)}>
-                <MenuRow accelerator="C" icon={<CloseIcon />} label="Close" />
+                <MenuRow accelerator="C" icon={<CloseIcon />} label={t`Close`} />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="O"
                 disabled={tabs.length < 2}
                 onSelect={() => onCloseOthers(menuTab.id)}
               >
-                <MenuRow accelerator="O" label="Close others" />
+                <MenuRow accelerator="O" label={t`Close others`} />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="R"
                 disabled={menuIndex >= tabs.length - 1}
                 onSelect={() => onCloseToRight(menuTab.id)}
               >
-                <MenuRow accelerator="R" label="Close to the right" />
+                <MenuRow accelerator="R" label={t`Close to the right`} />
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem disabled={menuIndex <= 0} onSelect={() => onMove(menuTab.id, -1)}>
-                <MenuRow label="Move left" />
+                <MenuRow label={t`Move left`} />
               </ContextMenuItem>
               <ContextMenuItem
                 disabled={menuIndex >= tabs.length - 1}
                 onSelect={() => onMove(menuTab.id, 1)}
               >
-                <MenuRow label="Move right" />
+                <MenuRow label={t`Move right`} />
               </ContextMenuItem>
             </>
           ) : null}
@@ -493,11 +502,11 @@ export function WorkbenchTabRow({
       </ContextMenu>
       {hidden.length ? (
         <DropdownMenu>
-          <NamedTooltip label={`${hidden.length} more tabs`}>
+          <NamedTooltip label={moreTabs}>
             <DropdownMenuTrigger asChild>
               <Button
-                aria-label={`${hidden.length} more tabs`}
-                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-[11.5px] text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
+                aria-label={moreTabs}
+                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-label text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
                 data-slot="tab-overflow"
                 variant="ghost"
               >
@@ -509,7 +518,10 @@ export function WorkbenchTabRow({
           <DropdownMenuContent align="end" className="max-h-80 w-64 overflow-y-auto">
             {hidden.map((tab) => (
               <DropdownMenuItem key={tab.id} onSelect={() => onSelect(tab.id)}>
-                <MenuRow icon={<WorkbenchTabIcon tab={tab} />} label={tabLabel(tab)} />
+                <MenuRow
+                  icon={<WorkbenchTabIcon tab={tab} />}
+                  label={[tabLabel(tab), tabVersions.get(tab.id)].filter(Boolean).join(' ')}
+                />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

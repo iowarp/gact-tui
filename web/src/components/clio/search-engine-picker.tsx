@@ -5,18 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { InfoTip } from './info-tip';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const descriptions: Record<string, string> = {
-  duckduckgo: 'General web search.',
-  brave: 'General web search using Brave’s index.',
-  mojeek: 'General web search using an independent index.',
-  qwant: 'General web search.',
-  startpage: 'General web search.',
-  wikipedia: 'Encyclopedia articles.',
-  arxiv: 'Research preprints.',
-  crossref: 'Scholarly publications and DOI metadata.',
-  'semantic scholar': 'Research papers and citations.',
-  pubmed: 'Biomedical literature.',
+  duckduckgo: t`General web search.`,
+  brave: t`General web search using Brave’s index.`,
+  mojeek: t`General web search using an independent index.`,
+  qwant: t`General web search.`,
+  startpage: t`General web search.`,
+  wikipedia: t`Encyclopedia articles.`,
+  arxiv: t`Research preprints.`,
+  crossref: t`Scholarly publications and DOI metadata.`,
+  'semantic scholar': t`Research papers and citations.`,
+  pubmed: t`Biomedical literature.`,
 };
 const csv = (value: string) => [
   ...new Set(
@@ -64,16 +66,18 @@ export function SearchEnginePicker({
       );
     else if (optInChoices.includes(name)) onOptIn([...new Set([...csv(optIn), name])].join(','));
   };
+  const enabledCount = enabled.length;
   return (
-    <section aria-label="Search engines" className="space-y-3">
+    <section aria-label={t`Search engines`} className="space-y-3">
       <div>
         <h4 className="text-sm font-medium">
-          Search engines{' '}
-          <span className="ml-1 text-muted-foreground">{enabled.length} enabled</span>
+          <Trans>
+            Search engines{' '}
+            <span className="ml-1 text-muted-foreground">{enabledCount} enabled</span>
+          </Trans>
         </h4>
         <p className="mt-1 text-xs text-muted-foreground">
-          Enable the sources you want. Drag to arrange the list; result ranking is handled by
-          SearXNG.
+          {t`Enable the sources you want. Drag to arrange the list; result ranking is handled by SearXNG.`}
         </p>
       </div>
       <Sortable
@@ -85,7 +89,7 @@ export function SearchEnginePicker({
           onChange(next.filter((name) => enabled.includes(name)).join(','));
         }}
       >
-        <div className="divide-y border-y" role="list" aria-label="Configured search engines">
+        <div className="divide-y border-y" role="list" aria-label={t`Configured search engines`}>
           {ordered.map((name) => (
             <SortableItem
               key={name}
@@ -95,7 +99,7 @@ export function SearchEnginePicker({
               className="flex items-center gap-3 px-3 py-2"
             >
               <SortableItemHandle asChild>
-                <Button size="icon-sm" variant="ghost" aria-label={`Reorder ${name}`}>
+                <Button size="icon-sm" variant="ghost" aria-label={t`Reorder ${name}`}>
                   <GripVerticalIcon />
                 </Button>
               </SortableItemHandle>
@@ -104,12 +108,12 @@ export function SearchEnginePicker({
               >
                 {name}
               </span>
-              <InfoTip label={`About ${name}`}>
+              <InfoTip label={t`About ${name}`}>
                 {descriptions[name] ||
-                  'A configured SearXNG engine. Availability and key requirements depend on the installed SearXNG version.'}
+                  t`A configured SearXNG engine. Availability and key requirements depend on the installed SearXNG version.`}
               </InfoTip>
               <Switch
-                aria-label={`Enable ${name}`}
+                aria-label={t`Enable ${name}`}
                 checked={enabled.includes(name)}
                 disabled={enabled.length === 1 && enabled.includes(name)}
                 onCheckedChange={(checked) => enable(name, checked)}
@@ -120,12 +124,12 @@ export function SearchEnginePicker({
       </Sortable>
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground">
-          Add another engine
+          {t`Add another engine`}
         </summary>
         <div className="mt-3 flex gap-2">
           <Input
-            aria-label="Additional SearXNG engine"
-            placeholder="Exact SearXNG engine name"
+            aria-label={t`Additional SearXNG engine`}
+            placeholder={t`Exact SearXNG engine name`}
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
           />
@@ -139,12 +143,11 @@ export function SearchEnginePicker({
               setCustom('');
             }}
           >
-            Add
+            {t`Add`}
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Some engines need a key. Engines such as baidu, sogou and 360search require explicit
-          opt-in.
+          {t`Some engines need a key. Engines such as baidu, sogou and 360search require explicit opt-in.`}
         </p>
         <Button
           className="mt-2"
@@ -160,7 +163,7 @@ export function SearchEnginePicker({
             setCustom('');
           }}
         >
-          Add and explicitly allow opt-in engine
+          {t`Add and explicitly allow opt-in engine`}
         </Button>
       </details>
     </section>

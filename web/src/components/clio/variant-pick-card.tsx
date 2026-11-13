@@ -25,6 +25,8 @@ import { askKeyAttributes } from './ask-card-keys';
 import { respondFromControl } from './interaction-control';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
 import { proseInputProps } from '@/lib/identifier-input';
+import { t, ph, plural } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 export type VariantPick = (candidateId: string, comment: string) => Promise<void>;
 
@@ -43,8 +45,8 @@ function expiry(expiresAt: string | undefined) {
   const at = new Date(expiresAt);
   if (Number.isNaN(at.getTime())) return undefined;
   return {
-    day: at.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    full: at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+    day: at.toLocaleDateString(formatLocale(), { month: 'short', day: 'numeric' }),
+    full: at.toLocaleString(formatLocale(), { dateStyle: 'medium', timeStyle: 'short' }),
   };
 }
 
@@ -109,31 +111,34 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
   };
   const expires = expiry(pick.expiresAt);
   const steps = stepCount(current);
-  const noun = view.noun.toLowerCase();
+  const drafts = view.noun.toLowerCase() === 'draft';
+  const pickTitle = drafts ? t`Pick a draft` : t`Pick a try`;
+  const previousLabel = drafts ? t`Previous draft` : t`Previous try`;
+  const nextLabel = drafts ? t`Next draft` : t`Next try`;
+  const { strategy } = view;
   return (
     <AskCard
-      aria-label={`Pick a ${noun}`}
+      aria-label={pickTitle}
       data-slot="variant-pick"
       data-variants-id={view.variantsId}
       icon={GitForkIcon}
       kind="verify"
       meta={
-        <span title={expires ? `Drafts expire ${expires.full}` : undefined}>
-          {view.strategy}
-          {expires ? `, drafts expire ${expires.day}` : ''}
+        <span title={expires ? t`Drafts expire ${ph({ full: expires.full })}` : undefined}>
+          {expires ? t`${strategy}, drafts expire ${ph({ day: expires.day })}` : strategy}
         </span>
       }
-      title={`Pick a ${noun}`}
+      title={pickTitle}
     >
       {pick.prompt ? (
-        <AskSection className="text-[12.5px] text-foreground/85">{pick.prompt}</AskSection>
+        <AskSection className="text-menu text-foreground/85">{pick.prompt}</AskSection>
       ) : null}
       {view.refinable ? (
         <AskSection className="mt-2.5">
           <Input
             {...proseInputProps}
-            aria-label={`What should change in ${current.label}`}
-            className="h-[34px] min-w-0 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
+            aria-label={t`What should change in ${ph({ label: current.label })}`}
+            className="h-[34px] min-w-0 rounded-[7px] border-input text-menu md:text-menu"
             disabled={responding}
             onChange={(event) => setComment(event.target.value)}
             onKeyDown={(event) => {
@@ -141,30 +146,35 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
               event.preventDefault();
               respond(Boolean(trimmed));
             }}
-            placeholder={`What should change in ${current.label}? (optional)`}
+            placeholder={t`What should change in ${ph({ label: current.label })}? (optional)`}
             ref={commentRef}
             value={comment}
           />
         </AskSection>
       ) : null}
-      <AskOptions aria-label="Answer">
+      <AskOptions aria-label={t`Answer`}>
         <AskButton
           disabled={responding}
+          // i18n-ignore: the key's name as printed on the keyboard chip
           hint="Enter"
           number={1}
           onClick={() => respond(false)}
           primary
         >
-          Pick {current.label}
+          {t`Pick ${ph({ label: current.label })}`}
         </AskButton>
         {view.refinable ? (
           <AskButton
             disabled={responding}
             number={2}
             onClick={() => respond(true)}
-            title={trimmed ? undefined : `Write what should change in ${current.label} first`}
+            title={
+              trimmed
+                ? undefined
+                : t`Write what should change in ${ph({ label: current.label })} first`
+            }
           >
-            Refine {current.label}
+            {t`Refine ${ph({ label: current.label })}`}
           </AskButton>
         ) : null}
       </AskOptions>
@@ -179,47 +189,47 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
                 criteriaOpen && 'rotate-90',
               )}
             />
-            Evaluation criteria
+            {t`Evaluation criteria`}
           </AskHint>
         ) : null}
         {steps > 0 ? (
           <AskHint
             onClick={() => openTries(view, current.tryIndex)}
-            title={`Open ${current.label} in the workbench`}
+            title={t`Open ${ph({ label: current.label })} in the workbench`}
           >
             <ListTreeIcon aria-hidden="true" className="mr-1.5 inline size-[13px] align-[-2px]" />
-            {steps === 1 ? '1 step' : `${steps} steps`}
+            {plural(steps, { one: '# step', other: '# steps' })}
           </AskHint>
         ) : null}
         {candidates.length > 1 ? (
           <span className="inline-flex min-w-0 items-center gap-1.5 max-md:hidden">
             <button
               {...askKeyAttributes(['['])}
-              aria-label={`Previous ${noun}`}
+              aria-label={previousLabel}
               className="inline-flex rounded-[5px] outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
               onClick={() => step(-1)}
-              title={`Previous ${noun}`}
+              title={previousLabel}
               type="button"
             >
               <AskKeyChip askKey="[" />
             </button>
             <button
               {...askKeyAttributes([']'])}
-              aria-label={`Next ${noun}`}
+              aria-label={nextLabel}
               className="inline-flex rounded-[5px] outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
               onClick={() => step(1)}
-              title={`Next ${noun}`}
+              title={nextLabel}
               type="button"
             >
               <AskKeyChip askKey="]" />
             </button>
-            <span className="truncate">other {noun === 'draft' ? 'drafts' : 'tries'}</span>
+            <span className="truncate">{drafts ? t`other drafts` : t`other tries`}</span>
           </span>
         ) : null}
       </AskFooter>
       {criteriaOpen && view.rubric ? (
         <AskSection
-          className="text-[12px] whitespace-pre-wrap text-foreground/85"
+          className="text-meta whitespace-pre-wrap text-foreground/85"
           data-slot="variant-criteria"
         >
           {view.rubric}
@@ -233,7 +243,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
 function RowAction({ children, onClick }: { children: string; onClick: () => void }) {
   return (
     <button
-      className="shrink-0 rounded-[5px] px-1 text-[12px] text-muted-foreground outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
+      className="shrink-0 rounded-[5px] px-1 text-meta text-muted-foreground outline-none hover:text-foreground focus-visible:[box-shadow:0_0_0_1.5px_var(--ring)]"
       onClick={onClick}
       type="button"
     >
@@ -251,7 +261,7 @@ export function VariantRunRecord({ view, onPick }: { view: VariantRunView; onPic
   if (view.pick && !view.closed && onPick) return <VariantPickCard onPick={onPick} view={view} />;
   const selected = view.tabs.find((tab) => tab.selected);
   const shown = selected ?? view.tabs.find((tab) => tab.tryIndex === view.defaultTab);
-  const noun = view.noun.toLowerCase();
+  const drafts = view.noun.toLowerCase() === 'draft';
   const messageId = view.closed?.supersededByMessageId;
   const link = messageId ? `#message-${encodeURIComponent(messageId)}` : undefined;
   const running = view.tabs.some((tab) => tab.state === 'running');
@@ -277,13 +287,17 @@ export function VariantRunRecord({ view, onPick }: { view: VariantRunView; onPic
       />
       <span className="flex-1" />
       {link ? (
-        <RowAction onClick={() => followTranscriptLink(link)}>Go to your message</RowAction>
+        <RowAction onClick={() => followTranscriptLink(link)}>{t`Go to your message`}</RowAction>
       ) : null}
       {view.tabs.length ? (
         <RowAction onClick={() => openTries(view, shown?.tryIndex ?? view.defaultTab)}>
           {running
-            ? `Watch the ${noun === 'draft' ? 'drafts' : 'tries'}`
-            : `Show the ${noun === 'draft' ? 'drafts' : 'tries'}`}
+            ? drafts
+              ? t`Watch the drafts`
+              : t`Watch the tries`
+            : drafts
+              ? t`Show the drafts`
+              : t`Show the tries`}
         </RowAction>
       ) : null}
     </div>

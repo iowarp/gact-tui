@@ -9,6 +9,7 @@ import { useConversationPreview } from '@/hooks/use-conversation-preview';
 import { isManagedChildSession } from '@/lib/session-state';
 import { ConversationRoleIcon } from './conversation-family-label';
 import { conversationPreview, previewText } from './conversation-preview-model';
+import { ph, t } from '@lingui/core/macro';
 
 /** A bounded real transcript preview beside the graph, with navigation into the full conversation. */
 export function ConversationInspector({
@@ -25,10 +26,10 @@ export function ConversationInspector({
   const parent = sessions.find((candidate) => candidate.id === session.parent_session_id);
   return (
     <aside
-      aria-label="Selected conversation"
+      aria-label={t`Selected conversation`}
       className="min-w-0 border-t bg-muted/15 p-4 @min-[48rem]:border-l @min-[48rem]:border-t-0"
     >
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
         <ConversationRoleIcon session={session} className="size-3.5" />
         {conversationRole(session)}
         {isManagedChildSession(session) ? ' (parent owned)' : ''}
@@ -39,7 +40,10 @@ export function ConversationInspector({
           className="mt-2 block text-xs text-primary hover:underline"
           to={conversationHref(parent)}
         >
-          ← {isManagedChildSession(session) ? 'Owned by' : 'Return to'} {parent.title}
+          ←{' '}
+          {isManagedChildSession(session)
+            ? t`Owned by ${ph({ title: parent.title })}`
+            : t`Return to ${ph({ title: parent.title })}`}
         </Link>
       ) : null}
       <Link
@@ -47,22 +51,22 @@ export function ConversationInspector({
         className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
       >
         <HistoryIcon className="size-3.5" />
-        Full conversation history
+        {t`Full conversation history`}
       </Link>
-      <div aria-label="Conversation preview" className="my-4 space-y-3 text-xs">
+      <div aria-label={t`Conversation preview`} className="my-4 space-y-3 text-xs">
         {preview.pending ? (
-          <p className="text-muted-foreground">Loading history…</p>
+          <p className="text-muted-foreground">{t`Loading history…`}</p>
         ) : preview.error ? (
-          <p role="status">History preview is unavailable. Open the conversation to retry.</p>
+          <p role="status">{t`History preview is unavailable. Open the conversation to retry.`}</p>
         ) : null}
         {history.copied.map((message) => (
           <PreviewMessage key={message.id} message={message} copied />
         ))}
         {history.origin ? (
-          <div className="flex items-center gap-2 text-[11px] text-primary">
+          <div className="flex items-center gap-2 text-caption text-primary">
             <GitBranchIcon className="size-3.5" />
             <span>
-              {history.boundaryRetained ? 'Branched here' : 'Saved fork point, history rewound'}
+              {history.boundaryRetained ? t`Branched here` : t`Saved fork point, history rewound`}
             </span>
             <span className="flex-1 border-t" />
           </div>
@@ -72,7 +76,7 @@ export function ConversationInspector({
         ))}
       </div>
       <div className="border-t pt-3">
-        <h4 className="text-[11px] text-muted-foreground">Outputs</h4>
+        <h4 className="text-caption text-muted-foreground">{t`Outputs`}</h4>
         {preview.outputs.map((artifact) => (
           <Button
             key={artifact.id}
@@ -87,7 +91,7 @@ export function ConversationInspector({
         ))}
         {!preview.outputs.length ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            {preview.outputsError ? 'Outputs unavailable' : 'No output files'}
+            {preview.outputsError ? t`Outputs unavailable` : t`No output files`}
           </p>
         ) : null}
       </div>
@@ -95,15 +99,15 @@ export function ConversationInspector({
         to={conversationHref(session)}
         className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
       >
-        {isManagedChildSession(session) ? 'Open subagent' : 'Open conversation'}
+        {isManagedChildSession(session) ? t`Open subagent` : t`Open conversation`}
         <ArrowUpRightIcon className="size-3.5" />
       </Link>
-      <p className="mt-2 text-[10px] text-muted-foreground">
+      <p className="mt-2 text-[0.625rem] text-muted-foreground">
         {isManagedChildSession(session)
-          ? 'Controlled by the parent agent'
+          ? t`Controlled by the parent agent`
           : session.parent_session_id
-            ? 'Independent conversation with shared files'
-            : 'Shared workspace files'}
+            ? t`Independent conversation with shared files`
+            : t`Shared workspace files`}
       </p>
     </aside>
   );
@@ -114,9 +118,9 @@ function PreviewMessage({ message, copied }: { message: Message; copied?: boolea
   if (!text) return null;
   return (
     <div>
-      <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
-        <span>{message.role === 'user' ? 'You' : vocab.agent}</span>
-        {copied ? <span>Copied</span> : null}
+      <div className="mb-1 flex justify-between text-[0.625rem] text-muted-foreground">
+        <span>{message.role === 'user' ? t`You` : vocab.agent}</span>
+        {copied ? <span>{t`Copied`}</span> : null}
       </div>
       <div className="line-clamp-2 leading-5 [&_p]:my-0 [&_pre]:hidden" title={text}>
         <MarkdownText mode="static">{text}</MarkdownText>

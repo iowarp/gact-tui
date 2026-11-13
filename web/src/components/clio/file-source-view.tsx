@@ -9,6 +9,7 @@ import { isLargeSource } from '@/lib/source-window';
 import { VirtualSourceLines } from './virtual-source-lines';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { t } from '@lingui/core/macro';
 
 const DELIMITED = /\.(?:csv|tsv)$/iu;
 
@@ -38,7 +39,7 @@ export function FileSourceView({
         ? [
             {
               kind: 'view' as const,
-              label: 'Wrap long lines',
+              label: t`Wrap long lines`,
               icon: WrapTextIcon,
               selected: options.wrap,
               onSelect: () => options.setWrap(!options.wrap),
@@ -49,12 +50,14 @@ export function FileSourceView({
   );
   useFileViewerActions(actions);
   const large = useMemo(() => isLargeSource(content), [content]);
+  // Long lines wrap unless the reader turns it off; a standalone source has no toggle.
+  const wrap = options?.wrap ?? true;
   const wrapToggle =
     options && toolbar ? (
       <ViewerToolbarContent>
         <ToolbarAction
           aria-pressed={options.wrap}
-          label="Wrap long lines"
+          label={t`Wrap long lines`}
           onClick={() => options.setWrap(!options.wrap)}
         >
           <WrapTextIcon aria-hidden="true" />
@@ -68,11 +71,12 @@ export function FileSourceView({
         {wrapToggle}
         <VirtualSourceLines
           role="region"
-          aria-label={label || `Source of ${name}`}
+          aria-label={label || t`Source of ${name}`}
           className="h-full"
           content={content}
           headerRow={headerRow}
-          wrap={options?.wrap ?? false}
+          language={language}
+          wrap={wrap}
         />
       </>
     );
@@ -81,17 +85,20 @@ export function FileSourceView({
       {wrapToggle}
       <CodeBlock
         role="region"
-        aria-label={label || `Source of ${name}`}
+        aria-label={label || t`Source of ${name}`}
         code={content}
         language={language}
         showLineNumbers
         data-header-row={headerRow ? '' : undefined}
         className={cn(
           // Flush on the page, as the frame spec draws source: no filled panel.
-          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-[11.5px] [&_:is(pre,code)]:leading-[1.65]',
-          options?.wrap
-            ? // Wrapped lines hang past the line numbers, so a number marks only its own line.
-              '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:pl-12 [&_pre_code>span]:-indent-12 [&_pre_code>span]:before:indent-0'
+          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-label [&_:is(pre,code)]:leading-[1.65]',
+          wrap
+            ? // Wrapped lines hang past the line numbers and the line's own indent, so a
+              // number marks only its own line and continuation rows keep the indent. The
+              // number and the indent sit outside the inline flow, so a row never breaks
+              // before the line's first word.
+              '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:relative [&_pre_code>span]:min-h-[1.65em] [&_pre_code>span]:[padding-left:calc(3rem_+_var(--indent,0ch))] [&_pre_code>span]:before:absolute [&_pre_code>span]:before:left-0 [&_pre_code>span>[data-indent]]:absolute'
             : '[&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',
           headerRow && HEADER_ROW_CLASS,
         )}

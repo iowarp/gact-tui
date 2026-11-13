@@ -9,6 +9,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::menu;
+use crate::native_copy;
 
 pub(crate) const TRAY_ID: &str = "clio-tray";
 const SHOW_ID: &str = "show";
@@ -65,15 +66,44 @@ pub(crate) fn tray_action_for(id: &str) -> Option<TrayAction> {
 }
 
 pub(crate) fn tray_show_label(product_name: &str) -> String {
-    format!("Show {}", menu::short_app_name(product_name))
+    native_copy::format("tray.show", &[("name", menu::short_app_name(product_name))])
 }
 
 pub(crate) fn tray_quit_label(product_name: &str) -> String {
-    format!("Quit {}", menu::short_app_name(product_name))
+    native_copy::format("tray.quit", &[("name", menu::short_app_name(product_name))])
 }
 
 pub(crate) fn tray_tooltip_label(product_name: &str) -> String {
-    format!("{}: running", menu::short_app_name(product_name))
+    native_copy::format("tray.tooltip", &[("name", menu::short_app_name(product_name))])
+}
+
+/// The tray's Show and Quit menu in the current interface language.
+fn tray_menu<R: Runtime, M: Manager<R>>(manager: &M, product_name: &str) -> tauri::Result<Menu<R>> {
+    let show = MenuItem::with_id(
+        manager,
+        SHOW_ID,
+        tray_show_label(product_name),
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(
+        manager,
+        QUIT_ID,
+        tray_quit_label(product_name),
+        true,
+        None::<&str>,
+    )?;
+    Menu::with_items(manager, &[&show, &quit])
+}
+
+/// Relabel the installed tray after the interface language changed.
+pub(crate) fn refresh_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return Ok(());
+    };
+    let product_name = menu::native_app_name(app);
+    tray.set_menu(Some(tray_menu(app, &product_name)?))?;
+    tray.set_tooltip(Some(tray_tooltip_label(&product_name)))
 }
 
 /// Restore and focus the existing main window.
@@ -92,21 +122,7 @@ pub(crate) fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
 /// detached/background session counts.
 pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     let product_name = menu::native_app_name(app.handle());
-    let show = MenuItem::with_id(
-        app,
-        SHOW_ID,
-        tray_show_label(&product_name),
-        true,
-        None::<&str>,
-    )?;
-    let quit = MenuItem::with_id(
-        app,
-        QUIT_ID,
-        tray_quit_label(&product_name),
-        true,
-        None::<&str>,
-    )?;
-    let menu = Menu::with_items(app, &[&show, &quit])?;
+    let menu = tray_menu(app, &product_name)?;
     let is_macos = cfg!(target_os = "macos");
     let mut tray = TrayIconBuilder::with_id(TRAY_ID);
     let template = match tray_icon_source(is_macos, TRAY_TEMPLATE_PNG) {

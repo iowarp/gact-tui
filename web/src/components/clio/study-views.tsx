@@ -5,6 +5,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { ClioA2UISurface } from './a2ui-surface';
 import { StateView } from './primitives/state-view';
 import { branchTitle, studyViewDomId } from './science-log-model';
+import { t } from '@lingui/core/macro';
 
 /**
  * One of the study's views: the dashboard a conversation attached with a `view`
@@ -57,32 +58,32 @@ function StudyViewPanel({
   );
   return (
     <section
-      aria-label={view.title || 'Study view'}
+      aria-label={view.title || t`Study view`}
       className="min-w-0 scroll-mt-3 space-y-3"
       data-slot="study-view"
       id={studyViewDomId(view.entry)}
     >
       <header className="space-y-0.5">
-        <h3 className="text-[13px] font-semibold">{view.title || 'Untitled view'}</h3>
+        <h3 className="text-ui font-semibold">{view.title || t`Untitled view`}</h3>
         {view.purpose ? <p className="text-xs text-muted-foreground">{view.purpose}</p> : null}
-        <p className="text-xs text-muted-foreground">Attached by {owner}</p>
+        <p className="text-xs text-muted-foreground">{t`Attached by ${owner}`}</p>
         {view.read_only ? (
           <p className="text-xs text-muted-foreground">
-            Attached as a conversation view before study views were dashboards; shown as it is.
+            {t`Attached as a conversation view before study views were dashboards; shown as it is.`}
           </p>
         ) : null}
       </header>
       {!view.surface ? (
         <StateView
           kind="unavailable"
-          title="The conversation that attached this view has since deleted its dashboard."
+          title={t`The conversation that attached this view has since deleted its dashboard.`}
         />
       ) : parsed?.success ? (
         <div className="overflow-x-auto">
           <ClioA2UISurface readOnly={readOnly || view.read_only} surface={parsed.data} />
         </div>
       ) : (
-        <StateView kind="error" title="This view's dashboard could not be read." />
+        <StateView kind="error" title={t`This view's dashboard could not be read.`} />
       )}
     </section>
   );

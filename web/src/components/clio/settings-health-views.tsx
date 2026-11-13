@@ -6,6 +6,8 @@ import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { humanizeToolName } from './tool-presentation';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatDateTime, formatNumber } from '@/lib/locale-format';
 
 function metricTitle(name: string) {
   return toolLabel(
@@ -17,7 +19,7 @@ function metricTitle(name: string) {
 }
 
 function number(value: number) {
-  return new Intl.NumberFormat().format(value);
+  return formatNumber(value);
 }
 
 function duration(seconds: number) {
@@ -37,15 +39,15 @@ function metricDuration(milliseconds: number) {
 }
 
 function metricContext(name: string) {
-  if (name.includes('remote_scientific_')) return 'Scientific remote connection';
-  if (name.includes('remote_')) return 'Remote connection';
+  if (name.includes('remote_scientific_')) return t`Scientific remote connection`;
+  if (name.includes('remote_')) return t`Remote connection`;
   return undefined;
 }
 
 function ValueRow({ title, value, note }: { title: string; value: string; note?: string }) {
   return (
     <SettingsRow fullWidth inlineControl note={note} title={title}>
-      <span className="text-[0.8125rem] text-foreground tabular-nums">{value}</span>
+      <span className="text-ui text-foreground tabular-nums">{value}</span>
     </SettingsRow>
   );
 }
@@ -58,21 +60,23 @@ export function MetricsGroup({ metrics }: { metrics: RuntimeMetrics }) {
   return (
     <>
       <ValueRow
-        note={`${number(metrics.sessions.active)} active`}
-        title="Sessions"
+        note={t`${ph({ active: number(metrics.sessions.active) })} active`}
+        title={t`Sessions`}
         value={number(metrics.sessions.total)}
       />
-      <ValueRow title="Messages" value={number(metrics.messages.total)} />
+      <ValueRow title={t`Messages`} value={number(metrics.messages.total)} />
       <ValueRow
-        title="Tokens"
+        title={t`Tokens`}
         value={number(metrics.tokens.input_total + metrics.tokens.output_total)}
       />
-      <ValueRow title="Uptime" value={duration(metrics.uptime_s)} />
-      <SettingsGroupLabel info="The duration within which 95% of reported calls completed, slowest first.">
-        Slowest reported activity
+      <ValueRow title={t`Uptime`} value={duration(metrics.uptime_s)} />
+      <SettingsGroupLabel
+        info={t`The duration within which 95% of reported calls completed, slowest first.`}
+      >
+        {t`Slowest reported activity`}
       </SettingsGroupLabel>
       {latencyRows.length ? (
-        <ItemList label="Slowest reported activity">
+        <ItemList label={t`Slowest reported activity`}>
           {latencyRows.map(([name, latency]) => {
             const context = metricContext(name);
             return (
@@ -82,12 +86,14 @@ export function MetricsGroup({ metrics }: { metrics: RuntimeMetrics }) {
                 meta={
                   <>
                     {context ? <span className="mr-2.5">{context}</span> : null}
-                    <span>{number(latency.count)} reported calls</span>
+                    <span>
+                      {plural(latency.count, { one: '# reported call', other: '# reported calls' })}
+                    </span>
                   </>
                 }
                 status={
                   <span className="truncate text-xs text-muted-foreground tabular-nums">
-                    95% within {metricDuration(latency.p95_ms)}
+                    {t`95% within ${ph({ duration: metricDuration(latency.p95_ms) })}`}
                   </span>
                 }
                 statusWidth={136}
@@ -97,7 +103,7 @@ export function MetricsGroup({ metrics }: { metrics: RuntimeMetrics }) {
           })}
         </ItemList>
       ) : (
-        <StateView kind="empty" size="row" title="No activity reported yet" />
+        <StateView kind="empty" size="row" title={t`No activity reported yet`} />
       )}
     </>
   );
@@ -109,11 +115,11 @@ export function StorageGroup({ memory }: { memory: MemoryStatistics }) {
   return (
     <>
       <ValueRow
-        title="Remembered conversations"
+        title={t`Remembered conversations`}
         value={number(memory.global.conversations_total)}
       />
       <ValueRow
-        title="Remembered tool invocations"
+        title={t`Remembered tool invocations`}
         value={number(memory.global.invocations_total)}
       />
       <SettingsRow
@@ -121,20 +127,20 @@ export function StorageGroup({ memory }: { memory: MemoryStatistics }) {
         inlineControl
         note={
           cacheSamples
-            ? `${number(memory.cache.hits)} hits and ${number(memory.cache.misses)} misses`
-            : 'No cache activity has been reported yet.'
+            ? t`${ph({ hits: number(memory.cache.hits) })} hits and ${ph({ misses: number(memory.cache.misses) })} misses`
+            : t`No cache activity has been reported yet.`
         }
-        title="Cache effectiveness"
+        title={t`Cache effectiveness`}
       >
         {cacheSamples ? (
           <Progress
-            aria-label="Cache effectiveness"
+            aria-label={t`Cache effectiveness`}
             className="w-28"
             value={memory.cache.hit_rate * 100}
           />
         ) : null}
-        <span className="text-[0.8125rem] text-foreground tabular-nums">
-          {cacheSamples ? `${Math.round(memory.cache.hit_rate * 100)}%` : 'Unavailable'}
+        <span className="text-ui text-foreground tabular-nums">
+          {cacheSamples ? `${Math.round(memory.cache.hit_rate * 100)}%` : t`Unavailable`}
         </span>
       </SettingsRow>
     </>
@@ -147,21 +153,21 @@ function text(value: unknown) {
 
 function when(value: unknown) {
   const date = new Date(String(value ?? ''));
-  return Number.isNaN(date.getTime()) ? undefined : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? undefined : formatDateTime(date);
 }
 
 function outcome(value: unknown): { tone: StatusTone; label: string } {
   const word = String(value ?? '').toLowerCase();
   if (['ok', 'success', 'succeeded', 'allowed', 'completed'].includes(word))
-    return { tone: 'success', label: 'Succeeded' };
-  if (['blocked', 'denied'].includes(word)) return { tone: 'warning', label: 'Blocked' };
-  if (['error', 'failed', 'failure'].includes(word)) return { tone: 'error', label: 'Failed' };
-  return { tone: 'idle', label: word ? humanizeToolName(word) : 'Not reported' };
+    return { tone: 'success', label: t`Succeeded` };
+  if (['blocked', 'denied'].includes(word)) return { tone: 'warning', label: t`Blocked` };
+  if (['error', 'failed', 'failure'].includes(word)) return { tone: 'error', label: t`Failed` };
+  return { tone: 'idle', label: word ? humanizeToolName(word) : t`Not reported` };
 }
 
 const EVENT_LABELS: Record<string, string> = {
-  pre_tool: 'Before a tool runs',
-  post_tool: 'After a tool runs',
+  pre_tool: t`Before a tool runs`,
+  post_tool: t`After a tool runs`,
 };
 
 function eventLabel(value: unknown) {
@@ -183,24 +189,30 @@ function toolLabel(id: string) {
 /** Loaded hooks and what they recently did. */
 export function HooksGroup({ hooks }: { hooks: HookInspection }) {
   const titles = new Map(
-    hooks.hooks.map((hook) => [text(hook.id), text(hook.title) ?? text(hook.id) ?? 'Hook']),
+    hooks.hooks.map((hook) => [text(hook.id), text(hook.title) ?? text(hook.id) ?? t`Hook`]),
   );
   return (
     <>
       <SettingsRow
         fullWidth
         inlineControl
-        note={`${hooks.hooks.length} loaded, ${hooks.recent_invocations.length} recent invocations`}
-        title="Automation hooks"
+        note={t`${ph({ loaded: hooks.hooks.length })} loaded, ${plural(
+          hooks.recent_invocations.length,
+          {
+            one: '# recent invocation',
+            other: '# recent invocations',
+          },
+        )}`}
+        title={t`Automation hooks`}
       >
         <StatusIndicator
-          label={hooks.enabled ? 'Enabled' : 'Disabled'}
+          label={hooks.enabled ? t`Enabled` : t`Disabled`}
           tone={hooks.enabled ? 'success' : 'stopped'}
         />
       </SettingsRow>
-      <SettingsGroupLabel>Loaded hooks</SettingsGroupLabel>
+      <SettingsGroupLabel>{t`Loaded hooks`}</SettingsGroupLabel>
       {hooks.hooks.length ? (
-        <ItemList label="Loaded hooks">
+        <ItemList label={t`Loaded hooks`}>
           {hooks.hooks.map((hook, index) => {
             const on = Array.isArray(hook.on) ? hook.on.map(eventLabel).filter(Boolean) : [];
             const scope = text(hook.scope) ?? text(hook.source) ?? hooks.backend;
@@ -214,18 +226,18 @@ export function HooksGroup({ hooks }: { hooks: HookInspection }) {
                     {on.length ? <span>{on.join(', ')}</span> : null}
                   </>
                 }
-                title={text(hook.title) ?? text(hook.id) ?? 'Hook'}
+                title={text(hook.title) ?? text(hook.id) ?? t`Hook`}
               />
             );
           })}
         </ItemList>
       ) : (
-        <StateView kind="empty" size="row" title="No hooks are loaded." />
+        <StateView kind="empty" size="row" title={t`No hooks are loaded.`} />
       )}
       {hooks.recent_invocations.length ? (
         <>
-          <SettingsGroupLabel>Recent invocations</SettingsGroupLabel>
-          <ItemList label="Recent invocations">
+          <SettingsGroupLabel>{t`Recent invocations`}</SettingsGroupLabel>
+          <ItemList label={t`Recent invocations`}>
             {hooks.recent_invocations.map((invocation, index) => {
               const result = outcome(invocation.outcome);
               const tool = text(invocation.tool);
@@ -249,7 +261,9 @@ export function HooksGroup({ hooks }: { hooks: HookInspection }) {
                   }
                   status={<StatusIndicator label={result.label} tone={result.tone} />}
                   statusWidth={120}
-                  title={titles.get(text(invocation.hook_id)) ?? text(invocation.hook_id) ?? 'Hook'}
+                  title={
+                    titles.get(text(invocation.hook_id)) ?? text(invocation.hook_id) ?? t`Hook`
+                  }
                 />
               );
             })}

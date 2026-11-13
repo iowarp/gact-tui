@@ -1,5 +1,6 @@
 import { BookOpenIcon, FileCode2Icon } from 'lucide-react';
 import { FileModeControls } from './file-mode-controls';
+import { t } from '@lingui/core/macro';
 
 /** A document's modes in the frame's Format: Read (or Paper, or HTML preview) and Source. */
 export function DocumentViewControls({
@@ -21,11 +22,11 @@ export function DocumentViewControls({
   const views = [
     {
       value: 'preview',
-      label: latex ? 'Paper' : html ? 'HTML preview' : 'Read document',
+      label: latex ? t`Paper` : html ? t`HTML preview` : t`Read document`,
       icon: BookOpenIcon,
     },
     ...(markdown || html || (latex && !paper)
-      ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' }]
+      ? [{ value: 'raw', label: t`Source`, icon: FileCode2Icon, shortcut: 'render-source' }]
       : []),
   ];
   return (
@@ -33,7 +34,7 @@ export function DocumentViewControls({
       modes={views}
       value={value}
       onChange={onChange}
-      label="File representations"
+      label={t`File representations`}
     />
   );
 }

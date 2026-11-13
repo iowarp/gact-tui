@@ -733,6 +733,7 @@ describe('compactModelName', () => {
     ['claude-opus-4-20250514', 'opus 4'],
     ['claude-sonnet-4-5-20250929', 'sonnet 4.5'],
     ['anthropic/claude-3-5-haiku-20241022', 'haiku 3.5'],
+    ['claude-fable-5-1', 'fable 5.1'],
   ])('keeps the family and version of %s', (id, name) => {
     expect(compactModelName(id, id)).toBe(name);
   });

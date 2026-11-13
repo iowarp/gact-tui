@@ -12,6 +12,7 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { copyTextToClipboard, downloadText, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
+import { plural, t } from '@lingui/core/macro';
 
 const LANGUAGE_ALIASES: Record<string, BundledLanguage> = {
   py: 'python',
@@ -91,23 +92,31 @@ export function ClioA2UICodeView({
   const heading = title || language;
   const filenameStem = filenameStemFromTitle(heading);
 
-  const buildReference = (): DataZoneReference =>
-    buildZoneReference({
+  const buildReference = (): DataZoneReference => {
+    const lineCount = code.split('\n').length;
+    return buildZoneReference({
       componentLabel: heading,
       datasetLabel: language,
       filters: [],
       previewColumns: [],
       previewRows: [],
       query: { code, language },
-      zoneDescription: `the whole ${language === 'diff' ? 'diff' : 'file'} (${code.split('\n').length.toLocaleString()} lines)`,
+      zoneDescription:
+        language === 'diff'
+          ? plural(lineCount, { one: 'the whole diff (# line)', other: 'the whole diff (# lines)' })
+          : plural(lineCount, {
+              one: 'the whole file (# line)',
+              other: 'the whole file (# lines)',
+            }),
     });
+  };
 
   const capabilities: SurfaceCapabilities = {
     buildReference,
     exportFormats: [
       {
         id: 'file',
-        label: language === 'diff' ? 'Patch file' : 'Source file',
+        label: language === 'diff' ? t`Patch file` : t`Source file`,
         run: () => downloadText(code, 'text/plain', `${filenameStem}.${fileExtension(language)}`),
       },
     ],

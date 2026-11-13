@@ -13,11 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { t, ph } from '@lingui/core/macro';
 
 const labels: Record<Method, string> = {
-  native: 'Native',
-  container: 'Containers',
-  other: 'Other',
+  native: t`Native`,
+  container: t`Containers`,
+  other: t`Other`,
 };
 
 function methods(service: ManagedServiceDefinition): Method[] {
@@ -35,8 +36,11 @@ export function ServiceMethodAvailability({ service }: { service: ManagedService
         const available = rows.some((row) => row.compatible);
         return (
           <span key={method} className={available ? 'text-foreground' : 'text-muted-foreground'}>
-            {labels[method]}:{' '}
-            {available ? 'available' : rows.length ? 'unavailable here' : 'not offered'}
+            {available
+              ? t`${ph({ method: labels[method] })}: available`
+              : rows.length
+                ? t`${ph({ method: labels[method] })}: unavailable here`
+                : t`${ph({ method: labels[method] })}: not offered`}
           </span>
         );
       })}
@@ -63,8 +67,9 @@ export function ServiceInstallationMethod({
   const rows = service.variants.filter((row) => installationMethod(row) === method);
   return (
     <Field>
-      <FieldLabel id={`${id}-label`}>Installation method</FieldLabel>
+      <FieldLabel id={`${id}-label`}>{t`Installation method`}</FieldLabel>
       <RadioGroup
+        // i18n-ignore: element id reference
         aria-labelledby={`${id}-label`}
         className="grid gap-3 sm:grid-cols-2"
         value={method}
@@ -99,11 +104,11 @@ export function ServiceInstallationMethod({
                 <span className="block text-xs text-muted-foreground">
                   {available
                     ? kind === 'native'
-                      ? 'Runs directly on this computer'
-                      : 'Uses a container runtime on this computer'
+                      ? t`Runs directly on this computer`
+                      : t`Uses a container runtime on this computer`
                     : choices.length
-                      ? 'Unavailable on this computer'
-                      : 'No managed installer for this service'}
+                      ? t`Unavailable on this computer`
+                      : t`No managed installer for this service`}
                 </span>
               </span>
             </label>
@@ -112,7 +117,13 @@ export function ServiceInstallationMethod({
       </RadioGroup>
       {rows.length > 1 ? (
         <Select onValueChange={onVariant} value={variant} disabled={installed}>
-          <SelectTrigger aria-label={`${service.label} ${method ? labels[method] : ''} variant`}>
+          <SelectTrigger
+            aria-label={
+              method
+                ? t`${ph({ service: service.label })} ${ph({ method: labels[method] })} variant`
+                : t`${ph({ service: service.label })} variant`
+            }
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -131,7 +142,7 @@ export function ServiceInstallationMethod({
       ) : null}
       {selected?.install_type === 'supervised_stack' ? (
         <p className="text-xs text-muted-foreground">
-          The application runs natively; its databases require containers.
+          {t`The application runs natively; its databases require containers.`}
         </p>
       ) : null}
       {selected && !selected.compatible ? (
@@ -139,12 +150,12 @@ export function ServiceInstallationMethod({
       ) : null}
       {installed ? (
         <p className="text-xs text-muted-foreground">
-          This installation keeps its recorded method. Remove its runtime before choosing another.
+          {t`This installation keeps its recorded method. Remove its runtime before choosing another.`}
         </p>
       ) : null}
       {service.variants.some((row) => !row.compatible) ? (
         <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Unavailable options</summary>
+          <summary className="cursor-pointer">{t`Unavailable options`}</summary>
           <ul className="mt-2 space-y-1">
             {service.variants
               .filter((row) => !row.compatible)

@@ -3,6 +3,7 @@ import type { ObservabilityActivityItem } from './observability-activity';
 import { provenanceFileFact } from './session-evidence-projection';
 import { toolOperationLabel } from './tool-presentation';
 import { compactDuration, toolActivityName } from './workbench-activity-model';
+import { t } from '@lingui/core/macro';
 
 type ProvenanceSpan = ExecutionProvenanceResult['spans'][number];
 
@@ -24,12 +25,12 @@ export function projectedActivityDetail(kind: string): string | undefined {
     kind === 'tool'
       ? undefined
       : kind === 'artifact'
-        ? 'Produced artifact'
+        ? t`Produced artifact`
         : kind === 'resource'
-          ? 'Evidence source'
+          ? t`Evidence source`
           : kind === 'interaction'
-            ? 'Human interaction'
-            : 'Interactive surface or MCP task';
+            ? t`Human interaction`
+            : t`Interactive surface or MCP task`;
   return detail;
 }
 
@@ -72,15 +73,22 @@ export function permissionActivityLabel(
   tool: ToolInvocation | undefined,
 ): string {
   const decision = /resolved:\s*([a-z_]+)/iu.exec(fallback)?.[1]?.toLocaleLowerCase();
-  const verb =
+  const outcome =
     decision === 'allow' || decision === 'approve' || decision === 'approved'
-      ? 'Approved'
+      ? 'approved'
       : decision === 'deny' || decision === 'denied' || decision === 'reject'
-        ? 'Denied'
-        : 'Answered';
+        ? 'denied'
+        : 'answered';
   const action = tool ? toolActivityName(tool) : toolName ? toolOperationLabel(toolName) : '';
-  if (!action) return `${verb} a permission request`;
-  return `${verb} ${action.charAt(0).toLocaleLowerCase()}${action.slice(1)}`;
+  if (!action) {
+    if (outcome === 'approved') return t`Approved a permission request`;
+    if (outcome === 'denied') return t`Denied a permission request`;
+    return t`Answered a permission request`;
+  }
+  const actionText = `${action.charAt(0).toLocaleLowerCase()}${action.slice(1)}`;
+  if (outcome === 'approved') return t`Approved ${actionText}`;
+  if (outcome === 'denied') return t`Denied ${actionText}`;
+  return t`Answered ${actionText}`;
 }
 
 /**

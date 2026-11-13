@@ -10,4 +10,4 @@ export function normalizeConvertedMarkdown(markdown: string): string {
 
 /** The viewers' one type scale: 13px body, headings on the brand's heading face, 12px code; inline code in the accent (frame-bar `.md code`). */
 export const READ_TYPE_SCALE =
-  'text-[13px] leading-[1.55] [&_:is(h1,h2,h3,h4)]:!font-heading [&_:is(h1,h2,h3,h4)]:!font-semibold [&_h1]:!text-[18px] [&_h2]:!text-[17px] [&_h3]:!text-[15px] [&_h4]:!text-[13px] [&_code]:!text-[12px] [&_[data-streamdown=inline-code]]:!text-accent-foreground';
+  'text-ui leading-[1.55] [&_:is(h1,h2,h3,h4)]:!font-heading [&_:is(h1,h2,h3,h4)]:!font-semibold [&_h1]:!text-welcome [&_h2]:!text-title [&_h3]:!text-h3 [&_h4]:!text-ui [&_code]:!text-meta [&_[data-streamdown=inline-code]]:!text-accent-foreground';

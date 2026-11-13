@@ -21,6 +21,8 @@ import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ContextReferenceLink } from './context-reference-link';
+import { CommentReviewChip } from './comment-review-chip';
+import { commentReview, foldCommentReviews } from '@/lib/comment-review-reference';
 import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inline-references';
 import { SummonChip } from './summon-chip';
 import { sentDataReferences } from '@/lib/sent-data-references';
@@ -39,6 +41,7 @@ import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t, ph } from '@lingui/core/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -120,7 +123,7 @@ export function DeferredA2UISurface({
   // its OWN label valid while it is genuinely all there is to announce.
   return (
     <div
-      aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
+      aria-label={renderSurface ? undefined : t`${ph({ a2ui: PROTOCOL.a2ui })} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
       {...tourAnchor('interactive-surface')}
       onFocusCapture={() => setHasInteracted(true)}
@@ -172,7 +175,7 @@ export function ReplyErrorLine({
   icon?: StateViewProps['icon'];
 }) {
   const retry: StateAction | undefined = onRetry
-    ? { label: retrying ? 'Retrying' : 'Retry', disabled: retrying, onClick: onRetry }
+    ? { label: retrying ? t`Retrying` : t`Retry`, disabled: retrying, onClick: onRetry }
     : undefined;
   return (
     <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
@@ -208,14 +211,14 @@ function ReplyError({
   const code = humanizeProtocolValue(block.code);
   return (
     <ReplyErrorLine
-      reason={block.message && block.message !== code ? `${block.message} ? ${code}` : code}
+      reason={block.message && block.message !== code ? `${block.message} (${code})` : code}
       onRetry={
         block.recoverable && messageId && onRetryMessage
           ? () => void onRetryMessage(messageId)
           : undefined
       }
       retrying={retrying}
-      title={replyStarted ? 'This reply didn’t finish' : 'This reply didn’t load'}
+      title={replyStarted ? t`This reply didn’t finish` : t`This reply didn’t load`}
     />
   );
 }
@@ -305,7 +308,7 @@ function MessageBlockView({
       // a second, unnamed tool call beside the generated surface.
       if (block.source === 'tool_use') return null;
       return block.source === 'summarization' ? (
-        <SummarizationInjection block={block} label="Summarization" />
+        <SummarizationInjection block={block} label={t`Summarization`} />
       ) : (
         <HarnessInjection block={block} />
       );
@@ -329,14 +332,17 @@ function MessageBlockView({
       const surface = surfaces[block.surface_id];
       if (surfaceAwaitsPendingResponse(interactions, block.surface_id)) return null;
       return surface?.state === 'deleted' ? (
-        <ClioStatus label={`${PROTOCOL.a2ui} surface removed`} value="cancelled" />
+        <ClioStatus label={t`${ph({ a2ui: PROTOCOL.a2ui })} surface removed`} value="cancelled" />
       ) : surface ? (
         <DeferredA2UISurface
           actionLifecycle={actionLifecycles?.[block.surface_id]}
           surface={surface}
         />
       ) : (
-        <ClioStatus label={`${PROTOCOL.a2ui} surface unavailable`} value="unavailable" />
+        <ClioStatus
+          label={t`${ph({ a2ui: PROTOCOL.a2ui })} surface unavailable`}
+          value="unavailable"
+        />
       );
     }
     case 'mcp_app':
@@ -395,18 +401,23 @@ function MessageBlockView({
           resources={resources}
         />
       );
-    case 'context_reference':
-      return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
+    case 'context_reference': {
+      const review = commentReview(block);
+      return review ? (
+        <CommentReviewChip block={block} onOpenReference={onOpenReference} review={review} />
+      ) : (
+        <ContextReferenceLink block={block} onOpenReference={onOpenReference} />
+      );
+    }
     case 'summon':
       return <SummonChip block={block} />;
     case 'unknown':
       return (
         <Alert>
           <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>New message content</AlertTitle>
+          <AlertTitle>{t`New message content`}</AlertTitle>
           <AlertDescription>
-            This service sent a {humanizeProtocolValue(block.original_type)} block that this version
-            cannot display yet. The rest of the conversation remains available.
+            {t`This service sent a ${ph({ type: humanizeProtocolValue(block.original_type) })} block that this version cannot display yet. The rest of the conversation remains available.`}
           </AlertDescription>
         </Alert>
       );
@@ -416,7 +427,7 @@ function MessageBlockView({
 function sentInlineReferences(blocks: readonly MessageBlock[]) {
   const references = blocks.filter(
     (block): block is InlineReferenceBlock =>
-      block.type === 'context_reference' || block.type === 'summon',
+      (block.type === 'context_reference' && !commentReview(block)) || block.type === 'summon',
   );
   const texts = blocks.flatMap((block) =>
     block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
@@ -436,7 +447,7 @@ export function MessageBlockSequence({
   resourcesFirst?: boolean;
 }) {
   const uniqueBlocks = responseArtifactBlocks(
-    [...new Map(blocks.map((block) => [block.id, block] as const)).values()],
+    foldCommentReviews([...new Map(blocks.map((block) => [block.id, block] as const)).values()]),
     props.artifacts,
   );
   const orderedBlocks = resourcesFirst

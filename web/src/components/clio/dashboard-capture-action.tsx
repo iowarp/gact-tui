@@ -3,6 +3,7 @@ import { CameraIcon } from 'lucide-react';
 import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import type { CaptureTarget } from './a2ui-region-evidence';
 import { useFileViewerActions } from './file-viewer-action-context';
+import { t } from '@lingui/core/macro';
 
 /**
  * The frame's … menu row that captures the whole displayed dashboard, with
@@ -27,10 +28,10 @@ export function DashboardCaptureAction({
       start
         ? [
             {
-              label: 'Capture labelled regions',
+              label: t`Capture labelled regions`,
               description: allowed
-                ? 'Send the displayed dashboard, with its regions labelled, to the conversation'
-                : 'Choose a model that accepts images to capture a region',
+                ? t`Send the displayed dashboard, with its regions labelled, to the conversation`
+                : t`Choose a model that accepts images to capture a region`,
               icon: CameraIcon,
               disabled: !allowed || !target,
               onSelect: () => {

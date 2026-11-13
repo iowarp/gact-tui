@@ -34,6 +34,7 @@ import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
 import { readThemeColor, readThemeFont } from '@/theme/runtime';
 import { isTransparentColor } from './surface-export';
+import { plural, t, ph } from '@lingui/core/macro';
 
 interface CaptureContext {
   allowed: boolean;
@@ -433,7 +434,9 @@ export function A2uiRegionCaptureProvider({
       // Attaching does not end Select mode. The person can add more labelled regions
       // until they turn Select off or send the message.
     } catch (cause) {
-      setError(`Capture unavailable: ${cause instanceof Error ? cause.message : String(cause)}`);
+      setError(
+        t`Capture unavailable: ${ph({ error: cause instanceof Error ? cause.message : String(cause) })}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -446,7 +449,7 @@ export function A2uiRegionCaptureProvider({
         bounds &&
         createPortal(
           <div
-            aria-label={`Select regions on ${target.title}`}
+            aria-label={t`Select regions on ${ph({ title: target.title })}`}
             className="absolute inset-0 z-10"
             data-capture-ui="true"
             onPointerDown={pointerDown}
@@ -472,7 +475,11 @@ export function A2uiRegionCaptureProvider({
               const top = shown.y * bounds.height;
               return (
                 <button
-                  aria-label={`Edit ${region.id} region${region.comment ? `: ${region.comment}` : ''}`}
+                  aria-label={
+                    region.comment
+                      ? t`Edit ${ph({ id: region.id })} region: ${ph({ comment: region.comment })}`
+                      : t`Edit ${ph({ id: region.id })} region`
+                  }
                   className="absolute border-2 border-primary bg-primary/10 text-left"
                   key={region.id}
                   onClick={() => setEditingId(region.id)}
@@ -500,7 +507,7 @@ export function A2uiRegionCaptureProvider({
               addRegionDisabled={regions.length >= 32}
               busy={busy}
               error={error}
-              hint="Drag over the surface to add a region."
+              hint={t`Drag over the surface to add a region.`}
               initialPosition={controlPosition}
               key={controlPosition ? `${controlPosition.x}:${controlPosition.y}` : 'controls'}
               marks={regions.map((region) => ({ label: region.id, comment: region.comment }))}
@@ -527,7 +534,10 @@ export function A2uiRegionCaptureProvider({
               sendDisabled={!!editingId}
               sendLabel={
                 allowDemoCapture || acceptsImages
-                  ? `Add ${regions.length} ${regions.length === 1 ? 'mark' : 'marks'} to message`
+                  ? plural(regions.length, {
+                      one: 'Add # mark to message',
+                      other: 'Add # marks to message',
+                    })
                   : undefined
               }
               title={target.title}
@@ -568,7 +578,9 @@ export function A2uiRegionCaptureProvider({
                           close();
                         } catch (cause) {
                           setError(
-                            cause instanceof Error ? cause.message : 'Could not add image regions.',
+                            cause instanceof Error
+                              ? cause.message
+                              : t`Could not add image regions.`,
                           );
                         } finally {
                           setBusy(false);
@@ -576,11 +588,10 @@ export function A2uiRegionCaptureProvider({
                       })()
                     }
                   >
-                    Add to attention set
+                    {t`Add to attention set`}
                   </Button>
-                  <InfoTip label="About image attention">
-                    Keeps the image region and recorded source. Heat is available only when the
-                    capture includes a verified image-patch mapping.
+                  <InfoTip label={t`About image attention`}>
+                    {t`Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping.`}
                   </InfoTip>
                 </div>
               ) : null}

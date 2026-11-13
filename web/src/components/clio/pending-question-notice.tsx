@@ -5,6 +5,9 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { CloseIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { plainQuestionText, questionPrompt } from './question-card-model';
 import { IconButton } from './primitives/icon-button';
+import { plural, t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 interface PendingQuestionNoticeProps {
   /** Pending questions waiting in the log, oldest first. */
@@ -35,7 +38,7 @@ export function PendingQuestionNotice({
     <TooltipProvider>
       <div
         aria-live="polite"
-        className="pointer-events-auto relative z-10 mx-auto mb-1.5 flex h-[30px] w-full max-w-4xl min-w-0 items-center gap-2 rounded-[7px] border border-border bg-card pr-0.5 pl-2.5 text-[12px]"
+        className="pointer-events-auto relative z-10 mx-auto mb-1.5 flex h-[30px] w-full max-w-4xl min-w-0 items-center gap-2 rounded-[7px] border border-border bg-card pr-0.5 pl-2.5 text-meta"
         data-slot="pending-question-notice"
         role="status"
       >
@@ -43,18 +46,19 @@ export function PendingQuestionNotice({
         <p className="min-w-0 flex-1 truncate" title={prompt}>
           {answering ? (
             <>
-              <span className="font-medium">Answering: </span>
+              <span className="font-medium">{t`Answering:`} </span>
               <span className="text-muted-foreground">{prompt}</span>
             </>
-          ) : count === 1 ? (
-            `${vocab.agent} asked you a question`
           ) : (
-            `${vocab.agent} asked you ${count} questions`
+            plural(count, {
+              one: `${agent} asked you a question`,
+              other: `${agent} asked you # questions`,
+            })
           )}
         </p>
         <IconButton
           icon={<ArrowUpToLineIcon aria-hidden="true" />}
-          label="Go to question"
+          label={t`Go to question`}
           onClick={() => onGoToQuestion(target)}
           size="sm"
           type="button"
@@ -62,7 +66,7 @@ export function PendingQuestionNotice({
         {answering ? (
           <IconButton
             icon={<CloseIcon aria-hidden="true" />}
-            label="Stop answering"
+            label={t`Stop answering`}
             onClick={onStopAnswering}
             size="sm"
             type="button"

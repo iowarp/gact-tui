@@ -8,6 +8,13 @@ import {
 import { HelpIcon } from '@/lib/icon-vocabulary';
 import type { ResourcePipelineStage, ResourcePipelineStages } from './resource-availability';
 import { cn } from '@/lib/utils';
+import { t, ph } from '@lingui/core/macro';
+
+const STAGE_NAMES: Record<ResourcePipelineStage['name'], string> = {
+  Upload: t`Upload`,
+  Conversion: t`Conversion`,
+  'Workspace copy': t`Workspace copy`,
+};
 
 /** One compact icon summarizing the upload and conversion pipeline. */
 export function ResourcePipelineSummaryIcon({
@@ -27,7 +34,7 @@ export function ResourcePipelineSummaryIcon({
 
   return (
     <span
-      aria-label={`Attachment status: ${stages.overallLabel}`}
+      aria-label={t`Attachment status: ${ph({ status: stages.overallLabel })}`}
       className="inline-flex shrink-0 items-center"
       data-overlay={overlay || undefined}
       role="img"
@@ -90,12 +97,12 @@ function ResourceStageLine({ stage }: { stage: ResourcePipelineStage }) {
 
   return (
     <div
-      aria-label={`${stage.name} status: ${stage.label}`}
+      aria-label={t`${ph({ stage: STAGE_NAMES[stage.name] })} status: ${ph({ status: stage.label })}`}
       className="flex items-center gap-2 text-xs"
       role="status"
     >
       {icon}
-      <span className="font-medium">{stage.name}</span>
+      <span className="font-medium">{STAGE_NAMES[stage.name]}</span>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-muted-foreground">
         <span>{stage.label}</span>
         {stage.detail ? <span className="min-w-0">{stage.detail}</span> : null}

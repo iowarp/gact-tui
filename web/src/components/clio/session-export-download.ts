@@ -2,6 +2,7 @@ import type { SessionExportMode } from '@clio/core/v3';
 import { toast } from 'sonner';
 import type { ResourceActions } from './resource-dialogs';
 import { downloadUrl } from './surface-export';
+import { ph, t } from '@lingui/core/macro';
 
 /** Prepare and download the same service export from either session menu. */
 export async function downloadSessionExport(
@@ -12,7 +13,7 @@ export async function downloadSessionExport(
   mode: SessionExportMode,
 ): Promise<void> {
   const preparing = toast.loading(
-    `Preparing ${mode === 'transcript' ? 'HTML' : 'ZIP'} export for ${title}…`,
+    t`Preparing ${ph({ format: mode === 'transcript' ? 'HTML' : 'ZIP' })} export for ${title}…`,
   );
   try {
     const value = await actions.exportSession(sessionId, mode);

@@ -1,6 +1,6 @@
 import type { Session, Workspace } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -19,6 +19,7 @@ import {
   RailState,
   ShowMoreRow,
 } from './workspace-navigation-rail-rows';
+import { ph, t } from '@lingui/core/macro';
 
 interface WorkspaceTreeItemProps {
   workspace: Workspace;
@@ -36,7 +37,7 @@ interface WorkspaceTreeItemProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
   draft: boolean;
@@ -74,6 +75,8 @@ export function WorkspaceTreeItem({
     sessionLimitExpanded,
     excludedSessionIds,
   );
+  // Right-click opens the same menu as the ⋯ button, like a conversation row (spec).
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
@@ -81,7 +84,6 @@ export function WorkspaceTreeItem({
         actions={
           <>
             <WorkspaceActionsMenu
-              activeWorkspaceId={activeWorkspaceId}
               actions={actions}
               label={label}
               onAction={onAction}
@@ -89,13 +91,15 @@ export function WorkspaceTreeItem({
               onImportSession={onImportSession}
               onDelete={onDelete}
               onEditWorkspace={onEditWorkspace}
+              onOpenChange={setMenuOpen}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={onRename}
+              open={menuOpen}
               workspace={workspace}
             />
             <IconButton
               icon={<NewConversationIcon />}
-              label={`New conversation in ${workspaceLabelText(label)}`}
+              label={t`New conversation in ${ph({ workspace: workspaceLabelText(label) })}`}
               onClick={() => onCreateSession(workspace.id)}
               size="sm"
             />
@@ -109,10 +113,14 @@ export function WorkspaceTreeItem({
         )}
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         data-rail-item={`workspace:${workspace.id}`}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenuOpen(true);
+        }}
         meta={
           // An open workspace shows its conversations; only a folded one counts them.
           sessionTotal > 0 && !expanded ? (
-            <span className="text-[11px] font-normal tabular-nums text-faint">{sessionTotal}</span>
+            <span className="text-caption font-normal tabular-nums text-faint">{sessionTotal}</span>
           ) : null
         }
         status={
@@ -140,7 +148,7 @@ export function WorkspaceTreeItem({
             renderSession(session, false, depth),
           )}
           {visibleSessions.length === 0 && !draft && !rail.loading && !rail.error ? (
-            <RailState kind="empty" title="No conversations yet" />
+            <RailState indent kind="empty" title={t`No conversations yet`} />
           ) : null}
           <RailListState rail={rail} />
           {sessionLimitExpanded && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
@@ -153,8 +161,10 @@ export function WorkspaceTreeItem({
               railKey={`more:${workspace.id}`}
               label={
                 sessionLimitExpanded
-                  ? 'Show recent conversations'
-                  : `Show ${sessionTotal - visibleSessions.length > 0 ? `${sessionTotal - visibleSessions.length} more` : `all ${sessionTotal}`}`
+                  ? t`Show recent conversations`
+                  : sessionTotal > visibleSessions.length
+                    ? t`Show ${ph({ remaining: sessionTotal - visibleSessions.length })} more`
+                    : t`Show all ${sessionTotal}`
               }
               onToggle={() => setSessionLimitExpanded(!sessionLimitExpanded)}
             />
@@ -182,7 +192,9 @@ function WorkspaceDisclosureButton({
   return (
     <button
       aria-expanded={workspaceExpanded}
-      aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
+      aria-label={
+        workspaceExpanded ? t`Collapse workspace ${labelText}` : t`Expand workspace ${labelText}`
+      }
       className="flex w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
       data-rail-focus=""
       onClick={() => onExpandedChange(!workspaceExpanded)}
@@ -206,7 +218,7 @@ function WorkspaceLabelFields({
     <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
       <span className="truncate">{label.name}</span>
       {label.qualifiers.map((qualifier) => (
-        <span className="shrink-0 text-xs font-normal text-muted-foreground" key={qualifier}>
+        <span className="shrink-0 text-meta font-normal text-muted-foreground" key={qualifier}>
           {qualifier}
         </span>
       ))}

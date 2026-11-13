@@ -48,9 +48,12 @@ import {
   withAgentMessagePresentation,
 } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 import { toolOperation } from './tool-operation';
 import { ToolOperationResult } from './tool-operation-result';
 import { withOperationOutcome } from './tool-operation-outcome';
+import { ph, plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const OperationFlow = lazy(() =>
   import('./flow-run-card').then((module) => ({ default: module.FlowRunCard })),
@@ -126,11 +129,11 @@ export function ClioToolInvocation({
       window.removeEventListener('hashchange', inspect);
     };
   }, [attentionFields]);
-  if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
+  if (!tool) return <p className="text-sm text-muted-foreground">{t`Tool details unavailable`}</p>;
   const flow = flowToolDescriptor(tool);
   const openFlow =
     flow?.handle && navigation?.onOpenFlow
-      ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
+      ? () => navigation.onOpenFlow?.(flow.handle!, t`${ph({ flow: flow.label })} run`)
       : undefined;
   const presentedTool = withStoppedOutcome(
     withOperationOutcome(
@@ -232,9 +235,9 @@ export function ClioToolInvocation({
             contentBlocks[0]!.type === 'workspace_file'
           ? ({ kind: 'file', block: contentBlocks[0]! } as const)
           : terminalBlocks.length === 1 &&
-            contentBlocks.every((block) => block.type === 'terminal' || outcomeBlock(block))
-          ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
-          : undefined
+              contentBlocks.every((block) => block.type === 'terminal' || outcomeBlock(block))
+            ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
+            : undefined
       : undefined;
   // One delegate's row already names the agent and its task; opened, it shows the child's calls.
   const delegateOnly =
@@ -263,6 +266,7 @@ export function ClioToolInvocation({
     <div
       className="min-w-0 scroll-m-6 rounded-[6px] focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       data-slot="tool-activity"
+      {...(surface === 'evidence' ? {} : tourAnchor('tool-activity'))}
       id={`${surface === 'evidence' ? 'evidence-tool' : 'tool'}-${tool.id}`}
       tabIndex={-1}
     >
@@ -290,17 +294,17 @@ export function ClioToolInvocation({
           info={
             <ActivityInfoButton
               ref={infoRef}
-              label={`Technical details for ${actionLabel}`}
+              label={t`Technical details for ${actionLabel}`}
               onClick={() => setOpen(true)}
             />
           }
         />
         {expanded && questionReading ? (
-          <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
+          <ToolDetailsContent inline flush title={t`${actionLabel}: Result`}>
             <QuestionAnswerReader reading={questionReading} />
           </ToolDetailsContent>
         ) : expanded && compactBody ? (
-          <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
+          <ToolDetailsContent inline flush title={t`${actionLabel}: Result`}>
             {compactBody.kind === 'diff' ? (
               <TranscriptDiffBody block={compactBody.block} subject={subject} />
             ) : compactBody.kind === 'file' ? (
@@ -320,7 +324,7 @@ export function ClioToolInvocation({
           gateSource(
             <ToolDetailsContent
               inline
-              title={`${actionLabel}: Result`}
+              title={t`${actionLabel}: Result`}
               bounded={
                 !presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')
               }
@@ -334,7 +338,7 @@ export function ClioToolInvocation({
                 </p>
               ) : null}
               {flowResult && flow?.handle && (sessionId || tool.session_id) ? (
-                <Suspense fallback={<p role="status">Loading flow…</p>}>
+                <Suspense fallback={<p role="status">{t`Loading flow…`}</p>}>
                   <OperationFlow
                     flow={{ ...flow, handle: flow.handle }}
                     sessionId={sessionId || tool.session_id}
@@ -344,7 +348,7 @@ export function ClioToolInvocation({
                 <ToolOperationResult operation={operation} tool={presentedTool} />
               ) : isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
                 <p className="text-muted-foreground">
-                  Widget catalog loaded. Use technical details to inspect the full catalog.
+                  {t`Widget catalog loaded. Use technical details to inspect the full catalog.`}
                 </p>
               ) : (
                 <ToolResultPresentation
@@ -355,7 +359,9 @@ export function ClioToolInvocation({
               )}
               {operation.scope ? (
                 <p className="text-muted-foreground">
-                  Scope: <PresentationLink block={operation.scope} />
+                  <Trans>
+                    Scope: <PresentationLink block={operation.scope} />
+                  </Trans>
                 </p>
               ) : null}
             </ToolDetailsContent>,
@@ -364,7 +370,7 @@ export function ClioToolInvocation({
         {/* A script's own tool calls are rows one step in under it, not repeated in its result. */}
         {expanded && delegateChild ? (
           <DelegateCalls
-            name={operation.subjects[0]?.label || delegateChild.title || 'Child agent'}
+            name={operation.subjects[0]?.label || delegateChild.title || t`Child agent`}
             result={
               delegateTone(delegateChild.state) === 'running' ? undefined : delegateChild.result
             }
@@ -379,7 +385,7 @@ export function ClioToolInvocation({
           open={open}
           onOpenChange={setOpen}
           tool={tool}
-          title={`${actionLabel}: Technical details`}
+          title={t`${actionLabel}: Technical details`}
           duration={duration}
           active={active}
           boundary={boundary}
@@ -402,15 +408,15 @@ export function ClioToolInvocation({
   );
 }
 const MEMORY_ACTIONS: Record<string, string> = {
-  session_search: 'Search past sessions',
-  session_read_summary: 'Read session summary',
-  session_read_context_frame: 'Read retained context',
-  memory_search: 'Search memory',
-  memory_read: 'Read memory',
-  create_memory: 'Remember',
-  update_memory: 'Correct memory',
-  forget_memory: 'Forget',
-  propose_memory_change: 'Propose memory change',
+  session_search: t`Search past sessions`,
+  session_read_summary: t`Read session summary`,
+  session_read_context_frame: t`Read retained context`,
+  memory_search: t`Search memory`,
+  memory_read: t`Read memory`,
+  create_memory: t({ message: 'Remember', context: 'verb' }),
+  update_memory: t`Correct memory`,
+  forget_memory: t({ message: 'Forget', context: 'verb' }),
+  propose_memory_change: t`Propose memory change`,
 };
 
 /** The query the row already says (`for “…”`) is not repeated as a block in its result. */
@@ -523,25 +529,28 @@ function withResourcePresentation(
           ...tool.presentation,
           action:
             tool.name === 'workspace_resource_list'
-              ? 'List workspace resources'
+              ? t`List workspace resources`
               : tool.name === 'workspace_resource_wait'
-                ? 'Await conversion'
+                ? t`Await conversion`
                 : tool.name === 'workspace_resource_inspect'
-                  ? 'Inspect resource'
+                  ? t`Inspect resource`
                   : tool.name === 'workspace_resource_search'
-                    ? 'Search resource'
+                    ? t`Search resource`
                     : tool.name === 'workspace_resource_structure'
-                      ? 'Inspect structure'
-                      : 'Read resource',
+                      ? t`Inspect structure`
+                      : t`Read resource`,
           subject:
             tool.name === 'workspace_resource_list'
               ? undefined
               : waitSubject?.id || tool.presentation.subject,
           summary:
             tool.name === 'workspace_resource_list' && resources.length
-              ? `${resources.length} workspace ${resources.length === 1 ? 'resource' : 'resources'} found`
+              ? plural(resources.length, {
+                  one: '# workspace resource found',
+                  other: '# workspace resources found',
+                })
               : tool.name === 'workspace_resource_search' && matches
-                ? `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`
+                ? plural(matches.length, { one: '# match', other: '# matches' })
                 : tool.name === 'workspace_resource_search'
                   ? tool.presentation.summary.replace(/^(\d+)\s+(matches?)\s+for\s+.+$/u, '$1 $2')
                   : tool.presentation.summary,

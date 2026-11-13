@@ -19,6 +19,7 @@ import { attempt, useAddToMessage, useOpenTake, type CopyTake } from './file-vie
 import type { KnowledgeOpened } from './knowledge-note-body';
 import { PresentationNavigation } from './presentation-navigation';
 import { MenuRow } from './primitives/menu-row';
+import { t } from '@lingui/core/macro';
 
 /** Jump letters of the vault's … rows (KnowledgeVaultMenuRows). */
 const VAULT_LETTERS = 'RSLNA';
@@ -56,7 +57,7 @@ export function KnowledgeVaultTake({
 }) {
   const copy = useKnowledgeCopy(source, selected, opened);
   const rows = <KnowledgeVaultMenuRows {...menu} />;
-  const comments = <FrameCommentsUnavailable reason="Not available for a vault" />;
+  const comments = <FrameCommentsUnavailable reason={t`Not available for a vault`} />;
   if (opened)
     return (
       <KnowledgeNoteTake
@@ -93,7 +94,7 @@ function KnowledgeNoteTake({
       kind: 'resource',
       id: resource.id,
       label: resource.name,
-      detail: 'Obsidian knowledge note',
+      detail: t`Obsidian knowledge note`,
       revision: String(resource.revision),
       media_type: resource.detected_mime,
       navigation: { resource },
@@ -125,41 +126,41 @@ function useKnowledgeCopy(
 ): CopyTake {
   const folder = source?.local_path || source?.root;
   const copyValue = (value: string, done: string) => void attempt(() => copyText(value), done);
-  const contents = () => opened && copyValue(opened.text, 'Copied the contents.');
-  const notePath = () => selected && copyValue(selected, 'Copied the note path.');
-  const vaultPath = () => folder && copyValue(folder, 'Copied the vault folder path.');
+  const contents = () => opened && copyValue(opened.text, t`Copied the contents.`);
+  const notePath = () => selected && copyValue(selected, t`Copied the note path.`);
+  const vaultPath = () => folder && copyValue(folder, t`Copied the vault folder path.`);
   return {
     rows: [
       {
         id: 'contents',
-        label: 'Contents',
+        label: t`Contents`,
         icon: <FileTextIcon />,
         accelerator: 'C',
-        reason: opened ? undefined : 'Open a note first',
+        reason: opened ? undefined : t`Open a note first`,
         onSelect: contents,
       },
       {
         id: 'note',
-        label: 'Note path',
+        label: t`Note path`,
         icon: <LinkIcon />,
         accelerator: 'P',
-        reason: selected ? undefined : 'Choose a note first',
+        reason: selected ? undefined : t`Choose a note first`,
         onSelect: notePath,
       },
       {
         id: 'vault',
-        label: 'Vault folder path',
+        label: t`Vault folder path`,
         icon: <FolderIcon />,
         accelerator: 'V',
-        reason: folder ? undefined : 'Vault folder unknown',
+        reason: folder ? undefined : t`Vault folder unknown`,
         onSelect: vaultPath,
       },
     ],
     face: opened
-      ? { label: 'Copy contents', run: contents }
+      ? { label: t`Copy contents`, run: contents }
       : selected
-        ? { label: 'Copy note path', run: notePath }
-        : { label: 'Copy vault folder path', run: vaultPath },
+        ? { label: t`Copy note path`, run: notePath }
+        : { label: t`Copy vault folder path`, run: vaultPath },
   };
 }
 
@@ -176,13 +177,13 @@ function KnowledgeVaultMenuRows({
   return (
     <>
       <DropdownMenuItem data-accelerator="R" onSelect={refresh}>
-        <MenuRow icon={<RefreshIcon />} label="Refresh" accelerator="R" />
+        <MenuRow icon={<RefreshIcon />} label={t`Refresh`} accelerator="R" />
       </DropdownMenuItem>
       {sync ? (
         <DropdownMenuItem data-accelerator="S" disabled={sync.pending} onSelect={sync.toggle}>
           <MenuRow
             icon={sync.running ? <SquareIcon /> : <PlayIcon />}
-            label={sync.running ? 'Stop sync' : 'Start sync'}
+            label={sync.running ? t`Stop sync` : t`Start sync`}
             accelerator="S"
           />
         </DropdownMenuItem>
@@ -195,14 +196,19 @@ function KnowledgeVaultMenuRows({
       >
         <MenuRow
           icon={<NetworkIcon />}
-          label="Show its linked notes"
-          description={selected ? undefined : 'Choose a note first'}
+          label={t`Show its linked notes`}
+          description={selected ? undefined : t`Choose a note first`}
           checked={Boolean(focus) && focus === selected}
           accelerator="L"
         />
       </DropdownMenuItem>
       <DropdownMenuItem data-accelerator="N" disabled={!focus} onSelect={() => setFocus('')}>
-        <MenuRow icon={<FileTextIcon />} label="Show all notes" checked={!focus} accelerator="N" />
+        <MenuRow
+          icon={<FileTextIcon />}
+          label={t`Show all notes`}
+          checked={!focus}
+          accelerator="N"
+        />
       </DropdownMenuItem>
       {mode === 'graph' ? (
         <>
@@ -214,7 +220,9 @@ function KnowledgeVaultMenuRows({
               setAttachments(!attachments);
             }}
           >
-            <MenuRow icon={<PaperclipIcon />} label="Show attachments"
+            <MenuRow
+              icon={<PaperclipIcon />}
+              label={t`Show attachments`}
               checked={attachments}
               accelerator="A"
             />

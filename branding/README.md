@@ -44,9 +44,24 @@ Only `name` is required. The workspace currently consumes:
 | `landing.headline`            | Primary product promise on the connection screen                                                                                               |
 | `landing.description`         | Supporting product description on the connection screen                                                                                        |
 
+| `locales` | Optional copy in other interface languages, keyed by locale: `tagline`, `taglineAccent`, `agentName`, `workspaceNoun`, `landing.*`, `workspace.greeting` |
+
 The landing fields are deliberately product-owned. Transport versions, replay
 cursors, process topology, and similar implementation details do not belong in
 them.
+
+The interface itself is translated (see [docs/i18n.md](../docs/i18n.md)), but a
+brand's own words are the brand's. `locales` gives them in other languages;
+fields a locale leaves out stay in the base language:
+
+```json
+"locales": {
+  "es": {
+    "landing": { "headline": "De la pregunta científica al resultado defendible." },
+    "workspace": { "greeting": "¿Qué investigamos?" }
+  }
+}
+```
 
 The Vite plugin exposes a typed virtual `@brand` module. Application components
 must read product identity from that module rather than hard-code CLIO or any

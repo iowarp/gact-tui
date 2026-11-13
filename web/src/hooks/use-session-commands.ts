@@ -19,6 +19,7 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
     enabled: Boolean(workspaceId),
   });
   const execute = useMutation({
+    mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'command'),
     mutationFn: ({ commandId, input }: { commandId: string; input: string }) =>
       repository.dispatchCommand(sessionId, commandId, input),
     onSuccess: () => {

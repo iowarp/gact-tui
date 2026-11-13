@@ -13,6 +13,7 @@ import type { BrowserInput, MarksReport } from '../browser-live-socket';
 import type { CommentSurface, DraftMark } from './comment-model';
 import { CommentRegionLayer, type LayerMark } from './comment-region-layer';
 import { CommentSessionProvider, useCommentSession } from './comment-session';
+import { t } from '@lingui/core/macro';
 
 /** Listen for the page's picks (the live socket's `pick` messages); returns the unsubscribe. */
 export type SubscribePicks = (listener: (anchor: unknown) => void) => () => void;
@@ -23,8 +24,8 @@ export type SubscribeMarks = (listener: (report: MarksReport) => void) => () => 
 /** The page's latest report on the marks this view follows. */
 const MarksContext = createContext<MarksReport | null>(null);
 
-export const ANCHOR_NOT_FOUND = "Couldn't find this anchor on the page";
-export const ANCHOR_HIDDEN = 'This anchor is on the page but not shown';
+export const ANCHOR_NOT_FOUND = t`Couldn't find this anchor on the page`;
+export const ANCHOR_HIDDEN = t`This anchor is on the page but not shown`;
 
 /** An address without its fragment: the page a mark was made on, wherever it was scrolled. */
 function pageAddress(url: string | undefined): string {
@@ -84,7 +85,7 @@ export function BrowserPageComments({
 }) {
   const surface = useMemo<CommentSurface>(
     () => ({
-      title: page.title || page.url || 'Browser page',
+      title: page.title || page.url || t`Browser page`,
       modes: ['text', 'element', 'region'],
       defaultMode: 'text',
       destination: { kind: 'attachment', surface: 'browser-page' },
@@ -280,7 +281,7 @@ export function BrowserRegionCapture({
     >
       <CommentRegionLayer
         capturing={capturing}
-        label="Drag over the page to mark a region"
+        label={t`Drag over the page to mark a region`}
         marks={shown}
         onOpenMark={session.setEditing}
         openByBadge

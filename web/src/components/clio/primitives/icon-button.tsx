@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { HeldKeyBadge, type HeldKeySide } from './key-chip';
 import { focusIsQuiet, focusMayRaiseName } from './quiet-focus';
 import { TOOLTIP_KEY } from './tooltip-key';
+import { t } from '@lingui/core/macro';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
@@ -64,7 +65,6 @@ export function NamedTooltip({
       <TooltipContent
         side={side}
         sideOffset={4}
-        className="gap-2 px-2 py-1 text-[11.5px] font-medium"
         data-name-tooltip=""
       >
         <span>{label}</span>
@@ -72,7 +72,7 @@ export function NamedTooltip({
           <span className="inline-flex shrink-0 items-center gap-1 justify-self-end">
             {presentation.alternatives.map((text, index) => (
               <Fragment key={text}>
-                {index > 0 ? <span className="text-[10.5px] opacity-70">or</span> : null}
+                {index > 0 ? <span className="text-[0.65625rem] opacity-70">{t`or`}</span> : null}
                 <kbd className={TOOLTIP_KEY}>{text}</kbd>
               </Fragment>
             ))}
@@ -165,8 +165,8 @@ export const IconButton = memo(function IconButton({
           className={cn(
             'absolute tabular-nums',
             countTone === 'warning'
-              ? '-top-[1.5px] -right-[2.5px] h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-center text-[9.5px] leading-[15px] font-bold text-background'
-              : '-top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[8.5px] leading-[11px] font-semibold text-background',
+              ? '-top-[1.5px] -right-[2.5px] h-[0.9375rem] min-w-[0.9375rem] rounded-full bg-warning px-1 text-center text-[0.59375rem] leading-[0.9375rem] font-bold text-background'
+              : '-top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[0.53125rem] leading-[0.6875rem] font-semibold text-background',
           )}
         >
           {count > 99 ? '99+' : count}

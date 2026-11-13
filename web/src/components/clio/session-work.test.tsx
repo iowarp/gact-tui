@@ -131,7 +131,7 @@ it('shows authoritative work and exposes a compact canvas entry without toggling
   expect(screen.getByRole('region', { name: 'Schedules' })).toHaveTextContent('None active');
   expect(screen.getAllByRole('button', { name: /Previous 1/ })).toHaveLength(4);
   expect(screen.queryByText('Earlier checklist task')).not.toBeInTheDocument();
-  await userEvent.setup().click(screen.getByRole('button', { name: /Previous 1 todo lists/ }));
+  await userEvent.setup().click(screen.getByRole('button', { name: /Previous 1 todo list/ }));
   expect(await screen.findByText('Earlier checklist task')).toBeVisible();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   const entry = screen.getByRole('button', { name: 'Open session Work' });
@@ -219,7 +219,7 @@ it('keeps stopped separate from paused and pages retained history', async () => 
   mount(<SessionWorkView sessionId="s" />);
   await userEvent.setup().click(
     within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
-      name: /Previous 1 goal records/,
+      name: /Previous 1 goal record/,
     }),
   );
   expect(await screen.findByText('Stopped')).toBeVisible();
@@ -227,7 +227,7 @@ it('keeps stopped separate from paused and pages retained history', async () => 
   await userEvent.setup().click(screen.getByRole('button', { name: 'Older' }));
   await userEvent.setup().click(
     within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
-      name: /Previous 1 goal records/,
+      name: /Previous 1 goal record/,
     }),
   );
   expect(await screen.findByText('Earlier goal')).toBeVisible();
@@ -287,7 +287,7 @@ it('opens work details and sends identity-scoped stop, restart and delete action
   expect(goals.getAllByText('Unlimited')).toHaveLength(3);
   await user.click(goals.getByRole('button', { name: 'Stop' }));
   expect(repository.controlSessionWork).toHaveBeenCalledWith('s', 'goal', 'goal1', 'stop');
-  await user.click(goals.getByRole('button', { name: /Previous 1 goal records/ }));
+  await user.click(goals.getByRole('button', { name: /Previous 1 goal record/ }));
   await user.click(goals.getByRole('button', { name: 'Restart' }));
   expect(repository.controlSessionWork).toHaveBeenCalledWith('s', 'goal', 'goal-old', 'restart');
   const deletes = goals.getAllByRole('button', { name: 'Cancel and delete' });

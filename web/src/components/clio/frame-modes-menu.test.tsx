@@ -239,7 +239,7 @@ describe('frame bar modes at the narrowest fold', () => {
   });
 });
 
-describe('the renderer’s Format icons at the narrowest fold', () => {
+describe('the renderer’s Format icons as the bar narrows', () => {
   function Zoom({ onIn, outReason }: { onIn: () => void; outReason?: string }) {
     return (
       <div role="group" aria-label="Diagram zoom">
@@ -275,6 +275,37 @@ describe('the renderer’s Format icons at the narrowest fold', () => {
       expect(onIn).toHaveBeenCalledTimes(1);
     } finally {
       restore();
+    }
+  });
+
+  it('moves them into the … menu before Add to message and the modes leave the bar', async () => {
+    // Overflow only until the icons fold: the bar stops at `tools`.
+    const scroll = vi
+      .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' && !this.hasAttribute('data-fold-tools') ? 400 : 0;
+      });
+    const client = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' ? 200 : 0;
+      });
+    try {
+      render(
+        <TooltipProvider>
+          <Frame onChange={() => {}} onAdd={() => {}} tools={<Zoom onIn={() => {}} />} />
+        </TooltipProvider>,
+      );
+      const bar = screen.getByRole('toolbar', { name: 'File actions' });
+      expect(bar.getAttribute('data-fold')).toBe('tools');
+      expect(bar.hasAttribute('data-fold-talk')).toBe(false);
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      expect(screen.getByRole('menuitem', { name: 'Zoom in' })).toBeTruthy();
+      expect(screen.queryByRole('menuitem', { name: /Add to message/ })).toBeNull();
+      expect(screen.queryByRole('menuitemradio', { name: 'Render' })).toBeNull();
+    } finally {
+      scroll.mockRestore();
+      client.mockRestore();
     }
   });
 

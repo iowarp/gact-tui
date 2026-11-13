@@ -3,6 +3,7 @@ import { useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { useHasTruncatedText } from './primitives/use-has-truncated-text';
+import { t } from '@lingui/core/macro';
 
 export interface NoticeFrameProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   /** What the notice is about, for the expand control's name. */
@@ -36,7 +37,7 @@ export function NoticeFrame({ subject, children, className, ...rest }: NoticeFra
               className={cn('size-3.5 motion-safe:transition-transform', expanded && 'rotate-180')}
             />
           }
-          label={expanded ? `Show less of ${subject}` : `Show all of ${subject}`}
+          label={expanded ? t`Show less of ${subject}` : t`Show all of ${subject}`}
           onClick={() => setExpanded((open) => !open)}
           size="sm"
           tooltipSide="left"

@@ -1,4 +1,5 @@
 import { forwardRef, memo, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { cn } from '@/lib/utils';
 
 export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'slot'> {
@@ -14,6 +15,12 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
+  /**
+   * Hidden actions take no column: on hover or focus they float over the end of
+   * the row, left of the slot, and the name and meta get the width. Only for rows
+   * without a status; the slot sizes to its content.
+   */
+  floatActions?: boolean;
   /**
    * The last action is a ⋯ menu that holds every action. On a phone-width list
    * the others fold into it and it stays visible in its own column; on a touch
@@ -65,6 +72,7 @@ export const ItemRow = memo(
       status,
       actions,
       actionsVisible = false,
+      floatActions = false,
       foldActions = false,
       slot,
       confirm,
@@ -88,6 +96,8 @@ export const ItemRow = memo(
     // pointer leaves), never over the name or meta; a row without a status
     // keeps their column.
     const overlay = !actionsVisible && status !== undefined;
+    const floats = floatActions && !actionsVisible && status === undefined && !foldActions;
+    const hasSlot = slot !== undefined && slot !== null && slot !== false;
     const columns: CSSProperties = {
       ['--item-icon' as string]: iconWidth === undefined ? '1.25rem' : `${iconWidth}px`,
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
@@ -120,6 +130,8 @@ export const ItemRow = memo(
                 : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
+          // Floating actions: the name, then a slot that is only as wide as its content.
+          floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -152,9 +164,7 @@ export const ItemRow = memo(
           <span
             className={cn(
               'min-w-0 truncate text-foreground',
-              size === 'line'
-                ? 'max-w-full shrink-0 text-[0.78125rem]'
-                : 'text-[0.8125rem] font-medium',
+              size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
             )}
             data-slot="item-row-title"
           >
@@ -163,8 +173,8 @@ export const ItemRow = memo(
           {meta ? (
             <span
               className={cn(
-                'min-w-0 truncate text-faint',
-                size === 'line' ? 'shrink-[100] text-[0.71875rem]' : 'text-xs',
+                'min-w-0 truncate text-muted-foreground',
+                size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
               data-slot="item-row-meta"
             >
@@ -185,11 +195,33 @@ export const ItemRow = memo(
           >
             {confirm}
           </span>
+        ) : floats ? (
+          <span
+            className={cn(
+              'relative flex min-w-0 items-center justify-end gap-2 self-stretch [&_[data-slot=button]]:text-xs',
+              stacks && '@max-sm:row-span-2',
+            )}
+            data-slot="item-row-slot"
+          >
+            <span
+              className={cn(
+                'pointer-events-none absolute inset-y-0 right-full flex items-center justify-end gap-px bg-hover pl-1 opacity-0',
+                'group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100',
+                // A touch screen has no hover and a tap doesn't focus the row: keep them in the row.
+                'pointer-coarse:pointer-events-auto pointer-coarse:static pointer-coarse:bg-transparent pointer-coarse:pl-0 pointer-coarse:opacity-100',
+                hasSlot && 'mr-2 pointer-coarse:mr-0',
+              )}
+              data-slot="item-row-actions"
+            >
+              {actions}
+            </span>
+            {slot}
+          </span>
         ) : (
           <>
             <span
               className={cn(
-                'flex min-w-0 items-center overflow-hidden',
+                'flex min-w-0 items-center overflow-hidden text-xs text-muted-foreground',
                 // Pinned with the actions that float over it, so the slot keeps its column.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1',
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
@@ -245,6 +277,11 @@ export function ItemList({
     <div
       aria-label={label}
       className={cn('@container min-w-0', className)}
+      onKeyDown={(event) => {
+        // A section that moves between its lists ([data-row-keys]) owns the keys.
+        if (event.currentTarget.parentElement?.closest('[data-row-keys]')) return;
+        rowArrowKeyDown(event);
+      }}
       role={label ? 'group' : undefined}
     >
       {children}

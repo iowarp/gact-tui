@@ -19,6 +19,7 @@ import { WorkbenchActivityDetail } from './workbench-activity-detail';
 import { activityTab } from './workbench-activity-tab';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
+import { resourceDisplayName } from './host-folder';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
@@ -41,6 +42,7 @@ const NdpBrowserTab = lazy(() =>
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchTabListView } from './workbench-strip';
 import { StateView } from './primitives/state-view';
+import { t } from '@lingui/core/macro';
 
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
@@ -139,7 +141,7 @@ export function WorkbenchTabContent({
       return sessionId ? <SessionWorkView key={sessionId} sessionId={sessionId} /> : sessionView;
     case 'knowledge':
       return (
-        <Suspense fallback={<CanvasLoading label="Loading knowledge" />}>
+        <Suspense fallback={<CanvasLoading label={t`Loading knowledge`} />}>
           <KnowledgeSourceView workspaceId={workspaceId} sourceId={tab.sourceId} />
         </Suspense>
       );
@@ -154,7 +156,7 @@ export function WorkbenchTabContent({
       );
     case 'science-log':
       return (
-        <Suspense fallback={<CanvasLoading label="Loading science log" />}>
+        <Suspense fallback={<CanvasLoading label={t`Loading science log`} />}>
           <ScienceLogTab
             key={sessionId}
             onOpenFolder={(path) =>
@@ -221,7 +223,7 @@ export function WorkbenchTabContent({
             onOpenTab({
               id: `resource:${resource.id}`,
               kind: 'resource',
-              label: resource.name,
+              label: resourceDisplayName(resource),
               relatedResources: resources ?? [resource],
               resource,
               workspaceId: resource.workspace_id || workspaceId,
@@ -239,7 +241,7 @@ export function WorkbenchTabContent({
         agentView
       ) : (
         <p className="p-6 text-sm text-muted-foreground">
-          The conversation&apos;s agent appears after you send your first message.
+          {t`The conversation's agent appears after you send your first message.`}
         </p>
       );
     case 'workspace-file':
@@ -288,7 +290,7 @@ export function WorkbenchTabContent({
       );
     case 'artifact':
       return (
-        <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
+        <Suspense fallback={<CanvasLoading label={t`Loading artifact`} />}>
           <ArtifactView
             artifact={tab.artifact}
             sessionId={sessionId}
@@ -326,7 +328,7 @@ export function WorkbenchTabContent({
       );
     case 'resource':
       return (
-        <Suspense fallback={<CanvasLoading label="Loading resource" />}>
+        <Suspense fallback={<CanvasLoading label={t`Loading resource`} />}>
           <WorkspaceResourceCarousel
             resource={tab.resource}
             resources={tab.relatedResources}
@@ -378,7 +380,7 @@ export function WorkbenchTabContent({
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     case 'browser':
       return (
-        <Suspense fallback={<CanvasLoading label="Opening the page" />}>
+        <Suspense fallback={<CanvasLoading label={t`Opening the page`} />}>
           <BrowserSurface
             key={tab.pageId}
             label={tab.label}
@@ -389,7 +391,7 @@ export function WorkbenchTabContent({
       );
     case 'ndp':
       return (
-        <Suspense fallback={<CanvasLoading label="Loading the catalog" />}>
+        <Suspense fallback={<CanvasLoading label={t`Loading the catalog`} />}>
           <NdpBrowserTab label={tab.label} workspaceId={tab.workspaceId} />
         </Suspense>
       );
@@ -397,7 +399,7 @@ export function WorkbenchTabContent({
       return renderList(tab.view, tab.newPage);
     case 'search':
       return (
-        <Suspense fallback={<CanvasLoading label="Searching" />}>
+        <Suspense fallback={<CanvasLoading label={t`Searching`} />}>
           <SearchResultsTab
             onOpenTab={onOpenTab}
             onReplaceTab={onReplaceTab}

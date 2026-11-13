@@ -8,9 +8,10 @@ import type { NotebookCell, NotebookOutput, NotebookRead } from '@/lib/notebook'
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
 import { StateView, type StateAction } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 /** The code viewer's type: 11.5 px mono at 1.65. */
-const MONO = 'font-mono text-[11.5px] leading-[1.65]';
+const MONO = 'font-mono text-label leading-[1.65]';
 
 /** Long terminal output scrolls inside its block, as Jupyter's does. */
 const TEXT_BLOCK = cn(
@@ -35,7 +36,7 @@ export function NotebookView({
   onShowSource?: () => void;
 }) {
   const showSource = onShowSource
-    ? { label: 'Show source', icon: <FileCode2Icon />, onClick: onShowSource }
+    ? { label: t`Show source`, icon: <FileCode2Icon />, onClick: onShowSource }
     : undefined;
   if (!read.ok)
     return (
@@ -44,7 +45,7 @@ export function NotebookView({
         detail={read.reason}
         kind="error"
         size="viewer"
-        title="Couldn't read it"
+        title={t`Couldn't read it`}
       />
     );
   return (
@@ -96,7 +97,7 @@ function NotebookCells({
         icon={NotebookTextIcon}
         kind="empty"
         size="viewer"
-        title="This notebook has no cells"
+        title={t`This notebook has no cells`}
       />
     );
   return (
@@ -106,7 +107,7 @@ function NotebookCells({
     >
       <div className="contents" ref={readingRef}>
         <ol
-          aria-label={`Cells of ${name}`}
+          aria-label={t`Cells of ${name}`}
           className="mx-auto flex w-full max-w-[110ch] min-w-0 list-none flex-col gap-3 px-4 py-4 @max-[36rem]/viewer:px-3"
         >
           {cells.slice(0, count).map((cell, index) => (
@@ -134,10 +135,17 @@ const NotebookCellView = memo(function NotebookCellView({
   language: BundledLanguage;
 }) {
   const code = cell.kind === 'code';
-  const run = code ? (cell.count === null ? 'not run' : `run ${cell.count}`) : undefined;
+  const runCount = cell.kind === 'code' ? cell.count : null;
+  const label = !code
+    ? cell.kind === 'markdown'
+      ? t`Cell ${number}, text`
+      : t`Cell ${number}, raw`
+    : runCount === null
+      ? t`Cell ${number}, code, not run`
+      : t`Cell ${number}, code, run ${runCount}`;
   return (
     <li
-      aria-label={`Cell ${number}, ${code ? `code, ${run}` : cell.kind === 'markdown' ? 'text' : 'raw'}`}
+      aria-label={label}
       className="grid min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2 [content-visibility:auto] [contain-intrinsic-size:auto_6rem] @max-[36rem]/viewer:grid-cols-1"
       data-cell-kind={cell.kind}
     >
@@ -166,12 +174,12 @@ const NotebookCellView = memo(function NotebookCellView({
         ) : (
           <>
             <CodeBlock
-              aria-label={`Code of cell ${number}`}
+              aria-label={t`Code of cell ${number}`}
               code={cell.source || ' '}
               language={language}
               className={cn(
                 'bg-muted/40 [&_pre]:!bg-transparent [&_pre]:px-3 [&_pre]:py-1.5 [&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',
-                '[&_:is(pre,code)]:!text-[11.5px] [&_pre]:leading-[1.65]',
+                '[&_:is(pre,code)]:!text-label [&_pre]:leading-[1.65]',
               )}
             />
             {cell.outputs.map((output, index) => (
@@ -189,11 +197,14 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
     case 'stream':
       return output.stream === 'stderr' ? (
         <div
-          aria-label="Standard error"
+          aria-label={t`Standard error`}
           className="relative rounded-md bg-[color:color-mix(in_oklab,var(--warning)_9%,transparent)]"
           role="group"
         >
-          <span className="absolute top-1 right-2 text-[10.5px] text-muted-foreground">stderr</span>
+          <span className="absolute top-1 right-2 text-[0.65625rem] text-muted-foreground">
+            {/* i18n-ignore: the output stream's name */}
+            stderr
+          </span>
           <pre className={cn(TEXT_BLOCK, 'pr-14')}>{output.text}</pre>
         </div>
       ) : (
@@ -211,7 +222,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
         <div
           className={cn(
             // The cell's gap stops here: the result table sits flush under its code cell.
-            '-mt-1.5 min-w-0 overflow-x-auto pb-1 [&_table]:text-[12px] [&_table]:tabular-nums',
+            '-mt-1.5 min-w-0 overflow-x-auto pb-1 [&_table]:text-meta [&_table]:tabular-nums',
             // One hairline around the result table, flush with the code cell above it.
             '[&_[data-streamdown=table-wrapper]]:!my-0 [&_[data-streamdown=table-wrapper]]:!rounded-none [&_[data-streamdown=table-wrapper]]:!border-0 [&_[data-streamdown=table-wrapper]]:!bg-transparent [&_[data-streamdown=table-wrapper]]:!p-0',
           )}
@@ -219,7 +230,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
           {/* Streamdown sanitizes raw HTML: scripts, styles and handlers are dropped. The
               frame bar owns copy and download, so an output table has no toolbar of its own. */}
           <ContentMarkdown
-            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-[12.5px]')}
+            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-menu')}
             controls={{ table: false }}
           >
             {htmlBlock(output.html)}
@@ -246,7 +257,7 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
     case 'error':
       return (
         <div
-          aria-label={`Error: ${output.name}`}
+          aria-label={t`Error: ${ph({ name: output.name })}`}
           className="min-w-0 rounded-md border border-destructive/35 bg-destructive/5"
           role="group"
         >

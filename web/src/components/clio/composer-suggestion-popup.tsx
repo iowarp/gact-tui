@@ -22,7 +22,7 @@ const NARROW_WINDOW_PX = 480;
  * the last row of one group sits about 40px above the next label.
  */
 export const COMPOSER_GROUP_HEADING =
-  'flex h-[42px] min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-[11px] leading-[1.4] font-semibold whitespace-nowrap text-muted-foreground';
+  'flex h-[42px] min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-caption leading-[1.4] font-semibold whitespace-nowrap text-muted-foreground';
 
 /** The typed text inside a row's name, in the accent. */
 export function Highlighted({ text, query }: { text: string; query: string }): ReactNode {
@@ -81,7 +81,7 @@ export function SuggestionDetail({
   return (
     <div
       aria-hidden="true"
-      className="shrink-0 border-t px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-muted-foreground"
+      className="shrink-0 border-t px-2.5 py-1.5 text-label leading-[1.45] text-muted-foreground"
       data-slot="composer-suggestion-detail"
       hidden
       ref={stripRef}
@@ -90,7 +90,7 @@ export function SuggestionDetail({
         <span
           className={cn(
             'mr-2 font-medium text-foreground',
-            mono && 'font-mono text-[11px] font-normal',
+            mono && 'font-mono text-caption font-normal',
           )}
         >
           {name}
@@ -104,7 +104,7 @@ export function SuggestionDetail({
 /** The field's faint count, a bare number as drawn; the word is for screen readers. */
 export function MatchCount({ total }: { total: number }) {
   return (
-    <span className="ml-1 shrink-0 font-mono text-[11px] text-faint tabular-nums">
+    <span className="ml-1 shrink-0 font-mono text-caption text-faint tabular-nums">
       {total}
       <span className="sr-only">{total === 1 ? ' match' : ' matches'}</span>
     </span>
@@ -230,7 +230,7 @@ export function ComposerSuggestionPopup({
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={cn(
-        'fixed z-50 flex min-w-0 flex-col overflow-hidden rounded-xl bg-popover text-[12.5px] text-popover-foreground shadow-md ring-1 ring-foreground/10',
+        'fixed z-50 flex min-w-0 flex-col overflow-hidden rounded-xl bg-popover text-menu text-popover-foreground shadow-md ring-1 ring-foreground/10',
         className,
       )}
       data-slot="composer-suggestions"

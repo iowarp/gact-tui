@@ -20,6 +20,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { ResourceLoading } from './resource-states';
 import { TechnicalDetails } from './technical-details';
 import { WorkspaceFoldersBar } from './workspace-folders';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** Older activity records the service holds beyond the pages read so far. */
 export interface ProvenanceEarlier {
@@ -53,6 +54,7 @@ export function ProvenanceSourceBar({
 }) {
   const [open, setOpen] = useState(false);
   const selected = providers?.find((item) => item.name === provider);
+  const unknown = t`unknown`;
   const selectedDegradation =
     degradation && degradation.provider === selected?.name ? degradation : undefined;
   const issue = evidenceRecordIssue(
@@ -80,13 +82,13 @@ export function ProvenanceSourceBar({
                 aria-hidden="true"
                 className="size-3.5 shrink-0 text-muted-foreground"
               />
-              <span className="shrink-0 text-xs font-medium">Evidence sources</span>
+              <span className="shrink-0 text-xs font-medium">{t`Evidence sources`}</span>
             </>
           )}
-          {pending ? <ResourceLoading label="Loading evidence sources" variant="line" /> : null}
+          {pending ? <ResourceLoading label={t`Loading evidence sources`} variant="line" /> : null}
           {earlier && !pending ? (
             <span className="truncate text-xs text-muted-foreground">
-              Latest {earlier.limit.toLocaleString()} records
+              {plural(earlier.limit, { one: 'Latest # record', other: 'Latest # records' })}
             </span>
           ) : null}
         </div>
@@ -99,12 +101,12 @@ export function ProvenanceSourceBar({
               size="sm"
               variant="ghost"
             >
-              {earlier.loading ? 'Loading earlier' : 'Load earlier'}
+              {earlier.loading ? t`Loading earlier` : t`Load earlier`}
             </Button>
           ) : null}
           {choosable && providers ? (
             <Select onValueChange={onProviderChange} value={provider}>
-              <SelectTrigger aria-label="Activity record source" className="w-auto" size="sm">
+              <SelectTrigger aria-label={t`Activity record source`} className="w-auto" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -121,8 +123,8 @@ export function ProvenanceSourceBar({
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
-                aria-label={issue?.label ?? 'About evidence records'}
-                title={issue?.label ?? 'About evidence records'}
+                aria-label={issue?.label ?? t`About evidence records`}
+                title={issue?.label ?? t`About evidence records`}
                 size={issue ? 'sm' : 'icon-xs'}
                 variant="ghost"
                 className={
@@ -140,42 +142,45 @@ export function ProvenanceSourceBar({
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-3 text-sm leading-6">
-              <p className="font-medium">{issue?.title ?? 'About these records'}</p>
+              <p className="font-medium">{issue?.title ?? t`About these records`}</p>
               <p>
                 {issue?.explanation ??
-                  'This view brings together saved activity, file use and artifact relationships for this conversation.'}
+                  t`This view brings together saved activity, file use and artifact relationships for this conversation.`}
               </p>
               {issue ? <p className="text-muted-foreground">{issue.consequence}</p> : null}
               <dl className="grid gap-2 border-t pt-3">
                 <div>
-                  <dt className="text-xs text-muted-foreground">Activity history</dt>
-                  <dd>{selected ? recordSourceLabel(selected.name) : 'Source unavailable'}</dd>
+                  <dt className="text-xs text-muted-foreground">{t`Activity history`}</dt>
+                  <dd>{selected ? recordSourceLabel(selected.name) : t`Source unavailable`}</dd>
                 </div>
                 {artifactProvider ? (
                   <div>
-                    <dt className="text-xs text-muted-foreground">Artifact relationships</dt>
+                    <dt className="text-xs text-muted-foreground">{t`Artifact relationships`}</dt>
                     <dd>
                       {artifactProvider.provider === 'native'
-                        ? `${vocab.agent} artifact registry`
+                        ? t`${agent} artifact registry`
                         : recordSourceLabel(artifactProvider.provider)}
                     </dd>
                   </div>
                 ) : null}
               </dl>
-              <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
+              <TechnicalDetails
+                title={t`Technical details`}
+                className="text-xs text-muted-foreground"
+              >
                 <dl className="grid gap-1">
-                  <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>
-                  <div>Source: {selected?.source ?? 'unknown'}</div>
-                  <div>Source availability: {selected?.status ?? 'unknown'}</div>
+                  <div>{t`Provider: ${ph({ provider: selected?.name ?? provider ?? unknown })}`}</div>
+                  <div>{t`Source: ${ph({ source: selected?.source ?? unknown })}`}</div>
+                  <div>{t`Source availability: ${ph({ status: selected?.status ?? unknown })}`}</div>
                   {artifactProvider ? (
-                    <div>Artifact provider: {artifactProvider.provider}</div>
+                    <div>{t`Artifact provider: ${ph({ provider: artifactProvider.provider })}`}</div>
                   ) : null}
                 </dl>
                 {selectedDegradation ? (
                   <p className="mt-2 break-words">{selectedDegradation.reason}</p>
                 ) : null}
                 {selected?.health.last_error ? (
-                  <p className="mt-2 break-words">Recording error: {selected.health.last_error}</p>
+                  <p className="mt-2 break-words">{t`Recording error: ${ph({ error: selected.health.last_error })}`}</p>
                 ) : null}
               </TechnicalDetails>
             </PopoverContent>
@@ -206,13 +211,16 @@ export function ActivityRecordFooter({
   );
 }
 
+const { agent } = vocab;
+
 function recordSourceLabel(provider: string): string {
   return (
     (
-      { native: `Built-in ${vocab.agent} records`, flowcept: 'Flowcept', cmf: 'CMF' } as Record<
-        string,
-        string
-      >
+      {
+        native: t`Built-in ${agent} records`,
+        flowcept: 'Flowcept',
+        cmf: 'CMF',
+      } as Record<string, string>
     )[provider] ?? provider
   );
 }
@@ -227,43 +235,38 @@ function evidenceRecordIssue(
   // A page of the newest records is cut on purpose; Load earlier reads the rest.
   if (execution?.truncated && !pageable)
     return {
-      label: 'Limited history',
-      title: 'Some activity is not shown',
-      explanation: 'The recording source returned a limited number of records.',
-      consequence:
-        'This view cannot show the full sequence of work or all relationships between records.',
+      label: t`Limited history`,
+      title: t`Some activity is not shown`,
+      explanation: t`The recording source returned a limited number of records.`,
+      consequence: t`This view cannot show the full sequence of work or all relationships between records.`,
     };
   if (degradation?.partial && source?.name === 'native' && execution?.complete === false)
     return {
-      label: 'Unfinished records',
-      title: 'Some activity has no recorded finish',
-      explanation: 'It may still be running, or its final update may be missing.',
-      consequence: 'The history cannot confirm completion or duration for those records.',
+      label: t`Unfinished records`,
+      title: t`Some activity has no recorded finish`,
+      explanation: t`It may still be running, or its final update may be missing.`,
+      consequence: t`The history cannot confirm completion or duration for those records.`,
     };
   if (degradation?.partial || source?.status === 'partial')
     return {
-      label: 'Partial history',
-      title: 'Activity history is incomplete',
-      explanation:
-        'The recording source cannot confirm that this view contains the full activity history.',
-      consequence:
-        'Some events or relationships may be missing. Review the available records before relying on the full sequence or timings.',
+      label: t`Partial history`,
+      title: t`Activity history is incomplete`,
+      explanation: t`The recording source cannot confirm that this view contains the full activity history.`,
+      consequence: t`Some events or relationships may be missing. Review the available records before relying on the full sequence or timings.`,
     };
   if (source && providerStatus(source.status, source.queryable) === 'degraded')
     return {
-      label: 'Recording needs attention',
-      title: 'Some records may be missing',
-      explanation: 'The source can be read, but it reports a recording problem.',
-      consequence:
-        'Review the available activity with that limitation in mind. Technical details contain the source diagnostic.',
+      label: t`Recording needs attention`,
+      title: t`Some records may be missing`,
+      explanation: t`The source can be read, but it reports a recording problem.`,
+      consequence: t`Review the available activity with that limitation in mind. Technical details contain the source diagnostic.`,
     };
   if (degradation || (source && providerStatus(source.status, source.queryable) !== 'healthy'))
     return {
-      label: 'Recording unavailable',
-      title: 'Activity records could not be read',
-      explanation: 'The selected recording source is unavailable or reports a problem.',
-      consequence:
-        'The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic.',
+      label: t`Recording unavailable`,
+      title: t`Activity records could not be read`,
+      explanation: t`The selected recording source is unavailable or reports a problem.`,
+      consequence: t`The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic.`,
     };
   return undefined;
 }

@@ -4,6 +4,7 @@ import { useSelectionAction } from './use-selection-action';
 import { markFromSelection, withMark } from '@/lib/composer-annotations';
 import type { SelectionAction } from '@/lib/selection-actions';
 import type { ComposerDraft } from './use-composer-draft';
+import { t } from '@lingui/core/macro';
 
 /**
  * Registers "Reference this" (#1533 item 5): a chart/map/table zone is
@@ -23,7 +24,7 @@ export function useReferenceThisSelectionAction(
   const action = useMemo<SelectionAction>(
     () => ({
       id: 'reference-this',
-      label: 'Reference this',
+      label: t`Reference this`,
       icon: ChartLineIcon,
       order: 10,
       kinds: ['data-surface-zone'],

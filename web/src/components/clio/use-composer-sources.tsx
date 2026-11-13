@@ -9,6 +9,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { useSourceDraftLifecycle } from './use-source-draft-lifecycle';
 import { toast } from 'sonner';
+import { t } from '@lingui/core/macro';
 
 /** Own the shared attachment picker and directory-drop handoff for the composer. */
 export function useComposerSources(
@@ -78,7 +79,7 @@ export function useComposerSources(
     attachments: pending.length ? (
       <div
         role="group"
-        aria-label="Preparing source attachments"
+        aria-label={t`Preparing source attachments`}
         className="flex w-full flex-wrap gap-2 px-3 pt-3"
       >
         {pending.map((row) => (
@@ -93,7 +94,7 @@ export function useComposerSources(
                 await lifecycle.removeDownload(row.source.id, row.selection?.draftId);
                 removeDownload(row.operationId);
               } catch (error) {
-                toast.error('Could not remove download', {
+                toast.error(t`Could not remove download`, {
                   description: error instanceof Error ? error.message : String(error),
                 });
               }

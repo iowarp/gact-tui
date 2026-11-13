@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction } from './viewer-toolbar';
 import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
+import { t } from '@lingui/core/macro';
 
 type RefreshProps = Omit<ComponentProps<typeof Button>, 'onClick'> & {
   label: string;
@@ -24,7 +25,7 @@ function useRefresh(onRefresh: RefreshProps['onRefresh'], refreshing: boolean) {
     try {
       await onRefresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Refresh failed. Try again.');
+      toast.error(error instanceof Error ? error.message : t`Refresh failed. Try again.`);
     } finally {
       running.current = false;
       setPending(false);
@@ -79,7 +80,7 @@ export function RefreshButton({
       {iconOnly ? null : (children ?? label)}
       {busy ? (
         <span className="sr-only" role="status">
-          Refreshing…
+          {t`Refreshing…`}
         </span>
       ) : null}
     </Button>
@@ -108,7 +109,7 @@ export function RefreshAction({
       secondary
         ? [
             {
-              label: busy ? `${label} — refreshing` : label,
+              label: busy ? t`${label} — refreshing` : label,
               icon: RefreshIcon,
               onSelect: refresh,
               disabled: Boolean(disabled || busy),
@@ -123,7 +124,7 @@ export function RefreshAction({
   return (
     <ToolbarAction
       {...props}
-      label={busy ? `${label} — refreshing` : label}
+      label={busy ? t`${label} — refreshing` : label}
       aria-busy={busy}
       disabled={disabled || busy}
       onClick={() => void refresh()}
@@ -131,7 +132,7 @@ export function RefreshAction({
       <RefreshIndicator refreshing={busy} />
       {busy ? (
         <span className="sr-only" role="status">
-          Refreshing…
+          {t`Refreshing…`}
         </span>
       ) : null}
     </ToolbarAction>

@@ -30,7 +30,7 @@ import {
   matchingSummons,
   workspaceReferenceIdentity,
 } from '@/lib/composer-reference-domain';
-import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
+import { hdf5DrillQuery, hdf5UpQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { publishActiveOption } from './composer-reference-controller-active-option';
 import { referenceKindIcon } from './composer-reference-presentation';
 import {
@@ -43,6 +43,10 @@ import {
 } from './composer-suggestion-popup';
 import { useHoveredRow } from './use-hovered-row';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { t, ph } from '@lingui/core/macro';
+
+/** The local-file group: its list loads only while the group is open. */
+const WORKSPACE_FILES = t`Workspace files`;
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -53,25 +57,25 @@ const groups: Array<{
   // An @ mention starts with only local files open (`defaultOpen`); typing shows each
   // category's matches. The "Reference existing context" picker is for browsing, so it
   // opens the common categories (`browseOpen`). What can be summoned comes first.
-  { defaultOpen: false, browseOpen: true, kinds: ['subagent'], label: 'Agents' },
-  { defaultOpen: false, browseOpen: true, kinds: ['workflow'], label: 'Workflows' },
-  { defaultOpen: false, browseOpen: true, kinds: ['flow'], label: 'Flows' },
-  { defaultOpen: false, browseOpen: true, kinds: ['server'], label: 'Tools' },
-  { defaultOpen: true, browseOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
+  { defaultOpen: false, browseOpen: true, kinds: ['subagent'], label: t`Agents` },
+  { defaultOpen: false, browseOpen: true, kinds: ['workflow'], label: t`Workflows` },
+  { defaultOpen: false, browseOpen: true, kinds: ['flow'], label: t`Flows` },
+  { defaultOpen: false, browseOpen: true, kinds: ['server'], label: t`Tools` },
+  { defaultOpen: true, browseOpen: true, kinds: ['workspace_file'], label: WORKSPACE_FILES },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
   {
     defaultOpen: false,
     browseOpen: true,
     kinds: ['resource', 'evidence_source'],
-    label: 'Sources',
+    label: t`Sources`,
   },
-  { defaultOpen: false, browseOpen: true, kinds: ['artifact'], label: 'Artifacts' },
-  { defaultOpen: false, kinds: ['session'], label: 'Conversations' },
-  { defaultOpen: false, kinds: ['agent_run'], label: 'Agents and runs' },
-  { defaultOpen: false, kinds: ['context_frame'], label: 'Context records' },
-  { defaultOpen: false, kinds: ['diff'], label: 'Changed files' },
-  { defaultOpen: false, kinds: ['plan'], label: 'Plans' },
+  { defaultOpen: false, browseOpen: true, kinds: ['artifact'], label: t`Artifacts` },
+  { defaultOpen: false, kinds: ['session'], label: t`Conversations` },
+  { defaultOpen: false, kinds: ['agent_run'], label: t`Agents and runs` },
+  { defaultOpen: false, kinds: ['context_frame'], label: t`Context records` },
+  { defaultOpen: false, kinds: ['diff'], label: t`Changed files` },
+  { defaultOpen: false, kinds: ['plan'], label: t`Plans` },
 ];
 
 /** Kinds the workspace reference search serves (summon targets come from the session). */
@@ -90,15 +94,24 @@ const FIRST_FRAME_ROWS = 12;
 const NO_SUMMONS: readonly WorkspaceReference[] = [];
 
 const KEY_HINTS = [
-  { id: 'menu-move', label: 'Move' },
-  { id: 'menu-pick', label: 'Add' },
-  { id: 'menu-close', label: 'Close' },
+  { id: 'menu-move', label: t`Move` },
+  { id: 'menu-pick', label: t`Add` },
+  { id: 'menu-close', label: t`Close` },
+] as const;
+
+/** Inside an HDF5 file the footer offers the way back up instead of moving. */
+const INSIDE_FILE_KEY_HINTS = [
+  { id: 'menu-pick', label: t`Add` },
+  { id: 'menu-up', label: t`Up` },
+  { id: 'menu-close', label: t`Close` },
 ] as const;
 
 /** What the composer's keyboard asks of the open menu while the editor keeps focus. */
 export interface ReferenceMenuHandle {
   /** Moves the highlight one row; false when nothing is listed. */
   move: (direction: 1 | -1) => boolean;
+  /** Moves the highlight to the first row of the next or previous group (PgDn, PgUp). */
+  moveGroup: (direction: 1 | -1) => boolean;
   /** The highlighted reference, which Enter adds and Tab looks inside. */
   active: () => WorkspaceReference | undefined;
   /**
@@ -205,15 +218,15 @@ const ReferenceOption = memo(function ReferenceOption({
       {detail ? (
         // A zero basis gives the description only the room the name leaves.
         <span
-          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-muted-foreground"
+          className="min-w-0 flex-1 basis-0 truncate text-label text-muted-foreground"
           data-slot={ROW_CUT_SLOT}
         >
           {detail}
         </span>
       ) : null}
       {drillable || active ? (
-        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-muted-foreground">
-          {drillable ? <span>Tab to look inside</span> : null}
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-caption text-muted-foreground">
+          {drillable ? <span>{t`Tab to look inside`}</span> : null}
           {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
         </span>
       ) : null}
@@ -310,7 +323,7 @@ export function ClioComposerReferenceMenu({
     staleTime: QUERY_STALE_TIME_MS,
   });
   const localFiles = useQuery({
-    enabled: Boolean(workspaceId) && !isSearching && openGroups['Workspace files'],
+    enabled: Boolean(workspaceId) && !isSearching && openGroups[WORKSPACE_FILES],
     queryKey: queryKeys.workspaceReferences(settings.endpoint, workspaceId, '', 'workspace_file'),
     queryFn: ({ signal }) =>
       repository.workspaceReferences(workspaceId, { kinds: ['workspace_file'] }, signal),
@@ -382,7 +395,7 @@ export function ClioComposerReferenceMenu({
         {
           collapsible: false,
           count: String(hdf5.rows.length),
-          label: `Inside ${hdf5.mention.file.split('/').at(-1)} — ${hdf5.mention.group}`,
+          label: t`Inside ${ph({ file: hdf5.mention.file.split('/').at(-1) ?? hdf5.mention.file })} — ${ph({ group: hdf5.mention.group })}`,
           open: true,
           rows: hdf5.rows,
         },
@@ -391,14 +404,14 @@ export function ClioComposerReferenceMenu({
       const matches = listing.rows.filter((row) => group.kinds.includes(row.kind));
       // While the file list's first fetch runs, the single loading row stands
       // in for it rather than an empty heading.
-      const alwaysVisible = !isSearching && group.label === 'Workspace files' && !localFilesLoading;
+      const alwaysVisible = !isSearching && group.label === WORKSPACE_FILES && !localFilesLoading;
       if (!matches.length && !alwaysVisible) return [];
       return [
         {
           // A search opens every group, so its headings are plain labels.
           collapsible: !isSearching,
           count:
-            group.label === 'Workspace files' && !isSearching && !localFilesKnown
+            group.label === WORKSPACE_FILES && !isSearching && !localFilesKnown
               ? '…'
               : String(matches.length),
           label: group.label,
@@ -462,38 +475,50 @@ export function ClioComposerReferenceMenu({
   useLayoutEffect(() => {
     latest.current = { activeIndex, allRows, loading, visibleRows };
   }, [activeIndex, allRows, loading, visibleRows]);
-  const handle = useMemo<ReferenceMenuHandle>(
-    () => ({
+  const handle = useMemo<ReferenceMenuHandle>(() => {
+    const highlightRow = (next: { label: string; row: WorkspaceReference }) => {
+      const { visibleRows: rows } = latest.current;
+      scrollToActive.current = true;
+      setOpenGroups((open) => (open[next.label] ? open : { ...open, [next.label]: true }));
+      // Two keys in one frame each move one row, before React commits the first.
+      const nextVisible = rows.includes(next.row) ? rows : [...rows, next.row];
+      latest.current = {
+        ...latest.current,
+        activeIndex: nextVisible.indexOf(next.row),
+        visibleRows: nextVisible,
+      };
+      setActiveIdentity(workspaceReferenceIdentity(next.row));
+      return true;
+    };
+    const currentRow = () => {
+      const { activeIndex: index, allRows: all, visibleRows: rows } = latest.current;
+      const current = index >= 0 ? rows[index] : undefined;
+      return current ? all.findIndex(({ row }) => row === current) : -1;
+    };
+    return {
       active: () => {
         const { activeIndex: index, visibleRows: rows } = latest.current;
         return index >= 0 ? rows[index] : undefined;
       },
       move: (direction) => {
-        const { activeIndex: index, allRows: all, visibleRows: rows } = latest.current;
+        const all = latest.current.allRows;
         if (!all.length) return false;
-        const current = index >= 0 ? rows[index] : undefined;
-        const at = current
-          ? all.findIndex(({ row }) => row === current)
-          : direction === 1
-            ? -1
-            : all.length;
-        const next = all[(at + direction + all.length) % all.length]!;
-        scrollToActive.current = true;
-        setOpenGroups((open) => (open[next.label] ? open : { ...open, [next.label]: true }));
-        // Two keys in one frame each move one row, before React commits the first.
-        const nextVisible = rows.includes(next.row) ? rows : [...rows, next.row];
-        latest.current = {
-          ...latest.current,
-          activeIndex: nextVisible.indexOf(next.row),
-          visibleRows: nextVisible,
-        };
-        setActiveIdentity(workspaceReferenceIdentity(next.row));
-        return true;
+        const found = currentRow();
+        const at = found >= 0 ? found : direction === 1 ? -1 : all.length;
+        return highlightRow(all[(at + direction + all.length) % all.length]!);
+      },
+      moveGroup: (direction) => {
+        const all = latest.current.allRows;
+        const labels = [...new Set(all.map(({ label }) => label))];
+        if (!labels.length) return false;
+        const found = currentRow();
+        const at = found >= 0 ? labels.indexOf(all[found]!.label) : direction === 1 ? -1 : 0;
+        const label = labels[(at + direction + labels.length) % labels.length];
+        return highlightRow(all.find((entry) => entry.label === label)!);
       },
       offering: () => latest.current.allRows.length > 0 || latest.current.loading,
-    }),
-    [],
-  );
+    };
+  }, []);
   useImperativeHandle(handleRef, () => handle, [handle]);
 
   const onSelectRef = useRef(onSelect);
@@ -507,6 +532,21 @@ export function ClioComposerReferenceMenu({
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (handle.move(event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+      return;
+    }
+    if (event.key === 'PageDown' || event.key === 'PageUp') {
+      if (handle.moveGroup(event.key === 'PageDown' ? 1 : -1)) event.preventDefault();
+      return;
+    }
+    // Back one step, then close: inside a file Shift Tab and Escape go up a level.
+    if (
+      hdf5.mention &&
+      (event.key === 'Escape' || (event.key === 'Tab' && event.shiftKey)) &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      setSearchQuery(hdf5UpQuery(hdf5.mention));
       return;
     }
     if (event.shiftKey || event.nativeEvent.isComposing) return;
@@ -539,22 +579,27 @@ export function ClioComposerReferenceMenu({
 
   const emptyText = hdf5.mention
     ? failed
-      ? `${hdf5.mention.file} cannot be read as HDF5 here.`
+      ? t`${ph({ file: hdf5.mention.file })} cannot be read as HDF5 here.`
       : loading
-        ? `Reading ${hdf5.mention.group} in ${hdf5.mention.file}…`
-        : 'No objects match.'
+        ? t`Reading ${ph({ group: hdf5.mention.group })} in ${ph({ file: hdf5.mention.file })}…`
+        : t`No objects match.`
     : failed
-      ? 'Workspace context could not be searched.'
+      ? t`Workspace context could not be searched.`
       : loading
-        ? 'Searching workspace context…'
-        : 'No workspace context matches.';
+        ? t`Searching workspace context…`
+        : t`No workspace context matches.`;
   const total = hdf5.mention ? hdf5.rows.length : listing.rows.length;
   const settled = hdf5.mention ? !hdf5.listing.isFetching : !references.isFetching;
 
   return (
     <ComposerSuggestionPopup onDismiss={onDismiss} popupId={popoverId}>
       <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 pr-2 pl-3">
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
+        {createElement(
+          hdf5.mention
+            ? referenceKindIcon('workspace_file', hdf5.mention.file, 'application/x-hdf5')
+            : SearchIcon,
+          { 'aria-hidden': true, className: 'size-[15px] shrink-0 text-muted-foreground' },
+        )}
         {searchInput ? (
           <input
             {...identifierInputProps}
@@ -562,26 +607,26 @@ export function ClioComposerReferenceMenu({
             aria-autocomplete="list"
             aria-controls={`${popoverId}-listbox`}
             aria-expanded="true"
-            aria-label="Search workspace context"
+            aria-label={t`Search workspace context`}
             autoFocus
-            className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
+            className="h-full min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-faint"
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={onSearchKeyDown}
-            placeholder="Search evidence, files, conversations, and agent runs…"
+            placeholder={t`Search evidence, files, conversations, and agent runs…`}
             ref={searchRef}
             role="combobox"
             value={searchQuery}
           />
         ) : (
-          <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
+          <span aria-hidden="true" className="min-w-0 flex-1 truncate text-ui">
             <span className="text-foreground">@{query}</span>
-            {query ? null : <span className="text-faint"> type to search</span>}
+            {query ? null : <span className="text-faint"> {t`type to search`}</span>}
           </span>
         )}
         {settled || total ? <MatchCount total={total} /> : null}
       </div>
       <div
-        aria-label="Suggestions"
+        aria-label={t`Suggestions`}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
         id={`${popoverId}-listbox`}
         onMouseLeave={hover.onLeave}
@@ -589,7 +634,7 @@ export function ClioComposerReferenceMenu({
       >
         {visibleRows.length === 0 ? (
           <div
-            className="flex h-[30px] min-w-0 items-center gap-2 px-2 text-[12px] text-muted-foreground"
+            className="flex h-[30px] min-w-0 items-center gap-2 px-2 text-meta text-muted-foreground"
             data-slot={loading ? 'composer-references-loading' : undefined}
           >
             {loading ? <RingSpinner /> : null}
@@ -599,7 +644,7 @@ export function ClioComposerReferenceMenu({
             <span className="truncate">{emptyText}</span>
             {failed ? (
               <button
-                className="ml-auto h-6 shrink-0 rounded-[5px] px-1.5 text-[12px] font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+                className="ml-auto h-6 shrink-0 rounded-[5px] px-1.5 text-meta font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => {
                   if (hdf5.mention) void hdf5.listing.refetch();
                   else {
@@ -612,7 +657,7 @@ export function ClioComposerReferenceMenu({
                 tabIndex={-1}
                 type="button"
               >
-                Retry
+                {t`Retry`}
               </button>
             ) : null}
           </div>
@@ -631,7 +676,7 @@ export function ClioComposerReferenceMenu({
                 />
               ) : null}
               <span className="min-w-0 truncate">{section.label}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
+              <span className="ml-auto shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums">
                 {section.count}
               </span>
             </>
@@ -681,7 +726,7 @@ export function ClioComposerReferenceMenu({
       </div>
       {unreadable + listing.unsupported > 0 ? (
         <div
-          className="flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5 text-[11px] text-muted-foreground"
+          className="flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5 text-caption text-muted-foreground"
           role="status"
         >
           {unreadable > 0 ? (
@@ -707,7 +752,10 @@ export function ClioComposerReferenceMenu({
           rowId={optionId(workspaceReferenceIdentity(described))}
         />
       ) : null}
-      <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      <MenuKeyHints
+        className="h-[34px] shrink-0 px-2.5 text-faint"
+        hints={hdf5.mention ? INSIDE_FILE_KEY_HINTS : KEY_HINTS}
+      />
     </ComposerSuggestionPopup>
   );
 }

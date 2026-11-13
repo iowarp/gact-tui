@@ -6,9 +6,20 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import type { HtmlTagDescriptor, IndexHtmlTransformContext, Plugin, ResolvedConfig, ViteDevServer } from 'vite';
+import type {
+  HtmlTagDescriptor,
+  IndexHtmlTransformContext,
+  Plugin,
+  ResolvedConfig,
+  ViteDevServer,
+} from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { brandPlugin, loadBrand } from './vite-plugin-brand';
+import {
+  brandModuleSource,
+  brandPlugin,
+  loadBrand,
+  resolveBrandLocales,
+} from './vite-plugin-brand';
 
 const GACT_LOGO_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>';
@@ -233,26 +244,38 @@ describe('loadBrand vocabulary fields', () => {
 });
 
 describe('custom brand icons', () => {
-  it.each(['svg', 'png', 'jpeg', 'webp'])('emits production %s artwork with a browser-recognized extension', (extension) => {
-    const content = extension === 'svg' ? GACT_LOGO_SVG : 'fixture-image-bytes';
-    const root = makeBrandingRoot('custom', {
-      name: 'Custom', logoImage: `mark.${extension}`, wordmarkImage: `wordmark.${extension}`,
-    }, { [`mark.${extension}`]: content, [`wordmark.${extension}`]: content });
-    const plugin = brandPlugin(root, 'custom');
-    const configure = plugin.configResolved;
-    const load = plugin.load;
-    if (!configure || !load) throw new Error('Brand production hooks are missing');
-    const configureFn = typeof configure === 'function' ? configure : configure.handler;
-    configureFn.call({} as never, { command: 'build' } as ResolvedConfig);
-    const loadFn = typeof load === 'function' ? load : load.handler;
-    const emitFile = vi.fn().mockReturnValue('brand_asset');
-    const module = loadFn.call({ emitFile } as never, '\0@brand');
-    expect(emitFile.mock.calls.map(([asset]) => asset.name)).toEqual([
-      `brand-logoImage.${extension}`, `brand-wordmarkImage.${extension}`,
-    ]);
-    expect(emitFile.mock.calls.every(([asset]) => asset.source.equals(Buffer.from(content)))).toBe(true);
-    expect(module).toContain('import.meta.ROLLUP_FILE_URL_brand_asset');
-  });
+  it.each(['svg', 'png', 'jpeg', 'webp'])(
+    'emits production %s artwork with a browser-recognized extension',
+    (extension) => {
+      const content = extension === 'svg' ? GACT_LOGO_SVG : 'fixture-image-bytes';
+      const root = makeBrandingRoot(
+        'custom',
+        {
+          name: 'Custom',
+          logoImage: `mark.${extension}`,
+          wordmarkImage: `wordmark.${extension}`,
+        },
+        { [`mark.${extension}`]: content, [`wordmark.${extension}`]: content },
+      );
+      const plugin = brandPlugin(root, 'custom');
+      const configure = plugin.configResolved;
+      const load = plugin.load;
+      if (!configure || !load) throw new Error('Brand production hooks are missing');
+      const configureFn = typeof configure === 'function' ? configure : configure.handler;
+      configureFn.call({} as never, { command: 'build' } as ResolvedConfig);
+      const loadFn = typeof load === 'function' ? load : load.handler;
+      const emitFile = vi.fn().mockReturnValue('brand_asset');
+      const module = loadFn.call({ emitFile } as never, '\0@brand');
+      expect(emitFile.mock.calls.map(([asset]) => asset.name)).toEqual([
+        `brand-logoImage.${extension}`,
+        `brand-wordmarkImage.${extension}`,
+      ]);
+      expect(
+        emitFile.mock.calls.every(([asset]) => asset.source.equals(Buffer.from(content))),
+      ).toBe(true);
+      expect(module).toContain('import.meta.ROLLUP_FILE_URL_brand_asset');
+    },
+  );
 
   it('loads separate artwork, monochrome icon and favicon from the selected profile', () => {
     const custom = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h4v4z"/></svg>';
@@ -274,5 +297,50 @@ describe('custom brand icons', () => {
   it('fails the build when a declared custom icon is missing', () => {
     const root = makeBrandingRoot('custom', { name: 'Custom', iconSvg: 'missing.svg' });
     expect(() => loadBrand(root, 'custom')).toThrow('referenced asset does not exist');
+  });
+});
+
+describe('brand copy in other languages', () => {
+  it('keeps only translatable copy fields and drops empty ones', () => {
+    expect(
+      resolveBrandLocales({
+        es: {
+          tagline: ' Tu espacio ',
+          landing: { headline: 'Tu trabajo, en un lugar.', description: '  ' },
+          workspace: { greeting: '¿En qué puedo ayudarte?' },
+          // @ts-expect-error a non-copy field is ignored
+          accent: '#000',
+        },
+      }),
+    ).toEqual({
+      es: {
+        tagline: 'Tu espacio',
+        landing: { headline: 'Tu trabajo, en un lugar.' },
+        workspace: { greeting: '¿En qué puedo ayudarte?' },
+      },
+    });
+    expect(resolveBrandLocales(undefined)).toEqual({});
+    expect(() => resolveBrandLocales({ Spanish: {} })).toThrow(/not a language tag/u);
+  });
+
+  it('lays the active language over the base brand when the module loads', async () => {
+    const brand = {
+      ...loadBrand(resolve(import.meta.dirname, '../branding'), 'gact'),
+      locales: { es: { landing: { headline: 'Hola' }, workspace: { greeting: 'Buenas' } } },
+    };
+    const source = brandModuleSource(brand);
+    // The module body with its import and exports removed, run against a stub instance.
+    const body = source
+      .replace(/^import .*$/mu, '')
+      .replace('export const brand', 'const brand')
+      .replace('export default brand;', 'return brand;');
+    const evaluate = (locale: string) =>
+      new Function('i18n', `'use strict';\n${body}`)({ locale }) as typeof brand;
+    const spanish = evaluate('es');
+    expect(spanish.landing.headline).toBe('Hola');
+    expect(spanish.landing.eyebrow).toBe(brand.landing.eyebrow);
+    expect(spanish.workspace.greeting).toBe('Buenas');
+    expect(spanish).not.toHaveProperty('locales');
+    expect(evaluate('ja').landing.headline).toBe(brand.landing.headline);
   });
 });

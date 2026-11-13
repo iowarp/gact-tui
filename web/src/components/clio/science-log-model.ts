@@ -1,4 +1,5 @@
 import type { Message, ScienceBranch, ScienceEntry, ScienceStudy } from '@clio/core/v3';
+import { t, ph, plural } from '@lingui/core/macro';
 
 /**
  * What the Science log tab reads from a study: the study tree (the root
@@ -44,13 +45,14 @@ const RUNNING = new Set(['running', 'queued', 'accepted', 'dispatching', 'pendin
 /** An entry's status as text; hypotheses use the log's own vocabulary. */
 export function entryState(entry: Pick<ScienceEntry, 'status' | 'type'>): ScienceState {
   const status = entry.status.trim();
-  if (status === 'supported') return { label: 'supported', tone: 'supported' };
-  if (status === 'refuted') return { label: 'refuted', tone: 'refuted' };
-  if (status === 'superseded') return { label: 'superseded', tone: 'superseded' };
-  if (RUNNING.has(status)) return { label: 'running', tone: 'running' };
+  if (status === 'supported') return { label: t`supported`, tone: 'supported' };
+  if (status === 'refuted') return { label: t`refuted`, tone: 'refuted' };
+  if (status === 'superseded') return { label: t`superseded`, tone: 'superseded' };
+  if (RUNNING.has(status)) return { label: t`running`, tone: 'running' };
   if (status) return { label: status.replaceAll('_', ' '), tone: 'neutral' };
-  if (entry.type === 'hypothesis') return { label: 'open', tone: 'neutral' };
-  return { label: entry.type === 'question' ? 'question' : 'recorded', tone: 'neutral' };
+  if (entry.type === 'hypothesis')
+    return { label: t({ message: 'open', context: 'status' }), tone: 'neutral' };
+  return { label: entry.type === 'question' ? t`question` : t`recorded`, tone: 'neutral' };
 }
 
 /**
@@ -60,28 +62,30 @@ export function entryState(entry: Pick<ScienceEntry, 'status' | 'type'>): Scienc
  */
 export function branchState(branch: ScienceBranch): ScienceState {
   const task = branch.task_status.trim();
-  if (RUNNING.has(task)) return { label: 'running', tone: 'running' };
+  if (RUNNING.has(task)) return { label: t`running`, tone: 'running' };
   if (task) return { label: task.replaceAll('_', ' '), tone: 'neutral' };
-  return { label: 'no task status', tone: 'neutral' };
+  return { label: t`no task status`, tone: 'neutral' };
 }
 
 /** How a branch relates to its parent, in text. */
 export function branchRelation(branch: ScienceBranch, titles: ReadonlyMap<string, string>): string {
   switch (branch.relation) {
     case 'root':
-      return 'root';
+      return t`root`;
     case 'fork': {
-      const source = branch.fork_of_session_id || branch.parent_session_id;
-      return `fork of ${titles.get(source) || 'its origin'}`;
+      const source = titles.get(branch.fork_of_session_id || branch.parent_session_id);
+      return source ? t`fork of ${source}` : t`fork of its origin`;
     }
     case 'branch':
-      return 'branch of the conversation';
+      return t`branch of the conversation`;
     case 'step':
-      return branch.workflow_step ? `step ${branch.workflow_step}` : 'step';
+      return branch.workflow_step
+        ? t`step ${ph({ step: branch.workflow_step })}`
+        : t({ message: 'step', context: 'workflow' });
     case 'delegated':
-      return 'delegated';
+      return t`delegated`;
     default:
-      return 'related branch';
+      return t`related branch`;
   }
 }
 
@@ -116,7 +120,7 @@ export function entrySummary(entry: ScienceEntry): string {
   }
   if (entry.type === 'observation') {
     const count = measurements(entry).length;
-    if (count) return `${count} measurement${count === 1 ? '' : 's'}`;
+    if (count) return plural(count, { one: '# measurement', other: '# measurements' });
   }
   for (const value of Object.values(fields)) if (text(value)) return text(value);
   return '';
@@ -281,21 +285,21 @@ export function backlinks(entries: readonly ScienceEntry[]): Map<string, EntryEd
 
 /** The type's reader-facing name. */
 export const ENTRY_TYPE_LABELS: Record<ScienceEntry['type'], string> = {
-  question: 'Question',
-  hypothesis: 'Hypothesis',
-  experiment: 'Experiment',
-  observation: 'Observation',
-  evidence: 'Evidence',
-  reframe: 'Reframe',
-  conclusion: 'Conclusion',
-  conflict: 'Conflict',
-  view: 'View',
-  unknown: 'Entry',
+  question: t`Question`,
+  hypothesis: t`Hypothesis`,
+  experiment: t`Experiment`,
+  observation: t`Observation`,
+  evidence: t`Evidence`,
+  reframe: t`Reframe`,
+  conclusion: t`Conclusion`,
+  conflict: t`Conflict`,
+  view: t`View`,
+  unknown: t`Entry`,
 };
 
 /** A short, readable reference to an entry: its type and the start of its key field. */
 export function entryReference(entry: ScienceEntry | undefined, id: string): string {
-  if (!entry) return `entry ${id}`;
+  if (!entry) return t`entry ${id}`;
   const summary = entrySummary(entry);
   const short = summary.length > 60 ? `${summary.slice(0, 57)}…` : summary;
   return short ? `${ENTRY_TYPE_LABELS[entry.type]}: ${short}` : ENTRY_TYPE_LABELS[entry.type];
@@ -400,14 +404,14 @@ export function studyTree(study: ScienceStudy): StudyNode {
     kind: 'question',
     branch: root,
     ...(question ? { entry: question.id } : {}),
-    title: (question && entrySummary(question)) || 'Study question',
-    relation: rootBranch ? `asked in ${branchTitle(rootBranch)}` : undefined,
+    title: (question && entrySummary(question)) || t`Study question`,
+    relation: rootBranch ? t`asked in ${ph({ branch: branchTitle(rootBranch) })}` : undefined,
     // The question's own status; the root branch's task state only when no question is logged.
     state: question
       ? entryState(question)
       : rootBranch
         ? branchState(rootBranch)
-        : { label: 'recorded', tone: 'neutral' },
+        : { label: t({ message: 'recorded', context: 'science log state' }), tone: 'neutral' },
     ...(rootBranch?.handle ? { handle: rootBranch.handle } : {}),
     ...(rootBranch?.node_folder ? { folder: rootBranch.node_folder } : {}),
     derivedFrom: derivations(root),
@@ -420,7 +424,7 @@ export function studyName(study: ScienceStudy): string {
   const root = study.root_session_id || study.branches[0]?.session_id || study.session_id;
   const branch = study.branches.find((candidate) => candidate.session_id === root);
   const question = study.entries.find((entry) => entry.id === study.study);
-  return (branch?.title ?? '').trim() || (question && entrySummary(question)) || 'Study';
+  return (branch?.title ?? '').trim() || (question && entrySummary(question)) || t`Study`;
 }
 
 /** One row of the study list: a tree node flattened with its depth and the entries it narrows the log to. */
@@ -483,7 +487,7 @@ export function entryText(entry: ScienceEntry): string {
         .filter(Boolean)
         .join(' '),
     );
-  if (entry.status_reason) lines.push(`Status reason: ${entry.status_reason}`);
+  if (entry.status_reason) lines.push(t`Status reason: ${ph({ reason: entry.status_reason })}`);
   return lines.join('\n');
 }
 

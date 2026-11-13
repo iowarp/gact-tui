@@ -22,6 +22,8 @@ import {
 import { SourceWindowContext } from '@/lib/source-window';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { FileWindowNoticeShown } from './file-window-context';
+import { ph, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 function fileName(path: string): string {
   return (
@@ -46,10 +48,16 @@ function serverCapSentence(error: Error | null, size?: number): string | undefin
     return undefined;
   const [, reported, cap] = /\((\d+) > (\d+) bytes\)/u.exec(error.message) ?? [];
   const bytes = size ?? (reported ? Number(reported) : undefined);
-  const file = bytes === undefined ? 'this file' : `this ${wholeBytes(bytes)} file`;
+  const limit = cap ? wholeBytes(Number(cap)) : '';
+  if (bytes === undefined) {
+    return cap
+      ? t`The file server reads up to ${limit}, so the end of this file can't be shown.`
+      : t`The file server can't read the end of this file.`;
+  }
+  const fileSize = wholeBytes(bytes);
   return cap
-    ? `The file server reads up to ${wholeBytes(Number(cap))}, so the end of ${file} can't be shown.`
-    : `The file server can't read the end of ${file}.`;
+    ? t`The file server reads up to ${limit}, so the end of this ${fileSize} file can't be shown.`
+    : t`The file server can't read the end of this ${fileSize} file.`;
 }
 
 /** "1 GB", not "1.0 GB", for a round limit in a sentence. */
@@ -220,12 +228,15 @@ function WorkspaceTextWindowView({
       />
     );
   const name = fileName(path);
-  const total = size === undefined ? '' : ` of ${formatBytes(size)}`;
+  const total = size === undefined ? undefined : formatBytes(size);
+  const rows = formatNumber(PREVIEW_ROW_LIMIT);
+  const chunk = formatBytes(TEXT_WINDOW_CHUNK_BYTES);
+  const loaded = head ? formatBytes(head.loadedBytes) : '';
   const capRefusal = (showEnd || !head) && serverCapSentence(textWindow.tailError, size);
   if (capRefusal)
     return (
       <StateView
-        action={{ label: 'Show beginning', onClick: () => setShowEnd(false) }}
+        action={{ label: t`Show beginning`, onClick: () => setShowEnd(false) }}
         kind="too-large"
         size="viewer"
         title={capRefusal}
@@ -234,23 +245,31 @@ function WorkspaceTextWindowView({
   const status =
     showEnd || !head
       ? textWindow.tailError
-        ? `The end of ${name} couldn't be read.`
+        ? t`The end of ${name} couldn't be read.`
         : table
-          ? `Showing the last ${PREVIEW_ROW_LIMIT.toLocaleString()} rows${total}.`
-          : `Showing the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}${total}.`
+          ? total
+            ? t`Showing the last ${rows} rows of ${total}.`
+            : t`Showing the last ${rows} rows.`
+          : total
+            ? t`Showing the last ${chunk} of ${total}.`
+            : t`Showing the last ${chunk}.`
       : head.capped
-        ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
-        : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
+        ? total
+          ? t`Showing the first ${loaded} of ${total}. The rest is too large to show here.`
+          : t`Showing the first ${loaded}. The rest is too large to show here.`
+        : total
+          ? t`Showing the first ${loaded} of ${total}.`
+          : t`Showing the first ${loaded}.`;
   // A phone-width pane keeps the status whole in its short form beside the button; the
   // frame bar's fact already gives the file's size.
   const shortStatus =
     showEnd || !head
       ? textWindow.tailError
-        ? "The end couldn't be read"
+        ? t`The end couldn't be read`
         : table
-          ? `Last ${PREVIEW_ROW_LIMIT.toLocaleString()} rows`
-          : `Last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`
-      : `First ${formatBytes(head.loadedBytes)}`;
+          ? t`Last ${rows} rows`
+          : t`Last ${chunk}`
+      : t`First ${loaded}`;
   return (
     <div
       className="@container/text-window flex h-full min-h-0 min-w-0 flex-col"
@@ -262,7 +281,7 @@ function WorkspaceTextWindowView({
             textWindow.tailError ? (
               <ViewerReadError error={textWindow.tailError.message} where={path} />
             ) : tail === undefined ? (
-              <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
+              <ResourceLoading className="p-4" label={t`Loading the end of ${name}`} />
             ) : (
               <FileTextView content={tail} mediaType={mediaType} name={name} />
             )
@@ -275,9 +294,7 @@ function WorkspaceTextWindowView({
       </div>
       <StateView
         action={{
-          label: showEnd
-            ? 'Show beginning'
-            : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
+          label: showEnd ? t`Show beginning` : t`Show the last ${chunk}`,
           onClick: () => setShowEnd(!showEnd),
         }}
         // Narrow, the status line keeps its room; scrolling to the end still loads more.
@@ -285,7 +302,7 @@ function WorkspaceTextWindowView({
         kind={!showEnd && textWindow.loadingMore ? 'loading' : 'too-large'}
         secondaryAction={
           !showEnd && textWindow.loadMore
-            ? { label: 'Load more', onClick: textWindow.loadMore }
+            ? { label: t`Load more`, onClick: textWindow.loadMore }
             : undefined
         }
         size="row"
@@ -316,7 +333,7 @@ export function TextResourceView({
   onRetry?: () => void;
 }) {
   if (content === undefined && !error)
-    return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
+    return <ResourceLoading className="p-4" label={t`Loading ${ph({ name: fileName(path) })}`} />;
   if (error) return <ViewerReadError error={error} onRetry={onRetry} where={path} />;
   return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
 }

@@ -38,6 +38,9 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent-hosts';
+import { ph, plural, t } from '@lingui/core/macro';
+
+const { workspace } = vocab;
 
 /**
  * Narrow (under 600px), a section with more than one tab action (the host and the
@@ -153,6 +156,7 @@ export function InfrastructurePage() {
   const connectDetectedWebSearch = useMutation({
     mutationFn: (remoteUrl: string) =>
       repository.configureMcpServer('web', {
+        // i18n-ignore: product name saved in the service configuration
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: WEB_MCP_COMMAND,
@@ -167,15 +171,20 @@ export function InfrastructurePage() {
       );
       await refreshWebSearchQueries();
       if (result.status === 'ready') {
-        toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
+        toast.success(
+          plural(result.tools_count, {
+            one: 'CLIO Web Search connected with # tool',
+            other: 'CLIO Web Search connected with # tools',
+          }),
+        );
       } else {
-        toast.error('CLIO Web Search could not complete the connection', {
-          description: result.error ?? 'The service is saved, but its tools did not respond.',
+        toast.error(t`CLIO Web Search could not complete the connection`, {
+          description: result.error ?? t`The service is saved, but its tools did not respond.`,
         });
       }
     },
     onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be connected', {
+      toast.error(t`CLIO Web Search could not be connected`, {
         description: connectionError.message,
       }),
   });
@@ -187,12 +196,12 @@ export function InfrastructurePage() {
         result,
       );
       await refreshWebSearchQueries();
-      toast.success('CLIO Web Search disconnected', {
-        description: 'The deployment is still running and can be connected again at any time.',
+      toast.success(t`CLIO Web Search disconnected`, {
+        description: t`The deployment is still running and can be connected again at any time.`,
       });
     },
     onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be disconnected', {
+      toast.error(t`CLIO Web Search could not be disconnected`, {
         description: connectionError.message,
       }),
   });
@@ -239,15 +248,15 @@ export function InfrastructurePage() {
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <FrameClioMenu className="bottom-0 left-2 sm:left-3" covered={settingsWindowOpen} />
         <div className={TAB_ROW}>
-          <NamedTooltip label={`Back to ${vocab.workspace}`}>
+          <NamedTooltip label={t`Back to ${workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
-              <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
+              <Link aria-label={t`Back to ${workspace}`} to={workspaceRoute}>
                 <ChevronLeftIcon aria-hidden="true" />
               </Link>
             </Button>
           </NamedTooltip>
-          <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
-          <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
+          <h1 className="sr-only">{t`Infrastructure: ${ph({ label: sectionDefinition.label })}`}</h1>
+          <NavTabs active={currentSection} label={t`Infrastructure sections`} tabs={sectionTabs} />
           <span
             className={TAB_ACTIONS}
             data-slot="infrastructure-tab-actions"
@@ -270,11 +279,11 @@ export function InfrastructurePage() {
                   icon={NetworkIcon}
                   title={
                     agentUnanswered
-                      ? `Can't reach ${agentIdentity(settings.endpoint, settings.label, settings.location).name}`
-                      : 'This section could not load completely'
+                      ? t`Can't reach ${ph({ name: agentIdentity(settings.endpoint, settings.label, settings.location).name })}`
+                      : t`This section could not load completely`
                   }
                   detail={error.message}
-                  action={{ label: 'Retry', onClick: retrySection }}
+                  action={{ label: t`Retry`, onClick: retrySection }}
                 />
               ) : null}
 

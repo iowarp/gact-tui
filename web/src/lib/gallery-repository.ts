@@ -1,8 +1,14 @@
 import gallerySampleUrl from '../../tests/fixtures/gallery-sample.png';
+import gallerySampleLightUrl from '../../tests/fixtures/gallery-sample-light.png';
 import guideFindUrl from '../../tests/fixtures/docs-media/docs-message-preview.png';
 import guideMarkUrl from '../../tests/fixtures/docs-media/docs-marked-messages.png';
 import guideExportUrl from '../../tests/fixtures/docs-media/docs-session-export.mp4';
-import type { ArtifactRasterQueryRequest, ArtifactRasterQueryResult, ArtifactTableQueryRequest, ArtifactTableQueryResult } from '@clio/core/v3';
+import type {
+  ArtifactRasterQueryRequest,
+  ArtifactRasterQueryResult,
+  ArtifactTableQueryRequest,
+  ArtifactTableQueryResult,
+} from '@clio/core/v3';
 import type { createRepository } from '@/lib/connection';
 import { galleryStormTracks } from './gallery-storm-tracks';
 import galleryHurricaneTracks from './gallery-hurricane-tracks.json';
@@ -10,10 +16,28 @@ import galleryHurricaneTracks from './gallery-hurricane-tracks.json';
 type Repository = ReturnType<typeof createRepository>;
 const BOUNDS = [0, 0, 100, 100] as const;
 const galleryAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`;
-const guideMedia: Record<string, { name: string; media_type: string; size_bytes: number; url: string }> = {
-  artifact_guide_find: { name: 'docs-message-preview.png', media_type: 'image/png', size_bytes: 11188, url: guideFindUrl },
-  artifact_guide_mark: { name: 'docs-marked-messages.png', media_type: 'image/png', size_bytes: 25269, url: guideMarkUrl },
-  artifact_guide_export: { name: 'docs-session-export.mp4', media_type: 'video/mp4', size_bytes: 719141, url: guideExportUrl },
+const guideMedia: Record<
+  string,
+  { name: string; media_type: string; size_bytes: number; url: string }
+> = {
+  artifact_guide_find: {
+    name: 'docs-message-preview.png',
+    media_type: 'image/png',
+    size_bytes: 11188,
+    url: guideFindUrl,
+  },
+  artifact_guide_mark: {
+    name: 'docs-marked-messages.png',
+    media_type: 'image/png',
+    size_bytes: 25269,
+    url: guideMarkUrl,
+  },
+  artifact_guide_export: {
+    name: 'docs-session-export.mp4',
+    media_type: 'video/mp4',
+    size_bytes: 719141,
+    url: guideExportUrl,
+  },
 };
 
 function rasterSample(query: ArtifactRasterQueryRequest): ArtifactRasterQueryResult {
@@ -36,57 +60,113 @@ function rasterSample(query: ArtifactRasterQueryRequest): ArtifactRasterQueryRes
     max = Math.max(max, value);
   }
   return {
-    width, height, extent: [...extent], sourceBounds: [...BOUNDS], sourceShape: [100, 100],
-    xLabel: 'Easting', yLabel: 'Northing', values,
-    min, max,
+    width,
+    height,
+    extent: [...extent],
+    sourceBounds: [...BOUNDS],
+    sourceShape: [100, 100],
+    // Stands in for what the agent's query returned; agent output is not translated.
+    // i18n-ignore: simulated agent output
+    xLabel: 'Easting',
+    // i18n-ignore: simulated agent output
+    yLabel: 'Northing',
+    values,
+    min,
+    max,
   };
 }
 
 /** Static gallery data for artifact-backed examples, without an agent service. */
-export function createGalleryRepository(base: Repository): Repository {
+export function createGalleryRepository(
+  base: Repository,
+  /** Serve the light variant of the sample plot. */
+  options: { lightPlot?: boolean } = {},
+): Repository {
+  const plotUrl = () => (options.lightPlot ? gallerySampleLightUrl : gallerySampleUrl);
   return new Proxy(base, {
     get(target, property, receiver) {
       if (property === 'artifactTableQuery') {
-        return (artifactId: string, query: ArtifactTableQueryRequest, signal?: AbortSignal): Promise<ArtifactTableQueryResult> => {
-          if (artifactId !== 'artifact_gallery_storm_tracks' && artifactId !== 'artifact_gallery_hurricane_tracks') return target.artifactTableQuery(artifactId, query, signal);
-          const rows = artifactId === 'artifact_gallery_hurricane_tracks' ? galleryHurricaneTracks : galleryStormTracks;
-          const filtered = rows.filter((row) => (query.filter ?? []).every((filter) => {
-            const value = (row as Record<string, string | number>)[filter.column];
-            if (filter.op === 'contains') return String(value ?? '').toLowerCase().includes(filter.value.toLowerCase());
-            if (filter.op === 'eq') return value === filter.value;
-            if (filter.op === 'in') return filter.value.includes(value);
-            if (filter.op === 'isnull') return (value == null) === (filter.value ?? true);
-            if (filter.op === 'range') {
-              const comparable = typeof value === 'string' ? value : Number(value);
-              const low = filter.value[0] == null ? null : typeof comparable === 'string' ? String(filter.value[0]) : Number(filter.value[0]);
-              const high = filter.value[1] == null ? null : typeof comparable === 'string' ? String(filter.value[1]) : Number(filter.value[1]);
-              return (low == null || comparable >= low) && (high == null || comparable <= high);
-            }
-            return true;
-          }));
+        return (
+          artifactId: string,
+          query: ArtifactTableQueryRequest,
+          signal?: AbortSignal,
+        ): Promise<ArtifactTableQueryResult> => {
+          if (
+            artifactId !== 'artifact_gallery_storm_tracks' &&
+            artifactId !== 'artifact_gallery_hurricane_tracks'
+          )
+            return target.artifactTableQuery(artifactId, query, signal);
+          const rows =
+            artifactId === 'artifact_gallery_hurricane_tracks'
+              ? galleryHurricaneTracks
+              : galleryStormTracks;
+          const filtered = rows.filter((row) =>
+            (query.filter ?? []).every((filter) => {
+              const value = (row as Record<string, string | number>)[filter.column];
+              if (filter.op === 'contains')
+                return String(value ?? '')
+                  .toLowerCase()
+                  .includes(filter.value.toLowerCase());
+              if (filter.op === 'eq') return value === filter.value;
+              if (filter.op === 'in') return filter.value.includes(value);
+              if (filter.op === 'isnull') return (value == null) === (filter.value ?? true);
+              if (filter.op === 'range') {
+                const comparable = typeof value === 'string' ? value : Number(value);
+                const low =
+                  filter.value[0] == null
+                    ? null
+                    : typeof comparable === 'string'
+                      ? String(filter.value[0])
+                      : Number(filter.value[0]);
+                const high =
+                  filter.value[1] == null
+                    ? null
+                    : typeof comparable === 'string'
+                      ? String(filter.value[1])
+                      : Number(filter.value[1]);
+                return (low == null || comparable >= low) && (high == null || comparable <= high);
+              }
+              return true;
+            }),
+          );
           const sorted = [...filtered];
           for (const sort of [...(query.sort ?? [])].reverse()) {
             sorted.sort((a, b) => {
               const left = (a as Record<string, string | number>)[sort.column];
               const right = (b as Record<string, string | number>)[sort.column];
-              const result = typeof left === 'number' && typeof right === 'number'
-                ? left - right : String(left).localeCompare(String(right), undefined, { numeric: true });
+              const result =
+                typeof left === 'number' && typeof right === 'number'
+                  ? left - right
+                  : String(left).localeCompare(String(right), undefined, { numeric: true });
               return sort.desc ? -result : result;
             });
           }
           const offset = query.offset ?? 0;
           const page = sorted.slice(offset, offset + query.limit);
           const names = query.columns ?? Object.keys(rows[0]!);
-          const columns = Object.fromEntries(names.map((name) => [name, page.map((row) => (row as Record<string, string | number>)[name] ?? null)]));
+          const columns = Object.fromEntries(
+            names.map((name) => [
+              name,
+              page.map((row) => (row as Record<string, string | number>)[name] ?? null),
+            ]),
+          );
           return Promise.resolve({
             artifact_id: artifactId,
             schema: Object.keys(rows[0]!).map((name) => ({
               name,
-              type: ['lat', 'lon', 'wind_kt', 'elapsed_hours', 'year'].includes(name) ? 'double' : name === 'time' ? 'timestamp[s, tz=UTC]' : 'string',
+              type: ['lat', 'lon', 'wind_kt', 'elapsed_hours', 'year'].includes(name)
+                ? 'double'
+                : name === 'time'
+                  ? 'timestamp[s, tz=UTC]'
+                  : 'string',
             })),
-            columns, totalRows: rows.length, matchedRows: filtered.length,
-            returnedRows: page.length, truncated: page.length < filtered.length,
-            downsample: { mode: 'none' }, rowKey: { column: '__row', values: page.map((row) => rows.indexOf(row)) },
+            columns,
+            totalRows: rows.length,
+            matchedRows: filtered.length,
+            returnedRows: page.length,
+            truncated: page.length < filtered.length,
+            downsample: { mode: 'none' },
+            rowKey: { column: '__row', values: page.map((row) => rows.indexOf(row)) },
           });
         };
       }
@@ -98,10 +178,16 @@ export function createGalleryRepository(base: Repository): Repository {
       }
       if (property === 'readArtifactBytes') {
         return async (artifactId: string, fetchPath?: string, signal?: AbortSignal) => {
-          if (artifactId !== 'artifact_gallery_terrain_glb' && artifactId !== 'artifact_gallery_load_specimen_glb') {
+          if (
+            artifactId !== 'artifact_gallery_terrain_glb' &&
+            artifactId !== 'artifact_gallery_load_specimen_glb'
+          ) {
             return target.readArtifactBytes(artifactId, fetchPath, signal);
           }
-          const filename = artifactId === 'artifact_gallery_load_specimen_glb' ? 'load-specimen.glb' : 'surface.glb';
+          const filename =
+            artifactId === 'artifact_gallery_load_specimen_glb'
+              ? 'load-specimen.glb'
+              : 'surface.glb';
           const response = await fetch(galleryAsset(`gallery/${filename}`), { signal });
           if (!response.ok) throw new Error(`Gallery mesh unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
@@ -111,11 +197,26 @@ export function createGalleryRepository(base: Repository): Repository {
         return (sessionId: string, uri: string, signal?: AbortSignal) => {
           const id = uri.replace(/^artifact:\/\//, '');
           const media = guideMedia[id];
-          if (media) return Promise.resolve({ uri, kind: 'artifact' as const, workspace_id: 'gallery', ...media, artifact_id: id, fetch_path: media.url });
+          if (media)
+            return Promise.resolve({
+              uri,
+              kind: 'artifact' as const,
+              workspace_id: 'gallery',
+              ...media,
+              artifact_id: id,
+              fetch_path: media.url,
+            });
           return uri === 'artifact://artifact_plot'
-            ? Promise.resolve({ uri, kind: 'artifact' as const, workspace_id: 'gallery',
-              name: 'gallery-sample.png', media_type: 'image/png', size_bytes: 53953, artifact_id: 'artifact_plot',
-              fetch_path: '/v1/artifacts/artifact_plot/bytes' })
+            ? Promise.resolve({
+                uri,
+                kind: 'artifact' as const,
+                workspace_id: 'gallery',
+                name: 'gallery-sample.png',
+                media_type: 'image/png',
+                size_bytes: 50870,
+                artifact_id: 'artifact_plot',
+                fetch_path: '/v1/artifacts/artifact_plot/bytes',
+              })
             : target.resolveA2uiReference(sessionId, uri, signal);
         };
       }
@@ -128,17 +229,23 @@ export function createGalleryRepository(base: Repository): Repository {
             return new Uint8Array(await response.arrayBuffer());
           }
           if (resolution.artifact_id !== 'artifact_plot') {
-            return target.readA2uiReferenceBytes(resolution as Parameters<Repository['readA2uiReferenceBytes']>[0], signal);
+            return target.readA2uiReferenceBytes(
+              resolution as Parameters<Repository['readA2uiReferenceBytes']>[0],
+              signal,
+            );
           }
-          const response = await fetch(gallerySampleUrl, { signal });
+          const response = await fetch(plotUrl(), { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };
       }
       if (property === 'readArtifactBytesFor') {
-        return async (artifact: Parameters<Repository['readArtifactBytesFor']>[0], signal?: AbortSignal) => {
+        return async (
+          artifact: Parameters<Repository['readArtifactBytesFor']>[0],
+          signal?: AbortSignal,
+        ) => {
           if (artifact.id !== 'artifact_plot') return target.readArtifactBytesFor(artifact, signal);
-          const response = await fetch(gallerySampleUrl, { signal });
+          const response = await fetch(plotUrl(), { signal });
           if (!response.ok) throw new Error(`Gallery image unavailable (${response.status}).`);
           return new Uint8Array(await response.arrayBuffer());
         };

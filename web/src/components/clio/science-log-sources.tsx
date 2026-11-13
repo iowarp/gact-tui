@@ -4,7 +4,10 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTransformRecord } from '@/hooks/use-science-log';
 import { vocab } from '@/lib/brand-vocabulary';
+import { formatLocale } from '@/lib/locale-format';
 import { lineage, sourceFiles, type LineageRow, type SourceFile } from './science-log-model';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** A file a study cites, as the surface can link it: a registered artifact or a path. */
 export interface ScienceFileReference {
@@ -25,9 +28,10 @@ export interface ScienceCallLinks {
 function formatTime(timestamp: string): string {
   const time = new Date(timestamp);
   if (!timestamp || Number.isNaN(time.getTime())) return timestamp;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' }).format(
-    time,
-  );
+  return new Intl.DateTimeFormat(formatLocale(), {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  }).format(time);
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -51,14 +55,14 @@ function ViewCall({
   if (!links.onViewCall || !session || !callId) return null;
   return (
     <Button
-      aria-label={`View call ${callId} in transcript`}
-      className="h-5 px-1.5 text-[11px]"
+      aria-label={t`View call ${callId} in transcript`}
+      className="h-5 px-1.5 text-caption"
       onClick={() => links.onViewCall!(session, callId)}
       size="xs"
       type="button"
       variant="ghost"
     >
-      <MessageSquareTextIcon aria-hidden="true" /> View in transcript
+      <MessageSquareTextIcon aria-hidden="true" /> {t`View in transcript`}
     </Button>
   );
 }
@@ -73,7 +77,7 @@ function FileLine({
   file: { artifactId: string; path: string; sha256: string };
   links: ScienceCallLinks;
 }) {
-  const name = file.path || file.artifactId || 'unnamed file';
+  const name = file.path || file.artifactId || t`unnamed file`;
   const href = links.fileHref?.({
     ...(file.artifactId ? { artifactId: file.artifactId } : {}),
     ...(file.path ? { path: file.path } : {}),
@@ -90,6 +94,7 @@ function FileLine({
       )}
       {file.sha256 ? (
         <span className="ml-1.5 font-mono text-muted-foreground" title="SHA-256">
+          {/* i18n-ignore: hash algorithm name */}
           sha256 {file.sha256}
         </span>
       ) : null}
@@ -98,9 +103,9 @@ function FileLine({
 }
 
 const DIRECTION_LABEL: Record<SourceFile['direction'], string> = {
-  used: 'Read',
-  generated: 'Wrote',
-  script: 'Script',
+  used: t({ message: 'Read', context: 'past tense' }),
+  generated: t`Wrote`,
+  script: t`Script`,
 };
 
 function transformFile(file: TransformFile) {
@@ -126,34 +131,40 @@ function CallRecord({
   links: ScienceCallLinks;
 }) {
   const record = useTransformRecord(callId);
-  if (record.isPending) return <p role="status">Reading the call&apos;s record…</p>;
+  if (record.isPending) return <p role="status">{t`Reading the call's record…`}</p>;
   if (record.error)
     return (
       <p className="text-muted-foreground">
-        The call&apos;s record is not available: {record.error.message}
+        {t`The call's record is not available: ${ph({ message: record.error.message })}`}
       </p>
     );
   const { environment, instrument } = record.data;
   const versions = [
     environment.clio_version && `${vocab.agent} ${environment.clio_version}`,
+    // i18n-ignore: product name and version
     environment.python_version && `Python ${environment.python_version}`,
-    environment.image_digest && `image ${environment.image_digest}`,
+    environment.image_digest && t`image ${ph({ digest: environment.image_digest })}`,
   ].filter(Boolean);
   return (
     <div className="grid min-w-0 gap-0.5" data-slot="science-call-record">
-      <Fact label="Environment">
-        {environment.tier || 'not recorded'}
+      <Fact label={t`Environment`}>
+        {environment.tier || t`not recorded`}
         {versions.length ? (
           <span className="text-muted-foreground"> ({versions.join(', ')})</span>
         ) : null}
       </Fact>
-      <Fact label="Script">
+      <Fact label={t`Script`}>
         {instrument.script_hash ? (
-          <span className="font-mono">sha256 {instrument.script_hash}</span>
+          <span className="font-mono">
+            {/* i18n-ignore: hash algorithm name */}
+            sha256 {instrument.script_hash}
+          </span>
         ) : (
-          'no script recorded'
+          t`no script recorded`
         )}
-        {instrument.cmd ? <span className="font-mono">, run as {instrument.cmd}</span> : null}
+        {instrument.cmd ? (
+          <span className="font-mono">{t`, run as ${ph({ command: instrument.cmd })}`}</span>
+        ) : null}
       </Fact>
       {files ? (
         <ul className="grid min-w-0 gap-0.5">
@@ -161,7 +172,7 @@ function CallRecord({
             <FileLine
               file={transformFile(file)}
               key={`used:${index}`}
-              label="Input"
+              label={t`Input`}
               links={links}
             />
           ))}
@@ -169,12 +180,12 @@ function CallRecord({
             <FileLine
               file={transformFile(file)}
               key={`generated:${index}`}
-              label="Output"
+              label={t`Output`}
               links={links}
             />
           ))}
           {!record.data.used.length && !record.data.generated.length ? (
-            <li className="text-muted-foreground">No files were recorded for this call.</li>
+            <li className="text-muted-foreground">{t`No files were recorded for this call.`}</li>
           ) : null}
         </ul>
       ) : null}
@@ -203,12 +214,12 @@ function SourceRow({
         <ViewCall callId={row.callId} links={links} session={row.session} />
       </p>
       {args ? (
-        <Fact label="Arguments">
+        <Fact label={t`Arguments`}>
           <code className="font-mono">{args}</code>
         </Fact>
       ) : null}
       {row.startedAt || row.completedAt ? (
-        <Fact label="Ran">
+        <Fact label={t`Ran`}>
           {row.startedAt ? <time dateTime={row.startedAt}>{formatTime(row.startedAt)}</time> : null}
           {row.startedAt && row.completedAt ? ' to ' : null}
           {row.completedAt ? (
@@ -217,14 +228,15 @@ function SourceRow({
         </Fact>
       ) : null}
       {row.digest ? (
-        <Fact label="Result">
-          <span className="font-mono" title="Result digest (SHA-256)">
+        <Fact label={t`Result`}>
+          <span className="font-mono" title={t`Result digest (SHA-256)`}>
+            {/* i18n-ignore: hash algorithm name */}
             sha256 {row.digest}
           </span>
         </Fact>
       ) : null}
       {row.session ? (
-        <Fact label="Called in">{links.titles.get(row.session) || row.session}</Fact>
+        <Fact label={t`Called in`}>{links.titles.get(row.session) || row.session}</Fact>
       ) : null}
       {files.length ? (
         <ul className="grid min-w-0 gap-0.5">
@@ -262,11 +274,11 @@ export function ObservationSources({
   const files = sourceFiles(entry);
   return (
     <details
-      className="min-w-0 text-[11px]"
+      className="min-w-0 text-caption"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-        Sources ({rows.length})
+        {t`Sources (${ph({ count: rows.length })})`}
       </summary>
       <ul className="mt-1 grid min-w-0 gap-1.5">
         {rows.map((row, index) => (
@@ -303,12 +315,14 @@ export function AnalysisCall({
   if (!call.callId) return null;
   return (
     <details
-      className="min-w-0 text-[11px]"
+      className="min-w-0 text-caption"
       data-slot="science-analysis"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-        Analysis: <span className="font-mono">{call.callId}</span>
+        <Trans>
+          Analysis: <span className="font-mono">{call.callId}</span>
+        </Trans>
       </summary>
       <div className="mt-1 grid min-w-0 gap-0.5 border-l pl-2">
         <p>

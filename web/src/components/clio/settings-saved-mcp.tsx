@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRemoveSavedMcp } from '@/hooks/use-saved-mcp-services';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { DialogFrame } from './primitives/dialog-frame';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * Asks before removing a saved MCP service from its detail pane, where the row
@@ -22,18 +23,20 @@ export function RemoveSavedMcpDialog({
   return (
     <DialogFrame
       confirm={{
-        label: remove.isPending ? 'Removing…' : 'Remove',
+        label: remove.isPending ? t`Removing…` : t`Remove`,
         onConfirm: () => {
           if (service) remove.mutate(service);
         },
         tone: 'destructive',
         disabled: remove.isPending || !service,
       }}
-      description="New conversations no longer get its tools. A conversation using it now keeps it until its turn ends."
+      description={t`New conversations no longer get its tools. A conversation using it now keeps it until its turn ends.`}
       icon={<DeleteIcon />}
       onOpenChange={(open) => (open ? undefined : onClose())}
       open={Boolean(service)}
-      title={`Remove saved ${shown?.name ?? 'MCP server'}?`}
+      title={
+        shown?.name ? t`Remove saved ${ph({ name: shown.name })}?` : t`Remove saved MCP server?`
+      }
     />
   );
 }

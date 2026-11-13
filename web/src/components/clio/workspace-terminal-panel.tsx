@@ -29,6 +29,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { downloadBytes } from './surface-export';
+import { t, ph } from '@lingui/core/macro';
 
 export interface WorkspaceTerminalPanelProps {
   /** Identifies the owning workbench tab — the pty and its `Terminal`
@@ -100,7 +101,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
     return text;
   };
   const copyOutput = () =>
-    void attempt(async () => copyText(output()), 'Copied the terminal output.');
+    void attempt(async () => copyText(output()), t`Copied the terminal output.`);
   const openOutput = () => {
     const tab = window.open('about:blank', '_blank');
     void attempt(async () => {
@@ -112,27 +113,27 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
     });
   };
   const copy: CopyTake = {
-    face: { label: 'Copy output', run: copyOutput },
+    face: { label: t`Copy output`, run: copyOutput },
     rows: [
       {
         id: 'contents',
-        label: 'Contents',
+        label: t`Contents`,
         icon: <FileTextIcon />,
         accelerator: 'C',
         onSelect: copyOutput,
       },
       {
         id: 'absolute',
-        label: 'Absolute path',
+        label: t`Absolute path`,
         icon: <LinkIcon />,
         accelerator: 'A',
-        onSelect: () => void attempt(() => copyText(cwd), 'Copied the working folder.'),
+        onSelect: () => void attempt(() => copyText(cwd), t`Copied the working folder.`),
       },
     ],
   };
   const open: OpenTake = {
     face: {
-      label: 'Open the output in a browser tab',
+      label: t`Open the output in a browser tab`,
       run: openOutput,
       icon: <ExternalLinkIcon aria-hidden="true" />,
     },
@@ -140,14 +141,14 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
     rows: [
       {
         id: 'browser',
-        label: 'In a browser tab',
+        label: t`In a browser tab`,
         icon: <GlobeIcon />,
         accelerator: 'B',
         onSelect: openOutput,
       },
       {
         id: 'download',
-        label: 'Download',
+        label: t`Download`,
         icon: <DownloadIcon />,
         accelerator: 'D',
         separatorBefore: true,
@@ -167,7 +168,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
     <div className="flex h-full min-h-0 flex-col bg-background">
       <TooltipProvider delayDuration={200}>
         <FrameBar
-          label="Terminal"
+          label={t`Terminal`}
           where={
             <span className="flex min-w-0 items-center gap-1.5">
               <SquareTerminalIcon
@@ -177,7 +178,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
               <FrameCrumbs
                 parts={[
                   { label: folder, onSelect: openFolder ? () => openFolder('') : undefined },
-                  { label: 'Terminal' },
+                  { label: t`Terminal` },
                 ]}
               />
             </span>
@@ -186,15 +187,15 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
           format={
             <>
               <IconButton
-                label="Restart the shell"
+                label={t`Restart the shell`}
                 icon={<RetryIcon aria-hidden="true" />}
                 className="[&_svg]:size-3.5"
                 onClick={() => restartEmbeddedTerminalTab(tabId)}
               />
               <IconButton
-                label="Clear the terminal"
+                label={t`Clear the terminal`}
                 icon={<EraserIcon aria-hidden="true" />}
-                disabledReason={status.kind === 'running' ? undefined : 'The shell is not running'}
+                disabledReason={status.kind === 'running' ? undefined : t`The shell is not running`}
                 className="[&_svg]:size-3.5"
                 onClick={() => getEmbeddedTerminal(tabId)?.term?.clear()}
               />
@@ -202,8 +203,8 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
           }
           actions={
             <FrameTalkTake
-              addToMessage={{ reason: 'Terminal output is not a file', onSelect: () => undefined }}
-              comments={<FrameCommentsUnavailable reason="Not available for a terminal" />}
+              addToMessage={{ reason: t`Terminal output is not a file`, onSelect: () => undefined }}
+              comments={<FrameCommentsUnavailable reason={t`Not available for a terminal`} />}
               copy={copy}
               open={open}
             />
@@ -212,17 +213,21 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
       </TooltipProvider>
       <div className="flex min-h-0 flex-1 flex-col bg-terminal">
         <div
-          aria-label="Embedded terminal"
+          aria-label={t`Embedded terminal`}
           className="min-h-0 flex-1 overflow-hidden p-2"
           ref={containerRef}
           role="region"
         />
         {status.kind === 'exited' ? (
           <div className="flex items-center justify-between gap-2 border-t border-terminal-border bg-terminal-border/40 px-3 py-2 text-xs text-terminal-foreground/80">
-            <span>Shell exited{status.code !== null ? ` (code ${status.code})` : ''}</span>
+            <span>
+              {status.code !== null
+                ? t`Shell exited (code ${ph({ code: status.code })})`
+                : t`Shell exited`}
+            </span>
             <Button onClick={() => restartEmbeddedTerminalTab(tabId)} size="xs" variant="outline">
               <RetryIcon aria-hidden="true" />
-              Restart
+              {t`Restart`}
             </Button>
           </div>
         ) : null}
@@ -232,7 +237,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
             <span className="min-w-0 flex-1 truncate">{status.message}</span>
             <Button onClick={() => restartEmbeddedTerminalTab(tabId)} size="xs" variant="outline">
               <RetryIcon aria-hidden="true" />
-              Retry
+              {t`Retry`}
             </Button>
           </div>
         ) : null}
@@ -252,9 +257,9 @@ function terminalText(tabId: string): string | undefined {
 }
 
 function terminalStatusLabel(status: EmbeddedTerminalStatus): string {
-  if (status.kind === 'connecting') return 'Starting';
-  if (status.kind === 'running') return 'Running';
+  if (status.kind === 'connecting') return t`Starting`;
+  if (status.kind === 'running') return t`Running`;
   if (status.kind === 'exited')
-    return status.code === null ? 'Exited' : `Exited with code ${status.code}`;
-  return 'Failed to start';
+    return status.code === null ? t`Exited` : t`Exited with code ${ph({ code: status.code })}`;
+  return t`Failed to start`;
 }

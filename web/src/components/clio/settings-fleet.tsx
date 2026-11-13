@@ -1,80 +1,65 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Undo2Icon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { useFleetSettings } from '@/hooks/use-fleet-settings';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
-import { connectionScope } from '@/lib/connection-scope';
+import { BILLING_ORDER, billingLabel } from '@/lib/fleet-usage';
 import type { ClioModelOption } from '@/lib/model-options';
+import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ModelSelectField } from './model-select-field';
-import { IconButton } from './primitives/icon-button';
+import { DelegationSwitch } from './delegation-switch';
+import { FleetModelField, type FleetChoice } from './fleet-model-field';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 const roles = [
-  ['goals', 'Goals', 'Checks evidence of completion and guides the next step.'],
-  ['variants', 'Best of N and refinement', 'Evaluates candidate answers and refinements.'],
+  ['goals', t`Goals`, t`Checks evidence of completion and guides the next step.`],
+  ['variants', t`Best of N and refinement`, t`Evaluates candidate answers and refinements.`],
   [
     'permissions',
-    'Automode permissions',
-    'Classifies operation risk. High risk requires your approval.',
+    t`Automode permissions`,
+    t`Classifies operation risk. High risk requires your approval.`,
   ],
   [
     'memory_extract',
-    'Memory: noticing facts',
-    'Reads finished conversations for facts worth keeping. Unset uses the server default model.',
+    t`Memory: noticing facts`,
+    t`Reads finished conversations for facts worth keeping.`,
   ],
-  [
-    'memory_consolidate',
-    'Memory: organizing',
-    'Merges, replaces and retires remembered facts. Unset uses the server default model.',
-  ],
+  ['memory_consolidate', t`Memory: organizing`, t`Merges, replaces and retires remembered facts.`],
   [
     'explore',
-    'Explore',
-    'Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick. Unset uses the conversation model.',
+    t`Explore`,
+    t`Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick.`,
   ],
 ] as const;
 
-interface FleetChoice {
-  provider_id: string;
-  model_id: string;
-}
-
 /**
- * Helper models, as setting rows under the Models page: each role's field
- * opens the one model picker; ↶ returns it to the conversation's model.
- * Null inherits the conversation model (memory roles: the server default).
+ * Helper models, as setting rows under the Models page: one global choice
+ * (the fast model, on the Models rows above) that every helper runs on, and
+ * a per-helper override that ↶ returns to it. Then which accounts delegated
+ * work may use. An older agent without a fast model keeps its own defaults:
+ * the conversation's model, the server default for memory.
  */
 export function FleetSettingsPanel() {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const client = useQueryClient();
-  const key = ['fleet-settings', settings.endpoint, connectionScope(settings)];
-  const fleet = useQuery({
-    queryKey: key,
-    queryFn: ({ signal }) => repository.fleetSettings(signal),
-  });
+  const { query: fleet, save } = useFleetSettings();
   const { options, catalog } = useProviderGroups();
-  const save = useMutation({
-    mutationFn: (input: Parameters<typeof repository.updateFleetSettings>[0]) =>
-      repository.updateFleetSettings(input),
-    onSuccess: (data) => client.setQueryData(key, data),
-  });
   const heading = (
     <SettingsGroupLabel className="mt-6">
-      <span id="settings-helper-models">Helper models</span>
+      <span id="settings-helper-models">{t`Helper models`}</span>
     </SettingsGroupLabel>
   );
   if (fleet.isPending)
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <StateView kind="loading" size="row" title="Loading helper models…" />
+        <StateView kind="loading" size="row" title={t`Loading helper models…`} />
       </section>
     );
   if (fleet.error || !fleet.data)
@@ -83,26 +68,18 @@ export function FleetSettingsPanel() {
         {heading}
         <div className="w-full @3xl:w-[60%]" title={fleet.error?.message}>
           <StateView
-            action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void fleet.refetch() }}
             kind="error"
             size="row"
-            title="The agent could not load helper models."
+            title={t`The agent could not load helper models.`}
           />
         </div>
       </section>
     );
   const data = fleet.data;
+  const fastKnown = data.fast !== undefined;
   const catalogStatus = catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready';
-  const field = ({
-    id,
-    title,
-    pickerTitle,
-    choice,
-    unset,
-    disabled = false,
-    onChoose,
-    onReset,
-  }: {
+  const field = (props: {
     id: string;
     title: string;
     pickerTitle: string;
@@ -111,65 +88,51 @@ export function FleetSettingsPanel() {
     disabled?: boolean;
     onChoose: (model: ClioModelOption) => void;
     onReset: () => void;
-  }) => {
-    const option = choice
-      ? options.find(
-          (candidate) =>
-            candidate.providerId === choice.provider_id && candidate.id === choice.model_id,
-        )
-      : undefined;
-    return (
-      // The select fills the value column; inline-size containment keeps a long
-      // model name from widening that column, so every select shares one left
-      // edge. The reset sits just outside it, in the gap before the column; when
-      // the row stacks it moves up to the end of the label line, so the select
-      // keeps the row's full width.
-      <div className="relative flex w-full min-w-0 items-center gap-2 [contain:inline-size]">
-        {choice ? (
-          <IconButton
-            className="absolute right-0 bottom-[calc(100%+0.375rem)] @md:right-full @md:bottom-auto @md:mr-2 max-[1023px]:in-data-window-content:right-0! max-[1023px]:in-data-window-content:bottom-[calc(100%+0.375rem)]! max-[1023px]:in-data-window-content:mr-0!"
-            disabled={save.isPending}
-            icon={<Undo2Icon />}
-            label="Use conversation model"
-            onClick={onReset}
-            size="sm"
-          />
-        ) : null}
-        <ModelSelectField
-          busy={save.isPending}
-          catalogStatus={catalogStatus}
-          disabled={disabled}
-          id={id}
-          label={title}
-          modelId={choice?.model_id}
-          onChange={onChoose}
-          onRetryCatalog={() => void catalog.refetch()}
-          option={option}
-          options={options}
-          placeholder={unset}
-          providerId={choice?.provider_id}
-          title={pickerTitle}
-        />
-      </div>
-    );
-  };
+  }) => (
+    <FleetModelField
+      busy={save.isPending}
+      catalogStatus={catalogStatus}
+      choice={props.choice}
+      disabled={props.disabled}
+      id={props.id}
+      label={props.title}
+      onChoose={props.onChoose}
+      onReset={props.onReset}
+      onRetryCatalog={() => void catalog.refetch()}
+      options={options}
+      pickerTitle={props.pickerTitle}
+      resetLabel={fastKnown ? t`Use the fast model` : t`Use conversation model`}
+      unset={props.unset}
+    />
+  );
   return (
     <section aria-labelledby="settings-helper-models" data-slot="helper-models">
-      {heading}
+      <SettingsGroupLabel
+        className="mt-6"
+        info={
+          fastKnown
+            ? t`Each helper runs on the fast model unless you choose one for it here.`
+            : undefined
+        }
+      >
+        <span id="settings-helper-models">{t`Helper models`}</span>
+      </SettingsGroupLabel>
       <SettingsRow
-        description={`Answers questions and finds conversations, messages, and files. Press Tab in search to use it.`}
+        description={t`Answers questions and finds conversations, messages, and files. Press Tab in search to use it.`}
         htmlFor="fleet-search"
         note={
-          data.search === undefined ? 'Update this connection’s agent to enable search.' : undefined
+          data.search === undefined
+            ? t`Update this connection’s agent to enable search.`
+            : undefined
         }
-        title={`${vocab.agent} Search`}
+        title={t`${agent} Search`}
       >
         {field({
           id: 'fleet-search',
-          title: `${vocab.agent} Search`,
-          pickerTitle: `Choose ${vocab.agent} Search model`,
+          title: t`${agent} Search`,
+          pickerTitle: t`Choose ${agent} Search model`,
           choice: data.search,
-          unset: 'Conversation or service model',
+          unset: fastKnown ? t`Fast model` : t`Conversation or service model`,
           disabled: data.search === undefined,
           onChoose: (model) =>
             save.mutate({ ...data, search: { provider_id: model.providerId, model_id: model.id } }),
@@ -178,16 +141,16 @@ export function FleetSettingsPanel() {
       </SettingsRow>
       {data.spotter !== undefined ? (
         <SettingsRow
-          description="Watches actions under SPOTTER review. A conversation can choose its own model."
+          description={t`Watches actions under SPOTTER review. A conversation can choose its own model.`}
           htmlFor="fleet-spotter"
-          title="SPOTTER review"
+          title={t`SPOTTER review`}
         >
           {field({
             id: 'fleet-spotter',
-            title: 'SPOTTER review',
-            pickerTitle: 'Choose SPOTTER model',
+            title: t`SPOTTER review`,
+            pickerTitle: t`Choose SPOTTER model`,
             choice: data.spotter,
-            unset: 'Conversation model',
+            unset: fastKnown ? t`Fast model` : t`Conversation model`,
             onChoose: (model) =>
               save.mutate({
                 ...data,
@@ -202,7 +165,11 @@ export function FleetSettingsPanel() {
         .map(([role, title, description]) => {
           const choice = data.judges[role];
           // Memory roles never borrow the conversation's model (MD13).
-          const unset = role.startsWith('memory_') ? 'Server default model' : 'Conversation model';
+          const unset = fastKnown
+            ? t`Fast model`
+            : role.startsWith('memory_')
+              ? t`Server default model`
+              : t`Conversation model`;
           return (
             <SettingsRow
               description={description}
@@ -213,7 +180,7 @@ export function FleetSettingsPanel() {
               {field({
                 id: `fleet-${role}`,
                 title,
-                pickerTitle: `Choose ${title} judge`,
+                pickerTitle: t`Choose ${title} judge`,
                 choice,
                 unset,
                 onChoose: (model) =>
@@ -241,7 +208,64 @@ export function FleetSettingsPanel() {
           {save.error.message}
         </p>
       ) : null}
+      <DelegationSettings />
     </section>
+  );
+}
+
+/**
+ * Delegation: one switch per connected account, whether the agent may run
+ * delegated work on it without asking. An account that is off is asked about
+ * once per conversation. The same switch shows on each Usage row.
+ */
+function DelegationSettings() {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const fleet = useQuery({
+    queryKey: queryKeys.key('fleet', settings.endpoint),
+    queryFn: ({ signal }) => repository.fleet({}, signal),
+  });
+  const accounts = [...(fleet.data?.accounts ?? [])].sort(
+    (a, b) => BILLING_ORDER.indexOf(a.billing) - BILLING_ORDER.indexOf(b.billing),
+  );
+  return (
+    <div data-settings-anchor="delegation" data-slot="delegation-settings">
+      <SettingsGroupLabel
+        info={t`Turn an account on to let ${agent} run delegated work on it without asking. An account that is off is asked about once per conversation.`}
+      >
+        <span id="settings-delegation">{t`Delegation`}</span>
+      </SettingsGroupLabel>
+      {fleet.isPending ? (
+        <StateView kind="loading" size="row" title={t`Loading accounts…`} />
+      ) : fleet.error ? (
+        <div className="w-full @3xl:w-[60%]" title={fleet.error.message}>
+          <StateView
+            action={{ label: t`Retry`, onClick: () => void fleet.refetch() }}
+            kind="error"
+            size="row"
+            title={t`The agent could not load accounts.`}
+          />
+        </div>
+      ) : accounts.length ? (
+        accounts.map((account) => (
+          <SettingsRow
+            description={billingLabel(account.billing)}
+            htmlFor={`delegation-models-${account.id}`}
+            inlineControl
+            key={account.id}
+            title={account.label}
+          >
+            <DelegationSwitch
+              account={account}
+              id={`delegation-models-${account.id}`}
+              size="default"
+            />
+          </SettingsRow>
+        ))
+      ) : (
+        <StateView kind="empty" size="row" title={t`No account connected`} />
+      )}
+    </div>
   );
 }
 
@@ -272,13 +296,13 @@ function ExploreNudgeSetting({
   return (
     <>
       <SettingsRow
-        description="After a run of searches and reads, remind the agent that Explore can take over the search. It is a suggestion; the agent decides."
+        description={t`After a run of searches and reads, remind the agent that Explore can take over the search. It is a suggestion; the agent decides.`}
         htmlFor="fleet-explore-nudge"
         inlineControl
-        title="Suggest Explore while searching"
+        title={t`Suggest Explore while searching`}
       >
         <Switch
-          aria-label="Suggest Explore while searching"
+          aria-label={t`Suggest Explore while searching`}
           checked={value.enabled}
           disabled={pending}
           id="fleet-explore-nudge"
@@ -286,12 +310,12 @@ function ExploreNudgeSetting({
         />
       </SettingsRow>
       <SettingsRow
-        description="How many searches and reads in a row before the suggestion, from 2 to 20."
+        description={t`How many searches and reads in a row before the suggestion, from 2 to 20.`}
         htmlFor="fleet-explore-after"
-        title="Reads before the suggestion"
+        title={t`Reads before the suggestion`}
       >
         <Slider
-          aria-label="Reads before the Explore suggestion"
+          aria-label={t`Reads before the Explore suggestion`}
           className="w-[34%] min-w-[5.625rem] shrink-0"
           disabled={pending || !value.enabled}
           max={20}
@@ -299,11 +323,11 @@ function ExploreNudgeSetting({
           onValueChange={(next) => setDraft(next[0])}
           onValueCommit={(next) => commit(next[0])}
           step={1}
-          thumbProps={() => ({ 'aria-label': 'Reads before the Explore suggestion' })}
+          thumbProps={() => ({ 'aria-label': t`Reads before the Explore suggestion` })}
           value={[after]}
         />
         <Input
-          aria-label="Reads before the Explore suggestion, as a number"
+          aria-label={t`Reads before the Explore suggestion, as a number`}
           className="w-[4.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums md:text-xs"
           // While a number is typed, Esc only reverts it; the window's Esc listener runs first.
           data-escape-scope={typed === undefined ? undefined : ''}

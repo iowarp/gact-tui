@@ -33,6 +33,7 @@ import type { ProviderGroup } from './model-picker-model';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { ph, plural, t } from '@lingui/core/macro';
 
 interface ModelServerRowProps {
   /** The preset the server is reached through (a catalog runtime, or `vllm` for a custom one). */
@@ -94,11 +95,11 @@ export function ModelServerRow({
   const local = isLoopbackAddress(address);
   const error = save.error ?? check.error ?? localCheck.error ?? remove.error;
   const removable = Boolean(saved);
-  const removeLabel = custom ? 'Remove' : 'Reset address';
+  const removeLabel = custom ? t`Remove` : t`Reset address`;
 
   const words = serverStatusWords(status, address, label);
   const state: { tone: StatusTone; label: string; hint?: string } = pending
-    ? { tone: 'running', label: mode === 'remove' ? 'Removing' : 'Checking' }
+    ? { tone: 'running', label: mode === 'remove' ? t`Removing` : t`Checking` }
     : words;
 
   const detail = error
@@ -106,9 +107,9 @@ export function ModelServerRow({
     : notice
       ? notice
       : status.kind === 'running'
-        ? `${status.models} ${status.models === 1 ? 'model' : 'models'}`
+        ? plural(status.models, { one: '# model', other: '# models' })
         : status.kind === 'stopped' && !local
-          ? 'No answer at this address'
+          ? t`No answer at this address`
           : undefined;
 
   function focusRow() {
@@ -162,7 +163,7 @@ export function ModelServerRow({
     }
     const found = await runCheck().catch(() => undefined);
     if (found?.reachable) onUse(address, found.models[0]);
-    else setNotice(`Start ${label}, then choose Use`);
+    else setNotice(t`Start ${label}, then choose Use`);
   }
 
   function askRemove() {
@@ -194,7 +195,7 @@ export function ModelServerRow({
   const meta =
     mode === 'edit' ? (
       <Input
-        aria-label={`${label} address`}
+        aria-label={t`${label} address`}
         autoComplete="url"
         autoFocus
         className="h-5 rounded-[4px] px-1.5 font-mono text-xs md:text-xs"
@@ -237,7 +238,7 @@ export function ModelServerRow({
       <>
         <IconButton
           icon={<EditIcon />}
-          label="Edit address"
+          label={t`Edit address`}
           onClick={startEdit}
           shortcut="menu-pick"
           size="sm"
@@ -255,7 +256,7 @@ export function ModelServerRow({
           <DropdownMenuTrigger asChild>
             <IconButton
               icon={<MoreIcon />}
-              label={`More for ${label}`}
+              label={t`More for ${label}`}
               shortcut="focused-menu"
               size="sm"
             />
@@ -276,7 +277,7 @@ export function ModelServerRow({
               onSelect={() => void runCheck().catch(() => undefined)}
             >
               <RefreshIcon aria-hidden="true" />
-              Check again
+              {t`Check again`}
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
@@ -284,11 +285,11 @@ export function ModelServerRow({
               }}
             >
               <InfoIcon aria-hidden="true" />
-              Details
+              {t`Details`}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={startEdit}>
               <EditIcon aria-hidden="true" />
-              Edit address
+              {t`Edit address`}
             </DropdownMenuItem>
             {removable ? (
               <>
@@ -303,7 +304,7 @@ export function ModelServerRow({
         </DropdownMenu>
       </>
     ) : (
-      <IconButton icon={<CloseIcon />} label="Cancel" onClick={cancel} size="sm" />
+      <IconButton icon={<CloseIcon />} label={t`Cancel`} onClick={cancel} size="sm" />
     );
 
   const slot =
@@ -315,18 +316,18 @@ export function ModelServerRow({
         size="sm"
         type="button"
       >
-        Save
+        {t`Save`}
       </Button>
     ) : isDefault ? (
       <span
-        className="inline-flex items-center rounded-[7px] bg-hover px-2 py-[3px] text-[13px] text-foreground"
+        className="inline-flex items-center rounded-[7px] bg-hover px-2 py-[3px] text-ui text-foreground"
         data-slot="server-in-use"
       >
-        In use
+        {t`In use`}
       </span>
     ) : status.kind === 'running' || (status.kind === 'stopped' && local) ? (
       <Button
-        aria-label={`Use ${label}`}
+        aria-label={t`Use ${label}`}
         disabled={applying || pending}
         onClick={() => void use()}
         className={SLOT_BUTTON}
@@ -334,11 +335,11 @@ export function ModelServerRow({
         type="button"
         variant="outline"
       >
-        Use
+        {t`Use`}
       </Button>
     ) : (
       <Button
-        aria-label={status.kind === 'unknown' ? `Check ${label}` : `Retry ${label}`}
+        aria-label={status.kind === 'unknown' ? t`Check ${label}` : t`Retry ${label}`}
         disabled={pending}
         onClick={() => void runCheck().catch(() => undefined)}
         className={SLOT_BUTTON}
@@ -346,15 +347,17 @@ export function ModelServerRow({
         type="button"
         variant="outline"
       >
-        {status.kind === 'unknown' ? 'Check' : 'Retry'}
+        {status.kind === 'unknown' ? t`Check` : t`Retry`}
       </Button>
     );
 
   const confirm =
     mode === 'remove' ? (
       <>
-        <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
-          {custom ? `Remove ${label}?` : `Go back to ${shortServerAddress(preset.api_base ?? '')}?`}
+        <span className="min-w-0 truncate text-menu text-destructive" role="alert">
+          {custom
+            ? t`Remove ${label}?`
+            : t`Go back to ${ph({ address: shortServerAddress(preset.api_base ?? '') })}?`}
         </span>
         <Button
           autoFocus
@@ -364,7 +367,7 @@ export function ModelServerRow({
           type="button"
           variant="ghost"
         >
-          Keep
+          {t`Keep`}
         </Button>
         <Button
           className={SLOT_BUTTON}
@@ -374,7 +377,7 @@ export function ModelServerRow({
           type="button"
           variant={custom ? 'destructive' : 'outline'}
         >
-          {custom ? 'Remove' : 'Reset'}
+          {custom ? t`Remove` : t`Reset`}
         </Button>
       </>
     ) : undefined;

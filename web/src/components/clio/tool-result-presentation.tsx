@@ -45,6 +45,7 @@ import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
+import { t } from '@lingui/core/macro';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation(props: {
@@ -80,10 +81,7 @@ function ToolResultBody({
   const reading = answeredQuestionReading(recordedTool, interactions);
   if (reading)
     return (
-      <div
-        className="ml-7 min-w-0 overflow-hidden rounded-md border"
-        data-slot="tool-human-result"
-      >
+      <div className="ml-7 min-w-0 overflow-hidden rounded-md border" data-slot="tool-human-result">
         <QuestionAnswerReader reading={reading} />
       </div>
     );
@@ -146,7 +144,7 @@ function ToolResultBody({
           {contentBlocks.some((block) => block.content_ref) ? (
             <PagedBlock block={contentBlocks[0]} groupedBlocks={contentBlocks} lines={budget} />
           ) : (
-            <BoundedResult lines={budget} title={subject.label || 'File contents'}>
+            <BoundedResult lines={budget} title={subject.label || t`File contents`}>
               {contentBlocks.map((block) => (
                 <BlockBody key={block.id} block={block} text={block.text ?? ''} />
               ))}
@@ -212,8 +210,8 @@ function ToolResultBody({
       ? contentBlocks
       : [];
   const linkListTitle = resourceListBlocks.every((block) => block.target === 'resource')
-    ? 'Workspace resources'
-    : 'Files';
+    ? t`Workspace resources`
+    : t`Files`;
   if (resourceListBlocks.length) {
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
@@ -316,8 +314,8 @@ function ToolResultBody({
             )
               schedules.push(blocks[i]);
             return (
-              <BoundedResult key={block.id} lines={3} unit="items" title="Schedules">
-                <ul aria-label="Schedules" className="border-l pl-3">
+              <BoundedResult key={block.id} lines={3} unit="items" title={t`Schedules`}>
+                <ul aria-label={t`Schedules`} className="border-l pl-3">
                   {schedules.map((schedule) => (
                     <SchedulePresentationItem key={schedule.id} block={schedule} />
                   ))}
@@ -351,8 +349,8 @@ function ToolResultBody({
                 )}
               />
               {removed.length ? (
-                <BoundedResult title="Removed todos" lines={1} unit="items">
-                  <ul aria-label="Removed todos">
+                <BoundedResult title={t`Removed todos`} lines={1} unit="items">
+                  <ul aria-label={t`Removed todos`}>
                     {removed.map((check) => (
                       <li key={check.id}>
                         <BlockBody block={check} text={check.text ?? ''} />
@@ -397,7 +395,9 @@ function ToolResultBody({
               ) : null}
               <BoundedResult
                 lines={budget}
-                title={collectedChildOutput ? 'Collected child output' : (block.label ?? undefined)}
+                title={
+                  collectedChildOutput ? t`Collected child output` : (block.label ?? undefined)
+                }
               >
                 <BlockBody block={block} text={block.text ?? ''} />
               </BoundedResult>

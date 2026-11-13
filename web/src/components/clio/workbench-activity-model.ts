@@ -25,6 +25,7 @@ import {
   getToolSubject,
 } from './tool-presentation';
 import { fileName } from './workbench-shared';
+import { plural, ph, t } from '@lingui/core/macro';
 
 /** What one Activity row is about; it picks the icon and what a click opens. */
 export type ActivityKind =
@@ -54,22 +55,22 @@ export type ActivityFilter =
   | 'outputs';
 
 export const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
-  { id: 'tools', label: 'Tool calls' },
-  { id: 'files', label: 'Files' },
-  { id: 'subagents', label: 'Subagents' },
-  { id: 'tasks', label: 'Tasks and processes' },
-  { id: 'questions', label: 'Questions' },
-  { id: 'approvals', label: 'Approvals' },
-  { id: 'work', label: 'Work items' },
-  { id: 'outputs', label: 'Outputs and sources' },
+  { id: 'tools', label: t`Tool calls` },
+  { id: 'files', label: t`Files` },
+  { id: 'subagents', label: t`Subagents` },
+  { id: 'tasks', label: t`Tasks and processes` },
+  { id: 'questions', label: t`Questions` },
+  { id: 'approvals', label: t`Approvals` },
+  { id: 'work', label: t`Work items` },
+  { id: 'outputs', label: t`Outputs and sources` },
 ];
 
 export type ActivityGroup = 'now' | 'turn' | 'earlier';
 
 export const ACTIVITY_GROUPS: readonly { id: ActivityGroup; label: string }[] = [
-  { id: 'now', label: 'Now' },
-  { id: 'turn', label: 'This turn' },
-  { id: 'earlier', label: 'Earlier' },
+  { id: 'now', label: t`Now` },
+  { id: 'turn', label: t`This turn` },
+  { id: 'earlier', label: t`Earlier` },
 ];
 
 export type WorkSlot = 'plan' | 'todos' | 'goal' | 'loop' | 'schedule';
@@ -137,16 +138,31 @@ const DELEGATION_TOOLS = new Set([
   'run_flow',
   'run_workflow',
 ]);
-const FILE_VERBS: Record<string, string> = {
-  fs_read_file: 'Read',
-  fs_write_file: 'Wrote',
-  fs_edit_file: 'Edited',
+/** A file tool's row name, with the file it touched. */
+const FILE_VERBS: Record<string, (file: string) => string> = {
+  fs_read_file: (file) => t`Read ${file}`,
+  fs_write_file: (file) => t`Wrote ${file}`,
+  fs_edit_file: (file) => t`Edited ${file}`,
+};
+
+/** A state as the trailing column and status line say it. */
+const STATE_WORDS: Record<string, string> = {
+  completed: t`done`,
+  succeeded: t`done`,
+  task_state_uncertain: t`needs inspection`,
+  running: t`running`,
+  paused: t`paused`,
+  queued: t`queued`,
+  failed: t`failed`,
+  error: t`error`,
+  denied: t`denied`,
+  cancelled: t`cancelled`,
+  interrupted: t`interrupted`,
+  pending: t`pending`,
 };
 
 function stateWord(state: string): string {
-  if (state === 'completed' || state === 'succeeded') return 'done';
-  if (state === 'task_state_uncertain') return 'needs inspection';
-  return state.replaceAll('_', ' ');
+  return STATE_WORDS[state] ?? state.replaceAll('_', ' ');
 }
 
 function inputPath(tool: ToolInvocation): string | undefined {
@@ -156,7 +172,7 @@ function inputPath(tool: ToolInvocation): string | undefined {
   return typeof path === 'string' && path ? path : undefined;
 }
 
-function toolVerb(name: string): string | undefined {
+function toolVerb(name: string): ((file: string) => string) | undefined {
   return FILE_VERBS[name] ?? FILE_VERBS[name.split(/[.:/]/u).pop() ?? ''];
 }
 
@@ -239,9 +255,10 @@ function commandBrief(command: string): string {
 function waitName(tool: ToolInvocation): string {
   const input = tool.input as Record<string, unknown> | undefined;
   const tasks = input && typeof input === 'object' ? input.tasks : undefined;
-  if (tasks === 'all') return 'Wait for all tasks';
-  if (Array.isArray(tasks) && tasks.length > 1) return `Wait for ${tasks.length} tasks`;
-  return 'Wait for a task';
+  if (tasks === 'all') return t`Wait for all tasks`;
+  if (Array.isArray(tasks) && tasks.length > 1)
+    return plural(tasks.length, { one: 'Wait for # task', other: 'Wait for # tasks' });
+  return t`Wait for a task`;
 }
 
 /**
@@ -252,23 +269,24 @@ function waitName(tool: ToolInvocation): string {
 export function toolActivityName(tool: ToolInvocation): string {
   const path = inputPath(tool);
   const verb = toolVerb(tool.name);
-  if (verb && path) return `${verb} ${fileName(path)}`;
+  if (verb && path) return verb(fileName(path));
   const family = TOOL_OPERATIONS[tool.name]?.family;
   if (family === 'wait') return waitName(tool);
   if (tool.name === 'spawn_agent_task') {
     const what = inputText(tool, 'name') ?? inputText(tool, 'task')?.split(/(?<=\.)\s|\n/u)[0];
     if (what && !isGenericActivitySubject(what))
-      return `Delegate ${lowerFirst(withoutAbsolutePaths(what))}`;
+      return t`Delegate ${ph({ task: lowerFirst(withoutAbsolutePaths(what)) })}`;
   }
   const action = getToolActionLabel(tool).trim() || tool.name;
   const command =
     inputText(tool, 'command') ??
     tool.presentation?.blocks.find((block) => block.type === 'terminal' && block.command)?.command;
-  if (command && !getToolSubject(tool)) return `${action} ${commandBrief(command)}`;
+  if (command && !getToolSubject(tool))
+    return t`${action} ${ph({ command: commandBrief(command) })}`;
   const title = getToolActivityTitle(tool);
   const subject = /\((.+)\)$/u.exec(title)?.[1]?.trim();
   if (!subject || isGenericActivitySubject(subject)) return action;
-  return `${action} ${subject}`;
+  return t`${action} ${subject}`;
 }
 
 /** How long a finished call took, from its reported duration or its timestamps. */
@@ -291,11 +309,11 @@ function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
   const duration = tool.duration_ms !== undefined ? formatToolDuration(tool.duration_ms) : '';
   const brief = tool.duration_ms !== undefined ? compactDuration(tool.duration_ms) : '';
   const trailing = running
-    ? (percent(tool.progress, tool.progress_total) ?? 'running')
+    ? (percent(tool.progress, tool.progress_total) ?? t`running`)
     : failed
       ? stateWord(status)
       : brief || stateWord(status);
-  const statusWords = running ? 'running' : stateWord(status);
+  const statusWords = running ? t`running` : stateWord(status);
   return {
     id: `tool:${tool.id}`,
     kind: verb && path ? 'file' : isSearch ? 'search' : 'tool',
@@ -303,7 +321,7 @@ function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
     group: running ? 'now' : group,
     name: toolActivityName(tool),
     trailing,
-    status: duration && !running ? `${statusWords}, ${duration}` : statusWords,
+    status: duration && !running ? t`${statusWords}, ${duration}` : statusWords,
     running,
     failed,
     at: tool.started_at ?? tool.completed_at,
@@ -321,15 +339,19 @@ function diffRow(diff: SessionDiff, group: ActivityGroup): ActivityItem {
   const added = diff.lines_added ?? 0;
   const removed = diff.lines_removed ?? 0;
   const reverted = diff.status === 'reverted';
-  const name = `${diff.created ? 'Created' : 'Edited'} ${fileName(diff.path)}`;
+  const file = fileName(diff.path);
+  const name = diff.created ? t`Created ${file}` : t`Edited ${file}`;
+  const lines = plural(added, { one: '# line added', other: '# lines added' });
   return {
     id: `diff:${diff.id}`,
     kind: 'diff',
     filter: 'files',
     group,
     name,
-    trailing: reverted ? 'reverted' : `+${added} \u2212${removed}`,
-    status: `${reverted ? 'reverted' : 'applied'}, ${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed`,
+    trailing: reverted ? t`reverted` : `+${added} \u2212${removed}`,
+    status: reverted
+      ? t`reverted, ${lines}, ${removed} removed`
+      : t`applied, ${lines}, ${removed} removed`,
     running: false,
     failed: false,
     at: diff.recorded_at,
@@ -352,15 +374,15 @@ function taskRows(input: ActivityInput, groupAt: (at?: string) => ActivityGroup)
       : undefined;
     const trailing = settled
       ? stateWord(state)
-      : (progress ?? (isAgent ? 'subagent' : running ? 'running' : stateWord(state)));
+      : (progress ?? (isAgent ? t`subagent` : running ? t`running` : stateWord(state)));
     return {
       id: process ? `process:${process.id}` : `subagent:${subagent!.id}`,
       kind: isAgent ? 'subagent' : 'process',
       filter: isAgent ? 'subagents' : 'tasks',
       group: settled ? groupAt(at) : 'now',
-      name: process?.title || subagent?.title || 'Task',
+      name: process?.title || subagent?.title || t`Task`,
       trailing,
-      status: settled ? stateWord(state) : running ? 'running' : stateWord(state),
+      status: settled ? stateWord(state) : running ? t`running` : stateWord(state),
       running,
       failed: FAILED_STATES.has(state),
       at,
@@ -380,9 +402,9 @@ function interactionRows(interactions: readonly PendingInteraction[]): ActivityI
           kind: 'question',
           filter: 'questions',
           group: 'now',
-          name: interaction.title || interaction.prompt || 'Question',
-          trailing: 'needs you',
-          status: 'needs your answer',
+          name: interaction.title || interaction.prompt || t`Question`,
+          trailing: t`needs you`,
+          status: t`needs your answer`,
           running: false,
           failed: false,
           at: interaction.created_at,
@@ -397,9 +419,9 @@ function interactionRows(interactions: readonly PendingInteraction[]): ActivityI
         kind: 'approval',
         filter: 'approvals',
         group: pending ? 'now' : 'earlier',
-        name: interaction.title || interaction.source.tool_name || 'Approval',
-        trailing: pending ? 'approve' : stateWord(interaction.status),
-        status: pending ? 'waiting for approval' : stateWord(interaction.status),
+        name: interaction.title || interaction.source.tool_name || t`Approval`,
+        trailing: pending ? t`approve` : stateWord(interaction.status),
+        status: pending ? t`waiting for approval` : stateWord(interaction.status),
         running: false,
         failed: false,
         at: interaction.created_at,
@@ -438,9 +460,9 @@ function workRows(work: SessionWork | undefined): ActivityItem[] {
     row(
       'plan',
       'plan',
-      'Plan',
-      short(work.plan.status) ?? 'plan',
-      `plan ${work.plan.status}`,
+      t`Plan`,
+      short(work.plan.status) ?? t`plan`,
+      t`plan ${ph({ status: work.plan.status })}`,
       true,
     );
   if (work.todos.length) {
@@ -448,9 +470,9 @@ function workRows(work: SessionWork | undefined): ActivityItem[] {
     row(
       'todos',
       'todos',
-      'Todos',
+      t`Todos`,
       `${done}/${work.todos.length}`,
-      `${done} of ${work.todos.length} done`,
+      t`${done} of ${ph({ total: work.todos.length })} done`,
       done < work.todos.length,
     );
   }
@@ -461,7 +483,9 @@ function workRows(work: SessionWork | undefined): ActivityItem[] {
     row(
       kind,
       `${kind}:${record.id}`,
-      `${kind === 'goal' ? 'Goal' : 'Loop'}: ${record.title}`,
+      kind === 'goal'
+        ? t`Goal: ${ph({ title: record.title })}`
+        : t`Loop: ${ph({ title: record.title })}`,
       short(stateWord(phase)) ?? stateWord(record.state),
       stateWord(phase),
       record.state === 'active' || record.state === 'paused',
@@ -472,9 +496,9 @@ function workRows(work: SessionWork | undefined): ActivityItem[] {
     row(
       'schedule',
       `schedule:${schedule.id}`,
-      `Scheduled: ${schedule.question}`,
-      schedule.enabled ? 'scheduled' : 'paused',
-      schedule.enabled ? 'scheduled' : 'paused',
+      t`Scheduled: ${ph({ question: schedule.question })}`,
+      schedule.enabled ? t`scheduled` : t`paused`,
+      schedule.enabled ? t`scheduled` : t`paused`,
       schedule.enabled,
     );
   return rows;
@@ -527,9 +551,12 @@ export function activityItems(input: ActivityInput): ActivityItem[] {
       kind: 'turn',
       filter: 'tools',
       group: 'earlier',
-      name: `Turn ${index + 1}`,
-      trailing: `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`,
-      status: `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}, ${stateWord(run.state)}`,
+      name: t`Turn ${ph({ number: index + 1 })}`,
+      trailing: plural(steps.length, { one: '# step', other: '# steps' }),
+      status: plural(steps.length, {
+        one: `# step, ${ph({ state: stateWord(run.state) })}`,
+        other: `# steps, ${ph({ state: stateWord(run.state) })}`,
+      }),
       running: false,
       failed: FAILED_STATES.has(run.state),
       at: run.started_at,
@@ -557,8 +584,8 @@ export function activityItems(input: ActivityInput): ActivityItem[] {
       filter: 'tasks',
       group: running ? 'now' : 'turn',
       name: task.title,
-      trailing: running ? 'running' : stateWord(task.state),
-      status: running ? 'running' : stateWord(task.state),
+      trailing: running ? t`running` : stateWord(task.state),
+      status: running ? t`running` : stateWord(task.state),
       running,
       failed: FAILED_STATES.has(task.state),
       task,
@@ -573,8 +600,8 @@ export function activityItems(input: ActivityInput): ActivityItem[] {
       filter: 'outputs',
       group: groupAt(artifact.created_at),
       name: artifactDisplayName(artifact),
-      trailing: artifact.size !== undefined ? formatCompactBytes(artifact.size) : 'output',
-      status: 'produced',
+      trailing: artifact.size !== undefined ? formatCompactBytes(artifact.size) : t`output`,
+      status: t`produced`,
       running: false,
       failed: false,
       at: artifact.created_at,
@@ -588,8 +615,10 @@ export function activityItems(input: ActivityInput): ActivityItem[] {
       filter: 'outputs',
       group: 'earlier',
       name: source.label,
-      trailing: short(source.relation?.replaceAll('_', ' ')) ?? 'source',
-      status: source.relation ? `source, ${source.relation.replaceAll('_', ' ')}` : 'source',
+      trailing: short(source.relation?.replaceAll('_', ' ')) ?? t`source`,
+      status: source.relation
+        ? t`source, ${ph({ relation: source.relation.replaceAll('_', ' ') })}`
+        : t`source`,
       running: false,
       failed: false,
       source,

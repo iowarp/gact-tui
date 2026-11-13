@@ -3,6 +3,11 @@ import { sessionSchema } from './schemas.js';
 export const fleetSettingsSchema = z.object({
   revision: z.string(),
   search: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
+  /**
+   * The fast model every unset helper runs on; null uses the conversation
+   * account's own fast model, absent predates it (send nothing then).
+   */
+  fast: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   /** SPOTTER review's default model; null uses the conversation's, absent predates it. */
   spotter: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   judges: z.object({

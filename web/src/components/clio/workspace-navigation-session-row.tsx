@@ -8,8 +8,8 @@ import {
   PinOffIcon,
 } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { Link, useNavigate } from 'react-router-dom';
-import { memo, useState } from 'react';
+import { Link, UNSAFE_NavigationContext } from 'react-router-dom';
+import { memo, useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -24,7 +24,7 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLeftBarDialog } from '@/hooks/use-left-bar-dialog';
-import { sessionInteractionAt } from '@/lib/recent-sessions';
+import { hasUnseenActivity, sessionInteractionAt } from '@/lib/recent-sessions';
 import { canForkSession, isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
 import { cn } from '@/lib/utils';
@@ -52,6 +52,7 @@ import {
   SessionShareMenuItem,
 } from './session-management-menu';
 import { ClioShareSessionDialog } from './share-session-dialog';
+import { plural, t, ph } from '@lingui/core/macro';
 
 interface SessionNavigationRowProps {
   session: Session;
@@ -127,7 +128,7 @@ export const SessionNavigationRow = memo(function SessionNavigationRow({
       {row}
       {forkLabel ? (
         <p
-          className="truncate px-2 pb-1 text-[11px] leading-4 text-muted-foreground"
+          className="truncate px-2 pb-1 text-caption leading-4 text-muted-foreground"
           title={forkLabel}
         >
           {forkLabel}
@@ -190,9 +191,19 @@ function SessionRow({
     !running &&
     !needsAttention &&
     session.id !== activeSessionId &&
-    seenRevision !== sessionInteractionAt(session);
+    hasUnseenActivity(session, seenRevision);
   const active = session.id === activeSessionId;
-  const navigate = useNavigate();
+  const interactionAt = sessionInteractionAt(session);
+  // The open conversation is read as it changes, so leaving it keeps it seen.
+  useEffect(() => {
+    if (!active) return;
+    onVisit(session);
+    return () => onVisit(session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- record per revision, not per object
+  }, [active, interactionAt, onVisit]);
+  // The router's navigator, not useNavigate(): that one follows the location, so
+  // every memoized row would re-render on each conversation switch.
+  const { navigator } = useContext(UNSAFE_NavigationContext);
   // Share and history confirmations open outside the phone sheet, which closes first.
   const [dialog, presentDialog] = useLeftBarDialog();
   const closeDialog = () => presentDialog(null);
@@ -214,14 +225,14 @@ function SessionRow({
           try {
             return await share(session.id, ttlSeconds);
           } catch (error) {
-            toast.error('Unable to create a share link', {
+            toast.error(t`Unable to create a share link`, {
               description: error instanceof Error ? error.message : String(error),
             });
             throw error;
           }
         }}
         open
-        title={session.title || 'Untitled session'}
+        title={session.title || t`Untitled session`}
       />,
     );
   const openHistoryConfirm = (confirmation: SessionHistoryConfirmation) =>
@@ -265,7 +276,7 @@ function SessionRow({
                 <DropdownMenuTrigger asChild>
                   <IconButton
                     icon={<MoreIcon />}
-                    label={`Session actions for ${session.title}`}
+                    label={t`Session actions for ${ph({ title: session.title })}`}
                     size="sm"
                     tooltip={false}
                   />
@@ -273,11 +284,11 @@ function SessionRow({
                 <DropdownMenuContent align="start" className="w-[290px]" onKeyDown={selectMenuKey}>
                   <KeyMenuItem
                     icon={MessageSquareIcon}
-                    label="Open"
+                    label={t`Open`}
                     menuKey="Enter"
                     onSelect={() => {
                       onVisit(session);
-                      navigate(href);
+                      navigator.push(href);
                     }}
                   />
                   <SessionOrganizeMenuItems
@@ -289,7 +300,7 @@ function SessionRow({
                   {forkSession && canForkSession(session) ? (
                     <SessionForkMenuItem
                       onSelect={() =>
-                        onAction(() => forkSession(session.id), 'Forked into a new conversation')
+                        onAction(() => forkSession(session.id), t`Forked into a new conversation`)
                       }
                     />
                   ) : null}
@@ -301,7 +312,7 @@ function SessionRow({
                     onExport={(mode) =>
                       onAction(
                         () => onDownloadSession(session.id, session.title, mode),
-                        'Session archive prepared for download',
+                        t`Session archive prepared for download`,
                       )
                     }
                   />
@@ -311,7 +322,7 @@ function SessionRow({
                   {openSystemTerminal && workspacePath ? (
                     <KeyMenuItem
                       icon={ExternalLinkIcon}
-                      label="Open in system terminal"
+                      label={t`Open in system terminal`}
                       menuKey="T"
                       onSelect={() => void openSystemTerminal(workspacePath)}
                     />
@@ -342,30 +353,30 @@ function SessionRow({
             meta={
               needsAttention && attention ? (
                 <span
-                  aria-label={`Needs your response: ${sessionAttentionLabel(attention)}`}
+                  aria-label={t`Needs your response: ${ph({ needs: sessionAttentionLabel(attention) })}`}
                   aria-live="polite"
                   className="inline-flex size-4 cursor-pointer items-center justify-center text-action"
                   role="status"
-                  title={`Needs your response: ${sessionAttentionLabel(attention)}`}
+                  title={t`Needs your response: ${ph({ needs: sessionAttentionLabel(attention) })}`}
                 >
                   <BellRingIcon aria-hidden="true" className="size-3.5" />
                 </span>
               ) : running ? (
                 <span
-                  aria-label="Working now"
+                  aria-label={t`Working now`}
                   aria-live="polite"
                   className="inline-flex size-4 cursor-pointer items-center justify-center text-info"
                   role="status"
-                  title="Working now"
+                  title={t`Working now`}
                 >
                   <RingSpinner />
                 </span>
               ) : (
                 <span className="inline-flex items-center">
-                  {unseen ? <span className="sr-only">New activity, </span> : null}
+                  {unseen ? <span className="sr-only">{t`New activity,`} </span> : null}
                   <ClioRelativeTime
                     className={cn(
-                      'text-[11px] group-data-selected/list-row:text-accent-foreground/80',
+                      'text-caption group-data-selected/list-row:text-accent-foreground/80',
                       unseen ? 'text-foreground' : 'text-muted-foreground',
                     )}
                     compact
@@ -399,11 +410,11 @@ function SessionRow({
                   <PinIcon aria-hidden="true" className="mr-1 inline size-3 align-[-1px]" />
                 ) : null}
                 {isUserBranch(session) ? (
-                  <span title={forkLabel ?? 'Conversation branch'}>
+                  <span title={forkLabel ?? t`Conversation branch`}>
                     <GitForkIcon aria-hidden="true" className="mr-1 inline size-3 align-[-1px]" />
                   </span>
                 ) : null}
-                {session.title || 'Untitled session'}
+                {session.title || t`Untitled session`}
               </Link>
             }
           />
@@ -418,7 +429,7 @@ function SessionRow({
               >
                 {/* The card is where a cut row title reads whole, so it wraps. */}
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {session.title || 'Untitled session'}
+                  {session.title || t`Untitled session`}
                 </span>
                 <EditIcon
                   aria-hidden="true"
@@ -430,17 +441,21 @@ function SessionRow({
                   <SessionAttentionIndicators attention={attention} showResponseLabel />
                 </div>
               ) : (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {running ? 'Working now' : sessionStateLabel(session.state)}
+                <p className="mt-0.5 text-meta text-muted-foreground">
+                  {running ? t`Working now` : sessionStateLabel(session.state)}
                 </p>
               )}
             </div>
             <Button
-              aria-label={`${session.pinned ? 'Unpin' : 'Pin'} ${session.title}`}
+              aria-label={
+                session.pinned
+                  ? t`Unpin ${ph({ title: session.title })}`
+                  : t`Pin ${ph({ title: session.title })}`
+              }
               onClick={() =>
                 onAction(
                   () => actions.setSessionPinned(session.id, !session.pinned),
-                  session.pinned ? 'Session unpinned' : 'Session pinned',
+                  session.pinned ? t`Session unpinned` : t`Session pinned`,
                 )
               }
               size="icon-xs"
@@ -450,28 +465,28 @@ function SessionRow({
               {session.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
             </Button>
           </div>
-          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
+          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-meta">
             {forkLabel ? (
               <>
-                <span className="text-muted-foreground">Origin</span>
+                <span className="text-muted-foreground">{t`Origin`}</span>
                 <span className="[overflow-wrap:anywhere]">{forkLabel}</span>
               </>
             ) : null}
-            <span className="text-muted-foreground">Started</span>
+            <span className="text-muted-foreground">{t`Started`}</span>
             <span>{startedLabel(session.created_at)}</span>
             {session.message_count !== undefined ? (
               <>
-                <span className="text-muted-foreground">Messages</span>
+                <span className="text-muted-foreground">{t`Messages`}</span>
                 <span>{messageCountLabel(session.message_count)}</span>
               </>
             ) : null}
-            <span className="text-muted-foreground">Agent</span>
-            <span className="truncate">{agentLabel || 'Agent unavailable'}</span>
-            <span className="text-muted-foreground">Model</span>
-            <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
-            <span className="text-muted-foreground">Last interaction</span>
+            <span className="text-muted-foreground">{t`Agent`}</span>
+            <span className="truncate">{agentLabel || t`Agent unavailable`}</span>
+            <span className="text-muted-foreground">{t`Model`}</span>
+            <span className="truncate">{session.model_id || t`Inherited workspace default`}</span>
+            <span className="text-muted-foreground">{t`Last interaction`}</span>
             <ClioRelativeTime timestamp={sessionInteractionAt(session)} />
-            <span className="text-muted-foreground">Work mode</span>
+            <span className="text-muted-foreground">{t`Work mode`}</span>
             <span>{sessionModeLabel(session.mode)}</span>
           </div>
         </HoverCardContent>
@@ -503,8 +518,8 @@ function HistoryConfirm({
     } catch (error) {
       toast.error(
         confirmation === 'compact'
-          ? 'Unable to compact this conversation'
-          : 'Unable to remove the last message',
+          ? t`Unable to compact this conversation`
+          : t`Unable to remove the last message`,
         { description: error instanceof Error ? error.message : String(error) },
       );
     } finally {
@@ -524,36 +539,36 @@ function HistoryConfirm({
 function sessionStateLabel(state: Session['state']): string {
   return (
     {
-      queued: 'Queued',
-      running: 'Working now',
-      stopping: 'Stopping the model execution',
-      stopped: 'Model stopped; accepted background work continues',
-      cancellation_requested: 'Cancellation requested; waiting for settlement',
-      task_state_uncertain: 'Inspect work before deciding to retry',
-      recovering: 'Recovering recorded work',
-      pause_requested: 'Pause requested',
-      paused: 'Paused',
-      yielded: 'Assignment waiting for results or messages',
-      recovery_required: 'Inspect work before continuing',
-      waiting_permission: 'Waiting for approval',
-      waiting_user: 'Waiting for you',
-      completed: 'Completed',
-      failed: 'Needs attention',
-      cancelled: 'Cancelled',
-      interrupted: 'Interrupted',
-      unknown: 'Unknown state',
+      queued: t`Queued`,
+      running: t`Working now`,
+      stopping: t`Stopping the model execution`,
+      stopped: t`Model stopped; accepted background work continues`,
+      cancellation_requested: t`Cancellation requested; waiting for settlement`,
+      task_state_uncertain: t`Inspect work before deciding to retry`,
+      recovering: t`Recovering recorded work`,
+      pause_requested: t`Pause requested`,
+      paused: t`Paused`,
+      yielded: t`Assignment waiting for results or messages`,
+      recovery_required: t`Inspect work before continuing`,
+      waiting_permission: t`Waiting for approval`,
+      waiting_user: t`Waiting for you`,
+      completed: t`Completed`,
+      failed: t`Needs attention`,
+      cancelled: t`Cancelled`,
+      interrupted: t`Interrupted`,
+      unknown: t`Unknown state`,
     } satisfies Record<Session['state'], string>
   )[state];
 }
 
 function startedLabel(timestamp: string): string {
   const time = new Date(timestamp);
-  if (Number.isNaN(time.getTime())) return 'at an unknown time';
+  if (Number.isNaN(time.getTime())) return t`at an unknown time`;
   return formatFullTimestamp(time);
 }
 
 function messageCountLabel(count: number | undefined): string {
   if (count === undefined) return '';
-  if (count === 0) return 'No messages yet';
-  return count === 1 ? '1 message' : `${count} messages`;
+  if (count === 0) return t`No messages yet`;
+  return plural(count, { one: '# message', other: '# messages' });
 }

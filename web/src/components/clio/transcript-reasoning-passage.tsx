@@ -7,15 +7,17 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { TranscriptReasoning, type ThoughtSource } from './transcript-reasoning';
 import { useReasoningDuration } from './use-reasoning-duration';
+import { plural, t } from '@lingui/core/macro';
 
 /** "Thought for 6 seconds", "Thought for 2 minutes", or "Thought" when untimed. */
 function thoughtName(durationMs: number | undefined, streaming: boolean): string {
-  if (streaming) return 'Thinking…';
-  if (durationMs === undefined) return 'Thought';
+  if (streaming) return t`Thinking…`;
+  if (durationMs === undefined) return t`Thought`;
   const seconds = Math.max(1, Math.round(durationMs / 1000));
-  if (seconds < 60) return `Thought for ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  if (seconds < 60)
+    return plural(seconds, { one: 'Thought for # second', other: 'Thought for # seconds' });
   const minutes = Math.round(seconds / 60);
-  return `Thought for ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  return plural(minutes, { one: 'Thought for # minute', other: 'Thought for # minutes' });
 }
 
 /**
@@ -72,7 +74,7 @@ export function TranscriptReasoningPassage({
           trimmed ? (
             <ActivityDisclosure
               open={open}
-              label={`Thinking: ${heading || 'Details'}`}
+              label={heading ? t`Thinking: ${heading}` : t`Thinking: Details`}
               asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
             />
           ) : undefined
@@ -83,19 +85,19 @@ export function TranscriptReasoningPassage({
             {name}
           </span>
         }
-        actions={trimmed ? <CopyAction value={trimmed} label="Copy thought" /> : null}
+        actions={trimmed ? <CopyAction value={trimmed} label={t`Copy thought`} /> : null}
         elapsed={null}
         status={
           streaming ? (
-            <StatusIndicator tone="running" label="Thinking" display="column" mark="glyph" />
+            <StatusIndicator tone="running" label={t`Thinking`} display="column" mark="glyph" />
           ) : null
         }
         info={null}
       />
       <CollapsibleContent>
-        <ActivityBody label="Thinking details" framed={false}>
+        <ActivityBody label={t`Thinking details`} framed={false}>
           <div
-            className="max-h-80 overflow-auto overscroll-contain text-[12.5px] leading-[1.6] text-muted-foreground"
+            className="max-h-80 overflow-auto overscroll-contain text-menu leading-[1.6] text-muted-foreground"
             data-slot="transcript-reasoning-text"
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be reachable
             tabIndex={0}

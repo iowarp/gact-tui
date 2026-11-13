@@ -1,3 +1,4 @@
+import { plural } from '@lingui/core/macro';
 const HUNK = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/u;
 
 export interface DiffRow {
@@ -21,7 +22,12 @@ export function patchSummary(unified: string): string | undefined {
     else if (text.startsWith('-')) removed += 1;
   }
   if (!files.size && !added && !removed) return undefined;
-  const what = files.size === 1 ? [...files][0] : files.size ? `${files.size} files` : undefined;
+  const what =
+    files.size === 1
+      ? [...files][0]
+      : files.size
+        ? plural(files.size, { one: '# file', other: '# files' })
+        : undefined;
   return [what, `+${added.toLocaleString()} −${removed.toLocaleString()}`]
     .filter(Boolean)
     .join(' ');

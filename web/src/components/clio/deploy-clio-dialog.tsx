@@ -35,6 +35,7 @@ import { SshHostsManagerDialog } from './ssh-hosts-manager-dialog';
 import { routeIncompleteMessage, type SshRouteCompleteness } from './ssh-route-utils';
 import { deployNameError, LOCAL_NAME, type KnownServiceName } from './deploy-name';
 import { useRemoteDeployment } from './use-remote-deployment';
+import { t, ph } from '@lingui/core/macro';
 
 type DeployTarget = 'local' | 'ssh';
 
@@ -108,13 +109,15 @@ export function DeployClioDialog({
     }
     const incomplete = routeIncompleteMessage(route);
     if (incomplete || !host) {
-      setRouteError(incomplete ?? `Choose the computer where ${vocab.agent} should run.`);
+      setRouteError(
+        incomplete ?? t`Choose the computer where ${ph({ agent: vocab.agent })} should run.`,
+      );
       return;
     }
     setRouteError(undefined);
     if (invalidName) return;
     if (!Number.isInteger(remotePort) || remotePort < 1024 || remotePort > 65535) {
-      setRouteError('Choose a port between 1024 and 65535.');
+      setRouteError(t`Choose a port between 1024 and 65535.`);
       return;
     }
     void remote.deploy(host, name.trim(), { port: remotePort, keepRunning });
@@ -133,15 +136,15 @@ export function DeployClioDialog({
         {controlledOpen === undefined ? (
           <DialogTrigger asChild>
             <Button type="button" variant="outline">
-              <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
+              <ServerIcon aria-hidden="true" /> {t`Deploy ${ph({ agent: vocab.agent })}`}
             </Button>
           </DialogTrigger>
         ) : null}
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Deploy {vocab.agent}</DialogTitle>
+            <DialogTitle>{t`Deploy ${ph({ agent: vocab.agent })}`}</DialogTitle>
             <DialogDescription className="sr-only">
-              Run {vocab.agent} on this computer or install it on a computer reached with SSH.
+              {t`Run ${ph({ agent: vocab.agent })} on this computer or install it on a computer reached with SSH.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -157,22 +160,22 @@ export function DeployClioDialog({
           >
             <TargetOption
               icon={LaptopIcon}
-              label="This computer"
+              label={t`This computer`}
               selected={target === 'local'}
-              title={`The ${vocab.agent} service bundled with this app`}
+              title={t`The ${ph({ agent: vocab.agent })} service bundled with this app`}
               value="local"
             />
             <TargetOption
               icon={ServerIcon}
-              label="Remote host"
+              label={t`Remote host`}
               selected={target === 'ssh'}
-              title={`Install ${vocab.agent} over SSH and connect through a private tunnel`}
+              title={t`Install ${ph({ agent: vocab.agent })} over SSH and connect through a private tunnel`}
               value="ssh"
             />
           </RadioGroup>
 
           <Field data-invalid={Boolean(nameError) || undefined}>
-            <FieldLabel htmlFor="deploy-clio-name">Name</FieldLabel>
+            <FieldLabel htmlFor="deploy-clio-name">{t`Name`}</FieldLabel>
             <Input
               aria-invalid={Boolean(nameError)}
               autoComplete="off"
@@ -182,7 +185,7 @@ export function DeployClioDialog({
                 setCustomName(event.target.value);
                 setNameError(undefined);
               }}
-              placeholder={target === 'local' ? LOCAL_NAME : 'For example, ares lab'}
+              placeholder={target === 'local' ? LOCAL_NAME : t`For example, ares lab`}
               value={name}
             />
             {nameError ? <FieldError>{nameError}</FieldError> : null}
@@ -191,13 +194,13 @@ export function DeployClioDialog({
           {target === 'ssh' ? (
             <Field data-invalid={Boolean(routeError) || undefined}>
               <div className="flex items-center justify-between gap-2">
-                <FieldLabel>SSH host</FieldLabel>
+                <FieldLabel>{t`SSH host`}</FieldLabel>
                 <Button
-                  aria-label="Manage SSH hosts"
+                  aria-label={t`Manage SSH hosts`}
                   disabled={running}
                   onClick={() => setManagingHosts(true)}
                   size="icon"
-                  title="Manage SSH hosts"
+                  title={t`Manage SSH hosts`}
                   type="button"
                   variant="ghost"
                 >
@@ -224,7 +227,7 @@ export function DeployClioDialog({
           {target === 'ssh' ? (
             <div className="grid gap-3">
               <Field>
-                <FieldLabel htmlFor="remote-clio-port">Remote agent port</FieldLabel>
+                <FieldLabel htmlFor="remote-clio-port">{t`Remote agent port`}</FieldLabel>
                 <Input
                   id="remote-clio-port"
                   type="number"
@@ -241,14 +244,12 @@ export function DeployClioDialog({
                   disabled={running}
                   onCheckedChange={(checked) => setKeepRunning(checked === true)}
                 />
-                Keep this remote agent running when {vocab.product} closes
+                {t`Keep this remote agent running when ${ph({ product: vocab.product })} closes`}
               </label>
               <p className="text-xs text-muted-foreground">
-                New agents started by this Desktop{' '}
                 {keepRunning
-                  ? 'will stay running'
-                  : 'will stop gracefully on exit; their files stay installed'}
-                . Reconnecting to an existing agent leaves its lifecycle unchanged.
+                  ? t`New agents started by this Desktop will stay running. Reconnecting to an existing agent leaves its lifecycle unchanged.`
+                  : t`New agents started by this Desktop will stop gracefully on exit; their files stay installed. Reconnecting to an existing agent leaves its lifecycle unchanged.`}
               </p>
             </div>
           ) : null}
@@ -260,7 +261,7 @@ export function DeployClioDialog({
           {remote.conflict ? (
             <RemoteAgentConflict
               found={remote.conflict}
-              label={host?.label ?? 'this host'}
+              label={host?.label ?? t`this host`}
               onChoice={remote.resolveConflict}
             />
           ) : null}
@@ -272,14 +273,16 @@ export function DeployClioDialog({
                 undefined
               }
               reason={remote.progress.failure.reason}
-              title={failedStage ? `${failedStage.label} failed` : 'Deployment failed'}
+              title={
+                failedStage ? t`${ph({ label: failedStage.label })} failed` : t`Deployment failed`
+              }
             />
           ) : null}
 
           {target === 'ssh' && remote.phase === 'cancelled' && remote.details ? (
             <DeployFailure
-              reason="The deployment was cancelled."
-              title="Cancelled"
+              reason={t`The deployment was cancelled.`}
+              title={t`Cancelled`}
               details={remote.details}
             />
           ) : null}
@@ -287,7 +290,7 @@ export function DeployClioDialog({
           {target === 'local' && local.error ? (
             <DeployFailure
               reason={local.error instanceof Error ? local.error.message : String(local.error)}
-              title={`${vocab.agent} did not start`}
+              title={t`${ph({ agent: vocab.agent })} did not start`}
             />
           ) : null}
 
@@ -303,17 +306,19 @@ export function DeployClioDialog({
                 type="button"
                 variant="outline"
               >
-                {remote.phase === 'cancelling' ? 'Cancelling…' : 'Cancel'}
+                {remote.phase === 'cancelling' ? t`Cancelling…` : t`Cancel`}
               </Button>
             ) : null}
             <Button disabled={running} onClick={deploy} type="button">
               {running
                 ? target === 'local'
-                  ? `Starting ${vocab.agent}…`
-                  : `Deploying to ${host?.label ?? 'remote host'}…`
+                  ? t`Starting ${ph({ agent: vocab.agent })}…`
+                  : host?.label
+                    ? t`Deploying to ${ph({ host: host.label })}…`
+                    : t`Deploying to remote host…`
                 : target === 'local'
-                  ? `Use local ${vocab.agent}`
-                  : 'Deploy and connect'}
+                  ? t`Use local ${ph({ agent: vocab.agent })}`
+                  : t`Deploy and connect`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -326,7 +331,7 @@ export function DeployClioDialog({
           if (!sshHostUsesProfile(host, profile)) return;
           setHost(undefined);
           setRoute({ emptyRows: [0] });
-          setRouteError('This host was removed. Choose another computer.');
+          setRouteError(t`This host was removed. Choose another computer.`);
         }}
       />
     </>

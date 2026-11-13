@@ -18,18 +18,21 @@ import { SettingsLoadError } from './settings-health-load-error';
 import { notOffered } from './settings-health-reason';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { ScheduleSelect, type ScheduleSelectOption } from './settings-schedule-fields';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatDateTime, formatNumber } from '@/lib/locale-format';
+import { Trans } from '@lingui/react/macro';
 
 function number(value: number) {
-  return value.toLocaleString();
+  return formatNumber(value);
 }
 
 function time(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Time unavailable' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? t`Time unavailable` : formatDateTime(date);
 }
 
 function sessionLabel(session: Session) {
-  return session.title.trim() || 'Untitled session';
+  return session.title.trim() || t`Untitled session`;
 }
 
 function retentionTone(statistics: SessionMemoryStatistics): StatusTone {
@@ -40,31 +43,31 @@ function retentionTone(statistics: SessionMemoryStatistics): StatusTone {
 }
 
 function retentionLabel(statistics: SessionMemoryStatistics) {
-  if (statistics.threshold_state === 'critical') return 'Context limit reached';
-  if (statistics.threshold_state === 'warning') return 'Approaching context limit';
-  if (statistics.threshold_state === 'empty') return 'No retained context';
-  return 'Within context budget';
+  if (statistics.threshold_state === 'critical') return t`Context limit reached`;
+  if (statistics.threshold_state === 'warning') return t`Approaching context limit`;
+  if (statistics.threshold_state === 'empty') return t`No retained context`;
+  return t`Within context budget`;
 }
 
 function compactionStatus(status: string): { tone: StatusTone; label: string } {
-  if (status === 'stored') return { tone: 'success', label: 'Retained' };
-  if (status === 'archived') return { tone: 'idle', label: 'Archived' };
+  if (status === 'stored') return { tone: 'success', label: t`Retained` };
+  if (status === 'archived') return { tone: 'idle', label: t`Archived` };
   if (status === 'completed' || status === 'complete')
-    return { tone: 'success', label: 'Completed' };
-  if (status === 'failed') return { tone: 'error', label: 'Failed' };
-  return { tone: 'idle', label: 'Status unavailable' };
+    return { tone: 'success', label: t`Completed` };
+  if (status === 'failed') return { tone: 'error', label: t`Failed` };
+  return { tone: 'idle', label: t`Status unavailable` };
 }
 
 function compactionSourceLabel(source: unknown) {
-  if (source === 'gact_compact') return 'Service compaction';
-  if (typeof source === 'string' && source.trim()) return 'Service record';
-  return 'Service compaction';
+  if (source === 'gact_compact') return t`Service compaction`;
+  if (typeof source === 'string' && source.trim()) return t`Service record`;
+  return t`Service compaction`;
 }
 
 function ValueRow({ title, value, info }: { title: string; value: string; info?: string }) {
   return (
     <SettingsRow info={info} inlineControl title={title}>
-      <span className="text-[0.8125rem] text-foreground tabular-nums">{value}</span>
+      <span className="text-ui text-foreground tabular-nums">{value}</span>
     </SettingsRow>
   );
 }
@@ -76,12 +79,15 @@ function RetentionSummary({ statistics }: { statistics: SessionMemoryStatistics 
       <SettingsRow
         info={
           statistics.compaction_recommended
-            ? 'The service recommends compacting this session.'
-            : 'The service does not recommend compaction now.'
+            ? t`The service recommends compacting this session.`
+            : t`The service does not recommend compaction now.`
         }
         inlineControl
-        note={`${number(statistics.messages_retained)} messages, ${number(statistics.context_files_attached)} attached files`}
-        title="Retained session context"
+        note={t`${plural(statistics.messages_retained, { one: '# message', other: '# messages' })}, ${plural(
+          statistics.context_files_attached,
+          { one: '# attached file', other: '# attached files' },
+        )}`}
+        title={t`Retained session context`}
       >
         <StatusIndicator label={retentionLabel(statistics)} tone={retentionTone(statistics)} />
       </SettingsRow>
@@ -89,18 +95,18 @@ function RetentionSummary({ statistics }: { statistics: SessionMemoryStatistics 
         inlineControl
         note={
           statistics.tokens_budget
-            ? `${number(statistics.tokens_retained)} of ${number(statistics.tokens_budget)} tokens`
-            : `${number(statistics.tokens_retained)} tokens, budget unavailable`
+            ? t`${ph({ retained: number(statistics.tokens_retained) })} of ${ph({ budget: number(statistics.tokens_budget) })} tokens`
+            : t`${ph({ retained: number(statistics.tokens_retained) })} tokens, budget unavailable`
         }
-        title="Retained tokens"
+        title={t`Retained tokens`}
       >
         {statistics.tokens_budget ? (
-          <Progress aria-label="Retained token pressure" className="w-32" value={pressure} />
+          <Progress aria-label={t`Retained token pressure`} className="w-32" value={pressure} />
         ) : null}
       </SettingsRow>
       <ValueRow
-        info="Compaction is performed only by the service and remains visible in the history below."
-        title="Compact summaries"
+        info={t`Compaction is performed only by the service and remains visible in the history below.`}
+        title={t`Compact summaries`}
         value={number(statistics.compact_summaries)}
       />
     </>
@@ -109,14 +115,19 @@ function RetentionSummary({ statistics }: { statistics: SessionMemoryStatistics 
 
 function CompactionRow({ event, session }: { event: MemoryEvent; session?: Session }) {
   const status = compactionStatus(event.arc_status);
-  const archived = `Archived ${number(event.archived_count)} messages into a ${number(event.summary_chars)}-character summary`;
-  const source = `Source ${compactionSourceLabel(event.metadata.source)}, version ${event.version}`;
+  const archived = t`Archived ${plural(event.archived_count, { one: '# message', other: '# messages' })} into a ${ph({ characters: number(event.summary_chars) })}-character summary`;
+  const source = t`Source ${ph({ source: compactionSourceLabel(event.metadata.source) })}, version ${ph({ version: event.version })}`;
   return (
     <ItemRow
       icon={<FileArchiveIcon />}
       meta={
         <span
-          title={[event.focus, archived, source, `Recorded status: ${event.arc_status}`]
+          title={[
+            event.focus,
+            archived,
+            source,
+            t`Recorded status: ${ph({ arc_status: event.arc_status })}`,
+          ]
             .filter(Boolean)
             .join('\n')}
         >
@@ -129,10 +140,10 @@ function CompactionRow({ event, session }: { event: MemoryEvent; session?: Sessi
         session ? (
           <Button asChild size="sm" variant="outline">
             <Link
-              aria-label="Open retained summary in conversation"
+              aria-label={t`Open retained summary in conversation`}
               to={`/workspaces/${session.workspace_id}/sessions/${session.id}#message-${event.summary_message_id}`}
             >
-              Summary <ArrowUpRightIcon aria-hidden="true" />
+              {t`Summary`} <ArrowUpRightIcon aria-hidden="true" />
             </Link>
           </Button>
         ) : undefined
@@ -142,8 +153,12 @@ function CompactionRow({ event, session }: { event: MemoryEvent; session?: Sessi
       statusWidth={120}
       title={
         <>
-          Compacted transcript
-          <span className="ml-2.5 font-normal text-faint">{time(event.created_at)}</span>
+          <Trans>
+            Compacted transcript
+            <span className="ml-2.5 font-normal text-muted-foreground">
+              {time(event.created_at)}
+            </span>
+          </Trans>
         </>
       }
     />
@@ -196,21 +211,23 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
   const compactionOffered = !notOffered(events.error);
 
   return (
-    <section aria-label="Context & compaction">
+    <section aria-label={t`Context & compaction`}>
       {retentionOffered ? (
         <>
-          <SettingsGroupLabel info="Context usage, retention and compaction for one conversation, as the service reports them.">
-            Session retention
+          <SettingsGroupLabel
+            info={t`Context usage, retention and compaction for one conversation, as the service reports them.`}
+          >
+            {t`Session retention`}
           </SettingsGroupLabel>
           {sessionOptions.length ? (
-            <SettingsRow htmlFor="context-session" title="Conversation">
+            <SettingsRow htmlFor="context-session" title={t`Conversation`}>
               <ScheduleSelect
                 className="w-[clamp(10rem,100%,16rem)]"
                 id="context-session"
-                label="Session"
+                label={t`Session`}
                 onChange={setSessionId}
                 options={sessionOptions}
-                placeholder="Choose a session"
+                placeholder={t`Choose a session`}
                 value={selectedSessionId}
               />
             </SettingsRow>
@@ -220,39 +237,39 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
       {statistics.data?.session ? (
         <RetentionSummary statistics={statistics.data.session} />
       ) : statistics.isPending ? (
-        <StateView kind="loading" size="row" title="Loading session retention…" />
+        <StateView kind="loading" size="row" title={t`Loading session retention…`} />
       ) : statistics.isError ? (
         <SettingsLoadError
           error={statistics.error}
           onRetry={() => void statistics.refetch()}
           retrying={statistics.isFetching}
           noun="session retention"
-          title="Session retention unavailable."
+          title={t`Session retention unavailable.`}
         />
       ) : (
         <StateView
-          detail="Choose a session with retained context."
+          detail={t`Choose a session with retained context.`}
           kind="empty"
           size="row"
-          title="Session retention unavailable"
+          title={t`Session retention unavailable`}
         />
       )}
-      {compactionOffered ? <SettingsGroupLabel>Compaction history</SettingsGroupLabel> : null}
+      {compactionOffered ? <SettingsGroupLabel>{t`Compaction history`}</SettingsGroupLabel> : null}
       {events.data?.length ? (
-        <ItemList label="Compaction history">
+        <ItemList label={t`Compaction history`}>
           {[...events.data].reverse().map((event) => (
             <CompactionRow event={event} key={event.id} session={selectedSession} />
           ))}
         </ItemList>
       ) : null}
       {events.data && !events.data.length && !events.error ? (
-        <StateView kind="empty" size="row" title="No compactions in this conversation yet" />
+        <StateView kind="empty" size="row" title={t`No compactions in this conversation yet`} />
       ) : null}
       {!selectedSessionId && !sessions.isPending && (retentionOffered || compactionOffered) ? (
-        <StateView kind="empty" size="row" title="No conversations yet" />
+        <StateView kind="empty" size="row" title={t`No conversations yet`} />
       ) : null}
       {compactionOffered && (sessions.isPending || (events.isPending && selectedSessionId)) ? (
-        <StateView kind="loading" size="row" title="Loading compaction history…" />
+        <StateView kind="loading" size="row" title={t`Loading compaction history…`} />
       ) : null}
       {events.error ? (
         <SettingsLoadError
@@ -260,22 +277,22 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           onRetry={() => void events.refetch()}
           retrying={events.isFetching}
           noun="compaction history"
-          title="Compaction history unavailable."
+          title={t`Compaction history unavailable.`}
         />
       ) : null}
       {statistics.data ? (
         <>
-          <SettingsGroupLabel>All conversations</SettingsGroupLabel>
+          <SettingsGroupLabel>{t`All conversations`}</SettingsGroupLabel>
           <ValueRow
-            title="Stored conversations"
+            title={t`Stored conversations`}
             value={number(statistics.data.global.conversations_total)}
           />
           <ValueRow
-            title="Stored tool invocations"
+            title={t`Stored tool invocations`}
             value={number(statistics.data.global.invocations_total)}
           />
-          <ValueRow title="Cache hits" value={number(statistics.data.cache.hits)} />
-          <ValueRow title="Cache misses" value={number(statistics.data.cache.misses)} />
+          <ValueRow title={t`Cache hits`} value={number(statistics.data.cache.hits)} />
+          <ValueRow title={t`Cache misses`} value={number(statistics.data.cache.misses)} />
         </>
       ) : null}
     </section>

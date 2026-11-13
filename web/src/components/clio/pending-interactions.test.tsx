@@ -648,7 +648,7 @@ describe('ClioPendingInteractions', () => {
 
     const answer = screen.getByRole('textbox', { name: 'Your response' });
     await user.type(answer, 'first line');
-    const viewport = screen.getByRole('region', { name: '1 pending responses' });
+    const viewport = screen.getByRole('region', { name: '1 pending response' });
     Object.defineProperties(viewport, {
       clientHeight: { configurable: true, value: 240 },
       scrollHeight: { configurable: true, value: 720 },

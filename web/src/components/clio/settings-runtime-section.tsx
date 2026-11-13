@@ -1,4 +1,4 @@
-import { AnnounceStates, RowKeys } from './settings-a11y';
+import { RowKeys } from './settings-a11y';
 import { ContextHistorySettings } from './settings-context-history';
 import { UnofferedParts } from './settings-health-load-error';
 import { RuntimeSettingsPanel } from './settings-runtime';
@@ -13,7 +13,6 @@ const PARTS = ['configuration', 'session retention', 'compaction history'];
 export function ExecutionHistorySettings({ initialSessionId }: { initialSessionId?: string }) {
   return (
     <UnofferedParts order={PARTS} placed>
-      <AnnounceStates />
       <RuntimeSettingsPanel
         exclude={['Memory']}
         insertBefore={{

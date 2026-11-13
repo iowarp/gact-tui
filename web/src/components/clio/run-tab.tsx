@@ -15,7 +15,9 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNow } from '@/hooks/use-now';
 import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { formatDuration } from '@/lib/format';
+import { formatLocale } from '@/lib/locale-format';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
+import { t, ph } from '@lingui/core/macro';
 
 const FlowRunView = lazy(() =>
   import('@/components/clio/flow-run-view').then((module) => ({ default: module.FlowRunView })),
@@ -23,10 +25,11 @@ const FlowRunView = lazy(() =>
 
 function fullWhen(iso: string): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return 'Time unavailable';
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(at),
-  );
+  if (Number.isNaN(at)) return t`Time unavailable`;
+  return new Intl.DateTimeFormat(formatLocale(), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(at));
 }
 
 const RUNNING: readonly RunRow['state'][] = [
@@ -62,18 +65,19 @@ function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) 
   }
   if (row.state === 'queued') {
     const host = row.source === 'flow' ? '' : row.host;
-    return <span>{host ? `queued on ${host}` : 'queued'}</span>;
+    return <span>{host ? t`queued on ${host}` : t`queued`}</span>;
   }
-  if (row.state === 'failed') return <span className="text-destructive-text">failed</span>;
+  if (row.state === 'failed') return <span className="text-destructive-text">{t`failed`}</span>;
   if (row.state === 'completed') {
     const end = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
     const time = Number.isNaN(end) ? undefined : elapsed(row.createdAt, end);
-    return <span>{time ? `done in ${time}` : 'done'}</span>;
+    return <span>{time ? t`done in ${time}` : t`done`}</span>;
   }
   const tone = runLook(row).tone;
   return (
     <span className={tone === 'waiting' || tone === 'warning' ? 'text-warning' : undefined}>
-      {stateLabel.toLowerCase()}
+      {/* A status label shown mid-line; case-folding is safe in every offered language. */}
+      {stateLabel.toLocaleLowerCase(formatLocale())}
     </span>
   );
 }
@@ -81,13 +85,13 @@ function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) 
 /** One `.tsk` line: the row's own status mark, the words and a faint fact. */
 function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string }) {
   return (
-    <div className="flex h-[30px] min-w-0 items-center gap-2.5 text-[12.5px] text-foreground/90">
+    <div className="flex h-[30px] min-w-0 items-center gap-2.5 text-menu text-foreground/90">
       <RunStatusMark cancelRequested={Boolean(row.cancelRequested)} row={row} />
       <span className="min-w-0 flex-1 truncate" title={text}>
         {text}
       </span>
       {meta ? (
-        <span className="shrink-0 text-[11px] whitespace-nowrap text-faint tabular-nums">
+        <span className="shrink-0 text-caption whitespace-nowrap text-faint tabular-nums">
           {meta}
         </span>
       ) : null}
@@ -98,33 +102,33 @@ function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string
 /** Where a run ran, its assignment and its backend ids: kept, behind Details. */
 function RunFacts({ row }: { row: RunRow }) {
   return (
-    <TechnicalDetails className="text-[12px]" title="Details">
+    <TechnicalDetails className="text-meta" title={t`Details`}>
       <div className="mt-1 grid gap-3">
         {row.assignment ? (
           <section className="grid gap-1">
-            <h3 className="text-[11px] font-semibold text-muted-foreground">Assignment</h3>
+            <h3 className="text-caption font-semibold text-muted-foreground">{t`Assignment`}</h3>
             <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{row.assignment}</p>
           </section>
         ) : null}
         {row.statusDetail ? (
           <p className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-            Reported issue: {row.statusDetail}
+            {t`Reported issue: ${ph({ issue: row.statusDetail })}`}
           </p>
         ) : null}
         <KeyValueGrid
           items={[
-            { label: 'Execution', value: sourceLabels[row.source] },
+            { label: t`Execution`, value: sourceLabels[row.source] },
             {
-              label: row.source === 'flow' ? 'Placement' : 'Host',
-              value: (row.source === 'flow' ? row.placement : row.host) || 'Host unavailable',
+              label: row.source === 'flow' ? t`Placement` : t`Host`,
+              value: (row.source === 'flow' ? row.placement : row.host) || t`Host unavailable`,
             },
-            { label: 'Workspace', value: row.workspaceLabel },
-            { label: 'Updated', value: fullWhen(row.updatedAt) },
-            { label: 'Backend status', value: row.reportedStatus, mono: true },
-            ...(row.taskKind ? [{ label: 'Kind', value: row.taskKind }] : []),
-            { label: 'Task', value: row.taskId, mono: true },
+            { label: t`Workspace`, value: row.workspaceLabel },
+            { label: t`Updated`, value: fullWhen(row.updatedAt) },
+            { label: t`Backend status`, value: row.reportedStatus, mono: true },
+            ...(row.taskKind ? [{ label: t`Kind`, value: row.taskKind }] : []),
+            { label: t`Task`, value: row.taskId, mono: true },
             ...(row.handleId !== row.taskId
-              ? [{ label: 'Handle', value: row.handleId, mono: true }]
+              ? [{ label: t`Handle`, value: row.handleId, mono: true }]
               : []),
           ]}
         />
@@ -166,16 +170,16 @@ function RunSummary({
           action={
             stop
               ? {
-                  label: stop.stopping ? 'Stopping' : 'Stop',
+                  label: stop.stopping ? t`Stopping` : t`Stop`,
                   onClick: stop.onStop,
                   disabled: stop.stopping,
                 }
               : undefined
           }
-          detail={host ? `Waiting on ${host}.` : 'Waiting for a free slot.'}
+          detail={host ? t`Waiting on ${host}.` : t`Waiting for a free slot.`}
           icon={ClockIcon}
           kind="marker"
-          title="Not started yet"
+          title={t`Not started yet`}
         />
         <RunFacts row={row} />
       </div>
@@ -187,9 +191,9 @@ function RunSummary({
     // The progress message is the last in-flight status ("Working"), not a result.
     return (
       <div className="grid gap-4 px-4 py-3.5">
-        <section className="grid text-[12.5px]">
-          <h3 className="mb-1.5 font-heading text-[15px] font-semibold text-foreground">Result</h3>
-          <RunLine meta={progress} row={row} text={time ? `Finished in ${time}.` : 'Finished.'} />
+        <section className="grid text-menu">
+          <h3 className="mb-1.5 font-heading text-h3 font-semibold text-foreground">{t`Result`}</h3>
+          <RunLine meta={progress} row={row} text={time ? t`Finished in ${time}.` : t`Finished.`} />
         </section>
         <RunFacts row={row} />
       </div>
@@ -198,10 +202,10 @@ function RunSummary({
   const settled = row.state === 'cancelled' || row.state === 'stopped' || row.state === 'paused';
   const headline =
     row.state === 'failed'
-      ? (message ?? 'The run stopped with an error')
+      ? (message ?? t`The run stopped with an error`)
       : settled
         ? stateLabel
-        : (message ?? (RUNNING.includes(row.state) ? 'Working' : stateLabel));
+        : (message ?? (RUNNING.includes(row.state) ? t`Working` : stateLabel));
   const meta = progress && progress !== headline ? progress : undefined;
   const answerHref =
     row.state === 'waiting_user' || row.state === 'waiting_permission'
@@ -212,16 +216,13 @@ function RunSummary({
       <div className="grid">
         <RunLine meta={meta} row={row} text={headline} />
         {reason ? (
-          <p
-            className="-mt-1 mb-1 ml-6 truncate text-[11.5px] text-destructive-text"
-            title={reason}
-          >
+          <p className="-mt-1 mb-1 ml-6 truncate text-label text-destructive-text" title={reason}>
             {reason}
           </p>
         ) : null}
         {answerHref ? (
           <Button asChild className="mt-1 ml-6 justify-self-start" size="compact" variant="outline">
-            <Link to={answerHref}>{row.state === 'waiting_user' ? 'Answer' : 'Review'}</Link>
+            <Link to={answerHref}>{row.state === 'waiting_user' ? t`Answer` : t`Review`}</Link>
           </Button>
         ) : null}
       </div>
@@ -267,7 +268,7 @@ export function RunTab({
       <IconButton
         disabled={stopping}
         icon={<CircleStopIcon aria-hidden="true" />}
-        label={stopping ? 'Stopping' : 'Stop'}
+        label={stopping ? t`Stopping` : t`Stop`}
         onClick={stop.onStop}
         size="sm"
         tooltipSide="bottom"
@@ -282,19 +283,19 @@ export function RunTab({
   };
   return (
     <aside
-      aria-label={`Run: ${row.label}`}
+      aria-label={t`Run: ${ph({ label: row.label })}`}
       className="flex h-full min-h-0 flex-col bg-background"
       data-maximized={sheet || undefined}
     >
       <div
-        aria-label="Open runs"
+        aria-label={t`Open runs`}
         className="flex h-[38px] shrink-0 items-center gap-1 border-b border-border px-1.5"
         role="tablist"
       >
         {sheet ? (
           <IconButton
             icon={<ArrowLeftIcon aria-hidden="true" />}
-            label="Back to runs"
+            label={t`Back to runs`}
             onClick={onClose}
             size="sm"
           />
@@ -311,14 +312,14 @@ export function RunTab({
         actions={
           <>
             {href ? (
-              <NamedTooltip label="Open conversation">
+              <NamedTooltip label={t`Open conversation`}>
                 <Button
                   asChild
                   className="text-muted-foreground hover:bg-hover hover:text-foreground"
                   size="icon-xs"
                   variant="ghost"
                 >
-                  <Link aria-label="Open conversation" to={href}>
+                  <Link aria-label={t`Open conversation`} to={href}>
                     <ExternalLinkIcon aria-hidden="true" />
                   </Link>
                 </Button>
@@ -327,7 +328,7 @@ export function RunTab({
             {actions}
           </>
         }
-        label="Run actions"
+        label={t`Run actions`}
         format={stopButton}
         rule={Boolean(stopButton)}
         what={
@@ -338,11 +339,13 @@ export function RunTab({
             <span>{row.taskKind ?? sourceLabels[row.source]}</span>
           </>
         }
-        where={<FrameCrumbs parts={[{ label: 'Runs', onSelect: onClose }, { label: row.label }]} />}
+        where={
+          <FrameCrumbs parts={[{ label: t`Runs`, onSelect: onClose }, { label: row.label }]} />
+        }
       />
       <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto" role="tabpanel">
         {flow && row.targetSessionId ? (
-          <Suspense fallback={<StateView kind="loading" title="Loading the flow run" />}>
+          <Suspense fallback={<StateView kind="loading" title={t`Loading the flow run`} />}>
             <FlowRunView
               handle={flow}
               label={row.label}

@@ -7,6 +7,7 @@ import type { DataSurfaceZoneSelection } from '@/lib/selection-actions';
 import type { DataZoneReference } from './data-zone-reference';
 import { SurfaceReferenceContext } from './surface-reference-context';
 import { referenceSelectedText, surfaceTextSelection } from '@/lib/surface-text-selection';
+import { t } from '@lingui/core/macro';
 
 /**
  * "Reference this" (#1533 item 5): attaches a chart/map/table zone to the
@@ -52,7 +53,7 @@ export function DataReferenceThisButton({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={selectedText ? 'Reference selected text' : 'Reference this'}
+            aria-label={selectedText ? t`Reference selected text` : t`Reference this`}
             ref={button}
             disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
@@ -86,8 +87,8 @@ export function DataReferenceThisButton({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           {selectedText
-            ? 'Reference selected text in your message'
-            : 'Reference this data in your message'}
+            ? t`Reference selected text in your message`
+            : t`Reference this data in your message`}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

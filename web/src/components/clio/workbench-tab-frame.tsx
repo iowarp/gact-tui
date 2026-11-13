@@ -2,6 +2,7 @@ import type { Artifact, SubagentRun, WorkspaceResource } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { FrameBackContext, type FrameBack } from './primitives/frame-back';
 import { PresentationNavigation } from './presentation-navigation';
+import { RememberedViewScope, rememberedViewScope } from './remembered-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 import type { WorkbenchTab } from './workbench-shared';
@@ -10,6 +11,7 @@ import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 /**
  * What surrounds the active tab's body: a failure stays inside the tab, links in
  * its content open through the workbench, and its frame bar gets Back to the list.
+ * Its viewers keep their chosen views while it stays open (remembered-view.ts).
  */
 export function WorkbenchTabFrame({
   artifacts,
@@ -56,7 +58,9 @@ export function WorkbenchTabFrame({
           onOpenSubagent,
         }}
       >
-        <FrameBackContext.Provider value={back}>{children}</FrameBackContext.Provider>
+        <RememberedViewScope.Provider value={rememberedViewScope(workspaceId, tab.id)}>
+          <FrameBackContext.Provider value={back}>{children}</FrameBackContext.Provider>
+        </RememberedViewScope.Provider>
       </PresentationNavigation.Provider>
     </WorkbenchTabErrorBoundary>
   );

@@ -22,6 +22,7 @@ import {
 import { collectPlainText, editorCaretOffset, focusEditorAtOffset } from './composer-editor-model';
 import { useActiveOption } from './composer-reference-controller-active-option';
 import { StableInput } from './primitives/stable-input';
+import { t, ph } from '@lingui/core/macro';
 
 interface ComposerInlineReferenceEditorProps {
   /**
@@ -81,7 +82,7 @@ function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection):
   open.dataset.referenceOpen = identity;
   open.setAttribute(
     'aria-label',
-    `Open ${referenceKindLabel(selection.reference.kind)} ${selection.reference.label}`,
+    t`Open ${ph({ kind: referenceKindLabel(selection.reference.kind) })} ${ph({ label: selection.reference.label })}`,
   );
   open.title = [selection.reference.label, selection.reference.detail].filter(Boolean).join(' — ');
   open.type = 'button';

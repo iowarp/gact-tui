@@ -21,6 +21,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { FrameTab } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { ReleaseChanges } from './whats-new-release-changes';
+import { t } from '@lingui/core/macro';
 
 /** Notes and release identity for one independently versioned product. */
 export interface WhatsNewTab {
@@ -69,12 +70,12 @@ export function WhatsNewDialog() {
           if (entries.length) {
             nextTabs.push({
               id: 'desktop',
-              label: productNotes ? brand.wordmark : 'Interface',
+              label: productNotes ? brand.wordmark : t`Interface`,
               kind: productNotes ? 'product' : 'interface',
               version: current,
               description: hasProductChangelog()
-                ? 'Agent, tools and application changes shipped in this release.'
-                : 'Desktop and workspace interface changes.',
+                ? t`Agent, tools and application changes shipped in this release.`
+                : t`Desktop and workspace interface changes.`,
               entries,
               releaseUrl: separateUiIdentity ? undefined : brand.desktopReleaseUrl,
             });
@@ -90,10 +91,10 @@ export function WhatsNewDialog() {
             if (uiEntries.length) {
               nextTabs.push({
                 id: 'interface',
-                label: 'Interface',
+                label: t`Interface`,
                 kind: 'interface',
                 version: uiVersion,
-                description: 'Desktop and workspace interface changes.',
+                description: t`Desktop and workspace interface changes.`,
                 entries: uiEntries,
               });
             }
@@ -135,10 +136,10 @@ export function WhatsNewReleaseDialog({
       open={open}
       onOpenChange={onOpenChange}
       icon={<SparklesIcon />}
-      title="What's new"
-      description="What changed in your update."
+      title={t`What's new`}
+      description={t`What changed in your update.`}
       cancelLabel={null}
-      confirm={{ label: 'Got it', onConfirm: () => onOpenChange(false), key: 'Enter' }}
+      confirm={{ label: t`Got it`, onConfirm: () => onOpenChange(false), key: 'Enter' }}
       className={cn(expanded && 'w-[min(880px,calc(100vw-2rem))]')}
       footerStart={
         releaseUrl ? (
@@ -147,10 +148,10 @@ export function WhatsNewReleaseDialog({
             href={releaseUrl}
           >
             <ExternalLinkIcon aria-hidden="true" className="size-[13px]" />
-            Release history
+            {t`Release history`}
           </ExternalLink>
         ) : (
-          <span>Notes included with this build</span>
+          <span>{t`Notes included with this build`}</span>
         )
       }
     >
@@ -171,7 +172,7 @@ export function WhatsNewReleaseDialog({
                   className="data-active:shadow-[inset_0_-2px_0_var(--primary)]"
                   renderTrigger={({ className, children }) => (
                     <TabsTrigger
-                      className={`${className} h-full justify-start border-0 bg-transparent py-0 text-[12.5px] font-normal text-inherit shadow-none data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent`}
+                      className={`${className} h-full justify-start border-0 bg-transparent py-0 text-menu font-normal text-inherit shadow-none data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent`}
                       value={tab.id}
                     >
                       {children}
@@ -182,7 +183,7 @@ export function WhatsNewReleaseDialog({
             })}
           </TabsList>
           <IconButton
-            label={expanded ? 'Restore size' : 'Expand'}
+            label={expanded ? t`Restore size` : t`Expand`}
             icon={expanded ? <Minimize2Icon /> : <Maximize2Icon />}
             size="sm"
             className="mr-0.5 text-muted-foreground"

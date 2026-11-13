@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { t } from '@lingui/core/macro';
 
 interface FileTreeContextType {
   expandedPaths: Set<string>;
@@ -66,7 +67,7 @@ export const FileTree = ({
   return (
     <FileTreeContext.Provider value={contextValue}>
       <div
-        className={cn('min-w-0 rounded-lg border bg-background font-sans text-[12.5px]', className)}
+        className={cn('min-w-0 rounded-lg border bg-background font-sans text-[0.78125rem]', className)}
         role="tree"
         {...props}
       >
@@ -131,7 +132,7 @@ export const FileTreeFolder = ({
         <div className={cn('', className)} role="treeitem" aria-expanded={isExpanded} {...props}>
           <CollapsibleTrigger asChild>
             <button
-              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} folder ${name}`}
+              aria-label={isExpanded ? t`Collapse folder ${name}` : t`Expand folder ${name}`}
               className="flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] border-none bg-transparent px-2 text-left whitespace-nowrap transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               type="button"
             >

@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { MeshBounds } from './mesh-viewport-sync';
@@ -81,7 +82,7 @@ export async function parseFeaMesh(bytes: Uint8Array): Promise<ParsedFeaMesh> {
   const cellA = attributeArray(geometry, '_cell_a');
   const cellB = attributeArray(geometry, '_cell_b');
   const topology = extras.topology === 'cells' && cellA && cellB ? 'cells' : 'surface';
-  const frames = (extras.frames ?? []).map((frame, i) => frame.label || `Frame ${i}`);
+  const frames = (extras.frames ?? []).map((frame, i) => frame.label || t`Frame ${i}`);
 
   const fields: MeshField[] = [];
   for (const declared of extras.fields ?? []) {

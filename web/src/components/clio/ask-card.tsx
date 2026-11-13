@@ -34,6 +34,8 @@ import {
 } from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
+import { composerFailureReason } from './composer-failure';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -56,6 +58,7 @@ const TONE: Record<AskKind, string> = {
   verify: 'text-info',
 };
 
+// i18n-ignore: keyboard key names, printed on the keys
 const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
 /** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
@@ -75,9 +78,9 @@ export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: 
  */
 export function AskPagerControls({
   pager: own,
-  label = 'Pending requests',
+  label = t`Pending requests`,
   noun = 'request',
-}: { pager?: AskPager; label?: string; noun?: string } = {}) {
+}: { pager?: AskPager; label?: string; noun?: 'request' | 'question' } = {}) {
   const queue = useContext(AskPagerContext);
   const pager = own ?? queue;
   if (!pager || pager.total < 2) return null;
@@ -86,14 +89,14 @@ export function AskPagerControls({
     <TooltipProvider>
       <nav
         aria-label={label}
-        className="ml-auto flex shrink-0 items-center font-mono text-[11px] text-muted-foreground"
+        className="ml-auto flex shrink-0 items-center font-mono text-caption text-muted-foreground"
         data-slot="ask-pager"
       >
         <IconButton
           {...askKeyAttributes(keyed ? ['['] : [])}
           disabled={pager.index === 0}
           icon={<ChevronLeftIcon aria-hidden="true" />}
-          label={`Previous ${noun}`}
+          label={noun === 'question' ? t`Previous question` : t`Previous request`}
           onClick={pager.onPrevious}
           size="sm"
         />
@@ -104,7 +107,7 @@ export function AskPagerControls({
           {...askKeyAttributes(keyed ? [']'] : [])}
           disabled={pager.index === pager.total - 1}
           icon={<ChevronRightIcon aria-hidden="true" />}
-          label={`Next ${noun}`}
+          label={noun === 'question' ? t`Next question` : t`Next request`}
           onClick={pager.onNext}
           size="sm"
         />
@@ -171,7 +174,7 @@ export function AskCard({
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
         // and the options stay. Open Technical details scroll inside it, so the cap holds.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
         EDGE[kind],
         className,
       )}
@@ -190,7 +193,7 @@ export function AskCard({
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className={cn(
-            'min-w-0 shrink truncate text-[13.5px] leading-5 font-medium',
+            'min-w-0 shrink truncate text-[0.84375rem] leading-5 font-medium',
             // A question reads whole: at a fifth of the window it takes a second line.
             wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
           )}
@@ -210,7 +213,7 @@ export function AskCard({
             id={`${id}-meta`}
             className={cn(
               'min-w-0 flex-1 truncate text-muted-foreground',
-              metaMono ? 'font-mono text-[11.5px]' : 'text-[12px]',
+              metaMono ? 'font-mono text-label' : 'text-meta',
             )}
             data-slot="ask-meta"
           >
@@ -280,7 +283,7 @@ export function AskBody({ className, ...props }: ComponentProps<'div'>) {
 export function AskSubject({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
-      className={cn('mt-1 text-[12.5px] text-muted-foreground', className)}
+      className={cn('mt-1 text-menu text-muted-foreground', className)}
       data-slot="ask-subject"
       {...props}
     />
@@ -359,7 +362,7 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-menu font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
         !primary && 'border-input bg-transparent text-foreground',
         // A filled button waiting on a choice keeps the 1px edge of every other option.
         primary && 'disabled:border-input',
@@ -419,7 +422,7 @@ export function AskRow({
     <button
       {...askKeyAttributes(keys)}
       className={cn(
-        'flex min-h-[30px] w-full min-w-0 items-center gap-2.5 rounded-[7px] px-1.5 text-left text-[12.5px] text-foreground/85 outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:[box-shadow:inset_0_0_0_1.5px_var(--ring)] disabled:pointer-events-none disabled:opacity-50 aria-checked:text-foreground',
+        'flex min-h-[30px] w-full min-w-0 items-center gap-2.5 rounded-[7px] px-1.5 text-left text-menu text-foreground/85 outline-none hover:bg-foreground/[0.05] hover:text-foreground focus-visible:[box-shadow:inset_0_0_0_1.5px_var(--ring)] disabled:pointer-events-none disabled:opacity-50 aria-checked:text-foreground',
         // --hover sits at --card's level in the dark themes; a foreground tint reads in every theme.
         highlighted && 'bg-foreground/[0.07] text-foreground',
         className,
@@ -433,7 +436,7 @@ export function AskRow({
       {number && number < 10 ? <AskKeyChip askKey={String(number)} /> : null}
       <span className="min-w-0 shrink truncate">{label}</span>
       {detail ? (
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-foreground/70">{detail}</span>
+        <span className="min-w-0 flex-1 truncate text-label text-foreground/70">{detail}</span>
       ) : (
         <span className="flex-1" />
       )}
@@ -456,7 +459,7 @@ export function AskFooter({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex min-w-0 items-center gap-4 overflow-hidden text-[11.5px] whitespace-nowrap text-muted-foreground',
+        'mt-2.5 flex min-w-0 items-center gap-4 overflow-hidden text-label whitespace-nowrap text-muted-foreground',
         className,
       )}
       data-slot="ask-footer"
@@ -494,7 +497,7 @@ export function AskHint({
  */
 export function AskDetails({
   children,
-  title = 'Technical details',
+  title = t`Technical details`,
   hint,
 }: {
   children: ReactNode;
@@ -540,7 +543,7 @@ export function AskDetails({
       // Open, the raw arguments give up height first (down to a few lines that scroll), then
       // a script, so the facts and options stay whole under the cap.
       className={cn(
-        'mt-2.5 flex min-h-0 flex-col text-[11.5px] text-muted-foreground',
+        'mt-2.5 flex min-h-0 flex-col text-label text-muted-foreground',
         open ? 'shrink-[1000]' : 'shrink-0',
       )}
       data-slot="ask-details"
@@ -587,11 +590,11 @@ function AskCopyButton({ code, label }: { code: string; label: string }) {
       <IconButton
         className="text-muted-foreground"
         icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-        label={copied ? 'Copied' : label}
+        label={copied ? t`Copied` : label}
         onClick={() => {
           void copyText(code).then(
             () => setCopied(true),
-            () => toast.error('Could not copy to the clipboard.'),
+            () => toast.error(t`Could not copy to the clipboard.`),
           );
         }}
         size="sm"
@@ -611,7 +614,7 @@ export function AskCode({
   name,
   meta,
   onOpen,
-  openLabel = 'Open in tab',
+  openLabel = t`Open in tab`,
   copyLabel,
   icon: NameIcon,
   wrapToggle,
@@ -691,9 +694,9 @@ export function AskCode({
       role="group"
     >
       {name ? (
-        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
           {NameIcon ? <NameIcon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className="truncate text-[12px] font-medium text-foreground/90">{name}</span>
+          <span className="truncate text-meta font-medium text-foreground/90">{name}</span>
           {meta ? <span className="truncate">{meta}</span> : null}
           <span className="flex-1" />
           {wrapToggle ? (
@@ -701,7 +704,7 @@ export function AskCode({
               <IconButton
                 className="text-muted-foreground"
                 icon={<WrapTextIcon aria-hidden="true" />}
-                label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}
+                label={wrap ? t`Stop wrapping long lines` : t`Wrap long lines`}
                 onClick={() => setWrap((value) => !value)}
                 size="sm"
                 variant="ghost"
@@ -714,7 +717,7 @@ export function AskCode({
       <pre
         ref={preRef}
         className={cn(
-          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
           clipped
             ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
             : 'max-h-[min(24rem,40dvh)] overflow-y-auto',
@@ -745,16 +748,18 @@ export function AskCode({
         ))}
       </pre>
       {hidden > 0 || onOpen ? (
-        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}</span>
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
+          <span className="truncate">
+            {hidden > 0 ? plural(hidden, { one: '# more line', other: '# more lines' }) : null}
+          </span>
           <AskButton
             {...askKeyAttributes(['o'])}
-            className="ml-auto h-6 px-2 text-[12px]"
+            className="ml-auto h-6 px-2 text-meta"
             onClick={onOpen ?? (() => setExpanded(true))}
           >
             <span className="inline-flex items-center gap-1.5">
               {onOpen ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
-              {onOpen ? openLabel : 'Show all'}
+              {onOpen ? openLabel : t`Show all`}
               <AskKeyChip askKey="o" />
             </span>
           </AskButton>
@@ -767,18 +772,16 @@ export function AskCode({
 /** One quiet line when this card's own answer failed; assertive, never color alone. */
 export function AskError({ error, className }: { error?: Error; className?: string }) {
   if (!error) return null;
+  const reason = composerFailureReason(error, t`The service did not record your answer.`);
   return (
     <AskSection
-      className={cn(
-        'mt-2 flex min-w-0 items-center gap-1.5 text-[12px] text-destructive',
-        className,
-      )}
+      className={cn('mt-2 flex min-w-0 items-center gap-1.5 text-meta text-destructive', className)}
       data-slot="ask-error"
       role="alert"
     >
-      <span className="shrink-0 font-medium">Response unavailable</span>
-      <span className="min-w-0 truncate text-destructive/85" title={error.message}>
-        {error.message}
+      <span className="shrink-0 font-medium">{t`Response unavailable`}</span>
+      <span className="min-w-0 truncate text-destructive/85" title={reason}>
+        {reason}
       </span>
     </AskSection>
   );

@@ -14,6 +14,7 @@ import { SplitButton } from './primitives/split-button';
 import type { SavedMcpService } from '@clio/core/v3';
 import { McpConnectionDialog } from './mcp-connection-dialog';
 import { SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
 
 export type ExtensionAdd = {
   kind: 'remote' | 'local' | 'import' | 'skill' | 'plugin' | 'upload';
@@ -27,15 +28,15 @@ export type ExtensionAdd = {
 
 const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
 // The same field size as the other Settings dialogs' setting rows.
-const FIELD = 'h-[1.875rem] text-[0.78125rem]';
+const FIELD = 'h-[1.875rem] text-menu';
 
 const ADD_LABELS = {
-  remote: 'MCP server URL',
-  local: 'Local MCP command',
-  import: 'Repository or host folder',
-  upload: 'Upload ZIP',
-  skill: 'Create a skill',
-  plugin: 'Compose a plugin',
+  remote: t`MCP server URL`,
+  local: t`Local MCP command`,
+  import: t`Repository or host folder`,
+  upload: t`Upload ZIP`,
+  skill: t`Create a skill`,
+  plugin: t`Compose a plugin`,
 };
 
 /** The kind the face of the Add button adds; the arrow lists every kind. */
@@ -64,12 +65,12 @@ export function ExtensionAddMenu({
   const label = labelOverride
     ? labelOverride
     : mcp
-      ? 'Add MCP'
+      ? t`Add MCP`
       : category === 'skills'
-        ? 'Add skill'
+        ? t`Add skill`
         : category === 'plugins'
-          ? 'Add plugin'
-          : 'Add';
+          ? t`Add plugin`
+          : t({ message: 'Add', context: 'verb' });
   const kinds = CHOICES.filter((kind) => {
     if (mcp) return kind === 'remote' || kind === 'local';
     if (category === 'skills') return kind === 'skill' || kind === 'import' || kind === 'upload';
@@ -80,14 +81,14 @@ export function ExtensionAddMenu({
     <span className="inline-flex shrink-0 items-center gap-2.5">
       {supported !== true ? (
         <span className="text-xs whitespace-nowrap text-muted-foreground" role="status">
-          {supported === false ? 'Needs a newer agent service' : 'Checking the agent service…'}
+          {supported === false ? t`Needs a newer agent service` : t`Checking the agent service…`}
         </span>
       ) : null}
       <SplitButton
         disabled={supported !== true}
         icon={<AddIcon aria-hidden="true" />}
         label={label}
-        menuLabel={`${label} options`}
+        menuLabel={t`${label} options`}
         onClick={() => onChoose({ kind: primaryKind(mcp, category), category })}
         showLabel
         variant="outline"
@@ -95,7 +96,9 @@ export function ExtensionAddMenu({
         {kinds.map((kind) => (
           <DropdownMenuItem key={kind} onSelect={() => onChoose({ kind, category })}>
             {kind === 'upload' && category
-              ? `Upload ${category === 'skills' ? 'skill' : 'plugin'} ZIP`
+              ? category === 'skills'
+                ? t`Upload skill ZIP`
+                : t`Upload plugin ZIP`
               : ADD_LABELS[kind]}
           </DropdownMenuItem>
         ))}
@@ -104,12 +107,12 @@ export function ExtensionAddMenu({
   );
 }
 const TITLES = {
-  remote: 'Add an MCP connection',
-  local: 'Add a local MCP',
-  import: 'Add from a repository or folder',
-  skill: 'Create a skill',
-  plugin: 'Compose a plugin',
-  upload: 'Upload a skill or plugin',
+  remote: t`Add an MCP connection`,
+  local: t`Add a local MCP`,
+  import: t`Add from a repository or folder`,
+  skill: t`Create a skill`,
+  plugin: t`Compose a plugin`,
+  upload: t`Upload a skill or plugin`,
 };
 const slug = (text: string) =>
   text
@@ -151,13 +154,13 @@ const LOCAL_PATH = /^(?:[a-z]:[\\/]|[\\/~.])/iu;
 /** A failed fetch reads as what happened; the service's own words stay on hover. */
 function plainAddError(error: string, source: string): string {
   if (/no such file or directory|does not exist/iu.test(error))
-    return 'That folder doesn’t exist on the agent host.';
+    return t`That folder doesn’t exist on the agent host.`;
   // The host reads a path as a file:// remote, so a bad folder fails as a git fetch.
   if (LOCAL_PATH.test(source.trim()))
-    return 'That folder couldn’t be read as an extension source on the agent host.';
+    return t`That folder couldn’t be read as an extension source on the agent host.`;
   if (/repository .*not found|could not read username|authentication failed/iu.test(error))
-    return 'That repository couldn’t be found, or it needs access this agent host doesn’t have.';
-  if (/git (fetch|clone)\b.*failed/iu.test(error)) return 'That repository couldn’t be fetched.';
+    return t`That repository couldn’t be found, or it needs access this agent host doesn’t have.`;
+  if (/git (fetch|clone)\b.*failed/iu.test(error)) return t`That repository couldn’t be fetched.`;
   return error;
 }
 
@@ -192,21 +195,21 @@ function ExtensionSourceDialog({
     setError('');
     try {
       if (supported !== true)
-        throw new Error('Update the connected agent service to use this extension setup');
+        throw new Error(t`Update the connected agent service to use this extension setup`);
       const key = slug(name);
       if (!key && choice.kind !== 'import')
-        throw new Error('Include a letter or number in the extension name');
+        throw new Error(t`Include a letter or number in the extension name`);
       if (choice.kind === 'plugin' && !refs.length && !selected.length)
-        throw new Error('Choose at least one skill, plugin or MCP connection');
+        throw new Error(t`Choose at least one skill, plugin or MCP connection`);
       if (choice.kind === 'import')
         await repository.installPluginMarketplace({
           source: source.trim(),
           name: key || undefined,
         });
       else if (choice.kind === 'upload') {
-        if (!file) throw new Error('Choose a ZIP file');
+        if (!file) throw new Error(t`Choose a ZIP file`);
         if (file.size > 2 * 1024 * 1024)
-          throw new Error('Use a ZIP smaller than 2 MiB, or add its repository');
+          throw new Error(t`Use a ZIP smaller than 2 MiB, or add its repository`);
         const bytes = new Uint8Array(await file.arrayBuffer());
         let binary = '';
         for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -233,14 +236,13 @@ function ExtensionSourceDialog({
       await onSaved();
       onClose();
       toast.success(
-        choice.kind === 'import' ? 'Source installed' : 'Saved to Private local marketplace',
+        choice.kind === 'import' ? t`Source installed` : t`Saved to Private local marketplace`,
         {
-          description:
-            'Inspect the contents, then trust the source to make it available to agents.',
+          description: t`Inspect the contents, then trust the source to make it available to agents.`,
         },
       );
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not add extension');
+      setError(reason instanceof Error ? reason.message : t`Could not add extension`);
     } finally {
       setBusy(false);
     }
@@ -255,18 +257,20 @@ function ExtensionSourceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: busy ? 'Adding…' : importing ? 'Install source' : 'Save to private marketplace',
+        label: busy ? t`Adding…` : importing ? t`Install source` : t`Save to private marketplace`,
         onConfirm: () => void save(),
         disabled: busy || supported !== true || missing,
       }}
       description={
         importing
-          ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
+          ? t`Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.`
           : choice.kind === 'plugin'
-            ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
+            ? t`Combine installed capabilities and saved connections. Credentials stay with their connection.`
             : choice.kind === 'upload'
-              ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
-              : 'Save reusable instructions in your private marketplace.'
+              ? choice.category === 'skills'
+                ? t`Upload a skill ZIP to your private marketplace.`
+                : t`Upload a plugin ZIP to your private marketplace.`
+              : t`Save reusable instructions in your private marketplace.`
       }
       icon={<PackageIcon />}
       onOpenChange={(open) => {
@@ -275,7 +279,9 @@ function ExtensionSourceDialog({
       open
       title={
         choice.kind === 'upload' && choice.category
-          ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'}`
+          ? choice.category === 'skills'
+            ? t`Upload a skill`
+            : t`Upload a plugin`
           : TITLES[choice.kind]
       }
     >
@@ -288,8 +294,8 @@ function ExtensionSourceDialog({
       >
         <SettingsRow
           htmlFor={`${ids}-name`}
-          info={importing ? 'Optional. The source keeps its own name without one.' : undefined}
-          title="Name"
+          info={importing ? t`Optional. The source keeps its own name without one.` : undefined}
+          title={t`Name`}
         >
           <Input
             className={FIELD}
@@ -299,12 +305,12 @@ function ExtensionSourceDialog({
             onChange={(event) => setName(event.target.value)}
             placeholder={
               importing
-                ? 'Optional'
+                ? t`Optional`
                 : choice.kind === 'skill' || choice.category === 'skills'
-                  ? 'My skill'
+                  ? t`My skill`
                   : choice.kind === 'plugin' || choice.category === 'plugins'
-                    ? 'My plugin'
-                    : 'My source'
+                    ? t`My plugin`
+                    : t`My source`
             }
             required={!importing}
           />
@@ -312,8 +318,8 @@ function ExtensionSourceDialog({
         {importing ? (
           <SettingsRow
             htmlFor={`${ids}-source`}
-            info="A repository URL, or a folder on the agent host."
-            title="Source"
+            info={t`A repository URL, or a folder on the agent host.`}
+            title={t`Source`}
           >
             <Input
               className={FIELD}
@@ -330,7 +336,7 @@ function ExtensionSourceDialog({
             <Input
               ref={fileInput}
               className="sr-only"
-              aria-label={choice.category === 'skills' ? 'Skill ZIP' : 'Plugin ZIP'}
+              aria-label={choice.category === 'skills' ? t`Skill ZIP` : t`Plugin ZIP`}
               type="file"
               accept=".zip"
               onChange={(event) => setFile(event.target.files?.[0])}
@@ -348,7 +354,7 @@ function ExtensionSourceDialog({
                 event.preventDefault();
                 setDragging(false);
                 const dropped = event.dataTransfer.files;
-                if (dropped.length !== 1) setError('Drop one ZIP file');
+                if (dropped.length !== 1) setError(t`Drop one ZIP file`);
                 else {
                   setFile(dropped[0]);
                   setError('');
@@ -357,18 +363,20 @@ function ExtensionSourceDialog({
             >
               {file
                 ? file.name
-                : `Drop a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP here, or click to choose`}
+                : choice.category === 'skills'
+                  ? t`Drop a skill ZIP here, or click to choose`
+                  : t`Drop a plugin ZIP here, or click to choose`}
             </button>
             <span className="text-sm text-muted-foreground">
               {choice.category === 'skills'
-                ? 'A skill folder containing SKILL.md and its references.'
-                : 'A plugin folder containing plugin.json or .claude-plugin/plugin.json.'}{' '}
-              Up to 128 UTF-8 files, 2 MiB uncompressed.
+                ? t`A skill folder containing SKILL.md and its references.`
+                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}{' '}
+              {t`Up to 128 UTF-8 files, 2 MiB uncompressed.`}
             </span>
           </div>
         ) : null}
         {choice.kind === 'skill' || choice.kind === 'plugin' ? (
-          <SettingsRow htmlFor={`${ids}-description`} title="Description">
+          <SettingsRow htmlFor={`${ids}-description`} title={t`Description`}>
             <Input
               className={FIELD}
               id={`${ids}-description`}
@@ -379,13 +387,13 @@ function ExtensionSourceDialog({
           </SettingsRow>
         ) : null}
         {choice.kind === 'skill' ? (
-          <SettingsRow htmlFor={`${ids}-instructions`} title="Instructions">
+          <SettingsRow htmlFor={`${ids}-instructions`} title={t`Instructions`}>
             <Textarea
-              className="min-h-52 text-[0.78125rem]"
+              className="min-h-52 text-menu"
               id={`${ids}-instructions`}
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
-              placeholder="When to use this skill, what to do, and how to verify the outcome."
+              placeholder={t`When to use this skill, what to do, and how to verify the outcome.`}
               required
             />
           </SettingsRow>
@@ -402,13 +410,12 @@ function ExtensionSourceDialog({
           </p>
         ) : null}
         {!importing ? (
-          <p className="pt-2 text-xs text-faint">
-            Saves to your Private local marketplace on this agent host. GitHub backup is available
-            from Marketplaces.
+          <p className="pt-2 text-xs text-muted-foreground">
+            {t`Saves to your Private local marketplace on this agent host. GitHub backup is available from Marketplaces.`}
           </p>
         ) : null}
         <button className="sr-only" tabIndex={-1} type="submit">
-          Submit
+          {t`Submit`}
         </button>
       </form>
     </DialogFrame>
@@ -431,14 +438,14 @@ function PluginChoices({
       source: row.marketplace,
       description: row.description,
       keywords: [...row.skills, ...row.members, ...row.mcp_servers],
-      group: row.kind === 'pack' ? 'Packs' : 'Plugins',
-      state: row.trusted ? '' : 'Not trusted yet',
+      group: row.kind === 'pack' ? t`Packs` : t`Plugins`,
+      state: row.trusted ? '' : t`Not trusted yet`,
       icon:
         row.kind === 'pack' ? <BoxesIcon className="size-4" /> : <PackageIcon className="size-4" />,
     }));
   return (
     <CapabilitySelection
-      label="Skills & plugins"
+      label={t`Skills & plugins`}
       items={items}
       values={values}
       onChange={onChange}
@@ -459,14 +466,14 @@ function ConnectionChoices({
   const items = connections.map((row) => ({
     id: row.name,
     title: row.label || row.name,
-    source: row.transport === 'stdio' ? 'Local command' : 'Remote MCP',
+    source: row.transport === 'stdio' ? t`Local command` : t`Remote MCP`,
     keywords: [row.name],
-    group: 'Saved connections',
+    group: t`Saved connections`,
     icon: <CableIcon className="size-4" />,
   }));
   return (
     <CapabilitySelection
-      label="Saved MCP connections"
+      label={t`Saved MCP connections`}
       items={items}
       values={values}
       onChange={onChange}

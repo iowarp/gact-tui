@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RUNTIME_NAMES, hostSummary, runtimeFactLines } from './managed-service-target-utils';
+import { t } from '@lingui/core/macro';
 
 /**
  * What an inspected computer offers, in plain sentences: the system and GPU,
@@ -31,7 +32,7 @@ export function ManagedServiceHostFacts({ facts }: { facts: TargetFacts }) {
               type="button"
               variant="ghost"
             >
-              {open ? 'Hide details' : 'Show details'}
+              {open ? t`Hide details` : t`Show details`}
               <ChevronDownIcon
                 aria-hidden="true"
                 className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}

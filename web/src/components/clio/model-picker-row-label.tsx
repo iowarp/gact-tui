@@ -2,8 +2,8 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
+import { compactModelName } from '@/lib/model-options';
 import { cachedModelFacts } from './model-picker-fact-cache';
-import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { cn } from '@/lib/utils';
 import { KeyCap } from './primitives/key-chip';
 import { ModelRowFacts } from './model-row-facts';
@@ -13,7 +13,9 @@ import type { ProviderFilterCount } from './model-picker-tree';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
 import { providerActionStageWord } from './provider-action-flows';
+import { providerActionStageLabel } from './provider-actions';
 import type { ProviderSearchCount } from './use-model-picker-search-view';
+import { t, ph } from '@lingui/core/macro';
 
 interface PickerRowLabelProps {
   eyeAsStaticElement: boolean;
@@ -32,8 +34,6 @@ interface PickerRowLabelProps {
     /** Two columns: the providers column, "name heartbeat 3 ›" (the cascader's chevron). */
     column?: boolean;
   };
-  /** Clicking a row's tag adds its filter token. */
-  onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
   managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
@@ -48,10 +48,10 @@ interface PickerRowLabelProps {
   state: CascaderItemState<PickerNodeData>;
 }
 
-function CountLabel({ shown, total, verb }: { shown: number; total: number; verb: string }) {
+function CountLabel({ shown, total, label }: { shown: number; total: number; label: string }) {
   return (
     <span
-      aria-label={`${shown} of ${total} models ${verb}`}
+      aria-label={label}
       className="shrink-0 text-xs text-muted-foreground tabular-nums"
       data-slot="provider-filter-count"
     >
@@ -65,13 +65,12 @@ function CountLabel({ shown, total, verb }: { shown: number; total: number; verb
  * heartbeat count ›` -- with the eye only while managing visibility; during a
  * search it becomes its results group's header (`name heartbeat 11 / 458 ⌄`).
  * A model row is one line: its name, then its facts (context, price and
- * capability icons, each adding its filter token when clicked) at the end.
+ * capability icons, display only, so a click chooses the model) at the end.
  */
 export function PickerRowLabel({
   eyeAsStaticElement,
   filterCount,
   search,
-  onTagToken,
   hidden,
   managingVisibility,
   node,
@@ -86,8 +85,8 @@ export function PickerRowLabel({
       <span className="flex w-full min-w-0 items-center gap-2" data-slot="provider-more">
         <span className="min-w-0 truncate text-start text-muted-foreground">{node.label}</span>
         <span className="ms-auto hidden items-center gap-1 in-data-highlighted:inline-flex">
-          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">→</KeyCap>
-          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">↵</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[0.625rem]">→</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[0.625rem]">↵</KeyCap>
         </span>
       </span>
     );
@@ -97,8 +96,8 @@ export function PickerRowLabel({
       <span className="flex w-full min-w-0 items-center gap-1.5" data-slot="search-all-providers">
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
-          aria-label={`${node.data.matches} models match`}
-          className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+          aria-label={t`${ph({ matches: node.data.matches })} models match`}
+          className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
         >
           {node.data.matches}
         </span>
@@ -110,19 +109,19 @@ export function PickerRowLabel({
     // row (status and actions) ends the group. Pressing it folds the group.
     return (
       <span
-        className="flex w-full min-w-0 items-center gap-[7px] text-[11px] font-semibold text-muted-foreground"
+        className="flex w-full min-w-0 items-center gap-[7px] text-caption font-semibold text-muted-foreground"
         data-collapsed={search.collapsed ? '' : undefined}
         data-slot="provider-group-header"
       >
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
-          aria-label={`${search.count.matches} models`}
-          className="shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums"
+          aria-label={t`${ph({ matches: search.count.matches })} models`}
+          className="shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums"
           data-slot="provider-filter-count"
         >
           {search.count.matches || null}
         </span>
-        <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+        <span className="sr-only">{search.collapsed ? t`Collapsed` : t`Expanded`}</span>
       </span>
     );
   }
@@ -145,7 +144,7 @@ export function PickerRowLabel({
         </span>
         {!stage ? (
           <span
-            className="shrink-0 text-[11px] text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
             data-slot="provider-row-status"
             title={node.data.group.detail}
           >
@@ -153,9 +152,9 @@ export function PickerRowLabel({
           </span>
         ) : stage ? (
           <span
-            className="shrink-0 text-[11px] text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
             data-slot="provider-row-status"
-            title={stage}
+            title={providerActionStageLabel(stage)}
           >
             {providerActionStageWord(stage)}
           </span>
@@ -172,8 +171,8 @@ export function PickerRowLabel({
         {search?.column ? (
           search.count.total > 0 ? (
             <span
-              aria-label={`${search.count.matches} of ${search.count.total} models match`}
-              className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+              aria-label={t`${ph({ matches: search.count.matches })} of ${ph({ total: search.count.total })} models match`}
+              className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
               data-slot="provider-filter-count"
             >
               {search.count.matches}
@@ -181,7 +180,11 @@ export function PickerRowLabel({
           ) : null
         ) : search ? (
           <>
-            <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
+            <CountLabel
+              label={t`${ph({ matches: search.count.matches })} of ${ph({ total: search.count.total })} models match`}
+              shown={search.count.matches}
+              total={search.count.total}
+            />
             <ChevronDownIcon
               aria-hidden="true"
               className={cn(
@@ -190,15 +193,23 @@ export function PickerRowLabel({
               )}
               data-slot="provider-group-chevron"
             />
-            <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+            <span className="sr-only">{search.collapsed ? t`Collapsed` : t`Expanded`}</span>
           </>
         ) : filterCount && filterCount.shown !== filterCount.total ? (
-          <CountLabel shown={filterCount.shown} total={filterCount.total} verb="shown" />
+          <CountLabel
+            label={t`${ph({ shown: filterCount.shown })} of ${ph({ total: filterCount.total })} models shown`}
+            shown={filterCount.shown}
+            total={filterCount.total}
+          />
         ) : null}
       </span>
     );
   }
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
+  // A model the catalog names only by its id reads as the trigger names it
+  // (claude-sonnet-5-5 → sonnet 5.5); the id stays in its details and search.
+  const name =
+    choice && node.label === choice.id ? compactModelName(choice.id, node.label) : node.label;
   const facts = choice ? cachedModelFacts(choice) : undefined;
   const allTags = facts?.tags ?? [];
   // A router's name does not say what it routes to: its description does.
@@ -219,14 +230,13 @@ export function PickerRowLabel({
         )}
         data-slot="model-row-name"
       >
-        {node.label}
+        {name}
       </span>
-      {description ? <ModelDescriptionHint description={description} name={node.label} /> : null}
+      {description ? <ModelDescriptionHint description={description} name={name} /> : null}
       <ModelRowFacts
         className="ms-auto"
         contextWindow={facts?.facts.contextWindow}
         inputPrice={facts?.facts.inputPrice}
-        onTagToken={onTagToken}
         tags={displayedTags(allTags)}
       />
       <KeyCap size="row" className="hidden in-data-highlighted:inline-flex">

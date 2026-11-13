@@ -18,12 +18,20 @@ import { CopyAction } from './tool-compact-row';
 import { toolResultRecord } from './tool-result-shared';
 import { getToolActionLabel } from './tool-presentation';
 import type { SandboxBoundary } from './sandbox-boundary';
+import { plural, ph, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { formatLocale } from '@/lib/locale-format';
+
 function clock(at: string | undefined): string | undefined {
   if (!at) return undefined;
   const date = new Date(at);
   return Number.isNaN(date.getTime())
     ? undefined
-    : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    : date.toLocaleTimeString(formatLocale(), {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
 }
 
 /** Code lines shown before "Show all"; a large result stays one click away. */
@@ -56,24 +64,30 @@ export function DetailsSection({
   title,
   aside,
   copy,
+  copyLabel,
   label,
   children,
 }: {
   title: string;
   aside?: string;
   copy?: string;
+  /** The copy button's name (`Copy arguments`); written whole so it reads right in every language. */
+  copyLabel?: string;
   /** The section's accessible name when it differs from its heading. */
   label?: string;
   children: ReactNode;
 }) {
   return (
     <section aria-label={label} className="min-w-0" data-slot="details-section">
-      <div className="flex h-7 min-w-0 items-center gap-2 text-[12px] whitespace-nowrap text-muted-foreground">
+      <div className="flex h-7 min-w-0 items-center gap-2 text-meta whitespace-nowrap text-muted-foreground">
         <h4 className="font-medium text-foreground/90">{title}</h4>
         {aside ? <span className="min-w-0 truncate">{aside}</span> : null}
         {copy ? (
           <span className="ml-auto flex">
-            <CopyAction value={copy} label={`Copy ${title.toLowerCase()}`} />
+            <CopyAction
+              value={copy}
+              label={copyLabel ?? t`Copy ${ph({ section: title.toLowerCase() })}`}
+            />
           </span>
         ) : null}
       </div>
@@ -93,7 +107,7 @@ function NumberedCode({ text, json }: { text: string; json: boolean }) {
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="details-code"
     >
-      <pre className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90">
+      <pre className="grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90">
         {shown.map((line, index) => (
           <span className="contents" key={index}>
             <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
@@ -106,14 +120,16 @@ function NumberedCode({ text, json }: { text: string; json: boolean }) {
         ))}
       </pre>
       {hidden > 0 ? (
-        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden} more lines</span>
+        <div className="flex h-[30px] items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
+          <span className="truncate">
+            {plural(hidden, { one: '# more line', other: '# more lines' })}
+          </span>
           <Button
             variant="ghost"
-            className="ml-auto h-6 px-2 text-[12px]"
+            className="ml-auto h-6 px-2 text-meta"
             onClick={() => setAll(true)}
           >
-            Show all
+            {t`Show all`}
           </Button>
         </div>
       ) : null}
@@ -133,8 +149,12 @@ function TerminalTail({ text }: { text: string }) {
       className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       data-slot="details-terminal"
     >
-      <pre className="overflow-x-auto px-3 py-1.5 font-mono text-[11.5px] leading-[1.6] whitespace-pre text-foreground/90">
-        {earlier ? <span className="block text-faint">{earlier} earlier lines</span> : null}
+      <pre className="overflow-x-auto px-3 py-1.5 font-mono text-label leading-[1.6] whitespace-pre text-foreground/90">
+        {earlier ? (
+          <span className="block text-faint">
+            {plural(earlier, { one: '# earlier line', other: '# earlier lines' })}
+          </span>
+        ) : null}
         {lines.slice(earlier).map((line, index) => (
           <span className={cn('block', /^\s/u.test(line) && 'text-faint')} key={index}>
             {line || ' '}
@@ -145,10 +165,18 @@ function TerminalTail({ text }: { text: string }) {
   );
 }
 
-function CodeSection({ title, value }: { title: string; value: unknown }) {
+function CodeSection({
+  title,
+  copyLabel,
+  value,
+}: {
+  title: string;
+  copyLabel: string;
+  value: unknown;
+}) {
   const { text, json } = asText(value);
   return (
-    <DetailsSection title={title} copy={text}>
+    <DetailsSection title={title} copy={text} copyLabel={copyLabel}>
       <NumberedCode text={text} json={json} />
     </DetailsSection>
   );
@@ -163,12 +191,14 @@ function OutcomeSection({
   tool,
   output,
   error,
-  resultTitle = 'Result',
+  resultTitle = t`Result`,
+  resultCopyLabel = t`Copy result`,
 }: {
   tool?: ToolInvocation;
   output: unknown;
   error: unknown;
   resultTitle?: string;
+  resultCopyLabel?: string;
 }) {
   const [rawOpen, setRawOpen] = useState(false);
   const errorText =
@@ -178,18 +208,22 @@ function OutcomeSection({
         ? error
         : JSON.stringify(error, null, 2);
   if (!errorText)
-    return output === undefined ? null : <CodeSection title={resultTitle} value={output} />;
+    return output === undefined ? null : (
+      <CodeSection title={resultTitle} copyLabel={resultCopyLabel} value={output} />
+    );
   const record = tool ? toolResultRecord(tool.output) : undefined;
   const stderr =
     typeof record?.stderr === 'string' && record.stderr.trim() ? record.stderr : undefined;
-  const exitCode = typeof record?.exit_code === 'number' ? `exit ${record.exit_code}` : undefined;
+  const exitCode =
+    typeof record?.exit_code === 'number' ? t`exit ${ph({ code: record.exit_code })}` : undefined;
   // The error names what stderr does not say; stderr already carries it otherwise.
   const lead = stderr && !stderr.includes(errorText.trim()) ? errorText.split('\n')[0] : undefined;
   const terminal = stderr ?? errorText;
   const raw = output === undefined ? undefined : asText(output);
   return (
     <DetailsSection
-      title="Error"
+      title={t`Error`}
+      copyLabel={t`Copy error`}
       aside={exitCode}
       copy={lead ? `${errorText}\n${terminal}` : terminal}
     >
@@ -204,7 +238,7 @@ function OutcomeSection({
           <button
             type="button"
             aria-expanded={rawOpen}
-            className="mt-1.5 inline-flex h-6 items-center gap-1.5 rounded-[5px] pr-1.5 text-[12px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1.5 inline-flex h-6 items-center gap-1.5 rounded-[5px] pr-1.5 text-meta text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setRawOpen((value) => !value)}
           >
             <ChevronRightIcon
@@ -214,7 +248,7 @@ function OutcomeSection({
                 rawOpen && 'rotate-90',
               )}
             />
-            Raw result
+            {t`Raw result`}
           </button>
           {rawOpen ? <NumberedCode text={raw.text} json={raw.json} /> : null}
         </>
@@ -261,29 +295,39 @@ export function ToolTechnicalDetailsDialog({
       : undefined,
   );
   const started = clock(tool.started_at);
+  const roots = boundary?.request_roots.join(', ');
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const items: KeyValueItem[] = [
-    { label: 'Tool', value: tool.name, mono: true },
+    { label: t`Tool`, value: tool.name, mono: true },
     ...(parent
-      ? [{ label: 'Called by', value: getToolActionLabel(parent), title: parent.name }]
+      ? [{ label: t`Called by`, value: getToolActionLabel(parent), title: parent.name }]
       : []),
     ...(duration !== undefined
       ? [
           {
-            label: active ? 'Elapsed time' : 'Execution time',
+            label: active ? t`Elapsed time` : t`Execution time`,
             // The same reading as the row's elapsed column, so 820 ms reads 0.8s in both.
-            value: `${formatDuration(duration, 'elapsed')}${started ? `, started ${started}` : ''}`,
+            value: started
+              ? t`${ph({ duration: formatDuration(duration, 'elapsed') })}, started ${started}`
+              : formatDuration(duration, 'elapsed'),
           },
         ]
       : []),
     ...(boundary
       ? [
           {
-            label: 'Sandbox',
+            label: t`Sandbox`,
             value: boundary.request_roots.length ? (
               <span className="min-w-0 truncate">
-                On, blocked {boundary.kind === 'write_denied' ? 'a write to' : 'access to'}{' '}
-                <span className="font-mono text-[12px]">{boundary.request_roots.join(', ')}</span>
+                {boundary.kind === 'write_denied' ? (
+                  <Trans>
+                    On, blocked a write to <span className="font-mono text-meta">{roots}</span>
+                  </Trans>
+                ) : (
+                  <Trans>
+                    On, blocked access to <span className="font-mono text-meta">{roots}</span>
+                  </Trans>
+                )}
               </span>
             ) : (
               boundary.message
@@ -301,7 +345,7 @@ export function ToolTechnicalDetailsDialog({
       onOpenChange={onOpenChange}
       icon={<InfoIcon className="size-4" />}
       title={title}
-      description="Original tool arguments, result, and diagnostics."
+      description={t`Original tool arguments, result, and diagnostics.`}
       className="w-[clamp(360px,56vw,760px)]"
       footerStart={
         tool.submission ? (
@@ -318,23 +362,23 @@ export function ToolTechnicalDetailsDialog({
                 submissionOpen && 'rotate-90',
               )}
             />
-            <span className="truncate">Submission response</span>
+            <span className="truncate">{t`Submission response`}</span>
           </button>
         ) : undefined
       }
     >
       <div
         role="region"
-        aria-label="Scrollable result content"
+        aria-label={t`Scrollable result content`}
         tabIndex={0}
-        className="-mr-3 grid max-h-[65dvh] min-w-0 grid-cols-1 gap-2.5 overflow-auto overscroll-contain pr-3 pb-2 text-[12.5px] [overflow-wrap:anywhere]"
+        className="-mr-3 grid max-h-[65dvh] min-w-0 grid-cols-1 gap-2.5 overflow-auto overscroll-contain pr-3 pb-2 text-menu [overflow-wrap:anywhere]"
         data-slot="tool-technical-details"
       >
         <TooltipProvider delayDuration={200}>
           <TechnicalDetailsFacts items={items} />
           {link}
           {catalogContent.length ? (
-            <DetailsSection title="Loaded content" label="Loaded widget catalog">
+            <DetailsSection title={t`Loaded content`} label={t`Loaded widget catalog`}>
               <PagedBlock
                 block={catalogContent[0]}
                 groupedBlocks={[...catalogContent]}
@@ -353,7 +397,11 @@ export function ToolTechnicalDetailsDialog({
               />
             ))
           ) : tool.input !== undefined ? (
-            <CodeSection title="Arguments" value={tool.input ?? {}} />
+            <CodeSection
+              title={t`Arguments`}
+              copyLabel={t`Copy arguments`}
+              value={tool.input ?? {}}
+            />
           ) : null}
           {attentionResult.length ? (
             attentionResult.map((block) => (
@@ -373,7 +421,8 @@ export function ToolTechnicalDetailsDialog({
               tool={tool}
               output={tool.output}
               error={tool.error}
-              resultTitle="Execution result"
+              resultTitle={t`Execution result`}
+              resultCopyLabel={t`Copy execution result`}
             />
           ) : null}
           {tool.presentation?.diagnostic ? (
@@ -383,7 +432,8 @@ export function ToolTechnicalDetailsDialog({
             <OutcomeSection
               output={tool.submission.output}
               error={tool.submission.error}
-              resultTitle="Submission response"
+              resultTitle={t`Submission response`}
+              resultCopyLabel={t`Copy submission response`}
             />
           ) : null}
         </TooltipProvider>
@@ -414,7 +464,7 @@ export function TechnicalDetailsLink({
           onOpenFlow();
         }}
       >
-        Open {(flowLabel ?? 'flow').toLowerCase()} run
+        {flowLabel ? t`Open ${ph({ flow: flowLabel.toLowerCase() })} run` : t`Open flow run`}
       </Button>
     );
   return subject ? <PresentationLink block={subject} /> : null;

@@ -9,8 +9,15 @@ import { RowConfirm } from './primitives/row-confirm';
 import { SourceStatusLine } from './source-form-parts';
 import { Tag } from './primitives/tag';
 import { InfoTip } from './info-tip';
+import { ph, plural, t } from '@lingui/core/macro';
 
-const kindNames: Record<string, string> = { add: 'Added', modify: 'Changed', delete: 'Deleted' };
+const { agent } = vocab;
+
+const kindNames: Record<string, string> = {
+  add: t`Added`,
+  modify: t`Changed`,
+  delete: t`Deleted`,
+};
 
 /**
  * Unpublished edits before they reach the originals: one row per file with its
@@ -29,21 +36,20 @@ export function SourceReviewPanel({
   onSelected: (paths: string[]) => void;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-[5px]" aria-label="Review source changes">
-      <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-        Edits to publish
-        <InfoTip label="About reviewed updates">
-          Update only the files you select. {vocab.agent} checks for changes to the originals first.
-          If an update fails, some files may already have been saved.
+    <section className="flex min-w-0 flex-col gap-[5px]" aria-label={t`Review source changes`}>
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
+        {t`Edits to publish`}
+        <InfoTip label={t`About reviewed updates`}>
+          {t`Update only the files you select. ${agent} checks for changes to the originals first. If an update fails, some files may already have been saved.`}
         </InfoTip>
       </div>
       {review.changes.length === 0 ? (
-        <p className="text-[12px] text-faint">No unpublished edits.</p>
+        <p className="text-meta text-faint">{t`No unpublished edits.`}</p>
       ) : (
         <div className="-mx-2 max-h-60 overflow-y-auto">
           {review.changes.map((change) => (
             <div key={change.path} className="min-w-0">
-              <label className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[6px] px-2 text-[12.5px] whitespace-nowrap hover:bg-hover">
+              <label className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[6px] px-2 text-menu whitespace-nowrap hover:bg-hover">
                 <input
                   type="checkbox"
                   className="size-3.5 shrink-0 accent-primary"
@@ -57,27 +63,27 @@ export function SourceReviewPanel({
                     )
                   }
                 />
-                <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={change.path}>
+                <span className="min-w-0 flex-1 truncate font-mono text-meta" title={change.path}>
                   {change.path}
                 </span>
                 <Tag
                   width="auto"
                   tone={change.conflict || change.kind === 'delete' ? 'off' : 'neutral'}
                 >
-                  {change.conflict ? 'Original changed' : (kindNames[change.kind] ?? change.kind)}
+                  {change.conflict ? t`Original changed` : (kindNames[change.kind] ?? change.kind)}
                 </Tag>
               </label>
               {change.preview || change.preview_note ? (
-                <details className="group mb-1 ml-[31px] text-[11.5px]">
+                <details className="group mb-1 ml-[31px] text-label">
                   <summary className="flex h-6 cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                     <ChevronRightIcon
                       aria-hidden="true"
                       className="size-3 transition-transform group-open:rotate-90 motion-reduce:transition-none"
                     />
-                    Inspect changes
+                    {t`Inspect changes`}
                   </summary>
                   {change.preview && (
-                    <pre className="mt-1 max-h-52 overflow-auto rounded-[6px] bg-muted/40 p-2 font-mono text-[11px] leading-[1.5]">
+                    <pre className="mt-1 max-h-52 overflow-auto rounded-[6px] bg-muted/40 p-2 font-mono text-caption leading-normal">
                       {change.preview.split('\n').map((line, index) => (
                         <span
                           key={index}
@@ -105,7 +111,7 @@ export function SourceReviewPanel({
   );
 }
 
-const quiet = 'h-6 px-2 text-[12px]';
+const quiet = 'h-6 px-2 text-meta';
 
 /** A publish-later link's edits waiting in the workspace: Discard, or Review and publish. */
 export function SourceUnpublishedEdits({
@@ -125,9 +131,9 @@ export function SourceUnpublishedEdits({
   if (confirmDiscard)
     return (
       <RowConfirm
-        question="Discard all unpublished edits? The originals stay unchanged."
-        action="Discard edits"
-        busyAction="Discarding…"
+        question={t`Discard all unpublished edits? The originals stay unchanged.`}
+        action={t`Discard edits`}
+        busyAction={t`Discarding…`}
         onKeep={() => setConfirmDiscard(false)}
         onConfirm={async () => {
           await onDiscard();
@@ -150,7 +156,7 @@ export function SourceUnpublishedEdits({
               disabled={disabled}
               onClick={() => setConfirmDiscard(true)}
             >
-              Discard
+              {t`Discard`}
             </Button>
             <Button
               type="button"
@@ -160,18 +166,25 @@ export function SourceUnpublishedEdits({
               disabled={disabled}
               onClick={onReview}
             >
-              Review and publish
+              {t`Review and publish`}
             </Button>
           </>
         ) : undefined
       }
     >
       <span
-        title={`Edits stay in ${vocab.agent} until you publish them.${source.provider === 'github' ? ' Selected edits are published together in one commit.' : ''}`}
+        title={
+          source.provider === 'github'
+            ? t`Edits stay in ${agent} until you publish them. Selected edits are published together in one commit.`
+            : t`Edits stay in ${agent} until you publish them.`
+        }
       >
         {source.pending_edits
-          ? `${source.pending_edits} unpublished ${source.pending_edits === 1 ? 'edit' : 'edits'}`
-          : 'No unpublished edits'}
+          ? plural(source.pending_edits, {
+              one: '# unpublished edit',
+              other: '# unpublished edits',
+            })
+          : t`No unpublished edits`}
       </span>
     </SourceStatusLine>
   );
@@ -201,10 +214,16 @@ export function SourcePublicationStatus({ publication }: { publication: SourceOp
       }
     >
       {publication.state === 'completed'
-        ? `Published ${count} ${count === 1 ? 'file' : 'files'} to the originals.`
+        ? plural(count, {
+            one: 'Published # file to the originals.',
+            other: 'Published # files to the originals.',
+          })
         : publication.state === 'running'
-          ? 'Publishing selected edits…'
-          : `Publication ${publication.state}. ${count} files were published. ${publication.error ?? ''}`}
+          ? t`Publishing selected edits…`
+          : t`Publication ${ph({ state: publication.state })}. ${plural(count, {
+              one: '# file was published.',
+              other: '# files were published.',
+            })} ${ph({ error: publication.error ?? '' })}`}
     </SourceStatusLine>
   );
 }

@@ -15,6 +15,7 @@ import {
   routeSteps,
   type SshRouteCompleteness,
 } from './ssh-route-utils';
+import { t } from '@lingui/core/macro';
 
 type DialogState = {
   step: SshRouteStep;
@@ -25,6 +26,8 @@ type DialogState = {
 };
 
 const routeKey = (host: SshHost | undefined) => JSON.stringify(routeSteps(host));
+
+const { agent } = vocab;
 
 export function SshHostPicker({
   disabled = false,
@@ -112,7 +115,7 @@ export function SshHostPicker({
     if (hostSource) return;
     if (!next.managed) {
       setRouteNotice(
-        `This route is used for this deployment only; your OpenSSH configuration is unchanged.`,
+        t`This route is used for this deployment only; your OpenSSH configuration is unchanged.`,
       );
       return;
     }
@@ -158,13 +161,13 @@ export function SshHostPicker({
         onSlotsChange={(next) => void changeSlots(next)}
         options={visibleOptions}
         slots={slots}
-        originLabel={hostSource ? `Connected ${vocab.agent}` : undefined}
+        originLabel={hostSource ? t`Connected ${agent}` : undefined}
       />
 
       {routeError ? (
         <Alert variant="destructive">
           <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>The route could not be saved</AlertTitle>
+          <AlertTitle>{t`The route could not be saved`}</AlertTitle>
           <AlertDescription>{routeError}</AlertDescription>
         </Alert>
       ) : null}

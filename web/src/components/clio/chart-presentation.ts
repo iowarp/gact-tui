@@ -1,4 +1,4 @@
-import { readThemeColor, readThemeFont } from '@/theme/runtime';
+import { interfaceScale, readThemeColor, readThemeFont } from '@/theme/runtime';
 import { categoryPalette } from './category-colors';
 import { isJsonObject } from './chart-spec-guard';
 
@@ -7,8 +7,10 @@ import { isJsonObject } from './chart-spec-guard';
  * dashboards, in the active theme's colors and interface typeface. A single
  * series takes the first chart token (the theme's accent); categories take
  * the shared category palette; continuous color takes the value scale.
+ * Type sizes are px at the default interface size, scaled by Interface size.
  */
 export function chartPresentationConfig() {
+  const scale = interfaceScale();
   const ink = readThemeColor('foreground');
   const muted = readThemeColor('muted-foreground');
   const grid = readThemeColor('border');
@@ -34,20 +36,20 @@ export function chartPresentationConfig() {
       gridOpacity: 0.35,
       tickCount: 4,
       labelColor: muted,
-      labelFontSize: 13,
+      labelFontSize: 13 * scale,
       labelBound: true,
       labelPadding: 8,
       titleColor: ink,
-      titleFontSize: 13,
+      titleFontSize: 13 * scale,
       titleFontWeight: 500 as const,
       titlePadding: 14,
     },
     axisX: { grid: false, labelAngle: 0, labelOverlap: 'greedy' as const },
     legend: {
       labelColor: muted,
-      labelFontSize: 13,
+      labelFontSize: 13 * scale,
       titleColor: ink,
-      titleFontSize: 12,
+      titleFontSize: 12 * scale,
       titleFontWeight: 500 as const,
       padding: 8,
       symbolStrokeWidth: 2,
@@ -56,12 +58,12 @@ export function chartPresentationConfig() {
     title: {
       color: ink,
       subtitleColor: muted,
-      fontSize: 16,
+      fontSize: 16 * scale,
       fontWeight: 600 as const,
       anchor: 'start' as const,
       offset: 16,
     },
-    text: { color: ink, fontSize: 12 },
+    text: { color: ink, fontSize: 12 * scale },
     line: { strokeWidth: 2.5 },
     point: { size: 56 },
   };

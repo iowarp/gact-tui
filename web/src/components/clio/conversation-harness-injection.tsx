@@ -19,6 +19,7 @@ import { PresentationLink } from './presentation-link';
 import { agentMessageName } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+import { t, ph } from '@lingui/core/macro';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -26,7 +27,7 @@ type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 const MARKDOWN_SOURCES = new Set(['memory', 'session_facts']);
 // The row body's text size, headings included, so a "## Memory" title doesn't outsize its row.
 const ROW_MARKDOWN =
-  'text-[13px] leading-[1.55] [&_h1]:text-[13px] [&_h2]:text-[13px] [&_h3]:text-[13px] [&_h4]:text-[13px] [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_h4]:my-1.5 [&_p]:my-1.5 [&_li]:my-0.5';
+  'text-ui leading-[1.55] [&_h1]:text-ui [&_h2]:text-ui [&_h3]:text-ui [&_h4]:text-ui [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_h4]:my-1.5 [&_p]:my-1.5 [&_li]:my-0.5';
 
 /**
  * Backslashes are literal (Windows paths), not markdown escapes. Session facts are
@@ -40,42 +41,42 @@ function rowMarkdown(source: string, text: string): string {
 }
 
 const INJECTION_LABELS: Record<string, string> = {
-  goal_judgment: 'Goal judgment',
-  loop_wake: 'Loop wake',
-  scheduled_wake: 'Scheduled wake',
-  task_completion: 'Background task completion',
-  earlier_turns: 'Recovered conversation context',
-  todos: 'Todo list reminder',
-  plan_mode: 'Plan mode',
-  plan: 'Session plan',
-  plan_stale: 'Plan not updated lately',
-  plan_person_edit: 'Plan edited by you',
-  explore_nudge: 'Explore suggestion',
-  session_facts: 'Session facts',
-  child_report: 'Report instructions',
-  compaction_failed: 'Compaction failed',
-  compaction_skipped: 'Compaction skipped',
-  question_answer: 'Answer to a question',
-  plan_mode_short: 'Plan mode',
-  plan_truncated: 'Session plan (shortened)',
-  hook_defer: 'You chose to continue',
-  answer_hook: 'Hook answer',
-  mcp_elicitation: 'Question from a tool server',
-  replan: 'Replanning suggestion',
-  memory: 'Memory',
-  task_results: 'Results from background tasks',
-  task_result: 'Task result',
-  attention: 'Notice from a background task',
-  peer: 'Received message from an agent',
-  plugin_change: 'Plugins changed',
-  summon_server: 'Loaded tools you pointed this message at',
-  path_hint: 'Path suggestion',
-  circuit_breaker: 'Repeated-failure warning',
-  result_spilled: 'Large result saved to a file',
-  hook: 'Hook',
-  summarization: 'Summarization',
-  variant_drafting: 'Drafting alternatives',
-  variant_advice: 'Advice for this draft',
+  goal_judgment: t`Goal judgment`,
+  loop_wake: t`Loop wake`,
+  scheduled_wake: t`Scheduled wake`,
+  task_completion: t`Background task completion`,
+  earlier_turns: t`Recovered conversation context`,
+  todos: t`Todo list reminder`,
+  plan_mode: t`Plan mode`,
+  plan: t`Session plan`,
+  plan_stale: t`Plan not updated lately`,
+  plan_person_edit: t`Plan edited by you`,
+  explore_nudge: t`Explore suggestion`,
+  session_facts: t`Session facts`,
+  child_report: t`Report instructions`,
+  compaction_failed: t`Compaction failed`,
+  compaction_skipped: t`Compaction skipped`,
+  question_answer: t`Answer to a question`,
+  plan_mode_short: t`Plan mode`,
+  plan_truncated: t`Session plan (shortened)`,
+  hook_defer: t`You chose to continue`,
+  answer_hook: t`Hook answer`,
+  mcp_elicitation: t`Question from a tool server`,
+  replan: t`Replanning suggestion`,
+  memory: t`Memory`,
+  task_results: t`Results from background tasks`,
+  task_result: t`Task result`,
+  attention: t`Notice from a background task`,
+  peer: t`Received message from an agent`,
+  plugin_change: t`Plugins changed`,
+  summon_server: t`Loaded tools you pointed this message at`,
+  path_hint: t`Path suggestion`,
+  circuit_breaker: t`Repeated-failure warning`,
+  result_spilled: t`Large result saved to a file`,
+  hook: t({ message: 'Hook', context: 'noun' }),
+  summarization: t`Summarization`,
+  variant_drafting: t`Drafting alternatives`,
+  variant_advice: t`Advice for this draft`,
 };
 
 /**
@@ -116,7 +117,9 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
   const label =
     summonServerLabel(block) ??
     (presentation?.senderSessionId
-      ? `Received message from ${sender || 'an agent'}`
+      ? sender
+        ? t`Received message from ${sender}`
+        : t`Received message from an agent`
       : (presentation?.label ??
         INJECTION_LABELS[block.source] ??
         humanizeProtocolValue(block.source)));
@@ -141,7 +144,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
           disclosure={
             <ActivityDisclosure
               open={expanded}
-              label={block.source === 'peer' ? label : `Injection ${label}`}
+              label={block.source === 'peer' ? label : t`Injection ${label}`}
               onClick={() => setExpanded(!expanded)}
             />
           }
@@ -151,13 +154,13 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
               {label}
             </span>
           }
-          actions={<CopyAction value={presentation?.text ?? block.text} label={`Copy ${label}`} />}
+          actions={<CopyAction value={presentation?.text ?? block.text} label={t`Copy ${label}`} />}
           elapsed={null}
           status={null}
           info={
             <ActivityInfoButton
-              label={`Technical details for ${label}`}
-              hint="View the exact text added to the agent's context"
+              label={t`Technical details for ${label}`}
+              hint={t`View the exact text added to the agent's context`}
               onClick={() => setDetailsOpen(true)}
             />
           }
@@ -179,7 +182,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
             ) : (
               <BoundedResult lines={block.source === 'peer' ? previewLines : 8} title={label}>
                 {presentation?.format === 'markdown' ? (
-                  <GroundedMessageResponse mode="static">
+                  <GroundedMessageResponse mode="static" className={ROW_MARKDOWN}>
                     {presentation.text}
                   </GroundedMessageResponse>
                 ) : !presentation && MARKDOWN_SOURCES.has(block.source) ? (
@@ -187,16 +190,16 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                     {rowMarkdown(block.source, block.text)}
                   </GroundedMessageResponse>
                 ) : presentation?.format === 'text' ? (
-                  <div className="whitespace-pre-wrap text-[13px] leading-[1.55] [overflow-wrap:anywhere]">
+                  <div className="whitespace-pre-wrap text-ui leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation.text}
                   </div>
                 ) : (
-                  <pre className="min-w-0 max-w-full whitespace-pre-wrap font-mono !text-[11.5px] !leading-[1.55] [overflow-wrap:anywhere]">
+                  <pre className="min-w-0 max-w-full whitespace-pre-wrap font-mono !text-label !leading-[1.55] [overflow-wrap:anywhere]">
                     {presentation?.text ??
                       (['task_result', 'peer', 'attention', 'question_answer'].includes(
                         block.source,
                       )
-                        ? 'Recorded content is available in the information panel.'
+                        ? t`Recorded content is available in the information panel.`
                         : block.text)}
                   </pre>
                 )}
@@ -215,19 +218,19 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                   uri: task.handle,
                   label:
                     presentation.tasks!.length > 1
-                      ? `Show ${task.label} in Work`
-                      : 'Show the script in Work',
+                      ? t`Show ${ph({ label: task.label })} in Work`
+                      : t`Show the script in Work`,
                 }}
               />
             ))}
           </ActivityBody>
         ) : null}
         <ToolDetailsContent
-          description="The exact text added to the agent's context."
+          description={t`The exact text added to the agent's context.`}
           inline={false}
-          title={`${label}: Technical details`}
+          title={t`${label}: Technical details`}
         >
-          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-[11.5px] leading-[1.55] [overflow-wrap:anywhere]">
+          <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-label leading-[1.55] [overflow-wrap:anywhere]">
             {block.text}
           </pre>
         </ToolDetailsContent>
