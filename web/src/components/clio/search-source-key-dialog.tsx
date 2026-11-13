@@ -4,6 +4,7 @@ import { KeyRoundIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ExternalLink } from '@/components/ui/external-link';
+import { searchSourceText } from '@/lib/search-source-text';
 import { DialogFrame } from './primitives/dialog-frame';
 import { t } from '@lingui/core/macro';
 
@@ -40,7 +41,7 @@ export function SearchSourceKeyDialog({
         disabled: saving || !key.trim(),
         onConfirm: save,
       }}
-      description={source?.key_benefit || undefined}
+      description={searchSourceText(source?.key_benefit) || undefined}
       icon={<KeyRoundIcon className="size-3.5" />}
       onOpenChange={(open) => {
         if (!open && !saving) close();

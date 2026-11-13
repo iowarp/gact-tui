@@ -13,6 +13,7 @@ import {
   searchSourceUsage,
   type SearchSourceState,
 } from '@/lib/search-source-status';
+import { searchSourceText } from '@/lib/search-source-text';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
@@ -63,7 +64,8 @@ export function SearchSourceRow({
   const queue = searchSourceQueue(source);
   const paidId = `search-paid-${source.id}`;
   // "Needs your key" is already the status; the free-use line would only repeat it.
-  const freeUse = source.free_use && source.free_use !== state.label ? source.free_use : '';
+  const freeUseText = searchSourceText(source.free_use);
+  const freeUse = freeUseText && freeUseText !== state.label ? freeUseText : '';
   const body = (
     <>
       {ordering ? (
@@ -85,7 +87,9 @@ export function SearchSourceRow({
           <span className="text-xs text-muted-foreground">{searchSourceMode(source)}</span>
         </div>
         {source.description ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">{source.description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {searchSourceText(source.description)}
+          </p>
         ) : null}
         {freeUse ? <p className="mt-0.5 text-xs text-faint">{t`Free use: ${freeUse}`}</p> : null}
         {allowance ? <p className="mt-0.5 text-xs text-faint">{allowance}</p> : null}
