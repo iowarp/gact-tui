@@ -11,7 +11,15 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * Whether the agent may run delegated work on `account` without asking. An
  * account that is off is asked about once per conversation instead.
  */
-export function DelegationSwitch({ account, id }: { account: FleetAccount; id?: string }) {
+export function DelegationSwitch({
+  account,
+  id,
+  size = 'sm',
+}: {
+  account: FleetAccount;
+  id?: string;
+  size?: 'sm' | 'default';
+}) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -28,7 +36,7 @@ export function DelegationSwitch({ account, id }: { account: FleetAccount; id?: 
       disabled={toggle.isPending}
       id={id}
       onCheckedChange={(checked) => toggle.mutate(checked)}
-      size="sm"
+      size={size}
       title={`${vocab.agent} may use this account for delegated work`}
     />
   );

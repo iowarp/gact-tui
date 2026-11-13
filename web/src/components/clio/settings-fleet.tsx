@@ -250,7 +250,11 @@ function DelegationSettings() {
             key={account.id}
             title={account.label}
           >
-            <DelegationSwitch account={account} id={`delegation-models-${account.id}`} />
+            <DelegationSwitch
+              account={account}
+              id={`delegation-models-${account.id}`}
+              size="default"
+            />
           </SettingsRow>
         ))
       ) : (
