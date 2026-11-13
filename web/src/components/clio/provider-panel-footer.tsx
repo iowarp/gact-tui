@@ -77,6 +77,24 @@ function freshnessAge(
 }
 
 /**
+ * "Ready, checked 2m ago" ("準備完了、2分前に確認" in ja), cut where the age starts:
+ * the age is its own span so it gives way before the row's actions do.
+ */
+function statusWithAge(status: string, checked: string): [string, string] {
+  const statusMark = '\u0001';
+  const checkedMark = '\u0002';
+  const joined = t`${ph({ status: statusMark })}, ${ph({ checked: checkedMark })}`;
+  const at = joined.indexOf(checkedMark);
+  // A locale that puts the age first keeps the whole join together.
+  if (at < joined.indexOf(statusMark))
+    return [joined.replace(statusMark, status).replace(checkedMark, checked), ''];
+  return [
+    joined.slice(0, at).replace(statusMark, status),
+    joined.slice(at).replace(checkedMark, checked),
+  ];
+}
+
+/**
  * The provider bar, the picker footer's leading segment: the provider in
  * view (logo, name, health, last check), then what it is doing or its latest
  * failure, then icon actions -- Refresh (check the provider again), Reload
@@ -104,6 +122,8 @@ export function ProviderPanelFooter({
   const manage = variant === 'manage';
   const status = providerGroupStatus(group);
   const ready = group.health === 'healthy';
+  const [manageStatus, manageAge] =
+    manage && ready && age ? statusWithAge(status.label, age.checked) : [status.label, ''];
   // A provider fixing itself offers its fix, not the check and reload of a usable one.
   const providerActions = setup === undefined ? actions : undefined;
   const iconClass = manage ? 'size-[22px] [&_svg]:size-[13px]' : undefined;
@@ -163,15 +183,15 @@ export function ProviderPanelFooter({
                   : group.detail)
               }
             >
-              {status.label}
+              {manageStatus}
             </span>
-            {ready && age ? (
+            {manageAge ? (
               // The age only takes room left over, so it goes before the action is cut.
               <span
                 className="-ms-[7px] min-w-0 shrink grow-[1000] basis-0 truncate text-faint"
                 data-slot="provider-manage-age"
               >
-                , {age.checked}
+                {manageAge}
               </span>
             ) : null}
           </>

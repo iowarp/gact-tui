@@ -3367,6 +3367,10 @@ msgstr ""
 msgid "{status} on port {port}"
 msgstr ""
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr ""
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr ""

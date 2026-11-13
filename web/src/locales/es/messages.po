@@ -3374,6 +3374,10 @@ msgstr "{state, select, sent {Mensaje enviado a un agente} sending {Enviando men
 msgid "{status} on port {port}"
 msgstr "{status} en el puerto {port}"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}, {checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}, elegido"
