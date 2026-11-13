@@ -98,14 +98,18 @@ export function ExtensionToolbar({
   }, [searching]);
   return (
     <div
-      className="flex h-[2.125rem] min-w-0 items-center gap-2"
+      // What doesn't fit (search, Add) drops to a right-aligned second line.
+      className="flex min-h-[2.125rem] min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1"
       ref={toolbar}
       role="toolbar"
       aria-label={t`Extensions`}
     >
       {/* Where the types fold, an open search takes the row; the filters still apply. */}
       <div
-        className={cn('flex min-w-0 items-center gap-2', searching && '@max-[35rem]/ext:hidden')}
+        className={cn(
+          'flex max-w-full min-w-0 flex-wrap items-center gap-2',
+          searching && '@max-[35rem]/ext:hidden',
+        )}
       >
         <TypeTabs onValueChange={onTypeChange} value={type} />
         <SegmentedControl

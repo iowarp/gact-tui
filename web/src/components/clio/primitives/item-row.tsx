@@ -136,6 +136,8 @@ export const ItemRow = memo(
                 : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
+          // Stacked, an empty slot kept only for alignment gives its width to the name and status.
+          stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
           // Floating actions: the name, then a slot that is only as wide as its content.
           floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
