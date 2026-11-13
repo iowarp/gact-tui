@@ -58,7 +58,8 @@ export function connectorStatus(connector: Connector): ConnectorStatusWords {
     return {
       tone: 'error',
       label: 'Can’t be reached',
-      detail: state.reason ? `Can’t be reached: ${state.reason}` : 'Can’t be reached',
+      // The reason is already a sentence ("Nothing answered at …"): shown once, under the label.
+      detail: state.reason ?? 'Can’t be reached',
     };
   return {
     tone: 'idle',

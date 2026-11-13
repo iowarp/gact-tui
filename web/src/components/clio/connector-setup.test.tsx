@@ -82,12 +82,18 @@ describe('connector state in words', () => {
     expect(connectorStatus(connector()).label).toBe('Needs server address and a sign-in');
     expect(
       connectorStatus(
-        connector({ state: { status: 'unreachable', needs: [], reason: 'connection refused' } }),
+        connector({
+          state: {
+            status: 'unreachable',
+            needs: [],
+            reason: 'Nothing answered at http://127.0.0.1:19199/mcp: the connection was refused.',
+          },
+        }),
       ),
     ).toMatchObject({
       tone: 'error',
       label: 'Can’t be reached',
-      detail: 'Can’t be reached: connection refused',
+      detail: 'Nothing answered at http://127.0.0.1:19199/mcp: the connection was refused.',
     });
     expect(
       connectorStatus(connector({ state: { status: 'ready', needs: [] }, tool_count: 1 })).label,
