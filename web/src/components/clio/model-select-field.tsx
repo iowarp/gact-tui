@@ -17,12 +17,14 @@ export interface SettingsSelectFieldProps
    * focusable, so a picker closing on its own choice can still return focus here.
    */
   busy?: boolean;
+  /** A long value wraps whole onto more lines instead of ending in an ellipsis. */
+  wrap?: boolean;
 }
 
 /** A select-shaped field (C): icon, value, chevron. Every select opens the one Picker. */
 export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectFieldProps>(
   function SettingsSelectField(
-    { icon, value, placeholder, busy, className, onClick, ...props },
+    { icon, value, placeholder, busy, wrap = false, className, onClick, ...props },
     ref,
   ) {
     return (
@@ -38,6 +40,7 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
           'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
           'aria-expanded:border-ring aria-expanded:ring-2 aria-expanded:ring-ring/30',
           "[&_svg:not([class*='size-'])]:size-3.5",
+          wrap && 'h-auto min-h-[1.875rem] py-1 leading-snug whitespace-normal',
           className,
         )}
         aria-busy={busy || undefined}
@@ -60,7 +63,13 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
             {icon}
           </span>
         ) : null}
-        <span className={cn('min-w-0 flex-1 truncate text-left', !value && 'text-muted-foreground')}>
+        <span
+          className={cn(
+            'min-w-0 flex-1 text-left',
+            wrap ? 'break-words [word-break:auto-phrase]' : 'truncate',
+            !value && 'text-muted-foreground',
+          )}
+        >
           {value || placeholder}
         </span>
         <ChevronDownIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />

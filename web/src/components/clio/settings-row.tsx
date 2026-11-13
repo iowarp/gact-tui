@@ -90,14 +90,16 @@ export function SettingsRow({
               ? 'grid-cols-[minmax(0,1fr)_auto]'
               : // Two columns from a 20rem row, as the spec's 322 px dialog rows are. In the
                 // Settings window the rows stack before the nav folds to a rail (< 1024 px).
-                'grid-cols-1 @xs:grid-cols-[minmax(6rem,1fr)_minmax(52%,max-content)] max-[1023px]:in-data-window-content:grid-cols-1!',
+                'grid-cols-1 @xs:grid-cols-[minmax(min-content,1fr)_minmax(52%,max-content)] max-[1023px]:in-data-window-content:grid-cols-1!',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
       >
         <div
           className={cn(
-            'min-w-0',
+            // Beside its control the label column is at least 6rem and its longest
+            // word, so a long Greek word wraps whole instead of mid-word.
+            wideControl || inlineControl ? 'min-w-0' : 'min-w-24',
             // In the folded window every row stacks, so this one does too.
             wideControl && 'flex-auto max-[1023px]:in-data-window-content:basis-full',
           )}
@@ -107,7 +109,7 @@ export function SettingsRow({
             {htmlFor ? (
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words"
+                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
                 data-slot="settings-label"
                 title={title}
               >
@@ -115,7 +117,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words"
+                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
                 data-slot="settings-label"
                 title={title}
               >
