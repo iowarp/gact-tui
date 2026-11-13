@@ -176,6 +176,7 @@ export function FlowPickDetails({
       status={step.status}
       time={rowDuration(elapsed.get(step.id))}
     >
+      {step.asked ? <Fact label={t`Investigates`}>{step.asked}</Fact> : null}
       {step.targetLabel ? (
         <Fact label={t`Runs`}>
           {step.kind === 'flow' ? (
@@ -593,9 +594,11 @@ export function FlowStall({
   // A cancelled run ended because someone asked it to: no fault to repair.
   const title = cancelled
     ? t`The flow was cancelled`
-    : outcome.reason === 'flow_stall'
-      ? t`The flow stalled`
-      : t`The flow stopped`;
+    : outcome.stall === 'research_blocked'
+      ? t`Research was blocked`
+      : outcome.reason === 'flow_stall'
+        ? t`The flow stalled`
+        : t`The flow stopped`;
   const open = outcome.handle ? (
     <Button
       className="h-6 w-fit px-2 text-xs"

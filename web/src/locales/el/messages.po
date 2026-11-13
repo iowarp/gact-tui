@@ -7378,6 +7378,7 @@ msgstr "Κενή σελίδα"
 msgid "Block"
 msgstr "Αποκλεισμός"
 
+#: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-access-rule-model.ts
@@ -17929,6 +17930,10 @@ msgstr "Μη έγκυρος δείκτης συνέχειας αποτελέσμ
 msgid "Invalid result fragment boundary."
 msgstr "Μη έγκυρο όριο τμήματος αποτελέσματος."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Investigates"
+msgstr "Διερευνά"
+
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
 msgid "is"
@@ -28321,6 +28326,10 @@ msgstr "Μοντέλο επανακατάταξης"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "Τα μοντέλα επανακατάταξης δεν μπορούν να διεξάγουν συνομιλία."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Research was blocked"
+msgstr "Η έρευνα μπλοκαρίστηκε"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx

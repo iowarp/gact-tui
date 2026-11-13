@@ -7378,6 +7378,7 @@ msgstr "Página en blanco"
 msgid "Block"
 msgstr "Bloquear"
 
+#: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-access-rule-model.ts
@@ -17929,6 +17930,10 @@ msgstr "Cursor de continuación del resultado no válido."
 msgid "Invalid result fragment boundary."
 msgstr "Límite de fragmento del resultado no válido."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Investigates"
+msgstr "Investiga"
+
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
 msgid "is"
@@ -28321,6 +28326,10 @@ msgstr "Reordenador"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "Los reordenadores no pueden mantener una conversación."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Research was blocked"
+msgstr "La investigación se bloqueó"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
