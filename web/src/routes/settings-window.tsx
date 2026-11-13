@@ -14,6 +14,7 @@ import {
 import { SettingsResults } from '@/components/clio/settings-results';
 import { useRepository } from '@/hooks/use-repository';
 import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
+import { agentScopeHeading } from '@/lib/settings-agent-name';
 import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
 import { useUnavailableSettingsSections } from '@/hooks/use-unavailable-settings-sections';
 import { settingsDestinations } from '@/lib/application-destinations';
@@ -102,7 +103,11 @@ export function SettingsWindow() {
   const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
+  const scopeLabels = {
+    App: 'App',
+    Workspace: workspaceName.label,
+    Agent: agentScopeHeading(agentName, settings.label),
+  };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'

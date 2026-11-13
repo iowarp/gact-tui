@@ -28,3 +28,14 @@ export function agentScopeName({
     return name;
   }
 }
+
+/**
+ * The Settings navigation's heading for Agent-scope pages (FP-D4). A connection's own
+ * label ("cloud", "lab") names a place, not what the pages configure, so it reads
+ * "Agent: cloud"; a name that already says which agent it is stays as it is.
+ */
+export function agentScopeHeading(name: string, connectionLabel?: string): string {
+  const noun = vocab.agent.charAt(0).toUpperCase() + vocab.agent.slice(1);
+  if (!connectionLabel || name !== connectionLabel) return name;
+  return name.toLowerCase().includes(vocab.agent.toLowerCase()) ? name : `${noun}: ${name}`;
+}
