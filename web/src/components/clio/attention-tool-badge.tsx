@@ -22,7 +22,7 @@ export function ClioAttentionToolBadge({ bucket, share }: { bucket: number; shar
       <TooltipTrigger asChild>
         <span
           className={cn(
-            'inline-flex h-5 shrink-0 items-center rounded-full border px-1.5 text-[10px] font-medium tabular-nums',
+            'inline-flex h-5 shrink-0 items-center rounded-full border px-1.5 text-[0.625rem] font-medium tabular-nums',
             HEAT_BUCKET_CLASS[bucket],
           )}
           data-slot="attention-tool-badge"

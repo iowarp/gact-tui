@@ -83,8 +83,8 @@ export function PickerRowLabel({
       <span className="flex w-full min-w-0 items-center gap-2" data-slot="provider-more">
         <span className="min-w-0 truncate text-start text-muted-foreground">{node.label}</span>
         <span className="ms-auto hidden items-center gap-1 in-data-highlighted:inline-flex">
-          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">→</KeyCap>
-          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">↵</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[0.625rem]">→</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[0.625rem]">↵</KeyCap>
         </span>
       </span>
     );
@@ -95,7 +95,7 @@ export function PickerRowLabel({
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
           aria-label={`${node.data.matches} models match`}
-          className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+          className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
         >
           {node.data.matches}
         </span>
@@ -114,7 +114,7 @@ export function PickerRowLabel({
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
           aria-label={`${search.count.matches} models`}
-          className="shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums"
+          className="shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums"
           data-slot="provider-filter-count"
         >
           {search.count.matches || null}
@@ -170,7 +170,7 @@ export function PickerRowLabel({
           search.count.total > 0 ? (
             <span
               aria-label={`${search.count.matches} of ${search.count.total} models match`}
-              className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+              className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
               data-slot="provider-filter-count"
             >
               {search.count.matches}

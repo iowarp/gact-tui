@@ -125,10 +125,10 @@ function EntryCard({ data }: NodeProps<EntryNode>) {
       >
         <EntryKindIcon className="row-span-2 text-muted-foreground" type={type} />
         {/* The whole recorded title, on two lines if it must: never cut to "Drought, n…". */}
-        <span className="line-clamp-2 text-label leading-[13px] font-semibold break-words">
+        <span className="line-clamp-2 text-label leading-[0.8125rem] font-semibold break-words">
           {entry.title}
         </span>
-        <ScienceStatus className="justify-start text-[10.5px] leading-3" state={entry.state} />
+        <ScienceStatus className="justify-start text-[0.65625rem] leading-3" state={entry.state} />
       </button>
       <Handle className={HANDLE} position={Position.Left} type="source" />
     </div>

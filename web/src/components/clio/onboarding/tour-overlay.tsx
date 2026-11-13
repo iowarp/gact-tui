@@ -357,7 +357,7 @@ export function TourOverlay({
             <span className="rounded border border-border px-1.5 py-px text-caption">Draft</span>
           ) : null}
         </p>
-        <h2 className="mt-1 text-[14px] font-medium" id={titleId}>
+        <h2 className="mt-1 text-[0.875rem] font-medium" id={titleId}>
           {step.title}
         </h2>
         <div id={bodyId}>

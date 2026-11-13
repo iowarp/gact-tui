@@ -39,7 +39,7 @@ export function ConnectFrame({
   const fullWindow = dialog && narrow === 'window';
   const heading = (
     <h1
-      className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground"
+      className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold text-foreground"
       id="connect-frame-title"
     >
       {title}

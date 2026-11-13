@@ -48,7 +48,7 @@ export function NDPActionPicker({
             onClick={() => onChange(row.id)}
           >
             <span className="min-w-0 flex-1 break-words">{row.summary}</span>
-            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground">
+            <span className="mt-0.5 shrink-0 font-mono text-[0.625rem] text-muted-foreground">
               {row.method}
             </span>
           </button>

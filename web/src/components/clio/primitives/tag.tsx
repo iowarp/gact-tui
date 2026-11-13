@@ -52,7 +52,7 @@ export const Tag = memo(function Tag({
       data-tone={tone}
       title={title ?? (typeof children === 'string' ? children : undefined)}
       className={cn(
-        'inline-flex h-[18px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] border px-1.5 text-[10.5px] leading-none font-medium whitespace-nowrap',
+        'inline-flex h-[18px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] border px-1.5 text-[0.65625rem] leading-none font-medium whitespace-nowrap',
         width === 'fixed' ? 'w-[58px]' : 'w-fit',
         TONE[tone],
         className,

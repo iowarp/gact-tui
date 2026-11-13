@@ -202,7 +202,7 @@ function EntryDetails({
       <FactGrid label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`} rows={rows} />
       {more.length || sources ? (
         <details className="group/more min-w-0 text-xs" data-slot="science-entry-more">
-          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 leading-[22px] text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 leading-[1.375rem] text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
             <ChevronRightIcon
               aria-hidden
               className="size-3 motion-safe:transition-transform group-open/more:rotate-90"
@@ -224,7 +224,7 @@ function FactGrid({ label, rows }: { label: string; rows: readonly Row[] }) {
   return (
     <dl
       aria-label={label}
-      className="grid min-w-0 grid-cols-[74px_minmax(0,1fr)] gap-x-2.5 py-0.5 text-xs leading-[22px] font-normal"
+      className="grid min-w-0 grid-cols-[74px_minmax(0,1fr)] gap-x-2.5 py-0.5 text-xs leading-[1.375rem] font-normal"
     >
       {rows.map(([name, value]) => (
         <Fragment key={name}>

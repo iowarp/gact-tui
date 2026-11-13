@@ -156,7 +156,7 @@ export function InfrastructureTopology({
                 </svg>
                 {edge.label ? (
                   <text
-                    className="fill-muted-foreground stroke-none text-[10px]"
+                    className="fill-muted-foreground stroke-none text-[0.625rem]"
                     textAnchor="middle"
                     x={`${(x1 + x2) / 2}%`}
                     y={(y1 + y2) / 2 - 5}

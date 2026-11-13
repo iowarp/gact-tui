@@ -325,7 +325,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
     if (sections[0] && !sections[0].key.startsWith('range/')) {
       sections[0].hint = (
         <>
-          <ShortcutKeys className="font-mono text-[10.5px] text-faint" id="menu-toggle" /> to toggle
+          <ShortcutKeys className="font-mono text-[0.65625rem] text-faint" id="menu-toggle" /> to toggle
         </>
       );
     }
@@ -333,13 +333,13 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
     if (firstRange) {
       firstRange.hint = (
         <>
-          <ShortcutKeys className="font-mono text-[10.5px] text-faint" id="menu-slide" /> to slide
+          <ShortcutKeys className="font-mono text-[0.65625rem] text-faint" id="menu-slide" /> to slide
         </>
       );
     }
     if (ranges.length && sections[afterRanges] && sections[afterRanges].key !== FOLD_KEY) {
       sections[afterRanges].hint = (
-        <ShortcutKeys className="font-mono text-[10.5px] text-faint" id="menu-next-group" />
+        <ShortcutKeys className="font-mono text-[0.65625rem] text-faint" id="menu-next-group" />
       );
     }
 
@@ -521,7 +521,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
           >
             <ListGroupLabel
               action={
-                <span className="flex items-center gap-[11px] font-mono text-[10.5px] text-faint">
+                <span className="flex items-center gap-[11px] font-mono text-[0.65625rem] text-faint">
                   <ShortcutKeys id="menu-next-group" />
                   {highlighted ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
                 </span>
@@ -652,7 +652,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
                   <ListGroupLabel
                     action={
                       section.hint ? (
-                        <span className="font-mono text-[10.5px] text-faint">{section.hint}</span>
+                        <span className="font-mono text-[0.65625rem] text-faint">{section.hint}</span>
                       ) : undefined
                     }
                     className="h-auto px-2 pt-[9px] pb-[3px]"
