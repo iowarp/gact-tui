@@ -3605,6 +3605,49 @@ const server = createServer(async (request, response) => {
     sendJson(response, createResource(body), 201);
     return;
   }
+  // The fixture listens on loopback with nothing in between, so it is this computer.
+  if (request.method === 'GET' && url.pathname === '/v1/folder-attachments/locality') {
+    sendJson(response, { same_computer: true, reason: 'loopback', host: '127.0.0.1' });
+    return;
+  }
+  // A folder on the agent's computer: used in place or copied whole, then ready at once.
+  const folderAttachment = url.pathname.match(/^\/v1\/workspaces\/([^/]+)\/folder-attachments$/u);
+  if (request.method === 'POST' && folderAttachment) {
+    if (decodeURIComponent(folderAttachment[1]) !== workspaceId) {
+      sendJson(response, { detail: 'workspace not found' }, 404);
+      return;
+    }
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (error) {
+      sendJson(response, { detail: error instanceof Error ? error.message : 'invalid JSON' }, 400);
+      return;
+    }
+    const path = String(body.path ?? '').trim();
+    if (!path || !['in_place', 'copy'].includes(body.placement)) {
+      sendJson(response, { detail: 'path and placement (in_place or copy) are required' }, 422);
+      return;
+    }
+    const name =
+      String(body.label ?? '') ||
+      path
+        .replace(/[/\\]+$/u, '')
+        .split(/[/\\]/u)
+        .pop() ||
+      path;
+    const {
+      idempotent_replay: _replay,
+      upload_url: _upload,
+      ...record
+    } = createResource({
+      name,
+      media_type: 'inode/directory',
+      size: 0,
+    });
+    sendJson(response, record, 201);
+    return;
+  }
   if (
     request.method === 'PATCH' &&
     resourceContentPath(url.pathname) !== undefined &&
