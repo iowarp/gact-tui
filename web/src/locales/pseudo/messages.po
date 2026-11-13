@@ -2126,10 +2126,6 @@ msgstr ""
 msgid "{interrupted} stopped"
 msgstr ""
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr ""
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr ""
@@ -2451,8 +2447,13 @@ msgstr ""
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr ""
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr ""
+
 #. A short list, one more item
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr ""
 
@@ -9459,6 +9460,7 @@ msgstr ""
 msgid "Collapse {group}"
 msgstr ""
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr ""
@@ -14363,6 +14365,7 @@ msgstr ""
 msgid "Expand {group}"
 msgstr ""
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr ""

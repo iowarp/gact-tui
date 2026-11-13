@@ -23,13 +23,13 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
 import { StateView } from './state-view';
-import { formatLocale, joinClauses } from '@/lib/locale-format';
+import { formatList, formatLocale } from '@/lib/locale-format';
 import { ph, t } from '@lingui/core/macro';
 
 /** What a screen reader hears after the visible name: ", when focused" (", " is "、" in Japanese). */
 function spokenSuffix(name: string, extras: readonly string[]): string {
-  const spoken = joinClauses([name, ...extras]);
-  return spoken.startsWith(name) ? spoken.slice(name.length) : ` ${joinClauses(extras)}`;
+  const spoken = formatList([name, ...extras]);
+  return spoken.startsWith(name) ? spoken.slice(name.length) : ` ${formatList(extras)}`;
 }
 
 /** Column count by row count: the sheet grows to four columns only when it has the rows to fill them. */

@@ -17,6 +17,7 @@ import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ActivityRunsFold, useTranscriptDisclosure } from './transcript-disclosure-context';
 import { t, ph, plural } from '@lingui/core/macro';
+import { formatList, listSeparator } from '@/lib/locale-format';
 
 /** Rows a live step shows before the earlier ones fold behind "Show N earlier". */
 const LANE_LIMIT = 6;
@@ -247,7 +248,11 @@ function ActivityLaneView({
           data-run-summary=""
           disclosure={
             <ActivityDisclosure
-              label={`${runOpen ? 'Collapse' : 'Expand'} ${run.label}`}
+              label={
+                runOpen
+                  ? t`Collapse ${ph({ label: run.label })}`
+                  : t`Expand ${ph({ label: run.label })}`
+              }
               open={runOpen}
               onClick={() => setRunOpen(!runOpen)}
             />
@@ -275,18 +280,18 @@ function ActivityLaneView({
                   ) : null,
                 ]
                   .filter(Boolean)
-                  .flatMap((part, index) => (index ? [', ', part] : [part]))}
+                  .flatMap((part, index) => (index ? [listSeparator(), part] : [part]))}
               </span>
             ) : undefined
           }
           outcomeTitle={
-            [
-              run.failed ? plural(run.failed, { other: '# failed' }) : '',
-              run.denied ? plural(run.denied, { other: '# denied' }) : '',
-              run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
-            ]
-              .filter(Boolean)
-              .join(', ') || undefined
+            formatList(
+              [
+                run.failed ? plural(run.failed, { other: '# failed' }) : '',
+                run.denied ? plural(run.denied, { other: '# denied' }) : '',
+                run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
+              ].filter(Boolean),
+            ) || undefined
           }
           outcomeTone="muted"
           status={

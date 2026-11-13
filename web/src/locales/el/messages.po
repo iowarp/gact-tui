@@ -2126,10 +2126,6 @@ msgstr "{input} token εισόδου, {output} token εξόδου"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} σταμάτησαν"
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr "{joined}, {next}"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "Διατηρήθηκαν {kept} από {returned}"
@@ -2451,8 +2447,13 @@ msgstr "{lines, plural, one {# γραμμή} other {# γραμμές}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # γραμμή} other {Python, # γραμμές}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list} και {item}"
+
 #. A short list, one more item
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr "{list}, {item}"
 
@@ -9467,6 +9468,7 @@ msgstr "Σύμπτυξη {action}"
 msgid "Collapse {group}"
 msgstr "Σύμπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Σύμπτυξη {label}"
@@ -14371,6 +14373,7 @@ msgstr "Ανάπτυξη {action}"
 msgid "Expand {group}"
 msgstr "Ανάπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Ανάπτυξη {label}"

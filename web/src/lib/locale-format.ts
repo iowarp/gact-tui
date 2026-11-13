@@ -6,22 +6,36 @@ export function formatLocale(): string {
   return i18n.locale === 'pseudo' ? 'en' : i18n.locale;
 }
 
+function joinItem(list: string, item: string, last: boolean): string {
+  return last
+    ? t({ message: `${list} and ${item}`, comment: 'A short list, its last item' })
+    : t({ message: `${list}, ${item}`, comment: 'A short list, one more item' });
+}
+
+/**
+ * A short list in the interface language: "a, b, c" (Japanese "a、b、c"), or with
+ * `and`, "a, b and c". `Intl.ListFormat` unit lists join Japanese with spaces, so
+ * the separators are messages.
+ */
+export function formatList(items: readonly string[], options: { and?: boolean } = {}): string {
+  return items.length
+    ? items.reduce((list, item, index) =>
+        joinItem(list, item, Boolean(options.and) && index === items.length - 1),
+      )
+    : '';
+}
+
+/** What `formatList` puts before an item, for lists of styled parts. */
+export function listSeparator(options: { last?: boolean } = {}): string {
+  return joinItem('', '', Boolean(options.last));
+}
+
 /**
  * The gap between two sentences rendered side by side: a space, except in
  * Japanese and Chinese, where "。" ends a sentence without one.
  */
 export function sentenceGap(): string {
   return /^(ja|zh)\b/u.test(formatLocale()) ? '' : ' ';
-}
-
-/**
- * Joins clauses into one line with the language's list comma ("A, B" in
- * English, "A、B" in Japanese). `Intl.ListFormat` unit lists join Japanese
- * with spaces, so the separator is a message.
- */
-export function joinClauses(parts: readonly string[]): string {
-  if (!parts.length) return '';
-  return parts.reduce((joined, next) => t`${joined}, ${next}`);
 }
 
 /**

@@ -2126,10 +2126,6 @@ msgstr "{input} input, {output} output tokens"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} stopped"
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr "{joined}, {next}"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{kept} kept of {returned}"
@@ -2451,8 +2447,13 @@ msgstr "{lines, plural, one {# line} other {# lines}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # line} other {Python, # lines}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list} and {item}"
+
 #. A short list, one more item
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr "{list}, {item}"
 
@@ -9467,6 +9468,7 @@ msgstr "Collapse {action}"
 msgid "Collapse {group}"
 msgstr "Collapse {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Collapse {label}"
@@ -14371,6 +14373,7 @@ msgstr "Expand {action}"
 msgid "Expand {group}"
 msgstr "Expand {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Expand {label}"

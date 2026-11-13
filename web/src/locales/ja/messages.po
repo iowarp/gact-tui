@@ -2126,10 +2126,6 @@ msgstr "入力{input}トークン、出力{output}トークン"
 msgid "{interrupted} stopped"
 msgstr "{interrupted}件停止"
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr "{joined}、{next}"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{returned}件中{kept}件を保持"
@@ -2451,8 +2447,13 @@ msgstr "{lines, plural, one {#行} other {#行}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python、#行} other {Python、#行}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list}、{item}"
+
 #. A short list, one more item
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr "{list}、{item}"
 
@@ -9467,6 +9468,7 @@ msgstr "{action}を折りたたむ"
 msgid "Collapse {group}"
 msgstr "{group}を折りたたむ"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "{label}を折りたたむ"
@@ -14371,6 +14373,7 @@ msgstr "{action}を展開"
 msgid "Expand {group}"
 msgstr "{group}を展開"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "{label}を展開"
