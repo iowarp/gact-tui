@@ -24,6 +24,11 @@ const descriptorSchema = z.object({
   sandbox_url: z.string().url(),
   display_mode: z.enum(['inline', 'fullscreen']).default('inline'),
   pinned: z.boolean().default(false),
+  service_url: z.string().url().nullable().optional(),
+  service_refusal: z.object({ reason: z.string(), message: z.string() }).nullable().optional(),
+  csp_refused: z
+    .array(z.object({ directive: z.string(), source: z.string(), reason: z.string() }))
+    .optional(),
 });
 
 const placementSchema = z.object({

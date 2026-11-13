@@ -11,7 +11,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
-import { McpAppCard, type McpAppBlockFields } from './mcp-app-card';
+import { McpAppCard } from './mcp-app-card';
+import type { McpAppBlockFields } from './mcp-app-host-hooks';
 import {
   markMcpAppEnded,
   mcpAppLabel,

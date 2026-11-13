@@ -33,6 +33,7 @@ import {
   type McpAppViewDisplayMode,
 } from './mcp-app-bridge';
 import { mcpAppLabel } from './mcp-app-live-set';
+import { mcpAppServiceHostContext } from './mcp-app-service';
 import { ClioStatus } from './status';
 
 export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
@@ -144,33 +145,29 @@ const McpAppSurfaceInstance = forwardRef<
       ? props.height
       : Math.min(720, Math.max(180, viewportHeight - 180), Math.max(180, requestedHeight));
 
-  useImperativeHandle(
-    ref,
-    () => {
-      const request = async (method: string, params: Record<string, unknown> = {}) => {
-        await channel.current.ready;
-        const post = channel.current.post;
-        if (!post) throw new Error('The interactive view is not open.');
-        const id = `host:${(channel.current.next += 1)}`;
-        return new Promise<unknown>((resolve, reject) => {
-          channel.current.pending.set(id, { resolve, reject });
-          post({ jsonrpc: '2.0', id, method, params });
+  useImperativeHandle(ref, () => {
+    const request = async (method: string, params: Record<string, unknown> = {}) => {
+      await channel.current.ready;
+      const post = channel.current.post;
+      if (!post) throw new Error('The interactive view is not open.');
+      const id = `host:${(channel.current.next += 1)}`;
+      return new Promise<unknown>((resolve, reject) => {
+        channel.current.pending.set(id, { resolve, reject });
+        post({ jsonrpc: '2.0', id, method, params });
+      });
+    };
+    return {
+      request,
+      callAppTool: (name, args) => request('tools/call', { name, arguments: args }),
+      sendToolInput: (args) => {
+        channel.current.post?.({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/tool-input',
+          params: { arguments: args },
         });
-      };
-      return {
-        request,
-        callAppTool: (name, args) => request('tools/call', { name, arguments: args }),
-        sendToolInput: (args) => {
-          channel.current.post?.({
-            jsonrpc: '2.0',
-            method: 'ui/notifications/tool-input',
-            params: { arguments: args },
-          });
-        },
-      };
-    },
-    [],
-  );
+      },
+    };
+  }, []);
 
   useEffect(() => {
     if (placement === 'tab') return;
@@ -257,7 +254,12 @@ const McpAppSurfaceInstance = forwardRef<
         post({
           jsonrpc: '2.0',
           id: message.id,
-          result: initializeResult(descriptor, iframe, placement),
+          result: initializeResult(
+            descriptor,
+            iframe,
+            placement,
+            mcpAppServiceHostContext(descriptor, identity),
+          ),
         });
         return;
       }
@@ -320,7 +322,7 @@ const McpAppSurfaceInstance = forwardRef<
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/host-context-changed',
-        params: hostContext(iframe, placement),
+        params: hostContext(iframe, placement, mcpAppServiceHostContext(descriptor, identity)),
       });
     };
     const themeObserver = new MutationObserver(notifyContext);
@@ -361,7 +363,10 @@ const McpAppSurfaceInstance = forwardRef<
   const fill = placement === 'tab';
   return (
     <Frame
-      className={cn('min-w-0 overflow-hidden', fill && 'flex h-full flex-col rounded-none border-0')}
+      className={cn(
+        'min-w-0 overflow-hidden',
+        fill && 'flex h-full flex-col rounded-none border-0',
+      )}
       data-mcp-app={props.appInstanceId}
       data-mcp-app-placement={placement}
       spacing={null}
@@ -385,16 +390,30 @@ const McpAppSurfaceInstance = forwardRef<
             </Alert>
           </div>
         ) : descriptor ? (
-          <iframe
-            className={cn('block w-full border-0 bg-background', fill && 'absolute inset-0 h-full')}
-            data-mcp-app-iframe={props.appInstanceId}
-            ref={iframeRef}
-            referrerPolicy="origin"
-            sandbox="allow-scripts allow-same-origin"
-            src={descriptor.sandbox_url}
-            style={fill ? undefined : { height: frameHeight }}
-            title={`${displayName} interactive view`}
-          />
+          <>
+            {descriptor.service_refusal ? (
+              <p
+                className="border-b px-3 py-2 text-xs text-muted-foreground"
+                data-mcp-app-service-refusal={descriptor.service_refusal.reason}
+                role="status"
+              >
+                {descriptor.service_refusal.message}
+              </p>
+            ) : null}
+            <iframe
+              className={cn(
+                'block w-full border-0 bg-background',
+                fill && 'absolute inset-0 h-full',
+              )}
+              data-mcp-app-iframe={props.appInstanceId}
+              ref={iframeRef}
+              referrerPolicy="origin"
+              sandbox="allow-scripts allow-same-origin"
+              src={descriptor.sandbox_url}
+              style={fill ? undefined : { height: frameHeight }}
+              title={`${displayName} interactive view`}
+            />
+          </>
         ) : (
           <div
             className={cn('grid gap-3 p-4', fill && 'h-full')}

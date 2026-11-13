@@ -69,7 +69,9 @@ describe('ClioRepository MCP App adapter', () => {
     const saved = await repository.saveMcpAppDownload(identity, { contents: [] });
 
     expect(saved.files[0]?.path).toBe('plot.svg');
-    expect(transport.requests.map((request) => [request.method, request.path, request.body])).toEqual([
+    expect(
+      transport.requests.map((request) => [request.method, request.path, request.body]),
+    ).toEqual([
       [
         'PUT',
         '/v1/sessions/session%20root/mcp-apps/app%2Fone/display-mode?data_ref=opaque%20capability',

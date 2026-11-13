@@ -1,4 +1,4 @@
-import { TransportError } from '@clio/core/v3';
+import { TransportError, type BrowserPage } from '@clio/core/v3';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpAppSurface } from './mcp-app-surface';
@@ -16,6 +16,8 @@ const descriptor = {
   tool_result: { structuredContent: { privateResult: 'never-rendered' } },
   sandbox_url:
     'http://localhost:8788/v1/sessions/sess_1/mcp-apps/app_1/sandbox?data_ref=opaque-ref',
+  display_mode: 'inline' as const,
+  pinned: false,
 };
 
 function repository() {
@@ -35,7 +37,10 @@ function repository() {
     saveMcpAppDownload: vi.fn(async () => ({
       files: [{ name: 'plot.csv', path: 'plot.csv', artifact_id: 'art_1' }],
     })),
-    openBrowserPage: vi.fn(async () => ({ id: 'page_1', title: 'Example', host: 'example.org' })),
+    openBrowserPage: vi.fn(
+      async () =>
+        ({ id: 'page_1', title: 'Example', host: 'example.org' }) as unknown as BrowserPage,
+    ),
     closeMcpApp: vi.fn(async () => undefined),
   };
 }
