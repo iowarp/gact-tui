@@ -17762,8 +17762,12 @@ msgid "Keep {product} available in the menu bar, or quit and stop its local serv
 msgstr "Mantén {product} disponible en la barra de menús, o sal y detén sus servicios locales. El trabajo en curso solo puede continuar mientras {product} esté en ejecución."
 
 #: src/components/clio/desktop-title-bar.tsx
-msgid "Keep {product} available in the system tray (Windows hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
-msgstr "Mantén {product} disponible en la bandeja del sistema (iconos ocultos de Windows), o sal y detén sus servicios locales. El trabajo en curso solo puede continuar mientras {product} esté en ejecución."
+msgid "Keep {product} available in the system tray (hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
+msgstr "Mantén {product} disponible en la bandeja del sistema (iconos ocultos), o sal y detén sus servicios locales. El trabajo en curso solo puede continuar mientras {product} esté en ejecución."
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Keep {product} available in the system tray, if your desktop shows one, or quit and stop its local services. Ongoing work can continue only while {product} is running. Opening {product} again brings this window back."
+msgstr "Mantén {product} disponible en la bandeja del sistema, si tu escritorio tiene una, o sal y detén sus servicios locales. El trabajo en curso solo puede continuar mientras {product} esté en ejecución. Al volver a abrir {product}, esta ventana reaparece."
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Keep {product} running?"

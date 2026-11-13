@@ -25,6 +25,7 @@ const listenForQuitRequested = vi.hoisted(() =>
 );
 const toastError = vi.hoisted(() => vi.fn());
 const isMacOS = vi.hoisted(() => vi.fn(() => false));
+const isWindows = vi.hoisted(() => vi.fn(() => false));
 const liveStreamState = vi.hoisted(() => ({ current: 'live' as StreamState }));
 const capabilitiesService = vi.hoisted(() => ({
   current: { name: 'clio-agent-gact', version: '1.2.3' } as
@@ -46,7 +47,7 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
 
-vi.mock('@/lib/platform', () => ({ isMacOS }));
+vi.mock('@/lib/platform', () => ({ isMacOS, isWindows }));
 
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
@@ -161,6 +162,27 @@ describe('DesktopTitleBar', () => {
       expect(runDesktopWindowAction).toHaveBeenNthCalledWith(2, 'toggleMaximize');
       expect(runDesktopWindowAction).toHaveBeenNthCalledWith(3, 'hide');
     });
+  });
+
+  it.each([
+    ['Linux', false, false, 'in the system tray, if your desktop shows one', true],
+    ['Windows', false, true, 'in the system tray (hidden icons)', false],
+  ])('the close prompt names where %s keeps it running', (_os, mac, win, where, reopen) => {
+    // Live (Linux Desktop 0.9.6.6): the prompt said "(Windows hidden icons)" on Linux,
+    // where many desktops show no tray; opening the app again brings the window back.
+    isMacOS.mockReturnValue(mac);
+    isWindows.mockReturnValue(win);
+    try {
+      renderTitleBar();
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      const prompt = screen.getByRole('alertdialog');
+      expect(prompt).toHaveTextContent(`available ${where}, or quit`);
+      expect(prompt.textContent ?? '').not.toMatch(win ? /Linux/u : /Windows/u);
+      expect(prompt.textContent?.includes('again brings this window back')).toBe(reopen);
+    } finally {
+      isMacOS.mockReturnValue(false);
+      isWindows.mockReturnValue(false);
+    }
   });
 
   it('keep_running_hides: "Keep running" hides the window and closes the prompt', async () => {

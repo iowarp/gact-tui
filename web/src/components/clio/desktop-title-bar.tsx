@@ -70,7 +70,7 @@ import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
-import { isMacOS } from '@/lib/platform';
+import { isMacOS, isWindows } from '@/lib/platform';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
@@ -225,6 +225,7 @@ export function DesktopTitleBar() {
   const { product } = vocab;
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
+  const [windows] = useState(isWindows);
   const desktopZoom = useDesktopZoom();
   const fullscreenKeys = useShortcutPresentation('fullscreen');
   const queryClient = useQueryClient();
@@ -602,7 +603,9 @@ export function DesktopTitleBar() {
             <AlertDialogDescription>
               {macOS
                 ? t`Keep ${product} available in the menu bar, or quit and stop its local services. Ongoing work can continue only while ${product} is running.`
-                : t`Keep ${product} available in the system tray (Windows hidden icons), or quit and stop its local services. Ongoing work can continue only while ${product} is running.`}
+                : windows
+                  ? t`Keep ${product} available in the system tray (hidden icons), or quit and stop its local services. Ongoing work can continue only while ${product} is running.`
+                  : t`Keep ${product} available in the system tray, if your desktop shows one, or quit and stop its local services. Ongoing work can continue only while ${product} is running. Opening ${product} again brings this window back.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

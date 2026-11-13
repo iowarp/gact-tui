@@ -17762,8 +17762,12 @@ msgid "Keep {product} available in the menu bar, or quit and stop its local serv
 msgstr "Διατηρήστε το {product} διαθέσιμο στη γραμμή μενού ή κάντε έξοδο και σταματήστε τις τοπικές υπηρεσίες του. Η τρέχουσα εργασία μπορεί να συνεχιστεί μόνο όσο εκτελείται το {product}."
 
 #: src/components/clio/desktop-title-bar.tsx
-msgid "Keep {product} available in the system tray (Windows hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
-msgstr "Διατηρήστε το {product} διαθέσιμο στην περιοχή ειδοποιήσεων (κρυφά εικονίδια των Windows) ή κάντε έξοδο και σταματήστε τις τοπικές υπηρεσίες του. Η τρέχουσα εργασία μπορεί να συνεχιστεί μόνο όσο εκτελείται το {product}."
+msgid "Keep {product} available in the system tray (hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
+msgstr "Διατηρήστε το {product} διαθέσιμο στην περιοχή ειδοποιήσεων (κρυφά εικονίδια) ή κάντε έξοδο και σταματήστε τις τοπικές υπηρεσίες του. Η τρέχουσα εργασία μπορεί να συνεχιστεί μόνο όσο εκτελείται το {product}."
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Keep {product} available in the system tray, if your desktop shows one, or quit and stop its local services. Ongoing work can continue only while {product} is running. Opening {product} again brings this window back."
+msgstr "Διατηρήστε το {product} διαθέσιμο στην περιοχή ειδοποιήσεων, αν την εμφανίζει η επιφάνεια εργασίας σας, ή κάντε έξοδο και σταματήστε τις τοπικές υπηρεσίες του. Η τρέχουσα εργασία μπορεί να συνεχιστεί μόνο όσο εκτελείται το {product}. Αν ανοίξετε ξανά το {product}, αυτό το παράθυρο επανέρχεται."
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Keep {product} running?"

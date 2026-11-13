@@ -97,6 +97,7 @@ export function ClioComposer({
   onStop,
   onCommand,
   onRetryModelCatalog,
+  onModelChange,
   onHeightChange,
   activityControl,
   workSummary,
@@ -329,6 +330,7 @@ export function ClioComposer({
   const changeModel = useStableCallback((option: ClioModelOption) => {
     selectModel(option);
     keepOfferedEffort(option.reasoning);
+    onModelChange?.(option);
   });
   // PromptInput's attachment context depends on this; a fresh one per keystroke
   // re-rendered every attachment consumer.

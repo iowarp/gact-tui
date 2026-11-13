@@ -17762,8 +17762,12 @@ msgid "Keep {product} available in the menu bar, or quit and stop its local serv
 msgstr "{product} をメニューバーに残しておくか、終了してローカルサービスを停止します。進行中の作業は {product} の実行中のみ続行できます。"
 
 #: src/components/clio/desktop-title-bar.tsx
-msgid "Keep {product} available in the system tray (Windows hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
-msgstr "{product} をシステムトレイ（Windows の隠れたアイコン）に残しておくか、終了してローカルサービスを停止します。進行中の作業は {product} の実行中のみ続行できます。"
+msgid "Keep {product} available in the system tray (hidden icons), or quit and stop its local services. Ongoing work can continue only while {product} is running."
+msgstr "{product} をシステムトレイ（隠れたアイコン）に残しておくか、終了してローカルサービスを停止します。進行中の作業は {product} の実行中のみ続行できます。"
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Keep {product} available in the system tray, if your desktop shows one, or quit and stop its local services. Ongoing work can continue only while {product} is running. Opening {product} again brings this window back."
+msgstr "{product} をシステムトレイ（デスクトップにある場合）に残しておくか、終了してローカルサービスを停止します。進行中の作業は {product} の実行中のみ続行できます。{product} をもう一度開くと、このウィンドウが戻ります。"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Keep {product} running?"

@@ -12,6 +12,7 @@ import type {
 import type { ReactNode } from 'react';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import type { ModelReasoningLevels } from '@/lib/reasoning-levels';
+import type { ClioModelOption } from '@/lib/model-options';
 import type {
   ResourceUploadProgress,
   UploadableFilePart,
@@ -95,6 +96,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onRetryModelCatalog?: (providerId?: string) => void;
+  /** The person picked a model (a draft that moves keeps it). */
+  onModelChange?: (option: ClioModelOption) => void;
   onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
   workSummary?: ReactNode;

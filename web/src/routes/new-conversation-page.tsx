@@ -102,15 +102,29 @@ function DraftComposer({ draft, ...props }: DraftComposerProps) {
   );
 }
 
+/**
+ * What a draft takes with it when the "In" chip moves it to another workspace: the
+ * route (and so the whole draft page) changes, so the person's model pick, agent and
+ * text would otherwise be lost, and with no default model the next send is refused.
+ */
+interface MovedDraft {
+  provider?: string;
+  model?: string;
+  agentRef?: string;
+  text?: string;
+}
+
 function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const intent = (
-    location.state as {
-      sourceConnection?: { scope: string; providerId: string; choice?: ObsidianChoice };
-    } | null
-  )?.sourceConnection;
+  const routeState = location.state as {
+    sourceConnection?: { scope: string; providerId: string; choice?: ObsidianChoice };
+    movedDraft?: MovedDraft;
+  } | null;
+  const intent = routeState?.sourceConnection;
+  const moved = routeState?.movedDraft;
+  const carriedModel = moved?.provider && moved.model ? moved : undefined;
   const connectSource = intent?.scope === connectionScope(settings) ? intent : undefined;
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
@@ -129,12 +143,22 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
   const provider =
+    carriedModel?.provider ||
     defaults.data?.provider_id ||
     data.activeProvider ||
     data.capabilities.data?.active_model?.provider_id;
   const model =
-    defaults.data?.model_id || data.activeModel || data.capabilities.data?.active_model?.model_id;
-  const [agentChoice, setAgentChoice] = useState<string>();
+    carriedModel?.model ||
+    defaults.data?.model_id ||
+    data.activeModel ||
+    data.capabilities.data?.active_model?.model_id;
+  const [agentChoice, setAgentChoice] = useState<string | undefined>(moved?.agentRef);
+  const pickedModel = useRef<{ provider: string; model: string }>(undefined);
+  useEffect(() => {
+    // Once, on arrival: the moved draft's text, unless this workspace's draft has its own.
+    if (moved?.text && !draft.readValue()) draft.onValueChange(moved.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the arrival state
+  }, []);
   // Plugin changes made to the agent before the first message (the Agent tab).
   const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
   const draftChanges = draftDelta.add.length + draftDelta.remove.length;
@@ -389,7 +413,16 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
                   workspaces={data.workspaces.data ?? []}
                   workspaceId={workspaceId}
                   disabled={send.isPending}
-                  onSelect={(id) => void navigate(newConversationRoute(id), { replace: true })}
+                  onSelect={(id) => {
+                    const pick =
+                      pickedModel.current ?? (provider && model ? { provider, model } : {});
+                    const movedDraft: MovedDraft = {
+                      ...pick,
+                      agentRef: agentChoice,
+                      text: draft.readValue(),
+                    };
+                    void navigate(newConversationRoute(id), { replace: true, state: { movedDraft } });
+                  }}
                 />{' '}
                 <span>with</span>{' '}
                 <DraftAgentChip
@@ -434,6 +467,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             }}
             provider={provider}
             model={model}
+            onModelChange={(option) => {
+              pickedModel.current = { provider: option.providerId, model: option.id };
+            }}
             modelOptions={data.modelOptions}
             modelCatalogStatus={modelCatalogStatus}
             configuredEffort={data.configuredEffort}
