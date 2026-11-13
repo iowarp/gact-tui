@@ -22,15 +22,26 @@ async function open(page: Page, recordedTool: ToolInvocation) {
 }
 
 /** Each width: no horizontal overflow, a screenshot, and the readable assertions. */
-async function atWidths(page: Page, id: string, check: () => Promise<void>) {
+async function atWidths(page: Page, id: string, check: (width: number) => Promise<void>) {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     expect(
       await page.locator('main').evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
     ).toBe(true);
-    await check();
+    await check(width);
     await page.screenshot({ path: test.info().outputPath(`${id}-${width}.png`), fullPage: true });
   }
+}
+
+/**
+ * The row's count or extent recap reads beside the file on a wide row; below 480px it folds
+ * so the file keeps its room (conversation-states, "When space is narrow").
+ */
+async function expectRecap(page: Page, text: string, width: number) {
+  const recap = page.locator('[data-slot="activity-metadata"]');
+  await expect(recap).toHaveText(text);
+  if (width < 480) await expect(recap).toBeHidden();
+  else await expect(recap).toBeVisible();
 }
 
 async function technicalDetailsShowPath(page: Page, action: string, path: string) {
@@ -47,9 +58,9 @@ test.describe('file tools take path: recorded request and result showcase', () =
 
   test('a code read names the file and shows numbered source', async ({ page }) => {
     await open(page, tool('read-code'));
-    await atWidths(page, 'read-code', async () => {
+    await atWidths(page, 'read-code', async (width) => {
       await expect(page.getByRole('button', { name: 'gateway.py' })).toBeVisible();
-      await expect(page.getByText('Lines 1–3 of 3')).toBeVisible();
+      await expectRecap(page, 'Lines 1–3 of 3', width);
       await expect(page.getByRole('region', { name: 'Scrollable code' })).toContainText(
         'return HANDLERS[request.path](request)',
       );
@@ -61,7 +72,7 @@ test.describe('file tools take path: recorded request and result showcase', () =
     page,
   }) => {
     await open(page, tool('read-large'));
-    await atWidths(page, 'read-large', async () => {
+    await atWidths(page, 'read-large', async (width) => {
       await expect(page.getByRole('button', { name: LONG })).toBeVisible();
       // The long name truncates; the action keeps its word on one line.
       // Phone rows hide the action name and keep the file.
@@ -73,7 +84,7 @@ test.describe('file tools take path: recorded request and result showcase', () =
         );
         expect(height).toBeLessThan(lineHeight * 1.5);
       }
-      await expect(page.getByText('Lines 1–70 of 5,006')).toBeVisible();
+      await expectRecap(page, 'Lines 1–70 of 5,006', width);
       await expect(page.getByText('Title: Station quality')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Readings' })).toBeVisible();
       await expect(page.getByText('the next read starts at line 71')).toBeVisible();
@@ -82,9 +93,9 @@ test.describe('file tools take path: recorded request and result showcase', () =
 
   test('an empty file says so', async ({ page }) => {
     await open(page, tool('read-empty'));
-    await atWidths(page, 'read-empty', async () => {
+    await atWidths(page, 'read-empty', async (width) => {
       await expect(page.getByRole('button', { name: 'empty.log' })).toBeVisible();
-      await expect(page.getByText('Empty file')).toBeVisible();
+      await expectRecap(page, 'Empty file', width);
     });
   });
 
