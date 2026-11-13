@@ -136,7 +136,7 @@ export function ModelServerDetails({
     >
       <div className="grid gap-1" data-slot="model-server-details">
         <p
-          className="mb-1.5 flex min-w-0 gap-3 text-xs text-faint whitespace-nowrap"
+          className="mb-1.5 flex min-w-0 gap-3 text-xs text-muted-foreground whitespace-nowrap"
           data-slot="detail-meta"
         >
           <span className="truncate">{kind}</span>

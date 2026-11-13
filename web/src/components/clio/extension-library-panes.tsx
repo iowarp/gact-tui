@@ -75,7 +75,7 @@ export function McpConnectionPane({
         </>
       }
     >
-      <MetaLine className="block truncate text-xs text-faint" parts={entry.meta} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={entry.meta} />
       <KeyValueGrid
         className="mt-3"
         items={[
@@ -116,7 +116,7 @@ export function DiscoverPane({
 }) {
   return (
     <DetailPane className={className} icon={item.icon} onClose={onClose} title={item.title}>
-      <MetaLine className="block truncate text-xs text-faint" parts={item.meta} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={item.meta} />
       <div className="mt-3 flex items-start gap-2.5">
         <p className="min-w-0 flex-1 leading-5">{item.description}</p>
         <SlotButton label={`${item.action.label} ${item.title}`} onClick={item.action.run}>

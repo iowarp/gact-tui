@@ -656,7 +656,7 @@ function ExtensionLibraryContents({
                 Back to first page
               </Button>
             ) : null}
-            <span className="min-w-0 truncate text-xs text-faint">
+            <span className="min-w-0 truncate text-xs text-muted-foreground">
               Public server metadata. Browsing starts no servers.
             </span>
           </div>
