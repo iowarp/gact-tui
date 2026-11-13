@@ -3,6 +3,7 @@ import { mcpServerPreparation } from '@/lib/mcp-preparation';
 import { cn } from '@/lib/utils';
 import { RefreshButton } from './refresh-button';
 import { TechnicalDetails } from './technical-details';
+import { t } from '@lingui/core/macro';
 
 /**
  * What a conversation's MCP server is doing while it is prepared, or why it could
@@ -31,10 +32,10 @@ export function McpServerPreparationNote({
         {view.sentence}
       </p>
       {view.reason || view.detail ? (
-        <TechnicalDetails contentClassName="mt-1 grid gap-1" title="Details">
+        <TechnicalDetails contentClassName="mt-1 grid gap-1" title={t`Details`}>
           {view.reason ? (
             <p className="text-muted-foreground">
-              Reason <code className="font-mono text-foreground">{view.reason}</code>
+              {t`Reason`} <code className="font-mono text-foreground">{view.reason}</code>
             </p>
           ) : null}
           {view.detail ? (
@@ -47,13 +48,13 @@ export function McpServerPreparationNote({
       {onReconnect && view.state === 'failed' ? (
         <RefreshButton
           className="mt-1 w-fit"
-          label={`Reconnect ${title}`}
+          label={t`Reconnect ${title}`}
           onRefresh={onReconnect}
           refreshing={reconnecting}
           size="sm"
           variant="outline"
         >
-          Reconnect
+          {t`Reconnect`}
         </RefreshButton>
       ) : null}
     </div>

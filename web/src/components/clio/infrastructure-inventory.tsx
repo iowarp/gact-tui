@@ -15,6 +15,7 @@ import { InfrastructureOverview } from './infrastructure-overview';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import type { SshHost } from '@/lib/ssh-hosts';
+import { t } from '@lingui/core/macro';
 
 /** Inventory is independent from deployment forms and survives navigation. */
 export function InfrastructureInventory({
@@ -85,13 +86,15 @@ export function InfrastructureInventory({
         className="mt-2"
         kind="error"
         size="row"
-        title="Infrastructure could not load"
+        title={t`Infrastructure could not load`}
         detail={inventory.error.message}
-        action={{ label: 'Retry', onClick: () => void inventory.refetch() }}
+        action={{ label: t`Retry`, onClick: () => void inventory.refetch() }}
       />
     );
   if (!inventory.data)
-    return <StateView className="mt-2" kind="loading" size="row" title="Loading infrastructure…" />;
+    return (
+      <StateView className="mt-2" kind="loading" size="row" title={t`Loading infrastructure…`} />
+    );
   const data = inventory.data;
   if (section === 'models')
     return (
@@ -108,7 +111,7 @@ export function InfrastructureInventory({
           targetId={targetId}
           hostLabel={
             targetId === 'local'
-              ? 'Local'
+              ? t`Local`
               : data.targets.find((host) => host.id === targetId)?.label || targetId
           }
           hostSelector={

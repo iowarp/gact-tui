@@ -12,11 +12,12 @@ import { queryKeys } from '@/lib/query-keys';
 import { compactModelName } from '@/lib/model-options';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
-import { THEMES } from '@/theme/contract';
+import { THEMES, type ThemeId } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
 import { agentAvailabilityLabel } from './connection-names';
 import { KeyCap, ShortcutKeys } from './primitives/key-chip';
 import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
+import { t, ph, plural } from '@lingui/core/macro';
 
 /**
  * Reads the app-wide matches and hands them to `children`. It mounts with the
@@ -88,6 +89,32 @@ export function ResultTrail({ children }: { children?: ReactNode }) {
   );
 }
 
+/** "3 more files": the hidden rows of a capped group, by the group's noun (an identifier). */
+function moreLabel(hidden: number, noun: string): string {
+  switch (noun) {
+    case 'conversations':
+      return plural(hidden, { one: '# more conversation', other: '# more conversations' });
+    case 'workspaces':
+      return plural(hidden, { one: '# more workspace', other: '# more workspaces' });
+    case 'artifacts':
+      return plural(hidden, { one: '# more artifact', other: '# more artifacts' });
+    case 'messages':
+      return plural(hidden, { one: '# more message', other: '# more messages' });
+    case 'files':
+      return plural(hidden, { one: '# more file', other: '# more files' });
+    case 'agents':
+      return plural(hidden, { one: '# more agent', other: '# more agents' });
+    case 'places':
+      return plural(hidden, { one: '# more place', other: '# more places' });
+    case 'actions':
+      return plural(hidden, { one: '# more action', other: '# more actions' });
+    case 'settings':
+      return plural(hidden, { one: '# more setting', other: '# more settings' });
+    default:
+      return t`${hidden} more ${noun}`;
+  }
+}
+
 /** The last row of a capped group under All: its own tab, one Enter away. */
 export function MoreResultsItem({
   hidden,
@@ -108,13 +135,21 @@ export function MoreResultsItem({
       value={`more:${scope}:${noun}`}
     >
       <MoreIcon aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">
-        {hidden} more {noun}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{moreLabel(hidden, noun)}</span>
       <ChevronRightIcon aria-hidden="true" />
     </CommandItem>
   );
 }
+
+// Theme names in theme/contract.ts are untranslated (the pre-paint boot script bundles them);
+// these match the names Settings › Appearance shows.
+const THEME_LABELS: Partial<Record<ThemeId, string>> = {
+  light: t`Light`,
+  dark: t`Dark`,
+  'classic-light': t`Cool`,
+  'classic-dark': t`Neutral`,
+  debug: t`Debug`,
+};
 
 const COMMAND_GROUPS: readonly {
   group: GlobalSearchCommand['group'];
@@ -122,9 +157,9 @@ const COMMAND_GROUPS: readonly {
   scope: CommandMenuScope;
   noun: string;
 }[] = [
-  { group: 'Navigation', heading: 'Go to', scope: 'actions', noun: 'places' },
-  { group: 'Actions', heading: 'Actions', scope: 'actions', noun: 'actions' },
-  { group: 'Settings', heading: 'Settings', scope: 'settings', noun: 'settings' },
+  { group: 'Navigation', heading: t`Go to`, scope: 'actions', noun: 'places' },
+  { group: 'Actions', heading: t`Actions`, scope: 'actions', noun: 'actions' },
+  { group: 'Settings', heading: t`Settings`, scope: 'settings', noun: 'settings' },
 ];
 
 /** The app-wide groups of the palette, for the tab that is open. */
@@ -197,7 +232,7 @@ export function GlobalSearchGroups({
             {item.trail ? <ResultDetail>{item.trail}</ResultDetail> : null}
             <ResultTrail>
               {'theme' in item.action && theme === item.action.theme ? (
-                'Current'
+                t`Current`
               ) : item.shortcut ? (
                 <ShortcutKeys capSize="sm" id={item.shortcut} variant="caps" />
               ) : item.setting?.value ? (
@@ -220,7 +255,10 @@ export function GlobalSearchGroups({
       {more && agents.rows.length ? (
         <CommandGroup
           heading={
-            <ResultsHeading count={searching ? matches.agents.length : undefined} label="Agents" />
+            <ResultsHeading
+              count={searching ? matches.agents.length : undefined}
+              label={t`Agents`}
+            />
           }
         >
           {agents.rows.map((item) => (
@@ -236,7 +274,7 @@ export function GlobalSearchGroups({
               {item.description ? (
                 <ResultDetail title={item.description}>{item.description}</ResultDetail>
               ) : null}
-              <ResultTrail>{item.kind === 'user' ? 'Your agent' : 'Agent'}</ResultTrail>
+              <ResultTrail>{item.kind === 'user' ? t`Your agent` : t`Agent`}</ResultTrail>
             </CommandItem>
           ))}
           <MoreResultsItem hidden={agents.hidden} noun="agents" onMore={onMore} scope="more" />
@@ -248,17 +286,17 @@ export function GlobalSearchGroups({
           role="alert"
           title={matches.agentsError.message}
         >
-          Agents could not be searched. Try again, or open Settings › Agents.
+          {t`Agents could not be searched. Try again, or open Settings › Agents.`}
         </p>
       ) : null}
       {after}
-      {more ? commandGroup('Infrastructure', 'Infrastructure', 'more', 'places') : null}
+      {more ? commandGroup('Infrastructure', t`Infrastructure`, 'more', 'places') : null}
       {more && connections.rows.length ? (
         <CommandGroup
           heading={
             <ResultsHeading
               count={searching ? matches.connections.length : undefined}
-              label="Connections"
+              label={t`Connections`}
             />
           }
         >
@@ -278,7 +316,7 @@ export function GlobalSearchGroups({
               {item.location ? <ResultDetail>{item.location}</ResultDetail> : null}
               <ResultTrail>
                 {item.endpoint === settings.endpoint
-                  ? 'Current'
+                  ? t`Current`
                   : agentAvailabilityLabel(item.availability, false)}
               </ResultTrail>
             </CommandItem>
@@ -293,13 +331,16 @@ export function GlobalSearchGroups({
       ) : null}
       {switching.error ? (
         <p className="px-3 py-2 text-xs text-destructive" role="alert">
-          Connection could not be opened. {switching.error.message}
+          {t`Connection could not be opened. ${ph({ message: switching.error.message })}`}
         </p>
       ) : null}
       {more && targets.rows.length ? (
         <CommandGroup
           heading={
-            <ResultsHeading count={searching ? matches.targets.length : undefined} label="Hosts" />
+            <ResultsHeading
+              count={searching ? matches.targets.length : undefined}
+              label={t`Hosts`}
+            />
           }
         >
           {targets.rows.map((item) => (
@@ -314,7 +355,7 @@ export function GlobalSearchGroups({
               <span className="min-w-0 flex-[0_1_auto] truncate">
                 <SearchHighlight query={query} text={item.label || item.id} />
               </span>
-              <ResultTrail>Infrastructure</ResultTrail>
+              <ResultTrail>{t`Infrastructure`}</ResultTrail>
             </CommandItem>
           ))}
           <MoreResultsItem hidden={targets.hidden} noun="hosts" onMore={onMore} scope="more" />
@@ -326,7 +367,7 @@ export function GlobalSearchGroups({
           role="alert"
           title={matches.targetsError.message}
         >
-          Hosts could not be searched. Try again, or open Infrastructure.
+          {t`Hosts could not be searched. Try again, or open Infrastructure.`}
         </p>
       ) : null}
     </>
@@ -351,14 +392,16 @@ function useSettingValues(readModel: boolean): (value: SettingsSearchValue) => s
     switch (value) {
       case 'theme':
         return theme === 'system'
-          ? 'System'
-          : (THEMES.find((item) => item.id === theme)?.label ?? theme);
+          ? t`System`
+          : (THEME_LABELS[theme as ThemeId] ??
+              THEMES.find((item) => item.id === theme)?.label ??
+              theme);
       case 'interface-size':
         return `${interfaceSize}%`;
       case 'conversation-width':
-        return conversationWidth === 'wide' ? 'Wide' : 'Focused';
+        return conversationWidth === 'wide' ? t`Wide` : t`Focused`;
       case 'motion':
-        return motion === 'reduced' ? 'Reduce motion' : 'Follow system';
+        return motion === 'reduced' ? t`Reduce motion` : t`Follow system`;
       case 'default-model': {
         const data = configuration.data;
         if (!data?.model) return undefined;

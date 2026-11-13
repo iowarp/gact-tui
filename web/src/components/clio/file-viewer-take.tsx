@@ -53,6 +53,7 @@ import { IconButton } from './primitives/icon-button';
 import { MenuRow, assignJumpLetters, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { ToolbarAction } from './viewer-toolbar';
+import { t } from '@lingui/core/macro';
 
 /** The rows of a Take menu, each with its accelerator letter. */
 export function TakeMenuRows({ rows }: { rows: readonly TakeRow[] }) {
@@ -124,7 +125,7 @@ export function FrameCopyButton({ take, className }: { take: CopyTake; className
         label={take.face.label}
         icon={<CopyIcon aria-hidden="true" />}
         onClick={take.face.run}
-        menuLabel="Copy options"
+        menuLabel={t`Copy options`}
         shortcut="copy"
         className={className}
       >
@@ -141,27 +142,30 @@ export function FrameContentsCopyButton({
   read: () => string | undefined | Promise<string | undefined>;
 }) {
   const copy = () =>
-    void attempt(async () => {
-      const text = await read();
-      if (text === undefined) throw new Error('The text is not available yet.');
-      await copyText(text);
-    }, 'Copied the contents.');
+    void attempt(
+      async () => {
+        const text = await read();
+        if (text === undefined) throw new Error(t`The text is not available yet.`);
+        await copyText(text);
+      },
+      t`Copied the contents.`,
+    );
   const anchor = useFrameCopyKey(copy);
   return (
     <>
       {anchor}
       <SplitButton
-        label="Copy contents"
+        label={t`Copy contents`}
         icon={<CopyIcon aria-hidden="true" />}
         onClick={copy}
-        menuLabel="Copy options"
+        menuLabel={t`Copy options`}
         shortcut="copy"
       >
         <TakeMenuRows
           rows={[
             {
               id: 'contents',
-              label: 'Contents',
+              label: t`Contents`,
               icon: <FileTextIcon />,
               accelerator: 'C',
               shortcut: 'copy',
@@ -198,7 +202,7 @@ export function FrameOpenButton({ take, className }: { take: OpenTake; className
       label={take.face.label}
       icon={take.face.icon}
       onClick={take.face.run}
-      menuLabel="Open options"
+      menuLabel={t`Open options`}
       menuKey
       disabled={take.busy}
       className={className}
@@ -217,14 +221,14 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
   const row = take.rows.find((candidate) => candidate.id === 'download');
   if (!row) return null;
   const exports = take.rows.filter(isExportRow);
-  const reason = row.reason ?? (take.busy ? 'Working on it' : undefined);
+  const reason = row.reason ?? (take.busy ? t`Working on it` : undefined);
   if (exports.length)
     return (
       <SplitButton
-        label="Download"
+        label={t`Download`}
         icon={<DownloadIcon aria-hidden="true" className="size-3.5" />}
         onClick={() => row.onSelect?.()}
-        menuLabel="Download options"
+        menuLabel={t`Download options`}
         disabled={Boolean(reason)}
         menuDisabled={take.busy}
         faceProps={{ title: row.reason }}
@@ -232,7 +236,7 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
         <TakeMenuRows
           rows={[
             // Its own letter, underlined like Export's, not the download row's D.
-            { ...row, label: 'Original', accelerator: 'O', separatorBefore: false },
+            { ...row, label: t`Original`, accelerator: 'O', separatorBefore: false },
             ...exports.map((entry, index) => ({
               ...entry,
               accelerator: entry.accelerator ?? (index === 0 ? 'E' : undefined),
@@ -244,7 +248,7 @@ export function FrameDownloadButton({ take }: { take: OpenTake }) {
     );
   return (
     <IconButton
-      label="Download"
+      label={t`Download`}
       icon={<DownloadIcon aria-hidden="true" />}
       disabledReason={reason}
       className="[&_svg]:size-3.5"
@@ -304,7 +308,7 @@ function DrilledTakeRows({
   open?: OpenTake;
   onBack: () => void;
 }) {
-  const label = take === 'copy' ? 'Copy' : 'Open';
+  const label = take === 'copy' ? t`Copy` : t`Open`;
   const rows = take === 'copy' ? (copy?.rows ?? []) : otherOpenRows(open?.rows ?? []);
   return (
     <>
@@ -314,7 +318,7 @@ function DrilledTakeRows({
           onBack();
         }}
       >
-        <MenuRow icon={<ChevronLeftIcon />} label="Back" />
+        <MenuRow icon={<ChevronLeftIcon />} label={t`Back`} />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuGroup aria-label={label}>
@@ -346,7 +350,7 @@ export function FoldedTakeRows({
         {copy ? (
           <DrillRow
             icon={<ClipboardCopyIcon />}
-            label="Copy"
+            label={t`Copy`}
             accelerator="C"
             take="copy"
             onDrill={() => onDrill('copy')}
@@ -355,7 +359,7 @@ export function FoldedTakeRows({
         {open ? (
           <DrillRow
             icon={<ExternalLinkIcon />}
-            label="Open"
+            label={t`Open`}
             accelerator="O"
             take="open"
             onDrill={() => onDrill('open')}
@@ -368,7 +372,7 @@ export function FoldedTakeRows({
       {copy ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger data-accelerator="C" className="[&>svg]:hidden">
-            <MenuRow icon={<ClipboardCopyIcon />} label="Copy" accelerator="C" submenu />
+            <MenuRow icon={<ClipboardCopyIcon />} label={t`Copy`} accelerator="C" submenu />
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-56" onKeyDown={menuAcceleratorKeyDown}>
             <TakeMenuRows rows={copy.rows} />
@@ -378,7 +382,7 @@ export function FoldedTakeRows({
       {open ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger data-accelerator="O" className="[&>svg]:hidden">
-            <MenuRow icon={<ExternalLinkIcon />} label="Open" accelerator="O" submenu />
+            <MenuRow icon={<ExternalLinkIcon />} label={t`Open`} accelerator="O" submenu />
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-56" onKeyDown={menuAcceleratorKeyDown}>
             <TakeMenuRows rows={otherOpenRows(open.rows)} />
@@ -407,7 +411,7 @@ export function FrameTalkTake({
   copy,
   open,
   menu,
-  menuLabel = 'More actions',
+  menuLabel = t`More actions`,
   menuLetters = '',
   pending = false,
 }: {
@@ -463,7 +467,7 @@ export function FrameTalkTake({
       {addToMessage ? (
         <span ref={talkRef} className="contents group-data-[fold-talk]/frame:hidden">
           <IconButton
-            label="Add to message"
+            label={t`Add to message`}
             icon={<AtSignIcon aria-hidden="true" />}
             shortcut="add-to-message"
             disabledReason={addToMessage.reason}
@@ -547,97 +551,97 @@ export function FrameTalkTake({
             <DrilledTakeRows take={drill} copy={copy} open={open} onBack={() => drillTo(null)} />
           ) : (
             <>
-          {fold.modes.map((group, index) => (
-            <Fragment key={`${index}:${group.label}`}>
-              {index > 0 ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuRadioGroup
-                aria-label={group.label}
-                value={group.value}
-                onValueChange={group.onChange}
-              >
-                {group.modes.map((mode, modeIndex) => (
-                  <FileModeMenuItem
-                    key={mode.value}
-                    mode={mode}
-                    accelerator={
+              {fold.modes.map((group, index) => (
+                <Fragment key={`${index}:${group.label}`}>
+                  {index > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuRadioGroup
+                    aria-label={group.label}
+                    value={group.value}
+                    onValueChange={group.onChange}
+                  >
+                    {group.modes.map((mode, modeIndex) => (
+                      <FileModeMenuItem
+                        key={mode.value}
+                        mode={mode}
+                        accelerator={
+                          fold.letters[
+                            fold.modes
+                              .slice(0, index)
+                              .reduce((count, earlier) => count + earlier.modes.length, modeIndex)
+                          ]
+                        }
+                      />
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </Fragment>
+              ))}
+              {fold.tools.length > 0 ? (
+                <>
+                  {fold.modes.length > 0 ? <DropdownMenuSeparator /> : null}
+                  {fold.tools.map((tool, index) => {
+                    const letter =
                       fold.letters[
-                        fold.modes
-                          .slice(0, index)
-                          .reduce((count, earlier) => count + earlier.modes.length, modeIndex)
-                      ]
-                    }
-                  />
-                ))}
-              </DropdownMenuRadioGroup>
-            </Fragment>
-          ))}
-          {fold.tools.length > 0 ? (
-            <>
-              {fold.modes.length > 0 ? <DropdownMenuSeparator /> : null}
-              {fold.tools.map((tool, index) => {
-                const letter =
-                  fold.letters[
-                    fold.modes.reduce((count, group) => count + group.modes.length, index)
-                  ] || undefined;
-                const row = (
+                        fold.modes.reduce((count, group) => count + group.modes.length, index)
+                      ] || undefined;
+                    const row = (
+                      <MenuRow
+                        icon={tool.icon}
+                        label={tool.label}
+                        description={tool.reason}
+                        wrapDescription
+                        accelerator={letter}
+                      />
+                    );
+                    // A pressed toggle in the bar (Explorer) stays a checked toggle here.
+                    return tool.checked === undefined ? (
+                      <DropdownMenuItem
+                        key={`${index}:${tool.label}`}
+                        data-accelerator={letter}
+                        disabled={tool.disabled}
+                        onSelect={() => tool.button.click()}
+                      >
+                        {row}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuCheckboxItem
+                        key={`${index}:${tool.label}`}
+                        data-accelerator={letter}
+                        checked={tool.checked}
+                        disabled={tool.disabled}
+                        onSelect={() => tool.button.click()}
+                      >
+                        {row}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                </>
+              ) : null}
+              {fold.modes.length + fold.tools.length > 0 && (anyFolded || menu) ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              {fold.talk && addToMessage ? (
+                <DropdownMenuItem
+                  data-accelerator="A"
+                  disabled={Boolean(addToMessage.reason)}
+                  onSelect={addToMessage.onSelect}
+                >
                   <MenuRow
-                    icon={tool.icon}
-                    label={tool.label}
-                    description={tool.reason}
+                    icon={<AtSignIcon />}
+                    label={t`Add to message`}
+                    description={addToMessage.reason}
                     wrapDescription
-                    accelerator={letter}
+                    accelerator="A"
+                    shortcut="add-to-message"
                   />
-                );
-                // A pressed toggle in the bar (Explorer) stays a checked toggle here.
-                return tool.checked === undefined ? (
-                  <DropdownMenuItem
-                    key={`${index}:${tool.label}`}
-                    data-accelerator={letter}
-                    disabled={tool.disabled}
-                    onSelect={() => tool.button.click()}
-                  >
-                    {row}
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuCheckboxItem
-                    key={`${index}:${tool.label}`}
-                    data-accelerator={letter}
-                    checked={tool.checked}
-                    disabled={tool.disabled}
-                    onSelect={() => tool.button.click()}
-                  >
-                    {row}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-            </>
-          ) : null}
-          {fold.modes.length + fold.tools.length > 0 && (anyFolded || menu) ? (
-            <DropdownMenuSeparator />
-          ) : null}
-          {fold.talk && addToMessage ? (
-            <DropdownMenuItem
-              data-accelerator="A"
-              disabled={Boolean(addToMessage.reason)}
-              onSelect={addToMessage.onSelect}
-            >
-              <MenuRow
-                icon={<AtSignIcon />}
-                label="Add to message"
-                description={addToMessage.reason}
-                wrapDescription
-                accelerator="A"
-                shortcut="add-to-message"
+                </DropdownMenuItem>
+              ) : null}
+              <FoldedTakeRows
+                copy={fold.copy ? copy : undefined}
+                open={fold.open ? open : undefined}
+                onDrill={phone ? drillTo : undefined}
               />
-            </DropdownMenuItem>
-          ) : null}
-          <FoldedTakeRows
-            copy={fold.copy ? copy : undefined}
-            open={fold.open ? open : undefined}
-            onDrill={phone ? drillTo : undefined}
-          />
-          {anyFolded && menu ? <DropdownMenuSeparator /> : null}
-          {menu}
+              {anyFolded && menu ? <DropdownMenuSeparator /> : null}
+              {menu}
             </>
           )}
         </DropdownMenuContent>

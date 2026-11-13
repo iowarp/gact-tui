@@ -1,65 +1,74 @@
 import type { CascaderLabels, CascaderMode } from '@/components/reui/cascader/cascader-types';
+import { plural, ph, t } from '@lingui/core/macro';
 
 /** Name of the root level. Hoisted so the root announcement can reuse it. */
-const ROOT_LEVEL = 'Top level';
+const ROOT_LEVEL = t`Top level`;
 
 /** Hoisted for the same reason: several defaults end in an item count. */
-const itemCount = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
+const itemCount = (count: number) => plural(count, { one: '# item', other: '# items' });
 
 /**
- * English defaults. Every string the primitive can render lives here, so a
- * consumer can translate the whole surface by passing `labels`.
+ * Interface-language defaults. Every string the primitive can render lives
+ * here, so a consumer can still replace the whole surface by passing `labels`.
  */
 export const CASCADER_LABELS: CascaderLabels = {
   // Deliberately NOT lowercased. `toLowerCase()` is locale-hostile - it maps
   // Turkish "İ" to a two-code-point sequence and German "İstanbul" style
   // proper nouns lose their casing - and a label is already written the way
   // its author wants it read.
-  search: (parentLabel) => (parentLabel ? `Search ${parentLabel}...` : 'Search...'),
-  back: 'Back',
-  loading: 'Loading...',
-  loadingMore: 'Loading more...',
-  loadMore: 'Load more',
-  error: 'Could not load items.',
-  retry: 'Retry',
-  empty: 'No results found.',
-  selectedCount: (count) => `${count} selected`,
-  chipsLabel: 'Selected items',
-  removeChip: (label) => `Remove ${label}`,
+  search: (parentLabel) => (parentLabel ? t`Search ${parentLabel}...` : t`Search...`),
+  back: t`Back`,
+  loading: t`Loading...`,
+  loadingMore: t`Loading more...`,
+  loadMore: t`Load more`,
+  error: t`Could not load items.`,
+  retry: t`Retry`,
+  empty: t`No results found.`,
+  selectedCount: (count) => t`${count} selected`,
+  chipsLabel: t`Selected items`,
+  removeChip: (label) => t`Remove ${label}`,
+  // i18n-ignore: a separator glyph
   pathSeparator: '/',
   rootLevel: ROOT_LEVEL,
   itemCount,
-  branchAffordance: 'submenu',
-  selectedState: 'selected',
-  partiallySelectedState: 'partially selected',
-  columnsLabel: 'Levels',
-  actionsLabel: 'Actions',
-  submenuAffordance: 'opens a menu',
-  panelLabel: 'Options',
+  branchAffordance: t`submenu`,
+  selectedState: t`selected`,
+  partiallySelectedState: t`partially selected`,
+  columnsLabel: t`Levels`,
+  actionsLabel: t`Actions`,
+  submenuAffordance: t`opens a menu`,
+  panelLabel: t`Options`,
   keyboardHint: (mode: CascaderMode, dir: 'ltr' | 'rtl') => {
     // "Deeper" is the direction the text runs, so the level keys mirror in
     // RTL and the hint has to name the mirrored pair there - an LTR-worded
     // hint would teach exactly the wrong keys.
-    const open = dir === 'rtl' ? 'Left' : 'Right';
-    const back = dir === 'rtl' ? 'Right' : 'Left';
+    const rtl = dir === 'rtl';
     if (mode === 'tree') {
-      return `Use the ${open} Arrow key to expand and the ${back} Arrow key to collapse.`;
+      return rtl
+        ? t`Use the Left Arrow key to expand and the Right Arrow key to collapse.`
+        : t`Use the Right Arrow key to expand and the Left Arrow key to collapse.`;
     }
     if (mode === 'columns') {
-      return `Use the ${open} Arrow key to open the next column and the ${back} Arrow key to go back.`;
+      return rtl
+        ? t`Use the Left Arrow key to open the next column and the Right Arrow key to go back.`
+        : t`Use the Right Arrow key to open the next column and the Left Arrow key to go back.`;
     }
-    return `Use the ${open} Arrow key to open a branch and the ${back} Arrow key to go back.`;
+    return rtl
+      ? t`Use the Left Arrow key to open a branch and the Right Arrow key to go back.`
+      : t`Use the Right Arrow key to open a branch and the Left Arrow key to go back.`;
   },
-  rootAnnouncement: (count) => `${ROOT_LEVEL}, ${itemCount(count)}`,
-  expandedAnnouncement: (label, count) => `${label} expanded, ${itemCount(count)}`,
-  collapsedAnnouncement: (label) => `${label} collapsed`,
+  rootAnnouncement: (count) => t`${ph({ level: ROOT_LEVEL })}, ${ph({ items: itemCount(count) })}`,
+  expandedAnnouncement: (label, count) => t`${label} expanded, ${ph({ items: itemCount(count) })}`,
+  collapsedAnnouncement: (label) => t`${label} collapsed`,
   levelAnnouncement: (parentLabel, depth, count) =>
-    `${parentLabel}, level ${depth}, ${itemCount(count)}`,
-  resultsAnnouncement: (count) => (count === 1 ? '1 result' : `${count} results`),
-  maxReachedAnnouncement: (max) => `Selection limit of ${max} reached`,
+    t`${parentLabel}, level ${depth}, ${ph({ items: itemCount(count) })}`,
+  resultsAnnouncement: (count) => plural(count, { one: '# result', other: '# results' }),
+  maxReachedAnnouncement: (max) => t`Selection limit of ${max} reached`,
   cascadeAnnouncement: (label, count, selecting) =>
-    `${label} ${selecting ? 'selected' : 'deselected'}, ${itemCount(count)} followed`,
-  searchingAnnouncement: 'Searching...',
+    selecting
+      ? t`${label} selected, ${ph({ items: itemCount(count) })} followed`
+      : t`${label} deselected, ${ph({ items: itemCount(count) })} followed`,
+  searchingAnnouncement: t`Searching...`,
 };
 
 /**

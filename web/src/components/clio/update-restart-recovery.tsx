@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { ph, t } from '@lingui/core/macro';
 import { vocab } from '@/lib/brand-vocabulary';
 import { verifyClioUpdate } from '@/tauri/clio-update-verification';
 import {
@@ -54,7 +55,9 @@ export function UpdateRestartRecovery(): null {
         finished = true;
         useUpdateFlowStore.getState().finish(marker.version);
         clearPendingUpdateMarker();
-        toast.success(`${vocab.product} updated to v${marker.version}`);
+        toast.success(
+          t`${ph({ product: vocab.product })} updated to v${ph({ version: marker.version ?? '' })}`,
+        );
         doneTimer.current = setTimeout(() => {
           const flow = useUpdateFlowStore.getState();
           if (flow.step === 'done' && flow.version === marker.version) flow.reset();

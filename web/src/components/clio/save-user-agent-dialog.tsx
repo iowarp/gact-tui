@@ -12,6 +12,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { userAgentId } from '@/lib/plugin-presentation';
+import { t } from '@lingui/core/macro';
 
 export interface SaveUserAgentInput {
   id: string;
@@ -50,10 +51,9 @@ export function SaveUserAgentDialog({
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Save as agent</DialogTitle>
+          <DialogTitle>{t`Save as agent`}</DialogTitle>
           <DialogDescription>
-            Starts from {parentName} and keeps your changes. Updates to {parentName} reach this
-            agent in its next conversation.
+            {t`Starts from ${parentName} and keeps your changes. Updates to ${parentName} reach this agent in its next conversation.`}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -65,43 +65,43 @@ export function SaveUserAgentDialog({
         >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="user-agent-name">Agent name</FieldLabel>
+              <FieldLabel htmlFor="user-agent-name">{t`Agent name`}</FieldLabel>
               <Input
                 autoFocus
                 id="user-agent-name"
                 onChange={(event) => setName(event.target.value)}
-                placeholder="My HDF5 analyst"
+                placeholder={t`My HDF5 analyst`}
                 value={name}
               />
               <FieldDescription>
-                {id ? `Saved as user/${id}.` : 'Use letters or numbers.'}
+                {id ? t`Saved as user/${id}.` : t`Use letters or numbers.`}
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="user-agent-description">Description</FieldLabel>
+              <FieldLabel htmlFor="user-agent-description">{t`Description`}</FieldLabel>
               <Input
                 id="user-agent-description"
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Optional"
+                placeholder={t`Optional`}
                 value={description}
               />
             </Field>
           </FieldGroup>
           <dl className="grid gap-1.5 rounded-lg border p-3 text-sm">
             <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Starts from</dt>
+              <dt className="text-muted-foreground">{t`Starts from`}</dt>
               <dd className="font-medium">
                 {parentName}{' '}
                 <span className="font-normal text-muted-foreground">({parentRef})</span>
               </dd>
             </div>
             <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Adds</dt>
-              <dd>{delta.add.length ? delta.add.join(', ') : 'Nothing'}</dd>
+              <dt className="text-muted-foreground">{t`Adds`}</dt>
+              <dd>{delta.add.length ? delta.add.join(', ') : t`Nothing`}</dd>
             </div>
             <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Removes</dt>
-              <dd>{delta.remove.length ? delta.remove.join(', ') : 'Nothing'}</dd>
+              <dt className="text-muted-foreground">{t`Removes`}</dt>
+              <dd>{delta.remove.length ? delta.remove.join(', ') : t`Nothing`}</dd>
             </div>
           </dl>
           {error ? (
@@ -111,10 +111,10 @@ export function SaveUserAgentDialog({
           ) : null}
           <DialogFooter>
             <Button onClick={onClose} type="button" variant="ghost">
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button disabled={!id || pending} type="submit">
-              {pending ? 'Saving…' : 'Save agent'}
+              {pending ? t`Saving…` : t`Save agent`}
             </Button>
           </DialogFooter>
         </form>

@@ -19,6 +19,8 @@ import { JumpLabel, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { MetaGap, ScheduleWords } from './settings-schedule-fields';
 import { formatDateTime } from './settings-schedule-time';
+import { ph, plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const STATUS_WIDTH = 158;
 const ACTIONS_WIDTH = 104;
@@ -26,10 +28,10 @@ const CONFIRM_BUTTON = 'h-[1.625rem] px-2.5 text-xs';
 
 function scheduleStatus(schedule: ScheduledTurn) {
   if (!schedule.enabled)
-    return { tone: 'stopped' as const, label: 'Paused', detail: schedule.disabled_reason };
+    return { tone: 'stopped' as const, label: t`Paused`, detail: schedule.disabled_reason };
   if (schedule.last_error)
-    return { tone: 'warning' as const, label: 'Last run failed', detail: schedule.last_error };
-  return { tone: 'success' as const, label: 'Scheduled', detail: '' };
+    return { tone: 'warning' as const, label: t`Last run failed`, detail: schedule.last_error };
+  return { tone: 'success' as const, label: t`Scheduled`, detail: '' };
 }
 
 /** The facts a row has no room for, shown at the top of its ⋯ menu. */
@@ -37,20 +39,27 @@ function scheduleDetails(schedule: ScheduledTurn, serviceTimezone: string) {
   const timezone = schedule.timezone || serviceTimezone;
   const next = schedule.next_fire_at || schedule.run_at;
   const lines = [
-    `Next run ${next ? `${formatDateTime(next, timezone)}, ${timezone}` : 'not scheduled'}`,
+    next
+      ? t`Next run ${ph({ time: formatDateTime(next, timezone) })}, ${timezone}`
+      : t`Next run not scheduled`,
   ];
-  if (schedule.fire_count)
+  if (schedule.fire_count) {
+    const count = schedule.fire_count;
     lines.push(
-      `Completed ${schedule.fire_count} ${schedule.fire_count === 1 ? 'run' : 'runs'}${
-        schedule.last_fired_at ? `, last ${formatDateTime(schedule.last_fired_at, timezone)}` : ''
-      }`,
+      schedule.last_fired_at
+        ? plural(count, {
+            one: `Completed # run, last ${ph({ last: formatDateTime(schedule.last_fired_at, timezone) })}`,
+            other: `Completed # runs, last ${ph({ last: formatDateTime(schedule.last_fired_at, timezone) })}`,
+          })
+        : plural(count, { one: 'Completed # run', other: 'Completed # runs' }),
     );
+  }
   lines.push(
     schedule.overlap_policy === 'skip'
-      ? 'Skips a run while the last is still going'
-      : 'Queues a run while the last is still going',
+      ? t`Skips a run while the last is still going`
+      : t`Queues a run while the last is still going`,
   );
-  if (schedule.recurring && schedule.cron) lines.push(`Expression ${schedule.cron}`);
+  if (schedule.recurring && schedule.cron) lines.push(t`Expression ${ph({ cron: schedule.cron })}`);
   return lines;
 }
 
@@ -112,7 +121,7 @@ export const ScheduleRow = memo(function ScheduleRow({
       <ScheduleWords schedule={schedule} />
     </>
   );
-  const pauseLabel = schedule.enabled ? 'Pause' : 'Resume';
+  const pauseLabel = schedule.enabled ? t`Pause` : t`Resume`;
   if (confirming)
     return (
       <ItemRow
@@ -122,13 +131,13 @@ export const ScheduleRow = memo(function ScheduleRow({
             <span
               className="shrink-0 text-menu text-destructive"
               role="alert"
-              title="Future runs are removed. Completed work stays in the session history."
+              title={t`Future runs are removed. Completed work stays in the session history.`}
             >
-              Delete this schedule?
+              {t`Delete this schedule?`}
             </span>
             {/* At phone width the question keeps its words and the button drops "schedule". */}
             <Button
-              aria-label="Keep schedule"
+              aria-label={t`Keep schedule`}
               className={CONFIRM_BUTTON}
               onClick={keep}
               ref={keepRef}
@@ -136,7 +145,9 @@ export const ScheduleRow = memo(function ScheduleRow({
               variant="ghost"
             >
               <span>
-                Keep<span className="@max-sm:hidden">{' schedule'}</span>
+                <Trans>
+                  Keep<span className="@max-sm:hidden"> schedule</span>
+                </Trans>
               </span>
             </Button>
             <Button
@@ -146,7 +157,7 @@ export const ScheduleRow = memo(function ScheduleRow({
               size="sm"
               variant="destructive"
             >
-              Delete
+              {t`Delete`}
             </Button>
           </>
         }
@@ -172,18 +183,23 @@ export const ScheduleRow = memo(function ScheduleRow({
             onClick={() => onToggle(schedule)}
             size="sm"
           />
-          <IconButton icon={<EditIcon />} label="Edit" onClick={() => onEdit(schedule)} size="sm" />
+          <IconButton
+            icon={<EditIcon />}
+            label={t`Edit`}
+            onClick={() => onEdit(schedule)}
+            size="sm"
+          />
           <IconButton
             icon={<DeleteIcon />}
-            label="Delete"
+            label={t`Delete`}
             onClick={() => setConfirming(true)}
             size="sm"
           />
           <DropdownMenu modal={false} onOpenChange={setMenuOpen} open={menuOpen}>
             {/* The tooltip wraps the trigger so the menu's trigger props reach the button. */}
-            <NamedTooltip label="More">
+            <NamedTooltip label={t`More`}>
               <DropdownMenuTrigger asChild>
-                <IconButton icon={<MoreIcon />} label="More" size="sm" tooltip={false} />
+                <IconButton icon={<MoreIcon />} label={t`More`} size="sm" tooltip={false} />
               </DropdownMenuTrigger>
             </NamedTooltip>
             <DropdownMenuContent
@@ -218,7 +234,7 @@ export const ScheduleRow = memo(function ScheduleRow({
               </DropdownMenuItem>
               <DropdownMenuItem data-accelerator="E" onSelect={() => onEdit(schedule)}>
                 <EditIcon aria-hidden="true" />
-                <JumpLabel label="Edit" letter="E" />
+                <JumpLabel label={t`Edit`} letter="E" />
                 <DropdownMenuShortcut>
                   <ShortcutKeys keys={['Enter']} variant="menu" />
                 </DropdownMenuShortcut>
@@ -226,7 +242,7 @@ export const ScheduleRow = memo(function ScheduleRow({
               <DropdownMenuSeparator />
               <DropdownMenuItem data-accelerator="D" onSelect={() => setConfirming(true)}>
                 <DeleteIcon aria-hidden="true" />
-                <JumpLabel label="Delete" letter="D" />
+                <JumpLabel label={t`Delete`} letter="D" />
                 <DropdownMenuShortcut>
                   <ShortcutKeys keys={['Delete']} mac={['Backspace']} variant="menu" />
                 </DropdownMenuShortcut>

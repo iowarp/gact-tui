@@ -4,6 +4,7 @@ import { ProviderLogoMark } from './provider-logo-mark';
 import { providerGroupStatus, type ProviderFamilyNodeData } from './model-picker-model';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
+import { t } from '@lingui/core/macro';
 
 /** Inline expansion keeps server choices in the provider column on both layouts. */
 export function ProviderFamilyRow({
@@ -44,7 +45,7 @@ export function ProviderFamilyRow({
           !data.expanded && '-rotate-90 rtl:rotate-90',
         )}
       />
-      <span className="sr-only">{data.expanded ? 'Expanded' : 'Collapsed'}</span>
+      <span className="sr-only">{data.expanded ? t`Expanded` : t`Collapsed`}</span>
     </>
   );
 }

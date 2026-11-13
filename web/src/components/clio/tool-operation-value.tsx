@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { asRecord } from './tool-result-shared';
 import { PresentationLink } from './presentation-link';
+import { plural, t, ph } from '@lingui/core/macro';
 
 function FieldsDisclosure({ value, depth }: { value: unknown; depth: number }) {
   const [open, setOpen] = useState(false);
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer text-sm">All fields</summary>
+      <summary className="cursor-pointer text-sm">{t`All fields`}</summary>
       {open ? <ToolOperationValue value={value} depth={depth} /> : null}
     </details>
   );
@@ -20,7 +21,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
   const size = 12;
   if (value === undefined) return null;
   if (value === null || typeof value !== 'object') {
-    const text = value === null ? 'null' : value === '' ? 'Empty text' : String(value);
+    const text = value === null ? 'null' : value === '' ? t`Empty text` : String(value);
     return (
       <div className="min-w-0">
         <p className="whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">
@@ -33,7 +34,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
             onClick={() => setAll(!all)}
             aria-expanded={all}
           >
-            {all ? 'Show less' : 'Show more'}
+            {all ? t`Show less` : t`Show more`}
           </Button>
         ) : null}
       </div>
@@ -44,8 +45,8 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
       <details onToggle={(event) => setAll(event.currentTarget.open)}>
         <summary className="cursor-pointer text-sm">
           {Array.isArray(value)
-            ? `${value.length} ${value.length === 1 ? 'item' : 'items'}`
-            : `${Object.keys(value).length} ${Object.keys(value).length === 1 ? 'field' : 'fields'}`}
+            ? plural(value.length, { one: '# item', other: '# items' })
+            : plural(Object.keys(value).length, { one: '# field', other: '# fields' })}
         </summary>
         {all ? <ToolOperationValue value={value} /> : null}
       </details>
@@ -61,7 +62,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
     return (
       <div className="min-w-0 space-y-2" data-slot="operation-data">
         {!value.length ? (
-          <p className="text-sm text-muted-foreground">No matches</p>
+          <p className="text-sm text-muted-foreground">{t`No matches`}</p>
         ) : tabular ? (
           <div className="max-w-full overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -74,7 +75,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
                   ))}
                   {hasExtraFields ? (
                     <th className="border-b px-2 py-2 font-medium text-muted-foreground">
-                      Details
+                      {t`Details`}
                     </th>
                   ) : null}
                 </tr>
@@ -112,7 +113,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
         {value.length > size ? (
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="mr-auto">
-              {page * size + 1}–{Math.min((page + 1) * size, value.length)} of {value.length}
+              {t`${ph({ first: page * size + 1 })}–${ph({ last: Math.min((page + 1) * size, value.length) })} of ${ph({ total: value.length })}`}
             </span>
             <Button
               size="sm"
@@ -120,7 +121,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
               disabled={page === 0}
               onClick={() => setPage(page - 1)}
             >
-              Previous
+              {t`Previous`}
             </Button>
             <Button
               size="sm"
@@ -128,7 +129,7 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
               disabled={(page + 1) * size >= value.length}
               onClick={() => setPage(page + 1)}
             >
-              Next
+              {t`Next`}
             </Button>
           </div>
         ) : null}
@@ -182,7 +183,9 @@ export function ToolOperationValue({ value, depth = 0 }: { value: unknown; depth
           onClick={() => setAll(!all)}
           aria-expanded={all}
         >
-          {all ? 'Show less' : `Show all ${fields.length} fields`}
+          {all
+            ? t`Show less`
+            : plural(fields.length, { one: 'Show all # field', other: 'Show all # fields' })}
         </Button>
       ) : null}
     </div>

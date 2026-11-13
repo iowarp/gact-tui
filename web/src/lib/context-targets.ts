@@ -1,4 +1,5 @@
 import type { Session, SubagentRun } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export interface ClioContextTarget {
   id: string;
@@ -13,7 +14,7 @@ export function buildContextTargets(
 ): ClioContextTarget[] {
   const childTargets = subagents.flatMap((subagent) =>
     subagent.child_session_id
-      ? [{ id: subagent.child_session_id, label: subagent.title, detail: 'Child agent' }]
+      ? [{ id: subagent.child_session_id, label: subagent.title, detail: t`Child agent` }]
       : [],
   );
   const totals = new Map<string, number>();
@@ -22,12 +23,13 @@ export function buildContextTargets(
   }
   const seen = new Map<string, number>();
   return [
-    { id: sessionId, label: mainAgentLabel || 'Main agent', detail: 'Main agent' },
+    { id: sessionId, label: mainAgentLabel || t`Main agent`, detail: t`Main agent` },
     ...childTargets.map((target) => {
       const occurrence = (seen.get(target.label) ?? 0) + 1;
       seen.set(target.label, occurrence);
-      return (totals.get(target.label) ?? 0) > 1
-        ? { ...target, label: `${target.label}, turn ${occurrence}` }
+      const label = target.label;
+      return (totals.get(label) ?? 0) > 1
+        ? { ...target, label: t`${label}, turn ${occurrence}` }
         : target;
     }),
   ];

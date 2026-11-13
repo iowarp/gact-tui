@@ -69,6 +69,7 @@ import {
   liveActivityIterationId,
 } from './conversation-activity-placement';
 import { loadMarkdownText } from '@/components/ai-elements/markdown-text-loader';
+import { t } from '@lingui/core/macro';
 
 // Message text reflows once the markdown renderer arrives; request it with the
 // transcript instead of after the first rows mount, so the tail paints formatted.
@@ -484,7 +485,7 @@ function ConversationBody({
           re-positioned rows, silently moved the reader back to the bottom right
           after they scrolled up, even on a finished conversation. */}
       <div
-        aria-label="Conversation"
+        aria-label={t`Conversation`}
         className={cn(
           'clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]',
           outlineGutter && 'pl-3',
@@ -563,9 +564,9 @@ function ConversationBody({
             ) : null}
             <ConversationEmptyState
               className="h-full"
-              description="Send a message to begin. Live reasoning, tools, approvals, and artifacts will stay in causal order here."
+              description={t`Send a message to begin. Live reasoning, tools, approvals, and artifacts will stay in causal order here.`}
               icon={<GitBranchIcon className="size-7" />}
-              title="This session has no messages"
+              title={t`This session has no messages`}
             />
           </>
         ) : (

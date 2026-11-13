@@ -31,6 +31,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
 import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { SshHostPicker } from './ssh-host-picker';
+import { t, ph } from '@lingui/core/macro';
 
 type Computer = Pick<InfrastructureTarget, 'id' | 'label' | 'kind'> &
   Partial<Pick<InfrastructureTarget, 'ssh' | 'transport_state'>>;
@@ -39,15 +40,15 @@ const STATUS: Record<
   NonNullable<InfrastructureTarget['transport_state']>,
   { tone: StatusTone; label: string }
 > = {
-  connected: { tone: 'success', label: 'Connected' },
-  reconnecting: { tone: 'running', label: 'Connecting' },
-  reauthentication_required: { tone: 'warning', label: 'Sign-in needed' },
-  disconnected: { tone: 'idle', label: 'Disconnected' },
-  state_unknown: { tone: 'idle', label: 'Not checked' },
+  connected: { tone: 'success', label: t`Connected` },
+  reconnecting: { tone: 'running', label: t`Connecting` },
+  reauthentication_required: { tone: 'warning', label: t`Sign-in needed` },
+  disconnected: { tone: 'idle', label: t`Disconnected` },
+  state_unknown: { tone: 'idle', label: t`Not checked` },
 };
 
 function computerName(host: Computer) {
-  return host.kind === 'local' ? 'This computer' : host.label;
+  return host.kind === 'local' ? t`This computer` : host.label;
 }
 
 /** The muted line under a computer's name: Local, the route through a jump host, or user@host. */
@@ -55,9 +56,12 @@ function computerRoute(host: Computer) {
   if (host.kind === 'local') return 'Local';
   const ssh = host.ssh;
   if (!ssh) return '';
-  if (ssh.jump_hosts.length) return `via ${ssh.jump_hosts[ssh.jump_hosts.length - 1]}`;
+  if (ssh.jump_hosts.length) {
+    const host = ssh.jump_hosts[ssh.jump_hosts.length - 1];
+    return t`via ${host}`;
+  }
   if (ssh.host) return ssh.user ? `${ssh.user}@${ssh.host}` : ssh.host;
-  return ssh.profile ? `from ${ssh.profile}` : '';
+  return ssh.profile ? t`from ${ph({ profile: ssh.profile })}` : '';
 }
 
 function computerStatus(host: Computer) {
@@ -141,7 +145,7 @@ export function ManagedServiceHostSelector({
           {editable ? (
             <IconButton
               className="invisible group-hover/computer:visible group-data-[selected=true]/computer:visible"
-              label="Edit connection"
+              label={t`Edit connection`}
               icon={<EditIcon />}
               onClick={(event) => {
                 event.stopPropagation();
@@ -157,7 +161,9 @@ export function ManagedServiceHostSelector({
   };
   const group = (heading: string, hosts: Computer[]) =>
     hosts.length ? <CommandGroup heading={heading}>{hosts.map(row)}</CommandGroup> : null;
-  const addReason = inTauri() ? `Needs a ${vocab.agent} this app manages` : 'In the desktop app';
+  const addReason = inTauri()
+    ? t`Needs a ${ph({ agent: vocab.agent })} this app manages`
+    : t`In the desktop app`;
   const body: ReactNode = (
     <Command
       className="bg-transparent"
@@ -166,25 +172,25 @@ export function ManagedServiceHostSelector({
           ? 1
           : 0
       }
-      label="Choose a computer"
+      label={t`Choose a computer`}
     >
-      <CommandInput flush placeholder="Choose a computer" />
+      <CommandInput flush placeholder={t`Choose a computer`} />
       <CommandList className="max-h-[min(22rem,60dvh)]">
-        <CommandEmpty>No computer matches</CommandEmpty>
-        {group('Local', local)}
-        {group(`Connected ${vocab.agent}`, live)}
-        {group('Saved computers', saved)}
+        <CommandEmpty>{t`No computer matches`}</CommandEmpty>
+        {group(t`Local`, local)}
+        {group(t`Connected ${ph({ agent: vocab.agent })}`, live)}
+        {group(t`Saved computers`, saved)}
         <div aria-hidden="true" className="mx-1 my-1.5 h-px bg-border" />
         <CommandGroup>
           <CommandItem
             className="gap-2.5 text-menu [&>svg:last-child]:hidden"
             disabled={!connecting}
-            keywords={['Add computer']}
+            keywords={[t`Add computer`]}
             onSelect={startConnect}
             value="add-computer"
           >
             <AddIcon aria-hidden="true" className="size-[15px] text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate">Add computer</span>
+            <span className="min-w-0 flex-1 truncate">{t`Add computer`}</span>
             {connecting ? null : (
               <small className="shrink-0 text-caption text-faint">{addReason}</small>
             )}
@@ -197,17 +203,17 @@ export function ManagedServiceHostSelector({
           setOpen(false);
           void navigate('/infrastructure/agent');
         }}
-        title="Manage computers"
+        title={t`Manage computers`}
         type="button"
       >
         <SettingsIcon aria-hidden="true" className="size-[15px]" />
-        Manage computers
+        {t`Manage computers`}
       </button>
     </Command>
   );
   const trigger = (
     <Button
-      aria-label={`Computer: ${selectedName}`}
+      aria-label={t`Computer: ${selectedName}`}
       className="h-7 w-[132px] min-w-[52px] shrink justify-start gap-1.5 px-2 text-meta font-normal @max-[600px]/infra-page:w-auto @max-[600px]/infra-page:max-w-24"
       onClick={sheet ? () => setOpen(true) : undefined}
       size="sm"
@@ -225,15 +231,15 @@ export function ManagedServiceHostSelector({
     <>
       {sheet ? (
         <>
-          <NamedTooltip label="Choose a computer">{trigger}</NamedTooltip>
+          <NamedTooltip label={t`Choose a computer`}>{trigger}</NamedTooltip>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent
               className={cn('gap-0 overflow-hidden p-0', DIALOG_SHEET_CLASS)}
               showCloseButton={false}
             >
-              <DialogTitle className="sr-only">Choose a computer</DialogTitle>
+              <DialogTitle className="sr-only">{t`Choose a computer`}</DialogTitle>
               <DialogDescription className="sr-only">
-                Where this tab's services and models run.
+                {t`Where this tab's services and models run.`}
               </DialogDescription>
               <DialogSheetHandle className="mt-2" />
               {body}
@@ -242,7 +248,7 @@ export function ManagedServiceHostSelector({
         </>
       ) : (
         <Popover open={open} onOpenChange={setOpen}>
-          <NamedTooltip label="Choose a computer">
+          <NamedTooltip label={t`Choose a computer`}>
             <PopoverTrigger asChild>{trigger}</PopoverTrigger>
           </NamedTooltip>
           <PopoverContent
@@ -289,9 +295,9 @@ export function ComputerConnectionContent({
   return (
     <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
       <DialogHeader>
-        <DialogTitle>Connect a computer</DialogTitle>
+        <DialogTitle>{t`Connect a computer`}</DialogTitle>
         <DialogDescription>
-          Choose where to run services. Your {vocab.agent} stays connected.
+          {t`Choose where to run services. Your ${ph({ agent: vocab.agent })} stays connected.`}
         </DialogDescription>
       </DialogHeader>
       <SshHostPicker
@@ -302,7 +308,7 @@ export function ComputerConnectionContent({
           connect(host);
         }}
       />
-      {pending ? <p role="status">Connecting...</p> : null}
+      {pending ? <p role="status">{t`Connecting...`}</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -311,11 +317,11 @@ export function ComputerConnectionContent({
       <div className="flex gap-2">
         {error && candidate ? (
           <Button disabled={pending} onClick={() => connect(candidate)}>
-            Retry connection
+            {t`Retry connection`}
           </Button>
         ) : null}
         <Button className="w-fit" variant="ghost" onClick={onClose}>
-          {pending ? 'Close' : 'Cancel'}
+          {pending ? t`Close` : t`Cancel`}
         </Button>
       </div>
     </DialogContent>

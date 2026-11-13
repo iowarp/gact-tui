@@ -9,12 +9,15 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { FleetModelField } from './fleet-model-field';
 import { SettingsSelectField } from './model-select-field';
 import { SettingsChoice, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** The provider option that streams a diffusion model's steps in place. */
 export const SHOW_DIFFUSION = 'show_diffusion';
 
 /** The short word beside a control this agent can't set (spec `.xdef`, faint). */
-function NotOffered({ children = 'Not offered' }: { children?: ReactNode }) {
+function NotOffered({ children = t`Not offered` }: { children?: ReactNode }) {
   return (
     <span
       className="shrink-0 text-label whitespace-nowrap text-muted-foreground"
@@ -44,49 +47,47 @@ export function FastModelRow({
   if (!data || data.fast === undefined)
     return (
       <SettingsRow
-        description="Titles, summaries and other small calls."
+        description={t`Titles, summaries and other small calls.`}
         info={
           data
-            ? `This ${vocab.agent} version doesn't offer a separate fast model, so these calls use the default model.`
+            ? t`This ${agent} version doesn't offer a separate fast model, so these calls use the default model.`
             : undefined
         }
-        note={data ? 'Not offered by this agent' : undefined}
-        title="Fast model"
+        note={data ? t`Not offered by this agent` : undefined}
+        title={t`Fast model`}
       >
         <SettingsSelectField
-          aria-label="Fast model"
+          aria-label={t`Fast model`}
           disabled
           icon={<CpuIcon />}
-          placeholder={query.isPending ? 'Loading…' : 'Same as default model'}
-          title={
-            query.error ? query.error.message : `This ${vocab.agent} version has no fast model`
-          }
+          placeholder={query.isPending ? t`Loading…` : t`Same as default model`}
+          title={query.error ? query.error.message : t`This ${agent} version has no fast model`}
         />
       </SettingsRow>
     );
   return (
     <SettingsRow
-      description="Titles, summaries and other small calls. Helper models use it unless you choose one."
+      description={t`Titles, summaries and other small calls. Helper models use it unless you choose one.`}
       htmlFor="settings-fast-model"
-      info="Unset uses the fast model of the account the conversation runs on, such as Haiku for Claude."
+      info={t`Unset uses the fast model of the account the conversation runs on, such as Haiku for Claude.`}
       note={save.error?.message}
-      title="Fast model"
+      title={t`Fast model`}
     >
       <FleetModelField
         busy={save.isPending}
         catalogStatus={catalogStatus}
         choice={data.fast}
         id="settings-fast-model"
-        label="Fast model"
+        label={t`Fast model`}
         onChoose={(model) =>
           save.mutate({ ...data, fast: { provider_id: model.providerId, model_id: model.id } })
         }
         onReset={() => save.mutate({ ...data, fast: null })}
         onRetryCatalog={onRetryCatalog}
         options={options}
-        pickerTitle="Choose the fast model"
-        resetLabel="Use the account's fast model"
-        unset="Account's fast model"
+        pickerTitle={t`Choose the fast model`}
+        resetLabel={t`Use the account's fast model`}
+        unset={t`Account's fast model`}
       />
     </SettingsRow>
   );
@@ -113,21 +114,21 @@ export function ShowDiffusionRow({
   const on = (value || field?.placeholder || 'off') === 'on';
   return (
     <SettingsRow
-      description="Redraw the reply in place while a diffusion model works."
+      description={t`Redraw the reply in place while a diffusion model works.`}
       htmlFor="settings-show-diffusion"
       info={
         field
-          ? 'Only the final answer is kept.'
-          : 'The current provider has no diffusion models, so there is nothing to show.'
+          ? t`Only the final answer is kept.`
+          : t`The current provider has no diffusion models, so there is nothing to show.`
       }
       inlineControl
-      note={field ? undefined : 'Not offered by the current provider'}
-      title="Show diffusion"
+      note={field ? undefined : t`Not offered by the current provider`}
+      title={t`Show diffusion`}
     >
       <span className="flex items-center gap-2">
         {field ? marker : <NotOffered />}
         <Switch
-          aria-label="Show diffusion"
+          aria-label={t`Show diffusion`}
           checked={field ? on : false}
           disabled={!field || disabled}
           id="settings-show-diffusion"
@@ -142,18 +143,18 @@ export function ShowDiffusionRow({
 export function RequestTimeoutRow() {
   return (
     <SettingsRow
-      description="Seconds before a model call gives up."
+      description={t`Seconds before a model call gives up.`}
       htmlFor="settings-request-timeout"
-      info={`${vocab.agent} manages its own model-call timeouts and doesn't offer this setting yet.`}
-      note="Not offered by this agent"
-      title="Request timeout"
+      info={t`${agent} manages its own model-call timeouts and doesn't offer this setting yet.`}
+      note={t`Not offered by this agent`}
+      title={t`Request timeout`}
     >
       <NotOffered />
       <Input
         className="w-24 shrink-0"
         disabled
         id="settings-request-timeout"
-        placeholder="— s"
+        placeholder={t`— s`}
         type="number"
       />
     </SettingsRow>
@@ -165,19 +166,19 @@ export function ContextSizeUnavailableRow() {
   return (
     <SettingsRow
       htmlFor="working-context-tokens-unavailable"
-      info="How much of the conversation this model is given each turn. This model's provider sets it, so it can't be changed here."
-      note="Set by this model's provider"
-      title="Context size"
+      info={t`How much of the conversation this model is given each turn. This model's provider sets it, so it can't be changed here.`}
+      note={t`Set by this model's provider`}
+      title={t`Context size`}
     >
       <NotOffered />
       <SettingsChoice
         disabled
         id="working-context-choice-unavailable"
-        label="Context size choice"
+        label={t`Context size choice`}
         onChange={() => undefined}
         options={[
-          { value: 'max', label: 'Max', description: 'The model’s maximum' },
-          { value: 'number', label: 'Number', description: 'A typed number of tokens' },
+          { value: 'max', label: t`Max`, description: t`The model’s maximum` },
+          { value: 'number', label: t`Number`, description: t`A typed number of tokens` },
         ]}
         value="max"
       />
@@ -185,7 +186,7 @@ export function ContextSizeUnavailableRow() {
         className="w-24 shrink-0"
         disabled
         id="working-context-tokens-unavailable"
-        placeholder="Tokens"
+        placeholder={t`Tokens`}
         type="number"
       />
     </SettingsRow>

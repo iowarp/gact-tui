@@ -28,14 +28,15 @@ import {
   type DeployStage,
   type DeployStageState,
 } from './deploy-progress-model';
+import { t } from '@lingui/core/macro';
 
 const STATE_LABELS: Record<DeployStageState, string> = {
-  pending: 'Waiting',
-  running: 'Running',
-  done: 'Done',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  skipped: 'Skipped',
+  pending: t`Waiting`,
+  running: t`Running`,
+  done: t`Done`,
+  failed: t`Failed`,
+  cancelled: t`Cancelled`,
+  skipped: t`Skipped`,
 };
 
 function StageIcon({ state }: { state: DeployStageState }) {
@@ -58,7 +59,7 @@ export function DeployStageList({ progress }: { progress: DeployProgress }) {
   const now = useNow(stages.some((stage) => stage.state === 'running'));
   const reached = stages.filter((stage) => stage.state !== 'pending').length;
   return (
-    <Timeline aria-label="Deployment progress" className="px-1" role="list" value={reached}>
+    <Timeline aria-label={t`Deployment progress`} className="px-1" role="list" value={reached}>
       {stages.map((stage, index) => {
         const elapsed = stageElapsed(stage, now);
         return (
@@ -141,7 +142,7 @@ export function DeployFailure({
                 type="button"
                 variant="link"
               >
-                Details
+                {t`Details`}
                 <ChevronDownIcon
                   aria-hidden="true"
                   className="transition-transform group-data-[state=open]:rotate-180"

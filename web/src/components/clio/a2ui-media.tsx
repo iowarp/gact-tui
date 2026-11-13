@@ -14,15 +14,43 @@ import { downloadUrl, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
+import { t } from '@lingui/core/macro';
 
 export type A2uiMediaKind = 'image' | 'video' | 'audio' | 'file';
 
-const KIND_NOUN: Record<A2uiMediaKind, string> = {
-  image: 'Image',
-  video: 'Video',
-  audio: 'Audio',
-  file: 'File',
+const KIND_UNAVAILABLE: Record<A2uiMediaKind, string> = {
+  image: t`Image unavailable`,
+  video: t`Video unavailable`,
+  audio: t`Audio unavailable`,
+  file: t`File unavailable`,
 };
+
+const KIND_BLOCKED: Record<A2uiMediaKind, string> = {
+  image: t`Image blocked`,
+  video: t`Video blocked`,
+  audio: t`Audio blocked`,
+  file: t`File blocked`,
+};
+
+const KIND_LOADING: Record<A2uiMediaKind, string> = {
+  image: t`Loading image…`,
+  video: t`Loading video…`,
+  audio: t`Loading audio…`,
+  file: t`Loading file…`,
+};
+
+function externalNotLoadedTitle(kind: A2uiMediaKind, host: string): string {
+  switch (kind) {
+    case 'image':
+      return t`Image from ${host} not loaded`;
+    case 'video':
+      return t`Video from ${host} not loaded`;
+    case 'audio':
+      return t`Audio from ${host} not loaded`;
+    case 'file':
+      return t`File from ${host} not loaded`;
+  }
+}
 
 export interface A2uiMediaProps {
   kind: Exclude<A2uiMediaKind, 'file'>;
@@ -65,7 +93,7 @@ export function A2uiMediaNotice({
   return (
     <Alert data-reason={failure.code} variant="destructive">
       <ImageOffIcon aria-hidden="true" />
-      <AlertTitle>{title ?? `${KIND_NOUN[kind]} unavailable`}</AlertTitle>
+      <AlertTitle>{title ?? KIND_UNAVAILABLE[kind]}</AlertTitle>
       <AlertDescription>{failure.message}</AlertDescription>
     </Alert>
   );
@@ -88,11 +116,11 @@ export function A2uiExternalMedia({ kind, url }: { kind: A2uiMediaKind; url: str
   return (
     <Alert data-reason="external_media_not_loaded">
       <ExternalLinkIcon aria-hidden="true" />
-      <AlertTitle>{`${KIND_NOUN[kind]} from ${host} not loaded`}</AlertTitle>
+      <AlertTitle>{externalNotLoadedTitle(kind, host)}</AlertTitle>
       <AlertDescription>
-        <p>Content from other sites is not loaded automatically in agent views.</p>
+        <p>{t`Content from other sites is not loaded automatically in agent views.`}</p>
         <ExternalLink className="w-fit underline underline-offset-3" href={url}>
-          {`Open ${host} in your browser`}
+          {t`Open ${host} in your browser`}
         </ExternalLink>
       </AlertDescription>
     </Alert>
@@ -162,7 +190,7 @@ function ReferenceImage({
     exportFormats: [
       {
         id: 'original',
-        label: 'Original image',
+        label: t`Original image`,
         run: () => {
           if (objectUrl)
             downloadUrl(objectUrl, imageDownloadFilename(name, state.resolution?.media_type));
@@ -199,7 +227,7 @@ function ReferenceImage({
           image
         ) : (
           <button
-            aria-label={`Enlarge ${name}`}
+            aria-label={t`Enlarge ${name}`}
             type="button"
             className="block max-w-full cursor-zoom-in rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
             onClick={() => setFullscreen(true)}
@@ -225,7 +253,7 @@ function ReferenceMedia({ componentId, kind, label, objectFit, url, variant }: A
     return (
       <div className="rounded-md border bg-muted/20 p-3" data-slot="a2ui-media-loading">
         <LoadingFeedback
-          label={`Loading ${KIND_NOUN[kind].toLowerCase()}…`}
+          label={KIND_LOADING[kind]}
           variant={kind === 'audio' ? 'inline' : 'skeleton'}
         >
           {kind !== 'audio' ? <Skeleton className="aspect-video w-full" /> : null}
@@ -280,7 +308,7 @@ export function A2uiMedia({ componentId, kind, label, objectFit, url, variant }:
       <A2uiMediaNotice
         failure={{ code: 'url_blocked', message: guard.message }}
         kind={kind}
-        title={`${KIND_NOUN[kind]} blocked`}
+        title={KIND_BLOCKED[kind]}
       />
     );
   }

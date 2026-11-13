@@ -26,6 +26,7 @@ import type {
   LanguageModelConfiguration,
   LanguageModelPreset,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export type { ReasoningEffort } from '@clio/core/v3';
 
@@ -37,17 +38,17 @@ export type { ReasoningEffort } from '@clio/core/v3';
  * describe).
  */
 export const RESPONSE_SETTING_LABELS = {
-  temperature: 'Temperature',
-  top_p: 'Top P',
-  top_k: 'Top K',
-  min_p: 'Min P',
-  presence_penalty: 'Presence penalty',
-  frequency_penalty: 'Frequency penalty',
-  repetition_penalty: 'Repetition penalty',
-  max_tokens: 'Longest reply',
-  context_length: 'Context size',
-  seed: 'Seed',
-  parallel: 'Replies at once',
+  temperature: t`Temperature`,
+  top_p: t`Top P`,
+  top_k: t`Top K`,
+  min_p: t`Min P`,
+  presence_penalty: t`Presence penalty`,
+  frequency_penalty: t`Frequency penalty`,
+  repetition_penalty: t`Repetition penalty`,
+  max_tokens: t`Longest reply`,
+  context_length: t`Context size`,
+  seed: t`Seed`,
+  parallel: t`Replies at once`,
 } as const;
 
 export type ResponseSettingName = keyof typeof RESPONSE_SETTING_LABELS;

@@ -9,6 +9,7 @@ import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { t } from '@lingui/core/macro';
 
 /** The spec's example address; the field itself starts empty. */
 const ADDRESS_EXAMPLE = 'https://homelab.example.org:8100';
@@ -39,7 +40,7 @@ export function ConnectAddressFields({
   };
   return (
     <>
-      <ConnectField htmlFor="endpoint" label="Connection address">
+      <ConnectField htmlFor="endpoint" label={t`Connection address`}>
         <ConnectInput
           aria-describedby="endpoint-hint"
           autoComplete="url"
@@ -52,21 +53,20 @@ export function ConnectAddressFields({
           value={endpoint}
         />
         <span className="sr-only" id="endpoint-hint">
-          Use the agent service address, for example {ADDRESS_EXAMPLE}. It can differ from this web
-          page's address.
+          {t`Use the agent service address, for example ${ADDRESS_EXAMPLE}. It can differ from this web page's address.`}
         </span>
       </ConnectField>
       <div className="grid min-w-0 grid-cols-2 gap-2.5">
-        <ConnectField htmlFor="service-name" label="Service name" optional>
+        <ConnectField htmlFor="service-name" label={t`Service name`} optional>
           <ConnectInput
             autoComplete="off"
             id="service-name"
             onChange={(event) => onNameChange(event.target.value)}
-            placeholder="Homelab"
+            placeholder={t`Homelab`}
             value={name}
           />
         </ConnectField>
-        <ConnectField htmlFor="token" label="Access token" optional>
+        <ConnectField htmlFor="token" label={t`Access token`} optional>
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="relative min-w-0 flex-1">
               <KeyRoundIcon
@@ -78,14 +78,14 @@ export function ConnectAddressFields({
                 className="pl-8"
                 id="token"
                 onChange={(event) => onTokenChange(event.target.value)}
-                placeholder="Paste token"
+                placeholder={t`Paste token`}
                 type="password"
                 value={token}
               />
             </span>
             <IconButton
               icon={<PaperclipIcon />}
-              label="Paste access token"
+              label={t`Paste access token`}
               onClick={paste}
               size="sm"
               type="button"
@@ -94,7 +94,7 @@ export function ConnectAddressFields({
         </ConnectField>
       </div>
       <ConnectStatusLine tone="lock">
-        {inTauri() ? 'Token saved securely on this device.' : 'Token kept in memory only.'}
+        {inTauri() ? t`Token saved securely on this device.` : t`Token kept in memory only.`}
       </ConnectStatusLine>
     </>
   );
@@ -161,7 +161,7 @@ export function ConnectErrorLine({
             {onRetry ? (
               <IconButton
                 icon={<RetryIcon />}
-                label="Retry"
+                label={t`Retry`}
                 onClick={onRetry}
                 size="sm"
                 type="button"
@@ -172,13 +172,13 @@ export function ConnectErrorLine({
                 <PopoverTrigger asChild>
                   <IconButton
                     icon={<FileTextIcon />}
-                    label="Diagnostic details"
+                    label={t`Diagnostic details`}
                     size="sm"
                     type="button"
                   />
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] p-3">
-                  <p className="text-meta font-medium">Technical details</p>
+                  <p className="text-meta font-medium">{t`Technical details`}</p>
                   <pre className="mt-2 max-h-56 overflow-auto font-mono text-caption whitespace-pre-wrap break-words text-muted-foreground">
                     {JSON.stringify(details, null, 2)}
                   </pre>
@@ -196,9 +196,7 @@ export function ConnectErrorLine({
           <span className="font-medium after:content-[':']">{title}</span>{' '}
         </>
       ) : null}
-      <span>
-        {internal ? (title ? UNEXPECTED_CONNECT_ERROR : 'Unexpected error') : reason}
-      </span>
+      <span>{internal ? (title ? UNEXPECTED_CONNECT_ERROR : t`Unexpected error`) : reason}</span>
     </ConnectStatusLine>
   );
 }

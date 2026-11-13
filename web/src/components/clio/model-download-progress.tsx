@@ -1,5 +1,6 @@
 import type { ModelAcquisition } from '@clio/core/v3';
 import { formatBytes } from '@/lib/format';
+import { t, ph } from '@lingui/core/macro';
 
 /** A determinate byte bar only when the target reports a total, with its current phase beside it. */
 export function ModelDownloadProgress({ model }: { model: ModelAcquisition }) {
@@ -14,16 +15,18 @@ export function ModelDownloadProgress({ model }: { model: ModelAcquisition }) {
         </span>
         {total ? (
           <span className="tabular-nums">
-            {formatBytes(model.bytes_done)} of {formatBytes(total)} ({percent}%)
+            {t`${ph({ done: formatBytes(model.bytes_done) })} of ${ph({ total: formatBytes(total) })} (${ph({ percent: percent ?? 0 })}%)`}
           </span>
         ) : active ? (
-          <span>{model.bytes_done > 0 ? formatBytes(model.bytes_done) : 'Preparing download'}</span>
+          <span>
+            {model.bytes_done > 0 ? formatBytes(model.bytes_done) : t`Preparing download`}
+          </span>
         ) : null}
       </div>
       {active || model.state === 'ready' ? (
         <progress
           className="h-1.5 w-full accent-primary"
-          aria-label={`Downloaded bytes for ${model.repository}`}
+          aria-label={t`Downloaded bytes for ${ph({ repository: model.repository })}`}
           max={total ?? 1}
           value={model.state === 'ready' ? (total ?? 1) : total ? model.bytes_done : undefined}
         />

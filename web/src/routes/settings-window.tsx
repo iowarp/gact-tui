@@ -40,6 +40,7 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { plural, t } from '@lingui/core/macro';
 
 // Only the sections load lazily. The window itself mounts once, with the
 // route, so a dialog opened over it (Ctrl K) is never covered by a window
@@ -55,7 +56,7 @@ function SectionsLoaded({ onLoaded }: { onLoaded: () => void }) {
 
 /** Sections load lazily: the shared inline loading line where the page will be. */
 function SectionsLoading() {
-  return <StateView kind="loading" size="row" title="Loading settings…" />;
+  return <StateView kind="loading" size="row" title={t`Loading settings…`} />;
 }
 
 export function SettingsWindow() {
@@ -107,7 +108,7 @@ export function SettingsWindow() {
   const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
+  const scopeLabels = { App: t`App`, Workspace: workspaceName.label, Agent: agentName };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'
@@ -115,11 +116,11 @@ export function SettingsWindow() {
         : 'App',
     line:
       destination?.group === 'Agent'
-        ? `${agentName}, applies to every conversation on this agent`
+        ? t`${agentName}, applies to every conversation on this agent`
         : destination?.group === 'Workspace'
           ? workspaceName.line
-          : 'App, applies to this computer',
-    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
+          : t`App, applies to this computer`,
+    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? t`App`,
   };
   useEffect(() => {
     if (!sectionsLoaded || showResults) return;
@@ -224,7 +225,15 @@ export function SettingsWindow() {
     section,
     linkState,
     scopeLabels,
-    badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+    badges: {
+      memory: {
+        count: inbox,
+        label: plural(inbox, {
+          one: '# memory change waiting for review',
+          other: '# memory changes waiting for review',
+        }),
+      },
+    },
     unavailable,
     counts: showResults ? results.counts : undefined,
     onClearFilter: clearQuery,
@@ -245,7 +254,7 @@ export function SettingsWindow() {
   return (
     <WindowShell
       className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
-      contentLabel="Settings content"
+      contentLabel={t`Settings content`}
       contentRef={content}
       icon={<SettingsWindowIcon />}
       navigation={<SettingsNavigation {...navigation} />}
@@ -267,7 +276,7 @@ export function SettingsWindow() {
           <SettingsSearchButton autoFocus={cleared} />
         )
       }
-      title="Settings"
+      title={t`Settings`}
     >
       {/* Alt Space over Settings: the CLIO menu from the window's top-left (DialogContent is fixed). */}
       <FrameClioMenu className="top-12 left-3" />

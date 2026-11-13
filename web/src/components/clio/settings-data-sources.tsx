@@ -28,17 +28,19 @@ import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SettingsSourceConnect } from './settings-source-connect';
 import { SourceProviderLogo } from './source-provider-logo';
+import { t, ph } from '@lingui/core/macro';
 
-const INFO =
-  'Sign in to services that require an account, then connect their data to a workspace or create a new knowledge vault. Accounts are shared across workspaces on this service. Signing in does not attach data or grant an agent access to a dataset. Manage attached sources in the workspace Files view.';
+const { agent } = vocab;
+
+const INFO = t`Sign in to services that require an account, then connect their data to a workspace or create a new knowledge vault. Accounts are shared across workspaces on this service. Signing in does not attach data or grant an agent access to a dataset. Manage attached sources in the workspace Files view.`;
 
 /** What each account brings, for a row that has no account name to show. */
 const PURPOSE: Partial<Record<SourceProvider['id'], string>> = {
-  github: 'Repository folders at a branch, tag or commit',
-  google_drive: 'Files and folders from Google Drive',
-  globus: 'Collections and transfers through Globus',
-  ndp: 'Datasets from National Data Platform catalogs',
-  obsidian: 'Knowledge graphs from linked notes',
+  github: t`Repository folders at a branch, tag or commit`,
+  google_drive: t`Files and folders from Google Drive`,
+  globus: t`Collections and transfers through Globus`,
+  ndp: t`Datasets from National Data Platform catalogs`,
+  obsidian: t`Knowledge graphs from linked notes`,
 };
 
 /** A service that does not serve these routes at all, as opposed to one that failed. */
@@ -57,14 +59,15 @@ function AccountLogo({ provider }: { provider: SourceProvider['id'] }) {
 }
 
 function accountState(row: SourceProvider): { tone: StatusTone; label: string } | null {
-  if (row.id === 'obsidian') return { tone: 'idle', label: 'Local' };
-  if (row.authenticated) return { tone: 'success', label: 'Signed in' };
-  if (!row.configured) return { tone: 'warning', label: 'Setup needed' };
-  return { tone: 'idle', label: 'Signed out' };
+  if (row.id === 'obsidian') return { tone: 'idle', label: t`Local` };
+  if (row.authenticated) return { tone: 'success', label: t`Signed in` };
+  if (!row.configured) return { tone: 'warning', label: t`Setup needed` };
+  return { tone: 'idle', label: t`Signed out` };
 }
 
 function accountMeta(row: SourceProvider): string {
-  if (row.authenticated && row.account_name) return `Signed in as ${row.account_name}`;
+  if (row.authenticated && row.account_name)
+    return t`Signed in as ${ph({ account_name: row.account_name })}`;
   if (!row.configured && row.setup_requirement) return row.setup_requirement;
   return PURPOSE[row.id] ?? '';
 }
@@ -114,17 +117,20 @@ export function DataSourceSettings() {
         actions={
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <IconButton icon={<MoreIcon />} label={`More actions for ${account.name}`} />
+              <IconButton
+                icon={<MoreIcon />}
+                label={t`More actions for ${ph({ name: account.name })}`}
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-52">
               <DropdownMenuItem
                 onSelect={() => connect(account, obsidian ? 'existing' : undefined)}
               >
-                {obsidian ? 'Connect an existing vault…' : 'Connect to a workspace…'}
+                {obsidian ? t`Connect an existing vault…` : t`Connect to a workspace…`}
               </DropdownMenuItem>
               {account.authenticated && account.account_url ? (
                 <DropdownMenuItem asChild>
-                  <ExternalLink href={account.account_url}>Manage access</ExternalLink>
+                  <ExternalLink href={account.account_url}>{t`Manage access`}</ExternalLink>
                 </DropdownMenuItem>
               ) : null}
               {account.authenticated ? (
@@ -136,7 +142,7 @@ export function DataSourceSettings() {
                       setLeaving({ scope, provider: account });
                     }}
                   >
-                    Sign out…
+                    {t`Sign out…`}
                   </DropdownMenuItem>
                 </>
               ) : null}
@@ -149,14 +155,14 @@ export function DataSourceSettings() {
         selected={login?.id === account.id}
         slot={
           obsidian ? (
-            <SlotButton onClick={() => connect(account, 'new')}>New vault</SlotButton>
+            <SlotButton onClick={() => connect(account, 'new')}>{t`New vault`}</SlotButton>
           ) : account.authenticated ? null : (
             <SlotButton
               disabled={!account.configured}
-              label={`Sign in to ${account.name}`}
+              label={t`Sign in to ${ph({ name: account.name })}`}
               onClick={() => setLogin(account)}
             >
-              Sign in
+              {t`Sign in`}
             </SlotButton>
           )
         }
@@ -168,23 +174,23 @@ export function DataSourceSettings() {
 
   const list = (
     <div className="min-w-0">
-      <SettingsGroupLabel className="mt-2">Accounts</SettingsGroupLabel>
-      <ItemList label="Data source accounts">
+      <SettingsGroupLabel className="mt-2">{t`Accounts`}</SettingsGroupLabel>
+      <ItemList label={t`Data source accounts`}>
         {providers.isPending ? (
-          <StateView kind="loading" size="row" title="Loading accounts…" />
+          <StateView kind="loading" size="row" title={t`Loading accounts…`} />
         ) : providers.error ? (
           unsupported(providers.error) ? (
             <StateView
               kind="unavailable"
               size="row"
-              title="This service doesn’t offer data sources."
+              title={t`This service doesn’t offer data sources.`}
             />
           ) : (
             <StateView
-              action={{ label: 'Retry', onClick: () => void providers.refetch() }}
+              action={{ label: t`Retry`, onClick: () => void providers.refetch() }}
               kind="error"
               size="row"
-              title="Accounts couldn’t be loaded."
+              title={t`Accounts couldn’t be loaded.`}
             />
           )
         ) : accounts.length ? (
@@ -193,7 +199,7 @@ export function DataSourceSettings() {
           <StateView
             kind="empty"
             size="row"
-            title="No account providers are available on this service."
+            title={t`No account providers are available on this service.`}
           />
         )}
       </ItemList>
@@ -202,7 +208,7 @@ export function DataSourceSettings() {
 
   return (
     <div className="min-w-0">
-      <SettingsSectionHeading info={INFO} title="Data sources" />
+      <SettingsSectionHeading info={INFO} title={t`Data sources`} />
       <ListDetailLayout
         detail={
           login ? (
@@ -210,7 +216,7 @@ export function DataSourceSettings() {
               icon={<AccountLogo provider={login.id} />}
               key={`${scope}:${login.id}`}
               onClose={() => setLogin(undefined)}
-              title={`Sign in to ${login.name}`}
+              title={t`Sign in to ${ph({ name: login.name })}`}
             >
               <ConnectedAccountSignIn
                 appUrl={login.account_url}
@@ -227,26 +233,30 @@ export function DataSourceSettings() {
       />
       <DialogFrame
         confirm={{
-          label: signOut.isPending ? 'Signing out…' : 'Sign out',
+          label: signOut.isPending ? t`Signing out…` : t`Sign out`,
           disabled: signOut.isPending,
           onConfirm: () => {
             if (signingOut) signOut.mutate(signingOut);
           },
         }}
-        description={`This signs you out across all workspaces on this ${vocab.agent}.`}
+        description={t`This signs you out across all workspaces on this ${agent}.`}
         icon={<LogOutIcon className="size-3.5" />}
         onOpenChange={(open) => {
           if (!open && !signOut.isPending) setLeaving(undefined);
         }}
         open={Boolean(signingOut)}
-        title={`Sign out of ${signingOut?.name ?? 'account'}?`}
+        title={
+          signingOut?.name
+            ? t`Sign out of ${ph({ name: signingOut.name })}?`
+            : t`Sign out of account?`
+        }
       >
         <p className="text-muted-foreground">
-          Downloaded files stay available. Linked folders will need you to sign in again.
+          {t`Downloaded files stay available. Linked folders will need you to sign in again.`}
         </p>
         {signOut.error ? (
           <p className="mt-2 text-destructive" role="alert">
-            Couldn’t sign out. Try again.
+            {t`Couldn’t sign out. Try again.`}
           </p>
         ) : null}
       </DialogFrame>

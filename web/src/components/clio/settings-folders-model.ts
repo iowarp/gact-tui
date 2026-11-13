@@ -11,20 +11,34 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useSyncExternalStore } from 'react';
+import { t } from '@lingui/core/macro';
 
-import { WORKSPACE_COLOURS } from '@/theme/workspace-colours';
+import { WORKSPACE_COLOURS as COLOURS } from '@/theme/workspace-colours';
 
-export { WORKSPACE_COLOURS };
+// The palette lives in theme/, which the pre-paint boot script bundles without
+// the translation runtime, so its names are translated here.
+const COLOUR_LABELS: Record<(typeof COLOURS)[number]['id'], string> = {
+  clay: t`Clay`,
+  amber: t`Amber`,
+  green: t`Green`,
+  blue: t`Blue`,
+  violet: t`Violet`,
+};
+
+export const WORKSPACE_COLOURS = COLOURS.map((colour) => ({
+  ...colour,
+  label: COLOUR_LABELS[colour.id],
+}));
 
 export const WORKSPACE_ICONS: ReadonlyArray<{ id: string; label: string; Icon: LucideIcon }> = [
-  { id: 'folder', label: 'Folder', Icon: FolderIcon },
-  { id: 'flask', label: 'Lab', Icon: FlaskConicalIcon },
-  { id: 'microscope', label: 'Microscope', Icon: MicroscopeIcon },
-  { id: 'database', label: 'Data', Icon: DatabaseIcon },
-  { id: 'chart', label: 'Analysis', Icon: ChartLineIcon },
-  { id: 'globe', label: 'Earth', Icon: GlobeIcon },
-  { id: 'code', label: 'Code', Icon: CodeIcon },
-  { id: 'book', label: 'Notes', Icon: BookOpenIcon },
+  { id: 'folder', label: t`Folder`, Icon: FolderIcon },
+  { id: 'flask', label: t`Lab`, Icon: FlaskConicalIcon },
+  { id: 'microscope', label: t`Microscope`, Icon: MicroscopeIcon },
+  { id: 'database', label: t`Data`, Icon: DatabaseIcon },
+  { id: 'chart', label: t`Analysis`, Icon: ChartLineIcon },
+  { id: 'globe', label: t`Earth`, Icon: GlobeIcon },
+  { id: 'code', label: t`Code`, Icon: CodeIcon },
+  { id: 'book', label: t`Notes`, Icon: BookOpenIcon },
 ];
 
 export interface WorkspaceAppearance {
@@ -131,7 +145,7 @@ export function folderName(path: string): string {
       .filter(Boolean)
       .at(-1) ||
     path ||
-    'Workspace folder'
+    t`Workspace folder`
   );
 }
 
@@ -163,7 +177,7 @@ export function folderPathProblem(
   additional: readonly WorkspaceSourceFolder[],
 ): string | undefined {
   if (!path.trim()) return undefined;
-  if (samePath(path, primary)) return 'This is the primary folder.';
-  if (additional.some((folder) => samePath(folder.path, path))) return 'Already allowed.';
+  if (samePath(path, primary)) return t`This is the primary folder.`;
+  if (additional.some((folder) => samePath(folder.path, path))) return t`Already allowed.`;
   return undefined;
 }

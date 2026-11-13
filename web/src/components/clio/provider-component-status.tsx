@@ -11,13 +11,17 @@ import { NamedTooltip } from './primitives/icon-button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ProviderGroup } from './model-picker-model';
 import type { ProviderComponentUpdateState } from './provider-component-update';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** "Installed Claude Code 2.1.276" / "Bundled Claude Code 2.1.276". */
 function providerClientLabel(group: ProviderGroup): string | undefined {
   const client = group.client;
   if (!client?.source) return undefined;
-  const source = client.source === 'installed' ? 'Installed' : 'Bundled';
-  return [source, group.name, client.version].filter(Boolean).join(' ');
+  // The client's name and version are identifiers; the source word is copy.
+  const name = [group.name, client.version].filter(Boolean).join(' ');
+  return client.source === 'installed' ? t`Installed ${name}` : t`Bundled ${name}`;
 }
 
 /** A text action in the picker's 11px status row (the spec's `.pft .lk`). */
@@ -70,7 +74,7 @@ export function ProviderComponentStatus({
     try {
       await restartClio();
     } catch (error) {
-      toast.error(`Could not restart ${vocab.agent}`, {
+      toast.error(t`Could not restart ${agent}`, {
         description: error instanceof Error ? error.message : String(error),
       });
       setRestarting(false);
@@ -88,15 +92,15 @@ export function ProviderComponentStatus({
           data-slot="provider-client-fact"
           title={clientDetails || details}
         >
-          {version ? `Version ${version}` : label}
+          {version ? t`Version ${version}` : label}
         </span>
       ) : null}
       {/* The spec's provider bar draws its checks as icons with hover names, so
           the version keeps its words beside "Update to". */}
       <TooltipProvider disableHoverableContent>
-        <NamedTooltip label={state.checking ? 'Checking updates…' : 'Check updates'} side="top">
+        <NamedTooltip label={state.checking ? t`Checking updates…` : t`Check updates`} side="top">
           <StatusLink
-            aria-label={state.checking ? 'Checking updates…' : 'Check updates'}
+            aria-label={state.checking ? t`Checking updates…` : t`Check updates`}
             className="size-[22px] justify-center hover:bg-hover"
             disabled={busy || Boolean(stage) || state.checking}
             onClick={state.check}
@@ -127,16 +131,16 @@ export function ProviderComponentStatus({
           title={details}
         >
           <CircleArrowUpIcon aria-hidden="true" />
-          Update to {components.target_version}
+          {t`Update to ${ph({ version: components.target_version })}`}
         </StatusLink>
       ) : null}
       {noCompatibleRelease ? (
         <span
           className="min-w-0 truncate"
           role="status"
-          title="No compatible client update is available yet."
+          title={t`No compatible client update is available yet.`}
         >
-          No compatible client update is available yet.
+          {t`No compatible client update is available yet.`}
         </span>
       ) : state.checkError || components?.error?.message ? (
         // A failed check says so in words; the service's reason is its hover detail.
@@ -145,26 +149,26 @@ export function ProviderComponentStatus({
           role="alert"
           title={state.checkError || components?.error?.message}
         >
-          Can't check updates
+          {t`Can't check updates`}
         </span>
       ) : null}
       {restart ? (
         inTauri() ? (
           <StatusLink disabled={restarting} onClick={() => void restartNow()}>
             <RetryIcon aria-hidden="true" />
-            Restart {vocab.agent}
+            {t`Restart ${agent}`}
           </StatusLink>
         ) : (
           <span className="text-muted-foreground" data-slot="provider-update-restart">
-            Restart {vocab.agent} to finish
+            {t`Restart ${agent} to finish`}
           </span>
         )
       ) : null}
       {failure && !stage ? (
         <span className="flex items-center gap-1 text-destructive" role="alert">
-          {failure.rolled_back && kept ? `Update failed. Kept ${kept}.` : 'Update failed.'}
+          {failure.rolled_back && kept ? t`Update failed. Kept ${kept}.` : t`Update failed.`}
           {failure.error?.message ? (
-            <InfoTip label="Why the update failed">{failure.error.message}</InfoTip>
+            <InfoTip label={t`Why the update failed`}>{failure.error.message}</InfoTip>
           ) : null}
         </span>
       ) : state.startError && !stage ? (

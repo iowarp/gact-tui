@@ -1,6 +1,8 @@
 import type { Message } from '@clio/core/v3';
 import { truncate } from './format';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from './runtime-limits';
+import { ph, plural, t } from '@lingui/core/macro';
+import { formatLocale } from './locale-format';
 
 export interface TranscriptMessagePreview {
   title: string;
@@ -51,34 +53,36 @@ function fallbackTitle(message: Message): string {
   let named = '';
   for (const block of message.blocks) {
     if (block.type === 'error') {
-      return firstLine(block.message) ? `Error: ${firstLine(block.message)}` : 'Error';
+      const reason = firstLine(block.message);
+      return reason ? t`Error: ${reason}` : t`Error`;
     }
     if (block.type === 'tool' || block.type === 'mcp_app') tools++;
     else if (block.type === 'task') tasks++;
     else if (block.type === 'subagent') delegates++;
     else if (named) continue;
     else if (block.type === 'action_card') named = block.title;
-    else if (block.type === 'plan') named = `Plan: ${block.title}`;
-    else if (block.type === 'diff') named = `Changed ${block.path}`;
+    else if (block.type === 'plan') named = t`Plan: ${ph({ title: block.title })}`;
+    else if (block.type === 'diff') named = t`Changed ${ph({ path: block.path })}`;
     else if (block.type === 'resource') named = block.name;
-    else if (block.type === 'artifact') named = 'File';
-    else if (block.type === 'a2ui') named = 'Visual result';
+    else if (block.type === 'artifact') named = t`File`;
+    else if (block.type === 'a2ui') named = t`Visual result`;
   }
   const activity = [
-    count(tools, 'tool'),
-    count(tasks, 'task'),
-    count(delegates, 'delegate'),
+    tools ? plural(tools, { one: '# tool', other: '# tools' }) : '',
+    tasks ? plural(tasks, { one: '# task', other: '# tasks' }) : '',
+    delegates ? plural(delegates, { one: '# delegate', other: '# delegates' }) : '',
   ].filter(Boolean);
-  if (activity.length) return `Activity: ${activity.join(', ')}`;
+  if (activity.length) {
+    const list = new Intl.ListFormat(formatLocale(), { style: 'short', type: 'unit' }).format(
+      activity,
+    );
+    return t`Activity: ${list}`;
+  }
   if (firstLine(named)) return firstLine(named);
-  if (message.role === 'user') return 'Your message';
-  if (message.role === 'assistant') return 'Reply';
-  if (message.role === 'system') return 'System note';
-  return 'Message';
-}
-
-function count(value: number, noun: string): string {
-  return value ? `${value} ${noun}${value === 1 ? '' : 's'}` : '';
+  if (message.role === 'user') return t`Your message`;
+  if (message.role === 'assistant') return t`Reply`;
+  if (message.role === 'system') return t`System note`;
+  return t`Message`;
 }
 
 function firstLine(text: string): string {

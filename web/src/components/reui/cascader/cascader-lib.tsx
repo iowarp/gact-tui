@@ -188,6 +188,7 @@ export function buildCascaderIndex<T = unknown>(
         if (process.env.NODE_ENV !== 'production') {
           warnCascaderOnce(
             'nullish-entry',
+            // i18n-ignore: development warning for the component's author, not shown in the interface
             'Ignored a null or undefined entry in `items` or `children`. Check the arrays you pass in.',
           );
         }
@@ -229,6 +230,7 @@ export function buildCascaderIndex<T = unknown>(
           if (process.env.NODE_ENV !== 'production') {
             warnCascaderOnce(
               'nullish-entry',
+              // i18n-ignore: development warning for the component's author, not shown in the interface
               'Ignored a null or undefined entry in `items` or `children`. Check the arrays you pass in.',
             );
           }

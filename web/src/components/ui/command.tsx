@@ -5,6 +5,7 @@ import { identifierInputProps } from '@/lib/identifier-input';
 import { cn } from '@/lib/utils';
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group';
 import { SearchIcon, CheckIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -67,6 +68,8 @@ function CommandInput({
 function CommandList({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.List>) {
   return (
     <CommandPrimitive.List
+      // The library names the list in English ("Suggestions") unless given a label.
+      label={t`Suggestions`}
       data-slot="command-list"
       className={cn(
         'no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none',

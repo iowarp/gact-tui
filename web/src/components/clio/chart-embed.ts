@@ -25,6 +25,7 @@ export function refusingLoader(): Loader {
   const refuse = (what: string) => () =>
     Promise.reject(new Error(`A chart cannot load ${what}; its rows come from its data source.`));
   return Object.assign(createLoader(), {
+    // i18n-ignore: developer error, not shown as copy
     load: refuse('a URL or file'),
     sanitize: refuse('a link or image'),
     http: refuse('a URL'),

@@ -15,6 +15,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
 import { attentionSelectionBody } from '@/lib/attention-selection-body';
 import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-segment-heat';
+import { t } from '@lingui/core/macro';
 
 export type AttentionModeState =
   | { status: 'idle' }
@@ -149,8 +150,8 @@ export function useAttentionMode(
       } catch (error) {
         if (controller.signal.aborted || requestTokenRef.current !== token) return;
         setState({ status: 'idle' });
-        toast.error('Attention view is unavailable', {
-          description: error instanceof Error ? error.message : 'The service rejected it.',
+        toast.error(t`Attention view is unavailable`, {
+          description: error instanceof Error ? error.message : t`The service rejected it.`,
         });
       }
     },
@@ -160,7 +161,7 @@ export function useAttentionMode(
   const action = useMemo<SelectionAction>(
     () => ({
       id: 'understand-attention',
-      label: 'Understand attention',
+      label: t`Understand attention`,
       icon: RadarIcon,
       order: 30,
       // Generated text of this session's captured answers: the answer itself, and

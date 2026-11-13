@@ -10,6 +10,7 @@ import { ConnectedSourcePicker } from './connected-source-picker';
 import { useConversationRailDock } from './conversation-rail-dock';
 import { SessionRailContent } from './session-rail-content';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
+import { t } from '@lingui/core/macro';
 
 export interface ConversationRailControl {
   open: boolean;
@@ -98,14 +99,14 @@ export function ConversationRail({
       header={(customize) => (
         <div className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
           <h2 className="mr-auto truncate text-xs font-normal text-muted-foreground">
-            This conversation
+            {t`This conversation`}
           </h2>
           <ShortcutKeys id="conversation-runs" variant="caps" />
           {customize}
           {evidence.onOpenCanvas ? (
             <IconButton
               size="sm"
-              label="Open full view"
+              label={t`Open full view`}
               icon={<Maximize2Icon aria-hidden="true" />}
               onClick={() => {
                 // The full view opens the pocket, which folds the rail away; it
@@ -136,7 +137,7 @@ export function ConversationRail({
           ref={panelRef}
           id={panelId}
           role="region"
-          aria-label="This conversation"
+          aria-label={t`This conversation`}
           side="bottom"
           align="end"
           sideOffset={10}
@@ -170,7 +171,7 @@ export function ConversationRail({
               ref={panelRef}
               id={panelId}
               role="region"
-              aria-label="This conversation"
+              aria-label={t`This conversation`}
               data-slot="conversation-rail"
               data-docked=""
               onKeyDown={closeOnEscape}

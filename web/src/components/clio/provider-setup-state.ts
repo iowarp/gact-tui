@@ -8,6 +8,7 @@ import {
 import type { ProviderGroup } from './model-picker-model';
 import type { ProviderActionFlow } from './provider-action-flows';
 import type { useProviderActions } from './provider-actions';
+import { t, ph } from '@lingui/core/macro';
 
 export type ProviderActions = ReturnType<typeof useProviderActions>;
 
@@ -41,25 +42,26 @@ function serverAddress(endpoint: string | undefined): string | undefined {
 export function providerSetupSentence(group: ProviderGroup, flow: ProviderActionFlow): string {
   if (group.setupNeed === 'start') {
     const address = serverAddress(group.endpoint);
-    const where = address ? ` at ${address}` : '';
-    return `${group.name} isn't running${where}. Start it, then check again.`;
+    return address
+      ? t`${ph({ name: group.name })} isn't running at ${address}. Start it, then check again.`
+      : t`${ph({ name: group.name })} isn't running. Start it, then check again.`;
   }
   const failed = group.health === 'degraded' || group.health === 'unavailable';
   if (failed && group.detail) return group.detail;
   const name = group.name.replace(/\s+API$/u, '');
   switch (flow) {
     case 'api_key':
-      return `Add your ${name} key to use its models.`;
+      return t`Add your ${name} key to use its models.`;
     case 'sign_in':
-      return `Log in to ${group.name} to use its models.`;
+      return t`Log in to ${ph({ name: group.name })} to use its models.`;
     case 'install':
-      return `${group.name} isn't installed yet.`;
+      return t`${ph({ name: group.name })} isn't installed yet.`;
     default:
       return (
         group.detail ||
         (failed
-          ? `${group.name} isn't responding right now.`
-          : `${group.name} hasn't been checked yet.`)
+          ? t`${ph({ name: group.name })} isn't responding right now.`
+          : t`${ph({ name: group.name })} hasn't been checked yet.`)
       );
   }
 }

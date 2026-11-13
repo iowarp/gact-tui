@@ -4,6 +4,7 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { parseSpotterModelRef, spotterModelRef } from '@/lib/spotter-model-ref';
 import { ClioModelPicker } from './model-picker';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 interface ComposerSpotterModelProps {
   /** The session's fleet reference; empty uses the Settings default (SPOTTER, else the fast model). */
@@ -36,7 +37,7 @@ export function ComposerSpotterModel({
     ? option
       ? `${option.providerName} / ${option.label}`
       : value
-    : 'Settings default';
+    : t`Settings default`;
   return (
     <>
       <ClioModelPicker
@@ -46,14 +47,14 @@ export function ComposerSpotterModel({
         onRetryCatalog={onRetryCatalog}
         options={options}
         provider={choice?.providerId}
-        title="Choose SPOTTER model"
+        title={t`Choose SPOTTER model`}
         placement="composer"
         trigger={
           <IconButton
             className={choice ? 'text-accent-foreground hover:text-accent-foreground' : undefined}
             disabled={disabled}
             icon={<RadarIcon />}
-            label={`SPOTTER model: ${label}`}
+            label={t`SPOTTER model: ${label}`}
             size="toolbar"
             tooltipSide="top"
             type="button"
@@ -64,7 +65,7 @@ export function ComposerSpotterModel({
         <IconButton
           disabled={disabled}
           icon={<RetryIcon />}
-          label="Use the Settings default for SPOTTER"
+          label={t`Use the Settings default for SPOTTER`}
           onClick={() => onChange('')}
           size="toolbar"
           tooltipSide="top"

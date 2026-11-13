@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { diffRows, type DiffRow } from './diff-rows';
+import { t } from '@lingui/core/macro';
 
 /** Matches the source view's line height. Unit: CSS px. */
 const DIFF_LINE_HEIGHT_PX = 20;
@@ -29,7 +30,7 @@ export function DiffLines({ unified, className }: { unified: string; className?:
   return (
     <div
       ref={scrollRef}
-      aria-label="Changed lines"
+      aria-label={t`Changed lines`}
       className={cn(
         'min-h-0 min-w-0 overflow-auto bg-background font-mono text-ui text-foreground',
         className,
@@ -42,6 +43,7 @@ export function DiffLines({ unified, className }: { unified: string; className?:
         className="relative w-max min-w-full py-2"
         style={{ height: virtualizer.getTotalSize() + 16 }}
       >
+        {/* i18n-ignore: a CSS transform */}
         <div style={{ transform: `translateY(${items[0]?.start ?? 0}px)` }}>
           {items.map((item) => {
             const row = rows[item.index]!;
@@ -72,9 +74,9 @@ export function DiffLines({ unified, className }: { unified: string; className?:
                 <span
                   aria-label={
                     row.kind === 'addition'
-                      ? 'Added'
+                      ? t`Added`
                       : row.kind === 'deletion'
-                        ? 'Removed'
+                        ? t`Removed`
                         : undefined
                   }
                   className="w-3 shrink-0 select-none text-muted-foreground"

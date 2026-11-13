@@ -1,3 +1,4 @@
+import { t, ph, plural } from '@lingui/core/macro';
 import type {
   ComposerMessagePart,
   SummonPart,
@@ -73,25 +74,34 @@ export function workspaceReferenceIdentity(reference: WorkspaceReference): strin
  * shows a kind — the inline token, the transcript card, a refusal — reads it
  * through here rather than humanising the token on its own.
  */
-const REFERENCE_KIND_LABELS: Record<string, string> = {
-  agent_run: 'agent run',
-  artifact: 'artifact',
-  context_frame: 'context record',
-  diff: 'changed file',
-  evidence_source: 'source',
-  flow: 'flow',
-  plan: 'plan',
-  resource: 'source',
-  server: 'tools',
-  session: 'conversation',
-  subagent: 'agent',
-  workflow: 'workflow',
-  workspace_file: 'local file',
+/** Each reference kind in the middle of a sentence and as a title on its own. */
+const REFERENCE_KIND_LABELS: Record<string, { noun: string; title: string }> = {
+  agent_run: { noun: t`agent run`, title: t`Agent run` },
+  artifact: { noun: t`artifact`, title: t`Artifact` },
+  context_frame: { noun: t`context record`, title: t`Context record` },
+  diff: { noun: t`changed file`, title: t`Changed file` },
+  evidence_source: { noun: t`source`, title: t`Source` },
+  flow: { noun: t`flow`, title: t`Flow` },
+  plan: { noun: t`plan`, title: t`Plan` },
+  resource: { noun: t`source`, title: t`Source` },
+  server: { noun: t`tools`, title: t`Tools` },
+  session: { noun: t`conversation`, title: t`Conversation` },
+  subagent: { noun: t`agent`, title: t`Agent` },
+  workflow: { noun: t`workflow`, title: t`Workflow` },
+  workspace_file: { noun: t`local file`, title: t`Local file` },
 };
 
 /** The reader-facing name for a reference kind, including one this build does not know. */
 export function referenceKindLabel(kind: string): string {
-  return REFERENCE_KIND_LABELS[kind] ?? kind.replaceAll('_', ' ');
+  return REFERENCE_KIND_LABELS[kind]?.noun ?? kind.replaceAll('_', ' ');
+}
+
+/** The same name as a heading or label on its own. */
+export function referenceKindTitle(kind: string): string {
+  const title = REFERENCE_KIND_LABELS[kind]?.title;
+  if (title) return title;
+  const words = kind.replaceAll('_', ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 export function toMessagePart(reference: WorkspaceReference): ReferencePart {
@@ -154,7 +164,7 @@ export function summonReferences(targets?: SummonTargets): WorkspaceReference[] 
         [
           workflow.description,
           workflow.inputs.length
-            ? `takes ${workflow.inputs.map((input) => input.name).join(', ')}`
+            ? t`takes ${ph({ inputs: workflow.inputs.map((input) => input.name).join(', ') })}`
             : '',
         ]
           .filter(Boolean)
@@ -169,7 +179,7 @@ export function summonReferences(targets?: SummonTargets): WorkspaceReference[] 
         [
           server.description,
           server.tools !== null
-            ? `${server.tools} tool${server.tools === 1 ? '' : 's'}`
+            ? plural(server.tools, { one: '# tool', other: '# tools' })
             : server.deferred
               ? 'tools load when used'
               : '',

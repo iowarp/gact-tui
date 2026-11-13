@@ -1,12 +1,13 @@
 import type { Session } from '@clio/core/v3';
 import { isManagedChildSession } from '@/lib/session-state';
+import { t } from '@lingui/core/macro';
 
 /** Use the same ownership vocabulary across both family views. */
 export function conversationRole(session: Session): string {
   return isManagedChildSession(session)
     ? 'Subagent'
     : session.parent_session_id
-      ? 'User fork'
+      ? t`User fork`
       : 'Conversation';
 }
 

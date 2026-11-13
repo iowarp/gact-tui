@@ -2,6 +2,7 @@ import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { interfaceScale } from '@/theme/runtime';
+import { t } from '@lingui/core/macro';
 
 /** Open a native terminal rooted at an existing CLIO workspace. */
 export async function openWorkspaceTerminal(path: string): Promise<string> {
@@ -21,11 +22,14 @@ export async function openWorkspaceFolder(path: string): Promise<string> {
   return invoke<string>('open_workspace_folder', { path });
 }
 
-/** What the system file manager is called on this computer. */
-export function fileManagerName(platform = globalThis.navigator?.userAgent ?? ''): string {
-  if (/Mac/i.test(platform)) return 'Finder';
-  if (/Windows/i.test(platform)) return 'File Explorer';
-  return 'file manager';
+/**
+ * The "Open folder" menu's item for the system file manager, named as this computer calls
+ * it. Whole phrases, since the name takes an article in some languages and not others.
+ */
+export function openInFileManagerLabel(platform = globalThis.navigator?.userAgent ?? ''): string {
+  if (/Mac/i.test(platform)) return t`In Finder`;
+  if (/Windows/i.test(platform)) return t`In File Explorer`;
+  return t`In file manager`;
 }
 
 export const TERMINAL_FONT_FAMILY =
@@ -86,7 +90,12 @@ export function loadXterm(): Promise<XtermModule> {
  * `id` in the payload — mirroring the `gact:sse` bridge's keyed channel)
  * are implemented in `desktop/src-tauri/src/terminal_pty.rs`.
  */
-async function invokeTerminalOpen(id: string, cwd: string, cols: number, rows: number): Promise<void> {
+async function invokeTerminalOpen(
+  id: string,
+  cwd: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('terminal_open', { id, cwd, cols, rows });
 }
@@ -106,7 +115,10 @@ async function invokeTerminalClose(id: string): Promise<void> {
   await invoke('terminal_close', { id });
 }
 
-async function listenTerminalData(id: string, handler: (bytes: Uint8Array) => void): Promise<() => void> {
+async function listenTerminalData(
+  id: string,
+  handler: (bytes: Uint8Array) => void,
+): Promise<() => void> {
   const { listen } = await import('@tauri-apps/api/event');
   return listen<TerminalDataPayload>('clio:terminal-data', (event) => {
     if (event.payload.id !== id) return;
@@ -209,7 +221,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   } catch (error) {
     setStatus(entry, {
       kind: 'error',
-      message: error instanceof Error ? error.message : 'Could not load the terminal.',
+      message: error instanceof Error ? error.message : t`Could not load the terminal.`,
     });
     return;
   }
@@ -217,7 +229,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   if (!inTauri()) {
     setStatus(entry, {
       kind: 'error',
-      message: 'The embedded terminal is available in the installed desktop app.',
+      message: t`The embedded terminal is available in the installed desktop app.`,
     });
     return;
   }
@@ -235,7 +247,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
   } catch (error) {
     setStatus(entry, {
       kind: 'error',
-      message: error instanceof Error ? error.message : 'Could not open the terminal.',
+      message: error instanceof Error ? error.message : t`Could not open the terminal.`,
     });
   }
 }
@@ -254,7 +266,9 @@ export interface EnsureEmbeddedTerminalOptions {
  * remounts for the SAME tab gets back the exact same `Terminal` instance
  * and never re-opens the pty.
  */
-export function ensureEmbeddedTerminal(options: EnsureEmbeddedTerminalOptions): EmbeddedTerminalEntry {
+export function ensureEmbeddedTerminal(
+  options: EnsureEmbeddedTerminalOptions,
+): EmbeddedTerminalEntry {
   const existing = entriesByTabId.get(options.tabId);
   if (existing) return existing;
 

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { openWorkspaceTerminal } from '@/tauri/workspace-terminal';
+import { t } from '@lingui/core/macro';
 
 /**
  * The session-context-bar terminal actions: the primary embedded-tab reveal
@@ -22,9 +23,9 @@ export function useWorkspaceTerminalActions(
     try {
       await openWorkspaceTerminal(workspacePath);
     } catch (error) {
-      toast.error('Could not open the workspace terminal', {
+      toast.error(t`Could not open the workspace terminal`, {
         description:
-          error instanceof Error ? error.message : 'No supported terminal could be started.',
+          error instanceof Error ? error.message : t`No supported terminal could be started.`,
       });
     }
   }, [workspacePath]);

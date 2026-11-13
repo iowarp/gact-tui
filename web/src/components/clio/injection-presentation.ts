@@ -1,6 +1,7 @@
 import type { PendingInteraction, ToolPresentationBlock } from '@clio/core/v3';
 import { humanizeProtocolValue } from './presentation-labels';
 import { questionAnswerPresentation } from './question-answer-presentation';
+import { t, ph, plural } from '@lingui/core/macro';
 
 export interface InjectionPresentation {
   label: string;
@@ -41,7 +42,7 @@ export function injectionPresentation(
   const body = record(payload);
   if (source === 'peer' && typeof body?.text === 'string')
     return {
-      label: 'Received message from an agent',
+      label: t`Received message from an agent`,
       senderSessionId: /^\[Agent session ([^;\]\n]+);/u.exec(text)?.[1],
       text: body.text,
       format: 'markdown',
@@ -90,18 +91,25 @@ export function injectionPresentation(
         id: 'notification-output',
         type: 'terminal',
         command: shell.command,
-        text: [stdout, stderr && `Standard error:\n${stderr}`].filter(Boolean).join('\n\n'),
+        text: [
+          stdout,
+          stderr &&
+            t`Standard error:
+${stderr}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
         exit_code: typeof shell.exit_code === 'number' ? shell.exit_code : undefined,
         timed_out: shell.timed_out === true,
       },
       notice:
         shell.stdout_truncated || shell.stderr_truncated
-          ? 'Output was truncated. Exact details retain any saved-output references.'
+          ? t`Output was truncated. Exact details retain any saved-output references.`
           : undefined,
     };
   }
   if (output === null || output === undefined)
-    output = body?.error ?? 'No result body was recorded.';
+    output = body?.error ?? t`No result body was recorded.`;
   return typeof output === 'string'
     ? { label, text: output, format: 'markdown' }
     : { label, text: JSON.stringify(output, null, 2), format: 'json' };
@@ -127,9 +135,12 @@ function backgroundNotices(tasks: unknown[]): InjectionPresentation {
   return {
     label:
       scripts.length === 1
-        ? `Message from ${name(scripts[0])}`
-        : `Messages from ${scripts.length} background scripts`,
-    text: lines.join('\n').trim() || 'The script sent no text.',
+        ? t`Message from ${ph({ script: name(scripts[0]) })}`
+        : plural(scripts.length, {
+            one: 'Messages from # background script',
+            other: 'Messages from # background scripts',
+          }),
+    text: lines.join('\n').trim() || t`The script sent no text.`,
     format: 'markdown',
     tasks: scripts.flatMap((task) =>
       typeof task.handle === 'string' && task.handle
@@ -169,15 +180,15 @@ function planDecision(envelope: string): InjectionPresentation | null {
   const savedPlan = record(meta?.approved_plan)?.content;
   if (approved || result === 'approved')
     return {
-      label: 'Plan approved',
+      label: t`Plan approved`,
       attribution:
         /prompted to approve each action/u.test(text) || meta?.plan_exit_mode === 'interactive'
-          ? 'You approved the plan. The agent may now change files, asking before each action.'
-          : 'You approved the plan. The agent may now change files to carry it out.',
+          ? t`You approved the plan. The agent may now change files, asking before each action.`
+          : t`You approved the plan. The agent may now change files to carry it out.`,
       text:
         approved?.[1]?.trim() ||
         (typeof savedPlan === 'string' && savedPlan.trim()) ||
-        'No plan text was recorded.',
+        t`No plan text was recorded.`,
       format: 'markdown',
     };
   const rejected =
@@ -186,15 +197,15 @@ function planDecision(envelope: string): InjectionPresentation | null {
     );
   if (!rejected && result === 'rejected')
     return {
-      label: 'Plan sent back',
-      attribution: 'You asked for changes. The agent stays in plan mode and revises the plan.',
-      text: 'No reviewer feedback was recorded.',
+      label: t`Plan sent back`,
+      attribution: t`You asked for changes. The agent stays in plan mode and revises the plan.`,
+      text: t`No reviewer feedback was recorded.`,
       format: 'text',
     };
   if (rejected)
     return {
-      label: 'Plan sent back',
-      attribution: 'You asked for changes. The agent stays in plan mode and revises the plan.',
+      label: t`Plan sent back`,
+      attribution: t`You asked for changes. The agent stays in plan mode and revises the plan.`,
       text: rejected[1]!.trim(),
       format: 'text',
     };
@@ -213,6 +224,6 @@ export function summonServerLabel(block: { source: string; text: string }): stri
     (match) => match[1] === server,
   ).length;
   return count
-    ? `Loaded ${count} tool${count === 1 ? '' : 's'} from ${server}`
-    : `You pointed this message at the ${server} tools`;
+    ? plural(count, { one: `Loaded # tool from ${server}`, other: `Loaded # tools from ${server}` })
+    : t`You pointed this message at the ${server} tools`;
 }

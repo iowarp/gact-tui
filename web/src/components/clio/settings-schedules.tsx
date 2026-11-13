@@ -21,6 +21,7 @@ import { ScheduleSelect, type ScheduleSelectOption } from './settings-schedule-f
 import { ScheduleRow } from './settings-schedule-row';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { ph, t } from '@lingui/core/macro';
 
 const NEW_SCHEDULE_SHORTCUT = 'settings-new-scheduled-work';
 
@@ -61,7 +62,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     () =>
       availableSessions.map((session) => ({
         value: session.id,
-        label: session.title || 'Untitled session',
+        label: session.title || t`Untitled session`,
         hint: workspaceNameById.get(session.workspace_id),
       })),
     [availableSessions, workspaceNameById],
@@ -107,9 +108,9 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     onSuccess: async (_created, { targetSessionId, replaces }) => {
       setDialog(null);
       await Promise.all([refresh(), refresh(targetSessionId)]);
-      toast.success(replaces ? 'Scheduled work updated' : 'Scheduled work created');
+      toast.success(replaces ? t`Scheduled work updated` : t`Scheduled work created`);
     },
-    onError: () => toast.error('Scheduled work was not saved'),
+    onError: () => toast.error(t`Scheduled work was not saved`),
   });
   const toggle = useMutation({
     mutationFn: (schedule: ScheduledTurn) =>
@@ -120,9 +121,9 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
       ),
     onSuccess: async (_result, schedule) => {
       await refresh();
-      toast.success(schedule.enabled ? 'Scheduled work paused' : 'Scheduled work resumed');
+      toast.success(schedule.enabled ? t`Scheduled work paused` : t`Scheduled work resumed`);
     },
-    onError: () => toast.error('Scheduled work was not changed'),
+    onError: () => toast.error(t`Scheduled work was not changed`),
   });
   // After a delete, focus moves to the row that took its place, or the one above it when it was last.
   const deleted = useRef<{ id: string; index: number } | null>(null);
@@ -130,11 +131,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     mutationFn: (schedule: ScheduledTurn) => repository.deleteScheduledTurn(schedule.id),
     onSuccess: async () => {
       await refresh();
-      toast.success('Scheduled work deleted');
+      toast.success(t`Scheduled work deleted`);
     },
     onError: () => {
       deleted.current = null;
-      toast.error('Scheduled work was not deleted');
+      toast.error(t`Scheduled work was not deleted`);
     },
   });
   useEffect(() => {
@@ -155,7 +156,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   useEffect(
     () =>
       defineShortcuts([
-        { id: NEW_SCHEDULE_SHORTCUT, name: 'New scheduled work', group: 'tab', keys: ['N'] },
+        { id: NEW_SCHEDULE_SHORTCUT, name: t`New scheduled work`, group: 'tab', keys: ['N'] },
       ]),
     [],
   );
@@ -177,7 +178,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     () =>
       pageScope && {
         ...pageScope,
-        line: `${pageScope.place}, applies to the selected conversation`,
+        line: t`${ph({ place: pageScope.place })}, applies to the selected conversation`,
       },
     [pageScope],
   );
@@ -190,15 +191,15 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
             sessionOptions.length ? (
               <ScheduleSelect
                 className="w-[clamp(10rem,32cqw,16rem)]"
-                label="Session"
+                label={t`Session`}
                 onChange={setSessionId}
                 options={sessionOptions}
                 value={selectedSessionId}
               />
             ) : null
           }
-          info="Ask an existing session to continue once or on a repeating schedule. Each instruction runs in that session with its existing agent, model, context and access rules. The connected service owns timing and execution, so closing this app does not cancel it."
-          title="Scheduled work"
+          info={t`Ask an existing session to continue once or on a repeating schedule. Each instruction runs in that session with its existing agent, model, context and access rules. The connected service owns timing and execution, so closing this app does not cancel it.`}
+          title={t`Scheduled work`}
         />
       </SettingsScopeContext.Provider>
       <SettingsGroupLabel
@@ -206,46 +207,46 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           <IconButton
             disabled={!canAdd}
             icon={<AddIcon />}
-            label="New scheduled work"
+            label={t`New scheduled work`}
             onClick={openNew}
             shortcut={NEW_SCHEDULE_SHORTCUT}
             size="sm"
           />
         }
       >
-        Upcoming
+        {t`Upcoming`}
       </SettingsGroupLabel>
-      <ItemList label="Upcoming scheduled work">
+      <ItemList label={t`Upcoming scheduled work`}>
         {sessions.isPending || workspaces.isPending ? (
-          <StateView kind="loading" size="row" title="Loading sessions…" />
+          <StateView kind="loading" size="row" title={t`Loading sessions…`} />
         ) : null}
         {sessions.error ? (
           <StateView
-            action={{ label: 'Retry', onClick: () => void sessions.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void sessions.refetch() }}
             kind="error"
             size="row"
-            title="Sessions could not be loaded"
+            title={t`Sessions could not be loaded`}
           />
         ) : null}
         {sessions.data && !availableSessions.length ? (
-          <StateView kind="empty" size="row" title="No sessions to schedule work in yet" />
+          <StateView kind="empty" size="row" title={t`No sessions to schedule work in yet`} />
         ) : null}
         {selectedSessionId && scheduledTurns.isPending ? (
-          <StateView kind="loading" size="row" title="Loading scheduled work…" />
+          <StateView kind="loading" size="row" title={t`Loading scheduled work…`} />
         ) : null}
         {scheduledTurns.error ? (
           <StateView
-            action={{ label: 'Retry', onClick: () => void scheduledTurns.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void scheduledTurns.refetch() }}
             kind="error"
             size="row"
-            title="Scheduled work could not be loaded"
+            title={t`Scheduled work could not be loaded`}
           />
         ) : null}
         {scheduledTurns.data && !schedules.length ? (
           <StateView
             kind="empty"
             size="row"
-            title={`Nothing is scheduled in ${selectedSession?.title || 'Untitled session'}`}
+            title={t`Nothing is scheduled in ${ph({ title: selectedSession?.title || t`Untitled session` })}`}
           />
         ) : null}
         {schedules.map((schedule, index) => (

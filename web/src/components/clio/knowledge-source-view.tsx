@@ -17,29 +17,30 @@ import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { StateView } from './primitives/state-view';
 import { WorkbenchTabList, WorkbenchTabListToggle } from './workbench-tab-list';
 import { useWorkbenchTabListPicked } from './workbench-tab-list-context';
+import { t, ph, plural } from '@lingui/core/macro';
 
 type VaultMode = 'note' | 'markdown' | 'graph';
 
 const MODES: readonly FileMode[] = [
-  { value: 'note', label: 'Note', title: 'The selected note', icon: EyeIcon },
+  { value: 'note', label: t`Note`, title: t`The selected note`, icon: EyeIcon },
   {
     value: 'markdown',
-    label: 'Markdown',
-    title: 'The note’s Markdown',
+    label: t`Markdown`,
+    title: t`The note’s Markdown`,
     icon: CodeIcon,
     shortcut: 'render-source',
   },
-  { value: 'graph', label: 'Note graph', title: 'How the notes link', icon: GitBranchIcon },
+  { value: 'graph', label: t`Note graph`, title: t`How the notes link`, icon: GitBranchIcon },
 ];
 
 const BODY = 'm-0 min-h-0 min-w-0 flex-1 overflow-hidden';
 
 function accessWords(access: string | undefined) {
   return access === 'publish_later'
-    ? 'Edits require review'
+    ? t`Edits require review`
     : access === 'write_through'
-      ? 'Edits update originals'
-      : 'Read only';
+      ? t`Edits update originals`
+      : t`Read only`;
 }
 
 /**
@@ -112,7 +113,7 @@ export function KnowledgeSourceView({
     [graph.data],
   );
   const opened = selected && note.data?.note.path === selected ? note.data : undefined;
-  const vaultName = source?.label ?? 'Vault';
+  const vaultName = source?.label ?? t`Vault`;
   const noteTitle =
     opened?.note.title ??
     graph.data?.notes.find((row) => row.path === selected)?.title ??
@@ -139,29 +140,32 @@ export function KnowledgeSourceView({
             data-frame-position=""
             title={accessWords(source?.link_access)}
           >
-            {graph.data.total} {attachments ? 'items' : graph.data.total === 1 ? 'note' : 'notes'}
+            {attachments
+              ? plural(graph.data.total, { one: '# item', other: '# items' })
+              : plural(graph.data.total, { one: '# note', other: '# notes' })}
           </span>
           <span className="tabular-nums">
-            {stats?.links ?? 0}
-            {graph.data.relationships_truncated ? '+' : ''} {stats?.links === 1 ? 'link' : 'links'}
+            {graph.data.relationships_truncated
+              ? t`${ph({ count: stats?.links ?? 0 })}+ links`
+              : plural(stats?.links ?? 0, { one: '# link', other: '# links' })}
           </span>
         </>
       ) : null}
-      {focus ? <span>Linked to {focus.split('/').at(-1)}</span> : null}
+      {focus ? <span>{t`Linked to ${ph({ note: focus.split('/').at(-1) ?? focus })}`}</span> : null}
       {headless ? (
         <span title={syncError}>
           {sync.data?.state === 'running'
-            ? 'Sync running'
+            ? t`Sync running`
             : sync.data?.state === 'failed'
-              ? 'Sync failed'
+              ? t`Sync failed`
               : sync.data
-                ? 'Sync stopped'
-                : 'Checking sync'}
+                ? t`Sync stopped`
+                : t`Checking sync`}
         </span>
       ) : null}
       {warnings.length ? (
         <span title={warnings.join('\n')}>
-          {warnings.length} indexing {warnings.length === 1 ? 'warning' : 'warnings'}
+          {plural(warnings.length, { one: '# indexing warning', other: '# indexing warnings' })}
         </span>
       ) : null}
       {sources.error ? (
@@ -176,21 +180,21 @@ export function KnowledgeSourceView({
     <StateView
       kind="error"
       size="viewer"
-      title="The vault could not be read"
+      title={t`The vault could not be read`}
       detail={graph.error.message}
-      action={{ label: 'Retry', onClick: refresh }}
+      action={{ label: t`Retry`, onClick: refresh }}
     />
   ) : graph.isPending ? (
-    <StateView kind="loading" size="viewer" title="Indexing vault notes" />
+    <StateView kind="loading" size="viewer" title={t`Indexing vault notes`} />
   ) : emptyVault ? (
     <StateView
       kind="empty"
       size="viewer"
-      title="Your vault is ready"
+      title={t`Your vault is ready`}
       detail={
         source?.capabilities?.note_write && source.link_access !== 'read_only'
-          ? `There are no notes yet. Ask ${vocab.agent} to create notes in this vault, or add Markdown files to the folder and choose Refresh.`
-          : 'There are no notes yet. Add Markdown files to the folder and choose Refresh. This connection is read only.'
+          ? t`There are no notes yet. Ask ${ph({ agent: vocab.agent })} to create notes in this vault, or add Markdown files to the folder and choose Refresh.`
+          : t`There are no notes yet. Add Markdown files to the folder and choose Refresh. This connection is read only.`
       }
     />
   ) : null;
@@ -198,25 +202,25 @@ export function KnowledgeSourceView({
     <StateView
       kind="empty"
       size="viewer"
-      title="No note selected"
-      detail="Choose one in the vault list or the note graph."
+      title={t`No note selected`}
+      detail={t`Choose one in the vault list or the note graph.`}
     />
   ) : note.error ? (
     <StateView
       kind="error"
       size="viewer"
-      title="The note could not be opened"
+      title={t`The note could not be opened`}
       detail={note.error.message}
-      action={{ label: 'Retry', onClick: () => void note.refetch() }}
+      action={{ label: t`Retry`, onClick: () => void note.refetch() }}
     />
   ) : !opened ? (
-    <StateView kind="loading" size="viewer" title="Opening the note" />
+    <StateView kind="loading" size="viewer" title={t`Opening the note`} />
   ) : null;
   return (
     <TooltipProvider delayDuration={200}>
       <div
         ref={region}
-        aria-label="Knowledge source"
+        aria-label={t`Knowledge source`}
         data-slot="knowledge-vault"
         className="flex h-full min-h-0 min-w-0 flex-col"
       >
@@ -226,7 +230,7 @@ export function KnowledgeSourceView({
           className="flex h-full min-h-0 min-w-0 flex-col gap-0"
         >
           <FrameBar
-            label="Vault actions"
+            label={t`Vault actions`}
             where={
               <FrameCrumbs
                 parts={
@@ -235,7 +239,7 @@ export function KnowledgeSourceView({
                         { label: vaultName, onSelect: () => setSelected('') },
                         { label: noteTitle || selected },
                       ]
-                    : [{ label: 'vault' }, { label: vaultName }]
+                    : [{ label: t`vault` }, { label: vaultName }]
                 }
               />
             }
@@ -246,7 +250,7 @@ export function KnowledgeSourceView({
                   modes={MODES}
                   value={mode}
                   onChange={(next) => setMode(next as VaultMode)}
-                  label="Vault views"
+                  label={t`Vault views`}
                 />
                 <WorkbenchTabListToggle />
               </>
@@ -278,7 +282,7 @@ export function KnowledgeSourceView({
               />
             }
           />
-          <WorkbenchTabList title="Vault">
+          <WorkbenchTabList title={t`Vault`}>
             <KnowledgeVaultFiles
               queryKey={key}
               workspaceId={workspaceId}
@@ -313,8 +317,8 @@ export function KnowledgeSourceView({
                     <StateView
                       kind="no-preview"
                       size="viewer"
-                      title="An attachment has no Markdown"
-                      detail="Choose Note to see it."
+                      title={t`An attachment has no Markdown`}
+                      detail={t`Choose Note to see it.`}
                     />
                   ) : opened ? (
                     <KnowledgeNoteSource opened={opened} />

@@ -6,6 +6,7 @@ import { FileViewerInformationHost } from './file-viewer-context';
 import { frameKeyRegion } from './file-viewer-modes';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { t } from '@lingui/core/macro';
 
 const noop = () => {};
 
@@ -106,9 +107,9 @@ export function ViewerZoomControls({
       >
         {framed ? null : children}
         <ToolbarAction
-          label="Zoom out"
+          label={t`Zoom out`}
           shortcut="view-zoom-out"
-          disabledReason={disabledOut ? 'Smallest zoom' : undefined}
+          disabledReason={disabledOut ? t`Smallest zoom` : undefined}
           onClick={onOut}
         >
           <ZoomOutIcon aria-hidden="true" />
@@ -124,9 +125,9 @@ export function ViewerZoomControls({
           </span>
         ) : null}
         <ToolbarAction
-          label="Zoom in"
+          label={t`Zoom in`}
           shortcut="view-zoom-in"
-          disabledReason={disabledIn ? 'Largest zoom' : undefined}
+          disabledReason={disabledIn ? t`Largest zoom` : undefined}
           onClick={onIn}
         >
           <ZoomInIcon aria-hidden="true" />

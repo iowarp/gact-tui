@@ -28,6 +28,8 @@ import { ShortcutKeys } from './primitives/key-chip';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { plural, t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** A group with more rows than this shows its leading ones and "Show all". */
 const COLLAPSED_ROWS = 6;
@@ -107,16 +109,25 @@ function chipEmpty(chip: FacetChip): boolean {
 }
 
 function chipLabel(chip: FacetChip): string {
-  const swap = chip.replaces.length ? ` (replaces ${chip.replaces.join(', ')})` : '';
-  return chip.remote
-    ? `${chip.label}: search Hugging Face${swap}`
-    : `${chip.label}: ${chip.count} ${chip.count === 1 ? 'model' : 'models'}${swap}`;
+  const label = chip.label;
+  const replaced = chip.replaces.join(', ');
+  if (chip.remote) {
+    return replaced
+      ? t`${label}: search Hugging Face (replaces ${replaced})`
+      : t`${label}: search Hugging Face`;
+  }
+  return replaced
+    ? plural(chip.count, {
+        one: `${label}: # model (replaces ${replaced})`,
+        other: `${label}: # models (replaces ${replaced})`,
+      })
+    : plural(chip.count, { one: `${label}: # model`, other: `${label}: # models` });
 }
 
 const FOOTER_HINTS: readonly PickerHint[] = [
-  { label: 'Move', shortcut: 'menu-move' },
-  { label: 'Toggle', shortcut: 'menu-toggle' },
-  { label: 'Next group', shortcut: 'menu-next-group', optional: true },
+  { label: t`Move`, shortcut: 'menu-move' },
+  { label: t`Toggle`, shortcut: 'menu-toggle' },
+  { label: t`Next group`, shortcut: 'menu-next-group', optional: true },
 ];
 
 /** The spec's `.pcb`: a 13px box, filled with a check while on. */
@@ -246,11 +257,11 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
               <SearchIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
               <input
                 {...identifierInputProps}
-                aria-label={`Filter ${cluster.label} by name`}
+                aria-label={t`Filter ${ph({ label: cluster.label })} by name`}
                 className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint"
                 onChange={(event) => setNameFilter(event.target.value)}
                 onKeyDown={containKeys}
-                placeholder={`Filter ${cluster.label} by name`}
+                placeholder={t`Filter ${ph({ label: cluster.label })} by name`}
                 value={nameFilter}
               />
             </label>
@@ -266,9 +277,10 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
           rows.push({
             kind: 'label',
             key: `${key}/none`,
+            // Facet labels come from lib/model-facets; a per-facet whole message would avoid lowercasing.
             label: nameFilter
-              ? `No ${cluster.label.toLowerCase()} match "${nameFilter}"`
-              : `No ${cluster.label.toLowerCase()} in the listed models`,
+              ? t`No ${ph({ facet: cluster.label.toLowerCase() })} match "${nameFilter}"`
+              : t`No ${ph({ facet: cluster.label.toLowerCase() })} in the listed models`,
           });
         }
       } else {
@@ -279,7 +291,9 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
           kind: 'more',
           group: cluster.label,
           key: `${key}/more`,
-          label: open ? 'Show fewer' : `Show all ${cluster.chips.length + cluster.more}`,
+          label: open
+            ? t`Show fewer`
+            : t`Show all ${ph({ count: cluster.chips.length + cluster.more })}`,
           expanded: open,
           onSelect: () => toggleExpanded(key),
         });
@@ -324,17 +338,17 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
     // The spec's group hints: on the first group of each kind.
     if (sections[0] && !sections[0].key.startsWith('range/')) {
       sections[0].hint = (
-        <>
+        <Trans>
           <ShortcutKeys className="font-mono text-[0.65625rem] text-faint" id="menu-toggle" /> to toggle
-        </>
+        </Trans>
       );
     }
     const firstRange = sections.find((section) => section.key.startsWith('range/'));
     if (firstRange) {
       firstRange.hint = (
-        <>
+        <Trans>
           <ShortcutKeys className="font-mono text-[0.65625rem] text-faint" id="menu-slide" /> to slide
-        </>
+        </Trans>
       );
     }
     if (ranges.length && sections[afterRanges] && sections[afterRanges].key !== FOLD_KEY) {
@@ -498,7 +512,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
         return (
           <div
             aria-expanded={false}
-            aria-label={`Show ${row.label} filters`}
+            aria-label={t`Show ${ph({ label: row.label })} filters`}
             className={cn(
               'cursor-pointer rounded-[7px] outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
               highlighted && 'bg-menu-highlight hover:bg-menu-highlight',
@@ -517,7 +531,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
             onPointerMove={hover}
             role="button"
             tabIndex={0}
-            title={`Show ${row.label}`}
+            title={t`Show ${ph({ label: row.label })}`}
           >
             <ListGroupLabel
               action={
@@ -569,12 +583,16 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
               checked: row.chip.active,
               disabled: chipEmpty(row.chip),
               name: chipLabel(row.chip),
-              hint: `${row.chip.token}${row.chip.replaces.length ? ` (replaces ${row.chip.replaces.join(', ')})` : ''}`,
+              hint: row.chip.replaces.length
+                ? t`${ph({ token: row.chip.token })} (replaces ${ph({ replaced: row.chip.replaces.join(', ') })})`
+                : row.chip.token,
             }
           : {
               ...row,
               name: row.label,
-              hint: row.disabled ? `${row.token} (narrow the range first)` : row.token,
+              hint: row.disabled
+                ? t`${ph({ token: row.token })} (narrow the range first)`
+                : row.token,
             };
       const { checked, disabled } = item;
       const toggle = () => {
@@ -627,7 +645,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
 
     return (
       <div
-        aria-label="Filter models"
+        aria-label={t`Filter models`}
         className={cn(
           'absolute inset-x-0 top-full z-30 flex flex-col overflow-hidden bg-popover text-popover-foreground',
           height === undefined
@@ -666,12 +684,12 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
             )
           ) : (
             <p className="px-2 py-3 text-menu text-muted-foreground">
-              No model matches this search.
+              {t`No model matches this search.`}
             </p>
           )}
         </div>
         <PickerFooter
-          hints={[...FOOTER_HINTS, { label: 'Back', shortcut: 'menu-close', onSelect: onClose }]}
+          hints={[...FOOTER_HINTS, { label: t`Back`, shortcut: 'menu-close', onSelect: onClose }]}
           hintsAlign="start"
         />
       </div>

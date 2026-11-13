@@ -13,7 +13,9 @@ import type { ProviderFilterCount } from './model-picker-tree';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
 import { providerActionStageWord } from './provider-action-flows';
+import { providerActionStageLabel } from './provider-actions';
 import type { ProviderSearchCount } from './use-model-picker-search-view';
+import { t, ph } from '@lingui/core/macro';
 
 interface PickerRowLabelProps {
   eyeAsStaticElement: boolean;
@@ -46,10 +48,10 @@ interface PickerRowLabelProps {
   state: CascaderItemState<PickerNodeData>;
 }
 
-function CountLabel({ shown, total, verb }: { shown: number; total: number; verb: string }) {
+function CountLabel({ shown, total, label }: { shown: number; total: number; label: string }) {
   return (
     <span
-      aria-label={`${shown} of ${total} models ${verb}`}
+      aria-label={label}
       className="shrink-0 text-xs text-muted-foreground tabular-nums"
       data-slot="provider-filter-count"
     >
@@ -94,7 +96,7 @@ export function PickerRowLabel({
       <span className="flex w-full min-w-0 items-center gap-1.5" data-slot="search-all-providers">
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
-          aria-label={`${node.data.matches} models match`}
+          aria-label={t`${ph({ matches: node.data.matches })} models match`}
           className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
         >
           {node.data.matches}
@@ -113,13 +115,13 @@ export function PickerRowLabel({
       >
         <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
         <span
-          aria-label={`${search.count.matches} models`}
+          aria-label={t`${ph({ matches: search.count.matches })} models`}
           className="shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums"
           data-slot="provider-filter-count"
         >
           {search.count.matches || null}
         </span>
-        <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+        <span className="sr-only">{search.collapsed ? t`Collapsed` : t`Expanded`}</span>
       </span>
     );
   }
@@ -152,7 +154,7 @@ export function PickerRowLabel({
           <span
             className="shrink-0 text-caption text-muted-foreground"
             data-slot="provider-row-status"
-            title={stage}
+            title={providerActionStageLabel(stage)}
           >
             {providerActionStageWord(stage)}
           </span>
@@ -169,7 +171,7 @@ export function PickerRowLabel({
         {search?.column ? (
           search.count.total > 0 ? (
             <span
-              aria-label={`${search.count.matches} of ${search.count.total} models match`}
+              aria-label={t`${ph({ matches: search.count.matches })} of ${ph({ total: search.count.total })} models match`}
               className="w-6 shrink-0 text-end font-mono text-[0.65625rem] text-faint tabular-nums"
               data-slot="provider-filter-count"
             >
@@ -178,7 +180,11 @@ export function PickerRowLabel({
           ) : null
         ) : search ? (
           <>
-            <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
+            <CountLabel
+              label={t`${ph({ matches: search.count.matches })} of ${ph({ total: search.count.total })} models match`}
+              shown={search.count.matches}
+              total={search.count.total}
+            />
             <ChevronDownIcon
               aria-hidden="true"
               className={cn(
@@ -187,10 +193,14 @@ export function PickerRowLabel({
               )}
               data-slot="provider-group-chevron"
             />
-            <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+            <span className="sr-only">{search.collapsed ? t`Collapsed` : t`Expanded`}</span>
           </>
         ) : filterCount && filterCount.shown !== filterCount.total ? (
-          <CountLabel shown={filterCount.shown} total={filterCount.total} verb="shown" />
+          <CountLabel
+            label={t`${ph({ shown: filterCount.shown })} of ${ph({ total: filterCount.total })} models shown`}
+            shown={filterCount.shown}
+            total={filterCount.total}
+          />
         ) : null}
       </span>
     );

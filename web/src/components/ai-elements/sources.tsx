@@ -4,6 +4,7 @@ import { Slot } from 'radix-ui';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/ui/external-link';
 import { cn } from '@/lib/utils';
+import { plural } from '@lingui/core/macro';
 
 export type SourcesProps = ComponentProps<typeof Collapsible>;
 
@@ -27,7 +28,7 @@ export const SourcesTrigger = ({ className, count, children, ...props }: Sources
       <>
         <BookOpenIcon aria-hidden="true" className="size-3.5" />
         <span className="font-medium">
-          {count} {count === 1 ? 'source' : 'sources'}
+          {plural(count, { one: '# source', other: '# sources' })}
         </span>
         <ChevronDownIcon
           aria-hidden="true"

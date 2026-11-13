@@ -23,6 +23,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { modelPickerCatalog } from './model-picker-catalog-loader';
 import { LARGE_MODEL_CATALOG } from './use-progressive-model-catalog';
 import { RefreshButton } from './refresh-button';
+import { ph, t } from '@lingui/core/macro';
 
 interface ClioModelPickerProps {
   catalogStatus?: 'error' | 'loading' | 'ready';
@@ -106,7 +107,7 @@ export function ClioModelPicker({
   onRetryCatalog,
   options,
   provider,
-  title = 'Choose a model',
+  title = t`Choose a model`,
   trigger,
   placement = 'trigger',
   shortcut,
@@ -171,11 +172,13 @@ export function ClioModelPicker({
     return () => cancelAnimationFrame(frame);
   }, [open, shellPainted, Catalog, catalogStatus, options]);
   const loadingLabel = provider
-    ? `Loading ${providerDisplayName(
-        presets.find((preset) => preset.id === provider),
-        provider,
-      )} models\u2026`
-    : 'Loading available models\u2026';
+    ? t`Loading ${ph({
+        provider: providerDisplayName(
+          presets.find((preset) => preset.id === provider),
+          provider,
+        ),
+      })} models…`
+    : t`Loading available models…`;
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean): void => {
@@ -332,7 +335,7 @@ function ModelCatalogSkeleton({ columns, label }: { columns: boolean; label: str
   return (
     <div
       aria-busy="true"
-      aria-label="Loading available models"
+      aria-label={t`Loading available models`}
       className="flex size-full min-h-0 flex-col"
       role="status"
     >
@@ -364,7 +367,7 @@ function ModelCatalogSkeleton({ columns, label }: { columns: boolean; label: str
           </div>
         ) : null}
       </div>
-      <span className="sr-only">Discovering providers and models from the connected service.</span>
+      <span className="sr-only">{t`Discovering providers and models from the connected service.`}</span>
     </div>
   );
 }
@@ -373,12 +376,12 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex size-full items-start p-4">
       <Alert variant="destructive">
-        <AlertTitle>Models could not be loaded</AlertTitle>
+        <AlertTitle>{t`Models could not be loaded`}</AlertTitle>
         <AlertDescription>
-          <span>Check the provider connection or configuration, then try discovery again.</span>
+          <span>{t`Check the provider connection or configuration, then try discovery again.`}</span>
           {onRetry ? (
             <RefreshButton
-              label="Retry"
+              label={t`Retry`}
               className="mt-3"
               onRefresh={onRetry}
               size="sm"

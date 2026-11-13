@@ -4,11 +4,7 @@ import { useMemo, useState } from 'react';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useStableEvent } from '@/hooks/use-stable-event';
-import {
-  hasUnseenActivity,
-  isPrimarySession,
-  sessionInteractionAt,
-} from '@/lib/recent-sessions';
+import { hasUnseenActivity, isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
 import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
 import type { SessionAttention } from '@/lib/session-attention';
 import { isSessionRunning } from '@/lib/session-state';
@@ -24,6 +20,7 @@ import { useHeldValue, useRailHeld } from './rail-menu-hold';
 import { LooseConversations } from './workspace-navigation-loose-conversations';
 import { RailIconFailure, RailState, ShowMoreRow } from './workspace-navigation-rail-rows';
 import { WorkspaceTreeItem } from './workspace-navigation-tree-item';
+import { plural, t } from '@lingui/core/macro';
 
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
@@ -233,7 +230,7 @@ export function WorkspaceNavigation({
       {pinnedWorkspaces.length || pinnedSessions.length ? (
         <SidebarGroup className="py-0">
           <ListGroupLabel className="mt-2.5 h-[26px] group-data-[collapsible=icon]:hidden">
-            Pinned
+            {t`Pinned`}
           </ListGroupLabel>
           <SidebarGroupContent className="grid min-w-0 gap-px">
             {pinnedWorkspaces.map(renderWorkspace)}
@@ -248,14 +245,14 @@ export function WorkspaceNavigation({
           action={
             <IconButton
               icon={<AddIcon />}
-              label="New workspace"
+              label={t`New workspace`}
               onClick={onNewWorkspace}
               size="sm"
             />
           }
           className="mt-2.5 h-[26px] items-center pb-0 pr-1 group-data-[collapsible=icon]:hidden"
         >
-          Workspaces
+          {t`Workspaces`}
         </ListGroupLabel>
         <SidebarGroupContent className="grid min-w-0 gap-px">
           {otherWorkspaces.map(renderWorkspace)}
@@ -263,18 +260,18 @@ export function WorkspaceNavigation({
             <>
               <RailState
                 error={workspacesState.error}
-                failed={{ what: 'workspaces', verb: 'listed' }}
+                failed={{ label: t`Workspaces not listed`, offline: t`Offline, no workspaces` }}
                 kind="error"
                 onRetry={workspacesState.retry}
-                title="Workspaces could not be listed"
+                title={t`Workspaces could not be listed`}
               />
               {/* The icon rail hides the line above, so a failure keeps one named cue there. */}
               <RailIconFailure error={workspacesState.error} onRetry={workspacesState.retry} />
             </>
           ) : workspacesState?.loading ? (
-            <RailState kind="loading" title="Loading workspaces…" />
+            <RailState kind="loading" title={t`Loading workspaces…`} />
           ) : listedWorkspaceCount === 0 ? (
-            <RailState kind="empty" title="No workspaces yet" />
+            <RailState kind="empty" title={t`No workspaces yet`} />
           ) : null}
           {listedWorkspaceCount > VISIBLE_WORKSPACE_LIMIT ? (
             <ShowMoreRow
@@ -282,8 +279,11 @@ export function WorkspaceNavigation({
               railKey="more:workspaces"
               label={
                 showAllWorkspaces
-                  ? 'Show recent workspaces'
-                  : `Show all ${listedWorkspaceCount} workspaces`
+                  ? t`Show recent workspaces`
+                  : plural(listedWorkspaceCount, {
+                      one: 'Show all # workspace',
+                      other: 'Show all # workspaces',
+                    })
               }
               onToggle={() => setShowAllWorkspaces((visible) => !visible)}
             />
@@ -298,7 +298,7 @@ export function WorkspaceNavigation({
           expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}
           label={
             labels.get(DEFAULT_WORKSPACE_ID) ?? {
-              name: defaultWorkspace?.display_name ?? 'Conversations',
+              name: defaultWorkspace?.display_name ?? t`Conversations`,
               qualifiers: [],
             }
           }

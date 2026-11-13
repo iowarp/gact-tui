@@ -15,6 +15,8 @@ import {
 } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
 import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
+import { ph, t } from '@lingui/core/macro';
+import { formatDateTime } from './locale-format';
 
 /**
  * The `health` of a provider row that has not failed but still needs an
@@ -156,16 +158,16 @@ export function findHeldModelOption(
  * hidden or printed on its own as if it were product copy.
  */
 const MODEL_AVAILABILITY_LABELS: Record<string, string> = {
-  available: 'Available',
-  candidate: 'Reported but not verified',
-  not_chat: 'Not a chat model',
-  unavailable: 'Unavailable',
+  available: t`Available`,
+  candidate: t`Reported but not verified`,
+  not_chat: t`Not a chat model`,
+  unavailable: t`Unavailable`,
 };
 
 /** Names one model's reported availability, admitting an unrecognised token. */
 export function modelAvailabilityLabel(availability: string): string {
-  if (!availability) return 'Unknown';
-  return MODEL_AVAILABILITY_LABELS[availability] ?? `Unknown (${availability})`;
+  if (!availability) return t`Unknown`;
+  return MODEL_AVAILABILITY_LABELS[availability] ?? t`Unknown (${availability})`;
 }
 
 /**
@@ -294,7 +296,7 @@ function liveProviderOptions(
         availabilityDetail:
           (needsAuthentication
             ? authenticationFailure && isAlcf
-              ? 'Sign in to your ALCF account again.'
+              ? t`Sign in to your ALCF account again.`
               : authenticationFailure
                 ? // The provider refused the credential it has: say so
                   // ("Your OpenRouter API key was rejected."), not "sign in".
@@ -302,7 +304,7 @@ function liveProviderOptions(
                 : providerStatusDetail(preset, providerCredentialPrompt(preset, providerName))
             : provider.failure &&
               translateKnownProviderErrorReason(provider.failure, providerName)) ||
-          'This provider reported no models to the connected agent.',
+          t`This provider reported no models to the connected agent.`,
       },
     ];
   }
@@ -316,9 +318,9 @@ function liveProviderOptions(
   // A provider that still needs a key/sign-in says THAT, never a dated
   // "last confirmed" line about a list it cannot use yet.
   const lastGoodDetail = needsSetup
-    ? providerStatusDetail(preset, `Set up ${providerName} to use its models.`)
+    ? providerStatusDetail(preset, t`Set up ${providerName} to use its models.`)
     : provider.freshness.source === 'last_good'
-      ? `Last confirmed ${formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
+      ? t`Last confirmed ${ph({ confirmed: formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at) })}. Check ${providerName} to confirm it is available now.`
       : undefined;
   return provider.models.map((model) => {
     // CLI providers cannot enumerate models without an explicit (and for
@@ -373,7 +375,7 @@ function liveProviderOptions(
 
 function formatCatalogTime(value: string): string {
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? value : formatDateTime(parsed);
 }
 
 function isAuthenticationFailure(failure: string | null | undefined): boolean {

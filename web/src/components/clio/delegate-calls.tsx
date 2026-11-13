@@ -10,6 +10,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 import { PresentationNavigation } from './presentation-navigation';
 import { StateView } from './primitives/state-view';
 import { ClioToolInvocation } from './tool-invocation';
+import { t, ph } from '@lingui/core/macro';
 
 /** How many of a delegate's calls show before "Show all". */
 const SHOWN = 6;
@@ -58,7 +59,7 @@ function useChildCalls(childId: string | undefined, running: boolean): ChildCall
           setState((previous) => ({
             key,
             calls: previous.calls,
-            error: error instanceof Error ? error.message : 'Unable to read its calls.',
+            error: error instanceof Error ? error.message : t`Unable to read its calls.`,
           }));
         });
     };
@@ -103,30 +104,34 @@ export function DelegateCalls({
   const shown = all ? calls : calls.slice(0, SHOWN);
   return (
     <ActivityNest
-      label={`Calls by ${name}`}
+      label={t`Calls by ${name}`}
       hidden={calls.length - shown.length}
       onShowAll={() => setAll(true)}
-      showAllLabel={`Show all ${calls.length}`}
+      showAllLabel={t`Show all ${ph({ count: calls.length })}`}
     >
       {shown.map((tool) => (
         <ClioToolInvocation compact key={tool.id} sessionId={childId} tool={tool} />
       ))}
       {calls.length ? null : fetched.pending ? (
-        <StateView kind="loading" size="row" title="Loading its calls…" />
+        <StateView kind="loading" size="row" title={t`Loading its calls…`} />
       ) : fetched.error ? (
         <StateView
-          action={{ label: 'Retry', onClick: fetched.retry }}
+          action={{ label: t`Retry`, onClick: fetched.retry }}
           className="w-fit max-w-full"
           kind="error"
           size="row"
-          title="Its calls could not be loaded"
+          title={t`Its calls could not be loaded`}
         />
       ) : (
-        <StateView kind="empty" size="row" title={running ? 'No calls yet' : 'No calls recorded'} />
+        <StateView
+          kind="empty"
+          size="row"
+          title={running ? t`No calls yet` : t`No calls recorded`}
+        />
       )}
       {result ? (
         <div className="py-1 pl-2 text-ui" data-slot="delegate-result">
-          <BoundedResult lines={lines} title={`${name} returned`}>
+          <BoundedResult lines={lines} title={t`${name} returned`}>
             <GroundedMessageResponse mode="static">{result}</GroundedMessageResponse>
           </BoundedResult>
         </div>

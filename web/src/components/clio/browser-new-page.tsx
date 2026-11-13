@@ -6,6 +6,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { BrowserFrame } from './browser-frame';
 import { FrameCommentsUnavailable } from './comments/frame-comments';
 import { browserPagesKey, normalizeBrowserAddress } from './use-browser-pages';
+import { t } from '@lingui/core/macro';
 
 export interface BrowserNewPageProps {
   sessionId: string;
@@ -64,7 +65,7 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
     if (pending) return;
     const url = normalizeBrowserAddress(address);
     if (!url) {
-      setError('Enter a web address, like example.org');
+      setError(t`Enter a web address, like example.org`);
       return;
     }
     setPending(url);
@@ -79,7 +80,7 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
       })
       .catch((reason: unknown) => {
         if (!mounted.current) return;
-        setError(reason instanceof Error ? reason.message : 'The page did not open.');
+        setError(reason instanceof Error ? reason.message : t`The page did not open.`);
       })
       .finally(() => {
         if (!mounted.current) return;
@@ -91,14 +92,14 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
   return (
     <BrowserFrame
       autoFocus
-      comments={<FrameCommentsUnavailable reason="Open a page to comment on it" />}
+      comments={<FrameCommentsUnavailable reason={t`Open a page to comment on it`} />}
       describedBy={error ? 'browser-new-page-error' : undefined}
       editable={!pending}
-      facts={pending ? <span>Opening</span> : undefined}
+      facts={pending ? <span>{t`Opening`}</span> : undefined}
       invalid={Boolean(error)}
-      label="New page"
+      label={t`New page`}
       loading={Boolean(pending)}
-      loadingLabel={preparing ? 'Downloading the browser' : 'Opening the page'}
+      loadingLabel={preparing ? t`Downloading the browser` : t`Opening the page`}
       onGo={submit}
       url={pending ?? ''}
     >
@@ -113,7 +114,7 @@ export function BrowserNewPage({ sessionId, onOpened, open }: BrowserNewPageProp
           role={error ? 'alert' : 'status'}
         >
           {error ??
-            'Downloading the browser for this computer (first use only). The page opens when it is ready.'}
+            t`Downloading the browser for this computer (first use only). The page opens when it is ready.`}
         </p>
       ) : null}
     </BrowserFrame>

@@ -11,6 +11,7 @@ import { HostPathPicker } from './host-path-picker';
 import { RingSpinner } from './primitives/ring-spinner';
 import { FolderFace, SourceField, SourceStatusLine, folderTriggerClass } from './source-form-parts';
 import { useSourceFrameFooter } from './use-source-frame-footer';
+import { t, ph } from '@lingui/core/macro';
 
 export type FolderPlacement = 'in_place' | 'copy';
 
@@ -49,7 +50,7 @@ export function FolderAttachForm({
         onChange={setPlacement}
         inPlaceUnavailable={
           uploadOnly
-            ? `Not available here. ${vocab.agent} runs on another computer, so it can't open a folder on yours. Use a full copy.`
+            ? t`Not available here. ${ph({ agent: vocab.agent })} runs on another computer, so it can't open a folder on yours. Use a full copy.`
             : undefined
         }
       />
@@ -77,8 +78,8 @@ export function FolderAttachForm({
 }
 
 const placementRows: ReadonlyArray<{ value: FolderPlacement; title: string }> = [
-  { value: 'in_place', title: 'Use in place' },
-  { value: 'copy', title: 'Full copy' },
+  { value: 'in_place', title: t`Use in place` },
+  { value: 'copy', title: t`Full copy` },
 ];
 
 /** The spec's `.c3r` ring and name, as two bordered cards each with a full explanation. */
@@ -92,13 +93,13 @@ function PlacementChoice({
   inPlaceUnavailable?: string;
 }) {
   const explanation: Record<FolderPlacement, string> = {
-    in_place: `${vocab.agent} reads and changes your original folder. Nothing is copied, so it is ready at once, and every change affects your originals.`,
-    copy: `${vocab.agent} makes its own copy to work on. Your originals stay untouched. Copying a large folder takes time and needs as much free disk space as the folder.`,
+    in_place: t`${ph({ agent: vocab.agent })} reads and changes your original folder. Nothing is copied, so it is ready at once, and every change affects your originals.`,
+    copy: t`${ph({ agent: vocab.agent })} makes its own copy to work on. Your originals stay untouched. Copying a large folder takes time and needs as much free disk space as the folder.`,
   };
   return (
-    <SourceField label="How to attach">
+    <SourceField label={t`How to attach`}>
       <RadioGroupPrimitive.Root
-        aria-label="How to attach"
+        aria-label={t`How to attach`}
         value={value}
         onValueChange={(next) => onChange(next as FolderPlacement)}
         className="grid grid-cols-2 gap-2"
@@ -169,7 +170,7 @@ function HostFolderFields({
         kind: 'resource',
         id: resource.id,
         label: name,
-        detail: placement === 'in_place' ? 'Folder, in place' : 'Folder, full copy',
+        detail: placement === 'in_place' ? t`Folder, in place` : t`Folder, full copy`,
         media_type: resource.detected_mime,
         revision: String(resource.revision),
         navigation: {
@@ -185,32 +186,32 @@ function HostFolderFields({
     confirm: {
       label: attach.isPending
         ? placement === 'copy'
-          ? 'Copying…'
-          : 'Attaching…'
+          ? t`Copying…`
+          : t`Attaching…`
         : placement === 'copy'
-          ? 'Copy and attach'
-          : 'Attach folder',
+          ? t`Copy and attach`
+          : t`Attach folder`,
       disabled: !path || attach.isPending,
     },
     onConfirm: () => attach.mutate(),
-    start: onBack ? { label: 'Back', back: true, onClick: onBack } : undefined,
+    start: onBack ? { label: t`Back`, back: true, onClick: onBack } : undefined,
   });
   return (
-    <section className="flex flex-col gap-[13px]" aria-label="Folder on this computer">
+    <section className="flex flex-col gap-[13px]" aria-label={t`Folder on this computer`}>
       <SourceField
-        label="Folder"
+        label={t`Folder`}
         hint={
           placement === 'in_place'
-            ? 'Read and write. No size limit.'
-            : `Copied into this workspace on ${hostLabel}. No size limit.`
+            ? t`Read and write. No size limit.`
+            : t`Copied into this workspace on ${hostLabel}. No size limit.`
         }
       >
         <FolderFace path={path}>
           <HostPathPicker
             targetId="local"
             hostLabel={hostLabel}
-            label="Folder to attach"
-            triggerLabel="Choose…"
+            label={t`Folder to attach`}
+            triggerLabel={t`Choose…`}
             triggerClassName={folderTriggerClass}
             startPath={browseStartPath}
             path={path}
@@ -224,7 +225,7 @@ function HostFolderFields({
       </SourceField>
       {attach.isPending && placement === 'copy' && (
         <SourceStatusLine role="status" icon={<RingSpinner />}>
-          Copying the folder. Large folders take a while.
+          {t`Copying the folder. Large folders take a while.`}
         </SourceStatusLine>
       )}
       {attach.error && (

@@ -13,6 +13,7 @@ import {
 import { SettingsSelectField } from './model-select-field';
 import { DialogFrame } from './primitives/dialog-frame';
 import { SettingsRow } from './settings-row';
+import { t, ph } from '@lingui/core/macro';
 
 const OTHER = 'other';
 
@@ -43,7 +44,7 @@ export function SettingsAddServerDialog({
     ...runtimes
       .filter((preset) => preset.id !== CUSTOM_SERVER_PRESET_ID)
       .map((preset) => ({ value: preset.id, label: preset.label })),
-    { value: OTHER, label: 'Other' },
+    { value: OTHER, label: t`Other` },
   ];
 
   function close(nextOpen: boolean) {
@@ -65,19 +66,19 @@ export function SettingsAddServerDialog({
 
   return (
     <DialogFrame
-      cancelLabel={added ? 'Done' : 'Cancel'}
+      cancelLabel={added ? t`Done` : t`Cancel`}
       confirm={
-        added ? undefined : { label: 'Add', onConfirm: add, disabled: !address || save.isPending }
+        added ? undefined : { label: t`Add`, onConfirm: add, disabled: !address || save.isPending }
       }
       icon={<ServerIcon className="size-4" />}
       onOpenChange={close}
       open={open}
-      srDescription="Add a model server on this computer, another machine or a cluster node."
-      title="Add server"
+      srDescription={t`Add a model server on this computer, another machine or a cluster node.`}
+      title={t`Add server`}
     >
       {added ? (
         <p className="py-2" data-slot="add-server-result" role="status">
-          {added.label} was added. {savedCheckSentence(added.check)}
+          {t`${ph({ label: added.label })} was added. ${ph({ check: savedCheckSentence(added.check) })}`}
         </p>
       ) : (
         <form
@@ -89,13 +90,13 @@ export function SettingsAddServerDialog({
         >
           <SettingsRow
             fullWidth
-            info="A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
-            title="Kind"
+            info={t`A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine).`}
+            title={t`Kind`}
           >
             <Select onValueChange={setKind} value={kind}>
               <SelectPrimitive.Trigger asChild>
                 <SettingsSelectField
-                  aria-label="Server kind"
+                  aria-label={t`Server kind`}
                   className="w-full"
                   icon={<ServerIcon />}
                   id="add-server-kind"
@@ -112,11 +113,11 @@ export function SettingsAddServerDialog({
             </Select>
           </SettingsRow>
           {runtime ? null : (
-            <SettingsRow fullWidth htmlFor="add-server-name" title="Name">
+            <SettingsRow fullWidth htmlFor="add-server-name" title={t`Name`}>
               <Input
                 id="add-server-name"
                 onChange={(event) => setLabel(event.target.value)}
-                placeholder="Optional"
+                placeholder={t`Optional`}
                 value={label}
               />
             </SettingsRow>
@@ -124,11 +125,11 @@ export function SettingsAddServerDialog({
           <SettingsRow
             fullWidth
             htmlFor="add-server-address"
-            info="On this computer, another machine or a cluster node. It is checked as soon as it is added."
-            title="Address"
+            info={t`On this computer, another machine or a cluster node. It is checked as soon as it is added.`}
+            title={t`Address`}
           >
             <Input
-              aria-label="Server address"
+              aria-label={t`Server address`}
               autoComplete="url"
               className="font-mono"
               data-initial-focus=""
@@ -141,7 +142,7 @@ export function SettingsAddServerDialog({
           {save.isPending ? (
             <p className="flex items-center gap-1.5 pt-2 text-muted-foreground" role="status">
               <LoaderCircleIcon aria-hidden="true" className="size-4 motion-safe:animate-spin" />
-              Adding and checking…
+              {t`Adding and checking…`}
             </p>
           ) : save.error ? (
             <p className="truncate pt-2 text-destructive" role="alert" title={save.error.message}>

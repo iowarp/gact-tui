@@ -6,6 +6,7 @@ import { useProviderActions } from './provider-actions';
 import type { ProviderActionFlow } from './provider-action-flows';
 import { ProviderSetupAction } from './provider-setup-action';
 import { providerActionError } from './provider-setup-state';
+import { t } from '@lingui/core/macro';
 
 interface TurnProviderSignInProps {
   providerId: string;
@@ -42,7 +43,7 @@ export function TurnProviderSignIn({ providerId, providerLabel }: TurnProviderSi
         align="start"
         failed={Boolean(failure)}
         flow={flow}
-        loginLabel="Sign in again"
+        loginLabel={t`Sign in again`}
         offerCode={preset?.provider === 'codex'}
         preset={preset}
         providerLabel={providerLabel}

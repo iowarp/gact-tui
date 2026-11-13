@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { HeldKeyBadge } from './key-chip';
 import { RingSpinner } from './ring-spinner';
+import { t } from '@lingui/core/macro';
 
 export type StateKind =
   | 'loading'
@@ -173,7 +174,7 @@ export const StateView = memo(function StateView({
           ? {}
           : ({ role: 'status' } as const);
   const actionLabel =
-    action?.label ?? (kind === 'error' ? 'Retry' : kind === 'unavailable' ? 'Why?' : undefined);
+    action?.label ?? (kind === 'error' ? t`Retry` : kind === 'unavailable' ? t`Why?` : undefined);
   return (
     <div
       {...live}
@@ -332,9 +333,11 @@ function ViewerState({
       </div>
     );
   const IconComponent = icon ?? VIEWER_ICON[kind];
+  // Callers pass the translated `Retry`; compare in the same language.
+  const retryLabel = t`Retry`;
   const retry =
-    kind === 'error' && action && (action.label || 'Retry') === 'Retry'
-      ? { ...action, label: 'Retry', icon: action.icon ?? <RetryIcon /> }
+    kind === 'error' && action && (action.label || retryLabel) === retryLabel
+      ? { ...action, label: retryLabel, icon: action.icon ?? <RetryIcon /> }
       : action;
   const actions =
     listed ?? [secondaryAction, retry].filter((entry): entry is StateAction => !!entry);

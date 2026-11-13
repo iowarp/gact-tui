@@ -13,12 +13,13 @@ import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { FileModeControls, type FileMode } from './file-mode-controls';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
-import { plural, type LatexProblem, type LatexView } from './latex-model';
+import type { LatexProblem, LatexView } from './latex-model';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameTool } from './primitives/frame-modes';
 import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { WorkbenchTabListToggle } from './workbench-tab-list';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The paper's facts in the frame bar's What. Registered in place, so a later
@@ -55,17 +56,17 @@ function ProblemsButton({
   const button = useRef<HTMLButtonElement>(null);
   const errors = problems.filter((problem) => problem.severity === 'error').length;
   const Icon = errors ? CircleAlertIcon : TriangleAlertIcon;
-  const label = `${plural(problems.length, 'problem')}${errors ? `, ${plural(errors, 'error')}` : ''}`;
+  const problemCount = plural(problems.length, { one: '# problem', other: '# problems' });
+  const label = errors
+    ? t`${problemCount}, ${plural(errors, { one: '# error', other: '# errors' })}`
+    : problemCount;
   useFrameTool(
     button,
     problems.length
       ? {
           label,
           icon: (
-            <Icon
-              aria-hidden="true"
-              className={errors ? 'text-destructive' : 'text-warning'}
-            />
+            <Icon aria-hidden="true" className={errors ? 'text-destructive' : 'text-warning'} />
           ),
         }
       : null,
@@ -93,7 +94,8 @@ function ProblemsButton({
           {problems.length}
           {/* The spec draws the mark and its count; the word goes with the first fold. */}
           <span className="group-data-[fold-facts]/frame:hidden">
-            {problems.length === 1 ? ' problem' : ' problems'}
+            {' '}
+            {plural(problems.length, { one: 'problem', other: 'problems' })}
           </span>
         </button>
       </NamedTooltip>
@@ -117,7 +119,7 @@ function SourceFileMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <ToolbarAction label={`Source file: ${file}`}>
+        <ToolbarAction label={t`Source file: ${file}`}>
           <FileCode2Icon aria-hidden="true" />
         </ToolbarAction>
       </DropdownMenuTrigger>
@@ -130,7 +132,7 @@ function SourceFileMenu({
                 <span className="font-mono text-meta">{name}</span>
                 {count ? (
                   <span className="ml-auto pl-3 text-label text-muted-foreground">
-                    {plural(count, 'problem')}
+                    {plural(count, { one: '# problem', other: '# problems' })}
                   </span>
                 ) : null}
               </DropdownMenuRadioItem>
@@ -181,7 +183,7 @@ export function LatexFormat({
   const rebuild = onRebuild && (
     <ToolbarAction
       aria-busy={building || undefined}
-      label="Rebuild"
+      label={t`Rebuild`}
       data-slot="latex-rebuild"
       onClick={onRebuild}
     >
@@ -191,7 +193,7 @@ export function LatexFormat({
   const head = (
     <>
       <FileModeControls
-        label="Paper views"
+        label={t`Paper views`}
         modes={modes}
         value={view}
         onChange={(next) => onView(next as LatexView)}
@@ -223,7 +225,7 @@ export function LatexFormat({
                 setOpen(true);
               }}
             />
-            <ToolbarAction label="Outline" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <ToolbarAction label={t`Outline`} aria-expanded={open} onClick={() => setOpen(!open)}>
               <ListTreeIcon aria-hidden="true" />
             </ToolbarAction>
           </span>
@@ -263,7 +265,7 @@ export function LatexFrame({
   if (ownFrame)
     return (
       <FrameBar
-        label="Paper"
+        label={t`Paper`}
         where={<FrameCrumbs parts={crumbs.map((label) => ({ label }))} />}
         what={
           <span className="tabular-nums" data-frame-position="">
@@ -285,7 +287,9 @@ export function LatexFrame({
   return (
     <ViewerToolbarContent>
       {factInFormat ? (
-        <span className="shrink-0 px-1 text-caption text-muted-foreground tabular-nums">{fact}</span>
+        <span className="shrink-0 px-1 text-caption text-muted-foreground tabular-nums">
+          {fact}
+        </span>
       ) : null}
       {format}
     </ViewerToolbarContent>

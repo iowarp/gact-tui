@@ -92,6 +92,7 @@ import {
   runDesktopWindowAction,
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
+import { t, ph, plural } from '@lingui/core/macro';
 
 // macOS keeps its native traffic lights (top-left); the bar's left section
 // is padded clear of them so the hamburger/brand block never sits under
@@ -110,7 +111,7 @@ async function runWindowAction(action: DesktopWindowAction): Promise<void> {
     // expected, not a failure. A toast on a perfectly normal quit would be
     // spurious.
     if (action === 'quit') return;
-    toast.error(`${brand.wordmark} could not update the desktop window.`);
+    toast.error(t`${ph({ wordmark: brand.wordmark })} could not update the desktop window.`);
   }
 }
 
@@ -195,13 +196,15 @@ function SwitchAgentItems() {
     try {
       await switchConnection(connection);
     } catch (error) {
-      toast.error('Could not switch agent service', {
+      toast.error(t`Could not switch agent service`, {
         description: error instanceof Error ? error.message : String(error),
       });
     }
   };
   if (!others.length) {
-    return <p className="px-2 py-1.5 text-meta text-muted-foreground">No other saved agents</p>;
+    return (
+      <p className="px-2 py-1.5 text-meta text-muted-foreground">{t`No other saved agents`}</p>
+    );
   }
   return others.map((connection) => (
     <SwitchAgentItem
@@ -219,6 +222,7 @@ export function DesktopTitleBar() {
   const setWorkspaceNavigationHost = useDesktopWorkspaceToolbar((state) => state.setNavigationHost);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [runningAtQuit, setRunningAtQuit] = useState(0);
+  const { product } = vocab;
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
   const desktopZoom = useDesktopZoom();
@@ -322,7 +326,7 @@ export function DesktopTitleBar() {
 
   return (
     <header
-      aria-label={`${brand.name} desktop controls`}
+      aria-label={t`${ph({ name: brand.name })} desktop controls`}
       className="relative z-50 flex h-10 shrink-0 select-none items-stretch border-b border-border/70 bg-background text-foreground"
     >
       <div
@@ -330,7 +334,7 @@ export function DesktopTitleBar() {
       >
         <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button aria-label="Open application menu" size="icon-sm" variant="ghost">
+            <Button aria-label={t`Open application menu`} size="icon-sm" variant="ghost">
               <MoreIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
@@ -340,56 +344,56 @@ export function DesktopTitleBar() {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <FileIcon aria-hidden="true" />
-                File
+                {t`File`}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="new-session" shortcut="new-conversation">
                   <AddIcon aria-hidden="true" />
-                  New conversation
+                  {t`New conversation`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setClosePromptOpen(true)}>
                   <CloseIcon aria-hidden="true" />
-                  Close window
+                  {t`Close window`}
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <EyeIcon aria-hidden="true" />
-                View
+                {t`View`}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="search" shortcut="search">
                   <SearchIcon aria-hidden="true" />
-                  Search
+                  {t`Search`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <MenuActionItem action="toggle-left-bar" shortcut="left-pocket">
                   <PanelLeftIcon aria-hidden="true" />
-                  Left bar
+                  {t`Left bar`}
                 </MenuActionItem>
                 <MenuActionItem action="toggle-workbench" shortcut="right-pocket">
                   <PanelRightIcon aria-hidden="true" />
-                  Workbench
+                  {t`Workbench`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <MenuActionItem action="reload" shortcut="reload">
                   <RefreshIcon aria-hidden="true" />
-                  Reload workspace
+                  {t`Reload workspace`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <MenuActionItem action="zoom-reset" keepOpen shortcut="zoom-reset">
                   <ScanIcon aria-hidden="true" />
-                  Actual size ({Math.round(desktopZoom.zoom * 100)}%)
+                  {t`Actual size (${ph({ percent: Math.round(desktopZoom.zoom * 100) })}%)`}
                 </MenuActionItem>
                 <MenuActionItem action="zoom-in" keepOpen shortcut="zoom-in">
                   <ZoomInIcon aria-hidden="true" />
-                  Zoom in
+                  {t`Zoom in`}
                 </MenuActionItem>
                 <MenuActionItem action="zoom-out" keepOpen shortcut="zoom-out">
                   <ZoomOutIcon aria-hidden="true" />
-                  Zoom out
+                  {t`Zoom out`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -397,7 +401,7 @@ export function DesktopTitleBar() {
                   onSelect={() => void runWindowAction('toggleFullscreen')}
                 >
                   <PanelTopIcon aria-hidden="true" />
-                  Toggle fullscreen
+                  {t`Toggle fullscreen`}
                   <DropdownMenuShortcut>
                     <ShortcutKeys id="fullscreen" variant="menu" />
                   </DropdownMenuShortcut>
@@ -407,17 +411,17 @@ export function DesktopTitleBar() {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <BotIcon aria-hidden="true" />
-                Agent
+                {t`Agent`}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="connection-settings">
                   <ConnectionSettingsIcon aria-hidden="true" />
-                  Connection settings
+                  {t`Connection settings`}
                 </MenuActionItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <ArrowLeftRightIcon aria-hidden="true" />
-                    Switch to
+                    {t`Switch to`}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="w-[300px]">
                     <SwitchAgentItems />
@@ -425,76 +429,76 @@ export function DesktopTitleBar() {
                 </DropdownMenuSub>
                 <MenuActionItem action="manage-agents">
                   <ServerIcon aria-hidden="true" />
-                  Manage agents
+                  {t`Manage agents`}
                 </MenuActionItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <AddIcon aria-hidden="true" />
-                    Add an agent…
+                    {t`Add an agent…`}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="min-w-56">
                     <MenuActionItem action="connect-by-address">
                       <Link2Icon aria-hidden="true" />
-                      Connect by address
+                      {t`Connect by address`}
                     </MenuActionItem>
                     <MenuActionItem action="manage-agent-services">
                       <TerminalSquareIcon aria-hidden="true" />
-                      Connect over SSH
+                      {t`Connect over SSH`}
                     </MenuActionItem>
                     <MenuActionItem action="install-agent">
                       <DownloadIcon aria-hidden="true" />
-                      Install {brand.agentName} on a computer
+                      {t`Install ${ph({ agentName: brand.agentName })} on a computer`}
                     </MenuActionItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <MenuActionItem action="open-infrastructure" shortcut="infrastructure">
                   <LayersIcon aria-hidden="true" />
-                  Infrastructure
+                  {t`Infrastructure`}
                 </MenuActionItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <AppWindowIcon aria-hidden="true" />
-                Window
+                {t`Window`}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <DropdownMenuItem onSelect={() => void runWindowAction('minimize')}>
                   <MinusIcon aria-hidden="true" />
-                  Minimize
+                  {t`Minimize`}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void runWindowAction('toggleMaximize')}>
                   <Maximize2Icon aria-hidden="true" />
-                  Maximize or restore
+                  {t`Maximize or restore`}
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <HelpIcon aria-hidden="true" />
-                Help
+                {t`Help`}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="help-docs">
                   <BookOpenIcon aria-hidden="true" />
-                  Documentation
+                  {t`Documentation`}
                 </MenuActionItem>
                 <MenuActionItem action="keyboard-shortcuts" shortcut="shortcuts">
                   <KeyboardIcon aria-hidden="true" />
-                  Keyboard shortcuts
+                  {t`Keyboard shortcuts`}
                 </MenuActionItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
             <MenuActionItem action="about">
               <InfoIcon aria-hidden="true" />
-              About {brand.wordmark}
+              {t`About ${ph({ wordmark: brand.wordmark })}`}
             </MenuActionItem>
             <MenuActionItem action="open-settings" shortcut="settings">
               <SettingsIcon aria-hidden="true" />
-              Settings
+              {t`Settings`}
             </MenuActionItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -505,7 +509,7 @@ export function DesktopTitleBar() {
               }
             >
               <CloseIcon aria-hidden="true" />
-              Quit {brand.wordmark}
+              {t`Quit ${ph({ wordmark: brand.wordmark })}`}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -513,7 +517,7 @@ export function DesktopTitleBar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="Go back"
+              aria-label={t`Go back`}
               onClick={() => window.history.back()}
               size="icon-sm"
               variant="ghost"
@@ -521,12 +525,12 @@ export function DesktopTitleBar() {
               <ArrowLeftIcon aria-hidden="true" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Back</TooltipContent>
+          <TooltipContent side="bottom">{t`Back`}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="Go forward"
+              aria-label={t`Go forward`}
               onClick={() => window.history.forward()}
               size="icon-sm"
               variant="ghost"
@@ -534,14 +538,14 @@ export function DesktopTitleBar() {
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Forward</TooltipContent>
+          <TooltipContent side="bottom">{t`Forward`}</TooltipContent>
         </Tooltip>
       </div>
 
       <div
         className="flex items-center"
         ref={setWorkspaceNavigationHost}
-        aria-label="Conversation navigation"
+        aria-label={t`Conversation navigation`}
       />
       {/* No title-bar copy (spec fp 12): the workspace page's own top bar is portaled here,
           so web and desktop read the same. Its empty space drags the window; Tauri's drag
@@ -552,22 +556,22 @@ export function DesktopTitleBar() {
         data-testid="desktop-title-drag"
         id="desktop-workspace-toolbar"
         ref={setWorkspaceToolbarHost}
-        aria-label="Workspace controls"
+        aria-label={t`Workspace controls`}
       />
 
       <div className="flex items-stretch gap-1 px-2">
         {macOS ? null : (
           <>
-            <WindowButton action="minimize" label="Minimize">
+            <WindowButton action="minimize" label={t`Minimize`}>
               <MinusIcon aria-hidden="true" className="size-4" />
             </WindowButton>
-            <WindowButton action="toggleMaximize" label="Maximize or restore">
+            <WindowButton action="toggleMaximize" label={t`Maximize or restore`}>
               <Maximize2Icon aria-hidden="true" className="size-3.5" />
             </WindowButton>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  aria-label="Close"
+                  aria-label={t`Close`}
                   className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-background"
                   onClick={() => setClosePromptOpen(true)}
                   type="button"
@@ -575,7 +579,7 @@ export function DesktopTitleBar() {
                   <CloseIcon aria-hidden="true" className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Close or keep running</TooltipContent>
+              <TooltipContent side="bottom">{t`Close or keep running`}</TooltipContent>
             </Tooltip>
           </>
         )}
@@ -586,7 +590,7 @@ export function DesktopTitleBar() {
           onEscapeKeyDown={() => setClosePromptOpen(false)}
         >
           <AlertDialogCancel
-            aria-label="Dismiss close prompt"
+            aria-label={t`Dismiss close prompt`}
             className="absolute right-2 top-2 text-muted-foreground"
             size="icon-sm"
             variant="ghost"
@@ -594,19 +598,19 @@ export function DesktopTitleBar() {
             <CloseIcon aria-hidden="true" className="size-4" />
           </AlertDialogCancel>
           <AlertDialogHeader>
-            <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Keep ${product} running?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep {vocab.product} available in{' '}
-              {macOS ? 'the menu bar' : 'the system tray (Windows hidden icons)'}, or quit and stop
-              its local services. Ongoing work can continue only while {vocab.product} is running.
+              {macOS
+                ? t`Keep ${product} available in the menu bar, or quit and stop its local services. Ongoing work can continue only while ${product} is running.`
+                : t`Keep ${product} available in the system tray (Windows hidden icons), or quit and stop its local services. Ongoing work can continue only while ${product} is running.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => void runWindowAction('hide')}>
-              Keep running
+              {t`Keep running`}
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              Quit {vocab.product}
+              {t`Quit ${ph({ product: vocab.product })}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -614,19 +618,18 @@ export function DesktopTitleBar() {
       <AlertDialog onOpenChange={(open) => !open && setRunningAtQuit(0)} open={runningAtQuit > 0}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Quit {vocab.product}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Quit ${ph({ product: vocab.product })}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              {runningAtQuit === 1
-                ? '1 conversation is still running.'
-                : `${runningAtQuit} conversations are still running.`}{' '}
-              Quitting stops {runningAtQuit === 1 ? 'it' : 'them'} and {vocab.product}'s local
-              services.
+              {plural(runningAtQuit, {
+                one: `# conversation is still running. Quitting stops it and ${product}'s local services.`,
+                other: `# conversations are still running. Quitting stops them and ${product}'s local services.`,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t`Cancel`}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              Quit {vocab.product}
+              {t`Quit ${ph({ product: vocab.product })}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

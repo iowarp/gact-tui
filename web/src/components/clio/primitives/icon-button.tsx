@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { HeldKeyBadge, type HeldKeySide } from './key-chip';
 import { focusIsQuiet, focusMayRaiseName } from './quiet-focus';
 import { TOOLTIP_KEY } from './tooltip-key';
+import { t } from '@lingui/core/macro';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
@@ -71,7 +72,7 @@ export function NamedTooltip({
           <span className="inline-flex shrink-0 items-center gap-1 justify-self-end">
             {presentation.alternatives.map((text, index) => (
               <Fragment key={text}>
-                {index > 0 ? <span className="text-[0.65625rem] opacity-70">or</span> : null}
+                {index > 0 ? <span className="text-[0.65625rem] opacity-70">{t`or`}</span> : null}
                 <kbd className={TOOLTIP_KEY}>{text}</kbd>
               </Fragment>
             ))}

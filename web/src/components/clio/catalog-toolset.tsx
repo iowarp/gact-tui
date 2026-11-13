@@ -43,6 +43,8 @@ import {
   type ToolEntry,
   type ToolSource,
 } from './catalog-tool-bundles';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /**
  * Unified, inspectable catalog for CLIO-owned tools and installed MCPs: one
@@ -73,13 +75,13 @@ export function CatalogToolset({
   const mcp = source === 'builtin' ? [] : bundles.mcp;
 
   if (!tools.length) {
-    return <StateView kind="empty" size="row" title="No tools were reported." />;
+    return <StateView kind="empty" size="row" title={t`No tools were reported.`} />;
   }
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-slot="tool-catalog">
       {builtin.length ? (
-        <InfraList heading="Built in" hover={26} meta={128} pinned={false}>
+        <InfraList heading={t`Built in`} hover={26} meta={128} pinned={false}>
           {builtin.map((entry) => (
             <ToolRow
               checking={checking?.has(entry.tool.name)}
@@ -92,7 +94,7 @@ export function CatalogToolset({
         </InfraList>
       ) : null}
       {mcp.length ? (
-        <InfraList heading="MCP servers" hover={26} meta={128} pinned={false}>
+        <InfraList heading={t`MCP servers`} hover={26} meta={128} pinned={false}>
           {mcp.map((entry) => (
             <ToolRow
               checking={checking?.has(entry.tool.name)}
@@ -106,10 +108,14 @@ export function CatalogToolset({
       ) : null}
       {!builtin.length && !mcp.length ? (
         <StateView
-          action={onClearFilters ? { label: 'Clear filters', onClick: onClearFilters } : undefined}
+          action={onClearFilters ? { label: t`Clear filters`, onClick: onClearFilters } : undefined}
           kind="empty"
           size="row"
-          title={query.trim() ? `No tools match “${query.trim()}”.` : 'No tools from this source.'}
+          title={
+            query.trim()
+              ? t`No tools match “${ph({ query: query.trim() })}”.`
+              : t`No tools from this source.`
+          }
         />
       ) : null}
       <Sheet
@@ -165,7 +171,7 @@ function ToolRow({
         <IconButton
           className="@max-[480px]/infra:hidden"
           icon={<EyeIcon />}
-          label={`Inspect ${tool.name}`}
+          label={t`Inspect ${ph({ name: tool.name })}`}
           onClick={inspect}
           size="sm"
         />
@@ -195,9 +201,9 @@ function ToolIcon({ tool }: { tool: ToolCatalogItem }) {
 }
 
 const PERMISSION_STATUS: Record<ToolPermission, InfraStatus> = {
-  allow: { tone: 'success', label: 'Allowed' },
-  ask: { tone: 'warning', label: 'Asks first' },
-  deny: { tone: 'idle', label: 'Off' },
+  allow: { tone: 'success', label: t`Allowed` },
+  ask: { tone: 'warning', label: t`Asks first` },
+  deny: { tone: 'idle', label: t`Off` },
 };
 
 /** The permission when Settings knows it (spec: Allowed, Asks first, Off), else availability. */
@@ -206,13 +212,13 @@ function toolStatus(
   permission?: ToolPermission,
   checking?: boolean,
 ): InfraStatus {
-  if (tool.enabled === false) return { tone: 'idle', label: 'Off' };
+  if (tool.enabled === false) return { tone: 'idle', label: t`Off` };
   const status = tool.status?.trim().toLocaleLowerCase();
   const healthy = !status || ['available', 'enabled', 'ready', 'healthy'].includes(status);
   if (permission && healthy) return PERMISSION_STATUS[permission];
-  if (checking && healthy) return { tone: 'running', label: 'Loading' };
+  if (checking && healthy) return { tone: 'running', label: t`Loading` };
   if (healthy) {
-    return { tone: 'success', label: 'Available' };
+    return { tone: 'success', label: t`Available` };
   }
   return { tone: 'warning', label: humanize(status) };
 }
@@ -231,22 +237,35 @@ function toolSummary(tool: ToolCatalogItem): string | undefined {
 function McpOriginBadge({ server }: { server: McpServerDefinition }) {
   const label =
     server.plugin || server.session_id
-      ? 'Session'
+      ? t`Session`
       : isBuiltinMcp(server)
-        ? 'Built in'
-        : 'Connected';
+        ? t`Built in`
+        : t`Connected`;
   return <Badge variant="outline">{label}</Badge>;
 }
 
 function McpProvenance({ server }: { server: McpServerDefinition }) {
   if (server.plugin) {
+    const plugin = server.plugin;
     return (
       <p className="text-xs text-muted-foreground">
-        From the{' '}
-        <Link className="font-medium text-primary hover:underline" to="/settings/plugins">
-          {server.plugin}
-        </Link>{' '}
-        plugin{server.session_id ? ' of this conversation’s agent' : ''}.
+        {server.session_id ? (
+          <Trans>
+            From the{' '}
+            <Link className="font-medium text-primary hover:underline" to="/settings/plugins">
+              {plugin}
+            </Link>{' '}
+            plugin of this conversation’s agent.
+          </Trans>
+        ) : (
+          <Trans>
+            From the{' '}
+            <Link className="font-medium text-primary hover:underline" to="/settings/plugins">
+              {plugin}
+            </Link>{' '}
+            plugin.
+          </Trans>
+        )}
       </p>
     );
   }
@@ -271,7 +290,7 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
     supplied ||
     humanize(tool.name);
   const [expanded, setExpanded] = useState(false);
-  const description = tool.description?.trim() || 'This provider did not supply a description.';
+  const description = tool.description?.trim() || t`This provider did not supply a description.`;
   return (
     <article className="grid min-w-0 content-start gap-6 p-5 pr-12">
       <SheetHeader className="gap-1 p-0">
@@ -284,7 +303,7 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
       </SheetHeader>
 
       <section className="grid gap-2">
-        <h3 className="text-sm font-semibold">Description</h3>
+        <h3 className="text-sm font-semibold">{t`Description`}</h3>
         <p
           className={`text-sm leading-6 whitespace-pre-wrap ${description.length > 420 && !expanded ? 'line-clamp-4' : ''}`}
         >
@@ -298,33 +317,33 @@ function ToolContract({ entry }: { entry: ToolEntry }) {
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? 'Show less' : 'Read full description'}
+            {expanded ? t`Show less` : t`Read full description`}
           </Button>
         ) : null}
       </section>
 
       <SchemaSection
-        empty="This tool accepts no declared inputs."
+        empty={t`This tool accepts no declared inputs.`}
         schema={tool.input_schema}
-        title="Inputs"
+        title={t`Inputs`}
       />
       <SchemaSection
-        empty="This provider did not declare the tool’s return schema."
+        empty={t`This provider did not declare the tool’s return schema.`}
         schema={tool.output_schema}
-        title="Returns"
+        title={t`Returns`}
       />
 
       <TechnicalDetails
         className="text-sm"
         summaryClassName="font-medium"
-        title="Provider metadata and raw schemas"
+        title={t`Provider metadata and raw schemas`}
       >
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Metadata label="Tool id" value={tool.name} />
-          <Metadata label="Source" value={tool.source || 'Not reported'} />
-          <Metadata label="MCP or domain" value={tool.server_id || vocab.agent} />
-          <Metadata label="Owner" value={tool.owner || 'Not reported'} />
-          <Metadata label="Visible to" value={tool.visible_to.join(', ') || 'Not restricted'} />
+          <Metadata label={t`Tool id`} value={tool.name} />
+          <Metadata label={t`Source`} value={tool.source || t`Not reported`} />
+          <Metadata label={t`MCP or domain`} value={tool.server_id || vocab.agent} />
+          <Metadata label={t`Owner`} value={tool.owner || t`Not reported`} />
+          <Metadata label={t`Visible to`} value={tool.visible_to.join(', ') || t`Not restricted`} />
         </dl>
         <pre className="clio-scrollbar mt-4 max-h-72 overflow-auto rounded-lg bg-muted/40 p-3 text-caption leading-5 whitespace-pre-wrap">
           {JSON.stringify(

@@ -46,6 +46,7 @@ import { ConnectedAccountActions } from './connected-account-actions';
 import { ConnectedAccountSignIn } from './connected-source-auth';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import type { SourceDownloadSelection } from './source-download-selection';
+import { t, ph } from '@lingui/core/macro';
 
 /** The same trusted connection and browse surface serves the composer and Files tab. */
 export function ConnectedSourcePicker({
@@ -129,19 +130,19 @@ export function ConnectedSourcePicker({
       title={
         title ??
         (manageOnly
-          ? 'Sources'
+          ? t`Sources`
           : onSelect
-            ? 'Attach'
+            ? t`Attach`
             : connect
-              ? 'Connect a data source'
-              : 'Connected data')
+              ? t`Connect a data source`
+              : t`Connected data`)
       }
       description={
-        manageOnly || connect ? undefined : 'Choose files, folders, or a connected source.'
+        manageOnly || connect ? undefined : t`Choose files, folders, or a connected source.`
       }
       srDescription={
         connect
-          ? `Choose a provider to bring its files or datasets into this workspace.`
+          ? t`Choose a provider to bring its files or datasets into this workspace.`
           : undefined
       }
       // The spec's dialog rule (36%, from 340 px) reaching `.c3d`'s 480 px at 1280.
@@ -298,7 +299,8 @@ export function ConnectedSourceContents({
   });
   // Plain and stable: never the raw machine name, and not swapped once a request lands.
   // When the agent confirms it runs here, its computer is this one.
-  const hostLabel = localConnection ? 'this computer' : `${vocab.agent}'s computer`;
+  const { agent } = vocab;
+  const hostLabel = localConnection ? t`this computer` : t`${agent}'s computer`;
   const source = sources.data?.find((row) => row.id === selectedId);
   const providerFor = (row: ConnectedSourceState): SourceProvider =>
     providers.data?.providers.find((item) => item.id === row.provider) ?? {
@@ -477,10 +479,9 @@ export function ConnectedSourceContents({
   return (
     <div className="space-y-4">
       <div className="flex min-h-[26px] items-center gap-1.5 text-meta text-muted-foreground">
-        <span className="min-w-0 truncate">Files are saved on {hostLabel}</span>
-        <InfoTip label="About connected data">
-          Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this
-          workspace. Changes to the originals are not copied automatically.
+        <span className="min-w-0 truncate">{t`Files are saved on ${hostLabel}`}</span>
+        <InfoTip label={t`About connected data`}>
+          {t`Downloaded files are saved on ${hostLabel}. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically.`}
         </InfoTip>
       </div>
       {(sources.error || providers.error || folderReference.error) && (
@@ -491,21 +492,21 @@ export function ConnectedSourceContents({
         </p>
       )}
       {!manageOnly && !settingsView && (
-        <section className="space-y-2" aria-label="From your computer">
+        <section className="space-y-2" aria-label={t`From your computer`}>
           <div>
             <h3 className={sectionLabel}>
-              {localConnection ? 'From this computer' : 'Upload from your computer'}
+              {localConnection ? t`From this computer` : t`Upload from your computer`}
             </h3>
             {!localConnection && (
               <p className="text-xs text-muted-foreground">
-                Copy files or a folder to {hostLabel}.
+                {t`Copy files or a folder to ${hostLabel}.`}
               </p>
             )}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {onUploadFiles && (
               <Button variant="outline" onClick={onUploadFiles}>
-                <PaperclipIcon aria-hidden="true" /> Choose files
+                <PaperclipIcon aria-hidden="true" /> {t`Choose files`}
               </Button>
             )}
             <Button
@@ -522,15 +523,15 @@ export function ConnectedSourceContents({
                     })
               }
             >
-              <FolderUpIcon aria-hidden="true" /> Choose folder
+              <FolderUpIcon aria-hidden="true" /> {t`Choose folder`}
             </Button>
           </div>
         </section>
       )}
       {!manageOnly && Boolean(providers.data?.providers.length) && (
-        <section className="space-y-2" aria-label="Connect a data source">
+        <section className="space-y-2" aria-label={t`Connect a data source`}>
           <h3 className={sectionLabel}>
-            {settingsView ? 'Accounts and providers' : 'From a connected source'}
+            {settingsView ? t`Accounts and providers` : t`From a connected source`}
           </h3>
           <div className="@container -mx-2">
             {providers.data?.providers
@@ -544,28 +545,28 @@ export function ConnectedSourceContents({
                   title={
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate">
-                        {row.id === 'local' ? `Use a folder on ${hostLabel}` : row.name}
+                        {row.id === 'local' ? t`Use a folder on ${hostLabel}` : row.name}
                       </span>
                       <SourceProviderInfo provider={row} />
                     </span>
                   }
                   meta={
                     row.id === 'obsidian' ? (
-                      'Knowledge graphs from linked notes'
+                      t`Knowledge graphs from linked notes`
                     ) : row.id === 'local' ? (
-                      'Choose data already on this machine'
+                      t`Choose data already on this machine`
                     ) : row.authentication === 'browser' ? (
                       row.authenticated ? (
                         <span className="inline-flex items-center gap-1">
-                          <CheckIcon aria-hidden="true" className="size-3" /> Signed in
+                          <CheckIcon aria-hidden="true" className="size-3" /> {t`Signed in`}
                         </span>
                       ) : (
-                        'Sign in for private data'
+                        t`Sign in for private data`
                       )
                     ) : row.id === 'github' ? (
-                      'Public or private repository folder'
+                      t`Public or private repository folder`
                     ) : (
-                      'Saved or new SSH host'
+                      t`Saved or new SSH host`
                     )
                   }
                   actionsVisible
@@ -574,7 +575,7 @@ export function ConnectedSourceContents({
                     row.id === 'obsidian' ? (
                       <IconButton
                         size="sm"
-                        label="New vault"
+                        label={t`New vault`}
                         icon={<AddIcon />}
                         disabled={!workspaceId}
                         onClick={() => {
@@ -588,7 +589,7 @@ export function ConnectedSourceContents({
                       ) : (
                         <IconButton
                           size="sm"
-                          label={`Sign in to ${row.name}`}
+                          label={t`Sign in to ${ph({ name: row.name })}`}
                           icon={<LogInIcon />}
                           onClick={() => setAccountLogin(row)}
                         />
@@ -607,7 +608,7 @@ export function ConnectedSourceContents({
                         setForm({ choice: row.id });
                       }}
                     >
-                      Connect
+                      {t`Connect`}
                     </Button>
                   }
                 />
@@ -617,12 +618,12 @@ export function ConnectedSourceContents({
       )}
       {sources.isPending && workspaceId && !connectOnly && (
         <p role="status" className="text-sm text-muted-foreground">
-          Loading sources…
+          {t`Loading sources…`}
         </p>
       )}
       {connectOnly ? null : sources.data?.length ? (
         <Collapsible defaultOpen={!collapsibleSources} asChild>
-          <section className="space-y-2" aria-label="Your connected sources">
+          <section className="space-y-2" aria-label={t`Your connected sources`}>
             <h3 className={sectionLabel}>
               {collapsibleSources ? (
                 <CollapsibleTrigger asChild>
@@ -630,20 +631,20 @@ export function ConnectedSourceContents({
                     variant="ghost"
                     size="sm"
                     className="group h-8 w-full justify-between px-0 hover:bg-transparent"
-                    aria-label="Your sources"
+                    aria-label={t`Your sources`}
                   >
                     <span className="flex items-center gap-2">
                       <ChevronRightIcon
                         aria-hidden="true"
                         className="size-4 transition-transform group-data-[state=open]:rotate-90"
                       />
-                      Your sources
+                      {t`Your sources`}
                     </span>
                     <span className="text-xs text-muted-foreground">{sources.data.length}</span>
                   </Button>
                 </CollapsibleTrigger>
               ) : (
-                'Your sources'
+                t`Your sources`
               )}
             </h3>
             <CollapsibleContent>
@@ -665,21 +666,21 @@ export function ConnectedSourceContents({
                               ? linkAccessNames[row.link_access ?? 'read_only']
                               : row.local_path
                                 ? row.download_access === 'editable'
-                                  ? 'Editable copy'
-                                  : 'Read-only copy'
-                                : 'Choose access when adding'}
+                                  ? t`Editable copy`
+                                  : t`Read-only copy`
+                                : t`Choose access when adding`}
                           </span>
                           <span>
                             {!row.connected
-                              ? 'Disconnected'
+                              ? t`Disconnected`
                               : !row.authenticated && !row.access_without_signin
                                 ? row.account_authenticated
-                                  ? 'Permission needed'
-                                  : 'Sign-in needed'
+                                  ? t`Permission needed`
+                                  : t`Sign-in needed`
                                 : row.linked
-                                  ? 'Linked folder'
+                                  ? t`Linked folder`
                                   : row.materialization === 'not_materialized'
-                                    ? 'Ready to use'
+                                    ? t`Ready to use`
                                     : sourceStatus(row).label}
                           </span>
                         </span>
@@ -695,7 +696,7 @@ export function ConnectedSourceContents({
                         <Button
                           size="sm"
                           variant="ghost"
-                          aria-label={`Add ${row.label} to message`}
+                          aria-label={t`Add ${ph({ label: row.label })} to message`}
                           disabled={folderReference.isPending}
                           onClick={() =>
                             folderReference.mutate({
@@ -708,7 +709,7 @@ export function ConnectedSourceContents({
                             })
                           }
                         >
-                          Add to message
+                          {t`Add to message`}
                         </Button>
                       )}
                     <ConnectedSourceActions
@@ -726,19 +727,19 @@ export function ConnectedSourceContents({
       ) : !sources.isPending && !sources.error && !providers.error ? (
         settingsView ? (
           <div className="rounded-lg border px-4 py-3 text-center">
-            <p className="mt-2 text-sm font-medium">No saved sources in this workspace</p>
+            <p className="mt-2 text-sm font-medium">{t`No saved sources in this workspace`}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Workspace files stay available. Connect a source for additional data.
+              {t`Workspace files stay available. Connect a source for additional data.`}
             </p>
           </div>
         ) : (
           <p className="text-menu text-muted-foreground">
             <span className="font-medium text-foreground">
-              {manageOnly ? 'No connected sources.' : 'Nothing connected yet.'}
+              {manageOnly ? t`No connected sources.` : t`Nothing connected yet.`}
             </span>{' '}
             {manageOnly
-              ? 'Add one with + in the Sources list.'
-              : 'Connect a folder to browse and attach its files.'}
+              ? t`Add one with + in the Sources list.`
+              : t`Connect a folder to browse and attach its files.`}
           </p>
         )
       ) : null}
@@ -757,13 +758,13 @@ function AccountLogin({
   onComplete: () => void;
 }) {
   const footer = useSourceFrameFooter({
-    start: { label: 'Back', back: true, onClick: onBack },
+    start: { label: t`Back`, back: true, onClick: onBack },
   });
   return (
     <div className="flex min-w-0 flex-col gap-[13px]">
       <div className="flex min-w-0 items-center gap-2.5">
         <SourceProviderLogo provider={provider.id} />
-        <h3 className="truncate text-ui font-medium">Sign in to {provider.name}</h3>
+        <h3 className="truncate text-ui font-medium">{t`Sign in to ${ph({ name: provider.name })}`}</h3>
       </div>
       <ConnectedAccountSignIn
         provider={provider.id}

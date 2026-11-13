@@ -1,4 +1,5 @@
 import type { FlowRun, PendingInteraction } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * How a workflow changed while it ran, read from what its run recorded: each
@@ -133,31 +134,34 @@ export function workflowEdits(run: FlowRun): WorkflowEdit[] {
 export function editOutcomeText(edit: WorkflowEdit): string {
   switch (edit.outcome) {
     case 'proposed':
-      return 'proposed';
+      return t({ message: 'proposed', context: 'workflow change' });
     case 'awaiting':
-      return 'awaiting your approval';
+      return t`awaiting your approval`;
     case 'added':
-      return 'added';
+      return t({ message: 'added', context: 'workflow change' });
     case 'approved':
-      return 'added after you approved it';
+      return t`added after you approved it`;
     case 'declined':
-      return 'not added: you declined it';
+      return t`not added: you declined it`;
     case 'rejected':
-      return `not added: ${rejectionText(edit.reason ?? '')}`;
+      return t`not added: ${ph({ reason: rejectionText(edit.reason ?? '') })}`;
     case 'cancelled':
-      return 'cancelled before it ran';
+      return t`cancelled before it ran`;
     case 'cancel_refused':
-      return `cancel refused: ${rejectionText(edit.reason ?? '')}`;
+      return t`cancel refused: ${ph({ reason: rejectionText(edit.reason ?? '') })}`;
   }
 }
 
 function rejectionText(reason: string): string {
-  if (reason === 'max_added_reached') return 'the workflow reached its limit of added steps';
-  if (reason === 'target_not_allowed') return 'the workflow does not allow that agent';
-  if (reason === 'step_exists') return 'a step with that name already exists';
-  if (reason === 'not_pending') return 'the step had already started';
-  if (reason.startsWith('invalid:')) return `the step was invalid (${reason.slice(8).trim()})`;
-  return reason ? reason.replaceAll('_', ' ') : 'no reason was recorded';
+  if (reason === 'max_added_reached') return t`the workflow reached its limit of added steps`;
+  if (reason === 'target_not_allowed') return t`the workflow does not allow that agent`;
+  if (reason === 'step_exists') return t`a step with that name already exists`;
+  if (reason === 'not_pending') return t`the step had already started`;
+  if (reason.startsWith('invalid:')) {
+    const detail = reason.slice(8).trim();
+    return t`the step was invalid (${detail})`;
+  }
+  return reason ? reason.replaceAll('_', ' ') : t`no reason was recorded`;
 }
 
 /** One approval question a run asked, with where it was asked and the answer. */

@@ -11,6 +11,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { NDPActionPicker } from './ndp-action-picker';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { formatDateTime } from '@/lib/locale-format';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** Run observed operations with explicit bounded capture and visible remote side effects. */
 export function NDPEndpointOperationView({
@@ -121,7 +123,7 @@ export function NDPEndpointOperationView({
             ))}
           {operation.body_schema ? (
             <div className="space-y-1">
-              <Label htmlFor="ndp-operation-body">Request JSON</Label>
+              <Label htmlFor="ndp-operation-body">{t`Request JSON`}</Label>
               <Textarea
                 {...identifierInputProps}
                 id="ndp-operation-body"
@@ -134,10 +136,10 @@ export function NDPEndpointOperationView({
             </div>
           ) : null}
           <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground">Response limits</summary>
+            <summary className="cursor-pointer text-muted-foreground">{t`Response limits`}</summary>
             <div className="mt-2 flex gap-3">
               <div className="space-y-1">
-                <Label htmlFor="ndp-capture-seconds">Capture seconds</Label>
+                <Label htmlFor="ndp-capture-seconds">{t`Capture seconds`}</Label>
                 <Input
                   id="ndp-capture-seconds"
                   type="number"
@@ -148,7 +150,7 @@ export function NDPEndpointOperationView({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ndp-capture-events">Max stream events</Label>
+                <Label htmlFor="ndp-capture-events">{t`Max stream events`}</Label>
                 <Input
                   id="ndp-capture-events"
                   type="number"
@@ -162,18 +164,17 @@ export function NDPEndpointOperationView({
           </details>
           {confirm ? (
             <p role="alert" className="text-sm">
-              Run {operation.method} {operation.path} on {endpoint.name}? This can change remote
-              state.
+              {t`Run ${ph({ method: operation.method })} ${ph({ path: operation.path })} on ${ph({ name: endpoint.name })}? This can change remote state.`}
             </p>
           ) : null}
           <Button disabled={request.isPending}>
             {request.isPending
-              ? 'Receiving data…'
+              ? t`Receiving data…`
               : confirm
-                ? 'Confirm operation'
+                ? t`Confirm operation`
                 : operation.read_only
-                  ? 'Run and save response'
-                  : 'Review action'}
+                  ? t`Run and save response`
+                  : t`Review action`}
           </Button>
         </form>
       ) : null}
@@ -183,11 +184,13 @@ export function NDPEndpointOperationView({
         </p>
       ) : null}
       {request.data ? (
-        <div className="space-y-2" aria-label="Endpoint response">
+        <div className="space-y-2" aria-label={t`Endpoint response`}>
           <p role="status" className="flex flex-wrap gap-x-3 text-sm">
-            <span>HTTP {request.data.status_code}</span>{' '}
-            <span>{request.data.bytes_received.toLocaleString()} bytes</span>{' '}
-            <span>{request.data.events} stream events</span>{' '}
+            <span>{t`HTTP ${ph({ status: request.data.status_code })}`}</span>{' '}
+            <span>{plural(request.data.bytes_received, { one: '# byte', other: '# bytes' })}</span>{' '}
+            <span>
+              {plural(request.data.events, { one: '# stream event', other: '# stream events' })}
+            </span>{' '}
             <span>{request.data.stop_reason.replaceAll('_', ' ')}</span>
           </p>
           <pre className="max-h-52 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
@@ -195,7 +198,9 @@ export function NDPEndpointOperationView({
           </pre>
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
             <span>
-              {request.data.source_artifact_id ? 'Saved in workspace Sources' : 'Response retained'}
+              {request.data.source_artifact_id
+                ? t`Saved in workspace Sources`
+                : t`Response retained`}
             </span>{' '}
             <span>{request.data.sha256.slice(0, 12)}</span>
           </p>
@@ -210,7 +215,7 @@ export function NDPEndpointOperationView({
                 },
               }}
             >
-              Open captured response
+              {t`Open captured response`}
             </Link>
           ) : null}
           {request.data.materialization?.state === 'failed' ? (
@@ -223,7 +228,7 @@ export function NDPEndpointOperationView({
       {history.data?.captures.length ? (
         <details>
           <summary className="cursor-pointer text-sm">
-            Captured responses ({history.data.captures.length})
+            {t`Captured responses (${ph({ count: history.data.captures.length })})`}
           </summary>
           <ul className="mt-2 space-y-2 text-xs text-muted-foreground">
             {history.data.captures
@@ -247,8 +252,10 @@ export function NDPEndpointOperationView({
                   ) : (
                     row.operation_id
                   )}{' '}
-                  <span className="mx-2">{row.bytes_received.toLocaleString()} bytes</span>{' '}
-                  {new Date(row.completed_at).toLocaleString()}
+                  <span className="mx-2">
+                    {plural(row.bytes_received, { one: '# byte', other: '# bytes' })}
+                  </span>{' '}
+                  {formatDateTime(row.completed_at)}
                 </li>
               ))}
           </ul>

@@ -1,5 +1,6 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
+import { t } from '@lingui/core/macro';
 
 /** True for an MCP request the server first addressed to an agent. */
 export function isAgentMcpInteraction(interaction: PendingInteraction): boolean {
@@ -117,7 +118,7 @@ function asDenied(tool: ToolInvocation, wording: string): ToolInvocation {
   const decision: ToolPresentationBlock = {
     id: 'permission-decision',
     type: 'text',
-    label: 'Decision',
+    label: t`Decision`,
     text: wording,
   };
   const kept = (tool.presentation?.blocks ?? []).filter(
@@ -243,14 +244,14 @@ export function toolWaitsForYou(
 export function questionInteractionRequestLabel(interaction: PendingInteraction): string {
   const kind =
     interaction.payload?.mode === 'url'
-      ? 'URL consent request'
+      ? t`URL consent request`
       : interaction.payload?.mode === 'form'
-        ? 'Form request'
+        ? t`Form request`
         : interaction.kind === 'mcp_task_input'
-          ? 'Task input request'
+          ? t`Task input request`
           : interaction.source.protocol === 'native'
-            ? 'Question'
-            : 'Information request';
+            ? t`Question`
+            : t`Information request`;
   const index = interaction.payload?.request_index;
   const count = interaction.payload?.request_count;
   return index && count ? `${kind} ${index} of ${count}` : kind;

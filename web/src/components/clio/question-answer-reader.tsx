@@ -1,6 +1,7 @@
 import { CheckIcon, PencilIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { QuestionReading } from './question-tool-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * An opened "Answered" row: each question under a header bar, its options as
@@ -20,18 +21,24 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
         const last = index === reading.questions.length - 1;
         return (
           <section
-            aria-label={many ? `Question ${index + 1} of ${reading.questions.length}` : 'Question'}
+            aria-label={
+              many
+                ? t`Question ${ph({ number: index + 1 })} of ${ph({ total: reading.questions.length })}`
+                : t`Question`
+            }
             className={cn(index > 0 && 'border-t border-border')}
             key={index}
           >
             <div className="flex h-[30px] items-center gap-2 border-b border-border px-2.5 text-label whitespace-nowrap text-muted-foreground">
               <b className="text-meta font-medium text-foreground/85">
-                {many ? `Question ${index + 1} of ${reading.questions.length}` : 'Question'}
+                {many
+                  ? t`Question ${ph({ number: index + 1 })} of ${ph({ total: reading.questions.length })}`
+                  : t`Question`}
               </b>
             </div>
             <p className="px-2.5 pt-1.5 pb-1 leading-normal text-foreground">{question.prompt}</p>
             {question.options.length ? (
-              <ul aria-label="Options" className="grid px-1 pb-1">
+              <ul aria-label={t`Options`} className="grid px-1 pb-1">
                 {question.options.map((option) => (
                   <li
                     className={cn(
@@ -55,7 +62,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
                         {option.description}
                       </span>
                     ) : null}
-                    {option.chosen ? <span className="sr-only">, your answer</span> : null}
+                    {option.chosen ? <span className="sr-only">{t`, your answer`}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -65,7 +72,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
                 <span className="grid h-[18px] w-4 shrink-0 place-items-center">
                   <PencilIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
                 </span>
-                <span className="sr-only">Your answer: </span>
+                <span className="sr-only">{t`Your answer:`} </span>
                 <span className="min-w-0 leading-4.5 whitespace-pre-wrap [overflow-wrap:anywhere]">
                   {reading.written.join('\n')}
                 </span>
@@ -76,7 +83,7 @@ export function QuestionAnswerReader({ reading }: { reading: QuestionReading }) 
       })}
       {reading.reason ? (
         <p className="border-t border-border px-2.5 py-1.5 text-label leading-normal text-muted-foreground">
-          <span className="text-foreground/85">Why I’m asking</span> {reading.reason}
+          <span className="text-foreground/85">{t`Why I’m asking`}</span> {reading.reason}
         </p>
       ) : null}
     </div>

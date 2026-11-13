@@ -7,6 +7,7 @@ interface Flight {
 const flights = new Map<string, Flight>();
 
 function abortError(): DOMException {
+  // i18n-ignore: AbortError reason, developer output
   return new DOMException('The operation was aborted', 'AbortError');
 }
 

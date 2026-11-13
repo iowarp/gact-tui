@@ -28,6 +28,7 @@ import {
 import { formatResourceSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ResourceLoading } from './resource-states';
+import { t, ph } from '@lingui/core/macro';
 
 const WorkspaceResourceView = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
@@ -89,7 +90,7 @@ export function WorkspaceResourceBrowser({
             : 0;
           return (
             <Attachment
-              aria-label={`Open ${resource.name}`}
+              aria-label={t`Open ${ph({ name: resource.name })}`}
               className={cn(
                 'cursor-pointer p-2.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                 selected?.id === resource.id && 'border-primary bg-primary/5',
@@ -118,14 +119,14 @@ export function WorkspaceResourceBrowser({
                 <p>{resource.state === 'uploading' ? `${progress}%` : resource.state}</p>
               </div>
               <Button
-                aria-label={`Pin ${resource.name} as a canvas tab`}
+                aria-label={t`Pin ${ph({ name: resource.name })} as a canvas tab`}
                 className="size-8 shrink-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   onOpenResource(resource);
                 }}
                 size="icon-sm"
-                title="Pin as a canvas tab"
+                title={t`Pin as a canvas tab`}
                 variant="ghost"
               >
                 <PanelRightOpenIcon aria-hidden="true" />
@@ -140,9 +141,9 @@ export function WorkspaceResourceBrowser({
             <EmptyMedia variant="icon">
               <FileUpIcon aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>{error ? 'Resources unavailable' : 'No workspace resources'}</EmptyTitle>
+            <EmptyTitle>{error ? t`Resources unavailable` : t`No workspace resources`}</EmptyTitle>
             <EmptyDescription>
-              {error || 'Upload a file from the composer to keep it with this workspace.'}
+              {error || t`Upload a file from the composer to keep it with this workspace.`}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -151,13 +152,13 @@ export function WorkspaceResourceBrowser({
   );
 
   return (
-    <section aria-label="Workspace resources" className="h-full min-h-0" ref={hostRef}>
+    <section aria-label={t`Workspace resources`} className="h-full min-h-0" ref={hostRef}>
       {split && selected ? (
         <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize="32%" id="workspace-resource-list" minSize="190px">
             {list}
           </ResizablePanel>
-          <ResizableHandle aria-label="Resize workspace resource list" withHandle />
+          <ResizableHandle aria-label={t`Resize workspace resource list`} withHandle />
           <ResizablePanel id="workspace-resource-preview" minSize="320px">
             <Suspense fallback={<PreviewLoading />}>
               <WorkspaceResourceView resource={selected} workspaceId={workspaceId} />
@@ -172,9 +173,9 @@ export function WorkspaceResourceBrowser({
 }
 
 function LoadingResources() {
-  return <ResourceLoading className="w-full" label="Loading workspace resources" />;
+  return <ResourceLoading className="w-full" label={t`Loading workspace resources`} />;
 }
 
 function PreviewLoading() {
-  return <ResourceLoading className="p-4" label="Loading preview" />;
+  return <ResourceLoading className="p-4" label={t`Loading preview`} />;
 }

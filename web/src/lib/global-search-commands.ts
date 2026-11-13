@@ -20,6 +20,7 @@ import {
   settingsSearchRows,
   type SettingsSearchValue,
 } from './settings-search-rows';
+import { ph, t } from '@lingui/core/macro';
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
@@ -44,6 +45,13 @@ export function matchesGlobalSearch(query: string, ...fields: (string | undefine
 }
 
 /** Application commands reuse the same destinations as their owning pages. */
+/** The settings groups (`ApplicationDestination.group` ids) as a trail names them. */
+const SETTINGS_GROUP_LABELS: Record<string, string> = {
+  App: t`App`,
+  Workspace: t`Workspace`,
+  Agent: t`Agent`,
+};
+
 export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
   const sections = settingsDestinations(desktop);
   const settingRows = settingsSearchRows().flatMap((row): GlobalSearchCommand[] => {
@@ -55,7 +63,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         label: row.label,
         icon: section.icon,
         group: 'Settings',
-        trail: `Settings › ${section.label}`,
+        trail: t`Settings › ${ph({ section: section.label })}`,
         keywords: `${section.label} ${row.keywords ?? ''}`,
         action: { route: `/settings/${row.section}${settingsRowHash(row.label)}` },
         setting: { value: row.value },
@@ -65,7 +73,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
   return [
     {
       id: 'connections',
-      label: 'Connections',
+      label: t`Connections`,
       icon: CableIcon,
       group: 'Navigation',
       keywords: 'connect service computer host',
@@ -73,7 +81,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'runs',
-      label: 'Runs',
+      label: t`Runs`,
       icon: ActivityIcon,
       group: 'Navigation',
       keywords: 'tasks jobs work background',
@@ -81,7 +89,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'infrastructure',
-      label: 'Infrastructure',
+      label: t`Infrastructure`,
       icon: NetworkIcon,
       group: 'Navigation',
       keywords: 'hosts servers services setup sandbox protected execution',
@@ -89,7 +97,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'settings',
-      label: 'Settings',
+      label: t`Settings`,
       icon: SettingsIcon,
       group: 'Navigation',
       keywords: 'preferences configuration',
@@ -102,7 +110,9 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         ...item,
         id: `settings:${item.id}`,
         group: 'Settings',
-        trail: item.group ? `Settings › ${item.group}` : 'Settings',
+        trail: item.group
+          ? t`Settings › ${ph({ group: SETTINGS_GROUP_LABELS[item.group] ?? item.group })}`
+          : t`Settings`,
         keywords: `${item.group ?? ''} ${item.keywords ?? ''}`,
         action: { route: `/settings/${item.id}` },
       }),
@@ -118,7 +128,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     ),
     {
       id: 'terminal',
-      label: 'Open terminal',
+      label: t`Open terminal`,
       icon: TerminalSquareIcon,
       group: 'Actions',
       keywords: 'terminal shell console command line pty workbench',
@@ -127,7 +137,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:light',
-      label: 'Switch to light mode',
+      label: t`Switch to light mode`,
       icon: SunIcon,
       group: 'Actions',
       keywords: 'theme appearance color day bright notebook paper',
@@ -135,7 +145,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:dark',
-      label: 'Switch to dark mode',
+      label: t`Switch to dark mode`,
       icon: MoonIcon,
       group: 'Actions',
       keywords: 'theme appearance color night notebook ink',
@@ -143,7 +153,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:system',
-      label: 'Use system theme',
+      label: t`Use system theme`,
       icon: MonitorIcon,
       group: 'Actions',
       keywords: 'appearance automatic light dark mode follow device',

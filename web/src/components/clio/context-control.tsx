@@ -15,6 +15,30 @@ import {
   type ContextDraft,
   type EffectiveContext,
 } from './context-control-model';
+import { t, ph } from '@lingui/core/macro';
+
+/** "Max: the model’s maximum (128K)." */
+function maxSummary(maximum: number | undefined): string {
+  return maximum !== undefined
+    ? t`Max: the model’s maximum (${ph({ maximum: formatTokens(maximum) })}).`
+    : t`Max: the model’s maximum.`;
+}
+
+/** "Fit to GPU: balanced (64K tokens)." */
+function fitSummary(strategy: string | undefined, value: number | undefined): string {
+  const tokens = value !== undefined ? formatTokens(value) : undefined;
+  if (strategy && tokens !== undefined) return t`Fit to GPU: ${strategy} (${tokens} tokens).`;
+  if (strategy) return t`Fit to GPU: ${strategy}.`;
+  if (tokens !== undefined) return t`Fit to GPU (${tokens} tokens).`;
+  return t`Fit to GPU.`;
+}
+
+/** "Between 4K and 128K tokens." */
+function rangeSummary(minimum: number, bound: number | undefined): string {
+  return bound !== undefined
+    ? t`Between ${ph({ minimum: formatTokens(minimum) })} and ${ph({ maximum: formatTokens(bound) })} tokens.`
+    : t`Between ${ph({ minimum: formatTokens(minimum) })} tokens.`;
+}
 
 export interface ContextControlFitToGpu {
   /** Only when the service says Fit to GPU can be computed here; otherwise it is not shown. */
@@ -54,7 +78,7 @@ export interface ContextControlProps {
  */
 export function ContextControl({
   id,
-  label = 'Context length',
+  label = t`Context length`,
   draft,
   onDraft,
   minimum,
@@ -84,15 +108,13 @@ export function ContextControl({
           ? String(fit.value)
           : '';
   const bound = maximum ?? ceiling;
-  const upTo = bound !== undefined ? ` and ${formatTokens(bound)}` : '';
-  const fitTokens = fit?.value !== undefined ? ` (${formatTokens(fit.value)} tokens)` : '';
   const summary =
     draft.choice === 'max'
-      ? `Max: the model’s maximum${maximum !== undefined ? ` (${formatTokens(maximum)})` : ''}.`
+      ? maxSummary(maximum)
       : draft.choice === 'fit_to_gpu'
-        ? `Fit to GPU${strategyLabel ? `: ${strategyLabel}` : ''}${fitTokens}.`
+        ? fitSummary(strategyLabel, fit?.value)
         : draft.choice === 'number'
-          ? `Between ${formatTokens(minimum)}${upTo} tokens.`
+          ? rangeSummary(minimum, bound)
           : defaultDescription;
   return (
     <Field data-slot="context-control">
@@ -110,7 +132,7 @@ export function ContextControl({
           onChange={(event) =>
             onDraft({ choice: 'number', tokens: event.target.value, strategy: '' })
           }
-          placeholder={draft.choice === 'fit_to_gpu' ? 'Fit to GPU' : 'Tokens'}
+          placeholder={draft.choice === 'fit_to_gpu' ? t`Fit to GPU` : t`Tokens`}
           step={1}
           type="number"
           value={shown}
@@ -125,7 +147,7 @@ export function ContextControl({
             type="button"
             variant={draft.choice === 'max' ? 'default' : 'outline'}
           >
-            Max
+            {t`Max`}
           </Button>
         ) : null}
         {fit ? (
@@ -136,13 +158,13 @@ export function ContextControl({
             }
             value={strategy}
           >
-            <SelectTrigger aria-label="Fit to GPU" className="w-auto min-w-40" size="sm">
-              <SelectValue placeholder="Fit to GPU" />
+            <SelectTrigger aria-label={t`Fit to GPU`} className="w-auto min-w-40" size="sm">
+              <SelectValue placeholder={t`Fit to GPU`} />
             </SelectTrigger>
             <SelectContent>
               {fit.strategies.map((row) => (
                 <SelectItem key={row.id} title={row.description || undefined} value={row.id}>
-                  Fit to GPU: {row.label}
+                  {t`Fit to GPU: ${ph({ label: row.label })}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -158,10 +180,9 @@ export function ContextControl({
       {effective ? (
         <p className="text-xs text-muted-foreground" data-slot="context-effective" role="status">
           <span className="font-medium text-foreground">
-            In force:{' '}
             {effective.length !== undefined
-              ? `${formatTokens(effective.length)} tokens`
-              : 'the engine’s own default'}
+              ? t`In force: ${ph({ tokens: formatTokens(effective.length) })} tokens`
+              : t`In force: the engine’s own default`}
           </span>
           {effective.reason ? ` (${effective.reason})` : null}
         </p>

@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SaveIcon } from '@/lib/icon-vocabulary';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { t } from '@lingui/core/macro';
 
 /** Keep the editor scrollable while its save and cancel controls stay in view. */
 export function PluginSourceEditor({
@@ -32,7 +33,7 @@ export function PluginSourceEditor({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b p-3">
-        <Label htmlFor={`${id}-name`}>New local copy name</Label>
+        <Label htmlFor={`${id}-name`}>{t`New local copy name`}</Label>
         <Input
           id={`${id}-name`}
           className="mt-2"
@@ -41,12 +42,11 @@ export function PluginSourceEditor({
           onChange={(event) => onName(event.target.value)}
         />
         <p className="mt-2 text-xs text-muted-foreground">
-          Saves to your Private local marketplace on this agent host. The source repository and
-          current agent stay unchanged.
+          {t`Saves to your Private local marketplace on this agent host. The source repository and current agent stay unchanged.`}
         </p>
       </div>
       <Label htmlFor={`${id}-text`} className="sr-only">
-        Edit {path}
+        {t`Edit ${path}`}
       </Label>
       <Textarea
         {...identifierInputProps}
@@ -65,11 +65,11 @@ export function PluginSourceEditor({
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <Button size="sm" variant="outline" disabled={saving} onClick={onCancel}>
-            Cancel editing
+            {t`Cancel editing`}
           </Button>
           <Button size="sm" disabled={saving || !name.trim()} onClick={onSave}>
             <SaveIcon aria-hidden="true" />
-            {saving ? 'Saving…' : 'Save local copy'}
+            {saving ? t`Saving…` : t`Save local copy`}
           </Button>
         </div>
       </div>

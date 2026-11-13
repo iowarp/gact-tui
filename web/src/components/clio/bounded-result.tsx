@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 import { displayLineBottoms } from './display-line-geometry';
 import { ResultDialogContent } from './result-dialog-content';
+import { t } from '@lingui/core/macro';
 
 /** Keep a bounded preview; reveal short results once, and open large results separately. */
 export function BoundedResult({
@@ -14,7 +15,7 @@ export function BoundedResult({
   hasMore = false,
   loadMore,
   running = false,
-  title = 'Complete result',
+  title = t`Complete result`,
   fullContent,
   separateViewer = false,
   unit = 'lines',
@@ -93,7 +94,7 @@ export function BoundedResult({
         await loadMore(controller.signal);
       } catch (cause) {
         if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : 'Unable to load result');
+          setError(cause instanceof Error ? cause.message : t`Unable to load result`);
         return;
       } finally {
         if (request.current === controller) {
@@ -110,7 +111,7 @@ export function BoundedResult({
         ref={viewport}
         className={running ? 'overflow-auto' : 'overflow-hidden'}
         role={running ? 'region' : undefined}
-        aria-label={running ? 'Live terminal output' : undefined}
+        aria-label={running ? t`Live terminal output` : undefined}
         tabIndex={running ? 0 : undefined}
         style={{ maxHeight: height === undefined ? undefined : `${height}px` }}
         onScroll={(event) => {
@@ -135,7 +136,7 @@ export function BoundedResult({
           disabled={loading}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? t`Show less` : t`Show more`}
         </Button>
       ) : null}
       {!running && (separate || open) ? (
@@ -157,7 +158,7 @@ export function BoundedResult({
               aria-expanded={open}
               onClick={() => void expand()}
             >
-              Show more
+              {t`Show more`}
             </Button>
           </DialogTrigger>
           <ResultDialogContent
@@ -165,7 +166,7 @@ export function BoundedResult({
             title={title}
             footer={
               <>
-                {loading ? <p role="status">Loading complete result…</p> : null}
+                {loading ? <p role="status">{t`Loading complete result…`}</p> : null}
                 {error ? (
                   <p role="alert" className="text-destructive">
                     {error}
@@ -181,7 +182,7 @@ export function BoundedResult({
       {/* A block starts its hidden text at the result's edge; inline after
           Show less, it ran past a narrow bubble's edge (#885). */}
       <span className="sr-only block" role="status">
-        {expanded ? 'Complete result revealed' : ''}
+        {expanded ? t`Complete result revealed` : ''}
       </span>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { MODE_LABELS } from './comment-model';
+import { t } from '@lingui/core/macro';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -57,7 +58,7 @@ export function CommentControls({
   onSend,
   sendDisabled,
   busy,
-  busyLabel = 'Capturing…',
+  busyLabel = t`Capturing…`,
   onClose,
   error,
   conflict,
@@ -115,7 +116,7 @@ export function CommentControls({
   };
   return (
     <div
-      aria-label={`Comments on ${title}`}
+      aria-label={t`Comments on ${title}`}
       className="fixed z-[90] w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
       data-capture-ui="true"
       data-slot="comment-controls"
@@ -125,7 +126,7 @@ export function CommentControls({
     >
       <div className="flex items-center gap-1">
         <button
-          aria-label="Move capture controls"
+          aria-label={t`Move capture controls`}
           className="cursor-move touch-none rounded p-1 text-muted-foreground select-none hover:bg-muted"
           onLostPointerCapture={endDrag}
           onPointerCancel={endDrag}
@@ -170,11 +171,11 @@ export function CommentControls({
           size="sm"
           variant={selecting ? 'secondary' : 'ghost'}
         >
-          Select
+          {t`Select`}
         </Button>
         <Button
           aria-expanded={listOpen}
-          aria-label="Selections list"
+          aria-label={t`Selections list`}
           onClick={() => setListOpen((open) => !open)}
           size="icon-sm"
           variant="ghost"
@@ -185,7 +186,7 @@ export function CommentControls({
           <span className="text-xs tabular-nums text-muted-foreground">{marks.length}</span>
         ) : null}
         <Button
-          aria-label="Close capture"
+          aria-label={t`Close capture`}
           className="ml-auto"
           onClick={onClose}
           size="icon-sm"
@@ -196,9 +197,9 @@ export function CommentControls({
       </div>
       {modes.length > 1 && mode && onMode ? (
         <div className="mt-2 flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Mark</span>
+          <span className="text-muted-foreground">{t`Mark`}</span>
           <Select value={mode} onValueChange={(value) => onMode(value as CommentMode)}>
-            <SelectTrigger aria-label="Comment mode" className="h-7 flex-1" size="sm">
+            <SelectTrigger aria-label={t`Comment mode`} className="h-7 flex-1" size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[95]">
@@ -219,7 +220,7 @@ export function CommentControls({
           size="sm"
           variant="outline"
         >
-          Add region
+          {t`Add region`}
         </Button>
       ) : null}
       {listOpen || !marks.length ? (
@@ -232,7 +233,7 @@ export function CommentControls({
                 onClick={() => onOpenMark(mark.label)}
                 type="button"
               >
-                {mark.label}: {mark.comment || 'Add a comment'}
+                {mark.label}: {mark.comment || t`Add a comment`}
                 {mark.note ? (
                   <span className="block truncate text-muted-foreground" data-slot="mark-note">
                     {mark.note}

@@ -1,6 +1,7 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { DateTimeInputApi } from '@a2ui/web_core/v0_9/basic_catalog';
 import { DateTimeField } from './date-time-field';
+import { t } from '@lingui/core/macro';
 
 /** Offset-bearing timestamps represent instants; wall times keep their original local meaning. */
 export function dateTimeFieldValue(value: string, date: boolean, time: boolean): string {
@@ -32,7 +33,7 @@ export const ClioDateTimeInput = createComponentImplementation(DateTimeInputApi,
       onChange={(next) =>
         props.setValue(instant ? (next === local ? value : new Date(next).toISOString()) : next)
       }
-      label={props.label || (props.enableDate ? 'Date and time' : 'Time')}
+      label={props.label || (props.enableDate ? t`Date and time` : t`Time`)}
       enableDate={date}
       enableTime={time}
       min={typeof props.min === 'string' ? dateTimeFieldValue(props.min, date, time) : undefined}

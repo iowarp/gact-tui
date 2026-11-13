@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ContextDisclosure } from './context-disclosure';
+import { t } from '@lingui/core/macro';
 
 export function ContextCompactionControls({
   context,
@@ -36,12 +37,12 @@ export function ContextCompactionControls({
   const threshold = Math.round((context.autocompact_pct ?? 0.85) * 100);
   const [draft, setDraft] = useState<number>();
   return (
-    <ContextDisclosure label="Compaction settings">
+    <ContextDisclosure label={t`Compaction settings`}>
       <div className="grid gap-3 text-xs">
         <label className="flex items-center justify-between gap-3">
-          <span>Automatic compaction</span>
+          <span>{t`Automatic compaction`}</span>
           <Switch
-            aria-label="Automatic compaction"
+            aria-label={t`Automatic compaction`}
             checked={enabled}
             disabled={!onUpdatePreferences || preferencesPending}
             onCheckedChange={(checked) =>
@@ -49,10 +50,10 @@ export function ContextCompactionControls({
             }
           />
         </label>
-        <p className="text-muted-foreground">Summarize older context before the window fills.</p>
+        <p className="text-muted-foreground">{t`Summarize older context before the window fills.`}</p>
         <div className="flex items-center gap-3">
           <Slider
-            aria-label="Automatic compaction threshold"
+            aria-label={t`Automatic compaction threshold`}
             min={50}
             max={95}
             step={5}
@@ -75,20 +76,21 @@ export function ContextCompactionControls({
               className="w-fit"
               disabled={!onCompact || !context.live_block_count || compactPending}
             >
-              {compactPending ? 'Compacting…' : 'Compact now'}
+              {compactPending ? t`Compacting…` : t`Compact now`}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Compact this agent&apos;s working context?</AlertDialogTitle>
+              <AlertDialogTitle>{t`Compact this agent's working context?`}</AlertDialogTitle>
               <AlertDialogDescription>
-                Replace older context with a summary. The conversation and saved snapshots remain
-                available.
+                {t`Replace older context with a summary. The conversation and saved snapshots remain available.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void onCompact?.()}>Compact now</AlertDialogAction>
+              <AlertDialogCancel>{t`Cancel`}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => void onCompact?.()}
+              >{t`Compact now`}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

@@ -28,6 +28,7 @@ import {
 } from './chart-box-selection';
 import { cloneRows } from './chart-view-helpers';
 import type { SelectionState, SelectionWriter } from './selection-state';
+import { t } from '@lingui/core/macro';
 
 interface ChartViewOptions {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -312,10 +313,10 @@ export function useChartView({
             },
           });
         } else if (boxSelectMode) {
-          setEmbedError('Box selection is unavailable for this chart.');
+          setEmbedError(t`Box selection is unavailable for this chart.`);
         }
         if (!canLink) {
-          if (boxSelectMode) setEmbedError('Selection is unavailable for this chart.');
+          if (boxSelectMode) setEmbedError(t`Selection is unavailable for this chart.`);
           return;
         }
         const binding = bindChartSelection(view, {

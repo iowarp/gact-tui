@@ -9,6 +9,7 @@ import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, type RefObject } from 'react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { eventKey } from '@/lib/shortcuts/keys';
+import { t } from '@lingui/core/macro';
 
 /**
  * The spec's zoom row for a node graph: zoom in, zoom out and fit, each named on
@@ -60,13 +61,13 @@ function GraphZoomButtons(target: FitTarget) {
   const fitView = useFit(target);
   return (
     <>
-      <ControlButton aria-label="Zoom in" onClick={() => void zoomIn()} title="Zoom in">
+      <ControlButton aria-label={t`Zoom in`} onClick={() => void zoomIn()} title={t`Zoom in`}>
         <ZoomIn aria-hidden />
       </ControlButton>
-      <ControlButton aria-label="Zoom out" onClick={() => void zoomOut()} title="Zoom out">
+      <ControlButton aria-label={t`Zoom out`} onClick={() => void zoomOut()} title={t`Zoom out`}>
         <ZoomOut aria-hidden />
       </ControlButton>
-      <ControlButton aria-label="Fit view" onClick={fitView} title="Fit view">
+      <ControlButton aria-label={t`Fit view`} onClick={fitView} title={t`Fit view`}>
         <Maximize aria-hidden />
       </ControlButton>
     </>

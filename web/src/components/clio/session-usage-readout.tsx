@@ -25,6 +25,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { contextTokens } from './context-composition-model';
 import { replyModelIcon } from './message-reply-facts';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import { ph, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 /** A window this full shows in the rail without opening the card. */
 const NEAR_LIMIT_PERCENT = 80;
@@ -33,7 +35,7 @@ const usedPercent = (window: AccountUsageWindow) =>
   Math.round(Math.min(100, Math.max(0, window.used_percent)));
 
 function costText(cost?: number) {
-  if (cost === undefined) return 'Not reported';
+  if (cost === undefined) return t`Not reported`;
   return `$${cost < 0.01 && cost > 0 ? cost.toFixed(4) : cost.toFixed(2)}`;
 }
 
@@ -54,16 +56,19 @@ export function SessionUsageReadout({
   const sent = usage?.input_tokens ?? 0;
   const received = usage?.output_tokens ?? 0;
   const rows: Array<[string, string]> = [
-    ['Used so far', `${contextTokens(sent + received)} tokens`],
-    ['Sent and received', `${contextTokens(sent)} in, ${contextTokens(received)} out`],
-    ['Cost', costText(usage?.cost_usd)],
+    [t`Used so far`, t`${ph({ tokens: contextTokens(sent + received) })} tokens`],
+    [
+      t`Sent and received`,
+      t`${ph({ sent: contextTokens(sent) })} in, ${ph({ received: contextTokens(received) })} out`,
+    ],
+    [t`Cost`, costText(usage?.cost_usd)],
   ];
   return (
     <div
       className="relative -mx-1 mt-1 rounded-md border-t px-1 pt-2 has-[[data-slot=usage-trigger]:focus-visible]:bg-hover has-[[data-slot=usage-trigger]:hover]:bg-hover"
       data-slot="conversation-usage"
     >
-      <dl aria-label="Conversation usage" className="grid gap-0.5 text-xs">
+      <dl aria-label={t`Conversation usage`} className="grid gap-0.5 text-xs">
         {rows.map(([label, value]) => (
           <div key={label} className="flex min-h-6 items-center justify-between gap-3">
             <dt className="text-muted-foreground">{label}</dt>
@@ -91,11 +96,11 @@ function AccountUsageRow({ sessionId }: { sessionId: string }) {
   const busiest = busiestWindow(account?.usage);
   const near = busiest && usedPercent(busiest) >= NEAR_LIMIT_PERCENT ? busiest : undefined;
   const summary = fleet.isPending
-    ? 'Checking'
+    ? t`Checking`
     : !account
-      ? 'Not connected'
+      ? t`Not connected`
       : near
-        ? `${near.name} ${usedPercent(near)}%, near limit`
+        ? t`${ph({ window: near.name })} ${ph({ percent: usedPercent(near) })}%, near limit`
         : accountUsageWords(account, 'used').label;
 
   const [open, setOpen] = useState(false);
@@ -131,14 +136,14 @@ function AccountUsageRow({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex min-h-6 items-center justify-between gap-3">
-      <dt className="text-muted-foreground">Account</dt>
+      <dt className="text-muted-foreground">{t`Account`}</dt>
       <dd className="min-w-0">
         <HoverCard closeDelay={100} onOpenChange={onOpenChange} open={open} openDelay={250}>
           <HoverCardTrigger asChild>
             <button
               ref={triggerRef}
               aria-expanded={open}
-              aria-label={`Account usage: ${summary}`}
+              aria-label={t`Account usage: ${summary}`}
               className={cn(
                 'flex w-full min-w-0 cursor-default items-center justify-end gap-1.5 text-right tabular-nums outline-none after:absolute after:inset-0 after:rounded-md',
                 near && 'text-warning-foreground',
@@ -162,7 +167,7 @@ function AccountUsageRow({ sessionId }: { sessionId: string }) {
           <HoverCardContent
             ref={contentRef}
             align="end"
-            aria-label="Usage for this conversation's account"
+            aria-label={t`Usage for this conversation's account`}
             className="w-[min(340px,calc(100vw-24px))] px-1 py-1.5 outline-none"
             collisionPadding={12}
             data-slot="session-usage-card"
@@ -210,14 +215,14 @@ function UsageCardBody({
   const setup: KeyValueItem[] = account
     ? [
         {
-          label: 'Account',
+          label: t`Account`,
           icon: <UserRoundIcon />,
           value: account.label,
         },
         ...(modelId
           ? [
               {
-                label: 'Model',
+                label: t`Model`,
                 icon: providerId ? replyModelIcon(providerId) : <GaugeIcon />,
                 value: modelId,
               },
@@ -227,10 +232,10 @@ function UsageCardBody({
       ]
     : [
         {
-          label: 'Account',
+          label: t`Account`,
           icon: <UserRoundIcon />,
-          value: pending ? 'Reading usage…' : 'Not connected',
-          title: pending ? undefined : 'The account this conversation runs on is not connected.',
+          value: pending ? t`Reading usage…` : t`Not connected`,
+          title: pending ? undefined : t`The account this conversation runs on is not connected.`,
         },
       ];
   const delegated: KeyValueItem[] = spend.map(([ref, row]) => {
@@ -244,14 +249,14 @@ function UsageCardBody({
   return (
     <>
       <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
-        This conversation&rsquo;s account
+        {t`This conversation’s account`}
       </p>
       <KeyValueGrid items={setup} variant="card" />
       {delegated.length ? (
         <>
           <div className="my-1 border-t border-border" role="separator" />
           <p className="px-2 pt-1 pb-1.5 text-caption text-muted-foreground">
-            Spent here, including delegated work
+            {t`Spent here, including delegated work`}
           </p>
           <KeyValueGrid items={delegated} variant="card" />
         </>
@@ -262,7 +267,7 @@ function UsageCardBody({
         to="/settings/usage"
       >
         <GaugeIcon aria-hidden="true" className="size-[13px] shrink-0 text-muted-foreground" />
-        Usage settings
+        {t`Usage settings`}
         <ChevronRightIcon aria-hidden="true" className="ml-auto size-[13px] shrink-0 text-faint" />
       </Link>
     </>
@@ -275,21 +280,21 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
   if (!snapshot) {
     return [
       {
-        label: 'Limits',
+        label: t`Limits`,
         icon: <GaugeIcon />,
         value:
           account.usage_missing_reason === 'not_supported'
-            ? 'Unavailable for this connection'
-            : 'No reading',
+            ? t`Unavailable for this connection`
+            : t`No reading`,
       },
     ];
   }
   if (snapshot.state === 'unmetered')
-    return [{ label: 'Limits', icon: <GaugeIcon />, value: 'No usage limits' }];
+    return [{ label: t`Limits`, icon: <GaugeIcon />, value: t`No usage limits` }];
   const rows: KeyValueItem[] = snapshot.windows.map((window) => {
     const used = usedPercent(window);
     const near = used >= NEAR_LIMIT_PERCENT;
-    const text = [`${used}% used`, near ? 'near limit' : '', resetsIn(window.resets_at)]
+    const text = [t`${used}% used`, near ? t`near limit` : '', resetsIn(window.resets_at)]
       .filter(Boolean)
       .join(', ');
     return {
@@ -311,20 +316,23 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
     const money = (value: number) =>
       balance.currency === 'USD'
         ? `$${value.toFixed(2)}`
-        : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
+        : `${formatNumber(value, 2)} ${balance.currency}`;
     rows.push({
-      label: 'Balance',
+      label: t`Balance`,
       icon: <CoinsIcon />,
-      value: `${money(balance.remaining)} left${balance.limit !== null ? ` of ${money(balance.limit)}` : ''}`,
+      value:
+        balance.limit !== null
+          ? t`${ph({ remaining: money(balance.remaining) })} left of ${ph({ limit: money(balance.limit) })}`
+          : t`${ph({ remaining: money(balance.remaining) })} left`,
     });
   }
   if (snapshot.read_failure)
     rows.push({
-      label: 'Last read',
+      label: t`Last read`,
       icon: <TriangleAlertIcon />,
-      value: `Failed, ${observedAgo(snapshot.observed_at)}`,
+      value: t`Failed, ${ph({ observed: observedAgo(snapshot.observed_at) })}`,
     });
   if (!rows.length)
-    rows.push({ label: 'Limits', icon: <GaugeIcon />, value: 'No windows reported' });
+    rows.push({ label: t`Limits`, icon: <GaugeIcon />, value: t`No windows reported` });
   return rows;
 }

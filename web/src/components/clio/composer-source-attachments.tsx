@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { FileIcon, FolderIcon } from 'lucide-react';
 import { Attachment, AttachmentRemove, Attachments } from '@/components/ai-elements/attachments';
+import { t } from '@lingui/core/macro';
 
 export function SourceAttachmentCard({
   id,
@@ -33,7 +34,9 @@ export function SourceAttachmentCard({
             <button
               type="button"
               onClick={onOpen}
-              aria-label={`Open attached ${folder ? 'folder' : 'file'} ${label}`}
+              aria-label={
+                folder ? t`Open attached folder ${label}` : t`Open attached file ${label}`
+              }
               title={label}
               className="block max-w-full truncate text-left text-sm font-medium hover:underline"
             >
@@ -47,7 +50,7 @@ export function SourceAttachmentCard({
           <p className="text-xs text-muted-foreground">{detail}</p>
           {children}
         </div>
-        <AttachmentRemove aria-label={`Remove attachment ${label}`} />
+        <AttachmentRemove aria-label={t`Remove attachment ${label}`} />
       </Attachment>
     </Attachments>
   );

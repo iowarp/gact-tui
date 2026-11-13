@@ -9,6 +9,7 @@ import {
 import { changelogSections, type ChangelogEntry } from '@/lib/changelog';
 import { cn } from '@/lib/utils';
 import type { WhatsNewTab } from './whats-new-dialog';
+import { t, ph } from '@lingui/core/macro';
 
 const LIST =
   'text-menu leading-[1.7] font-normal text-foreground [&_strong]:font-semibold [&_code]:wrap-anywhere [&_code]:font-normal [&_pre]:max-w-full [&_pre]:overflow-x-auto';
@@ -37,7 +38,7 @@ export function ReleaseChanges({
   const several = tab.entries.length > 1;
   return (
     <div
-      aria-label={`${tab.label} changes`}
+      aria-label={t`${ph({ label: tab.label })} changes`}
       role="region"
       tabIndex={0}
       className={cn(
@@ -46,7 +47,11 @@ export function ReleaseChanges({
       )}
     >
       {tab.entries.map((entry) => (
-        <section key={entry.version} aria-label={`Version ${entry.version}`} className="pb-2">
+        <section
+          key={entry.version}
+          aria-label={t`Version ${ph({ version: entry.version })}`}
+          className="pb-2"
+        >
           {several ? <ReleaseHeading entry={entry} /> : null}
           <ReleaseBody entry={entry} />
         </section>

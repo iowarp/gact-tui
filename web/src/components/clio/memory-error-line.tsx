@@ -1,4 +1,5 @@
 import { memoryErrorText } from './memory-document-helpers';
+import { t } from '@lingui/core/macro';
 
 /**
  * A failed read in one plain red line, with Retry as an inline text action. Below
@@ -31,7 +32,7 @@ export function MemoryErrorLine({
           onClick={onRetry}
           type="button"
         >
-          Retry
+          {t`Retry`}
         </button>
       ) : null}
     </p>

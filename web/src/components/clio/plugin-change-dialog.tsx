@@ -13,19 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import type { PluginChange } from '@/hooks/use-plugin-change';
 import { PluginRemovalCascade } from './plugin-removal-cascade';
+import { t } from '@lingui/core/macro';
 
 /** The three ways a change can reach the model, in the order the dialog offers them. */
 const CHOICES: readonly { apply: PluginChangeApply; label: string; hint: string }[] = [
-  { apply: 'now', label: 'Yes', hint: 'Rebuilds the prompt cache on the next call.' },
+  { apply: 'now', label: t`Yes`, hint: t`Rebuilds the prompt cache on the next call.` },
   {
     apply: 'compact',
-    label: 'Yes, after compaction',
-    hint: 'Compacts the conversation now; the change goes in with it.',
+    label: t`Yes, after compaction`,
+    hint: t`Compacts the conversation now; the change goes in with it.`,
   },
   {
     apply: 'note',
-    label: 'Yes, as an injection',
-    hint: 'Tells the agent now; the prompt changes at the next compaction. Added tools are announced, not listed; removed plugins stay visible to the agent until then.',
+    label: t`Yes, as an injection`,
+    hint: t`Tells the agent now; the prompt changes at the next compaction. Added tools are announced, not listed; removed plugins stay visible to the agent until then.`,
   },
 ];
 
@@ -66,12 +67,12 @@ export function PluginChangeDialog({
       <AlertDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden data-[size=default]:sm:max-w-lg">
         <AlertDialogHeader className="shrink-0">
           <AlertDialogTitle>
-            {cached ? 'Warning' : 'Change this conversation’s plugins?'}
+            {cached ? t`Warning` : t`Change this conversation’s plugins?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {cached
-              ? 'Changing plugins changes the system prompt, which invalidates the prompt cache, so the next model call may cost more.'
-              : 'This conversation has no messages yet, so nothing is cached and the change applies from the first call.'}
+              ? t`Changing plugins changes the system prompt, which invalidates the prompt cache, so the next model call may cost more.`
+              : t`This conversation has no messages yet, so nothing is cached and the change applies from the first call.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="min-h-0 space-y-3 overflow-y-auto text-sm">
@@ -86,9 +87,9 @@ export function PluginChangeDialog({
           ) : null}
           {cached ? (
             <>
-              <p className="font-medium">Do you want to proceed?</p>
+              <p className="font-medium">{t`Do you want to proceed?`}</p>
               <div
-                aria-label="How the change reaches the agent"
+                aria-label={t`How the change reaches the agent`}
                 className="grid gap-2"
                 role="group"
               >
@@ -96,6 +97,7 @@ export function PluginChangeDialog({
                   <Button
                     aria-busy={applying === choice.apply}
                     aria-describedby={`${id}-${choice.apply}-hint`}
+                    // i18n-ignore: element id reference
                     aria-labelledby={`${id}-${choice.apply}-label`}
                     className="h-auto justify-start py-2 text-left whitespace-normal"
                     disabled={blocked}
@@ -123,16 +125,16 @@ export function PluginChangeDialog({
             <p className="flex items-center gap-2 text-muted-foreground" role="status">
               <Spinner aria-hidden="true" className="shrink-0" />
               {applying === 'compact'
-                ? 'Compacting the conversation. This calls the model and can take a few seconds…'
-                : 'Applying the change…'}
+                ? t`Compacting the conversation. This calls the model and can take a few seconds…`
+                : t`Applying the change…`}
             </p>
           ) : null}
         </div>
         <AlertDialogFooter className="shrink-0">
-          <AlertDialogCancel disabled={Boolean(applying)}>No</AlertDialogCancel>
+          <AlertDialogCancel disabled={Boolean(applying)}>{t`No`}</AlertDialogCancel>
           {cached ? null : (
             <Button disabled={blocked} onClick={() => onChoose('now')}>
-              Yes
+              {t`Yes`}
             </Button>
           )}
         </AlertDialogFooter>

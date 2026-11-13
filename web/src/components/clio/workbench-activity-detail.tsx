@@ -38,6 +38,8 @@ import {
 } from './workbench-activity-source';
 import { tabForOpenRequest } from './workbench-open-request';
 import type { WorkbenchTab } from './workbench-shared';
+import { t, ph } from '@lingui/core/macro';
+import { formatDateTime, formatNumber } from '@/lib/locale-format';
 
 type ActivityTab = Extract<WorkbenchTab, { kind: 'activity' }>;
 
@@ -59,10 +61,10 @@ export function WorkbenchActivityDetail(props: DetailProps) {
       <DetailFrame name={props.tab.label}>
         <StateView
           className="p-6"
-          detail="Open the conversation it belongs to."
+          detail={t`Open the conversation it belongs to.`}
           kind="unavailable"
           size="panel"
-          title="This activity is not loaded"
+          title={t`This activity is not loaded`}
         />
       </DetailFrame>
     );
@@ -82,10 +84,10 @@ function LoadedDetail({ source, ...props }: DetailProps & { source: WorkbenchAct
       <DetailFrame name={props.tab.label}>
         <StateView
           className="p-6"
-          detail="It finished in an earlier conversation load or was removed."
+          detail={t`It finished in an earlier conversation load or was removed.`}
           kind="empty"
           size="panel"
-          title="This activity is no longer available"
+          title={t`This activity is no longer available`}
         />
       </DetailFrame>
     );
@@ -107,9 +109,9 @@ function DetailFrame({
     <div className="flex h-full min-h-0 flex-col">
       <FrameBar
         actions={actions}
-        label="Activity actions"
+        label={t`Activity actions`}
         what={what}
-        where={<FrameCrumbs parts={[{ label: 'Activity' }, { label: name }]} />}
+        where={<FrameCrumbs parts={[{ label: t`Activity` }, { label: name }]} />}
       />
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </div>
@@ -189,14 +191,14 @@ const ActivityDetailView = memo(function ActivityDetailView({
           {stoppable ? (
             <IconButton
               icon={<CircleStopIcon />}
-              label="Stop"
+              label={t`Stop`}
               onClick={() => setStopping(true)}
               size="sm"
             />
           ) : null}
           <IconButton
             icon={copied ? <CheckIcon /> : <CopyIcon />}
-            label={copied ? 'Copied' : 'Copy'}
+            label={copied ? t`Copied` : t`Copy`}
             onClick={() => void copyTextToClipboard(copyText(item)).then(setCopied)}
             size="sm"
           />
@@ -208,7 +210,7 @@ const ActivityDetailView = memo(function ActivityDetailView({
       <div className={BROWSER_PANEL}>
         <div className="flex min-w-0 items-center gap-2">
           {item.running ? (
-            <StatusIndicator display="column" label="Running" tone="running" />
+            <StatusIndicator display="column" label={t`Running`} tone="running" />
           ) : (
             <ActivityKindIcon
               className="size-4 shrink-0 text-muted-foreground"
@@ -257,11 +259,11 @@ function StopDialog({
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Stop {process.title}?</AlertDialogTitle>
+          <AlertDialogTitle>{t`Stop ${ph({ title: process.title })}?`}</AlertDialogTitle>
           <AlertDialogDescription>
             {process.kind === 'agent'
-              ? 'This also stops all descendant agents, downloads and shell processes.'
-              : 'Cancellation is requested from its owner and may take time to finish.'}
+              ? t`This also stops all descendant agents, downloads and shell processes.`
+              : t`Cancellation is requested from its owner and may take time to finish.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (
@@ -270,7 +272,7 @@ function StopDialog({
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep running</AlertDialogCancel>
+          <AlertDialogCancel>{t`Keep running`}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
               setError('');
@@ -279,7 +281,7 @@ function StopDialog({
               );
             }}
           >
-            Stop
+            {t`Stop`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -320,8 +322,7 @@ function Mono({ text, label }: { text: string; label: string }) {
       </pre>
       {shown !== text ? (
         <p className="text-meta text-muted-foreground">
-          Showing the first {SHOWN_CHARACTERS.toLocaleString()} of {text.length.toLocaleString()}{' '}
-          characters. Copy takes all of it.
+          {t`Showing the first ${ph({ shown: formatNumber(SHOWN_CHARACTERS) })} of ${ph({ total: formatNumber(text.length) })} characters. Copy takes all of it.`}
         </p>
       ) : null}
     </>
@@ -360,15 +361,15 @@ function DetailBody({
         <KeyValueGrid
           items={[
             ...(item.source.relation
-              ? [{ label: 'Used as', value: item.source.relation.replaceAll('_', ' ') }]
+              ? [{ label: t`Used as`, value: item.source.relation.replaceAll('_', ' ') }]
               : []),
             ...(item.source.ownerLabel
-              ? [{ label: 'Used by', value: item.source.ownerLabel }]
+              ? [{ label: t`Used by`, value: item.source.ownerLabel }]
               : []),
             ...(item.source.link && item.source.value
               ? [
                   {
-                    label: 'Link',
+                    label: t`Link`,
                     value: (
                       <a
                         className="underline"
@@ -401,7 +402,7 @@ function DetailBody({
               size="sm"
               variant="outline"
             >
-              Open {resource ? resource.name : 'artifact'}
+              {resource ? t`Open ${ph({ name: resource.name })}` : t`Open artifact`}
             </Button>
           </div>
         ) : null}
@@ -412,12 +413,12 @@ function DetailBody({
     return (
       <KeyValueGrid
         items={[
-          { label: 'State', value: item.status },
-          ...(item.task.detail ? [{ label: 'Detail', value: item.task.detail }] : []),
+          { label: t`State`, value: item.status },
+          ...(item.task.detail ? [{ label: t`Detail`, value: item.task.detail }] : []),
         ]}
       />
     );
-  return <KeyValueGrid items={[{ label: 'State', value: item.status }]} />;
+  return <KeyValueGrid items={[{ label: t`State`, value: item.status }]} />;
 }
 
 function ToolDetail({
@@ -436,50 +437,52 @@ function ToolDetail({
   );
   const ranBy: KeyValueItem[] = [
     {
-      label: 'Who',
-      value: tool.parent_call_id ? `A script (call ${tool.parent_call_id})` : vocab.agent,
+      label: t`Who`,
+      value: tool.parent_call_id
+        ? t`A script (call ${ph({ call: tool.parent_call_id })})`
+        : vocab.agent,
     },
     {
-      label: 'Policy',
+      label: t`Policy`,
       value: approval
-        ? `Asked for approval, ${approval.status.replaceAll('_', ' ')}`
-        : 'Ran without asking',
+        ? t`Asked for approval, ${ph({ status: approval.status.replaceAll('_', ' ') })}`
+        : t`Ran without asking`,
     },
-    { label: 'Tool', value: tool.name, mono: true },
+    { label: t`Tool`, value: tool.name, mono: true },
   ];
   return (
     <>
-      <Section title="Input">
+      <Section title={t`Input`}>
         {tool.input === undefined ? (
-          <StateView className="px-0" kind="empty" size="row" title="It took no input" />
+          <StateView className="px-0" kind="empty" size="row" title={t`It took no input`} />
         ) : (
-          <Mono label="Input" text={json(tool.input)} />
+          <Mono label={t`Input`} text={json(tool.input)} />
         )}
       </Section>
       <Section
-        aside={running ? <StatusIndicator label="streaming" tone="running" /> : undefined}
-        title="Output"
+        aside={running ? <StatusIndicator label={t`streaming`} tone="running" /> : undefined}
+        title={t`Output`}
       >
         {tool.progress_message && running ? (
           <p className="text-menu text-muted-foreground">{tool.progress_message}</p>
         ) : null}
         {output ? (
-          <Mono label="Output" text={output} />
+          <Mono label={t`Output`} text={output} />
         ) : (
           <StateView
             className="px-0"
             kind={running ? 'loading' : 'empty'}
             size="row"
-            title={running ? 'Waiting for output' : 'It returned no output'}
+            title={running ? t`Waiting for output` : t`It returned no output`}
           />
         )}
         {tool.error ? (
           <p className="text-menu text-destructive" role="alert">
-            Failed: {tool.error}
+            {t`Failed: ${ph({ error: tool.error })}`}
           </p>
         ) : null}
       </Section>
-      <Section title="Ran by">
+      <Section title={t`Ran by`}>
         <KeyValueGrid items={ranBy} />
       </Section>
     </>
@@ -501,8 +504,8 @@ function TurnDetail({
   return (
     <>
       {item.run?.summary ? <p className="text-ui">{item.run.summary}</p> : null}
-      <Section title={`Steps (${steps.length})`}>
-        <div aria-label="Steps" className="grid" role="list">
+      <Section title={t`Steps (${ph({ count: steps.length })})`}>
+        <div aria-label={t`Steps`} className="grid" role="list">
           {steps.map((step) => {
             const row = toolActivityItem(step);
             const open = () => onOpenTab(activityTab(row, source.sessionId, workspaceId));
@@ -521,15 +524,19 @@ function TurnDetail({
                   role="button"
                   status={
                     row.running ? (
-                      <StatusIndicator display="column" label="Running" tone="running" />
+                      <StatusIndicator display="column" label={t`Running`} tone="running" />
                     ) : row.failed ? (
                       <CircleXIcon
-                        aria-label="Failed"
+                        aria-label={t`Failed`}
                         className="size-3.5 text-destructive"
                         role="img"
                       />
                     ) : (
-                      <CheckIcon aria-label="Done" className="size-3.5 text-success" role="img" />
+                      <CheckIcon
+                        aria-label={t`Done`}
+                        className="size-3.5 text-success"
+                        role="img"
+                      />
                     )
                   }
                   tabIndex={0}
@@ -555,20 +562,20 @@ function TaskDetail({
 }) {
   const { process, subagent } = item;
   const facts: KeyValueItem[] = [
-    { label: 'State', value: item.status },
-    ...(process?.task_kind ? [{ label: 'Kind', value: process.task_kind }] : []),
-    ...(process?.host ? [{ label: 'Host', value: process.host, mono: true }] : []),
+    { label: t`State`, value: item.status },
+    ...(process?.task_kind ? [{ label: t`Kind`, value: process.task_kind }] : []),
+    ...(process?.host ? [{ label: t`Host`, value: process.host, mono: true }] : []),
     ...(process?.progress
       ? [
           {
-            label: 'Progress',
+            label: t`Progress`,
             value:
               taskProgressLabel(process.progress, process.task_kind, process.error_reason) || '',
           },
         ]
       : []),
     ...(item.tool?.duration_ms
-      ? [{ label: 'Took', value: compactDuration(item.tool.duration_ms) }]
+      ? [{ label: t`Took`, value: compactDuration(item.tool.duration_ms) }]
       : []),
   ].filter((fact) => fact.value !== '');
   const log = [process?.activity, process?.error_reason].filter(Boolean).join('\n');
@@ -580,16 +587,16 @@ function TaskDetail({
       ) : null}
       <KeyValueGrid items={facts} />
       {log ? (
-        <Section title="Log">
-          <Mono label="Log" text={log} />
+        <Section title={t`Log`}>
+          <Mono label={t`Log`} text={log} />
         </Section>
       ) : null}
       {result ? (
-        <Section title="Result">
-          <Mono label="Result" text={result} />
+        <Section title={t`Result`}>
+          <Mono label={t`Result`} text={result} />
         </Section>
       ) : null}
-      <Section title="Controls">
+      <Section title={t`Controls`}>
         <AsyncTaskList
           compact
           onControlTask={source.onControlTask}
@@ -618,11 +625,11 @@ function InteractionDetail({
       ) : null}
       <KeyValueGrid
         items={[
-          { label: 'State', value: interaction.status.replaceAll('_', ' ') },
+          { label: t`State`, value: interaction.status.replaceAll('_', ' ') },
           ...(interaction.source.tool_name
-            ? [{ label: 'Asked by', value: interaction.source.tool_name, mono: true }]
+            ? [{ label: t`Asked by`, value: interaction.source.tool_name, mono: true }]
             : []),
-          { label: 'Asked', value: new Date(interaction.created_at).toLocaleString() },
+          { label: t`Asked`, value: formatDateTime(interaction.created_at) },
         ]}
       />
       {question && pending ? <OpenQuestionList questions={[interaction]} /> : null}

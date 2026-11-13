@@ -10,6 +10,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { EXECUTION_PROVENANCE_LIMIT, EXECUTION_PROVENANCE_PAGE } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** Owns provider discovery and the selected session execution-provenance snapshot. */
 export function useExecutionProvenance(sessionId: string, loading: SessionResourceLoading = {}) {
@@ -127,14 +128,14 @@ export function executionProvenanceDegradation({
   if (providersError) {
     return unavailable(
       'provenance_provider_discovery_unavailable',
-      providersError.message || 'The provenance provider catalog is unavailable.',
+      providersError.message || t`The provenance provider catalog is unavailable.`,
       provider,
     );
   }
   if (!providerSummary) {
     return unavailable(
       'provenance_provider_unavailable',
-      `The service did not advertise the ${provider} provenance provider.`,
+      t`The service did not advertise the ${provider} provenance provider.`,
       provider,
     );
   }
@@ -164,13 +165,18 @@ export function executionProvenanceDegradation({
   const truncated = execution.truncated && !pageCut;
   if (!execution.complete || truncated || danglingEdges) {
     const reasons = [
-      !execution.complete ? 'the provider marked the snapshot incomplete' : undefined,
-      truncated ? 'the result reached the service limit' : undefined,
-      danglingEdges ? `${danglingEdges} relationships reference missing nodes` : undefined,
+      !execution.complete ? t`the provider marked the snapshot incomplete` : undefined,
+      truncated ? t`the result reached the service limit` : undefined,
+      danglingEdges
+        ? plural(danglingEdges, {
+            one: '# relationship references missing nodes',
+            other: '# relationships reference missing nodes',
+          })
+        : undefined,
     ].filter(Boolean);
     return {
       code: 'execution_provenance_partial',
-      reason: `Partial ${provider} provenance: ${reasons.join('; ')}.`,
+      reason: t`Partial ${provider} provenance: ${ph({ reasons: reasons.join('; ') })}.`,
       capability: 'execution_provenance',
       recoverable: true,
       provider,

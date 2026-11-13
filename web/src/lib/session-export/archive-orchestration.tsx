@@ -28,6 +28,8 @@ import {
   type ArchiveSessionRow,
   type ArchiveTarget,
 } from './archive-orchestration-model';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /**
  * What a child session is in the archive, above its transcript: how it was
@@ -100,47 +102,62 @@ export function ArchiveSessionHeader({
     : flowCall && !spawn.messageId
       ? { sessionId: flowCall.sessionId, messageId: flowCall.messageId, callId: flowCall.callId }
       : { sessionId: relationship!.parent_session_id, messageId: spawn.messageId };
-  const viaFlow = !call && flowCall?.flow && back.sessionId === flowCall.sessionId;
+  const flow =
+    flowCall && !call && back.sessionId === flowCall.sessionId ? flowCall.flow : undefined;
+  const title = row.session.title || sessionId;
+  const parentLink = (
+    <button className="font-medium underline" onClick={() => onOpen(back)} type="button">
+      {parentTitle || back.sessionId}
+    </button>
+  );
   return (
     <header
-      aria-label={`How ${row.session.title || sessionId} was started`}
+      aria-label={t`How ${title} was started`}
       className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm"
       data-slot="archive-session-origin"
     >
-      {viaFlow ? (
+      {flow ? (
         <p>
-          {'Delegated by the '}
-          <button className="font-medium underline" onClick={() => onOpen(back)} type="button">
-            {flowCall!.flow} run
-          </button>
-          {' — back to where it was drawn'}
+          <Trans>
+            Delegated by the{' '}
+            <button className="font-medium underline" onClick={() => onOpen(back)} type="button">
+              {flow} run
+            </button>{' '}
+            — back to where it was drawn
+          </Trans>
         </p>
       ) : (
         <p>
-          {forked ? 'Forked from ' : 'Delegated by '}
-          <button className="font-medium underline" onClick={() => onOpen(back)} type="button">
-            {parentTitle || back.sessionId}
-          </button>
-          {back.messageId ? ' — back to where it was started' : ''}
+          {forked ? (
+            back.messageId ? (
+              <Trans>Forked from {parentLink} — back to where it was started</Trans>
+            ) : (
+              <Trans>Forked from {parentLink}</Trans>
+            )
+          ) : back.messageId ? (
+            <Trans>Delegated by {parentLink} — back to where it was started</Trans>
+          ) : (
+            <Trans>Delegated by {parentLink}</Trans>
+          )}
         </p>
       )}
       {author ? <p>{author}</p> : null}
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
         {agent ? (
           <>
-            <dt className="text-muted-foreground">Agent</dt>
+            <dt className="text-muted-foreground">{t`Agent`}</dt>
             <dd>{agent}</dd>
           </>
         ) : null}
         {model ? (
           <>
-            <dt className="text-muted-foreground">Model</dt>
+            <dt className="text-muted-foreground">{t`Model`}</dt>
             <dd>{model}</dd>
           </>
         ) : null}
         {state ? (
           <>
-            <dt className="text-muted-foreground">State</dt>
+            <dt className="text-muted-foreground">{t`State`}</dt>
             <dd>
               <ClioStatus value={state} />
             </dd>
@@ -148,13 +165,13 @@ export function ArchiveSessionHeader({
         ) : null}
         {assignment ? (
           <>
-            <dt className="text-muted-foreground">{forked ? 'Fork note' : 'Assignment'}</dt>
+            <dt className="text-muted-foreground">{forked ? t`Fork note` : t`Assignment`}</dt>
             <dd className="max-h-48 overflow-y-auto whitespace-pre-wrap">{assignment}</dd>
           </>
         ) : null}
         {result ? (
           <>
-            <dt className="text-muted-foreground">Result</dt>
+            <dt className="text-muted-foreground">{t`Result`}</dt>
             <dd className="min-w-0">
               <ContentMarkdown className="max-h-48 overflow-y-auto text-xs leading-5">
                 {result}

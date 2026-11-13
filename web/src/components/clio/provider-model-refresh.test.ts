@@ -90,7 +90,7 @@ it('joins an already running update without starting a duplicate', async () => {
     await run;
     expect(repository.updateProviderComponents).not.toHaveBeenCalled();
     expect(repository.providerComponentUpdate).toHaveBeenCalledWith('codex');
-    expect(input.onStage).toHaveBeenCalledWith('Downloading client…');
+    expect(input.onStage).toHaveBeenCalledWith('client-downloading');
   } finally {
     vi.useRealTimers();
   }

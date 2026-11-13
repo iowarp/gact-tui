@@ -18,6 +18,7 @@ import { useAttentionDraft } from './attention-drafts';
 import { respondFromControl } from './interaction-control';
 import { planModeLabel } from './plan-mode-label';
 import { SplitButton } from './primitives/split-button';
+import { ph, t } from '@lingui/core/macro';
 
 const MODES = ['auto', 'interactive', 'exit_only'];
 const KNOWN_OPTIONS = new Set([...MODES, 'reject', 'clear_context']);
@@ -35,22 +36,22 @@ function PlanReadiness({ plan }: { plan: PlanExit | undefined }) {
   const status = plan?.plan_content_status;
   const ready = planComplete(plan);
   const state: { icon: LucideIcon; label: string; tone: string; title?: string } = ready
-    ? { icon: CheckIcon, label: 'Plan ready', tone: 'text-primary' }
+    ? { icon: CheckIcon, label: t`Plan ready`, tone: 'text-primary' }
     : status === 'truncated'
       ? {
           icon: TriangleAlertIcon,
-          label: 'Plan truncated',
+          label: t`Plan truncated`,
           tone: 'text-warning',
-          title: 'Only part of the plan reached this review. Execution needs the complete plan.',
+          title: t`Only part of the plan reached this review. Execution needs the complete plan.`,
         }
       : status === 'unavailable'
         ? {
             icon: CircleAlertIcon,
-            label: 'Plan unavailable',
+            label: t`Plan unavailable`,
             tone: 'text-destructive',
-            title: plan?.plan_content_error || 'The saved plan could not be loaded.',
+            title: plan?.plan_content_error || t`The saved plan could not be loaded.`,
           }
-        : { icon: LoaderCircleIcon, label: 'Plan still writing…', tone: 'text-muted-foreground' };
+        : { icon: LoaderCircleIcon, label: t`Plan still writing…`, tone: 'text-muted-foreground' };
   const Icon = state.icon;
   return (
     <span
@@ -143,7 +144,7 @@ export function PlanDecisionControls({
         className="mt-3 ml-[25px] border-t border-border @max-[420px]/ask:ml-0"
       />
       <AskSection
-        aria-label="Plan decision"
+        aria-label={t`Plan decision`}
         className="mt-2.5 flex flex-wrap items-center gap-2 whitespace-nowrap @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch"
         data-slot="plan-decision-controls"
         role="group"
@@ -154,17 +155,17 @@ export function PlanDecisionControls({
             disabled={disabled || !canExecute}
             faceProps={{
               ...askKeyAttributes([String(executeNumber), 'Enter']),
-              'aria-label': exitOnly ? 'Leave Plan mode' : 'Execute plan',
+              'aria-label': exitOnly ? t`Leave Plan mode` : t`Execute plan`,
               // Stacked, the label fills; the mode chip and ↵ sit at the right edge.
               className: '@max-[420px]/ask:flex-1 @max-[420px]/ask:justify-start',
               title: canExecute
                 ? undefined
-                : 'Execution needs the complete plan. Request changes, or choose Exit Plan mode only.',
+                : t`Execution needs the complete plan. Request changes, or choose Exit Plan mode only.`,
             }}
-            label={exitOnly ? 'Leave Plan mode' : 'Execute'}
+            label={exitOnly ? t`Leave Plan mode` : t`Execute`}
             leading={<AskKeyChip askKey={String(executeNumber)} />}
             menuDisabled={disabled || modes.length < 2}
-            menuLabel={`Execution mode, ${planModeLabel(mode)}`}
+            menuLabel={t`Execution mode, ${ph({ mode: planModeLabel(mode) })}`}
             menuValue={planModeLabel(mode)}
             onClick={() => respond(false)}
             trailing={<AskKeyChip askKey="Enter" />}
@@ -175,7 +176,7 @@ export function PlanDecisionControls({
                 <DropdownMenuRadioItem className="text-menu" key={value} value={value}>
                   {planModeLabel(value)}
                   {value === recommended ? (
-                    <span className="text-label text-muted-foreground">Recommended</span>
+                    <span className="text-label text-muted-foreground">{t`Recommended`}</span>
                   ) : null}
                 </DropdownMenuRadioItem>
               ))}
@@ -194,11 +195,11 @@ export function PlanDecisionControls({
             }}
             ref={requestRef}
           >
-            Request changes
+            {t`Request changes`}
           </AskButton>
         ) : null}
         {unknown.map((value) => (
-          <AskButton disabled key={value} title={`This client cannot offer "${value}" yet.`}>
+          <AskButton disabled key={value} title={t`This client cannot offer "${value}" yet.`}>
             {value}
           </AskButton>
         ))}
@@ -213,7 +214,7 @@ export function PlanDecisionControls({
               disabled={disabled}
               onCheckedChange={(value) => setClearContext(value === true)}
             />
-            Clear context first
+            {t`Clear context first`}
             <AskKeyChip askKey="c" />
           </label>
         ) : null}
@@ -228,7 +229,7 @@ export function PlanDecisionControls({
             }}
           >
             <label className="sr-only" htmlFor={inputId}>
-              What should change?
+              {t`What should change?`}
             </label>
             <Input
               autoComplete="off"
@@ -243,12 +244,12 @@ export function PlanDecisionControls({
                 setChangesOpen(false);
                 requestRef.current?.focus();
               }}
-              placeholder="What should change?"
+              placeholder={t`What should change?`}
               ref={inputRef}
               value={feedback}
             />
             <AskButton className="h-[34px]" disabled={disabled || !note} primary type="submit">
-              Send
+              {t`Send`}
             </AskButton>
           </form>
         </AskSection>
@@ -294,20 +295,26 @@ export function PlanDecision({
 }) {
   const selected = selectedOptions(interaction);
   const decision = selected.find((value) => value !== 'clear_context');
-  const cleared = selected.includes('clear_context') ? 'context cleared' : undefined;
+  const cleared = selected.includes('clear_context');
   const note = answerNote(interaction);
   const [verb, detail, tone]: [string, string | undefined, 'ok' | 'neutral'] =
     decision === 'reject'
-      ? ['Changes requested', note, 'neutral']
+      ? [t`Changes requested`, note, 'neutral']
       : decision === 'exit_only'
-        ? ['Left Plan mode', ['not executed', cleared].filter(Boolean).join(', '), 'ok']
+        ? [t`Left Plan mode`, cleared ? t`not executed, context cleared` : t`not executed`, 'ok']
         : decision
-          ? ['Plan approved', [planModeLabel(decision), cleared].filter(Boolean).join(', '), 'ok']
+          ? [
+              t`Plan approved`,
+              cleared
+                ? t`${ph({ mode: planModeLabel(decision) })}, context cleared`
+                : planModeLabel(decision),
+              'ok',
+            ]
           : interaction.status === 'cancelled'
-            ? ['Plan review cancelled', undefined, 'neutral']
+            ? [t`Plan review cancelled`, undefined, 'neutral']
             : interaction.status === 'expired'
-              ? ['Plan review expired', undefined, 'neutral']
-              : ['Plan decision recorded', undefined, 'neutral'];
+              ? [t`Plan review expired`, undefined, 'neutral']
+              : [t`Plan decision recorded`, undefined, 'neutral'];
   return (
     <AskAnsweredRow
       actions={actions}

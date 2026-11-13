@@ -40,6 +40,7 @@ export const queryFilterSchema = z
       contains: z.string().min(1),
     }[op];
     if (!valueRule.safeParse(value).success) {
+      // i18n-ignore: validation message returned to the agent
       context.addIssue({ code: 'custom', path: ['value'], message: `Not a valid ${op} value` });
     }
   });
@@ -50,6 +51,7 @@ export const queryAggregateSchema = z
     groupBy: z
       .array(fieldNameSchema)
       .max(64)
+      // i18n-ignore: validation message returned to the agent
       .refine(distinct, 'groupBy repeats a column')
       .optional(),
     metrics: z
@@ -69,6 +71,7 @@ export const queryAggregateSchema = z
   .refine(
     ({ groupBy = [], metrics }) =>
       !metrics.some(({ column, fn }) => groupBy.includes(`${column}_${fn}`)),
+    // i18n-ignore: validation message returned to the agent
     'A metric output name repeats a groupBy column',
   );
 
@@ -98,7 +101,9 @@ export const queryDownsampleSchema = z
  * itself is an ARRAY of these (multiple keys apply in order, a stable
  * compound sort), never a single object.
  */
-export const querySortSchema = z.object({ column: fieldNameSchema, desc: z.boolean().default(false) }).strict();
+export const querySortSchema = z
+  .object({ column: fieldNameSchema, desc: z.boolean().default(false) })
+  .strict();
 
 /**
  * `$defs/DataQuery`: the table-query server's request model (without

@@ -9,29 +9,32 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { SettingsSelectField } from './model-select-field';
-import { formatDateTime, parseCron, weekdayLabels } from './settings-schedule-time';
+import { everyWeekday, formatDateTime, parseCron } from './settings-schedule-time';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** How a row says when it runs: "Weekdays 09:00", "One time 14 Nov 16:00". */
 export function ScheduleWords({ schedule }: { schedule: ScheduledTurn }) {
   if (!schedule.recurring) {
     return (
       <>
-        One time
+        {t`One time`}
         <MetaGap />
         {formatDateTime(schedule.run_at || schedule.next_fire_at, schedule.timezone, true)}
       </>
     );
   }
   const parsed = parseCron(schedule.cron);
-  if (parsed.preset === 'weekdays') return `Weekdays ${parsed.time}`;
-  if (parsed.preset === 'daily') return `Every day ${parsed.time}`;
+  if (parsed.preset === 'weekdays') return t`Weekdays ${ph({ time: parsed.time })}`;
+  if (parsed.preset === 'daily') return t`Every day ${ph({ time: parsed.time })}`;
   if (parsed.preset === 'weekly') {
-    const day = weekdayLabels.find(([value]) => value === parsed.weekday)?.[1] ?? 'week';
-    return `Every ${day} ${parsed.time}`;
+    return t`${ph({ repeat: everyWeekday(parsed.weekday) })} ${ph({ time: parsed.time })}`;
   }
   return (
     <>
-      Custom repeat <span className="font-mono text-label">{schedule.cron}</span>
+      <Trans>
+        Custom repeat <span className="font-mono text-label">{schedule.cron}</span>
+      </Trans>
     </>
   );
 }

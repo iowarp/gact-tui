@@ -11,6 +11,7 @@ import {
   type ViewSelection,
 } from '@/lib/a2ui/open-view';
 import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
+import { ph, t } from '@lingui/core/macro';
 
 type OpenViewRepository = Pick<ClioRepository, 'artifactDetail' | 'dashboard' | 'scienceLog'>;
 
@@ -25,7 +26,7 @@ async function openStudyView(
   const study = await repository.scienceLog(sessionId);
   const view = study.in_study ? study.views.find((row) => row.entry === entry) : undefined;
   if (!view) {
-    toast.error("That view is not one of this conversation's study views.");
+    toast.error(t`That view is not one of this conversation's study views.`);
     return;
   }
   if (selection) requestViewSelection(view.session_id, view.surface_id, selection);
@@ -43,7 +44,7 @@ async function openDashboard(
   const detail = await repository.artifactDetail(artifactId);
   const owner = detail.resolved.producer.session_id;
   if (detail.resolved.producer.designation !== 'dashboard-report' || typeof owner !== 'string') {
-    toast.error('That artifact is not a saved dashboard.');
+    toast.error(t`That artifact is not a saved dashboard.`);
     return;
   }
   if (selection) {
@@ -72,7 +73,7 @@ export function useOpenViewRuntime(
           : openStudyView(repository, sessionId, view, selection, reveal);
         opened.catch((error: unknown) =>
           toast.error(
-            `The view could not be opened: ${error instanceof Error ? error.message : String(error)}`,
+            t`The view could not be opened: ${ph({ reason: error instanceof Error ? error.message : String(error) })}`,
           ),
         );
       },

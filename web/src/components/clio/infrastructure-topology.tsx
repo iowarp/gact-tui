@@ -21,6 +21,7 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
 import { AGENT_COMPUTER } from './managed-service-target-utils';
+import { t, ph } from '@lingui/core/macro';
 
 type NodeTone = 'ok' | 'self' | 'active' | 'attention' | 'failed' | 'idle';
 
@@ -109,7 +110,7 @@ export function InfrastructureTopology({
   const nodes = new Map(map.nodes.map((node) => [node.id, node]));
   return (
     <section
-      aria-label="Connection map"
+      aria-label={t`Connection map`}
       className={cn(
         'bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:14px_14px] px-3 py-2',
         className,
@@ -169,7 +170,7 @@ export function InfrastructureTopology({
           })}
         </svg>
         <div
-          aria-label="Connections from this client to the agent and managed computers"
+          aria-label={t`Connections from this client to the agent and managed computers`}
           className="absolute inset-0"
           role="list"
         >
@@ -298,7 +299,7 @@ function topologyLayout(
       row: row + (span - 1) / 2,
       icon: isLocal ? <MonitorIcon /> : <ServerIcon />,
       title: hostName,
-      detail: isLocal ? 'Local' : state!.detail,
+      detail: isLocal ? t`Local` : state!.detail,
       brief: state?.brief,
       tone: state?.tone ?? 'ok',
       action:
@@ -306,21 +307,26 @@ function topologyLayout(
           ? {
               kind: 'reconnect',
               host: sshHostFromTarget(host),
-              label: `Reconnect ${host.label}`,
-              hint: 'Enter to reconnect.',
+              label: t`Reconnect ${ph({ label: host.label })}`,
+              hint: t`Enter to reconnect.`,
             }
           : {
               kind: 'link',
               to: `/infrastructure/services?target=${encodeURIComponent(band.id)}`,
-              label: `Services on ${hostName}`,
-              hint: 'Enter to open its services.',
+              label: t`Services on ${hostName}`,
+              hint: t`Enter to open its services.`,
             },
     });
     const route = host?.kind === 'ssh' ? 'SSH' : host?.kind === 'direct' ? 'Direct' : undefined;
     edges.push({
       from: 'agent',
       to: hostId,
-      label: route && !labelled.has(route) ? route : undefined,
+      label:
+        route && !labelled.has(route)
+          ? route === 'Direct'
+            ? t({ message: 'Direct', context: 'network route' })
+            : route
+          : undefined,
       dashed: state?.reconnect,
       tone: state?.reconnect ? 'attention' : state?.tone === 'failed' ? 'failed' : undefined,
     });
@@ -339,7 +345,7 @@ function topologyLayout(
         row: row + index,
         icon: serviceIcon(service.service_id),
         title: name,
-        detail: port ? `${status.label}, port ${port}` : status.label,
+        detail: port ? t`${ph({ status: status.label })}, port ${port}` : status.label,
         tone:
           status.value === 'healthy'
             ? 'ok'
@@ -351,8 +357,8 @@ function topologyLayout(
         action: {
           kind: 'link',
           to: `/infrastructure/services?target=${encodeURIComponent(band.id)}&service=${encodeURIComponent(service.service_id)}`,
-          label: `Manage ${name} on ${hostName}`,
-          hint: 'Enter to manage it.',
+          label: t`Manage ${name} on ${hostName}`,
+          hint: t`Enter to manage it.`,
         },
       });
       edges.push({ from: hostId, to: id, dashed: state?.reconnect });
@@ -365,14 +371,14 @@ function topologyLayout(
       column: 2,
       row,
       icon: <ServerIcon />,
-      title: 'Remote computers',
-      detail: 'None added',
+      title: t`Remote computers`,
+      detail: t`None added`,
       tone: 'idle',
       action: {
         kind: 'link',
         to: '/infrastructure/agent',
-        label: 'Add a computer',
-        hint: 'Enter to add one.',
+        label: t`Add a computer`,
+        hint: t`Enter to add one.`,
       },
     });
     edges.push({ from: 'agent', to: 'add-computer', dashed: true });
@@ -385,7 +391,7 @@ function topologyLayout(
       column: 0,
       row: middle,
       icon: <LaptopIcon />,
-      title: 'This client',
+      title: t`This client`,
       detail: client,
       tone: 'ok',
     },
@@ -394,18 +400,22 @@ function topologyLayout(
       column: 1,
       row: middle,
       icon: <BrandIcon className="size-3.5" />,
-      title: `Connected ${vocab.agent}`,
+      title: t`Connected ${ph({ agent: vocab.agent })}`,
       detail: agentLabel,
       tone: 'self',
       action: {
         kind: 'link',
         to: `/infrastructure/services?target=${encodeURIComponent(localId)}`,
-        label: `Manage services on connected ${vocab.agent} ${agentLabel}`,
-        hint: 'Enter to open its services.',
+        label: t`Manage services on connected ${ph({ agent: vocab.agent })} ${agentLabel}`,
+        hint: t`Enter to open its services.`,
       },
     },
   );
-  edges.unshift({ from: 'client', to: 'agent', label: agentRoute });
+  edges.unshift({
+    from: 'client',
+    to: 'agent',
+    label: agentRoute === 'Direct' ? t({ message: 'Direct', context: 'network route' }) : 'SSH',
+  });
   return { nodes, edges, rows: row };
 }
 
@@ -418,7 +428,11 @@ function hostState(host: InfrastructureTarget): {
 } {
   const words = computerConnectionLabel(host.transport_state);
   const jump = host.ssh?.jump_hosts[0];
-  const detail = jump ? `via ${jump}, ${words}` : host.kind === 'direct' ? words : `SSH: ${words}`;
+  const detail = jump
+    ? t`via ${jump}, ${words}`
+    : host.kind === 'direct'
+      ? words
+      : t`SSH: ${words}`;
   const state = { detail, brief: words };
   switch (host.transport_state) {
     case 'connected':

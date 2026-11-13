@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { MenuRow } from './menu-row';
+import { t, ph } from '@lingui/core/macro';
 
 export interface NavTab {
   id: string;
@@ -131,9 +132,9 @@ export const NavTabs = memo(function NavTabs({
       })}
       {listed.length ? (
         <DropdownMenu modal={false}>
-          <NamedTooltip label={`${listed.length} more`}>
+          <NamedTooltip label={t`${ph({ count: listed.length })} more`}>
             <DropdownMenuTrigger
-              aria-label={`${listed.length} more: ${listed.map((tab) => tab.label).join(', ')}`}
+              aria-label={t`${ph({ count: listed.length })} more: ${ph({ tabs: listed.map((tab) => tab.label).join(', ') })}`}
               className="ml-auto flex h-[26px] shrink-0 items-center gap-[3px] self-center rounded-md px-1.5 text-label text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
             >
               {listed.length}

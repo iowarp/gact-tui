@@ -5,6 +5,7 @@ import { useKnownConnections } from '@/hooks/use-known-connections';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import type { ConnectionSettings } from '@/lib/connection';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
 
 /** What the CLIO menu lists: the agent in use, the saved agents, their reachability and the switch. */
 export function useClioMenuConnections(endpoint: string) {
@@ -26,7 +27,7 @@ export function useClioMenuConnections(endpoint: string) {
     try {
       await switchConnection(connection);
     } catch (error) {
-      toast.error('Could not switch agent service', {
+      toast.error(t`Could not switch agent service`, {
         description: error instanceof Error ? error.message : String(error),
       });
     }

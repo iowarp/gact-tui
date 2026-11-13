@@ -12,6 +12,7 @@ import { BoundedResult } from './bounded-result';
 import { delegationPrompt, isParentDelegation } from './parent-delegation';
 import { IconButton } from './primitives/icon-button';
 import { ResultDialogContent } from './result-dialog-content';
+import { t } from '@lingui/core/macro';
 
 type DelegationBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -46,7 +47,7 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
             className="min-w-0 max-w-full rounded-[12px] bg-secondary px-3.5 py-[9px] font-sans text-menu leading-normal [overflow-wrap:anywhere]"
             data-slot="parent-delegation-bubble"
           >
-            <BoundedResult lines={lines} title="Parent assignment">
+            <BoundedResult lines={lines} title={t`Parent assignment`}>
               <MessageResponse>{prompt}</MessageResponse>
             </BoundedResult>
           </div>
@@ -66,14 +67,14 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
                 <div className="flex items-center">
                   <IconButton
                     icon={<CopyIcon aria-hidden="true" />}
-                    label="Copy parent assignment"
+                    label={t`Copy parent assignment`}
                     onClick={() => void copyText(prompt)}
                     size="sm"
                     type="button"
                   />
                   <IconButton
                     icon={<InfoIcon aria-hidden="true" />}
-                    label="Technical details for Parent assignment"
+                    label={t`Technical details for Parent assignment`}
                     onClick={() => setDetailsOpen(true)}
                     size="sm"
                     type="button"
@@ -84,8 +85,8 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
           </div>
           <ResultDialogContent
             icon={<InfoIcon />}
-            title="Parent assignment: Technical details"
-            description="The parent's original assignment."
+            title={t`Parent assignment: Technical details`}
+            description={t`The parent's original assignment.`}
           >
             <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-6 [overflow-wrap:anywhere]">
               {block.text}
