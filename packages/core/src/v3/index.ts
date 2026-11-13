@@ -60,6 +60,7 @@ export * from './composer-schemas.js';
 export * from './composer-repository.js';
 export * from './interaction-repository.js';
 export * from './mcp-app-domain.js';
+export * from './mcp-app-reopen.js';
 export * from './mcp-preparation-domain.js';
 export * from './mcp-app-repository.js';
 export * from './search-repository.js';

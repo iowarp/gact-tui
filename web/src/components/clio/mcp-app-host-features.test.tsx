@@ -227,9 +227,8 @@ describe('display mode and link rules', () => {
     expect(resolveDisplayMode('fullscreen', 'inline', undefined)).toBe('fullscreen');
     expect(resolveDisplayMode('pip', 'inline', undefined)).toBe('inline');
     expect(resolveDisplayMode('fullscreen', 'surface', undefined)).toBe('inline');
-    expect(resolveDisplayMode('fullscreen', 'inline', { availableDisplayModes: ['inline'] })).toBe(
-      'inline',
-    );
+    const inlineOnly = { availableDisplayModes: Array.of('inline') };
+    expect(resolveDisplayMode('fullscreen', 'inline', inlineOnly)).toBe('inline');
   });
 
   it('accepts only http and https links', () => {

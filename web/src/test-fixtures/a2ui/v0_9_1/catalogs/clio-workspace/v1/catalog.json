@@ -527,6 +527,32 @@
       ],
       "type": "object"
     },
+    "McpAppChannel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "description": "The key the view reports this state under in its model context.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]{0,63}$",
+          "type": "string"
+        },
+        "path": {
+          "description": "The data-model path the state is written to; components bound to it follow it.",
+          "maxLength": 256,
+          "pattern": "^(/[^/\\s]+)+$",
+          "type": "string"
+        },
+        "tool": {
+          "description": "A tool of the server or of the view that sets this state from {key: value} when the path changes elsewhere; omit for report-only state.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "path"
+      ],
+      "type": "object"
+    },
     "MessageDraftVersion": {
       "additionalProperties": false,
       "properties": {
@@ -1278,6 +1304,9 @@
           "$ref": "#/components/clio.map.v1"
         },
         {
+          "$ref": "#/components/clio.mcp-app.v1"
+        },
+        {
           "$ref": "#/components/clio.mermaid.v1"
         },
         {
@@ -1449,7 +1478,8 @@
         {
           "properties": {
             "activeChild": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Child id of the displayed slide; bind it to retain or coordinate navigation."
             },
             "children": {
               "items": {
@@ -2034,7 +2064,8 @@
         {
           "properties": {
             "activeTab": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Exactly a tabs[].child id, optionally bound to a data-model path. For tabs=[{title:'Lifecycle',child:'lifecycleFrame'}], use 'lifecycleFrame', not a nested diagram id or the title. Bind it for agent-driven tab review and shared dashboard navigation."
             },
             "component": {
               "const": "Tabs"
@@ -3236,6 +3267,59 @@
         }
       ],
       "description": "Interactive points, ordered trajectories, or GeoJSON geometry on a map.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.mcp-app.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "arguments": {
+              "description": "The arguments the opening tool is called with.",
+              "type": "object"
+            },
+            "component": {
+              "const": "clio.mcp-app.v1"
+            },
+            "height": {
+              "maximum": 2000,
+              "minimum": 160,
+              "type": "integer"
+            },
+            "server": {
+              "description": "The MCP server whose tool opens the view, as CLIO names it.",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+              "type": "string"
+            },
+            "state": {
+              "description": "State channels linking the view to data-model paths.",
+              "items": {
+                "$ref": "#/$defs/McpAppChannel"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            "tool": {
+              "description": "The server's tool that opens the view (it declares a ui:// resource).",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "server",
+            "tool"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "An MCP App view opened by a tool call, with its state linked to the surface's data model.",
       "type": "object",
       "unevaluatedProperties": false
     },

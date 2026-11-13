@@ -716,6 +716,7 @@ describe('ClioConversation recovery actions', () => {
     const repository = {
       closeMcpApp,
       mcpAppDescriptor: vi.fn(() => new Promise(() => undefined)),
+      mcpAppLive: vi.fn(() => new Promise(() => undefined)),
     } as unknown as ClioRepository;
     const appMessage = (id: string, appInstanceId: string, createdAt: string): DomainMessage => ({
       id,

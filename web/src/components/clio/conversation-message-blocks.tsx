@@ -14,7 +14,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
-import { McpAppCard } from './mcp-app-card';
+import { McpAppReopenableCard } from './mcp-app-reopen';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
@@ -339,7 +339,7 @@ function MessageBlockView({
     }
     case 'mcp_app':
       return (
-        <McpAppCard block={block} repository={mcpAppRepository} sessionId={messageSessionId} />
+        <McpAppReopenableCard block={block} repository={mcpAppRepository} sessionId={messageSessionId} />
       );
     case 'citation':
       return (

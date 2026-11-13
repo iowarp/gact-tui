@@ -21,10 +21,13 @@ import type { McpAppTabTarget } from './workbench-shared';
  */
 export function McpAppCard({
   block,
+  reopened = false,
   repository,
   sessionId,
 }: {
   block: McpAppBlockFields;
+  /** The person reopened this view from its card (MA19): it shows here though not the latest. */
+  reopened?: boolean;
   repository?: ClioRepository;
   sessionId?: string;
 }) {
@@ -42,7 +45,7 @@ export function McpAppCard({
     return <McpAppHistoryLine sourceServer={block.source_server} toolName={block.tool_name} />;
   }
   if (placement === 'tab') return <McpAppInTabRow target={target} />;
-  if (placement === 'surface' || placement === 'ended' || !latest) {
+  if (placement === 'surface' || placement === 'ended' || !(latest || reopened)) {
     return <McpAppHistoryLine sourceServer={block.source_server} toolName={block.tool_name} />;
   }
   return (

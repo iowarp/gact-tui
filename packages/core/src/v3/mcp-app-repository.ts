@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type {
+  McpAppCall,
   McpAppDescriptor,
   McpAppDisplayMode,
   McpAppIdentity,
@@ -8,8 +9,10 @@ import type {
   McpAppViewTool,
   McpAppPlacementState,
   McpAppSavedDownload,
+  McpAppOpenFromCallResult,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
+import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
 
 const descriptorSchema = z.object({
   protocol_version: z.string(),
@@ -59,6 +62,7 @@ const appToolsAcknowledgementSchema = z.object({
   reason: z.string().optional(),
   message: z.string().optional(),
 });
+const serverToolsSchema = z.array(z.string()).default([]);
 
 function appPath(identity: McpAppIdentity, suffix = ''): string {
   const session = encodeURIComponent(identity.sessionId);
@@ -137,6 +141,16 @@ export class McpAppRepository extends InteractionRepository {
     });
   }
 
+  /** Whether CLIO still holds the view; a closed view is `false`, not an error. */
+  public mcpAppLive(identity: McpAppIdentity, signal?: AbortSignal): Promise<boolean> {
+    return this.transport.request({
+      method: 'GET',
+      path: appPath(identity, '/live'),
+      decode: (value) => z.object({ live: z.boolean() }).parse(value).live,
+      signal,
+    });
+  }
+
   /** Record where the App's one frame is (MA4); `fullscreen` pins the record (MA6). */
   public setMcpAppDisplayMode(
     identity: McpAppIdentity,
@@ -148,6 +162,44 @@ export class McpAppRepository extends InteractionRepository {
       path: appPath(identity, '/display-mode'),
       body: { mode },
       decode: (value) => placementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Replay a view's saved opening call; a failed replay is a result, not a throw. */
+  public reopenMcpApp(
+    sessionId: string,
+    appInstanceId: string,
+    signal?: AbortSignal,
+  ): Promise<McpAppReopenResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
+      body: { app_instance_id: appInstanceId },
+      decode: decodeMcpAppReopen,
+      signal,
+    });
+  }
+
+  /**
+   * Make a call that opens a view, for an A2UI surface (MA20). The answer is the
+   * reopen answer plus the server's tools the view may call.
+   */
+  public openMcpAppFromCall(
+    sessionId: string,
+    call: McpAppCall,
+    signal?: AbortSignal,
+  ): Promise<McpAppOpenFromCallResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/open`,
+      body: call,
+      decode: (value) => ({
+        ...decodeMcpAppReopen(value),
+        serverTools: serverToolsSchema.parse(
+          (value as { server_tools?: unknown } | null)?.server_tools,
+        ),
+      }),
       signal,
     });
   }
