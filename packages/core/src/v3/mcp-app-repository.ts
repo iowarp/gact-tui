@@ -175,8 +175,9 @@ export class McpAppRepository extends InteractionRepository {
   }
 
   /**
-   * Make a call that opens a view, for an A2UI surface (MA20). The answer is the
-   * reopen answer plus the server's tools the view may call.
+   * Make a call that opens a view, for an A2UI surface (MA20), through the reopen
+   * route's call form. The surface holds the call, so it is not saved on the session.
+   * The answer is the reopen answer plus the server's tools the view may call.
    */
   public openMcpAppFromCall(
     sessionId: string,
@@ -185,8 +186,8 @@ export class McpAppRepository extends InteractionRepository {
   ): Promise<McpAppOpenFromCallResult> {
     return this.transport.request({
       method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/open`,
-      body: call,
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
+      body: { call, save: false },
       decode: (value) => ({
         ...decodeMcpAppReopen(value),
         serverTools: serverToolsSchema.parse(
