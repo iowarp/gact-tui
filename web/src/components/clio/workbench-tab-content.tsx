@@ -30,7 +30,7 @@ const BrowserSurface = lazy(() =>
   import('./browser-surface').then((module) => ({ default: module.BrowserSurface })),
 );
 const McpAppTabPanel = lazy(() =>
-  import('./mcp-app-tab-panel').then((module) => ({ default: module.McpAppTabPanel })),
+  import('./mcp-app-reopen').then((module) => ({ default: module.McpAppRestoringTab })),
 );
 const SearchResultsTab = lazy(() =>
   import('./search-results-tab').then((module) => ({ default: module.SearchResultsTab })),
@@ -415,7 +415,7 @@ export function WorkbenchTabContent({
     case 'mcp-app':
       return (
         <Suspense fallback={<CanvasLoading label="Opening the view" />}>
-          <McpAppTabPanel target={tab} />
+          <McpAppTabPanel onReplaceTab={onReplaceTab} target={tab} />
         </Suspense>
       );
     default:

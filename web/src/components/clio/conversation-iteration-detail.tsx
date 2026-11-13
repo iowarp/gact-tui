@@ -25,7 +25,7 @@ import {
   questionInteractionsForTool,
   splitWaitingQuestion,
 } from './agent-answer-domain';
-import { McpAppCard } from './mcp-app-card';
+import { McpAppReopenableCard } from './mcp-app-reopen';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { TranscriptIterationText } from './transcript-iteration-text';
@@ -239,7 +239,11 @@ export function McpAppActivity({
 }) {
   return (
     <div data-turn-activity={`mcp-app:${entry.id}`}>
-      <McpAppCard block={entry.block} repository={mcpAppRepository} sessionId={messageSessionId} />
+      <McpAppReopenableCard
+        block={entry.block}
+        repository={mcpAppRepository}
+        sessionId={messageSessionId}
+      />
     </div>
   );
 }

@@ -24,6 +24,9 @@ vi.mock('./mcp-app-surface', () => ({
 
 afterEach(cleanup);
 
+// Every App in these runs is still held by CLIO, so its card mounts the view.
+const heldRepository = { mcpAppLive: async () => true } as unknown as ClioRepository;
+
 function activityLane(entries: readonly ConversationActivity[]): Partial<ConversationIteration> {
   return {
     activity: [...entries],
@@ -254,7 +257,7 @@ describe('ConversationTurn correlated work placement', () => {
     expect(await screen.findByText(child.result)).toBeVisible();
   });
 
-  it('keeps the active MCP App visible after its collapsed chain summary', () => {
+  it('keeps the active MCP App visible after its collapsed chain summary', async () => {
     const app: ConversationActivity = {
       kind: 'mcp_app',
       id: 'app_block',
@@ -277,14 +280,14 @@ describe('ConversationTurn correlated work placement', () => {
             activityLane([{ kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') }, app]),
           ),
         ]}
-        mcpAppRepository={{} as ClioRepository}
+        mcpAppRepository={heldRepository}
         messageSessionId="session_1"
         mode="chain"
         subagents={{}}
       />,
     );
 
-    expect(screen.getByTestId('active-mcp-app')).toBeVisible();
+    expect(await screen.findByTestId('active-mcp-app')).toBeVisible();
     expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app').closest('[data-turn-activity]')).toHaveAttribute(
       'data-turn-activity',
@@ -292,7 +295,7 @@ describe('ConversationTurn correlated work placement', () => {
     );
   });
 
-  it('keeps replaced MCP Apps as history in the run without remounting them', () => {
+  it('keeps replaced MCP Apps as history in the run without remounting them', async () => {
     const replaced: ConversationActivity = {
       kind: 'mcp_app',
       id: 'app_block_1',
@@ -326,7 +329,7 @@ describe('ConversationTurn correlated work placement', () => {
     renderWithTooltips(
       <ConversationTurn
         iterations={[iteration(activityLane([replaced, active]))]}
-        mcpAppRepository={{} as ClioRepository}
+        mcpAppRepository={heldRepository}
         messageSessionId="session_1"
         mode="chain"
         subagents={{}}
@@ -334,8 +337,11 @@ describe('ConversationTurn correlated work placement', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /^Expand / }));
-    expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
-    expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
+    // The replaced App is closed: its card offers to reopen it (MA19).
+    expect(document.querySelector('[data-mcp-app-reopen="app_1"]')).toHaveTextContent(
+      'View closed',
+    );
+    expect(await screen.findAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
   });
 
