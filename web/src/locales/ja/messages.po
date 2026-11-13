@@ -1158,6 +1158,10 @@ msgstr "{agent}は開始されませんでした"
 msgid "{agent} downloads and prepares {thing}. This can take several minutes."
 msgstr "{agent}が{thing}をダウンロードして準備します。数分かかる場合があります。"
 
+#: src/tauri/managed-backend.ts
+msgid "{agent} finished installing, but the app could not find the installed service to start it. Reopen the app to repair the installation."
+msgstr "{agent}のインストールは完了しましたが、インストールされたサービスが見つからず開始できませんでした。アプリを開き直してインストールを修復してください。"
+
 #: src/components/clio/artifact-lineage-layout.ts
 msgid "{agent} has no record of what made this file."
 msgstr "{agent}には、このファイルを作成したものの記録がありません。"
