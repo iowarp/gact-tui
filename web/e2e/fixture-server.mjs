@@ -1249,6 +1249,7 @@ function initialFleetSettings() {
   return {
     revision: 'fleet_1',
     search: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+    fast: null,
     spotter: null,
     judges: {
       goals: null,

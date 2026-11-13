@@ -60,7 +60,7 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
             {icon}
           </span>
         ) : null}
-        <span className={cn('min-w-0 flex-1 truncate text-left', !value && 'text-faint')}>
+        <span className={cn('min-w-0 flex-1 truncate text-left', !value && 'text-muted-foreground')}>
           {value || placeholder}
         </span>
         <ChevronDownIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />

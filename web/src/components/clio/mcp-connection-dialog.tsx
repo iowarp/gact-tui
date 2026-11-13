@@ -302,7 +302,7 @@ export function McpConnectionDialog({
         <button
           aria-controls={`${ids}-advanced`}
           aria-expanded={advanced}
-          className="mt-3 mb-1 flex h-7 items-center gap-1 rounded-sm text-label text-faint outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          className="mt-3 mb-1 flex h-7 items-center gap-1 rounded-sm text-label text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
           onClick={() => setAdvanced((open) => !open)}
           type="button"
         >

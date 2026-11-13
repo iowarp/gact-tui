@@ -175,7 +175,7 @@ export const ItemRow = memo(
           {meta ? (
             <span
               className={cn(
-                'min-w-0 truncate text-faint',
+                'min-w-0 truncate text-muted-foreground',
                 size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
               data-slot="item-row-meta"

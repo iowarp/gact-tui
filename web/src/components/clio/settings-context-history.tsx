@@ -143,7 +143,7 @@ function CompactionRow({ event, session }: { event: MemoryEvent; session?: Sessi
       title={
         <>
           Compacted transcript
-          <span className="ml-2.5 font-normal text-faint">{time(event.created_at)}</span>
+          <span className="ml-2.5 font-normal text-muted-foreground">{time(event.created_at)}</span>
         </>
       }
     />

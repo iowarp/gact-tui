@@ -58,7 +58,7 @@ function Outcome({ value, className }: { value: ToolOutcome; className?: string 
       <StatusIndicator
         className={cn(
           value === 'covered' && 'text-info',
-          value === 'unavailable' && 'text-faint',
+          value === 'unavailable' && 'text-muted-foreground',
           'text-meta',
         )}
         label={OUTCOME_TEXT[value]}
@@ -81,7 +81,7 @@ function OutcomeMark({
   return (
     <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
       <StatusIndicator
-        className={cn('text-xs', !statusWordClass(OUTCOME_TONE[value]) && 'text-faint')}
+        className={cn('text-xs', !statusWordClass(OUTCOME_TONE[value]) && 'text-muted-foreground')}
         label={text}
         tone={OUTCOME_TONE[value]}
       />
@@ -171,7 +171,7 @@ export const ToolRow = memo(function ToolRow({
           // Below 44rem the line wraps inside a one-line clip, so an outcome
           // without room for a few letters of its label leaves whole rather
           // than as a bare dot.
-          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
+          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-muted-foreground @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
             {shows(2) ? (
               <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
             ) : null}
