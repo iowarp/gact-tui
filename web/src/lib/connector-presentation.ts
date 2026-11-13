@@ -57,7 +57,7 @@ export function connectorStatus(
     return {
       tone: 'running',
       label: 'Starting…',
-      detail: 'Starting… CLIO is starting it and checking what it needs.',
+      detail: 'CLIO is starting it and checking what it needs.',
     };
   if (change === 'turning-off')
     return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };
