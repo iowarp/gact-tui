@@ -42,7 +42,7 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
     <span className="flex min-w-0 items-center justify-between gap-3 whitespace-nowrap">
       <span className="truncate">{label}</span>
       {count ? (
-        <span className="shrink-0 font-mono text-[10.5px] font-normal tabular-nums">{count}</span>
+        <span className="shrink-0 font-mono text-[0.65625rem] font-normal tabular-nums">{count}</span>
       ) : null}
     </span>
   );

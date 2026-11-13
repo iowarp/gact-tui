@@ -647,7 +647,7 @@ function SearchResultsHeader({ data, icon }: { data: SearchHeaderNodeData; icon?
       <span className="min-w-0 flex-1 truncate">{data.group.name}</span>
       <span
         aria-label={`${data.matches} of ${data.total} models match`}
-        className="shrink-0 font-mono text-[10.5px] text-faint tabular-nums"
+        className="shrink-0 font-mono text-[0.65625rem] text-faint tabular-nums"
       >
         {data.matches} / {data.total}
       </span>

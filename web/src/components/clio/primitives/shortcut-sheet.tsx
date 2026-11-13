@@ -160,7 +160,7 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
     <KeyPlatformContext.Provider value={platform}>
       {/* Below 600px the header folds to two rows: title, OS and close, then the find field and legend. */}
       <div className="flex h-12 min-w-0 shrink-0 items-center gap-3 border-b border-border px-[18px] max-[599px]:h-auto max-[599px]:flex-wrap max-[599px]:gap-y-2.5 max-[599px]:py-2.5">
-        <DialogTitle className="shrink-0 font-sans text-[14px] leading-none font-semibold whitespace-nowrap">
+        <DialogTitle className="shrink-0 font-sans text-[0.875rem] leading-none font-semibold whitespace-nowrap">
           Keyboard shortcuts
         </DialogTitle>
         <DialogDescription className="sr-only">

@@ -1,6 +1,7 @@
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { interfaceScale } from '@/theme/runtime';
 
 /** Open a native terminal rooted at an existing CLIO workspace. */
 export async function openWorkspaceTerminal(path: string): Promise<string> {
@@ -170,13 +171,24 @@ function setStatus(entry: EmbeddedTerminalEntry, status: EmbeddedTerminalStatus)
  * rest of the open sequence is statically known to have a real instance —
  * no `entry.term!` assertions needed.
  */
+/** 13px at the default interface size; xterm draws in px, so it follows Interface size here. */
+function terminalFontSize(): number {
+  return 13 * interfaceScale();
+}
+
+/** Applies a changed Interface size before a fit, which then re-measures the cells. */
+function syncTerminalFontSize(term: Terminal): void {
+  const size = terminalFontSize();
+  if (term.options.fontSize !== size) term.options.fontSize = size;
+}
+
 async function ensureTerm(entry: EmbeddedTerminalEntry): Promise<Terminal> {
   if (entry.term) return entry.term;
   const { Terminal: TerminalCtor, FitAddon: FitAddonCtor } = await loadXterm();
   const term = new TerminalCtor({
     cursorBlink: true,
     fontFamily: TERMINAL_FONT_FAMILY,
-    fontSize: 13,
+    fontSize: terminalFontSize(),
   });
   const fitAddon = new FitAddonCtor();
   term.loadAddon(fitAddon);
@@ -290,6 +302,7 @@ export function attachEmbeddedTerminalContainer(tabId: string, container: HTMLEl
     } else {
       entry.term.open(container);
     }
+    syncTerminalFontSize(entry.term);
     entry.fitAddon.fit();
   });
 }
@@ -313,6 +326,7 @@ export function subscribeEmbeddedTerminalStatus(
 export function fitEmbeddedTerminal(tabId: string): void {
   const entry = entriesByTabId.get(tabId);
   if (!entry || !entry.term || !entry.fitAddon) return;
+  syncTerminalFontSize(entry.term);
   entry.fitAddon.fit();
   void invokeTerminalResize(entry.id, entry.term.cols, entry.term.rows);
 }

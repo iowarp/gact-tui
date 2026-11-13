@@ -39,7 +39,7 @@ export function DesktopBoot({
   return (
     <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
-        <h1 className="m-0 mb-2.5 flex items-center gap-2.5 font-heading text-[16px] font-semibold">
+        <h1 className="m-0 mb-2.5 flex items-center gap-2.5 font-heading text-[1rem] font-semibold">
           <BrandIcon className="size-[22px] shrink-0 text-primary" />
           {`Starting local ${vocab.agent}`}
         </h1>

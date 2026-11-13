@@ -262,7 +262,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
               badge: inbox ? (
                 <span
                   aria-label={`${inbox} waiting`}
-                  className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10.5px] leading-none font-semibold text-background tabular-nums"
+                  className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[0.65625rem] leading-none font-semibold text-background tabular-nums"
                 >
                   {inbox}
                 </span>

@@ -38,7 +38,7 @@ export function ClioRelativeTime({
     return (
       <time
         aria-label={`${label} ${fullLabel}`}
-        className={cn('shrink-0 text-[10px] tabular-nums text-muted-foreground', className)}
+        className={cn('shrink-0 text-[0.625rem] tabular-nums text-muted-foreground', className)}
         dateTime={timestamp}
         title={`${label} ${fullLabel}`}
         {...props}

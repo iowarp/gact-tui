@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { useInterfaceScale } from '@/theme/runtime';
 import { renderPeleDiagram } from './diagram-renderer';
 import { parseDiagramSource } from './mermaid-security';
 
@@ -32,6 +33,8 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
         ? drawing.state
         : { kind: 'drawing' };
 
+  // Pele lays text out in px scaled by Interface size, so a size change redraws.
+  const scale = useInterfaceScale();
   useEffect(() => {
     if (!checked) return;
     let cancelled = false;
@@ -54,7 +57,7 @@ export function PluginFlowShape({ source, label }: { source: string; label: stri
     return () => {
       cancelled = true;
     };
-  }, [checked, id, shape]);
+  }, [checked, id, shape, scale]);
 
   const svg = state.kind === 'drawn' ? state.svg : '';
   const html = useMemo(() => ({ __html: svg }), [svg]);

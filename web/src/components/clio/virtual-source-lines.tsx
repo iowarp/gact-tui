@@ -5,9 +5,10 @@ import { TokenSpan } from '@/components/ai-elements/code-block';
 import { cn } from '@/lib/utils';
 import { indentColumns, leadingWhitespace, splitIndent } from '@/lib/source-indent';
 import { SourceWindowContext } from '@/lib/source-window';
+import { useInterfaceScale } from '@/theme/runtime';
 import { useChunkedHighlight } from './source-highlight';
 
-/** Matches the highlighted source's 11.5px/1.65 lines. Unit: CSS px. */
+/** Matches the highlighted source's 11.5px/1.65 lines at the default interface size. Unit: CSS px. */
 const SOURCE_LINE_HEIGHT_PX = 19;
 /** Rows from the end at which a windowed file asks for its next window. */
 const END_REACHED_ROWS = 200;
@@ -32,17 +33,20 @@ export function VirtualSourceLines({
   'aria-label'?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The lines are sized in rem, so the estimate scales with Interface size.
+  const scale = useInterfaceScale();
+  const lineHeight = SOURCE_LINE_HEIGHT_PX * scale;
   const lines = useMemo(() => content.replace(/\r?\n$/u, '').split(/\r?\n/u), [content]);
   const tokensAt = useChunkedHighlight(lines, language);
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => SOURCE_LINE_HEIGHT_PX,
+    estimateSize: () => lineHeight,
     overscan: 20,
   });
   // A wrapped line can span rows, so measured sizes from the other mode no longer hold.
-  useEffect(() => virtualizer.measure(), [virtualizer, wrap]);
+  useEffect(() => virtualizer.measure(), [virtualizer, wrap, lineHeight]);
   const items = virtualizer.getVirtualItems();
   const sourceWindow = useContext(SourceWindowContext);
   const lastIndex = items.at(-1)?.index ?? 0;
@@ -57,14 +61,14 @@ export function VirtualSourceLines({
       {...props}
       ref={scrollRef}
       className={cn(
-        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-label leading-[19px] text-foreground',
+        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-label leading-[1.1875rem] text-foreground',
         className,
       )}
       data-slot="virtual-source"
     >
       <div
         className={cn('relative p-4', wrap ? 'w-full' : 'w-max min-w-full')}
-        style={{ height: virtualizer.getTotalSize() + 32 }}
+        style={{ height: virtualizer.getTotalSize() + 32 * scale }}
       >
         <div style={{ transform: `translateY(${items[0]?.start ?? 0}px)` }}>
           {items.map((item) => (
@@ -76,7 +80,7 @@ export function VirtualSourceLines({
                 'flex',
                 wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre',
               )}
-              style={wrap ? undefined : { height: SOURCE_LINE_HEIGHT_PX }}
+              style={wrap ? undefined : { height: lineHeight }}
             >
               <span
                 aria-hidden="true"

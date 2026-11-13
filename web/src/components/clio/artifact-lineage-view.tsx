@@ -174,7 +174,7 @@ export function ArtifactLineageView({
               summaryClassName="rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
               title="Technical details"
             >
-              <code className="mt-2 block break-all rounded-md bg-muted/60 p-2 font-mono text-[10px]">
+              <code className="mt-2 block break-all rounded-md bg-muted/60 p-2 font-mono text-[0.625rem]">
                 {lineage.error.message}
               </code>
             </TechnicalDetails>

@@ -1351,7 +1351,7 @@ html[data-clio-motion='reduced'] *::after {
 .clio-flow-diagram .clio-flow-parallel {
   fill: var(--muted-foreground);
   font-family: var(--pele-font);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-style: italic;
 }
 .clio-flow-diagram .st-proposed > :is(rect, polygon, path) {
