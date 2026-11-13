@@ -22,6 +22,7 @@ import { useLiveStore } from '@/store/live-store';
 import { AskCode, AskFacts, AskSection, type AskFact } from './ask-card';
 import { TechnicalDetails } from './technical-details';
 import { permissionCommand, permissionOperationLabel } from './permission-operation-labels';
+import { decisionList } from './decision-list';
 import { plural, t } from '@lingui/core/macro';
 
 const { agent } = vocab;
@@ -152,7 +153,7 @@ function permissionOperation(
           ),
           ...fact(t`Endpoint`, <PlugIcon />, text('endpoint'), true),
           ...fact(t`Access`, <KeyRoundIcon />, SOURCE_ACCESS[text('mode')] ?? text('mode')),
-          ...fact(t`Resources`, <FilesIcon />, resources.join(', ')),
+          ...fact(t`Resources`, <FilesIcon />, decisionList(resources)),
         ]
       : []),
     ...(computer || folder
@@ -160,7 +161,7 @@ function permissionOperation(
           {
             label: t`Runs on`,
             icon: <ServerIcon />,
-            title: [computer, folder].filter(Boolean).join(', '),
+            title: decisionList([computer, folder].filter((part): part is string => Boolean(part))),
             value: (
               <>
                 {computer ? (

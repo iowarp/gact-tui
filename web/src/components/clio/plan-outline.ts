@@ -1,3 +1,7 @@
+import { plural, t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
+import { decisionList } from './decision-list';
+
 /** What a plan contains, read from its markdown: steps, a recommendation, risks. */
 export interface PlanSections {
   steps: number;
@@ -44,10 +48,6 @@ export function planSections(markdown: string | undefined): PlanSections {
   return { steps: stepsHeading ? steps : numbered, risks, hasRecommendation, hasRisks };
 }
 
-function count(value: number, noun: string) {
-  return `${value} ${noun}${value === 1 ? '' : 's'}`;
-}
-
 /** "4 steps, execution recommendation, 2 risks": only what the plan actually has. */
 export function planOutline(
   markdown: string | undefined,
@@ -55,14 +55,16 @@ export function planOutline(
 ): string {
   const sections = planSections(markdown);
   const parts = [
-    sections.steps ? count(sections.steps, 'step') : '',
-    sections.hasRecommendation || guidance.recommended_mode ? 'execution recommendation' : '',
+    sections.steps ? plural(sections.steps, { one: '# step', other: '# steps' }) : '',
+    sections.hasRecommendation || guidance.recommended_mode
+      ? t({ message: 'execution recommendation', comment: 'Plan summary item, mid-list' })
+      : '',
     sections.risks
-      ? count(sections.risks, 'risk')
+      ? plural(sections.risks, { one: '# risk', other: '# risks' })
       : sections.hasRisks || guidance.risk_notes?.trim()
-        ? 'risk notes'
+        ? t({ message: 'risk notes', comment: 'Plan summary item, mid-list' })
         : '',
   ].filter(Boolean);
-  const text = parts.join(', ');
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+  const text = decisionList(parts);
+  return text ? text.charAt(0).toLocaleUpperCase(formatLocale()) + text.slice(1) : '';
 }

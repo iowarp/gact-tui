@@ -505,6 +505,11 @@ msgstr "{0, plural, one {# πόρος} other {# πόροι}}"
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, one {# αποτέλεσμα} other {# αποτελέσματα}}"
 
+#. placeholder {0}: sections.risks
+#: src/components/clio/plan-outline.ts
+msgid "{0, plural, one {# risk} other {# risks}}"
+msgstr "{0, plural, one {# ????????} other {# ????????}}"
+
 #. placeholder {0}: preview.rows.length
 #. placeholder {0}: rows.length
 #. placeholder {0}: server ? server.totalRows : rows.length
@@ -564,8 +569,10 @@ msgstr "{0, plural, one {# επιλεγμένο} other {# επιλεγμένα}}
 msgid "{0, plural, one {# step, {state}} other {# steps, {state}}}"
 msgstr "{0, plural, one {# βήμα, {state}} other {# βήματα, {state}}}"
 
+#. placeholder {0}: sections.steps
 #. placeholder {0}: steps.length
 #. placeholder {0}: tab.activity.length
+#: src/components/clio/plan-outline.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
@@ -2153,6 +2160,11 @@ msgstr "{kind}: {title}"
 msgid "{kind}: {title}, {state}"
 msgstr "{kind}: {title}, {state}"
 
+#. Screen-reader announcement: request kind, then its title
+#: src/components/clio/pending-interactions.tsx
+msgid "{kind}: {words}"
+msgstr "{kind}: {words}"
+
 #: src/components/clio/refresh-button.tsx
 msgid "{label} — refreshing"
 msgstr "{label} — ανανέωση"
@@ -2430,6 +2442,8 @@ msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # γραμμή} other {Python, # γραμμές}}"
 
 #. A short list, one more item
+#. A short list, one more item
+#: src/components/clio/decision-list.ts
 #: src/components/clio/script-calls.ts
 msgid "{list}, {item}"
 msgstr "{list}, {item}"
@@ -3002,6 +3016,7 @@ msgid "{plugin} was not removed"
 msgstr "Το {plugin} δεν αφαιρέθηκε"
 
 #: src/components/clio/a2ui-carousel.tsx
+#: src/components/clio/pending-interactions.tsx
 msgid "{position} of {total}"
 msgstr "{position} από {total}"
 
@@ -3632,6 +3647,11 @@ msgstr "{tasks, plural, one {# εργασία} other {# εργασίες}}"
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr "{tasks, plural, one {εκτέλεσε # εργασία} other {εκτέλεσε # εργασίες}}"
 
+#. Joins sentences of a screen-reader announcement
+#: src/components/clio/pending-interactions.tsx
+msgid "{text}. {sentence}"
+msgstr "{text}. {sentence}"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{thoughts, plural, =1 {thought once} other {thought # times}}"
 msgstr "{thoughts, plural, =1 {σκέφτηκε μία φορά} other {σκέφτηκε # φορές}}"
@@ -3752,6 +3772,11 @@ msgstr "{toolCount} από {setupToolCount}"
 #: src/components/clio/agent-tab-values.ts
 msgid "{toolCount}, the setup has {setupToolCount}"
 msgstr "{toolCount}, η διαμόρφωση έχει {setupToolCount}"
+
+#. Spoken tool call: tool name, then its arguments
+#: src/components/clio/permission-response.tsx
+msgid "{toolName}: {list}"
+msgstr "{toolName}: {list}"
 
 #: src/offline-review.tsx
 msgid "{tools, plural, one {# tool record} other {# tool records}}"
@@ -6605,6 +6630,7 @@ msgid "Attaching…"
 msgstr "Επισύναψη…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "Συνημμένο"
 
@@ -9342,6 +9368,10 @@ msgstr "Σύμπτυξη {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Σύμπτυξη {label}"
+
+#: src/components/clio/ask-answered-row.tsx
+msgid "Collapse {verb}"
+msgstr "???????? {verb}"
 
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/composed-prompt-view.tsx
@@ -14144,6 +14174,11 @@ msgstr "Δεν ήταν δυνατή η επιβεβαίωση της εκτέλ
 msgid "Execution protection coverage"
 msgstr "Κάλυψη προστασίας εκτέλεσης"
 
+#. Plan summary item, mid-list
+#: src/components/clio/plan-outline.ts
+msgid "execution recommendation"
+msgstr "??????? ?????????"
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "Execution recommendation"
 msgstr "Πρόταση εκτέλεσης"
@@ -14222,6 +14257,10 @@ msgstr "Ανάπτυξη {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Ανάπτυξη {label}"
+
+#: src/components/clio/ask-answered-row.tsx
+msgid "Expand {verb}"
+msgstr "???????? {verb}"
 
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/composed-prompt-view.tsx
@@ -24630,6 +24669,7 @@ msgid "plan"
 msgstr "σχέδιο"
 
 #: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/pending-interactions.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/session-plan-section.tsx
@@ -27668,6 +27708,7 @@ msgid "Reprocess resource"
 msgstr "Επανεπεξεργασία πόρου"
 
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/pending-interactions.tsx
 msgid "Request"
 msgstr "Αίτημα"
 
@@ -28597,6 +28638,11 @@ msgstr "Εμπλουτισμένα αποτελέσματα"
 #: src/lib/shortcuts/catalog.ts
 msgid "Right pocket"
 msgstr "Δεξιά θήκη"
+
+#. Plan summary item, mid-list
+#: src/components/clio/plan-outline.ts
+msgid "risk notes"
+msgstr "?????????? ????????"
 
 #: src/lib/a2ui/kernel-catalog.tsx
 msgid "Risk: {risk}"

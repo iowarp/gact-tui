@@ -400,17 +400,24 @@ export const ClioPendingInteractionsDock = memo(ClioPendingInteractions);
 function announcement(interaction: PendingInteraction, index: number, total: number): string {
   const kind =
     interaction.source.tool_name === 'plan_exit'
-      ? 'Plan'
-      : (KIND_NAMES[interaction.kind] ?? 'Request');
+      ? t`Plan`
+      : (KIND_NAMES[interaction.kind] ?? t`Request`);
   const why = interaction.payload?.access?.reason;
   // A question is announced by its words, not a generic "Question" title.
   const words =
     interaction.kind === 'question'
       ? plainQuestionText(questionPrompt(interaction))
       : interaction.title;
-  return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
-    .filter(Boolean)
-    .join('. ');
+  const position = index + 1;
+  return [
+    t({ message: `${kind}: ${words}`, comment: 'Screen-reader announcement: request kind, then its title' }),
+    why,
+    total > 1 ? t`${position} of ${total}` : undefined,
+  ]
+    .filter((sentence): sentence is string => Boolean(sentence))
+    .reduce((text, sentence) =>
+      t({ message: `${text}. ${sentence}`, comment: 'Joins sentences of a screen-reader announcement' }),
+    );
 }
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
