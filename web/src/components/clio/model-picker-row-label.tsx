@@ -215,7 +215,8 @@ export function PickerRowLabel({
       )}
       <span
         className={cn(
-          'min-w-0 truncate text-start font-normal',
+          // A floor the facts and ↵ never take: the selected row always shows its name.
+          'min-w-[min(6rem,50%)] truncate text-start font-normal',
           state.selected && 'text-accent-foreground',
         )}
         data-slot="model-row-name"

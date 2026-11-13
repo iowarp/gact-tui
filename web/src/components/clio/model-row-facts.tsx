@@ -29,7 +29,9 @@ function tagTitle(tag: ModelCapabilityTag): string {
  * Free) and capability icons, each named on hover. They are display only, so a
  * click anywhere on the row chooses its model; the facet bar filters by them.
  * The name keeps its space first: under a 600px picker only the context size
- * stays, and under 400px the facts fold away (the spec's narrow picker).
+ * stays, and under 400px the facts fold away (the spec's narrow picker). The
+ * tiers are in rem so a larger Interface size folds them sooner, and between
+ * tiers the facts yield before the name's floor.
  */
 export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: ModelRowFactsProps) {
   const contextTag = tags.find((tag) => tag.axis === 'context');
@@ -43,7 +45,7 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
   return (
     <span
       className={cn(
-        'flex shrink-0 items-center gap-2.5 font-mono text-caption @max-[400px]/model-picker:hidden whitespace-nowrap text-muted-foreground tabular-nums [&_svg]:size-3',
+        'flex min-w-0 shrink-[0.001] items-center gap-2.5 overflow-hidden font-mono text-caption @max-[25rem]/model-picker:hidden whitespace-nowrap text-muted-foreground tabular-nums [&_svg]:size-3',
         className,
       )}
       data-slot="model-row-facts"
@@ -61,7 +63,7 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
       {freeTag ? (
         <span
           aria-label={modelCapabilityTagLabel(freeTag)}
-          className="inline-flex items-center gap-1 text-success @max-[600px]/model-picker:hidden"
+          className="inline-flex items-center gap-1 text-success @max-[37.5rem]/model-picker:hidden"
           data-tag={`${freeTag.axis}:${freeTag.value}`}
           role="img"
           title={tagTitle(freeTag)}
@@ -70,12 +72,12 @@ export function ModelRowFacts({ contextWindow, inputPrice, tags, className }: Mo
           free
         </span>
       ) : inputPrice?.kind === 'usd' ? (
-        <span className="@max-[600px]/model-picker:hidden" title="Input price per 1M tokens">
+        <span className="@max-[37.5rem]/model-picker:hidden" title="Input price per 1M tokens">
           {formatPricePer1m(inputPrice.per1m)}
         </span>
       ) : null}
       {shown.length ? (
-        <span className="inline-flex items-center gap-1.5 @max-[600px]/model-picker:hidden">
+        <span className="inline-flex items-center gap-1.5 @max-[37.5rem]/model-picker:hidden">
           {shown.map((tag) => {
             const Icon = tagIcon(tag);
             const label = modelCapabilityTagLabel(tag);
