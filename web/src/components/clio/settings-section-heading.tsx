@@ -37,24 +37,28 @@ export function SettingsSectionHeading({
     // window's content region already holds it.
     <div className={level === 1 ? 'mb-2' : undefined}>
       {eyebrow ? <p className="mb-2 text-xs font-medium text-muted-foreground">{eyebrow}</p> : null}
-      <div className="flex h-[1.875rem] min-w-0 items-center gap-2 whitespace-nowrap">
-        {/* The info control sits beside the heading so the heading's name is the title alone. */}
-        <Heading
-          className={
-            level === 1
-              ? 'min-w-0 truncate font-heading text-title font-semibold'
-              : 'min-w-0 truncate font-heading text-h3 font-semibold'
-          }
-        >
-          {title}
-        </Heading>
-        {hint ? (
-          <InfoTip className={NARROW_HIDDEN} label={t`About ${title}`}>
-            {hint}
-          </InfoTip>
-        ) : null}
+      {/* Title and ⓘ stay together; the actions drop under them when both don't fit, and a
+          title longer than the line wraps, so a narrow window never cuts the page's name. */}
+      <div className="flex min-h-[1.875rem] min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-[1_1_auto] items-center gap-2">
+          {/* The info control sits beside the heading so the heading's name is the title alone. */}
+          <Heading
+            className={
+              level === 1
+                ? 'min-w-0 font-heading text-title font-semibold text-balance [overflow-wrap:anywhere]'
+                : 'min-w-0 font-heading text-h3 font-semibold text-balance [overflow-wrap:anywhere]'
+            }
+          >
+            {title}
+          </Heading>
+          {hint ? (
+            <InfoTip className={NARROW_HIDDEN} label={t`About ${title}`}>
+              {hint}
+            </InfoTip>
+          ) : null}
+        </div>
         {actions ? (
-          <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 font-sans">
+          <div className="ml-auto flex max-w-full min-w-0 shrink-0 items-center gap-2 font-sans whitespace-nowrap">
             {actions}
           </div>
         ) : null}

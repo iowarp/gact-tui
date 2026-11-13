@@ -26,22 +26,30 @@ import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { SettingsSelectField } from './model-select-field';
 
-// The spec's 150 px is the floor; a longer translation widens the field up to its column.
-const SELECT_FIELD = 'w-fit min-w-[9.375rem] max-w-full';
+// The spec's 150 px is the floor; a longer translation widens the field up to its column,
+// and past that the value wraps inside a taller field rather than being cut.
+const SELECT_FIELD = 'h-auto min-h-[1.875rem] w-fit min-w-[9.375rem] max-w-full py-1';
 
 /**
- * The chosen value over invisible copies of every choice in this section, so both
+ * The chosen value over zero-height copies of every choice in this section, so both
  * selects take the width of the longest one: aligned, and steady when the value changes.
+ * Only the shown value sets the height, and it wraps when the column is narrower.
  */
 function NotificationValue({ value, choices }: { value: string; choices: readonly string[] }) {
   return (
     <span className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
       {choices.map((choice) => (
-        <span aria-hidden="true" className="invisible col-start-1 row-start-1 truncate" key={choice}>
+        <span
+          aria-hidden="true"
+          className="invisible col-start-1 row-start-1 h-0 overflow-hidden whitespace-nowrap"
+          key={choice}
+        >
           {choice}
         </span>
       ))}
-      <span className="col-start-1 row-start-1 truncate">{value}</span>
+      <span className="col-start-1 row-start-1 whitespace-normal [overflow-wrap:anywhere]">
+        {value}
+      </span>
     </span>
   );
 }
@@ -214,17 +222,18 @@ export function NotificationSettings() {
         </Select>
       </SettingsRow>
       <p
-        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+        className="flex min-h-[1.875rem] min-w-0 items-start gap-2 py-[0.4375rem] text-xs text-muted-foreground"
         data-slot="settings-footnote"
       >
-        <BellIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-        <span className="flex min-w-0 items-center gap-1 truncate">
+        <BellIcon aria-hidden="true" className="mt-px size-[0.8125rem] shrink-0" />
+        {/* Inline text, so a longer translation wraps with the icon in its sentence. */}
+        <span className="min-w-0 text-pretty">
           <Trans>
             The bell’s
             <SettingsIcon
               aria-label={t`Notification settings`}
               role="img"
-              className="size-[0.8125rem] shrink-0"
+              className="mx-1 inline size-[0.8125rem] align-[-0.125rem]"
             />
             opens this page.
           </Trans>
