@@ -3423,6 +3423,10 @@ msgstr "{state, select, sent {Στάλθηκε μήνυμα σε πράκτορ�
 msgid "{status} on port {port}"
 msgstr "{status} στη θύρα {port}"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}, {checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}, επιλέχθηκε"
@@ -3872,7 +3876,7 @@ msgstr "{window} {percent}%, κοντά στο όριο"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{wordmark} could not update the desktop window."
-msgstr "Το {wordmark} δεν μπόρεσε να ενημερώσει το παράθυρο της εφαρμογής."
+msgstr "{wordmark}: δεν ήταν δυνατή η ενημέρωση του παραθύρου της εφαρμογής."
 
 #: src/components/clio/navigation-agent-menu.tsx
 msgid "{wordmark} local"
@@ -3880,7 +3884,7 @@ msgstr "{wordmark} (τοπικό)"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "{wordmark} menu"
-msgstr "Μενού {wordmark}"
+msgstr "Μενού: {wordmark}"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "{workflowTitle} on <0>{endpointName}</0>?"
@@ -4316,7 +4320,7 @@ msgstr "Σχετικά με {title}"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
-msgstr "Σχετικά με το {wordmark}"
+msgstr "Σχετικά: {wordmark}"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -25752,7 +25756,7 @@ msgstr "Έξοδος από το {product};"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
-msgstr "Έξοδος από το {wordmark}"
+msgstr "Έξοδος: {wordmark}"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -37500,6 +37504,7 @@ msgstr "Επερχόμενη προγραμματισμένη εργασία"
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr "Ενημέρωση"
@@ -37626,7 +37631,7 @@ msgstr "Ενημερώστε τη συνδεδεμένη υπηρεσία πρά
 msgid "Update this connection’s agent to enable search."
 msgstr "Ενημερώστε τον πράκτορα αυτής της σύνδεσης για να ενεργοποιήσετε την αναζήτηση."
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr "Ενημέρωση σε {updateTo}"
 
@@ -37676,11 +37681,11 @@ msgstr "Ενημέρωση"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark}"
-msgstr "Ενημέρωση του {wordmark}"
+msgstr "Ενημέρωση: {wordmark}"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark} to {version}"
-msgstr "Ενημέρωση του {wordmark} στην έκδοση {version}"
+msgstr "Ενημέρωση: {wordmark}, έκδοση {version}"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Updating chart…"

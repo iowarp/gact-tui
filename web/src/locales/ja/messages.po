@@ -3423,6 +3423,10 @@ msgstr "{state, select, sent {エージェントにメッセージを送信し�
 msgid "{status} on port {port}"
 msgstr "{status}（ポート{port}）"
 
+#: src/components/clio/provider-panel-footer.tsx
+msgid "{status}, {checked}"
+msgstr "{status}、{checked}"
+
 #: src/hooks/use-flow-presentation.ts
 msgid "{status}, chosen"
 msgstr "{status}、選択済み"
@@ -3872,7 +3876,7 @@ msgstr "{window} {percent}%、上限間近"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{wordmark} could not update the desktop window."
-msgstr "{wordmark} はデスクトップウィンドウを更新できませんでした。"
+msgstr "{wordmark}はデスクトップウィンドウを更新できませんでした。"
 
 #: src/components/clio/navigation-agent-menu.tsx
 msgid "{wordmark} local"
@@ -3880,7 +3884,7 @@ msgstr "{wordmark}（ローカル）"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "{wordmark} menu"
-msgstr "{wordmark} メニュー"
+msgstr "{wordmark}メニュー"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "{workflowTitle} on <0>{endpointName}</0>?"
@@ -4316,7 +4320,7 @@ msgstr "{title} について"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
-msgstr "{wordmark} について"
+msgstr "{wordmark}について"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -25752,7 +25756,7 @@ msgstr "{product} を終了しますか？"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
-msgstr "{wordmark} を終了"
+msgstr "{wordmark}を終了"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -37500,6 +37504,7 @@ msgstr "今後のスケジュール作業"
 
 #: src/components/clio/attention-update-rows.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/provider-update-button.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Update"
 msgstr "アップデート"
@@ -37626,7 +37631,7 @@ msgstr "この拡張機能の設定を使うには、接続中のエージェン
 msgid "Update this connection’s agent to enable search."
 msgstr "検索を有効にするには、この接続のエージェントをアップデートしてください。"
 
-#: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/provider-update-button.tsx
 msgid "Update to {updateTo}"
 msgstr "{updateTo} にアップデート"
 
@@ -37676,11 +37681,11 @@ msgstr "アップデート中"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark}"
-msgstr "{wordmark} をアップデート中"
+msgstr "{wordmark}をアップデート中"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark} to {version}"
-msgstr "{wordmark} を {version} にアップデート中"
+msgstr "{wordmark}を{version}にアップデート中"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Updating chart…"
