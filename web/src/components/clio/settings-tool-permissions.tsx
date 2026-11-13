@@ -341,7 +341,7 @@ export function ToolPermissionsSettings() {
     );
   }
   const list = (
-    <div className="@container/page grid min-w-0 gap-3">
+    <div className="@container/page grid min-w-0 grid-cols-1 gap-3">
       {toolbar ? (
         <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField
