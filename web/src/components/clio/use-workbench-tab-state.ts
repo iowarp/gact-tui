@@ -1,6 +1,7 @@
 import type { SubagentRun } from '@clio/core/v3';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
+import { returnMcpAppToConversation } from './mcp-app-live-set';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
 import { restoredWorkbenchState, saveWorkbenchState } from './workbench-tab-storage';
@@ -113,6 +114,9 @@ export function useWorkbenchTabState(
       // entry is ever explicitly torn down (a mere unmount, e.g. switching
       // tabs, must not kill a running job).
       if (closing.has(tab.id) && tab.kind === 'terminal') void closeEmbeddedTerminalTab(tab.id);
+      // Closing an App's tab returns the App to its card, or closes it (MA2, MA7).
+      if (closing.has(tab.id) && tab.kind === 'mcp-app')
+        returnMcpAppToConversation(tab.appInstanceId);
     }
     if (closing.has(shownActiveTabId)) {
       const before = orderedTabs.slice(0, Math.max(0, index)).reverse();

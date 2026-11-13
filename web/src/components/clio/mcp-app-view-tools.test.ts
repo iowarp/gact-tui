@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_VIEW_TOOLS,
   McpAppViewTools,
-  type RpcMessage,
   dispatchMcpAppToolCallFrame,
   viewToolsOverLimit,
 } from './mcp-app-view-tools';
@@ -22,32 +21,21 @@ function client() {
   };
 }
 
+interface Sent {
+  method: string;
+  params: Record<string, unknown>;
+}
+
 /** A view that answers every host request the way the board fixture does. */
 function view(tools: unknown[]) {
-  const sent: RpcMessage[] = [];
-  let channel: McpAppViewTools | undefined;
-  const post = (message: RpcMessage) => {
-    sent.push(message);
-    queueMicrotask(() => {
-      if (message.method === 'tools/list') {
-        channel?.handleResponse({ jsonrpc: '2.0', id: message.id as string, result: { tools } });
-      }
-      if (message.method === 'tools/call') {
-        channel?.handleResponse({
-          jsonrpc: '2.0',
-          id: message.id as string,
-          result: { content: [{ type: 'text', text: 'Highlighted Outlet.' }] },
-        });
-      }
-    });
+  const sent: Sent[] = [];
+  const ask = async (method: string, params: Record<string, unknown>) => {
+    sent.push({ method, params });
+    await Promise.resolve();
+    if (method === 'tools/list') return { tools };
+    return { content: [{ type: 'text', text: 'Highlighted Outlet.' }] };
   };
-  return {
-    sent,
-    attach(next: McpAppViewTools) {
-      channel = next;
-    },
-    post,
-  };
+  return { sent, ask };
 }
 
 function frame(payload: Record<string, unknown>): TransportFrame {
@@ -71,8 +59,7 @@ describe('McpAppViewTools', () => {
   it('lists the view tools only when the view declares the tools capability', async () => {
     const repository = client();
     const fake = view([highlight]);
-    const tools = new McpAppViewTools(repository, identity, fake.post);
-    fake.attach(tools);
+    const tools = new McpAppViewTools(repository, identity, fake.ask);
     tools.declare({ availableDisplayModes: ['inline'] });
     tools.start();
     expect(fake.sent).toEqual([]);
@@ -96,8 +83,7 @@ describe('McpAppViewTools', () => {
   it('forwards a streamed agent call to the view once and posts its result', async () => {
     const repository = client();
     const fake = view([highlight]);
-    const tools = new McpAppViewTools(repository, identity, fake.post);
-    fake.attach(tools);
+    const tools = new McpAppViewTools(repository, identity, fake.ask);
     tools.declare({ tools: {} });
     tools.start();
     const call = {
@@ -132,8 +118,7 @@ describe('McpAppViewTools', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const repository = client();
     const fake = view(many);
-    const tools = new McpAppViewTools(repository, identity, fake.post);
-    fake.attach(tools);
+    const tools = new McpAppViewTools(repository, identity, fake.ask);
     tools.declare({ tools: {} });
     tools.start();
     await vi.waitFor(() => expect(repository.updateMcpAppTools).toHaveBeenCalled());

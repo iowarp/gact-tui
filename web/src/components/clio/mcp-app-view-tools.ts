@@ -15,15 +15,6 @@ export const MCP_APP_TOOL_CALL_EVENT = 'mcp_app_tool_call';
 
 type ViewToolsClient = Pick<ClioRepository, 'updateMcpAppTools' | 'postMcpAppToolResult'>;
 
-export interface RpcMessage {
-  jsonrpc: '2.0';
-  id?: string | number | null;
-  method?: string;
-  params?: Record<string, unknown>;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
 type CallHandler = (call: McpAppToolCallEvent) => void;
 
 const callHandlers = new Map<string, CallHandler>();
@@ -81,12 +72,7 @@ export function viewToolsOverLimit(tools: readonly McpAppViewTool[]): string | u
  * calls that arrive as `mcp_app_tool_call` session events.
  */
 export class McpAppViewTools {
-  private readonly pending = new Map<
-    string,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
   private readonly handled = new Set<string>();
-  private sequence = 0;
   /** Which mount of the view this is: a late withdrawal never clears a newer mount's list. */
   private readonly holder = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private offersTools = false;
@@ -97,7 +83,8 @@ export class McpAppViewTools {
   constructor(
     private readonly repository: ViewToolsClient,
     private readonly identity: McpAppIdentity,
-    private readonly post: (message: RpcMessage) => void,
+    /** A request to the view over the surface's channel (it settles or the frame closes). */
+    private readonly ask: (method: string, params: Record<string, unknown>) => Promise<unknown>,
   ) {}
 
   /** `ui/initialize` said whether the view has the `tools` capability. */
@@ -114,17 +101,6 @@ export class McpAppViewTools {
       if (callHandlers.get(key)) callHandlers.delete(key);
     };
     void this.refresh();
-  }
-
-  /** The view's answer to a request this host sent; true when it was one. */
-  handleResponse(message: RpcMessage): boolean {
-    if (message.method !== undefined || typeof message.id !== 'string') return false;
-    const waiting = this.pending.get(message.id);
-    if (!waiting) return false;
-    this.pending.delete(message.id);
-    if (message.error) waiting.reject(new Error(message.error.message));
-    else waiting.resolve(message.result);
-    return true;
   }
 
   /** `notifications/tools/list_changed` from the view. */
@@ -156,13 +132,11 @@ export class McpAppViewTools {
     return this.request('tools/call', { name, arguments: args });
   }
 
-  /** The frame is going: withdraw the tools and fail what is still waiting on the view. */
+  /** The frame is going: withdraw the tools (the surface fails what waits on the view). */
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
     this.unregister?.();
-    for (const waiting of this.pending.values()) waiting.reject(new Error('The view closed.'));
-    this.pending.clear();
     if (this.published) {
       void this.repository.updateMcpAppTools(this.identity, [], this.holder).catch(() => undefined);
     }
@@ -185,12 +159,7 @@ export class McpAppViewTools {
 
   private request(method: string, params: Record<string, unknown>): Promise<unknown> {
     if (this.stopped) return Promise.reject(new Error('The view closed.'));
-    this.sequence += 1;
-    const id = `clio-host:${this.identity.appInstanceId}:${this.sequence}`;
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.post({ jsonrpc: '2.0', id, method, params });
-    });
+    return this.ask(method, params);
   }
 }
 
