@@ -31378,6 +31378,7 @@ msgid "Shown to the model on its next step, as this call’s result."
 msgstr "次のステップで、この呼び出しの結果としてモデルに表示されました。"
 
 #: src/components/clio/image-reach.ts
+#: src/components/clio/script-run-body.tsx
 msgid "Shown to the model on its next step, with the run_code script’s result."
 msgstr "次のステップで、run_code スクリプトの結果と一緒にモデルに表示されました。"
 
@@ -33391,6 +33392,7 @@ msgstr "タスクとプロセス"
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-inline-states.tsx
 #: src/components/clio/transcript-resource-attachment.tsx
+#: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workspace-route-surfaces.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Technical details"

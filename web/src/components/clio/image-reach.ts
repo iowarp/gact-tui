@@ -100,14 +100,16 @@ export function imageReach(tool: ToolInvocation): ImageReach | undefined {
   const result = toolResultRecord(tool.output) ?? asRecord(tool.output);
   const block = tool.presentation?.blocks.find((item) => item.status === SHOWN_TO_MODEL);
   if (block || result?.attached_to_model === true) {
+    // The client's own words win: the agent's `detail` is English and says the same.
+    const delivery =
+      result?.delivery ?? (tool.parent_call_id ? 'script_result' : 'tool_result');
     return {
       state: 'shown',
       label: t`Shown to the model`,
       detail:
-        block?.detail?.trim() ||
-        (result?.delivery === 'script_result'
+        delivery === 'script_result'
           ? t`Shown to the model on its next step, with the run_code script’s result.`
-          : t`Shown to the model on its next step, as this call’s result.`),
+          : t`Shown to the model on its next step, as this call’s result.`,
     };
   }
   return {

@@ -31361,6 +31361,7 @@ msgid "Shown to the model on its next step, as this call’s result."
 msgstr ""
 
 #: src/components/clio/image-reach.ts
+#: src/components/clio/script-run-body.tsx
 msgid "Shown to the model on its next step, with the run_code script’s result."
 msgstr ""
 
@@ -33373,6 +33374,7 @@ msgstr ""
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-inline-states.tsx
 #: src/components/clio/transcript-resource-attachment.tsx
+#: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workspace-route-surfaces.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Technical details"

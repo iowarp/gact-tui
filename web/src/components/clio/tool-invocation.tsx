@@ -105,8 +105,13 @@ export function ClioToolInvocation({
     if (wasOpen.current && !open) infoRef.current?.focus();
     wasOpen.current = open;
   }, [open]);
+  // A script's call starts closed wherever it first paints: it may mount as a lone row
+  // before its script's row claims it, and must not flash its result open on the way.
   const [resultOpen, setResultOpen] = useState(
-    defaultOpen ?? (!compact && !['cancelled', 'interrupted'].includes(tool?.state ?? '')),
+    defaultOpen ??
+      (!compact &&
+        !tool?.parent_call_id &&
+        !['cancelled', 'interrupted'].includes(tool?.state ?? '')),
   );
   const duration = useToolDuration(tool);
   const scriptRecap = useScriptCallsRecap(tool?.name === 'run_code' ? tool.id : undefined);

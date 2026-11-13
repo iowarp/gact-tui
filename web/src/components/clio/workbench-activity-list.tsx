@@ -29,6 +29,7 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { MetaValue } from './primitives/tag';
 import { showCompletedWork } from './task-history';
 import { useWorkTaskFocus } from './work-task-focus';
+import { backgroundTaskLink } from './script-run';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import {
   ACTIVITY_FILTERS,
@@ -165,15 +166,22 @@ function ActivityColumn({
     [onOpenArtifact, onOpenFile, onOpenSubagent, onOpenTab, sessionId, workspaceId],
   );
 
-  // A link asked to show a task ("Show in Work"): open that task's details.
+  // A link asked to show a task ("Show in Work"): open that task's details, or, once the
+  // task has left the list, the script call that started it.
   const focusHandle = useWorkTaskFocus((state) => state.handle);
   useEffect(() => {
     if (!focusHandle) return;
-    const target = items.find(
-      (item) =>
-        item.process &&
-        [item.process.handle, item.process.handle_id, item.process.id].includes(focusHandle),
-    );
+    const target =
+      items.find(
+        (item) =>
+          item.process &&
+          [item.process.handle, item.process.handle_id, item.process.id].includes(focusHandle),
+      ) ??
+      items.find((item) =>
+        item.tool?.presentation?.blocks.some(
+          (block) => backgroundTaskLink(block) && block.uri === focusHandle,
+        ),
+      );
     if (!target) return;
     useWorkTaskFocus.getState().clear(focusHandle);
     open(target);

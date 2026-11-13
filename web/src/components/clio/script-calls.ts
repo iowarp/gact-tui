@@ -3,6 +3,7 @@ import { useContext } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
 import { getToolActionLabel } from './tool-presentation';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { imageReach, reachSummary } from './image-reach';
 
 /** A background script's repeated calls to one tool, recorded once (`_clio_repeat`). */
@@ -31,7 +32,10 @@ export function scriptCallsRecap(
   if (!children.length) return undefined;
   const counts = new Map<string, number>();
   for (const tool of children) {
-    const name = getToolActionLabel(tool);
+    // The contract's localized verb, as the call's own row says it, not the agent's English title.
+    const definition = TOOL_OPERATIONS[tool.name];
+    const name =
+      definition && !definition.presentedAction ? definition.action : getToolActionLabel(tool);
     counts.set(name, (counts.get(name) ?? 0) + (repeatOf(tool)?.count ?? 1));
   }
   const names = [...counts].map(([name, count]) => (count > 1 ? `${name} ×${count}` : name));

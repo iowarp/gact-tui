@@ -60,6 +60,7 @@ export function ScriptRunBody({
   stopped = false,
   taskName,
   onOpen,
+  full = false,
 }: {
   blocks: readonly ToolPresentationBlock[];
   /** Why the run failed, usually its traceback, or how it was stopped. */
@@ -69,6 +70,8 @@ export function ScriptRunBody({
   taskName?: string;
   /** Opens the whole call in a workbench tab, for a block too long to read here. */
   onOpen?: () => void;
+  /** The call's own tab: every line shown, scrolling with the tab rather than inside a block. */
+  full?: boolean;
 }) {
   const script = blocks.find((block) => block.type === 'code');
   const shown = blocks.filter(attached);
@@ -95,7 +98,7 @@ export function ScriptRunBody({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="grid min-w-0 gap-2.5" data-slot="script-run-body">
-        {script?.text ? <ScriptSource block={script} onOpen={onOpen} /> : null}
+        {script?.text ? <ScriptSource block={script} onOpen={full ? undefined : onOpen} full={full} /> : null}
         {taskLink ? (
           <p className="min-w-0 text-muted-foreground" data-slot="script-background">
             {taskName
@@ -113,7 +116,13 @@ export function ScriptRunBody({
               {block.text}
             </p>
           ) : (
-            <ScriptResult key={block.id} block={block} shownPaths={shownPaths} onOpen={onOpen} />
+            <ScriptResult
+              key={block.id}
+              block={block}
+              shownPaths={shownPaths}
+              onOpen={full ? undefined : onOpen}
+              full={full}
+            />
           ),
         )}
         {errors.map((text) => (
@@ -140,7 +149,8 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
       : [],
   );
   const others = blocks.filter((block) => !images.some((image) => image.block === block));
-  const detail = blocks.find((block) => block.detail?.trim())?.detail;
+  // The agent's `detail` is English; the client's own sentence says the same in the reader's language.
+  const detail = t`Shown to the model on its next step, with the run_code script’s result.`;
   return (
     <DetailsSection
       title={t`Shown to the model`}
@@ -171,17 +181,25 @@ function ShownToModel({ blocks }: { blocks: readonly ToolPresentationBlock[] }) 
             })}
           </ul>
         ) : null}
-        {detail ? <p className="text-meta text-muted-foreground">{detail}</p> : null}
+        <p className="text-meta text-muted-foreground">{detail}</p>
       </div>
     </DetailsSection>
   );
 }
 
-function ScriptSource({ block, onOpen }: { block: ToolPresentationBlock; onOpen?: () => void }) {
-  const complete = useCompleteBlockText(block);
+function ScriptSource({
+  block,
+  onOpen,
+  full = false,
+}: {
+  block: ToolPresentationBlock;
+  onOpen?: () => void;
+  full?: boolean;
+}) {
+  const complete = useCompleteBlockText(block, full);
   const code = complete.text.replace(/\r\n?/gu, '\n').replace(/\n$/u, '');
   const lines = code.split('\n');
-  const [all, setAll] = useState(false);
+  const [all, setAll] = useState(full);
   const shown = all ? code : lines.slice(0, PREVIEW_LINES).join('\n');
   const hidden = all ? 0 : lines.length - PREVIEW_LINES;
   const long = lines.length > PREVIEW_LINES;
@@ -199,8 +217,8 @@ function ScriptSource({ block, onOpen }: { block: ToolPresentationBlock; onOpen?
     >
       <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
         <div
-          className={cn('clio-source-wrap-marks', all && long && LONG_BLOCK_BOUND)}
-          tabIndex={all && long ? 0 : undefined}
+          className={cn('clio-source-wrap-marks', all && long && !full && LONG_BLOCK_BOUND)}
+          tabIndex={all && long && !full ? 0 : undefined}
         >
           <CodeBlock
             code={shown}
@@ -248,12 +266,14 @@ function ScriptResult({
   block,
   shownPaths,
   onOpen,
+  full = false,
 }: {
   block: ToolPresentationBlock;
   shownPaths: ReadonlySet<string | undefined>;
   onOpen?: () => void;
+  full?: boolean;
 }) {
-  const complete = useCompleteBlockText(block);
+  const complete = useCompleteBlockText(block, full);
   const text = useMemo(() => complete.text.replace(/\r\n?/gu, '\n'), [complete.text]);
   const title =
     block.id === 'value'
@@ -300,6 +320,7 @@ function ScriptResult({
           shownPaths={shownPaths}
           complete={complete}
           onOpen={onOpen}
+          full={full}
         />
       </DetailsSection>
     );
@@ -308,7 +329,7 @@ function ScriptResult({
       <NumberedCode
         text={reading.text}
         json={reading.kind === 'data'}
-        limit={PREVIEW_LINES}
+        limit={full ? Number.POSITIVE_INFINITY : PREVIEW_LINES}
         onOpen={onOpen}
       />
       {complete.remaining || complete.error ? (
@@ -329,13 +350,15 @@ function PrintedOutput({
   shownPaths,
   complete,
   onOpen,
+  full = false,
 }: {
   lines: readonly PrintedLine[];
   shownPaths: ReadonlySet<string | undefined>;
   complete: CompleteBlockText;
   onOpen?: () => void;
+  full?: boolean;
 }) {
-  const [all, setAll] = useState(false);
+  const [all, setAll] = useState(full);
   const shown = all ? lines : lines.slice(0, PREVIEW_LINES);
   const hidden = lines.length - shown.length;
   const long = lines.length > PREVIEW_LINES;
@@ -347,9 +370,9 @@ function PrintedOutput({
       <div
         className={cn(
           'grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
-          all && long && LONG_BLOCK_BOUND,
+          all && long && !full && LONG_BLOCK_BOUND,
         )}
-        tabIndex={all && long ? 0 : undefined}
+        tabIndex={all && long && !full ? 0 : undefined}
       >
         {shown.map((line, index) =>
           line.kind === 'text' ? (

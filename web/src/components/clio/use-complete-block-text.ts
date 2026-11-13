@@ -20,7 +20,11 @@ export interface CompleteBlockText {
  * `content_ref`; this pages the rest in, at once for modest output and on request
  * beyond AUTO_LOAD_CHARS.
  */
-export function useCompleteBlockText(block: ToolPresentationBlock | undefined): CompleteBlockText {
+export function useCompleteBlockText(
+  block: ToolPresentationBlock | undefined,
+  /** A reader that shows the whole text (the call's own tab) loads it all, whatever its size. */
+  eager = false,
+): CompleteBlockText {
   const repository = useRepository();
   const ref = block?.content_ref;
   const [state, setState] = useState(() => ({
@@ -66,7 +70,7 @@ export function useCompleteBlockText(block: ToolPresentationBlock | undefined): 
     })();
   }, [ref, repository, state]);
   const total = ref?.total_chars ?? 0;
-  const auto = state.cursor !== null && total <= AUTO_LOAD_CHARS;
+  const auto = state.cursor !== null && (eager || total <= AUTO_LOAD_CHARS);
   useEffect(() => {
     if (auto && !error) loadAll();
   }, [auto, error, loadAll]);

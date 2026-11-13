@@ -382,16 +382,21 @@ function fallbackIterations(
         !current.activity.some((entry) => entry.kind === 'tool'),
     );
     const previous = segments.at(-1);
+    // Text parts with nothing shown between them read as one passage, whatever
+    // unshown part split them (a script's call, an empty thought, a transport note).
     if (
-      followsText &&
       block.type === 'text' &&
       previous?.kind === 'block' &&
       previous.block.type === 'text' &&
-      (previous.block.channel ?? null) === (block.channel ?? null)
+      (previous.block.channel ?? null) === (block.channel ?? null) &&
+      (previous.block.agent_id ?? '') === (block.agent_id ?? '')
     ) {
+      // A stream cut mid-sentence keeps its own spacing; separate steps stay paragraphs.
+      const separator =
+        followsText || /\s$/u.test(previous.block.text) || /^\s/u.test(block.text) ? '' : '\n\n';
       previous.block = {
         ...previous.block,
-        text: previous.block.text + block.text,
+        text: previous.block.text + separator + block.text,
         streaming: block.streaming,
       };
     } else {

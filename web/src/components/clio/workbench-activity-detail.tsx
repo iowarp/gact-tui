@@ -37,7 +37,10 @@ import {
   type WorkbenchActivitySource,
 } from './workbench-activity-source';
 import { tabForOpenRequest } from './workbench-open-request';
-import { callerName } from './tool-presentation';
+import { callerName, getToolSubject } from './tool-presentation';
+import { ScriptRunBody } from './script-run-body';
+import { isScriptBody, scriptLabel } from './script-run';
+import { TechnicalDetails } from './technical-details';
 import { useLiveStore } from '@/store/live-store';
 import type { WorkbenchTab } from './workbench-shared';
 import { t, ph } from '@lingui/core/macro';
@@ -457,7 +460,13 @@ function ToolDetail({
     },
     { label: t`Tool`, value: tool.name, mono: true },
   ];
-  return (
+  const subjectId = tool.name === 'run_code' ? getToolSubject(tool)?.id : undefined;
+  const scriptBlocks =
+    tool.name === 'run_code'
+      ? (tool.presentation?.blocks ?? []).filter((block) => block.id !== subjectId)
+      : [];
+  const script = scriptBlocks.length > 0 && isScriptBody(scriptBlocks);
+  const raw = (
     <>
       <Section title={t`Input`}>
         {tool.input === undefined ? (
@@ -489,6 +498,27 @@ function ToolDetail({
           </p>
         ) : null}
       </Section>
+    </>
+  );
+  return (
+    <>
+      {script ? (
+        <>
+          {/* A script reads as its source and what it printed, in full; the call's JSON is technical. */}
+          <ScriptRunBody
+            blocks={scriptBlocks}
+            failure={tool.error}
+            stopped={tool.state === 'cancelled'}
+            taskName={scriptLabel(tool.input)}
+            full
+          />
+          <TechnicalDetails title={t`Technical details`} contentClassName="mt-2 grid gap-3">
+            {raw}
+          </TechnicalDetails>
+        </>
+      ) : (
+        raw
+      )}
       <Section title={t`Ran by`}>
         <KeyValueGrid items={ranBy} />
       </Section>
