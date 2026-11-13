@@ -167,7 +167,8 @@ export const ToolRow = memo(function ToolRow({
           <button
             aria-current={selected || undefined}
             aria-label={`Details for ${tool.name}`}
-            className="min-w-0 cursor-pointer justify-self-start truncate rounded-[3px] text-left font-mono text-menu font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            // Above the narrow picker's row-wide hit area, so the name still opens details.
+            className="relative z-10 min-w-0 cursor-pointer justify-self-start truncate rounded-[3px] text-left font-mono text-menu font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             data-tool-open=""
             onClick={() => onOpen(tool)}
             title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}

@@ -232,20 +232,24 @@ export function ToolPermissionsSettings() {
     back.current = null;
     setOpen(undefined);
     if (!returning) return;
-    requestAnimationFrame(() => {
+    // Under 40rem the table remounts and its window fills in a few frames later.
+    let frames = 20;
+    let scrolled = false;
+    const focusRow = () => {
       const element = container.current;
-      if (!element) return;
-      const scroller = scrollParent(element);
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      if (scroller && element.clientWidth < 40 * rem) scroller.scrollTop = returning.scroll;
-      requestAnimationFrame(() =>
-        element
-          .querySelector<HTMLElement>(
-            `[data-tool="${CSS.escape(returning.name)}"] [data-tool-open]`,
-          )
-          ?.focus({ preventScroll: true }),
+      if (element && !scrolled) {
+        scrolled = true;
+        const scroller = scrollParent(element);
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        if (scroller && element.clientWidth < 40 * rem) scroller.scrollTop = returning.scroll;
+      }
+      const name = element?.querySelector<HTMLElement>(
+        `[data-tool="${CSS.escape(returning.name)}"] [data-tool-open]`,
       );
-    });
+      if (name) name.focus({ preventScroll: true });
+      else if (--frames > 0) requestAnimationFrame(focusRow);
+    };
+    requestAnimationFrame(focusRow);
   }, []);
   let detail: { tool: ToolSetting; origin?: string } | undefined;
   if (open) {

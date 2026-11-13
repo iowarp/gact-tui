@@ -326,7 +326,8 @@ export function NestedToolDetail({
     });
   }, []);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    // No `defaultPrevented` check: the window marks every Esc inside a scope as handled.
+    if (event.key !== 'Escape') return;
     // A picker's menu portals out of the pane and closes itself.
     if (!event.currentTarget.contains(event.target as Node)) return;
     event.stopPropagation();
