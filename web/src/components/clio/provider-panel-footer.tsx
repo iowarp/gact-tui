@@ -109,7 +109,9 @@ export function ProviderPanelFooter({
         className={cn(
           'flex min-w-0 shrink-0 flex-nowrap items-center overflow-hidden',
           // The dot lines up with the model names, past the check gutter.
-          manage ? 'h-7 w-full gap-[7px] text-caption text-faint' : 'h-full gap-1.5 ps-2 pe-1',
+          manage
+            ? 'h-7 w-full gap-[7px] text-caption text-faint'
+            : '@container/provider-bar h-full gap-1.5 ps-2 pe-1',
           className,
         )}
         // Only a usable provider has the action row; a provider in setup shows its Settings link.
@@ -124,10 +126,11 @@ export function ProviderPanelFooter({
               provider={providerLogoId(group.id)}
             />
             {/* The provider row above owns the name and the interactive heartbeat;
-                the bar repeats them visually and is named by its group label. */}
+                the bar repeats them visually and is named by its group label.
+                The name keeps its width first; the status word and age yield. */}
             <span
               aria-hidden="true"
-              className="min-w-0 max-w-[40%] shrink truncate text-meta text-foreground before:content-[attr(data-name)]"
+              className="max-w-[9rem] min-w-0 shrink-0 truncate text-meta text-foreground before:content-[attr(data-name)]"
               data-name={group.name}
             />
           </>
@@ -162,15 +165,19 @@ export function ProviderPanelFooter({
         {!manage && !actions?.stage ? (
           // The dot never stands alone: the bar says the state in words too.
           <span
-            className={cn('shrink-0 text-label text-muted-foreground', !ready && status.color)}
+            className={cn(
+              'min-w-0 truncate text-label text-muted-foreground',
+              !ready && status.color,
+            )}
             data-slot="provider-bar-word"
+            title={status.label}
           >
             {status.label}
           </span>
         ) : null}
         {age && !manage && !actions?.stage ? (
           <span
-            className="shrink-0 font-mono text-caption text-muted-foreground"
+            className="shrink-0 font-mono text-caption text-muted-foreground @max-[20rem]/provider-bar:hidden"
             title={`Checked ${formatFreshness(group.freshness!)}`}
           >
             {age}
