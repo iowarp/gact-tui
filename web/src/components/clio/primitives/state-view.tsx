@@ -184,7 +184,8 @@ export const StateView = memo(function StateView({
       className={cn(
         'flex min-w-0 text-muted-foreground',
         row
-          ? 'min-h-7 items-center gap-2 px-2 py-1 text-menu whitespace-nowrap'
+          ? // A row whose title would get too narrow beside its action wraps the action below.
+            'min-h-7 flex-wrap items-start gap-x-2 gap-y-1 px-2 py-0.5 text-menu whitespace-nowrap'
           : 'flex-col items-center justify-center gap-2.5 px-4 text-center text-ui',
         size === 'panel' && 'min-h-[170px] py-6',
         size === 'page' && 'min-h-[50vh] py-10',
@@ -192,54 +193,63 @@ export const StateView = memo(function StateView({
       )}
     >
       <span
-        aria-hidden="true"
-        className={cn(
-          'grid shrink-0 place-items-center',
-          row ? 'size-4' : 'size-[22px]',
-          kind === 'error' && 'text-destructive',
-          kind === 'too-large' && 'text-warning',
-        )}
-      >
-        {kind === 'loading' && !icon ? (
-          // The activity rows' running ring (spec .spin, 12px), so a loading line reads as work in progress.
-          <RingSpinner className={row ? 'size-3' : 'size-[18px]'} />
-        ) : IconComponent ? (
-          <IconComponent className={row ? 'size-[15px]' : 'size-[22px]'} />
-        ) : (
-          <BoxIcon className="size-[22px]" />
-        )}
-      </span>
-      <span
-        className={cn(
-          'flex min-w-0',
-          row ? 'items-baseline gap-2' : 'max-w-full flex-col items-center gap-1',
-        )}
+        className={
+          row
+            ? // Centres the first line on the 24px action; later lines keep the icon on line 1.
+              'flex min-w-0 grow basis-[12rem] items-start gap-2 py-[calc((1.5rem-1lh)/2)]'
+            : 'contents'
+        }
       >
         <span
-          title={typeof title === 'string' ? title : undefined}
+          aria-hidden="true"
           className={cn(
-            'min-w-0 max-w-full',
-            // A row's title is a sentence: in a narrow column it wraps rather than hide its
-            // end, and its technical detail gives way first.
-            row ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate',
-            !row && 'text-foreground',
+            'grid shrink-0 place-items-center',
+            row ? 'h-[1lh] w-4' : 'size-[22px]',
+            kind === 'error' && 'text-destructive',
+            kind === 'too-large' && 'text-warning',
           )}
         >
-          {title}
+          {kind === 'loading' && !icon ? (
+            // The activity rows' running ring (spec .spin, 12px), so a loading line reads as work in progress.
+            <RingSpinner className={row ? 'size-3' : 'size-[18px]'} />
+          ) : IconComponent ? (
+            <IconComponent className={row ? 'size-[15px]' : 'size-[22px]'} />
+          ) : (
+            <BoxIcon className="size-[22px]" />
+          )}
         </span>
-        {detail ? (
+        <span
+          className={cn(
+            'flex min-w-0',
+            row ? 'items-baseline gap-2' : 'max-w-full flex-col items-center gap-1',
+          )}
+        >
           <span
-            title={row ? detail : undefined}
+            title={typeof title === 'string' ? title : undefined}
             className={cn(
-              row
-                ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
-                : // A panel's explanation is a sentence: it wraps rather than hide its end.
-                  'max-w-[36ch] text-meta leading-[1.4] text-balance',
+              'min-w-0 max-w-full',
+              // A row's title is a sentence: in a narrow column it wraps between words rather
+              // than hide its end, and its technical detail gives way first.
+              row ? 'whitespace-normal [overflow-wrap:break-word]' : 'truncate',
+              !row && 'text-foreground',
             )}
           >
-            {detail}
+            {title}
           </span>
-        ) : null}
+          {detail ? (
+            <span
+              title={row ? detail : undefined}
+              className={cn(
+                row
+                  ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
+                  : // A panel's explanation is a sentence: it wraps rather than hide its end.
+                    'max-w-[36ch] text-meta leading-[1.4] text-balance',
+              )}
+            >
+              {detail}
+            </span>
+          ) : null}
+        </span>
       </span>
       {children}
       {action ? (
