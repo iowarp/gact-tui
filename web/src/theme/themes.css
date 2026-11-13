@@ -41,6 +41,7 @@
   --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
+  --nav-current: var(--menu-highlight);
   --key: #f8f4ec;
   --key-border: #c9c0ae;
   --accent: #dcebe7;
@@ -274,6 +275,7 @@
   --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.96 0.012 225);
   --menu-highlight: oklch(0.925 0.02 220);
+  --nav-current: var(--menu-highlight);
   --key: oklch(0.97 0.008 225);
   --key-border: oklch(0.8 0.022 225);
   --accent: oklch(0.92 0.035 210);
@@ -302,6 +304,8 @@
   --destructive: oklch(0.5 0.19 25);
   --destructive-foreground: var(--color-red-800);
   --destructive-text: var(--destructive);
+  --destructive-solid: var(--destructive);
+  --destructive-solid-foreground: var(--background);
   --info: oklch(0.48 0.13 220);
   --info-foreground: var(--color-violet-900);
   --success: oklch(0.46 0.13 155);
@@ -386,6 +390,7 @@
   --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.165 0 0);
   --menu-highlight: oklch(0.255 0 0);
+  --nav-current: var(--menu-highlight);
   --key: oklch(0.155 0 0);
   --key-border: oklch(0.37 0 0);
   --accent: oklch(0.245 0 0);
@@ -414,6 +419,8 @@
   --destructive: oklch(0.69 0.19 24);
   --destructive-foreground: var(--color-red-400);
   --destructive-text: var(--destructive);
+  --destructive-solid: oklch(0.52 0.19 25);
+  --destructive-solid-foreground: oklch(0.985 0 0);
   --info: oklch(0.72 0.14 215);
   --info-foreground: var(--color-violet-400);
   --success: oklch(0.72 0.15 155);
@@ -502,6 +509,7 @@
   --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ffd0d0;
   --menu-highlight: #ffb3b3;
+  --nav-current: var(--menu-highlight);
   --key: #ffd9d9;
   --key-border: #cc0000;
   --accent: #ffb3b3;
@@ -530,6 +538,8 @@
   --destructive: #b30000;
   --destructive-foreground: #8a0000;
   --destructive-text: var(--destructive);
+  --destructive-solid: var(--destructive);
+  --destructive-solid-foreground: var(--background);
   --info: #cc0000;
   --info-foreground: #8a0000;
   --success: #d10000;

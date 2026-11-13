@@ -595,7 +595,10 @@ function shownAsJsxChild(node) {
   );
 }
 
-/** `return 'Output'` from a function named for the words it gives (`…Label`, `…Title`). */
+/**
+ * `return 'Output'` from a function named for the words it gives (`…Label`,
+ * `…Title`, or a display `…Name` such as `workspaceName`).
+ */
 function returnedAsLabel(node) {
   const site = valueSite(node);
   let owner;
@@ -611,7 +614,7 @@ function returnedAsLabel(node) {
       }
       return Boolean(
         name &&
-          /(?:label|title|text|word|heading|caption|summary|message|noun|verb)s?$/iu.test(name),
+          /(?:label|title|text|word|heading|caption|summary|message|noun|verb|name)s?$/iu.test(name),
       );
     }
   }

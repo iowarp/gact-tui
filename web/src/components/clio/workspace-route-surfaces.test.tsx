@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import type { ResourceActions } from './resource-dialogs';
 import {
+  WorkspaceActionAlerts,
   WorkspaceHydrating,
   WorkspaceStatusStrip,
   WorkspaceTranscriptAlerts,
@@ -173,6 +174,28 @@ describe('WorkspaceTranscriptAlerts', () => {
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 
     expect(screen.getByText('Some updates may be missing')).toBeVisible();
+  });
+});
+
+describe('WorkspaceActionAlerts', () => {
+  it('states a failure no action caused in its own words, apart from failed actions', () => {
+    render(
+      <WorkspaceActionAlerts notice="Tools could not be prepared in advance: The tool catalog could not be read. You can still send a message." />,
+    );
+
+    expect(
+      screen.getByText(
+        'Tools could not be prepared in advance: The tool catalog could not be read. You can still send a message.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('That action didn’t run')).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed action's service words in Technical details", () => {
+    render(<WorkspaceActionAlerts actionError="HTTP 500: card rejected" />);
+
+    expect(screen.getByText('That action didn’t run')).toBeVisible();
+    expect(screen.getByText('Technical details')).toBeInTheDocument();
   });
 });
 

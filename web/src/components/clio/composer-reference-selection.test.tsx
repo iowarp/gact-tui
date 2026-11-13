@@ -349,8 +349,20 @@ describe('composer reference selection', () => {
     await user.type(composerEditor(), '@');
     await screen.findByRole('option', { name: /README.md/ });
     expect(screen.getAllByRole('option')[0]).toHaveTextContent('README.md');
-    await user.keyboard('{Enter}');
+    await user.click(screen.getAllByRole('option')[0]!);
     expect(screen.getByRole('button', { name: 'Open local file README.md' })).toBeVisible();
+  });
+
+  it('closes the suggestions on Enter after a bare @ and keeps the literal @', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([readmeReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    await user.type(composerEditor(), '@');
+    await screen.findByRole('option', { name: /README.md/ });
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.queryByRole('option')).not.toBeInTheDocument());
+    expect(composerEditor()).toHaveTextContent(/^@$/);
+    expect(screen.queryByRole('button', { name: 'Open local file README.md' })).toBeNull();
   });
 
   it('allows a structured reference to steer without text', async () => {

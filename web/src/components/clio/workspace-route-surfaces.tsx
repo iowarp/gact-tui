@@ -96,12 +96,16 @@ function TranscriptStateRow({
 export function WorkspaceActionAlerts({
   actionError,
   retryError,
+  notice,
 }: {
   actionError?: string;
   retryError?: string;
+  /** A failure that no action of the person caused, already in product words. */
+  notice?: string;
 }) {
   return (
     <>
+      {notice ? <TranscriptStateRow className="mx-4 mb-1" title={notice} /> : null}
       {[
         [t`That action didn’t run`, actionError],
         [t`The reply couldn’t be retried`, retryError],
