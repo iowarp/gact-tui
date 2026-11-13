@@ -235,7 +235,7 @@ describe('a reopened view in the live set (MA2, MA5)', () => {
   });
   const liveSetRepository = () => ({
     closeMcpApp: vi.fn(async () => undefined),
-    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'inline', pinned: false })),
+    setMcpAppDisplayMode: vi.fn(async () => ({ display_mode: 'inline' as const, pinned: false })),
     pinMcpApp: vi.fn(),
   });
 
