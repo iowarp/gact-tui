@@ -144,7 +144,7 @@ describe('ClioModelPicker search counts', () => {
 
     expect(searchField()).toHaveValue('son');
     expect(within(results()).queryByText('sonar')).toBeNull();
-    expect(within(results()).getAllByText('claude-sonnet-5').length).toBeGreaterThan(0);
+    expect(within(results()).getAllByText('sonnet 5').length).toBeGreaterThan(0);
 
     await user.click(document.querySelector<HTMLElement>('[data-slot="search-all-providers"]')!);
     expect(searchField()).toHaveValue('son');
@@ -207,7 +207,7 @@ describe('ClioModelPicker collapsible result groups (one column)', () => {
     expect(providerRow('OpenRouter')?.querySelector('[data-collapsed]')).not.toBeNull();
     // The other group is untouched.
     expect(providerRow('Claude Code')).not.toBeNull();
-    expect(within(results()).getAllByText('claude-sonnet-5')).toHaveLength(1);
+    expect(within(results()).getAllByText('sonnet 5')).toHaveLength(1);
     // The counts still describe the whole search.
     expect(barCount()).toBe('3');
 
