@@ -140,8 +140,18 @@ export function ClioSearchAssistant({
         <ClioModelPicker
           title={`Choose ${vocab.agent} Search model`}
           options={options}
-          model={model?.id ?? session?.model_id ?? fleet.data?.search?.model_id}
-          provider={model?.providerId ?? session?.provider_id ?? fleet.data?.search?.provider_id}
+          model={
+            model?.id ??
+            session?.model_id ??
+            fleet.data?.search?.model_id ??
+            fleet.data?.fast?.model_id
+          }
+          provider={
+            model?.providerId ??
+            session?.provider_id ??
+            fleet.data?.search?.provider_id ??
+            fleet.data?.fast?.provider_id
+          }
           catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
           onRetryCatalog={() => void catalog.refetch()}
           onChange={setModel}
@@ -157,7 +167,8 @@ export function ClioSearchAssistant({
                 {model?.id ??
                   session?.model_id ??
                   fleet.data?.search?.model_id ??
-                  'Conversation or service model'}
+                  fleet.data?.fast?.model_id ??
+                  (fleet.data?.fast === undefined ? 'Conversation or service model' : 'Fast model')}
               </span>
               <ChevronDownIcon aria-hidden="true" className="size-3 shrink-0" />
             </Button>
