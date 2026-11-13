@@ -128,11 +128,16 @@ export function hostCapabilities(descriptor: McpAppDescriptor) {
   };
 }
 
-export function hostContext(iframe: HTMLIFrameElement, placement: McpAppPlacementKind) {
+export function hostContext(
+  iframe: HTMLIFrameElement,
+  placement: McpAppPlacementKind,
+  extra: Record<string, unknown> = {},
+) {
   const touch = navigator.maxTouchPoints > 0;
   const width = Math.max(1, iframe.clientWidth);
   const height = Math.max(1, iframe.clientHeight);
   return {
+    ...extra,
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     displayMode: displayModeFor(placement),
     availableDisplayModes: placement === 'surface' ? ['inline'] : [...AVAILABLE_DISPLAY_MODES],
@@ -154,12 +159,13 @@ export function initializeResult(
   descriptor: McpAppDescriptor,
   iframe: HTMLIFrameElement,
   placement: McpAppPlacementKind,
+  extra: Record<string, unknown> = {},
 ) {
   return {
     protocolVersion: MCP_APPS_PROTOCOL_VERSION,
     hostCapabilities: hostCapabilities(descriptor),
     hostInfo: { name: 'Agent Workspace', version: '0.11.0' },
-    hostContext: hostContext(iframe, placement),
+    hostContext: hostContext(iframe, placement, extra),
   };
 }
 

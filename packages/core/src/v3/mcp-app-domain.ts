@@ -18,6 +18,12 @@ export interface McpAppDescriptor {
   display_mode: McpAppDisplayMode;
   /** Pinned by a tab or an A2UI surface: neither expired nor counted (MA6). */
   pinned: boolean;
+  /** The app's live service through CLIO's route (MA23), on the sandbox origin. */
+  service_url?: string | null;
+  /** Why CLIO does not carry a service the app's server declared. */
+  service_refusal?: { reason: string; message: string } | null;
+  /** Loopback CSP sources the view declared and CLIO refused. */
+  csp_refused?: { directive: string; source: string; reason: string }[];
 }
 
 /** The record's mode and pin after `PUT …/display-mode` or `PUT …/pin`. */
