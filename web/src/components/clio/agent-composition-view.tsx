@@ -3,18 +3,17 @@ import {
   pluginReferenceId,
   emptyAgentDelta,
   type AgentDelta,
+  type AgentResolution,
   type SessionAgent,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
-import { ScrollTextIcon } from 'lucide-react';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -25,11 +24,12 @@ import { AgentPackages, type AgentPackagesView } from './agent-packages';
 import { AgentSwitchMenu } from './agent-switch-menu';
 import { AgentTabHeader, AgentUseRows, SaveAsSetupLink } from './agent-tab-overview';
 import { AgentRunsWith } from './agent-tab-run-settings';
-import { agentUseValues, type AgentUseKind } from './agent-tab-values';
+import { agentUseValues, AGENT_USE_LABELS, type AgentUseKind } from './agent-tab-values';
 import { PluginChangeDialog, type PluginChangeDialogProps } from './plugin-change-dialog';
 import { KeyValueRowButton, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
 import { serviceErrorDetail } from './service-error';
+import { SettingsGroupLabel } from './settings-row';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
 
 // A row's drill-in (plugin explorer, tool tables) is its own chunk, kept off
@@ -290,6 +290,22 @@ function AgentComposition({
         ?.focus(),
     );
   };
+  const packages = (
+    <AgentPackages
+      delta={delta}
+      onAdd={add}
+      onExplore={(plugin) => setExploring({ reference: `${plugin.marketplace}/${plugin.id}` })}
+      onOpenItem={setItem}
+      onRemove={remove}
+      onViewChange={setPackagesView}
+      pending={update.isPending}
+      plugins={catalog.data?.plugins}
+      pluginsError={catalog.error?.message}
+      readOnly={readOnly}
+      resolution={resolution}
+      view={packagesView}
+    />
+  );
   return (
     <div
       className={
@@ -301,23 +317,9 @@ function AgentComposition({
       data-slot="agent-tab"
       ref={rows}
     >
-      {/* In a library pane's sub-views the header would hold only the legend: drop it. */}
-      {library && embedded && (view || item) && !(changed && !readOnly) ? null : (
+      {/* In a library pane the header holds only the legend: it shows once something changed. */}
+      {library && embedded && !(changed && !readOnly) ? null : (
         <AgentTabHeader
-          actions={
-            library && !view && !item ? (
-              <Button
-                className="-my-1 shrink-0"
-                data-agent-use="instructions"
-                onClick={() => setView('instructions')}
-                size="xs"
-                title="The agent’s full prompt, composed from its packages"
-                variant="outline"
-              >
-                <ScrollTextIcon aria-hidden="true" /> Prompt
-              </Button>
-            ) : undefined
-          }
           className={library && !embedded ? 'pr-12' : undefined}
           reset={
             changed && !readOnly
@@ -339,35 +341,8 @@ function AgentComposition({
           titleShown={!embedded}
         />
       )}
-      {library && !view && !item ? (
-        <AgentPackages
-          delta={delta}
-          onAdd={add}
-          onExplore={(plugin) => setExploring({ reference: `${plugin.marketplace}/${plugin.id}` })}
-          onOpenItem={setItem}
-          onRemove={remove}
-          onViewChange={setPackagesView}
-          pending={update.isPending}
-          plugins={catalog.data?.plugins}
-          pluginsError={catalog.error?.message}
-          readOnly={readOnly}
-          resolution={resolution}
-          view={packagesView}
-        />
-      ) : null}
-      {library && !view && !item ? (
-        <details className="px-3.5 pt-1 pb-2 text-meta">
-          <summary className="w-fit cursor-pointer text-muted-foreground">About this agent</summary>
-          <div className="mt-2 grid gap-2 leading-5">
-            {resolution.agent.role ? <p>{resolution.agent.role}</p> : null}
-            {resolution.agent.description &&
-            resolution.agent.description !== resolution.agent.role ? (
-              <p>{resolution.agent.description}</p>
-            ) : null}
-            <p className="break-words text-muted-foreground">{setupFacts}</p>
-          </div>
-        </details>
-      ) : null}
+      {library && !view && !item ? packages : null}
+      {library && !view && !item ? <AgentUseRows onOpen={setView} values={values} /> : null}
       {changed ? (
         <p className="truncate px-3.5 pb-2 text-meta text-muted-foreground" title={summary}>
           {summary}
@@ -388,7 +363,28 @@ function AgentComposition({
           <AlertDescription>{update.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      {view ? (
+      {item ? (
+        <AgentPackageItemDetail
+          backLabel={
+            view
+              ? `Back to ${AGENT_USE_LABELS[view]}`
+              : library
+                ? 'Back to packages'
+                : 'Back to the agent'
+          }
+          item={item}
+          onBack={backFromItem}
+          onExplore={(target, skill) => {
+            const plugin = resolution.plugins.find((entry) => entry.id === target.plugin);
+            if (!plugin) return;
+            setExploring({
+              reference: `${plugin.marketplace}/${plugin.id}`,
+              skill: skill ? target.id : undefined,
+            });
+          }}
+          resolution={resolution}
+        />
+      ) : view ? (
         <Suspense fallback={null}>
           <AgentDrillIn
             basis={agent.data?.prompt_basis}
@@ -405,6 +401,7 @@ function AgentComposition({
             }
             onBack={back}
             onCompact={onCompact}
+            onOpenItem={setItem}
             onRemove={remove}
             pending={update.isPending}
             plugins={catalog.data?.plugins}
@@ -414,19 +411,6 @@ function AgentComposition({
             value={values[view].text}
           />
         </Suspense>
-      ) : item ? (
-        <AgentPackageItemDetail
-          item={item}
-          onBack={backFromItem}
-          onExplore={(target) => {
-            const plugin = resolution.plugins.find((entry) => entry.id === target.plugin);
-            if (!plugin) return;
-            setExploring({
-              reference: `${plugin.marketplace}/${plugin.id}`,
-              skill: target.category === 'skills' ? target.id : undefined,
-            });
-          }}
-        />
       ) : (
         <>
           <AgentRunsWith
@@ -435,6 +419,8 @@ function AgentComposition({
             setup={setupItem}
           />
           {library ? null : <AgentUseRows onOpen={setView} values={values} />}
+          {library ? null : packages}
+          {library ? <AgentAbout facts={setupFacts} resolution={resolution} /> : null}
           {readOnly ? null : (
             <SaveAsSetupLink
               disabled={(!changed && !library) || update.isPending || Boolean(agent.isFetching)}
@@ -468,6 +454,21 @@ function AgentComposition({
         />
       ) : null}
     </div>
+  );
+}
+
+/** What the agent is for, in its own words, plus where it comes from. */
+function AgentAbout({ resolution, facts }: { resolution: AgentResolution; facts: string }) {
+  const { role, description } = resolution.agent;
+  return (
+    <section aria-label="About this agent" className="grid min-w-0 gap-1.5 px-3.5 pt-1 pb-2">
+      <SettingsGroupLabel className="mt-1">About</SettingsGroupLabel>
+      <div className="grid gap-2 text-meta leading-5">
+        {role ? <p>{role}</p> : null}
+        {description && description !== role ? <p>{description}</p> : null}
+        <p className="break-words text-muted-foreground">{facts}</p>
+      </div>
+    </section>
   );
 }
 
