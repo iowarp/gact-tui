@@ -294,7 +294,9 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
+          // Buttons that no longer fit one row wrap (right-aligned) instead of
+          // pushing Cancel past the left edge of a narrow sheet.
+          className="@container flex min-w-0 flex-wrap items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
             // Supplemental text truncates; an action button (Back) keeps its whole label.

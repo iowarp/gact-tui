@@ -80,7 +80,7 @@ export function ClioChildSessionFooter({
             </div>
             <Button
               aria-label={t`Return to parent conversation ${parentTitle}`}
-              className="w-full shrink-0 sm:w-auto"
+              className="h-auto min-h-7 w-full shrink-0 py-1 whitespace-normal text-balance sm:w-auto"
               onClick={onReturnToParent}
               size="sm"
               title={t`Return to ${parentTitle}`}
