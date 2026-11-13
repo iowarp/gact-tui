@@ -21889,6 +21889,10 @@ msgstr "「{query}」に言及しているフラグメントはありません�
 msgid "No GPU detected."
 msgstr "GPUが検出されません。"
 
+#: src/components/clio/attention-mode-banner.tsx
+msgid "No heat"
+msgstr "ヒートなし"
+
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."
 msgstr "読み込まれたフックはありません。"

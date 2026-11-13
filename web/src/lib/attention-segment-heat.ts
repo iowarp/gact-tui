@@ -62,6 +62,32 @@ export function sourceLines(text: string): Segment[] {
 }
 
 /**
+ * Tool calls written inline in a block's text, painted on the tool ramp: a line
+ * starting with `>>>` (a tool invocation, as in a transcript pasted into a prompt)
+ * and the output under it, its indented and blank lines, ending at the first line
+ * that is neither. Code-point coordinates, like every other segment.
+ */
+export function toolSections(text: string): Segment[] {
+  const points = [...text];
+  const out: Segment[] = [];
+  let open: Segment | undefined;
+  for (const line of sourceLines(text)) {
+    const body = points.slice(line.lo, line.hi).join('');
+    if (body.startsWith('>>>')) {
+      if (open) out.push(open);
+      open = { lo: line.lo, hi: line.hi };
+    } else if (open && (body.trim() === '' || /^\s/u.test(body))) {
+      open.hi = line.hi;
+    } else if (open) {
+      out.push(open);
+      open = undefined;
+    }
+  }
+  if (open) out.push(open);
+  return out;
+}
+
+/**
  * The GPT-2 first level, Granite's own pre-tokenizer: contractions, words and
  * numbers with one leading space, runs of other characters, and runs of
  * whitespace. BPE then splits these further into model tokens.

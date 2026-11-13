@@ -21872,6 +21872,10 @@ msgstr ""
 msgid "No GPU detected."
 msgstr ""
 
+#: src/components/clio/attention-mode-banner.tsx
+msgid "No heat"
+msgstr ""
+
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."
 msgstr ""

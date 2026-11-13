@@ -21889,6 +21889,10 @@ msgstr "No fragment mentions “{query}”."
 msgid "No GPU detected."
 msgstr "No GPU detected."
 
+#: src/components/clio/attention-mode-banner.tsx
+msgid "No heat"
+msgstr "No heat"
+
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."
 msgstr "No hooks are loaded."
