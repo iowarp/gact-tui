@@ -3,6 +3,7 @@
  * list, its setup card, and the card in the conversation.
  */
 import type { Connector, ConnectorNeed, ConnectorScope, PluginEntry } from '@clio/core/v3';
+import { vocab } from '@/lib/brand-vocabulary';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 
 export interface ConnectorStatusWords {
@@ -57,7 +58,7 @@ export function connectorStatus(
     return {
       tone: 'running',
       label: 'Starting…',
-      detail: 'CLIO is starting it and checking what it needs.',
+      detail: `${vocab.agent} is starting it and checking what it needs.`,
     };
   if (change === 'turning-off')
     return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };

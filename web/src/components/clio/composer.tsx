@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { brand } from '@brand';
+import { welcomePlaceholder } from '@/lib/brand-vocabulary';
 import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
@@ -120,7 +121,7 @@ export function ClioComposer({
   autoFocus = false,
   variant = 'docked',
   placeholder = variant === 'welcome'
-    ? `Ask ${brand.name} anything, or describe a task…`
+    ? welcomePlaceholder()
     : state === 'running' || state === 'queued'
       ? 'Reply, or steer the run'
       : 'Reply',

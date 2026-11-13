@@ -19,6 +19,15 @@ export const vocab = {
   workspace: brand.workspaceNoun,
 } as const;
 
+/**
+ * The welcome composer's invitation. It names whom the person is about to ask: the
+ * conversation's agent when one is chosen (the "with …" chip beside it), so the first
+ * screen shows one name; the product brand otherwise.
+ */
+export function welcomePlaceholder(agentName?: string): string {
+  return `Ask ${agentName?.trim() || brand.name} anything, or describe a task…`;
+}
+
 /** The noun with its indefinite article: `A CLIO`, `An Agent`. */
 export function withArticle(noun: string): string {
   return `${/^[aeiou]/iu.test(noun) ? 'An' : 'A'} ${noun}`;
