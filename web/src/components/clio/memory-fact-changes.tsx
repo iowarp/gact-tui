@@ -1,11 +1,13 @@
 import type { MemoryFactChange } from '@clio/core/v3';
 import { correctionParts } from '@/lib/memory-changes';
+import { t } from '@lingui/core/macro';
 
 /** One readable fact/change renderer for conversation results, review and history. */
 export function MemoryFactChanges({ changes }: { changes: readonly MemoryFactChange[] }) {
-  if (!changes.length) return <p className="text-sm text-muted-foreground">No fact changes.</p>;
+  if (!changes.length)
+    return <p className="text-sm text-muted-foreground">{t`No fact changes.`}</p>;
   return (
-    <ul aria-label="Memory facts" className="grid gap-2 text-sm leading-6">
+    <ul aria-label={t`Memory facts`} className="grid gap-2 text-sm leading-6">
       {changes.map((change, index) => (
         <li key={`${change.id}:${index}`} className="flex min-w-0 items-start gap-2">
           <span aria-label={change.kind} className="shrink-0 text-muted-foreground">

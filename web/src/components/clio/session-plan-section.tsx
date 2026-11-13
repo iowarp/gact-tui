@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { planStatusLabel } from '@/lib/plan-status';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The session plan as the agent keeps it: its status, file and Markdown. Edit saves the
@@ -51,7 +52,7 @@ export function SessionPlanBody({
             size="sm"
             variant="link"
           >
-            Edit plan
+            {t`Edit plan`}
           </Button>
         ) : null}
       </div>
@@ -68,29 +69,29 @@ export function SessionPlanBody({
           }}
         >
           <Textarea
-            aria-label="Plan"
+            aria-label={t`Plan`}
             className="min-h-48 font-mono text-xs"
             onChange={(event) => setDraft(event.target.value)}
             value={draft}
           />
           {save.error ? (
             <p role="alert" className="text-xs text-destructive">
-              The plan was not saved: {save.error.message}
+              {t`The plan was not saved: ${ph({ message: save.error.message })}`}
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
             <Button onClick={() => setDraft(null)} size="sm" type="button" variant="ghost">
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button disabled={save.isPending || !draft.trim()} size="sm" type="submit">
-              {save.isPending ? 'Saving…' : 'Save plan'}
+              {save.isPending ? t`Saving…` : t`Save plan`}
             </Button>
           </div>
         </form>
       )}
       {saved ? (
         <p role="status" className="text-xs text-muted-foreground">
-          Saved. The agent receives your edit at its next step.
+          {t`Saved. The agent receives your edit at its next step.`}
         </p>
       ) : null}
     </div>

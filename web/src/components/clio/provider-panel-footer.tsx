@@ -18,8 +18,10 @@ import {
   providerHealthPresentation,
   type ProviderGroup,
 } from './model-picker-model';
+import { providerActionStageLabel } from './provider-actions';
 import { ProviderLogoMark } from './provider-logo-mark';
 import type { ProviderActions } from './provider-setup-state';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ProviderLogOut {
   /** "Log out" for a sign-in, "Remove key" for a pasted key. */
@@ -60,14 +62,18 @@ interface ProviderPanelFooterProps {
 }
 
 /** "now", "4m", "3h", "2d": how long ago the provider was last checked. */
-function freshnessAge(iso: string, now: number = Date.now()): string | undefined {
+function freshnessAge(
+  iso: string,
+  now: number = Date.now(),
+): { short: string; checked: string } | undefined {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return undefined;
   const minutes = Math.max(0, Math.round((now - at) / 60_000));
-  if (minutes < 1) return 'now';
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return { short: t`now`, checked: t`checked now` };
   const hours = Math.round(minutes / 60);
-  return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+  const days = Math.round(hours / 24);
+  const short = minutes < 60 ? t`${minutes}m` : hours < 48 ? t`${hours}h` : t`${days}d`;
+  return { short, checked: t`checked ${short} ago` };
 }
 
 /**
@@ -104,7 +110,7 @@ export function ProviderPanelFooter({
   return (
     <TooltipProvider disableHoverableContent>
       <div
-        aria-label={`${group.name} provider`}
+        aria-label={t`${ph({ name: group.name })} provider`}
         role="group"
         className={cn(
           'flex min-w-0 shrink-0 flex-nowrap items-center overflow-hidden',
@@ -150,16 +156,13 @@ export function ProviderPanelFooter({
             data-slot="provider-manage-status"
             title={
               (!ready && group.detail) ||
-              (group.freshness ? `Checked ${formatFreshness(group.freshness)}` : group.detail)
+              (group.freshness
+                ? t`Checked ${ph({ time: formatFreshness(group.freshness) })}`
+                : group.detail)
             }
           >
             {status.label}
-            {ready && age ? (
-              <span className="text-faint">
-                , checked {age}
-                {age === 'now' ? '' : ' ago'}
-              </span>
-            ) : null}
+            {ready && age ? <span className="text-faint">, {age.checked}</span> : null}
           </span>
         ) : null}
         {!manage && !actions?.stage ? (
@@ -178,9 +181,9 @@ export function ProviderPanelFooter({
         {age && !manage && !actions?.stage ? (
           <span
             className="shrink-0 font-mono text-caption text-muted-foreground @max-[20rem]/provider-bar:hidden"
-            title={`Checked ${formatFreshness(group.freshness!)}`}
+            title={t`Checked ${ph({ time: formatFreshness(group.freshness!) })}`}
           >
-            {age}
+            {age.short}
           </span>
         ) : null}
         {actions?.stage ? (
@@ -190,7 +193,7 @@ export function ProviderPanelFooter({
             role="status"
           >
             <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-            <span className="truncate">{actions.stage}</span>
+            <span className="truncate">{providerActionStageLabel(actions.stage)}</span>
           </span>
         ) : error ? (
           <span className="min-w-0 flex-1 truncate text-destructive" role="alert" title={error}>
@@ -214,7 +217,7 @@ export function ProviderPanelFooter({
               <IconButton
                 className={cn('shrink-0', iconClass)}
                 icon={<MoreIcon />}
-                label={`${group.name} actions`}
+                label={t`${ph({ name: group.name })} actions`}
                 size="sm"
                 tooltipSide="top"
               />
@@ -228,14 +231,14 @@ export function ProviderPanelFooter({
                     onSelect={() => void providerActions.handshake.mutateAsync()}
                   >
                     <CheckConnectionIcon aria-hidden="true" />
-                    Refresh
+                    {t`Refresh`}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={busy}
                     onSelect={() => void providerActions.refreshModels.mutateAsync()}
                   >
                     <RefreshIcon aria-hidden="true" />
-                    Reload models
+                    {t`Reload models`}
                   </DropdownMenuItem>
                 </>
               ) : null}
@@ -255,9 +258,9 @@ export function ProviderPanelFooter({
             <RefreshButton
               className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
               iconOnly
-              label="Refresh"
+              label={t`Refresh`}
               idleIcon={CheckConnectionIcon}
-              title="Refresh: check connection, sign-in and models"
+              title={t`Refresh: check connection, sign-in and models`}
               refreshing={providerActions.handshake.isPending}
               disabled={busy}
               onRefresh={() => providerActions.handshake.mutateAsync()}
@@ -268,8 +271,8 @@ export function ProviderPanelFooter({
             <RefreshButton
               className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
               iconOnly
-              label="Reload models"
-              title="Reload models, updating the provider client first if needed"
+              label={t`Reload models`}
+              title={t`Reload models, updating the provider client first if needed`}
               refreshing={providerActions.refreshModels.isPending}
               disabled={busy}
               onRefresh={() => providerActions.refreshModels.mutateAsync()}

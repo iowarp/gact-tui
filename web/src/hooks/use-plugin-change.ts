@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionAgent } from '@/hooks/use-session-agent';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
+import { t, ph } from '@lingui/core/macro';
 
 /** One change to the conversation's plugins or agent, before the person confirms it. */
 export interface PluginChange {
@@ -27,8 +28,7 @@ export interface PluginChange {
   removing?: string;
 }
 
-const NOTE_APPLIED =
-  'Sent to the agent as an injection. Its system prompt changes at the next compaction.';
+const NOTE_APPLIED = t`Sent to the agent as an injection. Its system prompt changes at the next compaction.`;
 
 function report(change: PluginChange, mode: PluginChangeApply, result: SessionAgent) {
   if (mode === 'note') {
@@ -38,16 +38,16 @@ function report(change: PluginChange, mode: PluginChangeApply, result: SessionAg
   if (mode === 'compact') {
     const failure = pluginChangeCompactionError(result.compaction);
     if (failure !== undefined) {
-      toast.warning('The compaction failed', {
-        description: `${change.success}, but the conversation was not compacted (${failure}). The change was sent as an injection instead and joins the system prompt at the next compaction.`,
+      toast.warning(t`The compaction failed`, {
+        description: t`${ph({ success: change.success })}, but the conversation was not compacted (${failure}). The change was sent as an injection instead and joins the system prompt at the next compaction.`,
         duration: 12_000,
       });
       return;
     }
     toast.success(change.success, {
       description: result.compaction?.compacted
-        ? 'The conversation was compacted and the change went in with it.'
-        : 'There was nothing to compact, so the change applies from the next call.',
+        ? t`The conversation was compacted and the change went in with it.`
+        : t`There was nothing to compact, so the change applies from the next call.`,
     });
     return;
   }

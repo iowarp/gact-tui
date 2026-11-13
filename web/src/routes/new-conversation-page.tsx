@@ -61,6 +61,8 @@ import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { ph, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** An entry composer has no session identity, persistence, or session stream. */
 export function NewConversationPage() {
@@ -100,15 +102,29 @@ function DraftComposer({ draft, ...props }: DraftComposerProps) {
   );
 }
 
+/**
+ * What a draft takes with it when the "In" chip moves it to another workspace: the
+ * route (and so the whole draft page) changes, so the person's model pick, agent and
+ * text would otherwise be lost, and with no default model the next send is refused.
+ */
+interface MovedDraft {
+  provider?: string;
+  model?: string;
+  agentRef?: string;
+  text?: string;
+}
+
 function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const intent = (
-    location.state as {
-      sourceConnection?: { scope: string; providerId: string; choice?: ObsidianChoice };
-    } | null
-  )?.sourceConnection;
+  const routeState = location.state as {
+    sourceConnection?: { scope: string; providerId: string; choice?: ObsidianChoice };
+    movedDraft?: MovedDraft;
+  } | null;
+  const intent = routeState?.sourceConnection;
+  const moved = routeState?.movedDraft;
+  const carriedModel = moved?.provider && moved.model ? moved : undefined;
   const connectSource = intent?.scope === connectionScope(settings) ? intent : undefined;
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
@@ -127,12 +143,22 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
   const provider =
+    carriedModel?.provider ||
     defaults.data?.provider_id ||
     data.activeProvider ||
     data.capabilities.data?.active_model?.provider_id;
   const model =
-    defaults.data?.model_id || data.activeModel || data.capabilities.data?.active_model?.model_id;
-  const [agentChoice, setAgentChoice] = useState<string>();
+    carriedModel?.model ||
+    defaults.data?.model_id ||
+    data.activeModel ||
+    data.capabilities.data?.active_model?.model_id;
+  const [agentChoice, setAgentChoice] = useState<string | undefined>(moved?.agentRef);
+  const pickedModel = useRef<{ provider: string; model: string }>(undefined);
+  useEffect(() => {
+    // Once, on arrival: the moved draft's text, unless this workspace's draft has its own.
+    if (moved?.text && !draft.readValue()) draft.onValueChange(moved.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the arrival state
+  }, []);
   // Plugin changes made to the agent before the first message (the Agent tab).
   const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
   const draftChanges = draftDelta.add.length + draftDelta.remove.length;
@@ -204,11 +230,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         workspaceId,
       });
       if (outcome.status === 'unresolved')
-        toast.error('Could not open reference', { description: outcome.reason });
+        toast.error(t`Could not open reference`, { description: outcome.reason });
     } catch (error) {
-      toast.error('Could not open reference', {
+      toast.error(t`Could not open reference`, {
         description:
-          error instanceof Error ? error.message : 'Refresh the reference and try again.',
+          error instanceof Error ? error.message : t`Refresh the reference and try again.`,
       });
     }
   };
@@ -265,17 +291,17 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         navigation={navigation}
         contextBar={
           <div className="min-w-0 truncate text-ui font-medium">
-            {`${capitalize(vocab.workspace)} unavailable`}
+            {t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`}
           </div>
         }
         statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
-        workbench={<div aria-label="Workspace canvas" className="h-full bg-background" />}
+        workbench={<div aria-label={t`Workspace canvas`} className="h-full bg-background" />}
       >
         <WorkspaceUnavailable
           back={
             workspaceId === DEFAULT_WORKSPACE_ID
               ? undefined
-              : { label: 'Back to Conversations', to: newConversationRoute(DEFAULT_WORKSPACE_ID) }
+              : { label: t`Back to Conversations`, to: newConversationRoute(DEFAULT_WORKSPACE_ID) }
           }
           error={error ?? undefined}
           onRetry={() => {
@@ -331,7 +357,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           diffs={[]}
           sessionView={
             <p className="p-6 text-sm text-muted-foreground">
-              Session activity appears after you send your first message.
+              {t`Session activity appears after you send your first message.`}
             </p>
           }
           agentView={
@@ -345,8 +371,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               />
             ) : (
               <p className="p-6 text-sm text-muted-foreground">
-                The default agent has nothing to change here. Choose an agent next to “with” to
-                customize its plugins, prompt and tools.
+                {t`The default agent has nothing to change here. Choose an agent next to “with” to customize its plugins, prompt and tools.`}
               </p>
             )
           }
@@ -375,35 +400,46 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             !serviceUnreachable(warmup.error) &&
             connection === 'live' &&
             !warmup.isFetching
-              ? `Tools could not be prepared in advance: ${warmup.error.message.replace(/\.+$/, '')}. You can still send a message.`
+              ? t`Tools could not be prepared in advance: ${ph({ reason: warmup.error.message.replace(/\.+$/, '') })}. You can still send a message.`
               : undefined
           }
         />
         <NewConversationDraft
           setup={
             <>
-              <span>In</span>
-              <DraftWorkspaceChip
-                workspaces={data.workspaces.data ?? []}
-                workspaceId={workspaceId}
-                disabled={send.isPending}
-                onSelect={(id) => void navigate(newConversationRoute(id), { replace: true })}
-              />
-              <span>with</span>
-              <DraftAgentChip
-                agents={data.installedAgents.data}
-                agentsError={data.installedAgents.error?.message}
-                pending={data.installedAgents.isPending && agentsSupported !== false}
-                agentRef={draftRef}
-                defaultRef={defaultRef}
-                changes={draftChanges}
-                disabled={send.isPending}
-                onSelect={(ref) => {
-                  setAgentChoice(ref);
-                  setDraftDelta(emptyAgentDelta);
-                }}
-                onManageAgents={openAgent}
-              />
+              <Trans>
+                <span>In</span>{' '}
+                <DraftWorkspaceChip
+                  workspaces={data.workspaces.data ?? []}
+                  workspaceId={workspaceId}
+                  disabled={send.isPending}
+                  onSelect={(id) => {
+                    const pick =
+                      pickedModel.current ?? (provider && model ? { provider, model } : {});
+                    const movedDraft: MovedDraft = {
+                      ...pick,
+                      agentRef: agentChoice,
+                      text: draft.readValue(),
+                    };
+                    void navigate(newConversationRoute(id), { replace: true, state: { movedDraft } });
+                  }}
+                />{' '}
+                <span>with</span>{' '}
+                <DraftAgentChip
+                  agents={data.installedAgents.data}
+                  agentsError={data.installedAgents.error?.message}
+                  pending={data.installedAgents.isPending && agentsSupported !== false}
+                  agentRef={draftRef}
+                  defaultRef={defaultRef}
+                  changes={draftChanges}
+                  disabled={send.isPending}
+                  onSelect={(ref) => {
+                    setAgentChoice(ref);
+                    setDraftDelta(emptyAgentDelta);
+                  }}
+                  onManageAgents={openAgent}
+                />
+              </Trans>
               {agentsSupported !== false ? (
                 <DraftCustomizeChip
                   changes={draftChanges}
@@ -431,6 +467,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             }}
             provider={provider}
             model={model}
+            onModelChange={(option) => {
+              pickedModel.current = { provider: option.providerId, model: option.id };
+            }}
             modelOptions={data.modelOptions}
             modelCatalogStatus={modelCatalogStatus}
             configuredEffort={data.configuredEffort}

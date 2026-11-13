@@ -19,6 +19,7 @@ import {
   RailState,
   ShowMoreRow,
 } from './workspace-navigation-rail-rows';
+import { ph, t } from '@lingui/core/macro';
 
 interface WorkspaceTreeItemProps {
   workspace: Workspace;
@@ -98,7 +99,7 @@ export function WorkspaceTreeItem({
             />
             <IconButton
               icon={<NewConversationIcon />}
-              label={`New conversation in ${workspaceLabelText(label)}`}
+              label={t`New conversation in ${ph({ workspace: workspaceLabelText(label) })}`}
               onClick={() => onCreateSession(workspace.id)}
               size="sm"
             />
@@ -147,7 +148,7 @@ export function WorkspaceTreeItem({
             renderSession(session, false, depth),
           )}
           {visibleSessions.length === 0 && !draft && !rail.loading && !rail.error ? (
-            <RailState indent kind="empty" title="No conversations yet" />
+            <RailState indent kind="empty" title={t`No conversations yet`} />
           ) : null}
           <RailListState rail={rail} />
           {sessionLimitExpanded && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
@@ -160,8 +161,10 @@ export function WorkspaceTreeItem({
               railKey={`more:${workspace.id}`}
               label={
                 sessionLimitExpanded
-                  ? 'Show recent conversations'
-                  : `Show ${sessionTotal - visibleSessions.length > 0 ? `${sessionTotal - visibleSessions.length} more` : `all ${sessionTotal}`}`
+                  ? t`Show recent conversations`
+                  : sessionTotal > visibleSessions.length
+                    ? t`Show ${ph({ remaining: sessionTotal - visibleSessions.length })} more`
+                    : t`Show all ${sessionTotal}`
               }
               onToggle={() => setSessionLimitExpanded(!sessionLimitExpanded)}
             />
@@ -189,7 +192,9 @@ function WorkspaceDisclosureButton({
   return (
     <button
       aria-expanded={workspaceExpanded}
-      aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
+      aria-label={
+        workspaceExpanded ? t`Collapse workspace ${labelText}` : t`Expand workspace ${labelText}`
+      }
       className="flex w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
       data-rail-focus=""
       onClick={() => onExpandedChange(!workspaceExpanded)}

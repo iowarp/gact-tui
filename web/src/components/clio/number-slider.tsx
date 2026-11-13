@@ -8,6 +8,7 @@ import {
   type A2UIAccessibility,
 } from './a2ui-accessibility';
 import { effectiveStep, snapToStep, stepDecimals, type SliderRange } from './number-slider-values';
+import { t } from '@lingui/core/macro';
 
 export interface ClioNumberSliderProps extends SliderRange {
   accessibility?: A2UIAccessibility;
@@ -40,7 +41,10 @@ export function ClioNumberSlider({
     range,
   );
   const pair: [number, number] = Array.isArray(value)
-    ? [snapToStep(value[0], range), snapToStep(value[1], range)].sort((a, b) => a - b) as [number, number]
+    ? ([snapToStep(value[0], range), snapToStep(value[1], range)].sort((a, b) => a - b) as [
+        number,
+        number,
+      ])
     : [min, max];
   const fieldId = useId();
   const upperFieldId = useId();
@@ -85,7 +89,7 @@ export function ClioNumberSlider({
           >
             <NumberFieldGroup>
               <NumberFieldInput
-                aria-label={rangeMode ? `${label} minimum` : label}
+                aria-label={rangeMode ? t`${label} minimum` : label}
                 className="font-mono text-xs"
                 onKeyDown={(event) => {
                   // The field commits when it loses focus; Enter commits as well.
@@ -96,7 +100,9 @@ export function ClioNumberSlider({
           </NumberField>
           {rangeMode ? (
             <>
-              <span aria-hidden="true" className="text-xs text-muted-foreground">–</span>
+              <span aria-hidden="true" className="text-xs text-muted-foreground">
+                –
+              </span>
               <NumberField
                 className="w-24 gap-0"
                 format={{ minimumFractionDigits: decimals, maximumFractionDigits: decimals }}
@@ -110,9 +116,11 @@ export function ClioNumberSlider({
               >
                 <NumberFieldGroup>
                   <NumberFieldInput
-                    aria-label={`${label} maximum`}
+                    aria-label={t`${label} maximum`}
                     className="font-mono text-xs"
-                    onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur();
+                    }}
                   />
                 </NumberFieldGroup>
               </NumberField>

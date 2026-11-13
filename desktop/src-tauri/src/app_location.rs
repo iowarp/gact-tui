@@ -15,6 +15,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::native_copy;
+
 /// Where the running app bundle lives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LaunchLocation {
@@ -60,26 +62,23 @@ pub(crate) fn destination_dir(applications_writable: bool, home: &Path) -> PathB
 }
 
 pub(crate) fn prompt_title(app_name: &str) -> String {
-    format!("Move {app_name} to Applications?")
+    native_copy::format("move.title", &[("name", app_name)])
 }
 
 pub(crate) fn prompt_message(app_name: &str, location: LaunchLocation, dest_dir: &Path) -> String {
-    let source = match location {
-        LaunchLocation::DiskImage => "from its disk image",
-        _ => "from a temporary location macOS uses for downloaded apps",
+    let key = match location {
+        LaunchLocation::DiskImage => "move.message.disk_image",
+        _ => "move.message.translocated",
     };
-    format!(
-        "{app_name} is running {source}, so it cannot update itself or keep its \
-         place in the Dock.\n\nMove it to {} now? {app_name} will reopen from there.",
-        dest_dir.display()
-    )
+    let dest = dest_dir.display().to_string();
+    native_copy::format(key, &[("name", app_name), ("dest", &dest)])
 }
 
 pub(crate) fn move_failed_message(app_name: &str, dest_dir: &Path, error: &str) -> String {
-    format!(
-        "{app_name} could not be moved to {}: {error}\n\nQuit {app_name}, drag it \
-         into Applications in Finder, then open it from there.",
-        dest_dir.display()
+    let dest = dest_dir.display().to_string();
+    native_copy::format(
+        "move.failed",
+        &[("name", app_name), ("dest", &dest), ("error", error)],
     )
 }
 
@@ -225,8 +224,8 @@ pub(crate) fn offer_move_to_applications<R: tauri::Runtime>(app: &tauri::AppHand
             .title(prompt_title(&app_name))
             .kind(MessageDialogKind::Info)
             .buttons(MessageDialogButtons::OkCancelCustom(
-                "Move to Applications".into(),
-                "Not Now".into(),
+                native_copy::text("move.confirm"),
+                native_copy::text("move.later"),
             ));
         if let Some(window) = &window {
             prompt = prompt.parent(window);

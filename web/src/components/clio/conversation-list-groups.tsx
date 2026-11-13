@@ -9,15 +9,16 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { t, ph } from '@lingui/core/macro';
 
 /** Which conversations the list shows, by the state each row already marks. */
 export type ConversationFilter = 'all' | 'attention' | 'running' | 'unseen';
 
 const FILTERS: readonly { id: ConversationFilter; label: string }[] = [
-  { id: 'all', label: 'All conversations' },
-  { id: 'attention', label: 'Needs you' },
-  { id: 'running', label: 'Working now' },
-  { id: 'unseen', label: 'New activity' },
+  { id: 'all', label: t`All conversations` },
+  { id: 'attention', label: t`Needs you` },
+  { id: 'running', label: t`Working now` },
+  { id: 'unseen', label: t`New activity` },
 ];
 
 export function ConversationFilterMenu({
@@ -34,12 +35,16 @@ export function ConversationFilterMenu({
         <IconButton
           aria-pressed={value !== 'all'}
           icon={<ListFilterIcon />}
-          label={value === 'all' ? 'Filter conversations' : `Filter conversations, ${active.label}`}
+          label={
+            value === 'all'
+              ? t`Filter conversations`
+              : t`Filter conversations, ${ph({ label: active.label })}`
+          }
           size="sm"
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel>Show</DropdownMenuLabel>
+        <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           onValueChange={(next) => onChange(next as ConversationFilter)}
           value={value}
@@ -66,10 +71,10 @@ export function NoMatchingConversations({ onShowAll }: { onShowAll: () => void }
           onClick={onShowAll}
           type="button"
         >
-          Show all
+          {t`Show all`}
         </button>
       }
-      title={<span className="truncate">No matching conversations</span>}
+      title={<span className="truncate">{t`No matching conversations`}</span>}
     />
   );
 }

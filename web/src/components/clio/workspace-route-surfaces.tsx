@@ -14,6 +14,7 @@ import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { TechnicalDetails } from './technical-details';
 import { SessionWorkStatus } from './session-work';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /**
  * Keeps an exiting transcript surface (the welcome state, the conversation)
@@ -53,7 +54,8 @@ function TranscriptStateRow({
 }: {
   title: string;
   detail?: string;
-  action?: { label: string; onClick: () => void };
+  /** `retry` marks the Retry action, which keeps its icon; other actions read as words only. */
+  action?: { label: string; onClick: () => void; retry?: boolean };
   className?: string;
 }) {
   return (
@@ -62,7 +64,15 @@ function TranscriptStateRow({
       data-slot="transcript-state-row"
     >
       <StateView
-        action={action ? { ...action, icon: action.label === 'Retry' ? undefined : null } : undefined}
+        action={
+          action
+            ? {
+                label: action.label,
+                onClick: action.onClick,
+                icon: action.retry ? undefined : null,
+              }
+            : undefined
+        }
         className="w-fit max-w-full"
         kind="error"
         size="row"
@@ -73,7 +83,7 @@ function TranscriptStateRow({
           className="min-w-0"
           contentClassName="pt-1 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
           summaryClassName="text-meta"
-          title="Technical details"
+          title={t`Technical details`}
         >
           {detail}
         </TechnicalDetails>
@@ -93,8 +103,8 @@ export function WorkspaceActionAlerts({
   return (
     <>
       {[
-        ['That action didn’t run', actionError],
-        ['The reply couldn’t be retried', retryError],
+        [t`That action didn’t run`, actionError],
+        [t`The reply couldn’t be retried`, retryError],
       ].map(([title, error]) =>
         error ? (
           <TranscriptStateRow key={title} className="mx-4 mb-1" detail={error} title={title!} />
@@ -129,13 +139,13 @@ export function WorkspaceTranscriptAlerts({
   // alone: reading the transcript can still fail during the outage for
   // reasons the update itself does not explain.
   const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
-  const retry = onRetry ? { label: 'Retry', onClick: onRetry } : undefined;
+  const retry = onRetry ? { label: t`Retry`, onClick: onRetry, retry: true } : undefined;
   return (
     <>
       {sessionFailed ? (
         <TranscriptStateRow
           className="mx-3 mt-2"
-          title={`${vocab.agent} stopped before finishing this turn`}
+          title={t`${ph({ agent: vocab.agent })} stopped before finishing this turn`}
         />
       ) : null}
       {streamError && !updateInFlight ? (
@@ -144,15 +154,15 @@ export function WorkspaceTranscriptAlerts({
           action={retry}
           className="mx-3 mt-2"
           detail={streamError}
-          title="Some updates may be missing"
+          title={t`Some updates may be missing`}
         />
       ) : null}
       {transcriptError && removal ? (
         <TranscriptStateRow
-          action={{ label: 'Remove conversation', onClick: () => setRemoving(true) }}
+          action={{ label: t`Remove conversation`, onClick: () => setRemoving(true) }}
           className="mx-3 mt-2"
           detail={transcriptError}
-          title="This conversation can’t be read"
+          title={t`This conversation can’t be read`}
         />
       ) : transcriptError ? (
         // The shown messages stay; the failed read is one line with Retry.
@@ -160,7 +170,7 @@ export function WorkspaceTranscriptAlerts({
           action={retry}
           className="mx-3 mt-2"
           detail={transcriptError}
-          title="The latest messages could not be loaded"
+          title={t`The latest messages could not be loaded`}
         />
       ) : null}
       {removal && removing ? (
@@ -192,20 +202,25 @@ export function WorkspaceUnavailable({
   back?: { label: string; to: string };
 }) {
   const navigate = useNavigate();
-  const noun = subject === 'conversation' ? 'conversation' : vocab.workspace;
+  const { agent, workspace } = vocab;
+  const conversation = subject === 'conversation';
   const missing = error === undefined || isNotFoundError(error);
   const offline = !missing && isOfflineError(error);
   const title = missing
-    ? `This ${noun} isn't available`
+    ? conversation
+      ? t`This conversation isn't available`
+      : t`This ${workspace} isn't available`
     : offline
-      ? `Can't reach ${vocab.agent}`
-      : `This ${noun} couldn't be opened`;
+      ? t`Can't reach ${agent}`
+      : conversation
+        ? t`This conversation couldn't be opened`
+        : t`This ${workspace} couldn't be opened`;
   const detail = missing
     ? subject === 'conversation'
-      ? 'It may have been deleted or moved.'
-      : 'It may have been deleted, or it belongs to another connection.'
+      ? t`It may have been deleted or moved.`
+      : t`It may have been deleted, or it belongs to another connection.`
     : offline
-      ? `Check that ${vocab.agent} is running, then retry.`
+      ? t`Check that ${agent} is running, then retry.`
       : withoutIdentifiers(error instanceof Error ? error.message : String(error));
   return (
     <section
@@ -213,14 +228,14 @@ export function WorkspaceUnavailable({
       className="grid h-full min-h-0 place-items-center bg-background p-6"
     >
       <StateView
-        action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        action={onRetry ? { label: t`Retry`, onClick: onRetry } : undefined}
         className="w-full max-w-xl"
         detail={detail}
         kind="error"
         link={
           back && !offline
             ? { label: back.label, onClick: () => navigate(back.to) }
-            : { label: 'Manage connections', onClick: () => navigate('/?intent=connect') }
+            : { label: t`Manage connections`, onClick: () => navigate('/?intent=connect') }
         }
         size="page"
         title={title}
@@ -244,10 +259,10 @@ function withoutIdentifiers(message: string): string {
 }
 
 /** The spec's page Loading state (`.xs.pn`): a spinner and one line. */
-export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?: string }) {
+export function WorkspaceHydrating({ label = t`Opening conversation` }: { label?: string }) {
   return (
     <section
-      aria-label="Conversation loading"
+      aria-label={t`Conversation loading`}
       className="grid h-full min-h-0 place-items-center bg-background p-6"
     >
       <StateView kind="loading" title={label} />
@@ -274,26 +289,37 @@ export function WorkspaceStatusStrip({
   sessionState?: RunState;
   stream: StreamState;
 }) {
-  const inspectionLabel = `${unresolvedWorkCount} task${unresolvedWorkCount === 1 ? ' needs' : 's need'} inspection`;
+  const { agent } = vocab;
+  const inspectionLabel = plural(unresolvedWorkCount, {
+    one: '# task needs inspection',
+    other: '# tasks need inspection',
+  });
   const activeWorkLabel =
     unresolvedWorkCount > 0
-      ? `${sessionState === 'running' ? `${vocab.agent} running; ` : ''}${inspectionLabel}`
+      ? sessionState === 'running'
+        ? t`${agent} running; ${inspectionLabel}`
+        : inspectionLabel
       : sessionState === 'running'
-        ? `${vocab.agent} running${activeWorkCount ? ` with ${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}` : ''}`
+        ? activeWorkCount
+          ? plural(activeWorkCount, {
+              one: `${agent} running with # active item`,
+              other: `${agent} running with # active items`,
+            })
+          : t`${agent} running`
         : activeWorkCount === 0
-          ? 'No active work'
-          : `${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}`;
+          ? t`No active work`
+          : plural(activeWorkCount, { one: '# active item', other: '# active items' });
   const offline = stream === 'offline';
   const recoveryLabel = offline
-    ? `Can't reach ${vocab.agent}, retrying`
+    ? t`Can't reach ${agent}, retrying`
     : stream === 'reconnecting'
-      ? 'Resuming updates'
+      ? t`Resuming updates`
       : stream === 'gapped'
-        ? 'Checking for missed updates'
+        ? t`Checking for missed updates`
         : undefined;
   const recoveryDetail = cursor
-    ? `Recovery checkpoint ${cursor.slice(-10)}`
-    : 'No recovery checkpoint was reported';
+    ? t`Recovery checkpoint ${ph({ checkpoint: cursor.slice(-10) })}`
+    : t`No recovery checkpoint was reported`;
   return (
     <div
       className="flex shrink-0 items-center gap-1 text-meta whitespace-nowrap text-muted-foreground"
@@ -311,13 +337,13 @@ export function WorkspaceStatusStrip({
           />
           <span className="hidden md:inline">{recoveryLabel}</span>
           {/* A phone keeps the outage in words, not only the glyph. */}
-          {offline ? <span className="md:hidden">Offline</span> : null}
+          {offline ? <span className="md:hidden">{t`Offline`}</span> : null}
         </span>
       ) : null}
       {unresolvedWorkCount > 0 && onInspectTasks ? (
         <NamedTooltip label={activeWorkLabel}>
           <Button
-            aria-label="Inspect unresolved tasks"
+            aria-label={t`Inspect unresolved tasks`}
             className="h-7 gap-1.5 px-1.5 text-meta text-warning-foreground hover:bg-hover"
             onClick={onInspectTasks}
             type="button"
@@ -325,7 +351,7 @@ export function WorkspaceStatusStrip({
           >
             <AlertTriangleIcon aria-hidden="true" className="size-3.5" />
             <span aria-hidden="true" className="tabular-nums">
-              {unresolvedWorkCount} to inspect
+              {t`${unresolvedWorkCount} to inspect`}
             </span>
             <span className="sr-only">{activeWorkLabel}</span>
           </Button>

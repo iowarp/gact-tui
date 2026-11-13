@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FileViewerShell } from './file-viewer-shell';
+import { ph, t } from '@lingui/core/macro';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
 
@@ -37,15 +38,23 @@ export function LocalMarketplaceDetails({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Local marketplace details</DialogTitle>
-          <DialogDescription>Saved privately on this host. Nothing is published.</DialogDescription>
+          <DialogTitle>{t`Local marketplace details`}</DialogTitle>
+          <DialogDescription>{t`Saved privately on this host. Nothing is published.`}</DialogDescription>
         </DialogHeader>
-        {pending ? <p role="status">Loading storage locations…</p> : null}
+        {pending ? <p role="status">{t`Loading storage locations…`}</p> : null}
         {error ? <SourceUnavailable onRetry={onRetry} /> : null}
         {library ? (
-          <section aria-label="Storage locations" className="grid min-w-0 gap-4">
-            <HostFolder label="Agents" path={library.agents_directory} />
-            <HostFolder label="Skills and plugins" path={library.plugins_directory} />
+          <section aria-label={t`Storage locations`} className="grid min-w-0 gap-4">
+            <HostFolder
+              copyLabel={t`Copy agents folder`}
+              label={t`Agents`}
+              path={library.agents_directory}
+            />
+            <HostFolder
+              copyLabel={t`Copy skills and plugins folder`}
+              label={t`Skills and plugins`}
+              path={library.plugins_directory}
+            />
           </section>
         ) : null}
       </DialogContent>
@@ -80,11 +89,11 @@ export function SavedAgentFile({
     >
       <DialogContent className="flex h-[min(40rem,calc(100dvh-2rem))] min-w-0 flex-col overflow-clip sm:max-w-3xl">
         <DialogHeader className="shrink-0">
-          <DialogTitle>{agent.name || agent.id}: saved file</DialogTitle>
-          <DialogDescription>Local agent definition</DialogDescription>
+          <DialogTitle>{t`${ph({ agent: agent.name || agent.id })}: saved file`}</DialogTitle>
+          <DialogDescription>{t`Local agent definition`}</DialogDescription>
         </DialogHeader>
         {pending ? (
-          <p role="status">Loading saved file…</p>
+          <p role="status">{t`Loading saved file…`}</p>
         ) : error || !source ? (
           <SourceUnavailable onRetry={onRetry} />
         ) : (
@@ -98,7 +107,7 @@ export function SavedAgentFile({
                   kind: 'provided',
                   name,
                   mediaType: 'application/json',
-                  origin: 'Saved agent definition',
+                  origin: t`Saved agent definition`,
                   readBytes: async () => new TextEncoder().encode(text),
                 }}
                 tabs={[
@@ -107,7 +116,7 @@ export function SavedAgentFile({
                     label: name,
                     icon: FileIcon,
                     content: (
-                      <Suspense fallback={<p role="status">Loading file viewer…</p>}>
+                      <Suspense fallback={<p role="status">{t`Loading file viewer…`}</p>}>
                         <FileReader name={name} content={text} view="source" />
                       </Suspense>
                     ),
@@ -126,16 +135,24 @@ function SourceUnavailable({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="grid justify-items-start gap-2">
       <p role="alert" className="text-muted-foreground">
-        Storage details aren’t available from this host.
+        {t`Storage details aren’t available from this host.`}
       </p>
       <Button size="sm" variant="outline" onClick={onRetry}>
-        Retry
+        {t`Retry`}
       </Button>
     </div>
   );
 }
 
-function HostFolder({ label, path }: { label: string; path: string }) {
+function HostFolder({
+  copyLabel,
+  label,
+  path,
+}: {
+  copyLabel: string;
+  label: string;
+  path: string;
+}) {
   return (
     <div className="flex min-w-0 items-start gap-2">
       <FolderIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -146,11 +163,11 @@ function HostFolder({ label, path }: { label: string; path: string }) {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`Copy ${label.toLowerCase()} folder`}
+        aria-label={copyLabel}
         onClick={() => {
           void navigator.clipboard.writeText(path).then(
-            () => toast.success('Folder path copied'),
-            () => toast.error('Could not copy folder path'),
+            () => toast.success(t`Folder path copied`),
+            () => toast.error(t`Could not copy folder path`),
           );
         }}
       >

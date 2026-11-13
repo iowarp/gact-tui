@@ -8,6 +8,9 @@ import { queryKeys } from '@/lib/query-keys';
 import { SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatDuration } from '@/lib/format';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** Follow service-owned setup even after the user leaves Infrastructure. */
 export function SandboxSetupNotification() {
@@ -33,10 +36,10 @@ export function SandboxSetupNotification() {
     const id = `sandbox-setup:${settings.endpoint}`;
     if (row.setup_in_progress) {
       observed.current = `${settings.endpoint}:${progress.started_at}`;
-      toast.loading('Setting up protected execution', {
+      toast.loading(t`Setting up protected execution`, {
         id,
-        description: `${progress.detail} (${formatDuration(progress.elapsed_seconds * 1000)}) You can keep using ${vocab.agent} while this finishes.`,
-        action: { label: 'View progress', onClick: () => navigate('/infrastructure/agent') },
+        description: t`${ph({ detail: progress.detail })} (${ph({ elapsed: formatDuration(progress.elapsed_seconds * 1000) })}) You can keep using ${agent} while this finishes.`,
+        action: { label: t`View progress`, onClick: () => navigate('/infrastructure/agent') },
       });
     } else if (
       notified.current !== `${settings.endpoint}:${progress.started_at}` &&
@@ -51,15 +54,15 @@ export function SandboxSetupNotification() {
         progress.status !== 'setup_required' &&
         (row.status === 'ready' || row.status === 'healthy');
       (ready ? toast.success : toast.message)(
-        ready ? 'Protected execution is ready' : 'Protected execution needs attention',
+        ready ? t`Protected execution is ready` : t`Protected execution needs attention`,
         {
           id,
           description: ready
-            ? `Finished in ${formatDuration(progress.elapsed_seconds * 1000)}.`
+            ? t`Finished in ${ph({ elapsed: formatDuration(progress.elapsed_seconds * 1000) })}.`
             : progress.status === 'failed'
               ? progress.detail
               : row.next_action || progress.detail,
-          action: { label: 'View status', onClick: () => navigate('/infrastructure/agent') },
+          action: { label: t`View status`, onClick: () => navigate('/infrastructure/agent') },
           duration: 10000,
         },
       );

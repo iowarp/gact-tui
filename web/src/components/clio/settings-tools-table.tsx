@@ -10,6 +10,7 @@ import { GroupRow } from './settings-tools-group-row';
 import type { RowEditor } from './settings-tools-options';
 import type { ToolTableSection } from './settings-tools-section';
 import { ToolRow } from './settings-tools-tool-row';
+import { t, ph } from '@lingui/core/macro';
 
 export type { ToolTableSection } from './settings-tools-section';
 
@@ -232,7 +233,7 @@ export function ToolSettingsTable({
                 />
               ) : null}
               {tools.length ? (
-                <ul className="grid" aria-label={`${section.title} tools`}>
+                <ul className="grid" aria-label={t`${ph({ title: section.title })} tools`}>
                   {tools.map(({ item, index }) =>
                     toolRow(section, item.tool, [index, item.position]),
                   )}
@@ -268,7 +269,7 @@ export function ToolSettingsTable({
             section={section}
           />
           {open && section.tools.length ? (
-            <ul className="grid" aria-label={`${section.title} tools`}>
+            <ul className="grid" aria-label={t`${ph({ title: section.title })} tools`}>
               {section.tools.map((tool) => toolRow(section, tool))}
             </ul>
           ) : open && section.reserveRows ? (

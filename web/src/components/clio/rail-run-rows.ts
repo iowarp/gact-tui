@@ -5,6 +5,7 @@ import { flowLabel } from './flow-tool-presentation';
 import { runGroup, type RunGroup } from './run-presentation';
 import { taskActivity, type TaskActivity } from './task-activity';
 import { hasRecordedFlowRun, taskFlow } from './task-flow-state';
+import { ph, t } from '@lingui/core/macro';
 
 /** One run of this conversation: the shared run row plus the records its actions need. */
 export interface RailRun {
@@ -50,7 +51,10 @@ export function railRuns(
         handleId: entry.key,
         taskId: entry.key,
         taskKind: kind,
-        label: task?.title || child?.title || (flow ? `${flowLabel(flow.id)} run` : 'Unnamed task'),
+        label:
+          task?.title ||
+          child?.title ||
+          (flow ? t`${ph({ flow: flowLabel(flow.id) })} run` : t`Unnamed task`),
         assignment: task?.description || child?.task,
         progress: task?.progress,
         cancelRequested,

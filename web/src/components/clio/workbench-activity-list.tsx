@@ -47,6 +47,7 @@ import { activityTab } from './workbench-activity-tab';
 import { tabForOpenRequest } from './workbench-open-request';
 import type { WorkbenchTab } from './workbench-shared';
 import { workTab } from './workbench-tab-storage';
+import { t, ph } from '@lingui/core/macro';
 
 export interface WorkbenchActivityListProps {
   sessionId: string;
@@ -189,7 +190,7 @@ function ActivityColumn({
       <IconButton
         aria-pressed={searching}
         icon={<SearchIcon />}
-        label={searching ? 'Close search' : 'Search activity'}
+        label={searching ? t`Close search` : t`Search activity`}
         onClick={() => (searching ? closeSearch() : setSearching(true))}
         size="sm"
         tooltipSide="bottom"
@@ -199,13 +200,17 @@ function ActivityColumn({
           <IconButton
             aria-pressed={hidden.size > 0}
             icon={<ListFilterIcon />}
-            label={hidden.size ? `Filter activity, ${hidden.size} hidden` : 'Filter activity'}
+            label={
+              hidden.size
+                ? t`Filter activity, ${ph({ hidden: hidden.size })} hidden`
+                : t`Filter activity`
+            }
             size="sm"
             tooltipSide="bottom"
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
           {ACTIVITY_FILTERS.map((filter) => (
             <DropdownMenuCheckboxItem
               checked={!hidden.has(filter.id)}
@@ -233,25 +238,25 @@ function ActivityColumn({
     body = filtered ? (
       <StateView
         action={{
-          label: 'Clear filters',
+          label: t`Clear filters`,
           onClick: () => {
             closeSearch();
             setHidden(new Set());
           },
         }}
         className="p-4"
-        detail="Clear the search or show more kinds."
+        detail={t`Clear the search or show more kinds.`}
         kind="empty"
         size="panel"
-        title="No activity matches"
+        title={t`No activity matches`}
       />
     ) : (
       <StateView
         className="p-4"
-        detail={sessionId ? 'Tool calls, files, tasks and questions appear here.' : undefined}
+        detail={sessionId ? t`Tool calls, files, tasks and questions appear here.` : undefined}
         kind="empty"
         size="panel"
-        title={sessionId ? 'Nothing has run yet' : 'Activity starts with the first message'}
+        title={sessionId ? t`Nothing has run yet` : t`Activity starts with the first message`}
       />
     );
   else
@@ -272,7 +277,7 @@ function ActivityColumn({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search activity"
+            aria-label={t`Search activity`}
             autoFocus
             className="h-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
@@ -282,7 +287,7 @@ function ActivityColumn({
                 closeSearch();
               }
             }}
-            placeholder="Search activity"
+            placeholder={t`Search activity`}
             ref={searchRef}
             value={query}
           />
@@ -299,7 +304,7 @@ function ActivityColumn({
               size="sm"
               variant="ghost"
             >
-              {history.visible ? 'Hide finished work' : 'Show finished work'}
+              {history.visible ? t`Hide finished work` : t`Show finished work`}
             </Button>
             {history.visible ? (
               <>
@@ -309,7 +314,7 @@ function ActivityColumn({
                   </p>
                 ) : null}
                 <TaskPageContinuation
-                  label="Load more finished work"
+                  label={t`Load more finished work`}
                   pagination={{
                     hasMore: history.hasMore,
                     pending: history.pending,
@@ -322,10 +327,10 @@ function ActivityColumn({
         ) : null}
         {!source && finishedWorkHidden ? (
           <p className="flex h-7 items-center truncate px-2 text-meta text-muted-foreground">
-            Finished child agents are not loaded
+            {t`Finished child agents are not loaded`}
           </p>
         ) : null}
-        <TaskPageContinuation label="Load more work" pagination={source?.workPages} />
+        <TaskPageContinuation label={t`Load more work`} pagination={source?.workPages} />
       </div>
     </>
   );
@@ -401,7 +406,7 @@ function ActivityRows({
     );
   if (!windowed)
     return (
-      <div aria-label="Activity" ref={listRef} role="list">
+      <div aria-label={t`Activity`} ref={listRef} role="list">
         {entries.map((entry) => (
           <div key={entry.id}>{render(entry)}</div>
         ))}
@@ -409,7 +414,7 @@ function ActivityRows({
     );
   return (
     <div
-      aria-label="Activity"
+      aria-label={t`Activity`}
       className="relative"
       ref={listRef}
       role="list"
@@ -448,7 +453,7 @@ const ActivityRow = memo(function ActivityRow({
         data-kind={item.kind}
         icon={
           item.running ? (
-            <StatusIndicator display="column" label="Running" tone="running" />
+            <StatusIndicator display="column" label={t`Running`} tone="running" />
           ) : (
             <ActivityKindIcon kind={item.kind} work={item.work} toolName={item.tool?.name} />
           )

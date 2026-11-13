@@ -1,13 +1,15 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
 
-function providerName(preset: LanguageModelPreset | undefined): string {
-  return preset?.label.replace(/\s*\([^)]*\)\s*$/u, '') || 'this provider';
+/** The preset's display name without a parenthesised qualifier; `undefined` when none is known. */
+function providerName(preset: LanguageModelPreset | undefined): string | undefined {
+  return preset?.label.replace(/\s*\([^)]*\)\s*$/u, '') || undefined;
 }
 
 /** `providerName`, minus a redundant trailing "API" -- a label already shaped
  * like "OpenAI API" would otherwise read "OpenAI API API key". */
-function providerNameForApiKeyCopy(preset: LanguageModelPreset | undefined): string {
-  return providerName(preset).replace(/\s+API$/u, '');
+function providerNameForApiKeyCopy(preset: LanguageModelPreset | undefined): string | undefined {
+  return providerName(preset)?.replace(/\s+API$/u, '');
 }
 
 /**
@@ -19,28 +21,28 @@ function providerNameForApiKeyCopy(preset: LanguageModelPreset | undefined): str
  */
 export function translateKnownProviderErrorReason(text: string, providerLabel?: string): string {
   if (/^argonne_reauthentication_required\b/iu.test(text)) {
-    return 'Your ALCF session needs to be verified again. Sign in again to continue.';
+    return t`Your ALCF session needs to be verified again. Sign in again to continue.`;
   }
   if (/^no Globus token stored/iu.test(text)) {
-    return 'Sign in to ALCF to use its models.';
+    return t`Sign in to ALCF to use its models.`;
   }
   if (/^api_key_rejected\b/iu.test(text)) {
     return providerLabel
-      ? `Your ${providerLabel} API key was rejected.`
-      : 'The API key was rejected.';
+      ? t`Your ${providerLabel} API key was rejected.`
+      : t`The API key was rejected.`;
   }
   if (/^key_check_unavailable\b/iu.test(text)) {
     return providerLabel
-      ? `Couldn't confirm your ${providerLabel} API key right now. Try Verify provider again.`
-      : "Couldn't confirm the API key right now. Try Verify provider again.";
+      ? t`Couldn't confirm your ${providerLabel} API key right now. Try Verify provider again.`
+      : t`Couldn't confirm the API key right now. Try Verify provider again.`;
   }
   if (/^no API key provided$/iu.test(text)) {
-    return providerLabel ? `Add your ${providerLabel} API key.` : 'Add an API key.';
+    return providerLabel ? t`Add your ${providerLabel} API key.` : t`Add an API key.`;
   }
   if (/^provider connectivity or authentication check failed$/iu.test(text)) {
     return providerLabel
-      ? `Couldn't reach ${providerLabel} or confirm your sign-in.`
-      : "Couldn't reach this provider or confirm your sign-in.";
+      ? t`Couldn't reach ${providerLabel} or confirm your sign-in.`
+      : t`Couldn't reach this provider or confirm your sign-in.`;
   }
   // Every other typed reason this build knows about already reads as a plain
   // sentence after its "snake_case_code: " prefix (the
@@ -51,7 +53,9 @@ export function translateKnownProviderErrorReason(text: string, providerLabel?: 
   // caller passes as free text is never mistaken for a code and truncated.
   // A bare code with no sentence after it is never shown as is.
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/u.test(text.trim())) {
-    return `${providerLabel ?? 'This provider'} needs attention. Verify it to try again.`;
+    return providerLabel
+      ? t`${providerLabel} needs attention. Verify it to try again.`
+      : t`This provider needs attention. Verify it to try again.`;
   }
   const sentence = text.replace(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+:\s*/u, '');
   // Sentence case: the reason follows the code in lower case on the wire.
@@ -66,13 +70,17 @@ export function providerStatusDetail(
   const detail = preset?.status_message || fallback;
   if (!detail) return undefined;
   if (/^missing\s+[A-Z0-9_]+_API_KEY$/u.test(detail)) {
-    return `Add your ${providerNameForApiKeyCopy(preset)} API key.`;
+    const name = providerNameForApiKeyCopy(preset);
+    return name ? t`Add your ${name} API key.` : t`Add an API key.`;
   }
   if (/stored Globus token could not be refreshed/iu.test(detail)) {
-    return 'Sign in to your ALCF account again.';
+    return t`Sign in to your ALCF account again.`;
   }
   if (/(?:CLI|command).*(?:not found|not installed)|not found on PATH/iu.test(detail)) {
-    return `${providerName(preset)} is not installed on the connected agent.`;
+    const name = providerName(preset);
+    return name
+      ? t`${name} is not installed on the connected agent.`
+      : t`This provider is not installed on the connected agent.`;
   }
   return translateKnownProviderErrorReason(detail, providerName(preset));
 }
@@ -144,12 +152,17 @@ export function providerCredentialKind(
  */
 export function providerCredentialLabel(preset: LanguageModelPreset | undefined): string {
   const kind = providerCredentialKind(preset);
-  return kind === 'api_key' ? 'API key' : kind === 'none' ? 'Credentials' : 'Sign-in';
+  return kind === 'api_key' ? t`API key` : kind === 'none' ? t`Credentials` : t`Sign-in`;
 }
 
 /** The state of a provider still missing its credential: "API key needed" / "Sign-in needed". */
 export function providerCredentialNeededLabel(preset: LanguageModelPreset | undefined): string {
-  return `${providerCredentialLabel(preset)} needed`;
+  const kind = providerCredentialKind(preset);
+  return kind === 'api_key'
+    ? t`API key needed`
+    : kind === 'none'
+      ? t`Credentials needed`
+      : t`Sign-in needed`;
 }
 
 /** The fallback reason for a provider missing its credential, in its own terms. */
@@ -158,8 +171,8 @@ export function providerCredentialPrompt(
   providerLabel: string,
 ): string {
   return providerCredentialKind(preset) === 'api_key'
-    ? `Add your ${providerLabel.replace(/\s+API$/u, '')} API key to use its models.`
-    : `Sign in to ${providerLabel} to use its models.`;
+    ? t`Add your ${ph({ provider: providerLabel.replace(/\s+API$/u, '') })} API key to use its models.`
+    : t`Sign in to ${providerLabel} to use its models.`;
 }
 
 /**
@@ -188,16 +201,16 @@ export function providerSetupNeed(
 /** The short state label for each outstanding need. */
 export function providerSetupNeedLabel(need: ProviderSetupNeed | undefined): string {
   return need === 'install'
-    ? 'Needs install'
+    ? t`Needs install`
     : need === 'sign_in'
-      ? 'Needs sign-in'
+      ? t`Needs sign-in`
       : need === 'api_key'
-        ? 'Needs API key'
+        ? t`Needs API key`
         : need === 'check'
-          ? 'Not checked'
+          ? t`Not checked`
           : need === 'start'
-            ? 'Not running'
-            : 'Needs setup';
+            ? t`Not running`
+            : t`Needs setup`;
 }
 
 /**
@@ -207,13 +220,13 @@ export function providerSetupNeedLabel(need: ProviderSetupNeed | undefined): str
 export function providerConnectionLabel(connectivity: string | undefined): string {
   switch (connectivity) {
     case 'ok':
-      return 'Reachable';
+      return t`Reachable`;
     case 'unreachable':
-      return 'Unreachable';
+      return t`Unreachable`;
     case 'timeout':
-      return 'Timed out';
+      return t`Timed out`;
     default:
-      return 'Not checked';
+      return t`Not checked`;
   }
 }
 
@@ -224,16 +237,16 @@ export function providerCredentialStateLabel(
 ): string {
   switch (auth) {
     case 'ok':
-      return providerCredentialKind(preset) === 'api_key' ? 'Accepted' : 'Signed in';
+      return providerCredentialKind(preset) === 'api_key' ? t`Accepted` : t`Signed in`;
     case 'missing':
-      return 'Missing';
+      return t`Missing`;
     case 'rejected':
-      return 'Rejected';
+      return t`Rejected`;
     case 'deferred':
-      return 'Saved, not verified';
+      return t`Saved, not verified`;
     case 'not_required':
-      return 'Not required';
+      return t`Not required`;
     default:
-      return 'Not checked';
+      return t`Not checked`;
   }
 }

@@ -2,6 +2,7 @@ import type { GpuFact, ServerParameter } from '@clio/core/v3';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FieldDescription, FieldLegend, FieldSet } from '@/components/ui/field';
 import { formatDevices, gpuLabel, parseDevices } from './managed-service-gpus';
+import { t } from '@lingui/core/macro';
 
 /**
  * A `*_devices` server parameter as a choice of the host's GPUs. No choice
@@ -37,7 +38,7 @@ export function GpuDevicePicker({
             if (checked === true) onChange('');
           }}
         />
-        All GPUs
+        {t`All GPUs`}
       </label>
       {gpus.map((gpu) => (
         <label className="flex items-center gap-2 text-sm" key={gpu.uuid || gpu.index}>

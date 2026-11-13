@@ -47,7 +47,7 @@ describe('execution provenance query state', () => {
       partial: true,
       provider: 'flowcept',
     });
-    expect(degradation?.reason).toContain('1 relationships reference missing nodes');
+    expect(degradation?.reason).toContain('1 relationship references missing nodes');
   });
 
   it('keeps a non-queryable provider explicit', () => {

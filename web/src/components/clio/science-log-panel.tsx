@@ -22,6 +22,8 @@ import {
   type ScienceCallLinks,
   type ScienceFileReference,
 } from './science-log-sources';
+import { formatLocale } from '@/lib/locale-format';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ScienceLogListProps {
   /** The entries the log shows, in the order they were written. */
@@ -65,12 +67,12 @@ export function ScienceLogList({
     // title takes the rest and the states line up. The first track holds the row's inset
     // (6px margin, 8px padding) and its 14px icon: a subgrid's edge spacing comes out of it.
     <ol
-      aria-label="Science log entries"
+      aria-label={t`Science log entries`}
       className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)_max-content] gap-x-2.5 py-1"
     >
       {entries.map((entry) => {
         const selected = entry.id === selectedEntry;
-        const name = `${ENTRY_TYPE_LABELS[entry.type]}: ${entrySummary(entry) || entry.id}`;
+        const name = t`${ph({ type: ENTRY_TYPE_LABELS[entry.type] })}: ${ph({ summary: entrySummary(entry) || entry.id })}`;
         const state = entryState(entry);
         return (
           <li
@@ -171,13 +173,13 @@ function EntryDetails({
       ? citeItems(entry, links, reference, (id) => entryReference(byId.get(id), id))
       : [];
   const rows: Row[] = [...typeRows(entry, links, reference)];
-  if (cites.length) rows.push(['Cites', <CitesValue items={cites} key="cites" />]);
-  if (entry.status_reason) rows.push(['Status reason', entry.status_reason]);
+  if (cites.length) rows.push([t`Cites`, <CitesValue items={cites} key="cites" />]);
+  if (entry.status_reason) rows.push([t`Status reason`, entry.status_reason]);
   // The spec's facts stay in view; everything else waits behind one quiet disclosure.
   const more: Row[] = [];
   if (cites.length > 1)
     more.push([
-      'All cites',
+      t`All cites`,
       <ul className="grid min-w-0" key="all-cites">
         {cites.map((item) => (
           <li className="flex min-w-0 whitespace-nowrap" key={item.key}>
@@ -186,12 +188,12 @@ function EntryDetails({
         ))}
       </ul>,
     ]);
-  if (linked.length) more.push(['Links', edgeList(linked, (edge) => edge.to, reference)]);
+  if (linked.length) more.push([t`Links`, edgeList(linked, (edge) => edge.to, reference)]);
   if (backlinks.length)
-    more.push(['Cited by', edgeList(backlinks, (edge) => edge.from, reference)]);
+    more.push([t`Cited by`, edgeList(backlinks, (edge) => edge.from, reference)]);
   if (entry.created_at)
     more.push([
-      'Recorded',
+      t`Recorded`,
       <time dateTime={entry.created_at} key="time">
         {formatTime(entry.created_at)}
       </time>,
@@ -199,7 +201,7 @@ function EntryDetails({
   const sources = entry.type === 'observation' && lineage(entry).length > 0;
   return (
     <div className="col-span-3 mt-0.5 mr-3 mb-1.5 ml-[34px] min-w-0 border-l pl-3">
-      <FactGrid label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`} rows={rows} />
+      <FactGrid label={t`Details of ${ph({ type: ENTRY_TYPE_LABELS[entry.type] })}`} rows={rows} />
       {more.length || sources ? (
         <details className="group/more min-w-0 text-xs" data-slot="science-entry-more">
           <summary className="flex w-fit cursor-pointer list-none items-center gap-1 leading-[1.375rem] text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
@@ -207,10 +209,13 @@ function EntryDetails({
               aria-hidden
               className="size-3 motion-safe:transition-transform group-open/more:rotate-90"
             />
-            More
+            {t`More`}
           </summary>
           {more.length ? (
-            <FactGrid label={`More about ${ENTRY_TYPE_LABELS[entry.type]}`} rows={more} />
+            <FactGrid
+              label={t`More about ${ph({ type: ENTRY_TYPE_LABELS[entry.type] })}`}
+              rows={more}
+            />
           ) : null}
           {sources ? <ObservationSources entry={entry} links={links} /> : null}
         </details>
@@ -305,30 +310,30 @@ function typeRows(
 ): Row[] {
   switch (entry.type) {
     case 'question': {
-      const rows = facts(entry, [['Scope', 'scope']]);
+      const rows = facts(entry, [[t`Scope`, 'scope']]);
       const amount = budget(entry.fields['budget']);
-      return amount ? [...rows, ['Budget', amount]] : rows;
+      return amount ? [...rows, [t`Budget`, amount]] : rows;
     }
     case 'hypothesis':
       return facts(entry, [
-        ['Refuted if', 'refuting_prediction'],
-        ['Formula', 'formula'],
+        [t`Refuted if`, 'refuting_prediction'],
+        [t`Formula`, 'formula'],
       ]);
     case 'experiment':
-      return facts(entry, [['Sample size', 'sample_size']]);
+      return facts(entry, [[t`Sample size`, 'sample_size']]);
     case 'observation':
-      return [...measurementRows(entry), ...facts(entry, [['Cost', 'cost']])];
+      return [...measurementRows(entry), ...facts(entry, [[t`Cost`, 'cost']])];
     case 'evidence': {
       const rows = facts(entry, [
-        ['Strength', 'strength'],
-        ['Seed', 'seed'],
+        [t`Strength`, 'strength'],
+        [t`Seed`, 'seed'],
       ]);
       const call = field(entry, 'analysis_call');
       return call
         ? [
             ...rows,
             [
-              'Analysis',
+              t`Analysis`,
               <AnalysisCall
                 key="analysis"
                 links={links}
@@ -342,13 +347,13 @@ function typeRows(
     case 'conclusion':
       return [
         [
-          'Claims',
+          t`Claims`,
           <ConclusionClaims entry={entry} key="claims" links={links} reference={reference} />,
         ],
         ...facts(entry, [
-          ['Confidence', 'confidence'],
-          ['Caveats', 'caveats'],
-          ['Relation', 'relation'],
+          [t`Confidence`, 'confidence'],
+          [t`Caveats`, 'caveats'],
+          [t`Relation`, 'relation'],
         ]),
       ];
     default:
@@ -364,32 +369,32 @@ function measurementRows(entry: ScienceEntry): Row[] {
     const [row] = rows;
     const value = [row!.value, row!.unit].filter(Boolean).join(' ');
     return [
-      ['Metric', row!.metric],
+      [t`Metric`, row!.metric],
       [
-        'Value',
+        t`Value`,
         <span className="tabular-nums" key="value">
           {value}
         </span>,
       ],
-      ...(row!.conditions ? [['Conditions', row!.conditions] as Row] : []),
+      ...(row!.conditions ? [[t`Conditions`, row!.conditions] as Row] : []),
     ];
   }
   const showConditions = rows.some((row) => row.conditions);
   return [
     [
-      'Measurements',
+      t`Measurements`,
       <table className="w-full min-w-0 border-collapse" key="measurements">
         <thead>
           <tr className="text-left text-muted-foreground">
             <th className="pr-3 font-normal" scope="col">
-              Metric
+              {t`Metric`}
             </th>
             <th className="pr-3 text-right font-normal" scope="col">
-              Value
+              {t`Value`}
             </th>
             {showConditions ? (
               <th className="font-normal" scope="col">
-                Conditions
+                {t`Conditions`}
               </th>
             ) : null}
           </tr>
@@ -426,12 +431,13 @@ function citeItems(
     .filter((row) => row.callId)
     .map((row, index): CiteItem => {
       const script = scripts.get(row.callId);
-      const label = `${script ? basename(script) : row.tool || row.callId} run`;
+      const subject = script ? basename(script) : row.tool || row.callId;
+      const label = t`${subject} run`;
       const key = `${row.callId}:${index}`;
       const node =
         links.onViewCall && row.session ? (
           <button
-            aria-label={`${label}: view call ${row.callId} in transcript`}
+            aria-label={t`${label}: view call ${ph({ callId: row.callId })} in transcript`}
             className="min-w-0 truncate text-left text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
             onClick={() => links.onViewCall!(row.session, row.callId)}
             title={label}
@@ -474,7 +480,7 @@ function ConclusionClaims({
             <p>{String(claim['text'] ?? '')}</p>
             {cites.length ? (
               <p className="flex min-w-0 flex-wrap gap-x-2">
-                <span className="text-muted-foreground">Cites</span>
+                <span className="text-muted-foreground">{t`Cites`}</span>
                 {cites.map((id) => reference(id))}
               </p>
             ) : null}
@@ -505,7 +511,8 @@ function budget(value: unknown): string {
 function formatTime(timestamp: string): string {
   const time = new Date(timestamp);
   if (Number.isNaN(time.getTime())) return timestamp;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    time,
-  );
+  return new Intl.DateTimeFormat(formatLocale(), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(time);
 }

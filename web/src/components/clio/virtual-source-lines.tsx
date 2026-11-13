@@ -70,6 +70,7 @@ export function VirtualSourceLines({
         className={cn('relative p-4', wrap ? 'w-full' : 'w-max min-w-full')}
         style={{ height: virtualizer.getTotalSize() + 32 * scale }}
       >
+        {/* i18n-ignore: CSS transform, not copy */}
         <div style={{ transform: `translateY(${items[0]?.start ?? 0}px)` }}>
           {items.map((item) => (
             <div

@@ -4,11 +4,16 @@ import { defineConfig } from 'vitest/config';
 import { resolveBrandConfig } from '../branding/brand-config.mjs';
 import { brandPlugin } from './vite-plugin-brand.js';
 import { jsdomTsTests } from './vitest.jsdom-files';
+import { linguiMacroForTests } from './vite-plugin-lingui-test';
 
 const brandConfig = resolveBrandConfig();
 
 export default defineConfig({
-  plugins: [brandPlugin(brandConfig.brandingRoot, brandConfig.profile), react()],
+  plugins: [
+    brandPlugin(brandConfig.brandingRoot, brandConfig.profile),
+    linguiMacroForTests(),
+    react(),
+  ],
   resolve: {
     alias: {
       '@clio/core/v3': fileURLToPath(new URL('../packages/core/src/v3/index.ts', import.meta.url)),

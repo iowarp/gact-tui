@@ -2,6 +2,7 @@ import { SearchIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 /**
  * A tab list's search: a search icon for the list header (`WorkbenchTabList`'s
@@ -19,7 +20,7 @@ export function useWorkbenchListSearch(label: string) {
     <IconButton
       aria-pressed={searching}
       icon={<SearchIcon />}
-      label={searching ? 'Close search' : label}
+      label={searching ? t`Close search` : label}
       onClick={() => (searching ? close() : setSearching(true))}
       size="sm"
       tooltipSide="bottom"

@@ -1,5 +1,6 @@
 import type { MessageDelivery, RunState } from '@clio/core/v3';
 import { useEffect, useState } from 'react';
+import { t } from '@lingui/core/macro';
 
 /** Queue while work runs; modifier feedback steers it. Paused/idle sessions send normally. */
 export function composerDelivery(state: RunState, modifier: boolean): MessageDelivery | 'queued' {
@@ -24,6 +25,6 @@ export function useComposerDelivery(state: RunState) {
   const delivery = composerDelivery(state, modifier);
   return {
     delivery,
-    label: delivery === 'queued' ? 'Queue' : delivery === 'steer' ? 'Steer' : 'Send',
+    label: delivery === 'queued' ? t`Queue` : delivery === 'steer' ? t`Steer` : t`Send`,
   };
 }

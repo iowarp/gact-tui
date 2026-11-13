@@ -23,6 +23,7 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { FrameBackContext } from './frame-back';
 import { IconButton, NamedTooltip } from './icon-button';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
@@ -247,7 +248,7 @@ export const FrameBar = memo(function FrameBar({
           <IconButton
             data-slot="frame-back"
             icon={<ArrowLeftIcon />}
-            label={`Back to ${back.label}`}
+            label={t`Back to ${ph({ label: back.label })}`}
             onClick={back.onBack}
             size="sm"
             tooltipSide="bottom"
@@ -317,7 +318,7 @@ export const FrameCrumbs = memo(function FrameCrumbs({
   const name = parts.at(-1);
   return (
     <nav
-      aria-label="Location"
+      aria-label={t`Location`}
       title={full}
       className={cn(
         'flex min-w-0 items-center gap-1 text-menu group-data-[fold-where]/frame:hidden',
@@ -328,7 +329,7 @@ export const FrameCrumbs = memo(function FrameCrumbs({
         <span className="hidden items-center gap-1 group-data-[fold-folders]/frame:inline-flex group-data-[fold-name]/frame:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label={`Folders: ${folders.map((part) => part.label).join(' / ')}`}
+              aria-label={t`Folders: ${ph({ path: folders.map((part) => part.label).join(' / ') })}`}
               className="rounded-[4px] px-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
             >
               …
@@ -471,9 +472,9 @@ export const FrameTab = memo(
             {version}
           </span>
         ) : null}
-        {changed ? <span className="sr-only">, changed in this conversation</span> : null}
-        {dirty ? <span className="sr-only">, unsaved changes</span> : null}
-        {pinned ? <span className="sr-only">, pinned</span> : null}
+        {changed ? <span className="sr-only">{t`, changed in this conversation`}</span> : null}
+        {dirty ? <span className="sr-only">{t`, unsaved changes`}</span> : null}
+        {pinned ? <span className="sr-only">{t`, pinned`}</span> : null}
       </>
     );
     // Close space is kept on every tab (9px pad + 13px mark + 7px gap) so
@@ -523,7 +524,7 @@ export const FrameTab = memo(
             <span
               aria-hidden="true"
               data-slot="frame-tab-close"
-              title={`Close ${label}`}
+              title={t`Close ${label}`}
               onClick={(event: MouseEvent) => {
                 event.stopPropagation();
                 onClose?.();

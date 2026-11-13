@@ -1,4 +1,5 @@
 import { WifiOffIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 /** The toolbar's one-line wait status before the submit square. */
 export function ComposerToolbarStatus({
@@ -23,33 +24,33 @@ export function ComposerToolbarStatus({
       <span
         className="flex shrink-0 items-center gap-1 px-1 text-meta whitespace-nowrap text-muted-foreground"
         role="status"
-        title="Sends when the service is reachable again. Your message stays here."
+        title={t`Sends when the service is reachable again. Your message stays here.`}
       >
         <WifiOffIcon
           aria-hidden="true"
           className="size-3.5 shrink-0 @max-[440px]/composer:hidden"
         />
-        <span className="@max-[440px]/composer:sr-only">Sends when reconnected</span>
+        <span className="@max-[440px]/composer:sr-only">{t`Sends when reconnected`}</span>
         <span aria-hidden="true" className="hidden @max-[440px]/composer:inline">
-          Waiting
+          {t`Waiting`}
         </span>
       </span>
     );
   }
+  const preparingViews = !connecting && !sending && preparing;
   const text = connecting
     ? held
-      ? 'Sends when connected'
-      : 'Connecting…'
+      ? t`Sends when connected`
+      : t`Connecting…`
     : sending
-      ? 'Sending…'
+      ? t`Sending…`
       : preparing
-        ? 'Preparing views…'
+        ? t`Preparing views…`
         : undefined;
   if (!text) return null;
   // A narrow composer keeps room for the model chip: the longer waits read shorter
   // there, with the full wording in the title and for screen readers.
-  const short =
-    held && connecting ? 'Connecting…' : text === 'Preparing views…' ? 'Preparing…' : undefined;
+  const short = held && connecting ? t`Connecting…` : preparingViews ? t`Preparing…` : undefined;
   return (
     <span
       className="shrink-0 px-1 text-meta whitespace-nowrap text-muted-foreground"

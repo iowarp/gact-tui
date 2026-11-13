@@ -70,6 +70,7 @@ import {
   formatGraphTime,
   type CausalLane,
 } from './activity-causal';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -129,9 +130,11 @@ export function asyncProcessDetail(process: AsyncProcess): string {
   const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
   const flow = taskFlow(process);
-  if (flow) return `${flowLabel(flow.id)} run`;
-  if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
-  return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
+  if (flow) return t`${ph({ flow: flowLabel(flow.id) })} run`;
+  if (process.kind === 'agent') return process.placement?.trim() || t`Child agent`;
+  return process.host?.trim()
+    ? t`Background task, ${ph({ host: process.host.trim() })}`
+    : t`Background task`;
 }
 
 /** Project native and MCP questions and their answer route into durable Activity. */
@@ -158,26 +161,26 @@ export function agentInteractionActivityItems(
       kind: 'interaction',
       label: questionInteractionRequestLabel(interaction),
       detail: fallbackPending
-        ? 'Agent answer attempt ended; routed to you'
+        ? t`Agent answer attempt ended; routed to you`
         : fallbackAnswered
           ? isMcp
-            ? 'Your response was validated and returned to MCP'
-            : 'Your answer resumed the agent'
+            ? t`Your response was validated and returned to MCP`
+            : t`Your answer resumed the agent`
           : humanPending
             ? interaction.payload?.response_mode === 'async'
-              ? 'Open question; agent can continue'
-              : 'Waiting for your response'
+              ? t`Open question; agent can continue`
+              : t`Waiting for your response`
             : humanAnswered
               ? isMcp
-                ? 'Your response was validated and returned to MCP'
-                : 'Your answer resumed the agent'
+                ? t`Your response was validated and returned to MCP`
+                : t`Your answer resumed the agent`
               : answered
-                ? 'Agent answer validated and returned to MCP'
+                ? t`Agent answer validated and returned to MCP`
                 : interaction.status === 'cancelled'
-                  ? 'The request was cancelled'
+                  ? t`The request was cancelled`
                   : interaction.status === 'expired'
-                    ? 'The request expired'
-                    : 'Agent answer turn is in progress',
+                    ? t`The request expired`
+                    : t`Agent answer turn is in progress`,
       state:
         fallbackPending || humanPending
           ? 'waiting_user'
@@ -254,7 +257,7 @@ export function childProjectionActivityItems(
     const title = named && !isGenericActivitySubject(named) ? named : undefined;
     const common = {
       kind: 'process' as const,
-      label: title ?? 'Subagent started',
+      label: title ?? t`Subagent started`,
       rootSessionId,
       ownerSessionId: owner.session_id,
       ownerLabel: owner.label,
@@ -266,7 +269,7 @@ export function childProjectionActivityItems(
     items.push({
       ...common,
       id: `${owner.task_id}:branch-open`,
-      detail: owner.label ? `Delegated to ${owner.label}` : 'Delegated child work',
+      detail: owner.label ? t`Delegated to ${ph({ label: owner.label })}` : t`Delegated child work`,
       state: closeRowWillFollow ? 'completed' : state,
       at: process?.created_at ?? owner.created_at,
       groupId: process?.parent_turn_id,
@@ -279,8 +282,8 @@ export function childProjectionActivityItems(
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
-        label: title ? `${title} returned` : 'Subagent returned',
-        detail: 'Child work returned to its parent',
+        label: title ? t`${title} returned` : t`Subagent returned`,
+        detail: t`Child work returned to its parent`,
         fact: closed >= opened ? compactDuration(closed - opened) : undefined,
         state,
         at: closedAt,
@@ -355,7 +358,7 @@ export function childProjectionActivityItems(
       label: permission
         ? permissionActivityLabel(span.label, permittedTool, approvedCall)
         : projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
-      detail: permission ? 'Permission' : projectedActivityDetail(span.kind),
+      detail: permission ? t`Permission` : projectedActivityDetail(span.kind),
       fact: permission
         ? permittedActionFact(provenance.spans, span, permittedTool, approvedCall)
         : span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
@@ -442,26 +445,26 @@ export function ClioActivityTimeline({
   if (!rows.length) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
-        No run or tool activity is available.
+        {t`No run or tool activity is available.`}
       </p>
     );
   }
   const laneSpacing = Math.round(24 * zoom);
   const graphWidth = Math.max(64, lanes.length * laneSpacing + 24);
   return (
-    <section className="min-w-0" aria-label="Causal activity graph">
+    <section className="min-w-0" aria-label={t`Causal activity graph`}>
       <header className="flex items-center justify-between gap-2 border-b pb-2">
         <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-          <span>{lanes.length.toLocaleString()} agent strands</span>
-          <span>{filteredRows.length.toLocaleString()} events</span>
+          <span>{plural(lanes.length, { one: '# agent strand', other: '# agent strands' })}</span>
+          <span>{plural(filteredRows.length, { one: '# event', other: '# events' })}</span>
         </div>
         <div
           className="flex shrink-0 items-center gap-1"
-          aria-label="Causal graph zoom"
+          aria-label={t`Causal graph zoom`}
           role="group"
         >
           <Button
-            aria-label="Zoom causal graph out"
+            aria-label={t`Zoom causal graph out`}
             disabled={zoom <= 0.5}
             onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}
             size="icon-sm"
@@ -470,7 +473,7 @@ export function ClioActivityTimeline({
             <MinusIcon aria-hidden="true" />
           </Button>
           <Button
-            aria-label="Zoom causal graph in"
+            aria-label={t`Zoom causal graph in`}
             disabled={zoom >= 1.75}
             onClick={() => setZoom((value) => Math.min(1.75, value + 0.25))}
             size="icon-sm"
@@ -479,7 +482,7 @@ export function ClioActivityTimeline({
             <AddIcon aria-hidden="true" />
           </Button>
           <Button
-            aria-label="Fit causal graph"
+            aria-label={t`Fit causal graph`}
             onClick={() => setZoom(fitZoom)}
             size="icon-sm"
             variant="ghost"
@@ -489,7 +492,7 @@ export function ClioActivityTimeline({
         </div>
       </header>
       <div
-        aria-label="Filter activity by agent"
+        aria-label={t`Filter activity by agent`}
         className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 [&>*]:shrink-0"
         ref={chipRow}
         role="group"
@@ -501,7 +504,7 @@ export function ClioActivityTimeline({
           size="sm"
           variant={agentFilter === null ? 'secondary' : 'ghost'}
         >
-          All agents
+          {t`All agents`}
         </Button>
         {lanes.map((lane) => (
           <Button
@@ -625,13 +628,13 @@ function CausalActivityRow({
           <time
             className="shrink-0 tabular-nums"
             dateTime={item.at}
-            title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
+            title={item.timing === 'turn' ? t`Observed in its containing turn` : undefined}
           >
             {item.timing === 'turn'
-              ? 'In this turn'
+              ? t`In this turn`
               : item.at
                 ? formatGraphTime(item.at)
-                : 'Time unavailable'}
+                : t`Time unavailable`}
           </time>
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
@@ -657,10 +660,10 @@ function CausalActivityRow({
       actions={
         item.onOpen ? (
           <Button
-            aria-label={`Open ${item.label} in canvas`}
+            aria-label={t`Open ${ph({ label: item.label })} in canvas`}
             onClick={() => item.onOpen?.('canvas')}
             size="icon-xs"
-            title="Open in canvas"
+            title={t`Open in canvas`}
             type="button"
             variant="ghost"
           >
@@ -668,7 +671,7 @@ function CausalActivityRow({
           </Button>
         ) : undefined
       }
-      aria-label={`Open transcript event ${item.label}`}
+      aria-label={t`Open transcript event ${ph({ label: item.label })}`}
       className="min-h-0 border-b px-0 py-0 last:border-b-0"
       onClick={(event) => activateActivityItem(item, event)}
       onKeyDown={(event) => activateActivityItemFromKeyboard(item, event)}

@@ -17,6 +17,7 @@ import {
   ClioTextColumnFilter,
   type ClioColumnFilterValue,
 } from './data-table-column-filter';
+import { t, ph } from '@lingui/core/macro';
 
 /** One filterable field a chart or map offers in its own filter popover. */
 export interface DataFilterField {
@@ -54,7 +55,7 @@ function YearRangeFilter({
   return (
     <div className="grid grid-cols-2 gap-2">
       <Input
-        aria-label={`From year for ${field.label}`}
+        aria-label={t`From year for ${ph({ label: field.label })}`}
         inputMode="numeric"
         maxLength={4}
         onChange={(event) => {
@@ -62,11 +63,11 @@ function YearRangeFilter({
           setFrom(next);
           commit(next, to);
         }}
-        placeholder="From year"
+        placeholder={t`From year`}
         value={from}
       />
       <Input
-        aria-label={`To year for ${field.label}`}
+        aria-label={t`To year for ${ph({ label: field.label })}`}
         inputMode="numeric"
         maxLength={4}
         onChange={(event) => {
@@ -74,7 +75,7 @@ function YearRangeFilter({
           setTo(next);
           commit(from, next);
         }}
-        placeholder="To year"
+        placeholder={t`To year`}
         value={to}
       />
     </div>
@@ -108,7 +109,7 @@ function DateRangeFilter({
   return (
     <div className="grid grid-cols-2 gap-2">
       <Input
-        aria-label={`From date for ${field.label}`}
+        aria-label={t`From date for ${ph({ label: field.label })}`}
         className="min-w-0"
         onChange={(event) => {
           setFrom(event.target.value);
@@ -118,7 +119,7 @@ function DateRangeFilter({
         value={from}
       />
       <Input
-        aria-label={`To date for ${field.label}`}
+        aria-label={t`To date for ${ph({ label: field.label })}`}
         className="min-w-0"
         onChange={(event) => {
           setTo(event.target.value);
@@ -144,7 +145,7 @@ export function DataFilterPopover({
   disabled,
   fields,
   filters,
-  label = 'Filters',
+  label = t`Filters`,
   onFilterChange,
   onOpenChange,
 }: {
@@ -165,7 +166,7 @@ export function DataFilterPopover({
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <Button
-                aria-label={activeCount ? `${label}, ${activeCount} active` : label}
+                aria-label={activeCount ? t`${label}, ${activeCount} active` : label}
                 className="relative"
                 disabled={disabled}
                 size="icon-sm"
@@ -186,14 +187,14 @@ export function DataFilterPopover({
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {activeCount ? `${label}, ${activeCount} active` : label}
+            {activeCount ? t`${label}, ${activeCount} active` : label}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <PopoverContent align="end" className="w-72">
         <PopoverHeader>
           <PopoverTitle>{label}</PopoverTitle>
-          <PopoverDescription>Layered on top of the agent's own query.</PopoverDescription>
+          <PopoverDescription>{t`Layered on top of the agent's own query.`}</PopoverDescription>
         </PopoverHeader>
         <div className="grid gap-3">
           {fields.map((field) => {

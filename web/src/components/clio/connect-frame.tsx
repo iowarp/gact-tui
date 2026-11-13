@@ -5,6 +5,7 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Input } from '@/components/ui/input';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 /**
  * The connect dialog frame: header, body and footer. On a page (first run) it is
@@ -16,7 +17,7 @@ export function ConnectFrame({
   icon,
   title,
   onClose,
-  closeLabel = 'Close',
+  closeLabel = t`Close`,
   children,
   footer,
   className,
@@ -109,7 +110,7 @@ export function ConnectField({
         <label htmlFor={htmlFor}>{label}</label>
         {optional ? (
           <span aria-hidden="true" className="text-faint">
-            optional
+            {t`optional`}
           </span>
         ) : null}
       </span>

@@ -21,12 +21,13 @@ import { InfraTabActions } from './infrastructure-tab-actions';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 type ToolScope = 'session' | 'agent';
 
 const SCOPE_OPTIONS = [
-  { value: 'session', label: 'This session' },
-  { value: 'agent', label: 'All agent tools' },
+  { value: 'session', label: t`This session` },
+  { value: 'agent', label: t`All agent tools` },
 ] as const;
 
 interface ToolPermissions {
@@ -137,7 +138,7 @@ export function InfrastructureTools({
       <InfraTabActions>
         {sessionId ? (
           <SegmentedControl
-            label="Tool scope"
+            label={t`Tool scope`}
             onValueChange={onScope}
             options={SCOPE_OPTIONS}
             value={sessionScoped ? 'session' : 'agent'}
@@ -145,11 +146,11 @@ export function InfrastructureTools({
         ) : null}
         {tools.length ? (
           <InfraFilterMenu
-            label="Tool source"
+            label={t`Tool source`}
             onValueChange={setSource}
             options={[
-              { value: 'all', label: 'All', count: counts.all },
-              { value: 'builtin', label: 'Built in', count: counts.builtin },
+              { value: 'all', label: t`All`, count: counts.all },
+              { value: 'builtin', label: t`Built in`, count: counts.builtin },
               { value: 'mcp', label: 'MCP', count: counts.mcp },
             ]}
             value={source}
@@ -159,22 +160,22 @@ export function InfrastructureTools({
           <InfraSearchField
             autoFocus={searchOpen}
             className="w-[180px]"
-            label="Search tools"
+            label={t`Search tools`}
             onEscape={() => setSearchOpen(false)}
             onValueChange={setQuery}
-            placeholder="Search tools"
+            placeholder={t`Search tools`}
             value={query}
           />
         ) : (
           <IconButton
             icon={<SearchIcon />}
-            label="Search tools"
+            label={t`Search tools`}
             onClick={() => setSearchOpen(true)}
           />
         )}
       </InfraTabActions>
       {pending ? (
-        <StateView kind="loading" size="row" title="Loading tool catalog" />
+        <StateView kind="loading" size="row" title={t`Loading tool catalog`} />
       ) : tools.length ? (
         <div className="contents" ref={container}>
           <CatalogToolset
@@ -191,15 +192,15 @@ export function InfrastructureTools({
         <StateView
           action={
             sessionScoped
-              ? { label: 'Browse all agent tools', onClick: () => onScope('agent') }
+              ? { label: t`Browse all agent tools`, onClick: () => onScope('agent') }
               : undefined
           }
           kind="empty"
           size="row"
           title={
             sessionScoped
-              ? `This session has not recorded an effective ${vocab.agent} toolset yet.`
-              : `${vocab.agent} has not reported any tools.`
+              ? t`This session has not recorded an effective ${ph({ agent: vocab.agent })} toolset yet.`
+              : t`${ph({ agent: vocab.agent })} has not reported any tools.`
           }
         />
       )}

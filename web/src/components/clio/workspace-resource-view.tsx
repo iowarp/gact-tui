@@ -57,6 +57,8 @@ import { useRememberedView } from './remembered-view';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 import { AttachedFolderIcon, hostFolderOf, resourceDisplayName } from './host-folder';
 import { HostFolderView } from './host-folder-view';
+import { t, ph } from '@lingui/core/macro';
+import { formatDateTime } from '@/lib/locale-format';
 
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
@@ -243,18 +245,18 @@ function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewPr
   );
 
   return (
-    <section aria-label={`Resource ${resource.name}`} className="h-full min-h-0">
+    <section aria-label={t`Resource ${ph({ name: resource.name })}`} className="h-full min-h-0">
       <FileViewerShell
         source={{ kind: 'resource', resource, workspaceId }}
-        label="Resource views"
+        label={t`Resource views`}
         value={selectedTab}
         onValueChange={setActiveTab}
         tabs={[
           {
             value: 'preview',
-            label: 'Preview',
+            label: t`Preview`,
             icon: EyeIcon,
-            title: 'Read the original uploaded file',
+            title: t`Read the original uploaded file`,
             content: (
               <ResourcePreview
                 bytes={preview.data}
@@ -267,9 +269,9 @@ function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewPr
           },
           {
             value: 'structure',
-            label: 'Structure',
+            label: t`Structure`,
             icon: BracesIcon,
-            title: 'Browse parsed sections and tables',
+            title: t`Browse parsed sections and tables`,
             content: (
               <StructuredResourceView
                 error={structure.error?.message}
@@ -284,9 +286,9 @@ function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewPr
           {
             value: 'derivatives',
             secondary: true,
-            label: 'Derivatives',
+            label: t`Derivatives`,
             icon: FilesIcon,
-            title: 'Inspect converted representations',
+            title: t`Inspect converted representations`,
             content: (
               <WorkspaceResourceDerivativesView
                 derivatives={derivatives.data?.derivatives ?? []}
@@ -301,9 +303,9 @@ function UploadedResourceView({ resource, workspaceId }: WorkspaceResourceViewPr
           {
             value: 'provenance',
             secondary: true,
-            label: 'Provenance',
+            label: t`Provenance`,
             icon: GitBranchIcon,
-            title: 'Trace upload, processing, and model delivery',
+            title: t`Trace upload, processing, and model delivery`,
             content: (
               <ResourceProvenance
                 deliveries={matchingDeliveries}
@@ -339,13 +341,12 @@ function ResourcePreview({
     return (
       <div className="grid h-full place-items-center p-6">
         <div className="w-full max-w-sm space-y-3 text-center">
-          <p className="text-sm font-medium">Uploading {progress}%</p>
+          <p className="text-sm font-medium">{t`Uploading ${progress}%`}</p>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">
-            {formatResourceSize(resource.received_size)} of{' '}
-            {formatResourceSize(resource.declared_size)}
+            {t`${ph({ received: formatResourceSize(resource.received_size) })} of ${ph({ declared: formatResourceSize(resource.declared_size) })}`}
           </p>
         </div>
       </div>
@@ -354,9 +355,9 @@ function ResourcePreview({
   if (resource.state !== 'ready') {
     return (
       <ResourceUnavailable
-        detail={resource.failure || 'The service could not make this resource available.'}
+        detail={resource.failure || t`The service could not make this resource available.`}
         kind={resource.state === 'failed' ? 'error' : 'unavailable'}
-        label={resource.state === 'quarantined' ? 'Resource quarantined' : 'Resource unavailable'}
+        label={resource.state === 'quarantined' ? t`Resource quarantined` : t`Resource unavailable`}
       />
     );
   }
@@ -427,7 +428,8 @@ function NativeMediaPreview({
 }) {
   const url = useObjectUrl(bytes, resource.detected_mime);
   if (error) return <ViewerReadError error={error} onRetry={onRetry} />;
-  if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
+  if (!url)
+    return <ResourceLoading className="p-4" label={t`Loading ${ph({ name: resource.name })}`} />;
   if (resource.detected_mime.startsWith('video/')) {
     return <video className="size-full bg-media-backdrop object-contain" controls src={url} />;
   }
@@ -492,29 +494,29 @@ function StructuredResourceView({
       <div className="grid h-full place-items-center p-4">
         <div className="max-w-sm space-y-3 text-center">
           <BracesIcon aria-hidden="true" className="mx-auto size-6 text-muted-foreground" />
-          <p className="text-sm font-medium">Structured document view is not ready</p>
+          <p className="text-sm font-medium">{t`Structured document view is not ready`}</p>
           <p className="text-xs text-muted-foreground">
             {processing?.state === 'processing' || processing?.state === 'submitted'
-              ? `Processing ${Math.round(processing.progress)}%`
+              ? t`Processing ${ph({ percent: Math.round(processing.progress) })}%`
               : processingFailureText(processing) ||
                 error ||
-                'Use Reprocess in Derivatives when a document processor is available.'}
+                t`Use Reprocess in Derivatives when a document processor is available.`}
           </p>
         </div>
       </div>
     );
   }
   if (loading) {
-    return <ResourceLoading className="p-4" label="Loading document structure" />;
+    return <ResourceLoading className="p-4" label={t`Loading document structure`} />;
   }
   if (error) {
-    return <ResourceUnavailable detail={error} label="Document structure unavailable" />;
+    return <ResourceUnavailable detail={error} label={t`Document structure unavailable`} />;
   }
   if (!Object.keys(structure ?? {}).length) {
     return (
       <ResourceUnavailable
-        detail="The processor completed without publishing any structured collections for this document."
-        label="No document structure"
+        detail={t`The processor completed without publishing any structured collections for this document.`}
+        label={t`No document structure`}
       />
     );
   }
@@ -524,9 +526,9 @@ function StructuredResourceView({
       <div className="grid min-h-0 grid-cols-[minmax(9rem,0.32fr)_1fr]">
         <ScrollArea className="border-r p-2">
           <div className="mb-2 px-2">
-            <p className="text-xs font-medium">Document structure</p>
+            <p className="text-xs font-medium">{t`Document structure`}</p>
             <p className="text-[0.625rem] leading-4 text-muted-foreground">
-              Parsed collections and their first available node.
+              {t`Parsed collections and their first available node.`}
             </p>
           </div>
           <div className="grid gap-1">
@@ -545,17 +547,20 @@ function StructuredResourceView({
         </ScrollArea>
         <ScrollArea className="p-3">
           {activeSelection && node.isPending ? (
-            <ResourceLoading label="Loading structured node" />
+            <ResourceLoading label={t`Loading structured node`} />
           ) : null}
           {node.error ? (
-            <ResourceUnavailable detail={node.error.message} label="Structured node unavailable" />
+            <ResourceUnavailable
+              detail={node.error.message}
+              label={t`Structured node unavailable`}
+            />
           ) : null}
           {node.data ? (
             <pre className="whitespace-pre-wrap break-words font-mono text-xs">
               {JSON.stringify(node.data.node, null, 2)}
             </pre>
           ) : !node.isPending && !node.error ? (
-            <p className="text-sm text-muted-foreground">Choose a structured collection.</p>
+            <p className="text-sm text-muted-foreground">{t`Choose a structured collection.`}</p>
           ) : null}
         </ScrollArea>
       </div>
@@ -569,13 +574,17 @@ function StructuredResourceView({
  */
 function StaleStructureBanner({ processing }: { processing: WorkspaceResourceProcessing }) {
   if (!processingRefreshFailed(processing)) return null;
-  const outcome = processing.state === 'cancelled' ? 'was cancelled' : 'failed';
+  const cancelled = processing.state === 'cancelled';
   return (
     <Alert className="rounded-none border-x-0 border-t-0" role="status">
       <TriangleAlertIcon aria-hidden="true" />
-      <AlertTitle>Showing the last completed conversion</AlertTitle>
+      <AlertTitle>{t`Showing the last completed conversion`}</AlertTitle>
       <AlertDescription>
-        <span>{`The most recent conversion ${outcome}, so this structure is from the run before it.`}</span>
+        <span>
+          {cancelled
+            ? t`The most recent conversion was cancelled, so this structure is from the run before it.`
+            : t`The most recent conversion failed, so this structure is from the run before it.`}
+        </span>
         {processingFailureText(processing) ? (
           <span>{processingFailureText(processing)}</span>
         ) : null}
@@ -602,9 +611,9 @@ function ResourceProvenance({
   return (
     <ScrollArea className="h-full p-3">
       <header className="mb-4">
-        <h3 className="text-sm font-medium">Resource lineage</h3>
+        <h3 className="text-sm font-medium">{t`Resource lineage`}</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          How the original upload became structured evidence and reached a model.
+          {t`How the original upload became structured evidence and reached a model.`}
         </p>
       </header>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
@@ -618,7 +627,7 @@ function ResourceProvenance({
           <TimelineHeader>
             <TimelineTitle className="flex items-center gap-2">
               <FileInputIcon aria-hidden="true" className="size-4 text-primary" />
-              Uploaded
+              {t`Uploaded`}
             </TimelineTitle>
           </TimelineHeader>
           <TimelineContent className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -635,12 +644,12 @@ function ResourceProvenance({
           <TimelineHeader>
             <TimelineTitle className="flex items-center gap-2">
               <ScanSearchIcon aria-hidden="true" className="size-4 text-primary" />
-              Verified and registered
+              {t`Verified and registered`}
             </TimelineTitle>
           </TimelineHeader>
           <TimelineContent className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span>Revision {resource.revision}</span>
-            <span>{resource.detected_mime || 'Type unavailable'}</span>
+            <span>{t`Revision ${ph({ revision: resource.revision })}`}</span>
+            <span>{resource.detected_mime || t`Type unavailable`}</span>
           </TimelineContent>
         </TimelineItem>
         {processing ? (
@@ -652,12 +661,14 @@ function ResourceProvenance({
             </TimelineDate>
             <TimelineHeader>
               <TimelineTitle>
-                Structured by {processing.processor || 'document processor'}
+                {processing.processor
+                  ? t`Structured by ${ph({ processor: processing.processor })}`
+                  : t`Structured by document processor`}
               </TimelineTitle>
             </TimelineHeader>
             <TimelineContent>
               {processing.state === 'processing'
-                ? `Processing ${Math.round(processing.progress)}%`
+                ? t`Processing ${ph({ percent: Math.round(processing.progress) })}%`
                 : processingStateLabel(processing.state)}
             </TimelineContent>
           </TimelineItem>
@@ -672,7 +683,7 @@ function ResourceProvenance({
             <TimelineHeader>
               <TimelineTitle className="flex items-center gap-2">
                 <SendIcon aria-hidden="true" className="size-4 text-primary" />
-                Delivered to model
+                {t`Delivered to model`}
               </TimelineTitle>
             </TimelineHeader>
             <TimelineContent>
@@ -682,31 +693,34 @@ function ResourceProvenance({
               </p>
               {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
               <details className="mt-2 text-[0.625rem]">
-                <summary className="w-fit cursor-pointer font-medium">Internal evidence</summary>
+                <summary className="w-fit cursor-pointer font-medium">{t`Internal evidence`}</summary>
                 <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
-                  <dt>Provider</dt>
+                  <dt>{t`Provider`}</dt>
                   <dd>{delivery.provider_id}</dd>
-                  <dt>Evidence</dt>
-                  <dd>{delivery.evidence_source || 'Unavailable'}</dd>
+                  <dt>{t`Evidence`}</dt>
+                  <dd>{delivery.evidence_source || t`Unavailable`}</dd>
                 </dl>
               </details>
             </TimelineContent>
           </TimelineItem>
         ))}
       </Timeline>
-      {pending ? <ResourceLoading className="mt-2" label="Loading model delivery records" /> : null}
+      {pending ? (
+        <ResourceLoading className="mt-2" label={t`Loading model delivery records`} />
+      ) : null}
       {!pending && !deliveries.length && !error ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          No model delivery has been recorded yet.
+          {t`No model delivery has been recorded yet.`}
         </p>
       ) : null}
       <details className="mt-4 rounded-lg border p-3 text-xs">
-        <summary className="cursor-pointer font-medium">Integrity and custody</summary>
+        <summary className="cursor-pointer font-medium">{t`Integrity and custody`}</summary>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+          {/* i18n-ignore: the hash algorithm's name */}
           <dt className="text-muted-foreground">SHA-256</dt>
-          <dd className="break-all font-mono">{resource.sha256 || 'Unavailable'}</dd>
-          <dt className="text-muted-foreground">Detection</dt>
-          <dd>{resource.detection_source || 'Unavailable'}</dd>
+          <dd className="break-all font-mono">{resource.sha256 || t`Unavailable`}</dd>
+          <dt className="text-muted-foreground">{t`Detection`}</dt>
+          <dd>{resource.detection_source || t`Unavailable`}</dd>
         </dl>
       </details>
     </ScrollArea>
@@ -715,7 +729,7 @@ function ResourceProvenance({
 
 function formatTime(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date);
 }
 
 function isPreviewable(mediaType: string): boolean {

@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Stop and the run's menu, sized for a row's hover action column. `menu` leaves
@@ -34,9 +35,13 @@ export function RunActions({
   return (
     <div className="flex items-center gap-0.5">
       {cancellable && part === 'all' && (
-        <NamedTooltip label={row.cancelRequested ? 'Cancellation requested' : 'Stop'}>
+        <NamedTooltip label={row.cancelRequested ? t`Cancellation requested` : t`Stop`}>
           <Button
-            aria-label={`Cancel ${row.taskKind ?? 'task'}: ${row.assignment || row.label}`}
+            aria-label={
+              row.taskKind
+                ? t`Cancel ${ph({ kind: row.taskKind })}: ${ph({ task: row.assignment || row.label })}`
+                : t`Cancel task: ${ph({ task: row.assignment || row.label })}`
+            }
             className="text-muted-foreground hover:bg-hover hover:text-destructive"
             disabled={Boolean(pending || row.cancelRequested)}
             size="icon-xs"
@@ -48,10 +53,10 @@ export function RunActions({
         </NamedTooltip>
       )}
       <DropdownMenu>
-        <NamedTooltip label="More">
+        <NamedTooltip label={t`More`}>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label={`Actions for ${row.label}`}
+              aria-label={t`Actions for ${ph({ label: row.label })}`}
               className="text-muted-foreground hover:bg-hover hover:text-foreground"
               disabled={pending}
               size="icon-xs"
@@ -62,15 +67,15 @@ export function RunActions({
           </DropdownMenuTrigger>
         </NamedTooltip>
         <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuLabel>Run actions</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Run actions`}</DropdownMenuLabel>
           {href ? (
             <DropdownMenuItem asChild>
-              <Link to={href}>{row.flowHandle ? 'Open flow run' : 'Open conversation'}</Link>
+              <Link to={href}>{row.flowHandle ? t`Open flow run` : t`Open conversation`}</Link>
             </DropdownMenuItem>
           ) : null}
           {row.flowHandle && href ? (
             <DropdownMenuItem asChild>
-              <Link to={runConversationHref(row, false) ?? href}>Open conversation</Link>
+              <Link to={runConversationHref(row, false) ?? href}>{t`Open conversation`}</Link>
             </DropdownMenuItem>
           ) : null}
           {cancellable ? (
@@ -81,7 +86,7 @@ export function RunActions({
                 onSelect={onCancel}
                 variant="destructive"
               >
-                {row.cancelRequested ? 'Cancellation requested' : 'Cancel task…'}
+                {row.cancelRequested ? t`Cancellation requested` : t`Cancel task…`}
               </DropdownMenuItem>
             </>
           ) : null}

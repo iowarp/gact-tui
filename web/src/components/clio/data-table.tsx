@@ -29,6 +29,8 @@ import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { formatNumber } from '@/lib/locale-format';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export type ClioDataColumn = string | { key: string; label: string };
 export type ClioDataRow = Record<string, unknown>;
@@ -132,7 +134,7 @@ export interface ClioDataTableServerControl {
 export function ClioDataTable({
   columns: columnDefinitions,
   rows,
-  label = 'Data table',
+  label = t`Data table`,
   showLabel = true,
   showToolbar = true,
   description,
@@ -343,7 +345,7 @@ export function ClioDataTable({
         disabled
         onSelect={(event) => event.preventDefault()}
       >
-        {`${(server ? server.totalRows : rows.length).toLocaleString()} rows`}
+        {plural(server ? server.totalRows : rows.length, { one: '# row', other: '# rows' })}
       </DropdownMenuItem>
     ),
   };
@@ -358,7 +360,9 @@ export function ClioDataTable({
         onClick={() => onSelectedOnlyChange(!selectedOnly)}
         type="button"
       >
-        {selectedOnly ? 'Show all' : `Show selected (${selectedCount.toLocaleString()})`}
+        {selectedOnly
+          ? t`Show all`
+          : t`Show selected (${ph({ count: formatNumber(selectedCount) })})`}
       </button>
     ) : null;
 
@@ -366,10 +370,10 @@ export function ClioDataTable({
     <DataGrid<DataGridFeatures, ClioDataRow>
       emptyMessage={
         selectedOnly
-          ? 'No selected rows match the current view.'
+          ? t`No selected rows match the current view.`
           : server?.filters.size || inlineFilters?.size
-            ? 'No rows match the current filters.'
-            : 'No rows were provided for this data view.'
+            ? t`No rows match the current filters.`
+            : t`No rows were provided for this data view.`
       }
       onRowClick={onRowClick}
       recordCount={server ? server.totalRows : rows.length}
@@ -422,7 +426,7 @@ export function ClioDataTable({
         >
           <div
             aria-description={description}
-            aria-label={`${label} columns`}
+            aria-label={t`${label} columns`}
             className="max-w-full overflow-x-auto overscroll-x-contain"
             role="region"
             tabIndex={0}

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { concreteSchema, record, type NDPRecord } from './ndp-endpoint-data';
 import { NDPQueryFields } from './ndp-query-fields';
+import { ph, t } from '@lingui/core/macro';
 
 /** Nested resource/metadata fields stay structured; users never have to write request JSON. */
 export function NDPNestedFields({
@@ -23,7 +24,7 @@ export function NDPNestedFields({
   if (depth > 4)
     return (
       <p className="text-xs text-muted-foreground">
-        This deeply nested field is available in Advanced API tools.
+        {t`This deeply nested field is available in Advanced API tools.`}
       </p>
     );
   if (schema.type === 'array') {
@@ -47,7 +48,7 @@ export function NDPNestedFields({
               type="button"
               size="icon"
               variant="ghost"
-              aria-label={`Remove item ${index + 1}`}
+              aria-label={t`Remove item ${ph({ number: index + 1 })}`}
               onClick={() => onChange(items.filter((_, i) => i !== index))}
             >
               <CloseIcon />
@@ -62,14 +63,15 @@ export function NDPNestedFields({
             onChange([...items, concreteSchema(record(schema.items)).type === 'object' ? {} : ''])
           }
         >
-          <AddIcon /> Add item
+          <AddIcon /> {t`Add item`}
         </Button>
       </div>
     );
   }
   if (schema.type === 'object') {
     const fields = record(schema.properties);
-    if (!Object.keys(fields).length) return <NDPQueryFields title="Metadata" onChange={onChange} />;
+    if (!Object.keys(fields).length)
+      return <NDPQueryFields title={t`Metadata`} onChange={onChange} />;
     const values = record(value);
     return (
       <div className="grid gap-2 sm:grid-cols-2">

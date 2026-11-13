@@ -8,6 +8,7 @@ import {
   type BrowserFileTarget,
   type OpenBrowserPageDetail,
 } from '@/lib/html-in-browser';
+import { t } from '@lingui/core/macro';
 
 /**
  * Open an HTML file in the conversation's shared browser and show its tab. A failure is
@@ -24,7 +25,7 @@ export function useOpenFileInBrowser(): (
     async (target, label, onError) => {
       const fail = onError ?? ((message: string) => toast.error(message));
       if (!sessionId) {
-        fail('Open a conversation to view HTML files in its browser.');
+        fail(t`Open a conversation to view HTML files in its browser.`);
         return;
       }
       try {

@@ -43,11 +43,14 @@ import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { RepositoryOverrideProvider } from '@/providers/repository-override';
 import { useTheme } from '@/providers/appearance-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /** Window events the practice composer and surfaces send; the real composer must never see them. */
 const COMPOSER_EVENTS = [ADD_COMMENT_SESSION_EVENT, 'clio:use-message-draft', 'clio:message-sent'];
 /** How long a scripted reply "works" before it answers. */
 const WORKING_MS = 1400;
+
+const { agent } = vocab;
 
 const keepSelection: SelectionWriter = () => undefined;
 
@@ -91,6 +94,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'openai',
     providerName: 'OpenAI',
     id: 'gpt-5-mini',
+    // i18n-ignore: model name
     label: 'GPT-5 mini',
     available: true,
     health: 'healthy',
@@ -103,6 +107,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'anthropic',
     providerName: 'Anthropic',
     id: 'claude-sonnet-4-5',
+    // i18n-ignore: model name
     label: 'Claude Sonnet 4.5',
     available: true,
     health: 'healthy',
@@ -115,6 +120,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
     providerId: 'anthropic',
     providerName: 'Anthropic',
     id: 'claude-haiku-4-5',
+    // i18n-ignore: model name
     label: 'Claude Haiku 4.5',
     available: true,
     health: 'healthy',
@@ -125,7 +131,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
   },
   {
     providerId: 'ollama',
-    providerName: 'Ollama (this computer)',
+    providerName: t`Ollama (this computer)`,
     id: 'qwen3:32b',
     label: 'Qwen3 32B',
     available: true,
@@ -137,7 +143,7 @@ const PRACTICE_MODELS: readonly ClioModelOption[] = [
   },
   {
     providerId: 'ollama',
-    providerName: 'Ollama (this computer)',
+    providerName: t`Ollama (this computer)`,
     id: 'llama3.1:8b',
     label: 'Llama 3.1 8B',
     available: true,
@@ -295,7 +301,7 @@ export function TourPracticeStage({
         markA2uiSessionRouteUnavailable(
           TOUR_PRACTICE_SESSION_ID,
           'a2ui_catalog_decode_failed',
-          error instanceof Error ? error.message : 'The sample catalog did not load.',
+          error instanceof Error ? error.message : t`The sample catalog did not load.`,
         );
       });
     return () => {
@@ -309,7 +315,7 @@ export function TourPracticeStage({
     () =>
       selectionActions.register({
         id: 'tour-reference',
-        label: 'Reference this',
+        label: t`Reference this`,
         icon: ChartLineIcon,
         order: 10,
         kinds: ['data-surface-zone'],
@@ -364,7 +370,7 @@ export function TourPracticeStage({
         <ConnectionStateOverride.Provider value="live">
           <SelectionActionsContext.Provider value={selectionActions}>
             <section
-              aria-label="Practice conversation"
+              aria-label={t`Practice conversation`}
               className={
                 area
                   ? 'pointer-events-auto fixed z-40 flex flex-col overflow-hidden bg-background'
@@ -376,8 +382,8 @@ export function TourPracticeStage({
               {...tourAnchor('practice-conversation')}
             >
               <header className="flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-2">
-                <h2 className="text-sm font-medium">Practice conversation</h2>
-                <p className="text-xs text-muted-foreground">Scripted. Nothing is sent or saved.</p>
+                <h2 className="text-sm font-medium">{t`Practice conversation`}</h2>
+                <p className="text-xs text-muted-foreground">{t`Scripted. Nothing is sent or saved.`}</p>
               </header>
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative flex min-w-0 flex-1 flex-col">
@@ -387,7 +393,7 @@ export function TourPracticeStage({
                       className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground"
                       style={{ paddingBottom: composerHeight }}
                     >
-                      Your conversation with {vocab.agent} appears here.
+                      {t`Your conversation with ${agent} appears here.`}
                     </div>
                   ) : (
                     <ActivityRunsFold.Provider value={false}>
@@ -432,7 +438,7 @@ export function TourPracticeStage({
                       <h3 className="truncate text-sm font-medium">{plot.name}</h3>
                       <IconButton
                         icon={<CloseIcon />}
-                        label={`Close ${plot.name}`}
+                        label={t`Close ${ph({ name: plot.name })}`}
                         onClick={() => setViewer(false)}
                         size="toolbar"
                         type="button"

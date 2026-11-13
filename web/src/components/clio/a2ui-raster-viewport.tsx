@@ -14,6 +14,7 @@ import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 import { COLORMAP_STOPS, DATA_SCALE_EXEMPTION, type Colormap } from '@/theme/data-scales';
+import { t, ph } from '@lingui/core/macro';
 
 type Extent = [number, number, number, number];
 type Box = { x0: number; y0: number; x1: number; y1: number };
@@ -92,7 +93,7 @@ export function ClioRasterViewport({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const artifactId = /^artifact:\/\/(artifact_[A-Za-z0-9_-]+)$/u.exec(rasterUri)?.[1];
-  const heading = title || variable || 'Raster';
+  const heading = title || variable || t`Raster`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; extent: Extent } | null>(null);
@@ -268,7 +269,7 @@ export function ClioRasterViewport({
     exportFormats: [
       {
         id: 'png',
-        label: 'PNG image',
+        label: t`PNG image`,
         disabled: !data,
         run: () =>
           canvasRef.current?.toBlob((blob) => {
@@ -277,7 +278,7 @@ export function ClioRasterViewport({
       },
       {
         id: 'csv',
-        label: selectedExtent ? 'CSV sampled selection' : 'CSV sampled view',
+        label: selectedExtent ? t`CSV sampled selection` : t`CSV sampled view`,
         disabled: !data,
         run: csv,
       },
@@ -293,25 +294,26 @@ export function ClioRasterViewport({
       }
     : undefined;
   const legend = useMemo(
+    // i18n-ignore: CSS gradient value
     () => `linear-gradient(to right, ${COLORMAP_STOPS[colormap].join(', ')})`,
     [colormap],
   );
   const controls = (insideDialog: boolean) => (
     <>
       <Button
-        aria-label="Box select raster region"
+        aria-label={t`Box select raster region`}
         aria-pressed={boxMode}
         className={`size-7 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`}
         onClick={() => setBoxMode(!boxMode)}
         size="icon"
-        title="Box select. Drag a rectangle to select a region."
+        title={t`Box select. Drag a rectangle to select a region.`}
         variant={boxMode ? 'secondary' : 'ghost'}
       >
         <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
       </Button>
       {selectedExtent ? (
         <Button
-          aria-label="Zoom to selection"
+          aria-label={t`Zoom to selection`}
           className="size-7"
           onClick={() => {
             setExtent(selectedExtent);
@@ -319,7 +321,7 @@ export function ClioRasterViewport({
             setBoxMode(false);
           }}
           size="icon"
-          title="Zoom to selection"
+          title={t`Zoom to selection`}
           variant="ghost"
         >
           <ZoomInIcon className="size-3.5" />
@@ -327,14 +329,14 @@ export function ClioRasterViewport({
       ) : null}
       {extent ? (
         <Button
-          aria-label="Reset zoom"
+          aria-label={t`Reset zoom`}
           className="size-7"
           onClick={() => {
             setExtent(undefined);
             setSelectedExtent(undefined);
           }}
           size="icon"
-          title="Reset zoom"
+          title={t`Reset zoom`}
           variant="ghost"
         >
           <RetryIcon className="size-3.5" />
@@ -353,7 +355,10 @@ export function ClioRasterViewport({
       style={weight ? { flex: weight } : undefined}
     >
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={heading}>
+        <h3
+          className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+          title={heading}
+        >
           {heading}
         </h3>
         {controls(false)}
@@ -372,8 +377,7 @@ export function ClioRasterViewport({
         >
           {sample.isError ? (
             <p className="p-4 text-sm text-destructive">
-              Raster unavailable:{' '}
-              {sample.error instanceof Error ? sample.error.message : String(sample.error)}
+              {t`Raster unavailable: ${ph({ error: sample.error instanceof Error ? sample.error.message : String(sample.error) })}`}
             </p>
           ) : null}
           <div
@@ -395,7 +399,7 @@ export function ClioRasterViewport({
             }}
           >
             <canvas
-              aria-label={`${heading} raster image`}
+              aria-label={t`${heading} raster image`}
               className="size-full"
               ref={canvasRef}
               role="img"
@@ -409,17 +413,17 @@ export function ClioRasterViewport({
             ) : null}
             {sample.isFetching ? (
               <span className="absolute left-2 top-2 rounded bg-background/80 px-2 py-1 text-xs">
-                Sampling…
+                {t`Sampling…`}
               </span>
             ) : null}
             {hover && data ? (
               <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/85 px-2 py-1 font-mono text-xs">
-                {hover.value === null ? 'No data' : `${hover.value.toPrecision(5)} ${unit}`}
+                {hover.value === null ? t`No data` : `${hover.value.toPrecision(5)} ${unit}`}
               </span>
             ) : null}
             <div className="absolute right-2 top-2 flex flex-col rounded bg-background/80">
               <Button
-                aria-label="Zoom in"
+                aria-label={t`Zoom in`}
                 className="size-7"
                 onClick={() => zoom(0.8)}
                 size="icon"
@@ -428,7 +432,7 @@ export function ClioRasterViewport({
                 <AddIcon className="size-4" />
               </Button>
               <Button
-                aria-label="Zoom out"
+                aria-label={t`Zoom out`}
                 className="size-7"
                 onClick={() => zoom(1.25)}
                 size="icon"
@@ -441,7 +445,7 @@ export function ClioRasterViewport({
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{data?.min?.toPrecision(4) ?? '—'}</span>
             <span
-              aria-label={`${colormap} colour scale`}
+              aria-label={t`${colormap} colour scale`}
               className="h-2 flex-1 rounded"
               style={{ background: legend }}
               {...DATA_SCALE_EXEMPTION}
@@ -452,8 +456,8 @@ export function ClioRasterViewport({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {selectedExtent
-              ? 'Region selected. Use Zoom to selection or Reference this.'
-              : `Drag to pan, ${keys.primary}-scroll to zoom`}
+              ? t`Region selected. Use Zoom to selection or Reference this.`
+              : t`Drag to pan, ${ph({ primary: keys.primary })}-scroll to zoom`}
           </p>
         </div>
       </SurfaceFullScreenHost>

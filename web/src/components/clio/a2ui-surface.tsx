@@ -39,24 +39,25 @@ import type { A2uiRegistrySnapshot } from '@/lib/a2ui/registry-store';
 import { useA2uiVisualViewer } from './a2ui-visual-viewer';
 import { useQuestionAnswer } from './question-answer-context';
 import { questionTabPath, SurfaceQuestionTabs } from '@/lib/a2ui/question-navigation';
+import { t, ph } from '@lingui/core/macro';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
     <section
-      aria-label="Interactive agent surface unavailable"
+      aria-label={t`Interactive agent surface unavailable`}
       className="overflow-hidden rounded-xl border border-destructive/40 bg-destructive/5"
     >
       <div className="flex items-center gap-2 border-b border-destructive/30 px-4 py-2 text-xs">
         <AlertTriangleIcon aria-hidden="true" className="size-3.5 text-destructive" />
-        <span className="font-medium">Interactive surface unavailable</span>
-        <ClioStatus className="ml-auto" label="Failed safely" value="failed" />
+        <span className="font-medium">{t`Interactive surface unavailable`}</span>
+        <ClioStatus className="ml-auto" label={t`Failed safely`} value="failed" />
       </div>
       <p className="px-4 py-3 text-xs text-muted-foreground">
-        {message} The conversation remains available, and no action was taken by this view.
+        {t`${message} The conversation remains available, and no action was taken by this view.`}
       </p>
       <TechnicalDetails
         className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground"
-        title="Validation detail"
+        title={t`Validation detail`}
       >
         <p className="mt-2 font-mono">{detail ?? message}</p>
       </TechnicalDetails>
@@ -196,7 +197,7 @@ function ClioA2UISurfaceContent({
         try {
           const intent = dataSourceIntent(clientAction);
           if (readOnly) {
-            setLocalNotice('Private sign-in is unavailable in this archive.');
+            setLocalNotice(t`Private sign-in is unavailable in this archive.`);
             return;
           }
           if (!intent || !openSourceSignIn) {
@@ -222,24 +223,26 @@ function ClioA2UISurfaceContent({
           openSourceSignIn(intent);
         } catch (sourceError) {
           setLocalNotice(
-            sourceError instanceof Error ? sourceError.message : 'Sign-in is unavailable.',
+            sourceError instanceof Error ? sourceError.message : t`Sign-in is unavailable.`,
           );
         }
         return;
       }
       if (LEGACY_LOCAL_ACTIONS.has(clientAction.name)) {
         if (!onLocalAction) {
-          setLocalNotice(`${clientAction.name} is unavailable in this workspace.`);
+          setLocalNotice(t`${ph({ action: clientAction.name })} is unavailable in this workspace.`);
           return;
         }
         setLocalNotice(undefined);
         setLocalActionPending(true);
         try {
           const status = await onLocalAction(clientAction);
-          setLocalActionStatus(status || `${clientAction.name} completed locally`);
+          setLocalActionStatus(status || t`${ph({ action: clientAction.name })} completed locally`);
         } catch (localError) {
           setLocalNotice(
-            localError instanceof Error ? localError.message : `${clientAction.name} failed`,
+            localError instanceof Error
+              ? localError.message
+              : t`${ph({ action: clientAction.name })} failed`,
           );
         } finally {
           setLocalActionPending(false);
@@ -295,7 +298,7 @@ function ClioA2UISurfaceContent({
         setValidationPostFailure({
           revision: surface.revision,
           message:
-            postError instanceof Error ? postError.message : 'The request could not be completed.',
+            postError instanceof Error ? postError.message : t`The request could not be completed.`,
         });
       }
     },
@@ -346,7 +349,7 @@ function ClioA2UISurfaceContent({
       return (
         <SurfaceFailure
           detail={reason ? `${reason.code}: ${reason.detail}` : failure.message}
-          message="This view uses a catalog this workspace does not have installed."
+          message={t`This view uses a catalog this workspace does not have installed.`}
         />
       );
     }
@@ -354,7 +357,9 @@ function ClioA2UISurfaceContent({
   }
   if (surface.error || surface.state === 'failed') {
     return (
-      <SurfaceFailure message={surface.error || 'The service reported that this surface failed.'} />
+      <SurfaceFailure
+        message={surface.error || t`The service reported that this surface failed.`}
+      />
     );
   }
   if (surface.state === 'deleted') return null;
@@ -363,7 +368,7 @@ function ClioA2UISurfaceContent({
       return (
         <div className="flex items-center gap-2 rounded-xl border bg-card/70 px-4 py-3 text-xs text-muted-foreground">
           <Loader2Icon aria-hidden="true" className="size-3.5 animate-spin" />
-          Resolving the interactive catalog for this session…
+          {t`Resolving the interactive catalog for this session…`}
         </div>
       );
     }
@@ -408,8 +413,8 @@ function ClioA2UISurfaceContent({
           <ClioStatus
             label={
               localActionPending
-                ? 'Applying action in this workspace'
-                : localActionStatus || 'Action completed'
+                ? t`Applying action in this workspace`
+                : localActionStatus || t`Action completed`
             }
             value={localActionPending ? 'running' : 'completed'}
           />
@@ -421,15 +426,15 @@ function ClioA2UISurfaceContent({
       ) : null}
       {validationPostFailure?.revision === surface.revision ? (
         <p className="py-2 text-xs text-destructive">
-          The service could not record the rendering problem: {validationPostFailure.message}
+          {t`The service could not record the rendering problem: ${ph({ message: validationPostFailure.message })}`}
         </p>
       ) : null}
       {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
       {protocolNotice ? (
         <TechnicalDetails
           className="py-1 text-xs text-muted-foreground"
-          hint="Updates reset unsent input"
-          title="Technical details"
+          hint={t`Updates reset unsent input`}
+          title={t`Technical details`}
         >
           <p className="mt-1">{protocolNotice}</p>
         </TechnicalDetails>
@@ -440,14 +445,14 @@ function ClioA2UISurfaceContent({
     isPending || surface.state !== 'ready' ? (
       <div aria-live="polite" className="mb-2 flex items-center text-xs">
         <ClioStatus
-          label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
+          label={isPending ? t`Sending action` : surface.state.replaceAll('_', ' ')}
           value={isPending ? 'running' : surfaceStatusValue(surface.state)}
         />
       </div>
     ) : null;
   return (
     <section
-      aria-label={`Interactive surface, ${surfaceKind}`}
+      aria-label={t`Interactive surface, ${surfaceKind}`}
       className="scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       id={a2uiSurfaceDomId(surface.id)}
       tabIndex={-1}

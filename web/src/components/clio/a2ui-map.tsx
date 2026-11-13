@@ -50,6 +50,8 @@ import type { QueryRow } from './table-query-rows';
 import { useMapCamera, mapCameraSchema, type MapCameraProps } from './map-camera';
 import { downloadInlineRowsAsCsv, downloadInlineRowsAsJson } from './table-export-client';
 import { scientificMapView } from './scientific-map-view-loader';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 const MAP_LIST_ROW_HEIGHT = 48;
 const MAP_LIST_CHROME_HEIGHT = 64;
@@ -96,18 +98,18 @@ interface ClioMapProps extends MapCameraProps {
 
 export function ClioScientificMap({
   accessibility,
-  title = 'Locations',
+  title = t`Locations`,
   points,
   geometry,
   geometryBounds,
   geometrySelectionByPoints,
   selected,
   action,
-  actionLabel = 'Use selected location',
+  actionLabel = t`Use selected location`,
   componentId,
   dataCapabilities,
   emptyFiltered = false,
-  valueLabel = 'Value',
+  valueLabel = t`Value`,
   valueUnit,
   selection,
   selectionField,
@@ -386,12 +388,14 @@ export function ClioScientificMap({
       })),
     [points],
   );
-  const buildInlineReference = (): DataZoneReference =>
-    buildZoneReference({
+  const buildInlineReference = (): DataZoneReference => {
+    const pointsText = formatNumber(points.length);
+    return buildZoneReference({
       componentLabel: title,
       datasetLabel: 'inline data',
       filters: [],
       previewColumns: ['label', 'latitude', 'longitude', 'value', 'detail', 'category'],
+      // i18n-ignore: preview layout ids
       previewLayout: highlightedIds.size === 1 ? 'fields' : 'table',
       previewRows: highlightedIds.size
         ? inlinePointRows.filter((row) => highlightedIds.has(String(row.id)))
@@ -403,13 +407,20 @@ export function ClioScientificMap({
         ? { selection: { field, values: state?.values ?? [selectedId] } }
         : {},
       zoneDescription: highlightedIds.size
-        ? `${highlightedIds.size.toLocaleString()} selected ${highlightedIds.size === 1 ? 'point' : 'points'} of ${points.length.toLocaleString()}`
-        : `the filtered current view (${points.length.toLocaleString()} points)`,
+        ? plural(highlightedIds.size, {
+            one: `# selected point of ${pointsText}`,
+            other: `# selected points of ${pointsText}`,
+          })
+        : plural(points.length, {
+            one: 'the filtered current view (# point)',
+            other: 'the filtered current view (# points)',
+          }),
     });
+  };
   const exportFormats: SurfaceExportFormat[] = [
     {
       id: 'png',
-      label: 'PNG image',
+      label: t`PNG image`,
       run: async () => {
         const map = mapInstanceRef.current;
         if (!map) return;
@@ -419,12 +430,12 @@ export function ClioScientificMap({
     ...(dataCapabilities?.exportFormats ?? [
       {
         id: 'csv',
-        label: 'CSV data',
+        label: t`CSV data`,
         run: () => downloadInlineRowsAsCsv(inlinePointColumns, inlinePointRows, filenameStem),
       },
       {
         id: 'json',
-        label: 'JSON data',
+        label: t`JSON data`,
         run: () => downloadInlineRowsAsJson(inlinePointColumns, inlinePointRows, filenameStem),
       },
     ]),
@@ -439,12 +450,12 @@ export function ClioScientificMap({
     overflowContent: (
       <>
         <DropdownMenuCheckboxItem
-          aria-label="Show locations list"
+          aria-label={t`Show locations list`}
           checked={showList}
           className="whitespace-nowrap"
           onCheckedChange={(checked) => setShowList(checked === true)}
         >
-          Locations list
+          {t`Locations list`}
         </DropdownMenuCheckboxItem>
       </>
     ),
@@ -454,7 +465,7 @@ export function ClioScientificMap({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label="Box select map points"
+            aria-label={t`Box select map points`}
             aria-pressed={boxSelectMode}
             className={cn(
               'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100',
@@ -468,9 +479,7 @@ export function ClioScientificMap({
           </Button>
         </TooltipTrigger>
         <TooltipContent align="end" side="bottom">
-          Click a point to select it. {keys.primary}-click selects its track. Shift-click toggles a
-          point; {keys.primaryShift}-click merges or removes a track. Drag selects points;{' '}
-          {keys.primary}-drag selects tracks.
+          {t`Click a point to select it. ${ph({ primary: keys.primary })}-click selects its track. Shift-click toggles a point; ${ph({ primaryShift: keys.primaryShift })}-click merges or removes a track. Drag selects points; ${ph({ primary: keys.primary })}-drag selects tracks.`}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -479,11 +488,11 @@ export function ClioScientificMap({
     <>
       {highlightedIds.size > 0 ? (
         <Button
-          aria-label="Zoom to selection"
+          aria-label={t`Zoom to selection`}
           className="shrink-0"
           onClick={zoomToSelection}
           size="icon-sm"
-          title="Zoom to selection"
+          title={t`Zoom to selection`}
           variant="ghost"
         >
           <ZoomInIcon aria-hidden="true" className="size-3.5" />
@@ -491,11 +500,11 @@ export function ClioScientificMap({
       ) : null}
       {zoomActive ? (
         <Button
-          aria-label="Reset zoom"
+          aria-label={t`Reset zoom`}
           className="shrink-0"
           onClick={resetZoom}
           size="icon-sm"
-          title="Reset zoom"
+          title={t`Reset zoom`}
           variant="ghost"
         >
           <RetryIcon aria-hidden="true" className="size-3.5" />
@@ -519,12 +528,15 @@ export function ClioScientificMap({
     >
       <section
         {...a2uiAccessibilityProps(accessibility)}
-        aria-label={a2uiAccessibilityLabel(accessibility) ?? `${title} map`}
+        aria-label={a2uiAccessibilityLabel(accessibility) ?? t`${title} map`}
         className="group relative min-w-0"
         role="group"
       >
         <div className="mb-2 flex min-w-0 items-start gap-3">
-          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug" title={title}>
+          <h3
+            className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+            title={title}
+          >
             {title}
           </h3>
           <div className="flex shrink-0 items-center gap-0.5">
@@ -586,15 +598,15 @@ export function ClioScientificMap({
                   role="status"
                 >
                   {emptyFiltered
-                    ? 'No locations match the current filters. Adjust Filters to see them.'
-                    : 'No locations to show.'}
+                    ? t`No locations match the current filters. Adjust Filters to see them.`
+                    : t`No locations to show.`}
                 </div>
               ) : (
                 <Suspense
                   fallback={
                     <Skeleton
                       aria-busy="true"
-                      aria-label={`Loading ${title} map`}
+                      aria-label={t`Loading ${title} map`}
                       className="size-full rounded-none"
                     />
                   }
@@ -624,7 +636,7 @@ export function ClioScientificMap({
                   className="pointer-events-none absolute start-2 top-2 rounded-md border bg-background/90 px-2 py-1 text-xs font-medium backdrop-blur-sm"
                   data-slot="a2ui-map-selection-count"
                 >
-                  {`${boundIds.size.toLocaleString()} of ${points.length.toLocaleString()} selected`}
+                  {t`${ph({ selected: formatNumber(boundIds.size) })} of ${ph({ total: formatNumber(points.length) })} selected`}
                 </p>
               ) : null}
             </div>
@@ -646,6 +658,7 @@ export function ClioScientificMap({
                         <div
                           className="absolute inset-x-0 top-0 pb-1"
                           key={row.key}
+                          // i18n-ignore: CSS transform
                           style={{ height: row.size, transform: `translateY(${row.start}px)` }}
                         >
                           <Button
@@ -686,19 +699,19 @@ export function ClioScientificMap({
                   className="flex h-10 shrink-0 items-center justify-between gap-1 border-t px-2 text-xs text-muted-foreground"
                   data-slot="a2ui-map-points-pagination"
                 >
-                  <span className="shrink-0 whitespace-nowrap" title="Total map locations">
-                    {`${orderedPoints.length.toLocaleString()} locations`}
+                  <span className="shrink-0 whitespace-nowrap" title={t`Total map locations`}>
+                    {plural(orderedPoints.length, { one: '# location', other: '# locations' })}
                   </span>
                   <span
-                    aria-label={`Page ${listPage + 1} of ${listPageCount}; showing locations ${orderedPoints.length === 0 ? 0 : listPage * listPageSize + 1}–${Math.min((listPage + 1) * listPageSize, orderedPoints.length)}`}
+                    aria-label={t`Page ${ph({ page: listPage + 1 })} of ${listPageCount}; showing locations ${ph({ first: orderedPoints.length === 0 ? 0 : listPage * listPageSize + 1 })}–${ph({ last: Math.min((listPage + 1) * listPageSize, orderedPoints.length) })}`}
                     aria-live="polite"
                     className="sr-only"
                   >
-                    {`${listPage + 1} of ${listPageCount}`}
+                    {t`${ph({ page: listPage + 1 })} of ${listPageCount}`}
                   </span>
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap">
                     <Button
-                      aria-label="Previous locations page"
+                      aria-label={t`Previous locations page`}
                       disabled={listPage === 0}
                       onClick={() => setListPage((page) => Math.max(0, page - 1))}
                       size="icon-sm"
@@ -710,7 +723,7 @@ export function ClioScientificMap({
                       {`${listPage + 1}/${listPageCount}`}
                     </span>
                     <Button
-                      aria-label="Next locations page"
+                      aria-label={t`Next locations page`}
                       disabled={listPage + 1 >= listPageCount}
                       onClick={() => setListPage((page) => Math.min(listPageCount - 1, page + 1))}
                       size="icon-sm"
@@ -755,8 +768,7 @@ export function ClioScientificMap({
           ) : null}
           {unsupportedSelectionField ? (
             <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-              These points have no “{selectionField}” value to select by. Selecting a point here
-              does nothing.
+              {t`These points have no “${selectionField}” value to select by. Selecting a point here does nothing.`}
             </p>
           ) : null}
         </SurfaceFullScreenHost>

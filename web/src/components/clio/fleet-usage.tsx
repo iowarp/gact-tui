@@ -2,6 +2,15 @@ import type { AccountUsage, AccountUsageWindow, FleetSpend } from '@clio/core/v3
 import { Progress } from '@/components/ui/progress';
 import { observedAgo, resetsIn, spendDetails, type UsageMode } from '@/lib/fleet-usage';
 import { cn } from '@/lib/utils';
+import { t, ph } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
+
+/** A balance amount: dollars as `$1.50`, other currencies as `1.5 EUR`. */
+function balanceAmount(remaining: number, currency: string): string {
+  return currency === 'USD'
+    ? `$${remaining.toFixed(2)}`
+    : `${formatNumber(remaining, 2)} ${currency}`;
+}
 
 function WindowBar({ window, mode }: { window: AccountUsageWindow; mode: UsageMode }) {
   const used = Math.min(100, Math.max(0, window.used_percent));
@@ -58,15 +67,17 @@ export function UsageSummary({
     return (
       <p className="text-xs text-muted-foreground">
         {missingReason === 'not_supported'
-          ? 'Account limits unavailable for this connection'
-          : 'No account-limit reading available'}
+          ? t`Account limits unavailable for this connection`
+          : t`No account-limit reading available`}
       </p>
     );
   }
   if (snapshot.state === 'unmetered') {
-    return <p className="text-xs text-muted-foreground">No usage limits</p>;
+    return <p className="text-xs text-muted-foreground">{t`No usage limits`}</p>;
   }
   const stale = Boolean(snapshot.read_failure);
+  const ago = observedAgo(snapshot.observed_at);
+  const readFailure = snapshot.read_failure ?? '';
   return (
     <div className={cn('grid gap-2', stale && 'opacity-60')}>
       {snapshot.windows.map((window) => (
@@ -77,20 +88,19 @@ export function UsageSummary({
           className="text-xs tabular-nums"
           title={`${snapshot.balance.remaining} ${snapshot.balance.currency}`}
         >
-          {snapshot.balance.currency === 'USD'
-            ? `$${snapshot.balance.remaining.toFixed(2)}`
-            : `${snapshot.balance.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${snapshot.balance.currency}`}{' '}
-          left
-          {snapshot.balance.limit !== null ? ` of ${snapshot.balance.limit}` : ''}
+          {snapshot.balance.limit !== null
+            ? t`${ph({ amount: balanceAmount(snapshot.balance.remaining, snapshot.balance.currency) })} left of ${ph({ limit: snapshot.balance.limit })}`
+            : t`${ph({ amount: balanceAmount(snapshot.balance.remaining, snapshot.balance.currency) })} left`}
         </p>
       ) : null}
       {!snapshot.windows.length && !snapshot.balance ? (
-        <p className="text-xs text-muted-foreground">No windows reported</p>
+        <p className="text-xs text-muted-foreground">{t`No windows reported`}</p>
       ) : null}
       {stale ? (
         <p className="text-xs text-muted-foreground">
-          Last read failed ({snapshot.read_failure}); showing values{' '}
-          {observedAgo(snapshot.observed_at) || 'from an earlier read'}.
+          {ago
+            ? t`Last read failed (${readFailure}); showing values ${ago}.`
+            : t`Last read failed (${readFailure}); showing values from an earlier read.`}
         </p>
       ) : snapshot.observed_at ? (
         <p className="text-xs text-muted-foreground">{observedAgo(snapshot.observed_at)}</p>

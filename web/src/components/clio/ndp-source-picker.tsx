@@ -19,6 +19,8 @@ import { useNdpCatalog } from './use-ndp-catalog';
 import { NDPOrganizationFilter } from './ndp-organization-filter';
 import { NDPEndpointPanel } from './ndp-endpoint-panel';
 import { InfoTip } from './info-tip';
+import { formatNumber } from '@/lib/locale-format';
+import { plural, t } from '@lingui/core/macro';
 
 type Selection = { dataset: NDPDataset; ids: string[] };
 const datasetKey = (dataset: NDPDataset) => JSON.stringify([dataset.endpoint_id, dataset.id]);
@@ -35,29 +37,26 @@ export function NDPSourcePicker(props: {
   return (
     <div className="flex flex-col gap-[13px]">
       <SourceField
-        label="Browse"
+        label={t`Browse`}
         hint={
           <span className="inline-flex items-center gap-1">
             {view === 'datasets'
-              ? 'Discover scientific datasets in the NDP catalog.'
-              : 'Browse catalogs, query services and explore streams.'}
+              ? t`Discover scientific datasets in the NDP catalog.`
+              : t`Browse catalogs, query services and explore streams.`}
             {view === 'datasets' ? (
-              <InfoTip label="About datasets">
-                Discover scientific observations, measurements, simulations and analysis results. A
-                dataset can provide files in HDF5, NetCDF, CSV or other formats, plus metadata and
-                links to live data.
+              <InfoTip label={t`About datasets`}>
+                {t`Discover scientific observations, measurements, simulations and analysis results. A dataset can provide files in HDF5, NetCDF, CSV or other formats, plus metadata and links to live data.`}
               </InfoTip>
             ) : (
-              <InfoTip label="About endpoints and streams">
-                Connect to a research institution’s data services. Browse its catalog, query
-                services and work with available streams through a direct connection or SSH.
+              <InfoTip label={t`About endpoints and streams`}>
+                {t`Connect to a research institution’s data services. Browse its catalog, query services and work with available streams through a direct connection or SSH.`}
               </InfoTip>
             )}
           </span>
         }
       >
         <SegmentedControl
-          label="NDP view"
+          label={t`NDP view`}
           className="self-start"
           value={view}
           onValueChange={(next) => {
@@ -65,8 +64,8 @@ export function NDPSourcePicker(props: {
             setView(next);
           }}
           options={[
-            { value: 'datasets', label: 'Datasets' },
-            { value: 'endpoints', label: 'Endpoints & streams' },
+            { value: 'datasets', label: t`Datasets` },
+            { value: 'endpoints', label: t`Endpoints & streams` },
           ]}
         />
       </SourceField>
@@ -90,7 +89,7 @@ export function NDPSourcePicker(props: {
 /** Endpoints act in place, so the frame keeps only Back. */
 function NdpEndpointsFooter({ onBack }: { onBack?: () => void }) {
   return useSourceFrameFooter({
-    start: onBack ? { label: 'Back', back: true, onClick: onBack } : undefined,
+    start: onBack ? { label: t`Back`, back: true, onClick: onBack } : undefined,
   });
 }
 
@@ -123,6 +122,7 @@ function NDPCatalogPicker({
   const datasets = showSelected ? choices.map((choice) => choice.dataset) : catalog.datasets;
   const pageSize = limit.query === catalog.query ? limit.count : 30;
   const visibleDatasets = datasets.slice(0, pageSize);
+  const catalogTotal = catalog.data?.total !== undefined ? formatNumber(catalog.data.total) : '';
   const connect = useMutation({
     mutationFn: async () => {
       const sources: ConnectedSourceState[] = [];
@@ -173,7 +173,7 @@ function NDPCatalogPicker({
     />
   );
   return (
-    <section aria-label="National Data Platform" className="space-y-4">
+    <section aria-label={t`National Data Platform`} className="space-y-4">
       <form
         className="flex items-center gap-2"
         onSubmit={(event) => {
@@ -188,8 +188,8 @@ function NDPCatalogPicker({
           />
           <Input
             ref={searchInput}
-            aria-label="Search NDP datasets"
-            placeholder="Search names, descriptions or files…"
+            aria-label={t`Search NDP datasets`}
+            placeholder={t`Search names, descriptions or files…`}
             className={cn(sourceInputClass, 'pl-9 pr-9')}
             value={catalog.query}
             onChange={(event) => {
@@ -202,7 +202,7 @@ function NDPCatalogPicker({
               type="button"
               variant="ghost"
               size="icon"
-              aria-label="Clear search"
+              aria-label={t`Clear search`}
               className="absolute right-0 top-0 size-[30px]"
               onClick={() => {
                 catalog.setQuery('');
@@ -217,11 +217,11 @@ function NDPCatalogPicker({
           type="button"
           variant="outline"
           size="icon"
-          label="Refresh catalog"
+          label={t`Refresh catalog`}
           refreshing={catalog.results.isFetching}
           onRefresh={catalog.submit}
         >
-          <span className="sr-only">Refresh catalog</span>
+          <span className="sr-only">{t`Refresh catalog`}</span>
         </RefreshButton>
       </form>
       <div className="flex flex-wrap items-center gap-2">
@@ -235,7 +235,7 @@ function NDPCatalogPicker({
           }}
         />
         <select
-          aria-label="Catalog access filter"
+          aria-label={t`Catalog access filter`}
           className={cn(sourceInputClass, 'w-auto max-w-full border bg-background')}
           value={catalog.onlyGroups ? 'groups' : 'all'}
           onChange={(event) => {
@@ -243,17 +243,24 @@ function NDPCatalogPicker({
             setShowSelected(false);
           }}
         >
-          <option value="all">All catalog data</option>
+          <option value="all">{t`All catalog data`}</option>
           <option value="groups" disabled={!signedIn}>
-            Only my groups
+            {t`Only my groups`}
           </option>
         </select>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <span role="status" aria-live="polite">
             {catalog.searching && !catalog.data
-              ? 'Searching…'
-              : `${visibleDatasets.length}${!showSelected && catalog.data?.total !== undefined && catalog.data.total > visibleDatasets.length ? ` of ${catalog.data.total.toLocaleString()}` : ''} dataset${visibleDatasets.length === 1 ? '' : 's'}`}
-            {catalog.searching && catalog.data ? ' Refreshing…' : ''}
+              ? t`Searching…`
+              : !showSelected &&
+                  catalog.data?.total !== undefined &&
+                  catalog.data.total > visibleDatasets.length
+                ? plural(visibleDatasets.length, {
+                    one: `# of ${catalogTotal} dataset`,
+                    other: `# of ${catalogTotal} datasets`,
+                  })
+                : plural(visibleDatasets.length, { one: '# dataset', other: '# datasets' })}
+            {catalog.searching && catalog.data ? ` ${t`Refreshing…`}` : ''}
           </span>
           {count > 0 ? (
             <Button
@@ -263,13 +270,13 @@ function NDPCatalogPicker({
               aria-pressed={showSelected}
               onClick={() => setShowSelected((value) => !value)}
             >
-              Selected ({count})
+              {t`Selected (${count})`}
             </Button>
           ) : null}
         </div>
       </div>
       {catalog.results.isPending && !catalog.data && !showSelected ? (
-        <div aria-label="Loading datasets" role="status" className="space-y-5 py-2">
+        <div aria-label={t`Loading datasets`} role="status" className="space-y-5 py-2">
           {[0, 1, 2].map((index) => (
             <div key={index} className="space-y-2">
               <Skeleton className="h-4 w-3/4" />
@@ -284,7 +291,7 @@ function NDPCatalogPicker({
         </p>
       ) : null}
       {catalog.results.error && catalog.data ? (
-        <p className="text-xs text-muted-foreground">Showing saved results.</p>
+        <p className="text-xs text-muted-foreground">{t`Showing saved results.`}</p>
       ) : null}
       {catalog.data?.warnings.map((warning) => (
         <p role="status" key={warning} className="text-sm text-muted-foreground">
@@ -295,7 +302,7 @@ function NDPCatalogPicker({
         role="region"
         tabIndex={0}
         className="max-h-[32dvh] divide-y divide-border/60 overflow-y-auto overscroll-contain pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label="NDP datasets"
+        aria-label={t`NDP datasets`}
       >
         {visibleDatasets.map((dataset) => (
           <NDPDatasetRow
@@ -311,10 +318,10 @@ function NDPCatalogPicker({
       {!datasets.length && !catalog.searching && !catalog.results.error ? (
         <p className="py-4 text-sm text-muted-foreground">
           {showSelected
-            ? 'No resources selected.'
+            ? t`No resources selected.`
             : catalog.query
-              ? 'No matching datasets. Try another name or file format.'
-              : 'No datasets found.'}
+              ? t`No matching datasets. Try another name or file format.`
+              : t`No datasets found.`}
         </p>
       ) : null}
       {!showSelected && (datasets.length > pageSize || catalog.results.hasNextPage) ? (
@@ -329,7 +336,7 @@ function NDPCatalogPicker({
             }
           }}
         >
-          {catalog.results.isFetchingNextPage ? 'Loading datasets…' : 'Show more datasets'}
+          {catalog.results.isFetchingNextPage ? t`Loading datasets…` : t`Show more datasets`}
         </Button>
       ) : null}
       {count > 0 ? (
@@ -347,11 +354,11 @@ function NDPCatalogPicker({
                 setShowSelected(false);
               }}
             >
-              Clear selection
+              {t`Clear selection`}
             </Button>
           }
         >
-          {count} resource{count === 1 ? '' : 's'} selected
+          {plural(count, { one: '# resource selected', other: '# resources selected' })}
         </SourceStatusLine>
       ) : null}
       {connect.error ? (
@@ -376,8 +383,8 @@ function CatalogFooter({
   onBack?: () => void;
 }) {
   return useSourceFrameFooter({
-    confirm: { label: pending ? 'Connecting…' : 'Connect', disabled: !count || pending },
+    confirm: { label: pending ? t`Connecting…` : t`Connect`, disabled: !count || pending },
     onConfirm: onConnect,
-    start: onBack ? { label: 'Back', back: true, onClick: onBack, disabled: pending } : undefined,
+    start: onBack ? { label: t`Back`, back: true, onClick: onBack, disabled: pending } : undefined,
   });
 }

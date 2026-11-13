@@ -1,14 +1,15 @@
 import type { AgentResolution } from '@clio/core/v3';
 import type { PluginContributions } from '@/lib/plugin-presentation';
+import { plural, t } from '@lingui/core/macro';
 
 /** The things an agent can use, each opening its own view in the Agent tab. */
 export type AgentUseKind = 'tools' | 'subagents' | 'skills' | 'instructions';
 
 export const AGENT_USE_LABELS: Record<AgentUseKind, string> = {
-  tools: 'Tools',
-  subagents: 'Subagents',
-  skills: 'Skills',
-  instructions: 'Instructions',
+  tools: t`Tools`,
+  subagents: t`Subagents`,
+  skills: t`Skills`,
+  instructions: t`Instructions`,
 };
 
 /** One "What it can use" value and whether it differs from the setup's. */
@@ -60,7 +61,7 @@ function fragmentIds(resolution: AgentResolution): string[] {
 }
 
 function listed(values: readonly string[]): string {
-  return values.length ? values.join(', ') : 'None';
+  return values.length ? values.join(', ') : t`None`;
 }
 
 /**
@@ -76,18 +77,24 @@ export function agentUseValues(
   const setupTools = setup?.tools.map((tool) => tool.name);
   const toolsChanged = Boolean(setupTools && !sameSet(tools, setupTools));
   const subset = setupTools && tools.every((tool) => setupTools.includes(tool));
+  const toolCount = tools.length;
+  const setupToolCount = setupTools?.length ?? 0;
   const toolsText = !toolsChanged
-    ? `All ${tools.length}`
+    ? t`All ${toolCount}`
     : subset
-      ? `${tools.length} of ${setupTools!.length}`
-      : `${tools.length}, the setup has ${setupTools!.length}`;
+      ? t`${toolCount} of ${setupToolCount}`
+      : t`${toolCount}, the setup has ${setupToolCount}`;
   const subagents = names(resolution.subagents);
   const skills = names(resolution.skills);
   const sources = instructionSources(resolution);
   const parts = fragmentIds(resolution);
+  const firstSource = sources[0] ?? '';
+  const moreSources = sources.length - 1;
   const instructionsText = sources.length
-    ? `From ${sources[0]}${sources.length > 1 ? ` and ${sources.length - 1} more` : ''}`
-    : `${parts.length} prompt ${parts.length === 1 ? 'part' : 'parts'}`;
+    ? moreSources > 0
+      ? t`From ${firstSource} and ${moreSources} more`
+      : t`From ${firstSource}`
+    : plural(parts.length, { one: '# prompt part', other: '# prompt parts' });
   return {
     tools: { text: toolsText, changed: toolsChanged },
     subagents: {
@@ -106,4 +113,4 @@ export function agentUseValues(
 }
 
 /** Words for a value that differs from the setup, read after the value. */
-export const CHANGED_FOR_CONVERSATION = 'changed for this conversation';
+export const CHANGED_FOR_CONVERSATION = t`changed for this conversation`;

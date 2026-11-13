@@ -1,17 +1,28 @@
 import type { WorkbenchTab } from './workbench-shared';
 import type { WorkbenchListView, WorkbenchTabListView } from './workbench-strip';
 import { workbenchTabIcons } from './workbench-tab-icons';
+import { t } from '@lingui/core/macro';
 
-export const workTab: WorkbenchTab = { id: 'work', kind: 'work', label: 'Work' };
-export const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
+export const workTab: WorkbenchTab = { id: 'work', kind: 'work', label: t`Work` };
+export const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: t`Agent` };
+
+/** Tabs whose name is fixed by their kind, in the interface language. */
+const FIXED_TAB_LABELS: Partial<Record<WorkbenchTab['kind'], string>> = {
+  work: workTab.label,
+  agent: agentTab.label,
+  files: t`Files`,
+  artifacts: t`Artifacts`,
+  resources: t`Resources`,
+  'science-log': t`Science log`,
+};
 
 export const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
-  files: 'Files',
-  sources: 'Sources',
-  artifacts: 'Artifacts',
-  activity: 'Activity',
-  terminal: 'Terminal',
-  browser: 'Browser pages',
+  files: t`Files`,
+  sources: t`Sources`,
+  artifacts: t`Artifacts`,
+  activity: t`Activity`,
+  terminal: t`Terminal`,
+  browser: t`Browser pages`,
 };
 
 /** The tab a strip list opens as; one per list, so the strip focuses it rather than adding more. */
@@ -23,7 +34,7 @@ export function listTab(view: WorkbenchTabListView): WorkbenchTab {
 export const newBrowserPageTab: WorkbenchTab = {
   id: 'list:browser:new',
   kind: 'list',
-  label: 'New page',
+  label: t`New page`,
   view: 'browser',
   newPage: true,
 };
@@ -70,6 +81,17 @@ function isLegacyListTab(tab: WorkbenchTab): boolean {
   );
 }
 
+/**
+ * A strip list's or fixed tab's name comes from this build, not the saved state:
+ * its saved label is in the language the tab was saved in.
+ */
+function relabeledTab(tab: WorkbenchTab): WorkbenchTab {
+  const fixed = FIXED_TAB_LABELS[tab.kind];
+  if (fixed) return { ...tab, label: fixed } as WorkbenchTab;
+  if (tab.kind !== 'list') return tab;
+  return { ...tab, label: tab.newPage ? newBrowserPageTab.label : WORKBENCH_LIST_TITLES[tab.view] };
+}
+
 /** The timeline and context tab older builds saved is now the Activity tab's Timeline and Context. */
 function migratedTab(value: unknown): unknown {
   if (!value || typeof value !== 'object') return value;
@@ -102,7 +124,7 @@ export function restoredWorkbenchState(workspaceId: string): RestoredWorkbench {
           candidate.kind === 'knowledge'
             ? // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
               { ...candidate, label: candidate.label.replace(/ \u00b7 Knowledge$/u, '') }
-            : candidate,
+            : relabeledTab(candidate),
         );
       }
     let requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';

@@ -7,6 +7,7 @@ import type { EarlierMessagesControl } from './conversation-types';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { TechnicalDetails } from './technical-details';
+import { t } from '@lingui/core/macro';
 
 /**
  * One quiet 28px line above the oldest loaded message: older messages exist
@@ -25,14 +26,14 @@ export const EarlierMessagesRow = memo(function EarlierMessagesRow({
       data-slot="earlier-messages"
     >
       {earlier.loading ? (
-        <StateView kind="loading" size="row" title="Loading earlier messages…" />
+        <StateView kind="loading" size="row" title={t`Loading earlier messages…`} />
       ) : earlier.error ? (
         <StateView
-          action={{ label: 'Retry', onClick: earlier.load }}
+          action={{ label: t`Retry`, onClick: earlier.load }}
           className="w-fit max-w-full"
           kind="error"
           size="row"
-          title="Earlier messages didn’t load"
+          title={t`Earlier messages didn’t load`}
         />
       ) : (
         <Button
@@ -42,7 +43,7 @@ export const EarlierMessagesRow = memo(function EarlierMessagesRow({
           variant="ghost"
         >
           <ArrowUpIcon aria-hidden="true" className="size-3.5" />
-          Load earlier messages
+          {t`Load earlier messages`}
         </Button>
       )}
     </div>
@@ -54,7 +55,7 @@ export const EarlierMessagesRow = memo(function EarlierMessagesRow({
  * messages (or their load error) will appear.
  */
 export function TranscriptLoading() {
-  return <StateView className="h-full" kind="loading" size="panel" title="Loading messages…" />;
+  return <StateView className="h-full" kind="loading" size="panel" title={t`Loading messages…`} />;
 }
 
 /**
@@ -65,17 +66,17 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1 px-4">
       <StateView
-        action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        action={onRetry ? { label: t`Retry`, onClick: onRetry } : undefined}
         className="min-h-0"
         kind="error"
         size="panel"
-        title="This conversation could not be loaded"
+        title={t`This conversation could not be loaded`}
       />
       <TechnicalDetails
         className="flex max-w-md flex-col items-center"
         contentClassName="pt-1.5 font-mono text-label break-words whitespace-pre-wrap text-muted-foreground"
         summaryClassName="text-meta"
-        title="Technical details"
+        title={t`Technical details`}
       >
         {error}
       </TechnicalDetails>
@@ -85,7 +86,7 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
 
 /** A background refresh, at row height in the control lane so it never covers a message. */
 export function TranscriptSyncing() {
-  return <StateView className="w-fit" kind="loading" size="row" title="Syncing history…" />;
+  return <StateView className="w-fit" kind="loading" size="row" title={t`Syncing history…`} />;
 }
 
 /** Height of the lane above the composer that holds the transcript's floating controls. */
@@ -143,14 +144,17 @@ function JumpToLatestButton({ onJump }: { onJump: () => void }) {
         ? null
         : { id: event.pointerId, x: event.clientX, y: event.clientY };
   }, []);
-  const onPointerUp = useCallback((event: PointerEvent<HTMLButtonElement>) => {
-    const tap = tapRef.current;
-    tapRef.current = null;
-    if (!tap || tap.id !== event.pointerId) return;
-    if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > TAP_SLOP_PX) return;
-    tappedAtRef.current = performance.now();
-    window.setTimeout(onJump, 0);
-  }, [onJump]);
+  const onPointerUp = useCallback(
+    (event: PointerEvent<HTMLButtonElement>) => {
+      const tap = tapRef.current;
+      tapRef.current = null;
+      if (!tap || tap.id !== event.pointerId) return;
+      if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > TAP_SLOP_PX) return;
+      tappedAtRef.current = performance.now();
+      window.setTimeout(onJump, 0);
+    },
+    [onJump],
+  );
   const onPointerCancel = useCallback(() => {
     tapRef.current = null;
   }, []);
@@ -167,7 +171,7 @@ function JumpToLatestButton({ onJump }: { onJump: () => void }) {
       <IconButton
         className="rounded-full border border-border bg-background shadow-sm"
         icon={<ArrowDownIcon aria-hidden="true" />}
-        label="Jump to latest"
+        label={t`Jump to latest`}
         onClick={onClick}
         onPointerCancel={onPointerCancel}
         onPointerDown={onPointerDown}

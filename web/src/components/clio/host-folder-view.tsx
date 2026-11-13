@@ -20,6 +20,8 @@ import { ResourceLoading } from './resource-states';
 import { TechnicalDetails } from './technical-details';
 import { WorkbenchFileTree } from './workbench-file-tree';
 import { buildFileTree, type WorkspaceFileNode } from './workbench-file-tree-model';
+import { t, ph, plural } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** Rows drawn at most; the record itself already lists only part of a very large folder. */
 const MAX_ROWS = 1000;
@@ -36,8 +38,8 @@ interface FolderListing {
 }
 
 const ACCESS_LABELS: Record<string, string> = {
-  read_write: 'Read and write',
-  read_only: 'Read only',
+  read_write: t`Read and write`,
+  read_only: t`Read only`,
 };
 
 /**
@@ -78,11 +80,12 @@ export function HostFolderView({
   const rows = useMemo(() => listing?.entries.slice(0, MAX_ROWS) ?? [], [listing]);
   const hidden = listing ? listing.entries.length - rows.length : 0;
   const tree = useMemo(() => folderTree(rows), [rows]);
+  const { agent } = vocab;
 
   return (
     <ScrollArea className="h-full">
       <section
-        aria-label={`Folder ${name}`}
+        aria-label={t`Folder ${name}`}
         className={cn(
           '@container mx-auto w-full max-w-3xl p-5',
           // A phone keeps the width for names; the carousel arrows float over the list there.
@@ -104,7 +107,7 @@ export function HostFolderView({
           {original ? (
             <>
               <dt className="mt-1.5 text-muted-foreground first:mt-0 @sm:mt-0">
-                {inPlace ? 'Folder' : 'Copied from'}
+                {inPlace ? t`Folder` : t`Copied from`}
               </dt>
               <dd>
                 <PathText path={original} />
@@ -113,49 +116,58 @@ export function HostFolderView({
           ) : null}
           {size ? (
             <>
-              <dt className="mt-1.5 text-muted-foreground first:mt-0 @sm:mt-0">Size</dt>
+              <dt className="mt-1.5 text-muted-foreground first:mt-0 @sm:mt-0">{t`Size`}</dt>
               <dd>{size}</dd>
             </>
           ) : null}
           {access ? (
             <>
-              <dt className="mt-1.5 text-muted-foreground first:mt-0 @sm:mt-0">Access</dt>
+              <dt className="mt-1.5 text-muted-foreground first:mt-0 @sm:mt-0">{t`Access`}</dt>
               <dd>{access}</dd>
             </>
           ) : null}
         </dl>
         {!inPlace && folder.path ? (
-          <TechnicalDetails className="mt-3 text-xs" title="Technical details">
+          <TechnicalDetails className="mt-3 text-xs" title={t`Technical details`}>
             <p className="mt-1 font-mono text-caption text-muted-foreground">
-              Copy kept at <PathText path={folder.path} />
+              <Trans>
+                Copy kept at <PathText path={folder.path} />
+              </Trans>
             </p>
           </TechnicalDetails>
         ) : null}
-        <h3 className="mt-6 border-b pb-2 text-sm font-medium">Contents</h3>
+        <h3 className="mt-6 border-b pb-2 text-sm font-medium">{t`Contents`}</h3>
         {record.isPending && resource.state === 'ready' ? (
-          <ResourceLoading className="mt-3" label="Loading the folder's contents" variant="line" />
+          <ResourceLoading
+            className="mt-3"
+            label={t`Loading the folder's contents`}
+            variant="line"
+          />
         ) : null}
         {record.error ? (
           <p role="alert" className="mt-3 text-sm text-destructive">
-            Could not list this folder. {record.error.message}
+            {t`Could not list this folder. ${ph({ message: record.error.message })}`}
           </p>
         ) : null}
         {listing && !rows.length ? (
-          <p className="mt-3 text-sm text-muted-foreground">This folder is empty.</p>
+          <p className="mt-3 text-sm text-muted-foreground">{t`This folder is empty.`}</p>
         ) : null}
         {rows.length ? (
           <div className="mt-1">
             <WorkbenchFileTree
               countFolders
               defaultExpanded={tree.folders}
-              label={`Contents of ${name}`}
+              label={t`Contents of ${name}`}
               nodes={tree.nodes}
             />
           </div>
         ) : null}
         {listing && (listing.truncated || hidden > 0) ? (
           <p className="mt-3 text-xs text-muted-foreground">
-            Showing the first {rows.length} items. {vocab.agent} can read the whole folder.
+            {plural(rows.length, {
+              one: `Showing the first # item. ${agent} can read the whole folder.`,
+              other: `Showing the first # items. ${agent} can read the whole folder.`,
+            })}
           </p>
         ) : null}
       </section>

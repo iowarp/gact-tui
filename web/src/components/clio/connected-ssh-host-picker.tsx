@@ -7,6 +7,7 @@ import { sshRouteHost, type SshHost } from '@/lib/ssh-hosts';
 import { SshHostPicker } from './ssh-host-picker';
 import type { SshRouteCompleteness } from './ssh-route-utils';
 import { registerSshTarget } from './ssh-target-connection';
+import { t, ph } from '@lingui/core/macro';
 
 /** Shared SSH editor backed by the connected CLIO's profiles and durable host inventory. */
 export function ConnectedSshHostPicker({
@@ -45,7 +46,7 @@ export function ConnectedSshHostPicker({
         disabled={disabled}
         onChange={onChange}
         hostSource={{
-          label: `the connected ${vocab.agent}`,
+          label: t`the connected ${ph({ agent: vocab.agent })}`,
           hosts,
           save: async (host) => {
             const target = await registerSshTarget(repository, host);
@@ -55,7 +56,7 @@ export function ConnectedSshHostPicker({
         }}
       />
       <p className="text-xs text-muted-foreground">
-        SSH starts on the connected {vocab.agent}. Add hops to reach the computer hosting the API.
+        {t`SSH starts on the connected ${ph({ agent: vocab.agent })}. Add hops to reach the computer hosting the API.`}
       </p>
       {targets.error || profiles.error ? (
         <p role="alert" className="text-sm text-destructive">

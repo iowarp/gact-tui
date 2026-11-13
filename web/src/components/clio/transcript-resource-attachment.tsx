@@ -30,6 +30,8 @@ import {
   ResourcePipelineStatusLines,
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -62,9 +64,10 @@ export function TranscriptResourceAttachments({
 
   return (
     <div
-      aria-label={
-        blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
-      }
+      aria-label={plural(blocks.length, {
+        one: 'Message attachment',
+        other: '# message attachments',
+      })}
       className="mb-1.5 flex w-full min-w-0 flex-wrap items-end justify-start gap-1.5 group-[.is-user]:justify-end"
       data-slot="message-attachments"
       role="group"
@@ -189,7 +192,7 @@ function TranscriptResourceAttachmentDisplay({
       );
       downloadBytes(bytes, mediaType || 'application/octet-stream', filename);
     } catch (error) {
-      toast.error('Could not download attachment', {
+      toast.error(t`Could not download attachment`, {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -206,7 +209,7 @@ function TranscriptResourceAttachmentDisplay({
             data-file-row
           >
             <button
-              aria-label={`Open ${filename}`}
+              aria-label={t`Open ${filename}`}
               className="grid size-full place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               disabled={!resource || !onOpen}
               onClick={open}
@@ -237,7 +240,7 @@ function TranscriptResourceAttachmentDisplay({
             data-file-row
           >
             <button
-              aria-label={`Open ${filename}`}
+              aria-label={t`Open ${filename}`}
               className="flex min-w-0 items-center gap-1.5 rounded-[5px] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
               disabled={!resource || !onOpen}
               onClick={open}
@@ -245,7 +248,7 @@ function TranscriptResourceAttachmentDisplay({
             >
               {folder ? (
                 <AttachedFolderIcon
-                  aria-label="Folder"
+                  aria-label={t`Folder`}
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />
               ) : (
@@ -269,11 +272,11 @@ function TranscriptResourceAttachmentDisplay({
             ) : null}
             {resource?.state === 'ready' && !folder ? (
               <button
-                aria-label={`Download ${filename}`}
+                aria-label={t`Download ${filename}`}
                 className="grid size-[22px] shrink-0 place-items-center rounded-[5px] text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-50"
                 disabled={downloading}
                 onClick={() => void download()}
-                title={`Download ${filename}`}
+                title={t`Download ${filename}`}
                 type="button"
               >
                 <DownloadIcon aria-hidden="true" className="size-3.5" />
@@ -288,7 +291,7 @@ function TranscriptResourceAttachmentDisplay({
         <p className="text-sm font-medium [overflow-wrap:anywhere]">{filename}</p>
         {folder?.kind === 'host_folder' ? null : folder ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
+            {folder.linked === 'true' ? t`Linked folder` : t`Downloaded folder`}
           </p>
         ) : mediaType ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
@@ -322,14 +325,21 @@ function HostFolderSummary({ folder }: { folder: HostFolder }) {
       {size ? <p className="mt-1.5 text-xs text-muted-foreground">{size}</p> : null}
       {original ? (
         <p className="mt-0.5 max-w-64 text-xs break-words text-muted-foreground">
-          {inPlace ? null : 'Copied from '}
-          <PathText path={original} />
+          {inPlace ? (
+            <PathText path={original} />
+          ) : (
+            <Trans>
+              Copied from <PathText path={original} />
+            </Trans>
+          )}
         </p>
       ) : null}
       {!inPlace && folder.path ? (
-        <TechnicalDetails className="mt-1.5 text-xs" title="Technical details">
+        <TechnicalDetails className="mt-1.5 text-xs" title={t`Technical details`}>
           <p className="mt-1 max-w-64 font-mono text-caption break-words text-muted-foreground">
-            Copy kept at <PathText path={folder.path} />
+            <Trans>
+              Copy kept at <PathText path={folder.path} />
+            </Trans>
           </p>
         </TechnicalDetails>
       ) : null}

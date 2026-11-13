@@ -12,7 +12,7 @@ import {
   NoMatchingConversations,
   type ConversationFilter,
 } from './conversation-list-groups';
-import { groupConversationsByDay } from './conversation-day-groups';
+import { DAY_LABEL_TEXT, groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { useConversationList } from './use-conversation-list';
 import {
@@ -22,6 +22,7 @@ import {
   RailState,
   ShowMoreRow,
 } from './workspace-navigation-rail-rows';
+import { ph, t } from '@lingui/core/macro';
 
 interface LooseConversationsProps {
   /** Undefined while the workspace list is loading or failed: the conversations still list. */
@@ -100,7 +101,7 @@ export function LooseConversations({
                 onRename={onRename}
                 open={menuOpen}
                 triggerIcon={<SettingsIcon />}
-                triggerLabel="Conversation settings"
+                triggerLabel={t`Conversation settings`}
                 workspace={workspace}
               />
             ) : null}
@@ -116,18 +117,18 @@ export function LooseConversations({
             : undefined
         }
       >
-        Conversations
+        {t`Conversations`}
       </ListGroupLabel>
       <SidebarGroupContent className="grid min-w-0 gap-px">
         {draft && !draftOpensToday ? (
           <>
-            <ConversationDayLabel>Today</ConversationDayLabel>
+            <ConversationDayLabel>{t`Today`}</ConversationDayLabel>
             <DraftConversationRow topLevel />
           </>
         ) : null}
         {groups.map((group, index) => (
           <Fragment key={group.label}>
-            <ConversationDayLabel>{group.label}</ConversationDayLabel>
+            <ConversationDayLabel>{DAY_LABEL_TEXT[group.label]}</ConversationDayLabel>
             {index === 0 && draftOpensToday ? <DraftConversationRow topLevel /> : null}
             {group.rows.map(({ session, depth }) => renderSession(session, true, depth))}
           </Fragment>
@@ -135,7 +136,7 @@ export function LooseConversations({
         {filtering && shown.length === 0 ? (
           <NoMatchingConversations onShowAll={() => setFilter('all')} />
         ) : null}
-        {empty ? <RailState kind="empty" title="No conversations yet" /> : null}
+        {empty ? <RailState kind="empty" title={t`No conversations yet`} /> : null}
         <RailListState rail={rail} />
         {expanded && !filtering && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
           <RailLoadMore rail={rail} />
@@ -146,8 +147,10 @@ export function LooseConversations({
             railKey="more:conversations"
             label={
               expanded
-                ? 'Show recent conversations'
-                : `Show ${total - visible.length > 0 ? `${total - visible.length} more` : `all ${total}`}`
+                ? t`Show recent conversations`
+                : total > visible.length
+                  ? t`Show ${ph({ remaining: total - visible.length })} more`
+                  : t`Show all ${total}`
             }
             onToggle={() => onExpandedChange(!expanded)}
           />

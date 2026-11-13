@@ -59,6 +59,7 @@ import { useProviderInstallStages } from './provider-install-jobs';
 import { useModelPickerSearchView } from './use-model-picker-search-view';
 import { handleGroupLevelKey } from './model-picker-group-keys';
 import { useModelPickerNodes } from './model-picker-nodes';
+import { t, ph, plural } from '@lingui/core/macro';
 
 interface ModelPickerCatalogProps {
   loading?: boolean;
@@ -160,10 +161,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     <div
       role="status"
       aria-busy="true"
-      aria-label="Loading available models"
+      aria-label={t`Loading available models`}
       className="space-y-3 p-3"
     >
-      <p className="text-sm text-muted-foreground">Loading {activeGroup?.name} models…</p>
+      <p className="text-sm text-muted-foreground">{t`Loading ${ph({ name: activeGroup?.name ?? '' })} models…`}</p>
       {Array.from({ length: 6 }, (_, index) => (
         <Skeleton key={index} className="h-9 w-full" />
       ))}
@@ -309,7 +310,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
 
   const visibilityButton = (
     <Button
-      aria-label={managingVisibility || hiddenProviders.size ? undefined : 'Hide providers'}
+      aria-label={managingVisibility || hiddenProviders.size ? undefined : t`Hide providers`}
       aria-pressed={managingVisibility}
       className="shrink-0 text-label font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
       data-slot="provider-visibility-mode"
@@ -323,7 +324,11 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       ) : (
         <EyeIcon data-icon={hiddenProviders.size ? 'inline-start' : undefined} />
       )}
-      {managingVisibility ? 'Done' : hiddenProviders.size ? `Hidden ${hiddenProviders.size}` : null}
+      {managingVisibility
+        ? t`Done`
+        : hiddenProviders.size
+          ? t`Hidden ${ph({ count: hiddenProviders.size })}`
+          : null}
     </Button>
   );
 
@@ -337,10 +342,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       inputValue={query}
       items={columnNodes}
       labels={{
-        actionsLabel: 'Provider actions',
-        columnsLabel: 'Providers and models',
-        empty: 'No available models',
-        rootLevel: 'Providers',
+        actionsLabel: t`Provider actions`,
+        columnsLabel: t`Providers and models`,
+        empty: t`No available models`,
+        rootLevel: t`Providers`,
       }}
       maxHeight="100%"
       mode={showColumns ? 'columns' : 'drill'}
@@ -573,7 +578,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               ) : (
                 // Nothing hidden: the eye alone, named on hover, still opens the manage mode.
                 <TooltipProvider disableHoverableContent>
-                  <NamedTooltip label="Hide providers" side="top">
+                  <NamedTooltip label={t`Hide providers`} side="top">
                     {visibilityButton}
                   </NamedTooltip>
                 </TooltipProvider>
@@ -593,12 +598,14 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 ) : null}
                 {loading || prepared.size < visibleProviders.length ? (
                   <LoadingFeedback
-                    label={loading ? 'Refreshing models…' : 'Loading remaining models…'}
+                    label={loading ? t`Refreshing models…` : t`Loading remaining models…`}
                   />
                 ) : grouped && search.emptyProviders ? (
                   <span className="min-w-0 truncate" data-slot="providers-without-matches">
-                    {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
-                    with no matches
+                    {plural(search.emptyProviders, {
+                      one: '# provider with no matches',
+                      other: '# providers with no matches',
+                    })}
                   </span>
                 ) : null}
               </>
@@ -621,23 +628,24 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
 function footerHints(columns: boolean, searching = false): PickerHint[] {
   if (!columns) {
     return [
-      { label: 'Move', shortcut: 'menu-move' },
-      { label: 'Choose', shortcut: 'menu-pick' },
-      { label: 'Close', shortcut: 'menu-close' },
+      { label: t`Move`, shortcut: 'menu-move' },
+      { label: t`Choose`, shortcut: 'menu-pick' },
+      { label: t`Close`, shortcut: 'menu-close' },
     ];
   }
   return [
-    { label: 'Move', shortcut: 'menu-move', optional: true },
-    { label: 'Choose', shortcut: 'menu-pick' },
-    { label: 'Columns', shortcut: 'menu-columns', wide: true },
+    { label: t`Move`, shortcut: 'menu-move', optional: true },
+    { label: t`Choose`, shortcut: 'menu-pick' },
+    { label: t`Columns`, shortcut: 'menu-columns', wide: true },
     searching
-      ? { label: 'Filters', shortcut: 'menu-filters' }
-      : { label: 'Close', shortcut: 'menu-close' },
+      ? { label: t`Filters`, shortcut: 'menu-filters' }
+      : { label: t`Close`, shortcut: 'menu-close' },
   ];
 }
 
 /** A provider's header over its matches in "All providers": `name  3 / 312`. */
 function SearchResultsHeader({ data, icon }: { data: SearchHeaderNodeData; icon?: ReactNode }) {
+  const { matches, total } = data;
   return (
     <span
       className="flex h-7 w-full min-w-0 items-center gap-2 px-2 pt-1 text-label text-muted-foreground [&_svg]:size-3.5"
@@ -646,7 +654,10 @@ function SearchResultsHeader({ data, icon }: { data: SearchHeaderNodeData; icon?
       {icon ? <span className="grid size-4 shrink-0 place-items-center">{icon}</span> : null}
       <span className="min-w-0 flex-1 truncate">{data.group.name}</span>
       <span
-        aria-label={`${data.matches} of ${data.total} models match`}
+        aria-label={plural(total, {
+          one: `${matches} of # model matches`,
+          other: `${matches} of # models match`,
+        })}
         className="shrink-0 font-mono text-[0.65625rem] text-faint tabular-nums"
       >
         {data.matches} / {data.total}

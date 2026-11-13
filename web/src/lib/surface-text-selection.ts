@@ -1,4 +1,5 @@
 import type { DataZoneReference } from '@/components/clio/data-zone-reference';
+import { t } from '@lingui/core/macro';
 
 /** Read only a selection wholly inside this rendered surface, including SVG text. */
 export function surfaceTextSelection(
@@ -19,7 +20,8 @@ export function referenceSelectedText(
   if (!text) return reference;
   return {
     ...reference,
-    summary: `Selected text: ${text}`,
+    summary: t`Selected text: ${text}`,
+    // i18n-ignore: quoted into the message for the agent, kept in English
     markdown: `${reference.markdown}\n\nSelected text (from this view):\n${text
       .split('\n')
       .map((line) => `> ${line}`)

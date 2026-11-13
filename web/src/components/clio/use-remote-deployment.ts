@@ -36,6 +36,7 @@ import {
 } from './managed-service-target-utils';
 
 import { connectSshTarget, registerSshTarget } from './ssh-target-connection';
+import { ph, t } from '@lingui/core/macro';
 
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
 
@@ -247,7 +248,8 @@ export function useRemoteDeployment(
         dispatch({ type: 'fail', reason: oneLineReason(message), at: Date.now() });
         const log = session.current
           ? await sshTransportLog(session.current).catch(
-              (reason: unknown) => `The transport log is unavailable: ${String(reason)}`,
+              (reason: unknown) =>
+                t`The transport log is unavailable: ${ph({ reason: String(reason) })}`,
             )
           : '';
         // The full message can carry more than its last line; keep both.
@@ -265,6 +267,7 @@ export function useRemoteDeployment(
    * as Cleaning up), and only then kill the OpenSSH process tree.
    */
   const cancel = useCallback(async () => {
+    // i18n-ignore: developer-only abort reason, never shown
     abort.current?.abort(new DOMException('Deployment cancelled', 'AbortError'));
     dispatch({ type: 'cancel', at: Date.now() });
     setPhase('cancelling');
@@ -273,19 +276,23 @@ export function useRemoteDeployment(
     if (sessionId && operation.current) {
       // Ctrl-C to the remote shell's foreground command; the shell itself stays.
       await writeSshTransport(sessionId, '\u0003').catch((error: unknown) =>
-        problems.push(`The remote command could not be interrupted: ${String(error)}`),
+        problems.push(
+          t`The remote command could not be interrupted: ${ph({ error: String(error) })}`,
+        ),
       );
     }
     if (operation.current) {
       await activeRepository.current
         ?.cancelInfrastructureOperation(operation.current)
         .catch((error: unknown) =>
-          problems.push(`The remote operation could not be cancelled: ${String(error)}`),
+          problems.push(
+            t`The remote operation could not be cancelled: ${ph({ error: String(error) })}`,
+          ),
         );
     }
     if (sessionId) {
       await cancelSshTransport(sessionId).catch((error: unknown) =>
-        problems.push(`OpenSSH could not be stopped: ${String(error)}`),
+        problems.push(t`OpenSSH could not be stopped: ${ph({ error: String(error) })}`),
       );
     }
     setPhase('cancelled');

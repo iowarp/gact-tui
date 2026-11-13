@@ -6,6 +6,7 @@ import { FlowDiagram } from './flow-diagram';
 import type { FlowQuestion } from './flow-run-edits';
 import type { FlowPick } from './flow-railroad';
 import { FlowLegend, FlowPickDetails } from './flow-run-parts';
+import { t } from '@lingui/core/macro';
 
 /**
  * A run's diagram with what it means and what it holds: the legend of the
@@ -61,7 +62,15 @@ export function FlowTrack({
   );
   const pick = selected ? picks.get(selected)?.pick : undefined;
   const select = (key: string) => setSelected(key === selected ? undefined : key);
-  const noun = steps.length || flow === 'workflow' ? 'step' : flow === 'arena' ? 'entry' : 'member';
+  const kind = steps.length || flow === 'workflow' ? 'step' : flow === 'arena' ? 'entry' : 'member';
+  const selectHint =
+    kind === 'step'
+      ? t`Select a step to see it`
+      : kind === 'entry'
+        ? t`Select an entry to see it`
+        : t`Select a member to see it`;
+  const selectLabel =
+    kind === 'step' ? t`Select a step` : kind === 'entry' ? t`Select an entry` : t`Select a member`;
   return (
     <div className="grid min-w-0 gap-2">
       {diagram ? (
@@ -77,11 +86,11 @@ export function FlowTrack({
       ) : null}
       {railroad ? (
         <FlowLegend
-          hint={pick ? undefined : `Select a ${noun} to see it`}
+          hint={pick ? undefined : selectHint}
           tones={[...new Set(railroad.marks.map((mark) => mark.tone))]}
         />
       ) : picks.size ? (
-        <div aria-label={`Select a ${noun}`} className="flex flex-wrap gap-1" role="group">
+        <div aria-label={selectLabel} className="flex flex-wrap gap-1" role="group">
           {[...picks].map(([key, entry]) => (
             <Button
               aria-pressed={key === selected}
@@ -101,8 +110,8 @@ export function FlowTrack({
           role={historyUnavailable ? 'status' : undefined}
         >
           {historyUnavailable
-            ? 'Task history was not recorded for this stopped flow. Whether it started any tasks is unknown.'
-            : 'The flow has not started any task yet.'}
+            ? t`Task history was not recorded for this stopped flow. Whether it started any tasks is unknown.`
+            : t`The flow has not started any task yet.`}
         </p>
       )}
       {pick ? (

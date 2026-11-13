@@ -16,6 +16,8 @@ import { planOutline, planSections } from './plan-outline';
 import { NamedTooltip } from './primitives/icon-button';
 import { ActivityBody } from './activity-row';
 import { CopyAction } from './tool-compact-row';
+import { formatNumber } from '@/lib/locale-format';
+import { ph, t } from '@lingui/core/macro';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
 
@@ -46,13 +48,13 @@ function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
     <div className="text-menu leading-[1.6] text-foreground/90" data-slot="plan-guidance">
       {recommendation ? (
         <section>
-          <h3 className={GUIDANCE_HEADING}>Execution recommendation</h3>
+          <h3 className={GUIDANCE_HEADING}>{t`Execution recommendation`}</h3>
           <p>{planModeLabel(recommendation)}</p>
         </section>
       ) : null}
       {risks ? (
         <section>
-          <h3 className={GUIDANCE_HEADING}>Risks</h3>
+          <h3 className={GUIDANCE_HEADING}>{t`Risks`}</h3>
           <p className="whitespace-pre-line">{risks}</p>
         </section>
       ) : null}
@@ -62,10 +64,10 @@ function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
 
 function missingPlanText(plan: PlanExit | undefined) {
   if (plan?.plan_content_status === 'unavailable')
-    return 'The saved plan could not be loaded. Request changes, or leave Plan mode without executing.';
+    return t`The saved plan could not be loaded. Request changes, or leave Plan mode without executing.`;
   if (plan?.plan_content_status === 'complete' || plan?.plan_content_status === 'truncated')
-    return 'The plan is empty.';
-  return 'The agent is still writing the plan.';
+    return t`The plan is empty.`;
+  return t`The agent is still writing the plan.`;
 }
 
 function footerText(plan: PlanExit | undefined) {
@@ -74,7 +76,7 @@ function footerText(plan: PlanExit | undefined) {
     const shown = plan.plan_content_included_chars;
     const total = plan.plan_content_chars;
     if (shown !== undefined && total !== undefined)
-      return `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} characters`;
+      return t`Showing ${ph({ shown: formatNumber(shown) })} of ${ph({ total: formatNumber(total) })} characters`;
   }
   return planOutline(plan?.plan_content, plan ?? {});
 }
@@ -163,7 +165,7 @@ function PlanPreview({
           {!keys && content ? (
             // The row's hover Copy can't be reached by touch or on a phone; the footer carries it there.
             <span className="ml-auto hidden shrink-0 pointer-coarse:inline-flex max-sm:inline-flex">
-              <CopyAction label="Copy plan" value={content} />
+              <CopyAction label={t`Copy plan`} value={content} />
             </span>
           ) : null}
           {opens || toggles ? (
@@ -180,7 +182,7 @@ function PlanPreview({
             >
               <span className="inline-flex items-center gap-1.5">
                 {opens ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
-                {opens ? 'Open plan' : expanded ? 'Show less' : 'Show all'}
+                {opens ? t`Open plan` : expanded ? t`Show less` : t`Show all`}
                 {keys ? <AskKeyChip askKey="o" /> : null}
               </span>
             </AskButton>
@@ -298,14 +300,14 @@ function AnsweredPlan({
           content || opens ? (
             <>
               {content ? (
-                <CopyAction label="Copy plan" value={content} />
+                <CopyAction label={t`Copy plan`} value={content} />
               ) : (
                 <span className="w-[22px]" />
               )}
               {opens ? (
-                <NamedTooltip label="Open plan">
+                <NamedTooltip label={t`Open plan`}>
                   <Button
-                    aria-label="Open plan"
+                    aria-label={t`Open plan`}
                     className="size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]"
                     data-activity-action="open"
                     onClick={() => onOpenArtifact?.(opens)}
@@ -323,7 +325,7 @@ function AnsweredPlan({
         open={content ? shown : undefined}
       />
       {shown && content ? (
-        <ActivityBody framed={false} label="Plan">
+        <ActivityBody framed={false} label={t`Plan`}>
           <PlanPreview
             artifact={opens}
             interaction={interaction}
@@ -386,7 +388,7 @@ export function PlanExitResponse({
           <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show />
         ) : undefined
       }
-      title="Plan"
+      title={t`Plan`}
       titleText={interaction.title}
     >
       <PlanPreview artifact={artifact} interaction={interaction} onOpenArtifact={onOpenArtifact} />
@@ -399,7 +401,7 @@ export function PlanExitResponse({
         />
       ) : (
         <AskSection className="mt-2.5 text-meta text-muted-foreground">
-          Plan controls are not available yet.
+          {t`Plan controls are not available yet.`}
         </AskSection>
       )}
     </AskCard>

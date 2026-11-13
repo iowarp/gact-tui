@@ -14,6 +14,7 @@ import { ItemList } from './primitives/item-row';
 import { focusQuietly } from './primitives/quiet-focus';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
+import { ph, t } from '@lingui/core/macro';
 
 export interface AgentDrillInProps {
   kind: AgentUseKind;
@@ -68,7 +69,7 @@ export function AgentDrillIn({
       <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-meta whitespace-nowrap">
         <IconButton
           icon={<ArrowLeftIcon aria-hidden="true" />}
-          label="Back to the agent"
+          label={t`Back to the agent`}
           onClick={onBack}
           ref={back}
           size="sm"
@@ -87,7 +88,7 @@ export function AgentDrillIn({
             resolution={resolution}
           >
             <Button className="ml-auto shrink-0" size="xs" variant="outline">
-              <AddIcon aria-hidden="true" /> Add plugin
+              <AddIcon aria-hidden="true" /> {t`Add plugin`}
             </Button>
           </AgentPluginMenu>
         ) : null}
@@ -103,9 +104,9 @@ export function AgentDrillIn({
             {kind === 'subagents' || kind === 'skills' ? (
               <SettingsGroupLabel
                 className="mt-4 mb-1"
-                info="The packages that bring these. Remove one, add it back, or open its files."
+                info={t`The packages that bring these. Remove one, add it back, or open its files.`}
               >
-                From these packages
+                {t`From these packages`}
               </SettingsGroupLabel>
             ) : null}
             <AgentPluginTree
@@ -113,7 +114,7 @@ export function AgentDrillIn({
               compacting={compacting}
               delta={delta}
               filter={AGENT_USE_FILTERS[kind]}
-              filterNoun={title.toLowerCase()}
+              filterKind={kind}
               onAddBack={onAddBack}
               onCompact={onCompact}
               onRemove={onRemove}
@@ -149,7 +150,7 @@ function OwnItems({
       <StateView
         kind="empty"
         size="row"
-        title={`This agent has no ${AGENT_USE_LABELS[kind].toLowerCase()}.`}
+        title={t`This agent has no ${ph({ items: AGENT_USE_LABELS[kind].toLowerCase() })}.`}
       />
     );
   return (

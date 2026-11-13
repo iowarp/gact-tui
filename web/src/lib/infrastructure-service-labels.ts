@@ -1,4 +1,7 @@
 import { vocab } from './brand-vocabulary';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /**
  * Product names for the installed services exposed in the inventory. A named
@@ -9,12 +12,13 @@ export function infrastructureServiceName(id: string): string {
   if (instance) return `${infrastructureServiceName(engine!)} (${instance})`;
   const names: Record<string, string> = {
     searxng: 'SearXNG',
-    web_search: `${vocab.agent} Web Search`,
-    relay: `${vocab.agent} Relay`,
+    web_search: t`${agent} Web Search`,
+    relay: t`${agent} Relay`,
     vllm: 'vLLM',
     llama_cpp: 'llama.cpp',
     ollama: 'Ollama',
     flowcept: 'Flowcept',
+    // i18n-ignore: product name
     cmf: 'HPE CMF',
     clio_agent: vocab.agent,
   };
@@ -26,15 +30,15 @@ export function computerConnectionLabel(state: string): string {
   return (
     (
       {
-        connected: 'Connected',
-        connecting: 'Connecting',
-        disconnected: 'Disconnected',
-        awaiting_input: 'Sign-in needed',
-        failed: 'Connection failed',
-        state_unknown: 'Not checked',
-        reconnecting: 'Reconnecting',
-        reauthentication_required: 'Sign-in needed',
+        connected: t`Connected`,
+        connecting: t`Connecting`,
+        disconnected: t`Disconnected`,
+        awaiting_input: t`Sign-in needed`,
+        failed: t`Connection failed`,
+        state_unknown: t`Not checked`,
+        reconnecting: t`Reconnecting`,
+        reauthentication_required: t`Sign-in needed`,
       } as Record<string, string>
-    )[state] || 'Not checked'
+    )[state] || t`Not checked`
   );
 }

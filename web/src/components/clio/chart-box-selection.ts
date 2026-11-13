@@ -3,6 +3,13 @@ import type { SelectionValue } from './selection-state';
 import type { ChartRow } from './chart-data';
 import type { View } from 'vega';
 
+/** Vega event selectors for the box and pan drags. */
+const BOX_DRAG_SELECTOR = '[pointerdown[!event.altKey], window:pointerup] > window:pointermove!';
+const MODIFIED_BOX_DRAG_SELECTOR =
+  '[pointerdown[event.shiftKey || event.ctrlKey || event.metaKey], window:pointerup] > window:pointermove!';
+const PAN_DRAG_SELECTOR =
+  '[pointerdown[event.altKey && !event.shiftKey], window:pointerup] > window:pointermove!';
+
 /** Interval param added for a two-dimensional rectangular chart selection. */
 export function chartBoxSelectionParamName(pointParam: string): string {
   return `${pointParam}_box`;
@@ -180,6 +187,7 @@ function withDefaultSelectionFeedback(
     const point = isJsonObject(mark.point) ? mark.point : {};
     if (point.opacity !== undefined) return next;
     const store = JSON.stringify(`${param}_store`);
+    // i18n-ignore: Vega expression syntax
     const active = `!length(data(${store})) || vlSelectionTest(${store}, datum)`;
     next.mark = {
       ...mark,
@@ -330,9 +338,7 @@ export function withChartBoxSelection(
       select: {
         clear: 'dblclick',
         encodings: ['x', 'y'],
-        on: active
-          ? '[pointerdown[!event.altKey], window:pointerup] > window:pointermove!'
-          : '[pointerdown[event.shiftKey || event.ctrlKey || event.metaKey], window:pointerup] > window:pointermove!',
+        on: active ? BOX_DRAG_SELECTOR : MODIFIED_BOX_DRAG_SELECTOR,
         type: 'interval',
       },
     }),
@@ -362,8 +368,7 @@ export function withManualChartZoom(
       select: {
         clear: 'dblclick',
         encodings: ['x', 'y'],
-        translate:
-          '[pointerdown[event.altKey && !event.shiftKey], window:pointerup] > window:pointermove!',
+        translate: PAN_DRAG_SELECTOR,
         type: 'interval',
         zoom: 'wheel![event.ctrlKey || event.metaKey]',
       },

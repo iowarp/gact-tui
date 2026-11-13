@@ -24,6 +24,9 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { pluginReachLabel, type FlowTrustRequest } from '@/lib/plugin-review';
 import { PluginFlowShape } from './plugin-flow-shape';
 import { TechnicalDetails } from './technical-details';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 const REACH_ICONS: Record<string, LucideIcon> = {
   files: FileTextIcon,
@@ -51,15 +54,8 @@ export function PluginReviewDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="top-1/2 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-y-1/2 overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="break-words">The {request.plugin} plugin</DialogTitle>
-          <DialogDescription>
-            {request.authoredByAgent
-              ? `Written by ${vocab.agent}`
-              : request.author
-                ? `From ${request.author}`
-                : 'Its source is not known'}
-            {request.version ? `, version ${request.version}` : ''}
-          </DialogDescription>
+          <DialogTitle className="break-words">{t`The ${ph({ plugin: request.plugin })} plugin`}</DialogTitle>
+          <DialogDescription>{pluginOrigin(request)}</DialogDescription>
         </DialogHeader>
         {open ? <PluginReviewBody request={request} /> : null}
       </DialogContent>
@@ -77,7 +73,7 @@ function PluginReviewBody({ request }: { request: FlowTrustRequest }) {
   if (!request.reviewUrl) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
-        The server did not offer a review of this plugin.
+        {t`The server did not offer a review of this plugin.`}
       </p>
     );
   }
@@ -85,7 +81,7 @@ function PluginReviewBody({ request }: { request: FlowTrustRequest }) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
         <Spinner aria-hidden="true" />
-        Reading the plugin…
+        {t`Reading the plugin…`}
       </p>
     );
   }
@@ -94,9 +90,9 @@ function PluginReviewBody({ request }: { request: FlowTrustRequest }) {
       <div className="grid gap-2" role="alert">
         <p className="flex items-start gap-2 text-sm text-destructive">
           <ShieldAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          The plugin&apos;s review could not be loaded, so it can&apos;t be checked here.
+          {t`The plugin's review could not be loaded, so it can't be checked here.`}
         </p>
-        <TechnicalDetails className="text-xs text-muted-foreground" title="Technical details">
+        <TechnicalDetails className="text-xs text-muted-foreground" title={t`Technical details`}>
           <p className="break-words">{review.error.message}</p>
         </TechnicalDetails>
         <Button
@@ -106,7 +102,7 @@ function PluginReviewBody({ request }: { request: FlowTrustRequest }) {
           type="button"
           variant="outline"
         >
-          Try again
+          {t`Try again`}
         </Button>
       </div>
     );
@@ -132,16 +128,16 @@ export function PluginReviewContent({
   return (
     <div className="grid min-w-0 gap-5" data-slot="plugin-review">
       <p className="break-words text-sm">
-        {plugin.description || 'This plugin does not describe itself.'}
+        {plugin.description || t`This plugin does not describe itself.`}
       </p>
       {flows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">This plugin adds no flows.</p>
+        <p className="text-sm text-muted-foreground">{t`This plugin adds no flows.`}</p>
       ) : (
-        <section aria-label="Its flows" className="grid min-w-0 gap-4">
+        <section aria-label={t`Its flows`} className="grid min-w-0 gap-4">
           {flows.map((flow) => (
             <div className="grid min-w-0 gap-1.5" data-slot="plugin-review-flow" key={flow.id}>
               <div className="min-w-0">
-                <h3 className="text-sm font-medium">Flow {flow.id}</h3>
+                <h3 className="text-sm font-medium">{t`Flow ${ph({ id: flow.id })}`}</h3>
                 {flow.description ? (
                   <p className="break-words text-xs text-muted-foreground">{flow.description}</p>
                 ) : null}
@@ -170,18 +166,17 @@ function PluginReach({ plugin }: { plugin: PluginReview }) {
     items.push({
       key: '$unreadable',
       Icon: FileWarningIcon,
-      text: `Some of its files could not be read (${plugin.unreadable.join(', ')}), so what they do can't be read from the code`,
+      text: t`Some of its files could not be read (${ph({ files: plugin.unreadable.join(', ') })}), so what they do can't be read from the code`,
     });
   }
   return (
-    <section aria-label="What it can reach" className="grid min-w-0 gap-1.5">
-      <h3 className="text-sm font-medium">What it can reach</h3>
+    <section aria-label={t`What it can reach`} className="grid min-w-0 gap-1.5">
+      <h3 className="text-sm font-medium">{t`What it can reach`}</h3>
       {items.length === 0 ? (
         <p className="flex items-start gap-2 text-sm">
           <ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
           <span>
-            Works only through {vocab.agent}&apos;s agents: it does not open files, use the network
-            or run commands itself.
+            {t`Works only through ${agent}'s agents: it does not open files, use the network or run commands itself.`}
           </span>
         </p>
       ) : (
@@ -194,7 +189,7 @@ function PluginReach({ plugin }: { plugin: PluginReview }) {
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground">Read from its code.</p>
+      <p className="text-xs text-muted-foreground">{t`Read from its code.`}</p>
     </section>
   );
 }
@@ -207,10 +202,10 @@ function PluginCode({ plugin, focusFile }: { plugin: PluginReview; focusFile?: s
     <TechnicalDetails
       className="text-xs"
       contentClassName="mt-2 grid min-w-0 gap-3"
-      title="Show the code"
+      title={t`Show the code`}
     >
       {files.length === 0 ? (
-        <p className="text-muted-foreground">No code was included with this review.</p>
+        <p className="text-muted-foreground">{t`No code was included with this review.`}</p>
       ) : (
         files.map(([path, text]) => (
           <figure className="m-0 grid min-w-0 gap-1" key={path}>
@@ -223,9 +218,23 @@ function PluginCode({ plugin, focusFile }: { plugin: PluginReview; focusFile?: s
       )}
       {plugin.files_truncated ? (
         <p className="text-muted-foreground">
-          The code is long, so only its beginning is shown here.
+          {t`The code is long, so only its beginning is shown here.`}
         </p>
       ) : null}
     </TechnicalDetails>
   );
+}
+
+/** Who wrote the plugin, and its version when known, as one message. */
+function pluginOrigin(request: {
+  authoredByAgent?: boolean;
+  author?: string;
+  version?: string;
+}): string {
+  const { author, version } = request;
+  if (request.authoredByAgent) {
+    return version ? t`Written by ${agent}, version ${version}` : t`Written by ${agent}`;
+  }
+  if (author) return version ? t`From ${author}, version ${version}` : t`From ${author}`;
+  return version ? t`Its source is not known, version ${version}` : t`Its source is not known`;
 }

@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { t } from '@lingui/core/macro';
 
 export type SessionHistoryConfirmation = 'compact' | 'undo';
 
@@ -33,16 +34,16 @@ export function SessionHistoryConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {confirmation === 'compact' ? 'Compact this conversation?' : 'Remove last message?'}
+            {confirmation === 'compact' ? t`Compact this conversation?` : t`Remove last message?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {confirmation === 'compact'
-              ? 'The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.'
-              : 'The service will permanently remove the last stored message from this session. This action follows the connected permission policy.'}
+              ? t`The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.`
+              : t`The service will permanently remove the last stored message from this session. This action follows the connected permission policy.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{t`Cancel`}</AlertDialogCancel>
           <AlertDialogAction
             disabled={pending}
             onClick={(event) => {
@@ -52,10 +53,10 @@ export function SessionHistoryConfirmDialog({
             variant={confirmation === 'undo' ? 'destructive' : 'default'}
           >
             {pending
-              ? 'Working…'
+              ? t`Working…`
               : confirmation === 'compact'
-                ? 'Compact conversation'
-                : 'Remove message'}
+                ? t`Compact conversation`
+                : t`Remove message`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -12,6 +12,7 @@ import {
   readInstallerOptions,
   type InstallerOptions,
 } from '@/tauri/installer-options';
+import { t } from '@lingui/core/macro';
 
 const WEB_SEARCH_CONNECT_ATTEMPTS = 6;
 const WEB_SEARCH_CONNECT_RETRY_MS = 2_000;
@@ -91,12 +92,12 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
     try {
       await repository.installProviderSupport('claude_code');
     } catch (error) {
-      toast.warning('Claude Code still needs setup', {
+      toast.warning(t`Claude Code still needs setup`, {
         id: 'installer-claude-code-needs-attention',
         description:
           error instanceof Error
             ? error.message
-            : 'Open Models to install Claude Code on the connected agent.',
+            : t`Open Models to install Claude Code on the connected agent.`,
       });
     }
   }
@@ -109,9 +110,9 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
   const service = catalog.services.find((candidate) => candidate.id === 'web_search');
   const variant = service?.variants.find((candidate) => candidate.compatible);
   if (!service || !variant) {
-    toast.warning('CLIO Search still needs setup', {
+    toast.warning(t`CLIO Search still needs setup`, {
       id: 'installer-web-search-needs-attention',
-      description: service?.variants[0]?.reason || 'Open Infrastructure to inspect this computer.',
+      description: service?.variants[0]?.reason || t`Open Infrastructure to inspect this computer.`,
     });
     return;
   }
@@ -125,6 +126,7 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
     await waitForInfrastructureOperation(repository, operation.id);
   }
   let result = await repository.configureMcpServer('web', {
+    // i18n-ignore: the MCP server's configured name, stored by the server
     name: 'CLIO Web Search',
     transport: 'stdio',
     command: WEB_MCP_COMMAND,
@@ -144,6 +146,7 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
   ) {
     await wait(WEB_SEARCH_CONNECT_RETRY_MS);
     result = await repository.configureMcpServer('web', {
+      // i18n-ignore: the MCP server's configured name, stored by the server
       name: 'CLIO Web Search',
       transport: 'stdio',
       command: WEB_MCP_COMMAND,
@@ -153,17 +156,16 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
     });
   }
   if (result.status !== 'ready') {
-    toast.warning('CLIO Search was installed but is not ready', {
+    toast.warning(t`CLIO Search was installed but is not ready`, {
       id: 'installer-web-search-not-ready',
-      description: result.error ?? 'Open Infrastructure to inspect the service.',
+      description: result.error ?? t`Open Infrastructure to inspect the service.`,
     });
     return;
   }
   await completeInstallerWebSearch();
-  toast.success('CLIO Search is ready', {
+  toast.success(t`CLIO Search is ready`, {
     id: 'installer-web-search-ready',
-    description:
-      'Web search is available to your agents. Document conversion is an optional service feature.',
+    description: t`Web search is available to your agents. Document conversion is an optional service feature.`,
   });
 }
 

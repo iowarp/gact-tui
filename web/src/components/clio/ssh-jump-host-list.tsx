@@ -15,6 +15,7 @@ import {
 import { sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
 import { RouteMarker } from './ssh-route-marker';
 import { jumpHostError, reconcileJumpSteps, type JumpStep } from './ssh-route-utils';
+import { ph, t } from '@lingui/core/macro';
 
 export const ADD_SSH_COMPUTER = '__add-ssh-computer__';
 export const TYPE_SSH_ADDRESS = '__type-ssh-address__';
@@ -71,8 +72,8 @@ export function SshJumpHostList({
     <Sortable
       aria-label={
         lastIsDestination
-          ? 'SSH connection route hops, in order'
-          : 'Jump hosts, in connection order'
+          ? t`SSH connection route hops, in order`
+          : t`Jump hosts, in connection order`
       }
       className="grid gap-2"
       role="list"
@@ -109,12 +110,14 @@ export function SshJumpHostList({
             <SortableItemHandle asChild>
               <Button
                 aria-label={
-                  isDestinationRow ? 'Reorder destination' : `Reorder jump host ${index + 1}`
+                  isDestinationRow
+                    ? t`Reorder destination`
+                    : t`Reorder jump host ${ph({ number: index + 1 })}`
                 }
                 className="cursor-grab text-muted-foreground"
                 disabled={disabled}
                 size="icon-sm"
-                title="Drag to reorder"
+                title={t`Drag to reorder`}
                 type="button"
                 variant="ghost"
               >
@@ -137,7 +140,7 @@ export function SshJumpHostList({
               />
             ) : (
               <SshJumpHostSelect
-                ariaLabel={isDestinationRow ? 'Saved SSH host' : undefined}
+                ariaLabel={isDestinationRow ? t`Saved SSH host` : undefined}
                 disabled={disabled}
                 index={index}
                 onChange={(host) => {
@@ -154,7 +157,7 @@ export function SshJumpHostList({
                 onCreate={Boolean(onCreate)}
                 onTypeAddress={lastIsDestination}
                 options={rowOptions}
-                placeholder={isDestinationRow ? 'Choose the destination computer' : undefined}
+                placeholder={isDestinationRow ? t`Choose the destination computer` : undefined}
                 value={step.host}
               />
             )}
@@ -163,15 +166,19 @@ export function SshJumpHostList({
                 <Button
                   aria-label={
                     stepLabel
-                      ? `Configure ${stepLabel}`
+                      ? t`Configure ${ph({ host: stepLabel })}`
                       : isDestinationRow
-                        ? 'Add SSH host'
-                        : `Configure jump host ${index + 1}`
+                        ? t`Add SSH host`
+                        : t`Configure jump host ${ph({ number: index + 1 })}`
                   }
                   disabled={disabled}
                   onClick={() => onConfigure(index)}
                   size="icon"
-                  title={stepLabel ? `Configure ${stepLabel}` : 'Configure a new computer'}
+                  title={
+                    stepLabel
+                      ? t`Configure ${ph({ host: stepLabel })}`
+                      : t`Configure a new computer`
+                  }
                   type="button"
                   variant="ghost"
                 >
@@ -180,12 +187,14 @@ export function SshJumpHostList({
               ) : null}
               <Button
                 aria-label={
-                  isDestinationRow ? 'Remove destination' : `Remove jump host ${index + 1}`
+                  isDestinationRow
+                    ? t`Remove destination`
+                    : t`Remove jump host ${ph({ number: index + 1 })}`
                 }
                 disabled={disabled}
                 onClick={() => commit(steps.filter((_, itemIndex) => itemIndex !== index))}
                 size="icon"
-                title="Remove"
+                title={t`Remove`}
                 type="button"
                 variant="ghost"
               >
@@ -233,10 +242,13 @@ export function SshJumpHostSelect({
   return (
     <Select disabled={disabled} onValueChange={onChange} value={known ? value : ''}>
       <SelectTrigger
-        aria-label={ariaLabel ?? (index === undefined ? 'New jump host' : `Jump host ${index + 1}`)}
+        aria-label={
+          ariaLabel ??
+          (index === undefined ? t`New jump host` : t`Jump host ${ph({ number: index + 1 })}`)
+        }
         className="min-w-0"
       >
-        <SelectValue placeholder={value || placeholder || 'Choose a saved computer'} />
+        <SelectValue placeholder={value || placeholder || t`Choose a saved computer`} />
       </SelectTrigger>
       <SelectContent>
         {jumpOptions.map((option) => (
@@ -245,9 +257,11 @@ export function SshJumpHostSelect({
           </SelectItem>
         ))}
         {onTypeAddress ? (
-          <SelectItem value={TYPE_SSH_ADDRESS}>Type an OpenSSH alias or address…</SelectItem>
+          <SelectItem value={TYPE_SSH_ADDRESS}>{t`Type an OpenSSH alias or address…`}</SelectItem>
         ) : null}
-        {onCreate ? <SelectItem value={ADD_SSH_COMPUTER}>Add another computer…</SelectItem> : null}
+        {onCreate ? (
+          <SelectItem value={ADD_SSH_COMPUTER}>{t`Add another computer…`}</SelectItem>
+        ) : null}
       </SelectContent>
     </Select>
   );
@@ -276,7 +290,7 @@ export function SshJumpAddressField({
         <Input
           aria-describedby={error ? 'ssh-jump-address-error' : undefined}
           aria-invalid={Boolean(error)}
-          aria-label="Jump host alias or address"
+          aria-label={t`Jump host alias or address`}
           autoFocus
           className="min-w-0"
           onChange={(event) => setDraft(event.target.value)}
@@ -287,11 +301,11 @@ export function SshJumpAddressField({
             }
             if (event.key === 'Escape') onCancel();
           }}
-          placeholder="gateway or alice@gateway.example.edu:2222"
+          placeholder={t`gateway or alice@gateway.example.edu:2222`}
           value={draft}
         />
         <Button
-          aria-label="Use this jump host"
+          aria-label={t`Use this jump host`}
           disabled={!draft.trim() || Boolean(error)}
           onClick={submit}
           size="icon"

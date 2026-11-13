@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /** Project only the service CLI's declared observation record, never infer health from prose. */
 export function serviceObservationSummary(logs: string | undefined): string | undefined {
   let latest: Record<string, unknown> | undefined;
@@ -12,11 +13,11 @@ export function serviceObservationSummary(logs: string | undefined): string | un
     }
   }
   if (!latest) return undefined;
-  if (latest.serving === true) return 'The service responded.';
-  if (latest.running === true) return 'The process started; service readiness was not confirmed.';
+  if (latest.serving === true) return t`The service responded.`;
+  if (latest.running === true) return t`The process started; service readiness was not confirmed.`;
   if (latest.running === false && latest.installed === true)
-    return 'The service was confirmed stopped.';
-  if (latest.installed === false) return 'The service was not installed.';
+    return t`The service was confirmed stopped.`;
+  if (latest.installed === false) return t`The service was not installed.`;
   return undefined;
 }
 

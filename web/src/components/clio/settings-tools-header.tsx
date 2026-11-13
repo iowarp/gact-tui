@@ -5,12 +5,13 @@ import { cn } from '@/lib/utils';
 import { CALLERS_TEXT, modeLabel } from './plugin-tool-settings-text';
 import { CALLERS, CALLERS_ICON, COLUMNS, MODE_CELL, SCRIPT_CELL } from './settings-tools-columns';
 import { ValueMark } from './settings-tools-picker';
+import { ph, t } from '@lingui/core/macro';
 
 const COLUMN_HELP = {
-  tool: 'The tool, its flag, and what a call does in the mode chosen above.',
-  mode: 'What a direct call does in the approval mode chosen above.',
-  script: 'What a call from a run_code script does.',
-  permission: 'Always allow, Needs approval or Blocked. D marks the default.',
+  tool: t`The tool, its flag, and what a call does in the mode chosen above.`,
+  mode: t`What a direct call does in the approval mode chosen above.`,
+  script: t`What a call from a run_code script does.`,
+  permission: t`Always allow, Needs approval or Blocked. D marks the default.`,
 };
 
 function IoHelp() {
@@ -26,12 +27,12 @@ function IoHelp() {
     [
       <ValueMark icon={ArrowLeftRightIcon} isDefault key="d" />,
       'D',
-      "The plugin's default. Choose a value to override it.",
+      t`The plugin's default. Choose a value to override it.`,
     ],
   ];
   return (
     <span className="grid gap-1.5 py-0.5">
-      <b className="font-medium">Programmatic tool calling: who calls the tool</b>
+      <b className="font-medium">{t`Programmatic tool calling: who calls the tool`}</b>
       {rows.map(([mark, label, detail]) => (
         <span className="grid grid-cols-[16px_3.25rem_max-content] items-center gap-2" key={label}>
           {mark}
@@ -70,22 +71,22 @@ export function HeaderRow({ mode }: { mode: string }) {
       data-slot="tools-table-header"
     >
       <span
-        aria-label="Stays at the top while the list scrolls"
+        aria-label={t`Stays at the top while the list scrolls`}
         className="grid place-items-center text-faint"
         role="img"
-        title="Stays at the top while the list scrolls"
+        title={t`Stays at the top while the list scrolls`}
       >
         <LockIcon className="size-3" />
       </span>
-      <ColumnTitle help={COLUMN_HELP.tool} title="Tool" />
+      <ColumnTitle help={COLUMN_HELP.tool} title={t`Tool`} />
       <span className={MODE_CELL}>
-        <ColumnTitle help={COLUMN_HELP.mode} title={`In ${modeLabel(mode)}`} />
+        <ColumnTitle help={COLUMN_HELP.mode} title={t`In ${ph({ mode: modeLabel(mode) })}`} />
       </span>
       <span className={SCRIPT_CELL}>
-        <ColumnTitle help={COLUMN_HELP.script} title="From a script" />
+        <ColumnTitle help={COLUMN_HELP.script} title={t`From a script`} />
       </span>
-      <ColumnTitle help={COLUMN_HELP.permission} title="Permission" />
-      <ColumnTitle help={<IoHelp />} title="I/O" />
+      <ColumnTitle help={COLUMN_HELP.permission} title={t`Permission`} />
+      <ColumnTitle help={<IoHelp />} title={t`I/O`} />
       <span />
     </div>
   );

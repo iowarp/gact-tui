@@ -4,6 +4,7 @@ import { brand } from '@brand';
 import { sharedRead } from './shared-read';
 import { inTauri } from './transport/tauri-runtime';
 import { TauriClioTransport } from './transport/tauri-transport';
+import { t } from '@lingui/core/macro';
 
 export interface ConnectionSettings {
   endpoint: string;
@@ -57,7 +58,7 @@ export interface SavedSshRoute {
  */
 export class InfrastructureTargetGoneError extends Error {
   constructor(public readonly label: string) {
-    super(`${label} is not known on this computer. Remove it and deploy it again to reconnect.`);
+    super(t`${label} is not known on this computer. Remove it and deploy it again to reconnect.`);
     this.name = 'InfrastructureTargetGoneError';
   }
 }
@@ -161,6 +162,7 @@ class SharedStatusRepository extends ClioRepository {
 
   public override capabilities(signal?: AbortSignal) {
     return sharedRead(
+      // i18n-ignore: cache key
       `${this.#flightKey}\ncapabilities`,
       (shared) => super.capabilities(shared),
       signal,
@@ -169,6 +171,7 @@ class SharedStatusRepository extends ClioRepository {
 
   public override serviceHealth(signal?: AbortSignal) {
     return sharedRead(
+      // i18n-ignore: cache key
       `${this.#flightKey}\nhealth`,
       (shared) => super.serviceHealth(shared),
       signal,

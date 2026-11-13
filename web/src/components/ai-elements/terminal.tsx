@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { t } from '@lingui/core/macro';
 
 /** Resolve ansi-to-react across its CommonJS default-export shapes. */
 export function resolveAnsiComponent(moduleValue: unknown): typeof Ansi {
@@ -68,7 +69,7 @@ export type TerminalTitleProps = HTMLAttributes<HTMLDivElement>;
 export const TerminalTitle = ({ className, children, ...props }: TerminalTitleProps) => (
   <div className={cn('flex items-center gap-2 text-sm text-terminal-muted', className)} {...props}>
     <TerminalIcon className="size-4" />
-    {children ?? 'Terminal'}
+    {children ?? t`Terminal`}
   </div>
 );
 
@@ -233,7 +234,7 @@ export type TerminalCommandProps = HTMLAttributes<HTMLDivElement> & {
 /** Display the exact command associated with terminal output. */
 export const TerminalCommand = ({ command, className, ...props }: TerminalCommandProps) => (
   <div
-    aria-label="Command"
+    aria-label={t`Command`}
     className={cn(
       'flex items-start gap-2 border-terminal-border border-b bg-terminal-border/40 px-4 py-2 font-mono text-sm',
       className,

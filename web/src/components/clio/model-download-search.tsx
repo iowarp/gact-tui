@@ -28,13 +28,15 @@ import { modelFactSummary, parameterSizeLabel } from '@/lib/model-facts';
 import { ModelPickerSearch } from './model-picker-search';
 import { StateView } from './primitives/state-view';
 import { hubSearchFacets } from '@/lib/hub-search-facets';
+import { formatLocale } from '@/lib/locale-format';
+import { ph, plural, t } from '@lingui/core/macro';
 
 type RepositoryModel = Pick<
   RegistryModel,
   'repository' | 'revision' | 'task' | 'gated' | 'downloads' | 'capability_tags' | 'model_facts'
 > & { size_bytes?: number | null };
 
-const compactCount = new Intl.NumberFormat(undefined, {
+const compactCount = new Intl.NumberFormat(formatLocale(), {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
@@ -61,10 +63,10 @@ function resultFacts(model: RepositoryModel) {
   const detail = [...words];
   const fullDetail = [...words];
   if (model.downloads != null) {
-    detail.push(`${compactCount.format(model.downloads)} downloads`);
-    fullDetail.push(`${model.downloads.toLocaleString()} downloads`);
+    detail.push(t`${ph({ count: compactCount.format(model.downloads) })} downloads`);
+    fullDetail.push(plural(model.downloads, { one: '# download', other: '# downloads' }));
   }
-  if (model.gated) fullDetail.push('Requires access');
+  if (model.gated) fullDetail.push(t`Requires access`);
   return { meta, detail: detail.join(', '), fullDetail: fullDetail.join(', ') };
 }
 
@@ -129,8 +131,8 @@ const ResultRow = memo(function ResultRow({
           {model.gated ? (
             <span
               role="img"
-              aria-label="Requires access"
-              title="Requires access"
+              aria-label={t`Requires access`}
+              title={t`Requires access`}
               className="grid size-4 place-items-center"
             >
               <LockIcon aria-hidden="true" className="size-3.5" />
@@ -139,8 +141,8 @@ const ResultRow = memo(function ResultRow({
           {chosen ? (
             <span
               role="img"
-              aria-label="Selected"
-              title="Selected"
+              aria-label={t`Selected`}
+              title={t`Selected`}
               className="grid size-4 place-items-center"
             >
               <CheckIcon aria-hidden="true" className="size-3.5" />
@@ -233,7 +235,7 @@ export function ModelDownloadSearch({
   const facets = useMemo(() => {
     const loadedFacets = buildModelFacets(entries, tokens)
       .filter((tab) => tab.chipCount > 0)
-      .map((tab) => (tab.id === 'providers' ? { ...tab, label: 'Organizations' } : tab));
+      .map((tab) => (tab.id === 'providers' ? { ...tab, label: t`Organizations` } : tab));
     return hubFacets ? hubSearchFacets(loadedFacets, tokens) : loadedFacets;
   }, [entries, tokens, hubFacets]);
   const availableTokens = useMemo(
@@ -320,11 +322,11 @@ export function ModelDownloadSearch({
     >
       <Field>
         <FieldLabel htmlFor="model-search" className="sr-only">
-          Find on Hugging Face
+          {t`Find on Hugging Face`}
         </FieldLabel>
         <ModelPickerSearch
           inputId="model-search"
-          label="Find on Hugging Face"
+          label={t`Find on Hugging Face`}
           query={query}
           onQueryChange={onQuery}
           onSearch={onSearch}
@@ -348,21 +350,21 @@ export function ModelDownloadSearch({
             {headingAction}
           </div>
         ) : null}
-        {searching ? <StateView kind="loading" size="row" title="Searching models…" /> : null}
+        {searching ? <StateView kind="loading" size="row" title={t`Searching models…`} /> : null}
         {error && !searching ? (
           <div title={error.message}>
             <StateView
-              action={{ label: 'Retry', onClick: onSearch }}
+              action={{ label: t`Retry`, onClick: onSearch }}
               kind="error"
               size="row"
-              title="The agent could not search Hugging Face."
+              title={t`The agent could not search Hugging Face.`}
             />
           </div>
         ) : null}
         {models ? (
           <div
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-            aria-label="Model search results"
+            aria-label={t`Model search results`}
             onFocus={(event) => {
               const repository = (event.target as HTMLElement).dataset.repository;
               if (repository) setFocusedRow(repository);
@@ -374,7 +376,7 @@ export function ModelDownloadSearch({
               <StateView
                 kind="empty"
                 size="row"
-                title="No models match. Change the search or the filters."
+                title={t`No models match. Change the search or the filters.`}
               />
             ) : (
               visible.map((model) => (
@@ -395,7 +397,7 @@ export function ModelDownloadSearch({
                 onClick={loadMore.onLoad}
               >
                 <AddIcon aria-hidden="true" className="size-[15px] shrink-0" />
-                {loadMore.loading ? 'Loading…' : 'Load more models'}
+                {loadMore.loading ? t`Loading…` : t`Load more models`}
               </button>
             ) : null}
           </div>

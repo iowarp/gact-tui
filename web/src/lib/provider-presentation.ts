@@ -1,30 +1,32 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /**
  * Names for a bare provider id, used ONLY where no service data (preset or
  * catalog entry) is at hand — an agent's recorded default provider, a tool
  * result's label. Wherever the service reports a provider, its `label`/`name`
  * is the one display name. Kept equal to the service's canonical labels.
+ * Product names, never translated; `modelRouteName` also matches against them.
  */
 const providerIdNames: Record<string, string> = {
-  amsc_mag: 'AmSC Model Access Gateway',
-  codex: 'OpenAI Codex',
-  claude_code: 'Claude Code',
-  copilot: 'GitHub Copilot',
-  inception: 'Inception (Mercury)',
+  amsc_mag: 'AmSC Model Access Gateway', // i18n-ignore: product name
+  codex: 'OpenAI Codex', // i18n-ignore: product name
+  claude_code: 'Claude Code', // i18n-ignore: product name
+  copilot: 'GitHub Copilot', // i18n-ignore: product name
+  inception: 'Inception (Mercury)', // i18n-ignore: product name
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
-  lm_studio: 'LM Studio',
+  lm_studio: 'LM Studio', // i18n-ignore: product name
   ollama: 'Ollama',
   llama_cpp: 'llama.cpp',
-  vertex_ai: 'Vertex AI',
-  bedrock: 'Amazon Bedrock',
+  vertex_ai: 'Vertex AI', // i18n-ignore: product name
+  bedrock: 'Amazon Bedrock', // i18n-ignore: product name
   vllm: 'vLLM',
-  argonne_metis: 'ALCF Metis',
-  argonne_sophia: 'ALCF Sophia',
-  argonne_minerva: 'ALCF Minerva',
-  argonne_tara: 'ALCF Tara',
+  argonne_metis: 'ALCF Metis', // i18n-ignore: product name
+  argonne_sophia: 'ALCF Sophia', // i18n-ignore: product name
+  argonne_minerva: 'ALCF Minerva', // i18n-ignore: product name
+  argonne_tara: 'ALCF Tara', // i18n-ignore: product name
   argonne_local_vllm: 'vLLM',
 };
 
@@ -40,7 +42,7 @@ export function providerDisplayName(
     preset?.label ||
     (fallbackName ? providerIdNames[fallbackName] : undefined) ||
     fallbackName ||
-    'Provider'
+    t`Provider`
   );
 }
 

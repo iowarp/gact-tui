@@ -12,13 +12,14 @@ import {
   ResultTrail,
 } from './global-search-results';
 import { SearchHighlight } from './search-highlight';
+import { ph, t } from '@lingui/core/macro';
 
 type Rows<Item> = { rows: readonly Item[]; hidden: number };
 
 function roleLabel(role: MemorySearchHit['role']): string {
   if (role === 'assistant') return brand.name;
-  if (role === 'user') return 'You';
-  return role === 'tool' ? 'Tool' : 'System';
+  if (role === 'user') return t`You`;
+  return role === 'tool' ? t`Tool` : t`System`;
 }
 
 /** Remembered-context passages that match the query. */
@@ -38,7 +39,7 @@ export function MessageHitGroup({
   onMore: (scope: CommandMenuScope) => void;
 }) {
   return (
-    <CommandGroup heading={<ResultsHeading count={total} label="Matching messages" />}>
+    <CommandGroup heading={<ResultsHeading count={total} label={t`Matching messages`} />}>
       {hits.rows.map((hit) => (
         <CommandItem
           key={`${hit.session_id}:${hit.message_id}:${hit.part_id ?? ''}`}
@@ -51,7 +52,7 @@ export function MessageHitGroup({
             {/* The role sits on the title line, so the snippet keeps the row's width when narrow. */}
             <span className="flex min-w-0 items-baseline gap-2">
               <span className="min-w-0 flex-1 truncate font-medium">
-                <SearchHighlight text={hit.session_title || 'Untitled session'} query={query} />
+                <SearchHighlight text={hit.session_title || t`Untitled session`} query={query} />
               </span>
               <span className="shrink-0 text-caption whitespace-nowrap text-faint">
                 {roleLabel(hit.role)}
@@ -61,7 +62,7 @@ export function MessageHitGroup({
               <SearchHighlight text={messageSnippetText(hit.text)} query={query} partial />
             </span>
             <span className="mt-1 block truncate text-caption text-muted-foreground">
-              {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open matching passage
+              {t`${ph({ workspace: workspaceNames.get(hit.workspace_id) ?? hit.workspace_id })} → Open matching passage`}
             </span>
           </span>
           <ResultTrail />
@@ -87,7 +88,7 @@ export function FileResultGroup({
   onMore: (scope: CommandMenuScope) => void;
 }) {
   return (
-    <CommandGroup heading={<ResultsHeading count={total} label="Files" />}>
+    <CommandGroup heading={<ResultsHeading count={total} label={t`Files`} />}>
       {files.rows.map((file) => {
         const slash = file.path.lastIndexOf('/');
         const name = file.path.slice(slash + 1);
@@ -129,7 +130,7 @@ export function ArtifactResultGroup({
   onMore: (scope: CommandMenuScope) => void;
 }) {
   return (
-    <CommandGroup heading={<ResultsHeading count={total} label="Artifacts" />}>
+    <CommandGroup heading={<ResultsHeading count={total} label={t`Artifacts`} />}>
       {artifacts.rows.map((artifact) => (
         <CommandItem
           key={artifact.id}

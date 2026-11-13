@@ -1,4 +1,5 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
+import { plural, t } from '@lingui/core/macro';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -63,7 +64,12 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
   const subject: ToolPresentationBlock = {
     id: files.length ? 'skill-reference' : 'skill-purpose',
     type: 'text',
-    text: files.length === 1 ? files[0] : files.length ? `${files.length} reference files` : title,
+    text:
+      files.length === 1
+        ? files[0]
+        : files.length
+          ? plural(files.length, { one: '# reference file', other: '# reference files' })
+          : title,
   };
   const paths = record(result?.file_paths);
   const fileBlocks: ToolPresentationBlock[] = (files.length ? files : ['SKILL.md']).map(
@@ -71,7 +77,7 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
       const path = files.length ? paths?.[file] : result?.path;
       return typeof path === 'string' && /^(?:[a-z]:[\\/]|\/)/iu.test(path)
         ? { id: `skill-file-${index}`, type: 'link', target: 'file', uri: path, label: file }
-        : { id: `skill-file-${index}`, type: 'text', label: 'File read', text: file };
+        : { id: `skill-file-${index}`, type: 'text', label: t`File read`, text: file };
     },
   );
   return {
@@ -80,11 +86,11 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
       ...presentation,
       action: files.length
         ? files.length === 1
-          ? 'Read skill reference'
-          : 'Read skill references'
-        : 'Load skill',
+          ? t`Read skill reference`
+          : t`Read skill references`
+        : t`Load skill`,
       subject: subject.id,
-      summary: files.length ? heading || '' : 'Main procedure',
+      summary: files.length ? heading || '' : t`Main procedure`,
       blocks: [
         subject,
         ...(description
@@ -92,18 +98,18 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
               {
                 id: 'skill-description',
                 type: 'text' as const,
-                label: 'When to use',
+                label: t`When to use`,
                 text: description,
               },
             ]
           : []),
-        { id: 'skill-identity', type: 'text', label: 'Skill', text: skillId },
+        { id: 'skill-identity', type: 'text', label: t`Skill`, text: skillId },
         ...(typeof directory === 'string' && directory
           ? [
               {
                 id: 'skill-directory',
                 type: 'text' as const,
-                label: 'Skill directory',
+                label: t`Skill directory`,
                 text: directory,
               },
             ]

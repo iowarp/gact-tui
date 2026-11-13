@@ -1,5 +1,6 @@
 import type { Message, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { isVariantPickInteraction } from './variant-runs';
+import { t } from '@lingui/core/macro';
 
 /** Human questions still awaiting an answer, excluding plan and draft choices. */
 export function openHumanQuestions(
@@ -68,9 +69,7 @@ export function followTranscriptLink(link: string): void {
   else window.location.hash = link;
 }
 
-export const ANSWER_ATTACHMENTS_UNSUPPORTED =
-  "This question was asked by a delegated agent, so its answer can't include " +
-  'attachments. Remove them, or stop answering to send them as a new message.';
+export const ANSWER_ATTACHMENTS_UNSUPPORTED = t`This question was asked by a delegated agent, so its answer can't include attachments. Remove them, or stop answering to send them as a new message.`;
 
 export type ComposerQuestionAnswer =
   /** Text only: answered through the question's own response route. */

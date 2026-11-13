@@ -35,6 +35,7 @@ import {
   SessionShareMenuItem,
 } from './session-management-menu';
 import { TopBarEnd } from './top-bar-end';
+import { t } from '@lingui/core/macro';
 
 export interface ClioSessionActionsProps {
   title: string;
@@ -144,7 +145,7 @@ export function ClioSessionActions({
                   title,
                   mode,
                 ),
-              'Session archive prepared for download',
+              t`Session archive prepared for download`,
             )
           }
         />
@@ -153,7 +154,7 @@ export function ClioSessionActions({
       {onOpenSystemTerminal ? (
         <KeyMenuItem
           icon={ExternalLinkIcon}
-          label="Open in system terminal"
+          label={t`Open in system terminal`}
           menuKey="T"
           onSelect={() => void run(onOpenSystemTerminal)}
         />
@@ -183,7 +184,7 @@ export function ClioSessionActions({
             trigger({ disabled: Boolean(disabled || pending) })
           ) : (
             <Button
-              aria-label={`Actions for ${title}`}
+              aria-label={t`Actions for ${title}`}
               className="max-sm:size-8"
               disabled={disabled || pending}
               size="icon-xs"

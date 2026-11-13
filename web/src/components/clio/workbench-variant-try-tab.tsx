@@ -13,6 +13,8 @@ import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { StateView } from './primitives/state-view';
 import { VariantTrySteps } from './variant-try-steps';
 import type { WorkbenchTab } from './workbench-shared';
+import { t, ph, plural } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const NO_INTERACTIONS = [] as const;
 
@@ -22,7 +24,7 @@ function TryActivity({ tab }: { tab: VariantTabView }) {
     <Collapsible>
       <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
         <ListTreeIcon aria-hidden="true" className="size-3.5" />
-        {tab.activity.length === 1 ? '1 step' : `${tab.activity.length} steps`}
+        {plural(tab.activity.length, { one: '# step', other: '# steps' })}
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ol className="mt-1 space-y-0.5 border-l pl-3 text-xs text-muted-foreground">
@@ -42,7 +44,7 @@ function TryBody({ tab, sessionId }: { tab: VariantTabView; sessionId: string })
       {tab.forkedFromLabel ? (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <GitForkIcon aria-hidden="true" className="size-3.5" />
-          Refined from {tab.forkedFromLabel}
+          {t`Refined from ${ph({ forkedFromLabel: tab.forkedFromLabel })}`}
         </p>
       ) : null}
       {tab.injections.map((block) => (
@@ -56,7 +58,7 @@ function TryBody({ tab, sessionId }: { tab: VariantTabView; sessionId: string })
       ) : null}
       {tab.error ? (
         <Alert variant="destructive">
-          <AlertTitle>{tab.label} failed</AlertTitle>
+          <AlertTitle>{t`${ph({ label: tab.label })} failed`}</AlertTitle>
           <AlertDescription>{tab.error}</AlertDescription>
         </Alert>
       ) : null}
@@ -65,15 +67,17 @@ function TryBody({ tab, sessionId }: { tab: VariantTabView; sessionId: string })
           <MessageResponse>{tab.text}</MessageResponse>
         </div>
       ) : tab.state === 'running' ? (
-        <p className="text-sm text-muted-foreground">Writing {tab.label}…</p>
+        <p className="text-sm text-muted-foreground">{t`Writing ${ph({ label: tab.label })}…`}</p>
       ) : tab.state !== 'failed' ? (
-        <p className="text-sm text-muted-foreground">{tab.label} produced no text.</p>
+        <p className="text-sm text-muted-foreground">{t`${ph({ label: tab.label })} produced no text.`}</p>
       ) : null}
       <TryActivity tab={tab} />
       <VariantTrySteps advice={tab.advice} sessionId={sessionId} steps={tab.steps} />
       {tab.comment ? (
         <p className="text-xs text-muted-foreground">
-          Your comment: <span className="text-foreground">{tab.comment}</span>
+          <Trans>
+            Your comment: <span className="text-foreground">{tab.comment}</span>
+          </Trans>
         </p>
       ) : null}
     </div>
@@ -111,13 +115,15 @@ export function WorkbenchVariantTryTab({
     ? [
         variantTryState(shown) ?? '',
         shown.selected ? 'selected' : '',
-        shown.tokens !== undefined ? `${shown.tokens.toLocaleString()} tokens` : '',
+        shown.tokens !== undefined
+          ? plural(shown.tokens, { one: '# token', other: '# tokens' })
+          : '',
       ].filter(Boolean)
     : [];
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-slot="variant-try-tab">
       <FrameBar
-        label={`${name} actions`}
+        label={t`${name} actions`}
         what={
           facts.length ? (
             <>
@@ -142,10 +148,10 @@ export function WorkbenchVariantTryTab({
       ) : (
         <StateView
           className="min-h-0 flex-1"
-          detail="Its run is no longer in this conversation."
+          detail={t`Its run is no longer in this conversation.`}
           kind="empty"
           size="viewer"
-          title={`${tab.label} is not available`}
+          title={t`${ph({ label: tab.label })} is not available`}
         />
       )}
     </div>

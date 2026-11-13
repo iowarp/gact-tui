@@ -10,6 +10,7 @@ import {
   shortcutText,
 } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 export type KeyCapSize = 'md' | 'row' | 'sm';
 
@@ -98,7 +99,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
         {chords.map((caps, chordIndex) => (
           <span key={chordIndex} className="inline-flex items-center gap-1">
             {chordIndex > 0 && (definition.joiner ?? 'or') === 'or' ? (
-              <span className="px-0.5 text-caption text-faint">or</span>
+              <span className="px-0.5 text-caption text-faint">{t`or`}</span>
             ) : null}
             {caps.map((cap, capIndex) => (
               <KeyCap key={capIndex} size={capSize}>

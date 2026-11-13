@@ -111,6 +111,7 @@ export function formatDuration(milliseconds: number, style: DurationStyle = 'uni
   const roundedSeconds = Math.round(elapsed / MILLISECONDS_PER_SECOND);
   const minutes = Math.floor(roundedSeconds / 60);
   const seconds = roundedSeconds % 60;
+  // i18n-ignore: unit symbols (min, s), like the other units in this formatter
   return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
 }
 

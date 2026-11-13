@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { BlockBody, PagedBlock } from './tool-result-primitives';
+import { t, ph } from '@lingui/core/macro';
 
 export function ResourceSearchResults({
   block,
@@ -25,7 +26,9 @@ export function ResourceSearchResults({
       return match ? { line: match[1], text: match[2] } : undefined;
     })
     .filter((match): match is { line: string; text: string } => Boolean(match));
-  const title = `Matches in ${resource.label || 'workspace resource'}`;
+  const title = resource.label
+    ? t`Matches in ${ph({ resource: resource.label })}`
+    : t`Matches in workspace resource`;
   return (
     <div
       className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
@@ -44,7 +47,7 @@ export function ResourceSearchResults({
                   block={{
                     ...resource,
                     id: `${resource.id}-line-${match.line}`,
-                    label: `Line ${match.line}`,
+                    label: t`Line ${ph({ line: match.line })}`,
                   }}
                   compact
                 />
@@ -57,7 +60,7 @@ export function ResourceSearchResults({
         </BoundedResult>
       ) : (
         <p className="px-2 py-1.5 text-sm text-muted-foreground">
-          {block.text || 'No matching passages'}
+          {block.text || t`No matching passages`}
         </p>
       )}
     </div>
@@ -76,13 +79,13 @@ function compactExcerpt(text: string): string {
 }
 
 export function MemoryExcerptItem({ excerpt, index }: { excerpt: MemoryExcerpt; index: number }) {
-  const label = excerpt.session?.label || `Excerpt ${index + 1}`;
+  const label = excerpt.session?.label || t`Excerpt ${ph({ number: index + 1 })}`;
   return (
     <Collapsible className="group/memory">
       <div className="flex min-w-0 items-center gap-1.5 px-1.5 py-1">
         <CollapsibleTrigger asChild>
           <Button
-            aria-label={`Toggle ${label} ${excerpt.role} excerpt`}
+            aria-label={t`Toggle ${label} ${ph({ role: excerpt.role })} excerpt`}
             className="shrink-0"
             size="icon-sm"
             variant="ghost"
@@ -148,7 +151,7 @@ export function MemoryExcerptPanel({
           </ul>
         </BoundedResult>
       ) : (
-        <p className="px-2 py-1.5 text-sm text-muted-foreground">No retained excerpts</p>
+        <p className="px-2 py-1.5 text-sm text-muted-foreground">{t`No retained excerpts`}</p>
       )}
     </div>
   );
@@ -159,10 +162,11 @@ function memorySearchExcerpts(blocks: readonly ToolPresentationBlock[]): MemoryE
   for (let index = 0; index < blocks.length; index++) {
     const session = blocks[index];
     const detail = blocks[index + 1];
-    if (session.type !== 'link' || session.target !== 'session' || detail?.type !== 'text') continue;
+    if (session.type !== 'link' || session.target !== 'session' || detail?.type !== 'text')
+      continue;
     excerpts.push({
       id: detail.id,
-      role: detail.label || 'Memory',
+      role: detail.label || t`Memory`,
       session,
       text: detail.text ?? '',
     });
@@ -179,7 +183,9 @@ export function MemorySearchResults({
   summary: string;
 }) {
   const title = summary.replace(/^(\d+\s+matches?)\s+in\s+(\d+\s+sessions?)$/iu, '$1 across $2');
-  return <MemoryExcerptPanel excerpts={memorySearchExcerpts(blocks)} icon={SearchIcon} title={title} />;
+  return (
+    <MemoryExcerptPanel excerpts={memorySearchExcerpts(blocks)} icon={SearchIcon} title={title} />
+  );
 }
 
 export function MemorySessionSummary({
@@ -189,13 +195,13 @@ export function MemorySessionSummary({
   blocks: readonly ToolPresentationBlock[];
   summary: string;
 }) {
-  const messageCount = /^(\d+\s+messages?)/imu.exec(summary)?.[1] || 'Session summary';
+  const messageCount = /^(\d+\s+messages?)/imu.exec(summary)?.[1] || t`Session summary`;
   const status = /^Status:\s*(.+)$/imu.exec(summary)?.[1];
   const excerpts = blocks
     .filter((block) => block.type === 'text' && block.text)
     .map((block) => ({
       id: block.id,
-      role: block.label || 'Memory',
+      role: block.label || t`Memory`,
       text: block.text ?? '',
     }));
   return (
@@ -205,7 +211,7 @@ export function MemorySessionSummary({
         <span>{messageCount}</span>
         {status ? <Badge variant="secondary">{status}</Badge> : null}
       </div>
-      <MemoryExcerptPanel excerpts={excerpts} title="Recent session excerpts" />
+      <MemoryExcerptPanel excerpts={excerpts} title={t`Recent session excerpts`} />
     </div>
   );
 }
@@ -218,10 +224,19 @@ function titleCase(value: unknown, fallback: string) {
 export function ResourceFacts({ blocks }: { blocks: ToolPresentationBlock[] }) {
   const identity = blocks.find((block) => block.id === 'identity' || block.type === 'text');
   const values = (identity?.text ?? '').split('\n');
-  const labels = ['Format', 'Size', 'Revision', 'Upload', 'Conversion'];
-  const facts = labels.map((label, index) => ({
+  // The service writes one English-prefixed line per fact, in this order.
+  const labels: [prefix: string, label: string][] = [
+    ['Format', t`Format`],
+    ['Size', t`Size`],
+    ['Revision', t`Revision`],
+    ['Upload', t`Upload`],
+    ['Conversion', t`Conversion`],
+  ];
+  const facts = labels.map(([prefix, label], index) => ({
     label,
-    value: (values[index] || 'Unavailable').replace(new RegExp(`^${label}\\s+`, 'iu'), ''),
+    value: values[index]
+      ? values[index].replace(new RegExp(`^${prefix}\\s+`, 'iu'), '')
+      : t`Unavailable`,
   }));
   return (
     <div
@@ -261,7 +276,7 @@ export function ResourceStructureResult({
         data-slot="tool-result-panel"
       >
         <p className="border-b px-2 py-1.5 text-xs font-medium text-muted-foreground">
-          Document structure
+          {t`Document structure`}
         </p>
         <dl className="grid grid-cols-4 divide-x">
           {counts.map(({ label, value }) => (
@@ -280,6 +295,7 @@ export function ResourceStructureResult({
   const collection = typeof input?.collection === 'string' ? input.collection : 'node';
   const index = typeof input?.index === 'number' ? input.index : undefined;
   const singular = collection.endsWith('s') ? collection.slice(0, -1) : collection;
+  const kind = titleCase(singular, '');
   const path = index === undefined ? undefined : `#/${collection}/${index}`;
   return (
     <div
@@ -288,7 +304,7 @@ export function ResourceStructureResult({
     >
       <div className="flex min-w-0 items-center justify-between gap-2 border-b px-2 py-1.5">
         <p className="truncate text-xs font-medium text-muted-foreground">
-          {titleCase(singular, 'Structure')} node
+          {kind ? t`${kind} node` : t`Structure node`}
         </p>
         <code className="shrink-0 text-xs text-muted-foreground">
           {collection}
@@ -297,7 +313,7 @@ export function ResourceStructureResult({
       </div>
       <p className="px-2 py-1.5 text-sm font-medium [overflow-wrap:anywhere]">{node.text}</p>
       {path ? (
-        <p className="border-t px-2 py-1 text-xs text-muted-foreground">Path {path}</p>
+        <p className="border-t px-2 py-1 text-xs text-muted-foreground">{t`Path ${path}`}</p>
       ) : null}
     </div>
   );
@@ -312,7 +328,7 @@ export function ResourceConversionResult({ blocks }: { blocks: ToolPresentationB
       data-slot="tool-result-panel"
     >
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">Conversion status</p>
+        <p className="text-xs text-muted-foreground">{t`Conversion status`}</p>
         <p className="truncate text-sm font-medium">{status.text}</p>
       </div>
     </div>

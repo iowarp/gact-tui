@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useInterfaceScale } from '@/theme/runtime';
 import { renderPeleDiagram } from './diagram-renderer';
 import { markRailroad, scaleSvg } from './flow-railroad-marks';
+import { t } from '@lingui/core/macro';
 
 /** Widths are measured in steps of this size so a resize does not redraw on every pixel. */
 const WIDTH_STEP = 40;
@@ -157,7 +158,7 @@ export function FlowDiagram({
       >
         {failed && !svg ? (
           <p className="py-2 text-xs text-muted-foreground">
-            The diagram could not be drawn; the workflow below carries the same steps.
+            {t`The diagram could not be drawn; the workflow below carries the same steps.`}
           </p>
         ) : (
           <div aria-hidden={selectable ? undefined : true} dangerouslySetInnerHTML={html} />

@@ -244,6 +244,7 @@ export function useSessionMutations({
     draftSession.current ??= repository
       .createSession({
         workspace_id: workspaceId,
+        // i18n-ignore: the placeholder title the service recognizes and replaces with a derived one
         title: 'New conversation',
         ...fields,
         ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),

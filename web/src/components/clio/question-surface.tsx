@@ -6,6 +6,7 @@ import { useQuestionAnswer } from './question-answer-context';
 import { Button } from '@/components/ui/button';
 import { useContext } from 'react';
 import { ResponseViewportContext } from './response-viewport-context';
+import { t } from '@lingui/core/macro';
 
 export function QuestionSurface({ interaction }: { interaction: PendingInteraction }) {
   const state = useQuestionAnswer();
@@ -16,10 +17,10 @@ export function QuestionSurface({ interaction }: { interaction: PendingInteracti
   if (!surface || surface.session_id !== interaction.owner_session_id)
     return (
       <div role="status" className="mb-3 text-sm text-muted-foreground">
-        Question visual is unavailable.
+        {t`Question visual is unavailable.`}
         {state?.refetchSurfaces ? (
           <Button variant="ghost" size="sm" onClick={state.refetchSurfaces}>
-            Retry
+            {t`Retry`}
           </Button>
         ) : null}
       </div>

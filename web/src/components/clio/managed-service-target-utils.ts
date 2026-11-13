@@ -12,12 +12,13 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { SavedSshRoute } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
 import type { ManagedTargetKind } from './managed-service-target';
+import { t, ph } from '@lingui/core/macro';
 
 /** The agent's own computer, by the agent's name and never the host's raw label (#938). */
-export const AGENT_COMPUTER = `${vocab.agent}'s computer`;
+export const AGENT_COMPUTER = t`${ph({ agent: vocab.agent })}'s computer`;
 
 export function targetLabel(target: ManagedTargetKind, host?: SshHost): string {
-  return target === 'local' ? 'this computer' : host?.label || 'the SSH host';
+  return target === 'local' ? t`this computer` : host?.label || t`the SSH host`;
 }
 
 /** The SSH host shape `sshTargetDefinition`, `savedSshRoute` and `targetMatchesHost` need. */
@@ -110,10 +111,10 @@ export class VersionConflictError extends Error {
   ) {
     super(
       health === 'healthy'
-        ? `${vocab.agent} ${installedVersion} is already running (pid ${pid}).`
+        ? t`${ph({ agent: vocab.agent })} ${installedVersion} is already running (pid ${pid}).`
         : health === 'stopped'
-          ? `${vocab.agent} ${installedVersion} is installed but not running.`
-          : `A ${vocab.agent}-looking process (pid ${pid}) is on the port but isn't answering.`,
+          ? t`${ph({ agent: vocab.agent })} ${installedVersion} is installed but not running.`
+          : t`A ${ph({ agent: vocab.agent })}-looking process (pid ${pid}) is on the port but isn't answering.`,
     );
     this.name = 'VersionConflictError';
   }
@@ -138,7 +139,7 @@ export type ConflictAnswer = 'connect' | 'replace' | 'update' | 'new' | 'cancell
 /** The caller creates a separate infrastructure target for the selected new port. */
 export class NewClioInstance extends Error {
   constructor(public readonly conflict: FoundConflict) {
-    super('Start a separate remote agent');
+    super(t`Start a separate remote agent`);
   }
 }
 
@@ -181,7 +182,7 @@ export async function claimClioAgent(
       };
       const choice = await onConflict(found);
       if (choice === 'cancelled') {
-        throw new DOMException('Deployment cancelled', 'AbortError');
+        throw new DOMException(t`Deployment cancelled`, 'AbortError');
       }
       if (choice === 'new') throw new NewClioInstance(found);
       configuration = {
@@ -272,9 +273,9 @@ export function abortableDelay(milliseconds: number, signal?: AbortSignal): Prom
 }
 
 export const RUNTIME_NAMES: Record<ContainerRuntimeFact['name'], string> = {
-  docker: 'Docker',
-  podman: 'Podman',
-  apptainer: 'Apptainer',
+  docker: 'Docker', // i18n-ignore: product name
+  podman: 'Podman', // i18n-ignore: product name
+  apptainer: 'Apptainer', // i18n-ignore: product name
 };
 
 const OS_NAMES: Record<string, string> = {
@@ -284,21 +285,21 @@ const OS_NAMES: Record<string, string> = {
 };
 
 const ARCH_NAMES: Record<string, string> = {
-  x86_64: '64-bit',
-  aarch64: '64-bit ARM',
+  x86_64: t`64-bit`,
+  aarch64: t`64-bit ARM`,
 };
 
 const GPU_NAMES: Record<string, string> = {
-  nvidia: 'NVIDIA GPU detected.',
-  amd: 'AMD GPU detected.',
+  nvidia: t`NVIDIA GPU detected.`,
+  amd: t`AMD GPU detected.`,
 };
 
 /** One plain sentence about the inspected computer, e.g. "Windows, 64-bit. No GPU detected." */
 export function hostSummary(facts: TargetFacts): string {
-  const system = OS_NAMES[facts.os] ?? 'Unknown system';
+  const system = OS_NAMES[facts.os] ?? t`Unknown system`;
   const arch = ARCH_NAMES[facts.arch];
-  const gpu = GPU_NAMES[facts.accelerator] ?? 'No GPU detected.';
-  return `${arch ? `${system}, ${arch}` : system}. ${gpu}`;
+  const gpu = GPU_NAMES[facts.accelerator] ?? t`No GPU detected.`;
+  return arch ? t`${system}, ${arch}. ${gpu}` : t`${system}. ${gpu}`;
 }
 
 export interface RuntimeFactLine {
@@ -313,23 +314,27 @@ export interface RuntimeFactLine {
 function startHint(name: ContainerRuntimeFact['name'], os: string): string {
   if (name === 'docker') {
     return os === 'linux'
-      ? ' Start the Docker service, then check again.'
-      : ' Start Docker Desktop, then check again.';
+      ? t`Start the Docker service, then check again.`
+      : t`Start Docker Desktop, then check again.`;
   }
-  return name === 'podman' ? ' Start Podman, then check again.' : '';
+  return name === 'podman' ? t`Start Podman, then check again.` : '';
 }
 
 function unusableText(fact: ContainerRuntimeFact, os: string): string {
   const label = RUNTIME_NAMES[fact.name];
   switch (fact.failure) {
-    case 'not_running':
-      return `${label} is installed but not running.${startHint(fact.name, os)}`;
+    case 'not_running': {
+      const hint = startHint(fact.name, os);
+      return hint
+        ? t`${label} is installed but not running. ${hint}`
+        : t`${label} is installed but not running.`;
+    }
     case 'permission_denied':
-      return `${label} is installed but your account is not allowed to use it.`;
+      return t`${label} is installed but your account is not allowed to use it.`;
     case 'timed_out':
-      return `${label} is installed but did not respond. Check again in a moment.`;
+      return t`${label} is installed but did not respond. Check again in a moment.`;
     default:
-      return `${label} is installed but is not working.`;
+      return t`${label} is installed but is not working.`;
   }
 }
 
@@ -346,10 +351,10 @@ export function runtimeFactLines(facts: TargetFacts): RuntimeFactLine[] {
       {
         name: 'docker',
         text: facts.docker_available
-          ? 'Docker is ready.'
+          ? t`Docker is ready.`
           : facts.docker_installed
-            ? 'Docker is installed but not running.'
-            : 'Docker is not installed.',
+            ? t`Docker is installed but not running.`
+            : t`Docker is not installed.`,
         detail: '',
       },
     ];

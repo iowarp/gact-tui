@@ -17,6 +17,7 @@ import { RetryIcon } from '@/lib/icon-vocabulary';
 import type { ComponentType, SVGProps } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 export type ClioStatusValue =
   | StreamState
@@ -37,152 +38,152 @@ const statusPresentation: Record<
   { label: string; icon: Icon; className: string }
 > = {
   connecting: {
-    label: 'Connecting',
+    label: t`Connecting`,
     icon: PlugZapIcon,
     className: 'text-info-foreground dark:text-info border-info/30 bg-info/10',
   },
   live: {
-    label: 'Live',
+    label: t`Live`,
     icon: PlugZapIcon,
     className: 'text-success border-success/30 bg-success/10',
   },
   reconnecting: {
-    label: 'Reconnecting',
+    label: t`Reconnecting`,
     icon: RetryIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   gapped: {
-    label: 'Stream gap',
+    label: t`Stream gap`,
     icon: CircleAlertIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   offline: {
-    label: 'Offline',
+    label: t`Offline`,
     icon: WifiOffIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   queued: {
-    label: 'Queued',
+    label: t`Queued`,
     icon: Clock3Icon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   running: {
-    label: 'Running',
+    label: t`Running`,
     icon: LoaderCircleIcon,
     className:
       'text-status-running-foreground border-status-running-foreground/25 bg-status-running',
   },
   stopping: {
-    label: 'Stopping',
+    label: t`Stopping`,
     icon: LoaderCircleIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   stopped: {
-    label: 'Stopped',
+    label: t`Stopped`,
     icon: PauseCircleIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   cancellation_requested: {
-    label: 'Cancellation requested',
+    label: t`Cancellation requested`,
     icon: LoaderCircleIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   task_state_uncertain: {
-    label: 'Needs inspection',
+    label: t`Needs inspection`,
     icon: CircleAlertIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   recovering: {
-    label: 'Recovering',
+    label: t`Recovering`,
     icon: RetryIcon,
     className:
       'text-status-running-foreground border-status-running-foreground/25 bg-status-running',
   },
   pause_requested: {
-    label: 'Pause requested',
+    label: t`Pause requested`,
     icon: PauseCircleIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   paused: {
-    label: 'Paused',
+    label: t`Paused`,
     icon: PauseCircleIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   yielded: {
-    label: 'Yielded',
+    label: t`Yielded`,
     icon: CircleDashedIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   recovery_required: {
-    label: 'Needs inspection',
+    label: t`Needs inspection`,
     icon: CircleAlertIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   waiting_permission: {
-    label: 'Permission needed',
+    label: t`Permission needed`,
     icon: ShieldQuestionIcon,
     className: 'text-action border-action/30 bg-action/10',
   },
   waiting_user: {
-    label: 'Waiting for you',
+    label: t`Waiting for you`,
     icon: PauseCircleIcon,
     className: 'text-action border-action/30 bg-action/10',
   },
   completed: {
-    label: 'Completed',
+    label: t`Completed`,
     icon: CheckCircle2Icon,
     className:
       'text-status-supported-foreground border-status-supported-foreground/25 bg-status-supported',
   },
   failed: {
-    label: 'Failed',
+    label: t`Failed`,
     icon: XCircleIcon,
     className: 'text-destructive border-destructive/30 bg-destructive/10',
   },
   cancelled: {
-    label: 'Cancelled',
+    label: t`Cancelled`,
     icon: BanIcon,
     className:
       'text-status-superseded-foreground border-status-superseded-foreground/25 bg-status-superseded',
   },
   interrupted: {
-    label: 'Interrupted',
+    label: t`Interrupted`,
     icon: OctagonIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   pending: {
-    label: 'Pending',
+    label: t`Pending`,
     icon: CircleDashedIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   succeeded: {
-    label: 'Succeeded',
+    label: t`Succeeded`,
     icon: CheckCircle2Icon,
     className:
       'text-status-supported-foreground border-status-supported-foreground/25 bg-status-supported',
   },
   denied: {
-    label: 'Denied',
+    label: t`Denied`,
     icon: BanIcon,
     className: 'text-destructive border-destructive/30 bg-destructive/10',
   },
   healthy: {
-    label: 'Healthy',
+    label: t`Healthy`,
     icon: CheckCircle2Icon,
     className: 'text-success border-success/30 bg-success/10',
   },
   degraded: {
-    label: 'Degraded',
+    label: t`Degraded`,
     icon: CircleAlertIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   unavailable: {
-    label: 'Unavailable',
+    label: t`Unavailable`,
     icon: CircleDashedIcon,
     className: 'text-muted-foreground border-border bg-muted/50',
   },
   unknown: {
-    label: 'Unknown',
+    label: t`Unknown`,
     icon: CircleAlertIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },

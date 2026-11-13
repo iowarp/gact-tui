@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
 
 /**
  * Meta parts separated by space alone; the whole line is the hover text when it is cut.
@@ -137,7 +138,7 @@ export function ExtensionRow({
   meta,
   status,
   onExplore,
-  exploreLabel = `Explore ${name}`,
+  exploreLabel = t`Explore ${name}`,
   actions,
   menu,
   slot,
@@ -220,7 +221,7 @@ export function ExtensionRow({
             {menu ? (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <IconButton icon={<MoreIcon />} label={`More actions for ${name}`} />
+                  <IconButton icon={<MoreIcon />} label={t`More actions for ${name}`} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
                   {menu}

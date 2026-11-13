@@ -12,11 +12,12 @@ import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t, ph } from '@lingui/core/macro';
 
 function metaParts(prompt: PromptDefinition, meta: ReminderMeta) {
   const params = Object.entries(meta.params).map(([name, value]) => `${name} = ${value}`);
   return [
-    meta.trigger ? `When ${meta.trigger}` : (prompt.description ?? ''),
+    meta.trigger ? t`When ${ph({ trigger: meta.trigger })}` : (prompt.description ?? ''),
     params.join(', '),
     { text: meta.variables.map((name) => `{{${name}}}`).join(' '), mono: true },
   ];
@@ -47,10 +48,10 @@ export function RemindersList({
       });
     },
     onSuccess: (_result, { active }) => {
-      toast.success(active ? 'Reminder turned on' : 'Reminder turned off');
+      toast.success(active ? t`Reminder turned on` : t`Reminder turned off`);
       onChanged();
     },
-    onError: () => toast.error('The reminder wasn’t changed. Try again.'),
+    onError: () => toast.error(t`The reminder wasn’t changed. Try again.`),
   });
   const reminders = prompts.flatMap((prompt) => {
     const meta = reminderMeta(prompt);
@@ -58,12 +59,12 @@ export function RemindersList({
   });
   if (!reminders.length)
     return (
-      <ItemList label="Reminders">
-        <StateView kind="empty" size="row" title="This service reports no reminders" />
+      <ItemList label={t`Reminders`}>
+        <StateView kind="empty" size="row" title={t`This service reports no reminders`} />
       </ItemList>
     );
   return (
-    <ItemList label="Reminders">
+    <ItemList label={t`Reminders`}>
       {reminders.map(({ prompt, meta }) => {
         const name = prompt.title || prompt.id;
         const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -76,7 +77,7 @@ export function RemindersList({
             actions={
               <IconButton
                 icon={<EditIcon />}
-                label={`Edit ${name}`}
+                label={t`Edit ${name}`}
                 onClick={() => onEdit(prompt)}
               />
             }
@@ -91,7 +92,7 @@ export function RemindersList({
             slot={
               meta.required ? null : (
                 <Switch
-                  aria-label={`${name} on`}
+                  aria-label={t`${name} on`}
                   checked={meta.active}
                   disabled={toggle.isPending}
                   onCheckedChange={(active) => toggle.mutate({ prompt, active })}
@@ -101,10 +102,14 @@ export function RemindersList({
             status={
               <span
                 className="flex min-w-0"
-                title={meta.required ? `Cannot be turned off: ${meta.required}` : undefined}
+                title={
+                  meta.required
+                    ? t`Cannot be turned off: ${ph({ required: meta.required })}`
+                    : undefined
+                }
               >
                 <StatusIndicator
-                  label={meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
+                  label={meta.required ? t`Always on` : meta.active ? t`On` : t`Off`}
                   tone={meta.active ? 'success' : 'idle'}
                 />
               </span>

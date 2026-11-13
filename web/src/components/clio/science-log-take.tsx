@@ -9,6 +9,7 @@ import {
 import { copyText } from '@/lib/clipboard';
 import { attempt, type CopyTake, type OpenTake, type TakeRow } from './file-viewer-take-hooks';
 import { entryText, type StudyNode } from './science-log-model';
+import { t } from '@lingui/core/macro';
 
 export interface ScienceLogTakeOptions {
   study: ScienceStudy;
@@ -39,21 +40,21 @@ export function scienceLogTake({
   folderAvailable,
 }: ScienceLogTakeOptions): { copy: CopyTake; open?: OpenTake } {
   const copyEntry = () => {
-    if (entry) void attempt(() => copyText(entryText(entry)), 'Copied the entry.');
+    if (entry) void attempt(() => copyText(entryText(entry)), t`Copied the entry.`);
   };
   const copyLog = () =>
-    void attempt(() => copyText(shown.map(entryText).join('\n\n')), 'Copied the log.');
+    void attempt(() => copyText(shown.map(entryText).join('\n\n')), t`Copied the log.`);
   const copy: CopyTake = {
     rows: [
       {
         id: 'entry',
-        label: 'Entry',
+        label: t`Entry`,
         icon: <TextQuoteIcon aria-hidden="true" />,
-        ...(entry ? { onSelect: copyEntry } : { reason: 'Select an entry' }),
+        ...(entry ? { onSelect: copyEntry } : { reason: t`Select an entry` }),
       },
-      { id: 'log', label: 'Log', icon: <ListIcon aria-hidden="true" />, onSelect: copyLog },
+      { id: 'log', label: t`Log`, icon: <ListIcon aria-hidden="true" />, onSelect: copyLog },
     ],
-    face: entry ? { label: 'Copy entry', run: copyEntry } : { label: 'Copy log', run: copyLog },
+    face: entry ? { label: t`Copy entry`, run: copyEntry } : { label: t`Copy log`, run: copyLog },
   };
   // The picked topic's branch first, else the selected entry's, else the study's own.
   const branch = study.branches.find(
@@ -67,21 +68,21 @@ export function scienceLogTake({
   if (onShowInLog)
     rows.push({
       id: 'show-in-log',
-      label: 'Show in log',
+      label: t`Show in log`,
       icon: <ListIcon aria-hidden="true" />,
       onSelect: onShowInLog,
     });
   if (entry?.invocation && onViewInTranscript)
     rows.push({
       id: 'transcript',
-      label: 'View in transcript',
+      label: t`View in transcript`,
       icon: <MessageSquareTextIcon aria-hidden="true" />,
       onSelect: () => onViewInTranscript(entry),
     });
   if (handle && onOpenTask)
     rows.push({
       id: 'task',
-      label: 'Open task',
+      label: t`Open task`,
       icon: <ListTreeIcon aria-hidden="true" />,
       onSelect: () => onOpenTask(handle),
     });
@@ -89,9 +90,9 @@ export function scienceLogTake({
     const available = folderAvailable?.(folder) ?? true;
     rows.push({
       id: 'folder',
-      label: 'Open folder',
+      label: t`Open folder`,
       icon: <FolderOpenIcon aria-hidden="true" />,
-      ...(available ? { onSelect: () => onOpenFolder(folder) } : { reason: 'Not available here' }),
+      ...(available ? { onSelect: () => onOpenFolder(folder) } : { reason: t`Not available here` }),
     });
   }
   const first = rows.find((row) => row.onSelect);

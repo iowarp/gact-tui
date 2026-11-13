@@ -4,6 +4,7 @@ import type {
   CommentSurfaceKind,
   DocumentAnchor,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /**
  * One select session on one surface (comments plan, addendum A section 1): numbered marks
@@ -57,9 +58,9 @@ export interface CommentSurface {
 }
 
 export const MODE_LABELS: Record<CommentMode, string> = {
-  text: 'Text',
-  region: 'Region',
-  element: 'Element',
+  text: t`Text`,
+  region: t`Region`,
+  element: t`Element`,
 };
 
 const LABEL = /^S([1-9][0-9]{0,3})$/u;
@@ -91,14 +92,18 @@ export function anchorPreview(anchor: DocumentAnchor): string {
     return anchor.text_excerpt;
   if (anchor.profile === 'dom' && anchor.src) {
     const file = anchor.src.split(/[?#]/u)[0]!.split('/').pop();
-    return `Image: ${anchor.text_excerpt || file || anchor.src}`.slice(0, 120);
+    const image = anchor.text_excerpt || file || anchor.src;
+    return t`Image: ${image}`.slice(0, 120);
   }
   if (anchor.profile === 'dom')
     return `<${anchor.tag || 'element'}> ${anchor.selector ?? ''}`.trim();
   if (anchor.rect?.length === 4) {
     const [x, y, w, h] = anchor.rect;
-    const page = anchor.page_index !== undefined ? `page ${anchor.page_index + 1}, ` : '';
-    return `${page}x ${Math.round(x * 100)}–${Math.round((x + w) * 100)}%, y ${Math.round(y * 100)}–${Math.round((y + h) * 100)}%`;
+    const xRange = `${Math.round(x * 100)}–${Math.round((x + w) * 100)}%`;
+    const yRange = `${Math.round(y * 100)}–${Math.round((y + h) * 100)}%`;
+    if (anchor.page_index === undefined) return t`x ${xRange}, y ${yRange}`;
+    const pageNumber = anchor.page_index + 1;
+    return t`page ${pageNumber}, x ${xRange}, y ${yRange}`;
   }
   return anchor.profile;
 }

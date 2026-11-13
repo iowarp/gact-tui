@@ -1,11 +1,12 @@
+import { t } from '@lingui/core/macro';
 /** Human-readable labels shared by memory lists and creation controls. */
 export const MEMORY_CATEGORY_LABELS: Record<string, string> = {
-  profile: 'Profile',
-  preferences: 'Preferences',
-  topics: 'Topics',
-  areas: 'Areas of work',
-  people: 'People',
-  environments: 'Environments',
+  profile: t`Profile`,
+  preferences: t`Preferences`,
+  topics: t`Topics`,
+  areas: t`Areas of work`,
+  people: t`People`,
+  environments: t`Environments`,
 };
 
 /** Memory results expose facts by default; users may collapse them explicitly. */

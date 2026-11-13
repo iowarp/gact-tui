@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreIcon } from '@/lib/icon-vocabulary';
+import { t } from '@lingui/core/macro';
 
 /** Workspace actions stay usable before the first message creates a session. */
 export function ClioDraftActions({
@@ -23,7 +24,7 @@ export function ClioDraftActions({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label="New conversation actions"
+          aria-label={t`New conversation actions`}
           disabled={disabled}
           size="icon-xs"
           variant="ghost"
@@ -33,16 +34,16 @@ export function ClioDraftActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-64">
         <DropdownMenuItem onSelect={() => onOpen('files')}>
-          <FolderIcon aria-hidden="true" /> Workspace files
+          <FolderIcon aria-hidden="true" /> {t`Workspace files`}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onOpen('resources')}>
-          <PaperclipIcon aria-hidden="true" /> Attached resources
+          <PaperclipIcon aria-hidden="true" /> {t`Attached resources`}
         </DropdownMenuItem>
         {onOpenSystemTerminal ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => void onOpenSystemTerminal()}>
-              <ExternalLinkIcon aria-hidden="true" /> Open in system terminal
+              <ExternalLinkIcon aria-hidden="true" /> {t`Open in system terminal`}
             </DropdownMenuItem>
           </>
         ) : null}

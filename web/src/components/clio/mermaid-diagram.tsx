@@ -52,6 +52,7 @@ import {
   type SurfaceExportFormat,
 } from './surface-toolbar';
 import { ViewerZoomControls } from './viewer-zoom-controls';
+import { t } from '@lingui/core/macro';
 
 type MermaidView = 'render' | 'source';
 
@@ -85,13 +86,13 @@ function mermaidExports(svg: string, source: string, stem: string): SurfaceExpor
   return [
     {
       id: 'svg',
-      label: 'SVG image',
+      label: t`SVG image`,
       disabled: !svg,
       run: () => downloadText(svg, 'image/svg+xml', `${stem}.svg`),
     },
     {
       id: 'png',
-      label: 'PNG image',
+      label: t`PNG image`,
       disabled: !svg,
       run: async () => {
         const size = svgIntrinsicSize(svg);
@@ -101,7 +102,7 @@ function mermaidExports(svg: string, source: string, stem: string): SurfaceExpor
     },
     {
       id: 'source',
-      label: 'Mermaid source',
+      label: t`Mermaid source`,
       run: () => downloadText(source, 'text/vnd.mermaid', `${stem}.mmd`),
     },
   ];
@@ -158,7 +159,7 @@ export function ClioMermaidDiagram({
       return {
         source: '',
         folders: [],
-        error: reason instanceof Error ? reason.message : 'Diagram could not be rendered',
+        error: reason instanceof Error ? reason.message : t`Diagram could not be rendered`,
       };
     }
   }, [source]);
@@ -171,7 +172,7 @@ export function ClioMermaidDiagram({
     if (target) navigation?.onOpenFolder?.(target.path);
   };
 
-  const heading = title || 'Diagram';
+  const heading = title || t`Diagram`;
   const filenameStem = filenameStemFromTitle(heading);
 
   const exportFormats = mermaidExports(svgOutput, source, filenameStem);
@@ -218,32 +219,32 @@ export function ClioMermaidDiagram({
 
   const copySource = () => {
     void copyTextToClipboard(source).then((copied) => {
-      if (!copied) toast.error("Couldn't copy source");
+      if (!copied) toast.error(t`Couldn't copy source`);
     });
   };
 
   const viewSwitch = (
     <div
-      aria-label="Diagram view"
+      aria-label={t`Diagram view`}
       className={`inline-flex shrink-0 items-center rounded-md border p-0.5 ${actionReveal}`}
       role="group"
     >
       <Button
-        aria-label="Rendered diagram"
+        aria-label={t`Rendered diagram`}
         aria-pressed={view === 'render'}
         onClick={() => setView('render')}
         size="icon-sm"
-        title="Rendered diagram"
+        title={t`Rendered diagram`}
         variant={view === 'render' ? 'secondary' : 'ghost'}
       >
         <GitBranchIcon aria-hidden="true" className="size-3.5" />
       </Button>
       <Button
-        aria-label="Mermaid source"
+        aria-label={t`Mermaid source`}
         aria-pressed={view === 'source'}
         onClick={() => setView('source')}
         size="icon-sm"
-        title="Mermaid source"
+        title={t`Mermaid source`}
         variant={view === 'source' ? 'secondary' : 'ghost'}
       >
         <Code2Icon aria-hidden="true" className="size-3.5" />
@@ -253,11 +254,11 @@ export function ClioMermaidDiagram({
 
   const copySourceButton = (
     <Button
-      aria-label="Copy source"
+      aria-label={t`Copy source`}
       className={actionReveal}
       onClick={copySource}
       size="icon-sm"
-      title="Copy source"
+      title={t`Copy source`}
       variant="ghost"
     >
       <CopyIcon aria-hidden="true" className="size-3.5" />
@@ -280,7 +281,7 @@ export function ClioMermaidDiagram({
 
   const folderButtons = folderLinks.length ? (
     <div className="sr-only focus-within:not-sr-only">
-      <p>Diagram folders</p>
+      <p>{t`Diagram folders`}</p>
       {folderLinks.map((folder) => (
         <Button key={folder.id} variant="link" onClick={() => openFolder(folder.id)}>
           {folder.label}
@@ -369,7 +370,7 @@ export function ClioMermaidDiagram({
             >
               <CodeBlockHeader>
                 <CodeBlockTitle>
-                  <CodeBlockFilename>Mermaid source</CodeBlockFilename>
+                  <CodeBlockFilename>{t`Mermaid source`}</CodeBlockFilename>
                 </CodeBlockTitle>
               </CodeBlockHeader>
             </CodeBlock>
@@ -399,11 +400,11 @@ export function ClioMermaidDiagram({
                   ) : null}
                   <div className={`flex shrink-0 items-center gap-0.5 ${actionReveal}`}>
                     <Button
-                      aria-label="Zoom out"
+                      aria-label={t`Zoom out`}
                       disabled={!svgOutput}
                       onClick={zoomOut}
                       size="icon-sm"
-                      title="Zoom out. Scroll over the diagram to zoom, drag to pan"
+                      title={t`Zoom out. Scroll over the diagram to zoom, drag to pan`}
                       variant="ghost"
                     >
                       <ZoomOutIcon aria-hidden="true" className="size-3.5" />
@@ -412,21 +413,21 @@ export function ClioMermaidDiagram({
                       {scalePercent}%
                     </span>
                     <Button
-                      aria-label="Zoom in"
+                      aria-label={t`Zoom in`}
                       disabled={!svgOutput}
                       onClick={zoomIn}
                       size="icon-sm"
-                      title="Zoom in. Scroll over the diagram to zoom, drag to pan"
+                      title={t`Zoom in. Scroll over the diagram to zoom, drag to pan`}
                       variant="ghost"
                     >
                       <ZoomInIcon aria-hidden="true" className="size-3.5" />
                     </Button>
                     <Button
-                      aria-label="Reset zoom"
+                      aria-label={t`Reset zoom`}
                       disabled={!svgOutput}
                       onClick={centerView}
                       size="icon-sm"
-                      title="Reset zoom"
+                      title={t`Reset zoom`}
                       variant="ghost"
                     >
                       <RetryIcon aria-hidden="true" className="size-3.5" />
@@ -477,7 +478,7 @@ function FramedZoom({
   useFileViewerFacts(disabled || fitted ? undefined : [`${Math.round(percent)}%`]);
   return (
     <ViewerZoomControls
-      label="Diagram zoom"
+      label={t`Diagram zoom`}
       onIn={onIn}
       onOut={onOut}
       onReset={disabled ? undefined : onReset}

@@ -18,6 +18,7 @@ import {
 } from '@/lib/markdown-content-reference';
 import { MarkdownContentLink } from './markdown-content-link';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 type SourceLink = ReactElement<ComponentProps<typeof MarkdownContentLink>>;
 
@@ -73,13 +74,13 @@ export function MarkdownSourceGroup({ links }: { links: SourceLink[] }) {
               hovered.current = false;
             }}
           >
-            Sources <span className="tabular-nums">{links.length}</span>
+            {t`Sources`} <span className="tabular-nums">{links.length}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent
           ref={contentRef}
           align="start"
-          aria-label="Sources"
+          aria-label={t`Sources`}
           className="w-80 max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-1"
           onOpenAutoFocus={(event) => {
             event.preventDefault();

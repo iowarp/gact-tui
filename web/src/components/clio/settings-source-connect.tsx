@@ -19,6 +19,7 @@ import { SettingsSelectField } from './model-select-field';
 import type { ObsidianChoice } from './obsidian-source-form';
 import { DialogFrame } from './primitives/dialog-frame';
 import { SettingsRow } from './settings-row';
+import { t, ph } from '@lingui/core/macro';
 
 /** Settings actions explicitly choose a workspace before opening its shared source form. */
 export function SettingsSourceConnect({
@@ -52,33 +53,37 @@ export function SettingsSourceConnect({
   };
   return (
     <DialogFrame
-      confirm={{ label: 'Continue', onConfirm: proceed, disabled: !selected }}
+      confirm={{ label: t`Continue`, onConfirm: proceed, disabled: !selected }}
       icon={<LinkIcon className="size-3.5" />}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       open
-      title={choice === 'new' ? 'New vault' : `Connect ${provider.name}`}
+      title={choice === 'new' ? t`New vault` : t`Connect ${ph({ name: provider.name })}`}
     >
       <SettingsRow
-        error={workspaces.error ? 'Workspaces couldn’t be loaded.' : undefined}
+        error={workspaces.error ? t`Workspaces couldn’t be loaded.` : undefined}
         htmlFor={`${id}-workspace`}
-        info="The source is added to this workspace. You review its access in the next step."
+        info={t`The source is added to this workspace. You review its access in the next step.`}
         note={
           workspaces.isSuccess && !workspaces.data.length
-            ? 'Create a workspace first, then connect its data here.'
+            ? t`Create a workspace first, then connect its data here.`
             : undefined
         }
-        title="Workspace"
+        title={t`Workspace`}
       >
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild disabled={!workspaces.data?.length}>
             <SettingsSelectField
-              aria-label={`Workspace: ${selected ? workspaceName(selected) : 'none chosen'}`}
+              aria-label={
+                selected
+                  ? t`Workspace: ${ph({ workspace: workspaceName(selected) })}`
+                  : t`Workspace: none chosen`
+              }
               data-initial-focus=""
               icon={<FolderIcon />}
               id={`${id}-workspace`}
-              placeholder={workspaces.isPending ? 'Loading workspaces…' : 'Choose a workspace'}
+              placeholder={workspaces.isPending ? t`Loading workspaces…` : t`Choose a workspace`}
               value={selected ? workspaceName(selected) : undefined}
             />
           </DropdownMenuTrigger>

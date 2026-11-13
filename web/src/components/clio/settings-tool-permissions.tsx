@@ -18,8 +18,17 @@ import {
   ToolTableFooter,
 } from './settings-tools-picker';
 import { ToolSettingsTable, type ToolTableSection } from './settings-tools-table';
+import { plural, t, ph } from '@lingui/core/macro';
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+function toolCount(count: number): string {
+  return plural(count, { one: '# tool', other: '# tools' });
+}
+
+/** "github server", "github, slurm servers". */
+function serverNames(servers: readonly string[]): string {
+  const names = servers.join(', ');
+  return plural(servers.length, { one: `${names} server`, other: `${names} servers` });
+}
 
 /** How long the tools read for this page stay cached once nothing shows them. */
 const SECTION_CACHE_MS = 30_000;
@@ -30,9 +39,8 @@ function originText(settings: ToolSettings): string[] {
     ...new Set(settings.tools.filter((tool) => tool.server).map((tool) => tool.server)),
   ];
   const parts: string[] = [];
-  if (servers.length)
-    parts.push(`${servers.join(', ')} ${servers.length === 1 ? 'server' : 'servers'}`);
-  if (settings.tools.some((tool) => tool.kind === 'script')) parts.push('Skill scripts');
+  if (servers.length) parts.push(serverNames(servers));
+  if (settings.tools.some((tool) => tool.kind === 'script')) parts.push(t`Skill scripts`);
   return parts;
 }
 
@@ -70,12 +78,16 @@ function pluginSection(
       id: source.id,
       title: source.title,
       hint: source.hint,
-      bulkLabel: `All ${source.title} tools`,
+      bulkLabel: t`All ${ph({ title: source.title })} tools`,
+      bulkPhrase: t`all ${ph({ title: source.title })} tools`,
       meta: [
         ...originText(settings),
         tools.length < settings.tools.length
-          ? `${tools.length} of ${plural(settings.tools.length, 'tool')}`
-          : plural(settings.tools.length, 'tool'),
+          ? plural(settings.tools.length, {
+              one: `${ph({ shown: tools.length })} of # tool`,
+              other: `${ph({ shown: tools.length })} of # tools`,
+            })
+          : toolCount(settings.tools.length),
       ],
       tools,
     };
@@ -85,12 +97,13 @@ function pluginSection(
       id: source.id,
       title: source.title,
       hint: source.hint,
-      bulkLabel: `All ${source.title} tools`,
+      bulkLabel: t`All ${ph({ title: source.title })} tools`,
+      bulkPhrase: t`all ${ph({ title: source.title })} tools`,
       tools: [],
       notice: {
-        text: 'Tools appear once a conversation connects its server',
-        title: `Tools of ${settings.servers_not_loaded.join(', ')} appear once a conversation connects the server.`,
-        status: 'Not loaded yet',
+        text: t`Tools appear once a conversation connects its server`,
+        title: t`Tools of ${ph({ servers: settings.servers_not_loaded.join(', ') })} appear once a conversation connects the server.`,
+        status: t`Not loaded yet`,
         tone: 'idle',
       },
     };
@@ -101,11 +114,8 @@ function pluginSection(
 /** What the catalog already says about a plugin's tools, before its settings are read. */
 function catalogMeta(plugin: PluginEntry): string {
   const parts: string[] = [];
-  if (plugin.mcp_servers.length)
-    parts.push(
-      `${plugin.mcp_servers.join(', ')} ${plugin.mcp_servers.length === 1 ? 'server' : 'servers'}`,
-    );
-  if (plugin.tools.length) parts.push(plural(plugin.tools.length, 'tool'));
+  if (plugin.mcp_servers.length) parts.push(serverNames(plugin.mcp_servers));
+  if (plugin.tools.length) parts.push(toolCount(plugin.tools.length));
   return parts.join(', ');
 }
 
@@ -140,8 +150,8 @@ export function ToolPermissionsSettings() {
       (service): ToolSource => ({
         id: `server:${service.name}`,
         title: service.name,
-        hint: 'Your MCP server',
-        catalog: `${service.name} server`,
+        hint: t`Your MCP server`,
+        catalog: t`${ph({ name: service.name })} server`,
         count: 0,
         read: (signal) => repository.serverToolSettings(service.name, signal),
         own: true,
@@ -184,7 +194,8 @@ export function ToolPermissionsSettings() {
           id: source.id,
           title: source.title,
           hint: source.hint,
-          bulkLabel: `All ${source.title} tools`,
+          bulkLabel: t`All ${ph({ title: source.title })} tools`,
+          bulkPhrase: t`all ${ph({ title: source.title })} tools`,
           tools: [],
           notice: { text: source.catalog, status: 'Loading', tone: 'running' },
           reserveRows: source.count,
@@ -197,12 +208,13 @@ export function ToolPermissionsSettings() {
         {
           id: source.id,
           title: source.title,
-          bulkLabel: `All ${source.title} tools`,
+          bulkLabel: t`All ${ph({ title: source.title })} tools`,
+          bulkPhrase: t`all ${ph({ title: source.title })} tools`,
           tools: [],
           notice: {
-            text: 'Tool settings couldn’t be loaded.',
+            text: t`Tool settings couldn’t be loaded.`,
             title: result.error.message,
-            status: 'Not loaded',
+            status: t`Not loaded`,
             tone: 'error',
             retry: () => void result.refetch(),
           },
@@ -259,9 +271,9 @@ export function ToolPermissionsSettings() {
       detail = {
         tool,
         origin: source.own
-          ? `${source.title} server`
+          ? t`${ph({ title: source.title })} server`
           : tool.server
-            ? `${tool.server} server, from ${source.title}`
+            ? t`${ph({ server: tool.server })} server, from ${ph({ title: source.title })}`
             : source.title,
       };
       break;
@@ -272,40 +284,44 @@ export function ToolPermissionsSettings() {
   let toolbar = false;
   if (supported === false) {
     body = (
-      <StateView kind="unavailable" size="row" title="This service doesn’t offer plugin tools." />
+      <StateView
+        kind="unavailable"
+        size="row"
+        title={t`This service doesn’t offer plugin tools.`}
+      />
     );
   } else if (catalog.error) {
     body = (
       <div title={catalog.error.message}>
         <StateView
-          action={{ label: 'Retry', onClick: () => void catalog.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void catalog.refetch() }}
           kind="error"
           size="row"
-          title="Plugin tools couldn’t be loaded."
+          title={t`Plugin tools couldn’t be loaded.`}
         />
       </div>
     );
   } else if (catalog.isPending) {
-    body = <StateView kind="loading" size="row" title="Loading plugin tools…" />;
+    body = <StateView kind="loading" size="row" title={t`Loading plugin tools…`} />;
   } else if (term && !sections.length && results.some((result) => result.isPending)) {
     toolbar = true;
-    body = <StateView kind="loading" size="row" title="Searching plugin tools…" />;
+    body = <StateView kind="loading" size="row" title={t`Searching plugin tools…`} />;
   } else if (!anyTools && !sections.length) {
     body = (
       <StateView
         kind="empty"
         size="row"
-        title="No plugin tools yet. Extensions that bring tools list them here."
+        title={t`No plugin tools yet. Extensions that bring tools list them here.`}
       />
     );
   } else if (!sections.length) {
     toolbar = true;
     body = (
       <StateView
-        action={{ label: 'Clear filter', onClick: () => setFilter('') }}
+        action={{ label: t`Clear filter`, onClick: () => setFilter('') }}
         kind="empty"
         size="row"
-        title={`No tools match “${filter.trim()}”.`}
+        title={t`No tools match “${ph({ filter: filter.trim() })}”.`}
       />
     );
   } else {
@@ -314,7 +330,7 @@ export function ToolPermissionsSettings() {
       <>
         <ToolSettingsTable
           editor={editor}
-          label="Plugin tools"
+          label={t`Plugin tools`}
           mode={shown}
           onOpenTool={onOpenTool}
           openTool={detail?.tool.name}

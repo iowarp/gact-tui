@@ -11,6 +11,8 @@ import {
 import { matchesActiveTokens, parseRangeToken } from '@/lib/model-range-tokens';
 import type { QuickFilter } from '@/lib/model-quick-filters';
 import type { PickerModelEntry } from './model-picker-tree';
+import { ph, t, plural } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 interface WayOut {
   key: string;
@@ -124,7 +126,7 @@ export function ModelPickerNoMatch({
         list.push({
           key: `drop:${token}`,
           icon: <RemoveIcon aria-hidden="true" />,
-          label: `Search without ${tokenName(token, quickFilters)}`,
+          label: t`Search without ${ph({ filter: tokenName(token, quickFilters) })}`,
           count: found,
           run: () => onTokensChange(without),
         });
@@ -138,7 +140,7 @@ export function ModelPickerNoMatch({
         list.push({
           key: 'every-type',
           icon: <RemoveIcon aria-hidden="true" />,
-          label: 'Search every model type',
+          label: t`Search every model type`,
           count: found,
           run: () => onTokensChange(everyType),
         });
@@ -152,9 +154,9 @@ export function ModelPickerNoMatch({
         key: 'respell',
         icon: <SearchIcon aria-hidden="true" />,
         label: (
-          <>
+          <Trans>
             Search <b className="font-semibold text-foreground">{spelling}</b> instead
-          </>
+          </Trans>
         ),
         count: respelledCount,
         run: () => onQueryChange(query.replace(text, spelling)),
@@ -164,7 +166,7 @@ export function ModelPickerNoMatch({
       list.push({
         key: 'clear',
         icon: <RemoveIcon aria-hidden="true" />,
-        label: 'Clear the search',
+        label: t`Clear the search`,
         count: kept.length,
         run: () => onQueryChange(query.replace(text, '').trim()),
       });
@@ -212,6 +214,15 @@ export function ModelPickerNoMatch({
   }, [keyboard, ways, active]);
 
   const filterNames = chosen.map((token) => tokenName(token, quickFilters));
+  const searched = text || query;
+  const filters = filterNames.length
+    ? filterNames.map((name, index) => (
+        <span key={name}>
+          {index ? ', ' : ''}
+          <b className="font-semibold text-foreground">{name}</b>
+        </span>
+      ))
+    : null;
   return (
     <div className="flex min-h-0 flex-col p-1" data-slot="model-picker-no-match" ref={rootRef}>
       <p
@@ -220,20 +231,16 @@ export function ModelPickerNoMatch({
       >
         <SearchIcon aria-hidden="true" />
         <span className="min-w-0 truncate">
-          No model matches <b className="font-semibold text-foreground">{text || query}</b>
-          {filterNames.length ? (
-            <>
-              {' '}
-              with{' '}
-              {filterNames.map((name, index) => (
-                <span key={name}>
-                  {index ? ', ' : ''}
-                  <b className="font-semibold text-foreground">{name}</b>
-                </span>
-              ))}
-            </>
-          ) : null}
-          .
+          {filters ? (
+            <Trans>
+              No model matches <b className="font-semibold text-foreground">{searched}</b> with{' '}
+              {filters}.
+            </Trans>
+          ) : (
+            <Trans>
+              No model matches <b className="font-semibold text-foreground">{searched}</b>.
+            </Trans>
+          )}
         </span>
       </p>
       {ways.map((way, index) => (
@@ -252,7 +259,7 @@ export function ModelPickerNoMatch({
           {way.icon}
           <span className="min-w-0 flex-1 truncate">{way.label}</span>
           <span className="shrink-0 font-mono text-caption text-faint tabular-nums">
-            {way.count} {way.count === 1 ? 'model' : 'models'}
+            {plural(way.count, { one: '# model', other: '# models' })}
           </span>
           <span className={cn('w-5 shrink-0', index !== highlighted && 'invisible')}>
             <ShortcutKeys id="menu-pick" variant="row" />

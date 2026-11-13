@@ -10,6 +10,7 @@ import { StateView } from '@/components/clio/primitives/state-view';
 import { cn } from '@/lib/utils';
 import { mermaidNodeRegions } from './mermaid-node-regions';
 import { mermaidSelectableText } from './mermaid-selectable-text';
+import { t } from '@lingui/core/macro';
 
 export interface MermaidPreviewProps {
   chart: string;
@@ -97,7 +98,7 @@ export function MermaidPreview({
   return (
     <div ref={hostRef} className={cn('min-w-0', className)} style={height ? { height } : undefined}>
       <ZoomPan
-        ariaLabel="Interactive Mermaid diagram"
+        ariaLabel={t`Interactive Mermaid diagram`}
         className="h-full min-h-0"
         controls={(api) => (
           <div ref={controlsRef} className="flow-root shrink-0">
@@ -107,7 +108,7 @@ export function MermaidPreview({
         error={renderError}
         // Pele and the theme fonts load lazily; say so rather than show an empty body.
         isLoading={!svgOutput && !renderError && chart.trim() !== ''}
-        loadingFallback={<StateView kind="loading" size="viewer" title="Loading diagram" />}
+        loadingFallback={<StateView kind="loading" size="viewer" title={t`Loading diagram`} />}
         fitPadding={0.94}
         imageSrc={imageSrc}
         selectableTextSvg={textLayer}
@@ -123,7 +124,7 @@ export function MermaidPreview({
           debounceTime={0}
           onError={(error) => {
             onSvgOutputChange('');
-            setRenderError(error.split('\n')[0] || 'The diagram could not be rendered.');
+            setRenderError(error.split('\n')[0] || t`The diagram could not be rendered.`);
           }}
           onSuccess={(svg) => {
             try {
@@ -133,7 +134,7 @@ export function MermaidPreview({
             } catch (error) {
               onSvgOutputChange('');
               setRenderError(
-                error instanceof Error ? error.message : 'The diagram could not be rendered.',
+                error instanceof Error ? error.message : t`The diagram could not be rendered.`,
               );
             }
           }}

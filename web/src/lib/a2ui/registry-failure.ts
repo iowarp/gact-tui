@@ -1,4 +1,5 @@
 import { TransportError } from '@clio/core/v3';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Why an A2UI catalog/capabilities request for a session failed to resolve.
@@ -41,20 +42,20 @@ export function classifyA2uiRegistryFailure(error: unknown): A2uiRegistryFailure
       return {
         reason: 'route_unavailable',
         code: 'a2ui_catalog_route_unavailable',
-        detail: 'The session server does not support the A2UI catalog registry routes.',
+        detail: t`The session server does not support the A2UI catalog registry routes.`,
       };
     }
     return {
       reason: 'network_error',
       code: 'a2ui_catalog_network_error',
-      detail: `The session server's A2UI catalog registry request failed: ${error.message}`,
+      detail: t`The session server's A2UI catalog registry request failed: ${ph({ message: error.message })}`,
     };
   }
-  const detail = error instanceof Error ? error.message : 'The response could not be parsed.';
+  const detail = error instanceof Error ? error.message : t`The response could not be parsed.`;
   return {
     reason: 'decode_failed',
     code: 'a2ui_catalog_decode_failed',
-    detail: `The session server's A2UI catalog registry response could not be parsed: ${detail}`,
+    detail: t`The session server's A2UI catalog registry response could not be parsed: ${detail}`,
   };
 }
 

@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatSharePercent } from '@/lib/attention-text';
 import { cn } from '@/lib/utils';
+import { ph, t } from '@lingui/core/macro';
 
 const HEAT_BUCKET_CLASS = [
   'border-chart-5/30 text-chart-5/80',
@@ -30,7 +31,7 @@ export function ClioAttentionToolBadge({ bucket, share }: { bucket: number; shar
           {formatSharePercent(share)}
         </span>
       </TooltipTrigger>
-      <TooltipContent>{formatSharePercent(share)} of attention traced to this tool call</TooltipContent>
+      <TooltipContent>{t`${ph({ share: formatSharePercent(share) })} of attention traced to this tool call`}</TooltipContent>
     </Tooltip>
   );
 }

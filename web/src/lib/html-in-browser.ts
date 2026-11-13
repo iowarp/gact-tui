@@ -1,5 +1,6 @@
 import type { Artifact } from '@clio/core/v3';
 import { textFileFormat } from '@/lib/file-presentation';
+import { t } from '@lingui/core/macro';
 
 /**
  * HTML files open in the shared browser (the Browser surface) by their path, as `file://`
@@ -26,8 +27,8 @@ export function browserFileFailure(message: string, label: string): string {
   if (code === 'browser_file_outside_roots')
     return `${label} is outside the folders this conversation may read, so the browser can't open it.`;
   if (code === 'browser_file_missing') return `${label} is no longer on disk.`;
-  if (code === 'browser_file_artifact_unknown') return `No file is recorded for ${label}.`;
-  const sentence = rest.trim() || 'Could not open the file in the browser.';
+  if (code === 'browser_file_artifact_unknown') return t`No file is recorded for ${label}.`;
+  const sentence = rest.trim() || t`Could not open the file in the browser.`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 

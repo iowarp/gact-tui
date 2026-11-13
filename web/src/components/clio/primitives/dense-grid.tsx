@@ -23,6 +23,7 @@ import {
   type DenseGridSort,
 } from './dense-grid-data';
 import { StateView } from './state-view';
+import { t } from '@lingui/core/macro';
 
 export type { DenseGridColumn, DenseGridRow, DenseGridSort } from './dense-grid-data';
 
@@ -252,7 +253,7 @@ export const DenseGrid = memo(function DenseGrid({
               role="columnheader"
               style={{ width: gutterWidth }}
             >
-              <span className="sr-only">Row</span>
+              <span className="sr-only">{t`Row`}</span>
             </div>
             {columns.map((column, index) => {
               const sorted = sort?.key === column.key ? sort : undefined;
@@ -302,7 +303,7 @@ export const DenseGrid = memo(function DenseGrid({
             ))}
           </div>
         ) : (
-          <StateView kind="empty" size="row" title="No rows" />
+          <StateView kind="empty" size="row" title={t`No rows`} />
         )}
       </div>
     </div>

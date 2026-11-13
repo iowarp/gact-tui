@@ -3,6 +3,7 @@ import { ExternalLink } from '@/components/ui/external-link';
 import { LazyHoverCard } from './primitives/lazy-hover-card';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import type { ModelFactSummary } from '@/lib/model-facts';
+import { t } from '@lingui/core/macro';
 
 type Description = NonNullable<ModelFactSummary['description']>;
 
@@ -20,7 +21,10 @@ function contain(event: SyntheticEvent): void {
  * kept the URLs in `links`, in order). A label that cannot be found in the
  * text is listed after it instead.
  */
-function linkedText({ plain, links }: Description): { body: ReactNode[]; extra: Description['links'] } {
+function linkedText({ plain, links }: Description): {
+  body: ReactNode[];
+  extra: Description['links'];
+} {
   const body: ReactNode[] = [];
   const extra: Description['links'][number][] = [];
   let rest = plain;
@@ -32,7 +36,12 @@ function linkedText({ plain, links }: Description): { body: ReactNode[]; extra: 
     }
     body.push(rest.slice(0, at));
     body.push(
-      <ExternalLink className="text-primary underline underline-offset-2" href={link.url} key={`${index}-${link.url}`} onClick={contain}>
+      <ExternalLink
+        className="text-primary underline underline-offset-2"
+        href={link.url}
+        key={`${index}-${link.url}`}
+        onClick={contain}
+      >
         {link.text}
       </ExternalLink>,
     );
@@ -47,7 +56,13 @@ function linkedText({ plain, links }: Description): { body: ReactNode[]; extra: 
  * in its source's words. Used for routers, whose name alone ("auto", "pareto-
  * code") does not say what they route to.
  */
-export function ModelDescriptionHint({ description, name }: { description: Description; name: string }) {
+export function ModelDescriptionHint({
+  description,
+  name,
+}: {
+  description: Description;
+  name: string;
+}) {
   const { body, extra } = linkedText(description);
   return (
     <LazyHoverCard
@@ -62,7 +77,7 @@ export function ModelDescriptionHint({ description, name }: { description: Descr
       side="right"
       trigger={
         <span
-          aria-label={`About ${name}`}
+          aria-label={t`About ${name}`}
           className="inline-flex size-4 shrink-0 cursor-help items-center justify-center text-muted-foreground hover:text-foreground"
           data-slot="model-description-hint"
           onClick={(event) => {
@@ -82,7 +97,11 @@ export function ModelDescriptionHint({ description, name }: { description: Descr
         <ul className="mt-2 flex flex-col gap-1">
           {extra.map((link) => (
             <li key={link.url}>
-              <ExternalLink className="text-primary underline underline-offset-2" href={link.url} onClick={contain}>
+              <ExternalLink
+                className="text-primary underline underline-offset-2"
+                href={link.url}
+                onClick={contain}
+              >
                 {link.text || link.url}
               </ExternalLink>
             </li>

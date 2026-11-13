@@ -24,6 +24,7 @@ import {
   ruleStatus,
   ruleTarget,
 } from './settings-access-rule-model';
+import { t, ph } from '@lingui/core/macro';
 
 /** 26px row buttons, the slot height every Settings list shares. */
 const CONFIRM_BUTTON = 'h-[1.625rem] px-2.5 text-xs';
@@ -42,10 +43,10 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
         onKeep();
       }}
       role="group"
-      aria-label="Remove this rule?"
+      aria-label={t`Remove this rule?`}
     >
       <span className="min-w-0 truncate text-menu text-destructive" role="alert">
-        Remove this rule?
+        {t`Remove this rule?`}
       </span>
       <Button
         className={CONFIRM_BUTTON}
@@ -55,7 +56,7 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
         type="button"
         variant="ghost"
       >
-        Keep
+        {t`Keep`}
       </Button>
       <Button
         className={CONFIRM_BUTTON}
@@ -64,7 +65,7 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
         type="button"
         variant="destructive"
       >
-        Remove
+        {t`Remove`}
       </Button>
     </span>
   );
@@ -106,18 +107,17 @@ export function AccessRuleRow({
   // Planning and hook rules name their modes or events; an unscoped rule need not repeat "Any".
   const showScope = !details.length || policy.scope_id || kind === 'domain' || kind === 'fs_root';
   // A path or key runs long, so it goes last, where truncation leaves the scope and priority readable.
-  const long = (part: string) => part.startsWith('in ') || part.startsWith('key ');
   const parts = [
     kindLabels[kind],
-    ...details.filter((part) => !long(part)),
+    ...details.filter((detail) => !detail.long).map((detail) => detail.text),
     ...(showScope ? [scope.label] : []),
-    ...(rank === undefined ? [] : [`Priority ${rank}`]),
-    ...details.filter(long),
+    ...(rank === undefined ? [] : [t`Priority ${rank}`]),
+    ...details.filter((detail) => detail.long).map((detail) => detail.text),
   ];
   const editable = !BROWSER_KINDS.has(kind);
   const meta = (
     <span
-      title={[...parts, scope.missingId ? `Identifier ${scope.missingId}` : '']
+      title={[...parts, scope.missingId ? t`Identifier ${ph({ missingId: scope.missingId })}` : '']
         .filter(Boolean)
         .join(', ')}
     >
@@ -125,7 +125,7 @@ export function AccessRuleRow({
         <span
           aria-label={
             part === scope.label && scope.missingId
-              ? `${scope.label}. Identifier ${scope.missingId}`
+              ? t`${ph({ label: scope.label })}. Identifier ${ph({ missingId: scope.missingId })}`
               : undefined
           }
           className={index ? 'ml-2.5' : undefined}
@@ -134,7 +134,7 @@ export function AccessRuleRow({
           {part}
         </span>
       ))}
-      {dirty ? <span className="ml-2.5 text-primary">Not saved</span> : null}
+      {dirty ? <span className="ml-2.5 text-primary">{t`Not saved`}</span> : null}
     </span>
   );
   const title = (
@@ -149,22 +149,22 @@ export function AccessRuleRow({
       actions={
         <>
           {editable ? (
-            <IconButton icon={<EditIcon />} label={`Edit rule ${position}`} onClick={onEdit} />
+            <IconButton icon={<EditIcon />} label={t`Edit rule ${position}`} onClick={onEdit} />
           ) : null}
           <IconButton
             icon={<DeleteIcon />}
-            label={`Remove rule ${position}`}
+            label={t`Remove rule ${position}`}
             onClick={onAskRemove}
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <IconButton icon={<MoreIcon />} label={`More for rule ${position}`} />
+              <IconButton icon={<MoreIcon />} label={t`More for rule ${position}`} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onKeyDown={menuAcceleratorKeyDown}>
               {editable ? (
                 <DropdownMenuItem data-accelerator="D" onSelect={onDuplicate}>
                   <CopyPlusIcon aria-hidden="true" />
-                  <JumpLabel label="Duplicate rule" letter="D" />
+                  <JumpLabel label={t`Duplicate rule`} letter="D" />
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem
@@ -172,7 +172,7 @@ export function AccessRuleRow({
                 onSelect={() => void navigator.clipboard?.writeText(target)}
               >
                 <CopyIcon aria-hidden="true" />
-                <JumpLabel label="Copy pattern" letter="C" />
+                <JumpLabel label={t`Copy pattern`} letter="C" />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

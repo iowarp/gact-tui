@@ -1,5 +1,6 @@
 import type { BundledLanguage } from 'shiki';
 import { languageForPath } from './code-language';
+import { t } from '@lingui/core/macro';
 
 /** One output a notebook cell keeps, reduced to what the reader can show. */
 export type NotebookOutput =
@@ -98,7 +99,7 @@ function richOutput(data: Json, cell: number): NotebookOutput | undefined {
   if (html && !/<script\b/iu.test(html)) return { kind: 'html', html };
   const markdown = multiline(data['text/markdown']);
   if (markdown) return { kind: 'markdown', markdown };
-  const alt = plain && !plain.startsWith('<') ? plain : `Figure from cell ${cell}`;
+  const alt = plain && !plain.startsWith('<') ? plain : t`Figure from cell ${cell}`;
   const svg = multiline(data['image/svg+xml']);
   if (svg)
     return {
@@ -166,15 +167,15 @@ export function readNotebook(content: string): NotebookRead {
   try {
     parsed = JSON.parse(content);
   } catch {
-    return { ok: false, reason: 'The file isn’t complete JSON.' };
+    return { ok: false, reason: t`The file isn’t complete JSON.` };
   }
-  if (!isRecord(parsed)) return { ok: false, reason: 'The file isn’t a notebook object.' };
+  if (!isRecord(parsed)) return { ok: false, reason: t`The file isn’t a notebook object.` };
   if (!Array.isArray(parsed['cells']))
     return {
       ok: false,
       reason: Array.isArray(parsed['worksheets'])
-        ? 'It’s a version 3 notebook. Only version 4 notebooks are shown as cells.'
-        : 'The file has no cells.',
+        ? t`It’s a version 3 notebook. Only version 4 notebooks are shown as cells.`
+        : t`The file has no cells.`,
     };
   const metadata = isRecord(parsed['metadata']) ? parsed['metadata'] : {};
   const spec = isRecord(metadata['kernelspec']) ? metadata['kernelspec'] : {};

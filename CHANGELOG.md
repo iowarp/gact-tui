@@ -6,6 +6,43 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.12.2] - 2026-11-12
+
+Fixes from the 0.9.6 on-screen runs on Windows, macOS and Linux.
+
+### Changed
+
+- Every browser page a conversation has gets its own workbench tab, including
+  pages opened by the agent, a link or another window; closing a tab leaves the
+  page open in the Browser list (#1145)
+- Browser tabs show the page's favicon, shorten their names before collapsing to
+  an icon, and share one tooltip (#1148)
+- When a local service fails to start, its row and the connect attempt say
+  "Can't connect" with the service's own message and fix, instead of showing
+  Limited (#1150, #1153)
+- A lite Desktop's first run shows its download and package preparation under
+  Preparing, with progress, instead of under Starting (#1154)
+- Source lists show the official Globus and NDP wordmarks (#1161, #1167)
+- Remote sources show each file's real name when it isn't a valid local path,
+  and browsing says when items were skipped (#1166)
+
+### Fixed
+
+- Linking a source from a new conversation no longer creates a second
+  conversation; the new conversation owns the source work (#1169)
+- macOS: typed identifiers such as `root` are no longer capitalized or
+  autocorrected, and Google Drive "My Drive" links are accepted (#1160)
+- macOS: smart dashes and quotes no longer turn `--version` into a dash; an
+  unavailable source action clears, and the indexing count moves smoothly (#1163)
+- macOS and Linux: quitting, or accepting Move to Applications, stops the
+  managed-package installer instead of leaving a second install running (#1158)
+- Desktop never runs an older `clio-agent` found on PATH; it prefers the managed
+  install and version-checks anything on PATH (#1151)
+- A lite Desktop runs its installer on its own agent store, so the first boot
+  doesn't repeat the store migrations (#1152)
+- A task waiting for permission or for you stays visible instead of folding into
+  "Ran 1 task" (#1149)
+
 ## [0.12.1] - 2026-11-11
 
 Fixes for the 0.12.0 interface.

@@ -1,5 +1,7 @@
 import type { ObservabilityActivityItem } from './observability-activity';
 import type { ClioStatusValue } from './status';
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 /** Lane colors read the theme's chart and category tokens, so they follow theme changes. */
 const CAUSAL_COLORS = [
@@ -66,20 +68,22 @@ export function causalLaneId(item: ObservabilityActivityItem): string {
 
 export function causalLanes(items: readonly ObservabilityActivityItem[]): CausalLane[] {
   const lanes = new Map<string, Omit<CausalLane, 'index'>>([
-    ['main', { id: 'main', label: 'Main agent', color: CAUSAL_COLORS[0]! }],
+    ['main', { id: 'main', label: t`Main agent`, color: CAUSAL_COLORS[0]! }],
   ]);
+  // A lane named only by this fallback takes the first open item's label.
+  const childAgent = t`Child agent`;
   for (const item of items) {
     const id = causalLaneId(item);
     const existing = lanes.get(id);
     if (existing) {
       if (id !== 'main' && item.ownerLabel) existing.label = item.ownerLabel;
-      else if (existing.label === 'Child agent' && item.lifecycle === 'open')
+      else if (existing.label === childAgent && item.lifecycle === 'open')
         existing.label = item.label;
       continue;
     }
     lanes.set(id, {
       id,
-      label: item.ownerLabel || (item.lifecycle === 'open' ? item.label : 'Child agent'),
+      label: item.ownerLabel || (item.lifecycle === 'open' ? item.label : childAgent),
       color: CAUSAL_COLORS[lanes.size % CAUSAL_COLORS.length]!,
     });
   }
@@ -90,9 +94,10 @@ export function causalLanes(items: readonly ObservabilityActivityItem[]): Causal
   return values.map((lane, index) => {
     const occurrence = (seen.get(lane.label) ?? 0) + 1;
     seen.set(lane.label, occurrence);
+    const laneLabel = lane.label;
     return {
       ...lane,
-      label: (totals.get(lane.label) ?? 0) > 1 ? `${lane.label}, turn ${occurrence}` : lane.label,
+      label: (totals.get(laneLabel) ?? 0) > 1 ? t`${laneLabel}, turn ${occurrence}` : laneLabel,
       index,
     };
   });
@@ -101,8 +106,8 @@ export function causalLanes(items: readonly ObservabilityActivityItem[]): Causal
 export function formatGraphTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
-    ? 'Time unavailable'
-    : new Intl.DateTimeFormat(undefined, {
+    ? t`Time unavailable`
+    : new Intl.DateTimeFormat(formatLocale(), {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',

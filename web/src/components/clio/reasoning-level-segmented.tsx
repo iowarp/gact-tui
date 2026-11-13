@@ -1,6 +1,7 @@
 import type { ReasoningEffort } from '@clio/core/v3';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
+import { t } from '@lingui/core/macro';
 
 const MODEL_DEFAULT = '__model_default__';
 /**
@@ -35,7 +36,7 @@ export function ReasoningLevelSegmented({
   const defaultName = reasoning?.default ? REASONING_EFFORT_LABELS[reasoning.default] : undefined;
   return (
     <ToggleGroup
-      aria-label="Reasoning effort"
+      aria-label={t`Reasoning effort`}
       className="shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
       data-slot="reasoning-level"
       disabled={disabled}
@@ -51,10 +52,12 @@ export function ReasoningLevelSegmented({
     >
       <ToggleGroupItem
         className={ITEM}
-        title={defaultName ? `The model's own default (${defaultName})` : "The model's own default"}
+        title={
+          defaultName ? t`The model's own default (${defaultName})` : t`The model's own default`
+        }
         value={MODEL_DEFAULT}
       >
-        Default
+        {t`Default`}
       </ToggleGroupItem>
       {levels.map((level) => (
         <ToggleGroupItem className={ITEM} key={level} value={level}>

@@ -3,12 +3,13 @@ import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { StepList, type StepListStep } from './primitives/step-list';
 import { TechnicalDetails } from './technical-details';
+import { t } from '@lingui/core/macro';
 
 const STEPS = [
-  { id: 'checking', label: 'Checking the local service' },
-  { id: 'preparing', label: 'Preparing the local runtime and packages' },
-  { id: 'starting', label: 'Starting the local service' },
-  { id: 'opening', label: 'Opening the workspace' },
+  { id: 'checking', label: t`Checking the local service` },
+  { id: 'preparing', label: t`Preparing the local runtime and packages` },
+  { id: 'starting', label: t`Starting the local service` },
+  { id: 'opening', label: t`Opening the workspace` },
 ] as const;
 
 interface StepClock {
@@ -124,10 +125,10 @@ export function LocalStartupSteps({
       <p role="status" className="sr-only">
         {STEPS[current]?.label}
       </p>
-      <StepList label="Startup progress" steps={steps} />
+      <StepList label={t`Startup progress`} steps={steps} />
       {detail || log ? (
         <TechnicalDetails
-          title="Startup details"
+          title={t`Startup details`}
           className="mt-1.5 min-w-0 text-menu"
           summaryClassName="min-h-[30px] gap-2.5 font-normal"
           contentClassName="pt-1.5"

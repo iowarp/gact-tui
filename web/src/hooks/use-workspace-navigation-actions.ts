@@ -17,6 +17,7 @@ import {
 } from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
 import { movedFromWorkspace, sessionMoveFailure } from '@/lib/session-move';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The workspace/session CRUD surface for navigation-owning components (command
@@ -203,19 +204,20 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       compactSession: async (targetSessionId) => {
         const result = await repository.compactSession(targetSessionId);
         await refreshTranscript(targetSessionId);
-        if (result.compacted) toast.success('Conversation compacted');
+        if (result.compacted) toast.success(t`Conversation compacted`);
         else
-          toast.info('Conversation was not compacted', {
-            description: result.reason ?? 'The service did not report a reason.',
+          toast.info(t`Conversation was not compacted`, {
+            description: result.reason ?? t`The service did not report a reason.`,
           });
       },
       undoSession: async (targetSessionId) => {
         const result = await repository.undoSession(targetSessionId);
         await refreshTranscript(targetSessionId);
         toast.success(
-          result.deleted_message_ids.length === 1
-            ? 'Last message removed'
-            : `${result.deleted_message_ids.length} messages removed`,
+          plural(result.deleted_message_ids.length, {
+            1: 'Last message removed',
+            other: '# messages removed',
+          }),
         );
       },
       openSystemTerminal: inTauri()
@@ -223,11 +225,11 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
             try {
               await openWorkspaceTerminal(workspacePath);
             } catch (error) {
-              toast.error('Could not open the workspace terminal', {
+              toast.error(t`Could not open the workspace terminal`, {
                 description:
                   error instanceof Error
                     ? error.message
-                    : 'No supported terminal could be started.',
+                    : t`No supported terminal could be started.`,
               });
             }
           }
@@ -237,9 +239,11 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
             try {
               await openWorkspaceFolder(workspacePath);
             } catch (error) {
-              toast.error('Could not open the workspace folder', {
+              toast.error(t`Could not open the workspace folder`, {
                 description:
-                  error instanceof Error ? error.message : 'The file manager could not be started.',
+                  error instanceof Error
+                    ? error.message
+                    : t`The file manager could not be started.`,
               });
             }
           }

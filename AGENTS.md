@@ -8,3 +8,6 @@ Implement its compact row and meaningful input/output presentation through the
 existing declarations and shared readers. Include large-data and relevant
 failure-state showcases using production components; inspect their rendered
 behavior. A raw JSON dump or registration-only test is not completion.
+
+Interface copy is translated: write it in English inside the Lingui macros and
+commit the updated catalogs, as [docs/i18n.md](docs/i18n.md) describes.

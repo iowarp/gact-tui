@@ -11,6 +11,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './icon-button';
+import { t } from '@lingui/core/macro';
 
 export interface DetailPaneProps {
   /** Glyph before the title, as in a dialog's title row. */
@@ -90,7 +91,7 @@ export const DetailPane = memo(function DetailPane({
         <IconButton
           className="-ms-1.5 hidden @max-[40rem]/list-detail:inline-flex"
           icon={<ArrowLeftIcon />}
-          label="Back to the list"
+          label={t`Back to the list`}
           onClick={onClose}
         />
         {icon ? (
@@ -106,7 +107,7 @@ export const DetailPane = memo(function DetailPane({
           {title}
         </h2>
         {actions}
-        <IconButton icon={<CloseIcon />} label="Close" onClick={onClose} />
+        <IconButton icon={<CloseIcon />} label={t`Close`} onClick={onClose} />
       </div>
       {tabs ? (
         <div className="flex min-w-0 shrink-0 px-[var(--detail-gutter,1rem)] pb-2">{tabs}</div>

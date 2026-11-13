@@ -17,3 +17,11 @@ export function isMacOS(): boolean {
   const agent = navigator.userAgent ?? '';
   return /Mac/u.test(platform) || /Macintosh/u.test(agent);
 }
+
+/** Best-effort Windows sniff, for the same cosmetic decisions as {@link isMacOS}. */
+export function isWindows(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const platform = navigator.platform ?? '';
+  const agent = navigator.userAgent ?? '';
+  return /^Win/u.test(platform) || /Windows/u.test(agent);
+}

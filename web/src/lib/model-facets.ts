@@ -11,6 +11,7 @@ import {
   tagFilterTokens,
   type ModelFilterToken,
 } from './model-filter-tokens';
+import { t } from '@lingui/core/macro';
 
 /**
  * The model picker's filter panel, computed from the catalog it lists: one
@@ -73,12 +74,12 @@ export interface FacetEntry {
 }
 
 export const FACET_TAB_LABELS: Record<FacetTabId, string> = {
-  tasks: 'Tasks',
-  input: 'Input',
-  output: 'Output',
-  capabilities: 'Capabilities',
-  providers: 'Providers',
-  other: 'Other',
+  tasks: t`Tasks`,
+  input: t`Input`,
+  output: t`Output`,
+  capabilities: t`Capabilities`,
+  providers: t`Providers`,
+  other: t`Other`,
 };
 
 const TAB_ORDER: readonly FacetTabId[] = [
@@ -94,7 +95,7 @@ const TAB_ORDER: readonly FacetTabId[] = [
 const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly string[] }[] = [
   {
     id: 'multimodal',
-    label: 'Multimodal',
+    label: t`Multimodal`,
     tasks: [
       'audio-text-to-text',
       'image-text-to-text',
@@ -109,7 +110,7 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
   },
   {
     id: 'vision',
-    label: 'Vision',
+    label: t`Vision`,
     tasks: [
       'depth-estimation',
       'image-classification',
@@ -134,7 +135,7 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
   },
   {
     id: 'language',
-    label: 'Language',
+    label: t`Language`,
     tasks: [
       'text-generation',
       'text-classification',
@@ -152,7 +153,7 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
   },
   {
     id: 'audio',
-    label: 'Audio',
+    label: t`Audio`,
     tasks: [
       'text-to-speech',
       'text-to-audio',
@@ -164,7 +165,7 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
   },
   {
     id: 'scientific',
-    label: 'Scientific',
+    label: t`Scientific`,
     tasks: [
       'tabular-classification',
       'tabular-regression',
@@ -178,11 +179,11 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
 
 function taskCategory(task: string): { id: string; label: string } {
   // A task the Hub has no term for is CLIO's own (`clio:<id>`): scientific work.
-  if (task.startsWith('clio:')) return { id: 'scientific', label: 'Scientific' };
+  if (task.startsWith('clio:')) return { id: 'scientific', label: t`Scientific` };
   return (
     TASK_CATEGORIES.find((category) => category.tasks.includes(task)) ?? {
       id: 'other-tasks',
-      label: 'Other tasks',
+      label: t`Other tasks`,
     }
   );
 }
@@ -220,11 +221,11 @@ interface ChipSource {
 const OTHER_GROUPS: Partial<
   Record<ModelCapabilityAxis, { id: string; label: string; rank: number }>
 > = {
-  price: { id: 'offer', label: 'Offer', rank: 0 },
-  kind: { id: 'offer', label: 'Offer', rank: 0 },
-  recent: { id: 'release', label: 'Release', rank: 1 },
-  role: { id: 'role', label: 'Role', rank: 2 },
-  domain: { id: 'domain', label: 'Domain', rank: 3 },
+  price: { id: 'offer', label: t`Offer`, rank: 0 },
+  kind: { id: 'offer', label: t`Offer`, rank: 0 },
+  recent: { id: 'release', label: t`Release`, rank: 1 },
+  role: { id: 'role', label: t`Role`, rank: 2 },
+  domain: { id: 'domain', label: t`Domain`, rank: 3 },
 };
 
 /** Where a (non-task) tag's chip sits and what it says. */
@@ -235,7 +236,7 @@ function tagSource(tag: ModelCapabilityTag): ChipSource | undefined {
       return {
         tab: 'input',
         groupId: 'input',
-        groupLabel: 'Input',
+        groupLabel: t`Input`,
         label: modalityLabel(tag.value),
         icon,
         groupRank: 0,
@@ -244,7 +245,7 @@ function tagSource(tag: ModelCapabilityTag): ChipSource | undefined {
       return {
         tab: 'output',
         groupId: 'output',
-        groupLabel: 'Output',
+        groupLabel: t`Output`,
         label: modalityLabel(tag.value),
         icon,
         groupRank: 0,
@@ -253,7 +254,7 @@ function tagSource(tag: ModelCapabilityTag): ChipSource | undefined {
       return {
         tab: 'capabilities',
         groupId: 'capabilities',
-        groupLabel: 'Capabilities',
+        groupLabel: t`Capabilities`,
         label: modelCapabilityTagLabel(tag),
         icon,
         groupRank: 0,
@@ -310,7 +311,7 @@ function entrySources(entry: FacetEntry, into: Map<ModelFilterToken, ChipSource>
     into.set(providerToken, {
       tab: 'providers',
       groupId: 'providers',
-      groupLabel: 'Providers',
+      groupLabel: t`Providers`,
       label: entry.providerName,
       icon: { kind: 'provider', providerId: entry.providerId },
       groupRank: 0,

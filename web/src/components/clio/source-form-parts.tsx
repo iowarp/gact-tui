@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { SegmentedControl } from './primitives/segmented-control';
 import { sourceAccessRows, type SourceAccess } from './source-access';
+import { t } from '@lingui/core/macro';
 
 /** The spec's mono provider glyphs (`#folder`, `#kterm`, `#github`, `#gdrive`, `#cloud`, `#obsidian`, `#db`). */
 const glyphPaths: Record<SourceProviderId | 'upload', ReactNode> = {
@@ -184,7 +185,7 @@ export function AccessRows(props: {
   unavailable?: Partial<Record<SourceAccess, string>>;
   disabled?: boolean;
 }) {
-  return <ChoiceRows label="Access" rows={sourceAccessRows} {...props} />;
+  return <ChoiceRows label={t`Access`} rows={sourceAccessRows} {...props} />;
 }
 
 /**
@@ -193,7 +194,7 @@ export function AccessRows(props: {
  */
 export function FolderFace({
   path,
-  empty = 'No folder chosen',
+  empty = t`No folder chosen`,
   children,
 }: {
   path: string;
@@ -306,10 +307,10 @@ export function ProviderSwitch({
   aside?: ReactNode;
 }) {
   return (
-    <SourceField label="Source" aside={aside}>
+    <SourceField label={t`Source`} aside={aside}>
       <div className="flex min-w-0 items-center gap-1.5">
         <SegmentedControl
-          label="Source"
+          label={t`Source`}
           iconOnly
           value={value}
           onValueChange={onChange}

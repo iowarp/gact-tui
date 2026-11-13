@@ -15,6 +15,7 @@ import { SourceSignInContext } from '@/lib/a2ui/source-sign-in-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ConnectedAccountSignIn } from './connected-source-auth';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
 
 /** Keep private authorization mounted while an accepted surface changes hosts. */
 export function A2uiSourceSignInHost({
@@ -84,20 +85,26 @@ export function A2uiSourceSignIn({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sign in to {provider?.name ?? 'data source'}</DialogTitle>
+          <DialogTitle>
+            {provider?.name
+              ? t`Sign in to ${ph({ provider: provider.name })}`
+              : t`Sign in to data source`}
+          </DialogTitle>
           <DialogDescription>
-            Sign-in stays private. The agent receives status and approved source references.
+            {t`Sign-in stays private. The agent receives status and approved source references.`}
           </DialogDescription>
         </DialogHeader>
-        {!sameWorkspace ? <p role="alert">Open the original workspace to sign in.</p> : null}
-        {sameWorkspace && owner.isFetching ? <p role="status">Checking this connection…</p> : null}
+        {!sameWorkspace ? <p role="alert">{t`Open the original workspace to sign in.`}</p> : null}
+        {sameWorkspace && owner.isFetching ? (
+          <p role="status">{t`Checking this connection…`}</p>
+        ) : null}
         {sameWorkspace && !owner.isFetching && (!matches || owner.error) ? (
           <p role="alert">
-            This sign-in action could not be checked against the connected {vocab.agent}.
+            {t`This sign-in action could not be checked against the connected ${ph({ agent: vocab.agent })}.`}
           </p>
         ) : null}
         {matches && !owner.isFetching && (!provider || !provider.configured) ? (
-          <p role="alert">Sign-in for this provider is unavailable on this {vocab.agent}.</p>
+          <p role="alert">{t`Sign-in for this provider is unavailable on this ${ph({ agent: vocab.agent })}.`}</p>
         ) : null}
         {matches && provider?.configured && !owner.error ? (
           <ConnectedAccountSignIn

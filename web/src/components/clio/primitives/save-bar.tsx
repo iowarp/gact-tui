@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { ShortcutKeys } from './key-chip';
+import { t, plural } from '@lingui/core/macro';
 
 export interface SaveBarProps {
   /** Typed values waiting to be saved. The bar shows only while this is above 0 or saving. */
@@ -74,7 +75,7 @@ export const SaveBar = memo(function SaveBar({
   if (!active && !error) return null;
   return (
     <div
-      aria-label="Unsaved changes"
+      aria-label={t`Unsaved changes`}
       className={cn(
         'mt-3.5 flex h-[2.875rem] min-w-0 items-center gap-2.5 border-t border-border text-menu whitespace-nowrap',
         className,
@@ -88,9 +89,9 @@ export const SaveBar = memo(function SaveBar({
       ) : null}
       <span className="min-w-0 truncate" role="status">
         {saving
-          ? 'Saving…'
+          ? t`Saving…`
           : active
-            ? (label ?? `${count} ${count === 1 ? 'change' : 'changes'}`)
+            ? (label ?? plural(count, { one: '# change', other: '# changes' }))
             : null}
       </span>
       {error ? (
@@ -101,10 +102,10 @@ export const SaveBar = memo(function SaveBar({
       <span className="flex-1" />
       <ShortcutKeys className="mr-1" id="save-changes" variant="caps" />
       <Button disabled={saving || !count} onClick={onDiscard} size="sm" variant="ghost">
-        Discard
+        {t`Discard`}
       </Button>
       <Button disabled={saving || invalid || !count} onClick={onSave} size="sm">
-        Save
+        {t`Save`}
       </Button>
     </div>
   );

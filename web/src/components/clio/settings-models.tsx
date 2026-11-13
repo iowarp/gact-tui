@@ -50,6 +50,7 @@ import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { WorkingContextRow } from './settings-working-context';
 import { useWorkingContext, type WorkingContextState } from './use-working-context';
+import { t } from '@lingui/core/macro';
 
 /**
  * Settings > Models: setting rows. The default model is a select-shaped field
@@ -68,22 +69,22 @@ export function ModelsSettings() {
   return (
     <div className="flex flex-col">
       <SettingsSectionHeading
-        info="The model new work starts with, and how it answers."
-        title="Models"
+        info={t`The model new work starts with, and how it answers.`}
+        title={t`Models`}
       />
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
         <div className="w-full @3xl:w-[60%]" title={configuration.error.message}>
           <StateView
-            action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void configuration.refetch() }}
             kind="error"
             size="row"
-            title="The agent could not load models."
+            title={t`The agent could not load models.`}
           />
         </div>
       ) : (
-        <StateView kind="loading" size="row" title="Loading models…" />
+        <StateView kind="loading" size="row" title={t`Loading models…`} />
       )}
     </div>
   );
@@ -220,10 +221,10 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     <div className="flex flex-col" data-slot="models-panel">
       <div data-slot="default-model-card">
         <SettingsRow
-          info="Model for new work. Also the service default."
+          info={t`Model for new work. Also the service default.`}
           htmlFor="settings-default-model"
           note={defaultModelProblem(group, Boolean(configuration.model))}
-          title="Default model"
+          title={t`Default model`}
         >
           {marker('model')}
           <ModelSelectField
@@ -235,10 +236,10 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
             onRetryCatalog={(id) => catalog.refreshCatalog(id)}
             option={option}
             options={options}
-            placeholder="No model chosen yet"
+            placeholder={t`No model chosen yet`}
             providerId={providerId || undefined}
             providerName={providerName}
-            title="Choose the default model"
+            title={t`Choose the default model`}
           />
         </SettingsRow>
       </div>
@@ -256,8 +257,8 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       />
       {reasoning?.levels.length ? (
         <SettingsRow
-          info="How hard the model thinks before it answers. Default is the model's own level."
-          title="Reasoning effort"
+          info={t`How hard the model thinks before it answers. Default is the model's own level.`}
+          title={t`Reasoning effort`}
           wideControl
         >
           {marker('effort')}
@@ -382,8 +383,8 @@ function ModelsBody({
           settings={values.settings}
         />
       ) : (
-        <section aria-label="Response settings" data-slot="response-settings">
-          <SettingsGroupLabel>Response</SettingsGroupLabel>
+        <section aria-label={t`Response settings`} data-slot="response-settings">
+          <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
           {contextRow}
         </section>
       )}
@@ -424,7 +425,7 @@ function ModelsBody({
 
 /** Only a problem shows under the default model: a provider that is not working, or no model yet. */
 function defaultModelProblem(group: ProviderGroup | undefined, chosen: boolean): ReactNode {
-  if (!chosen) return <span>Choose a model to start new work with</span>;
+  if (!chosen) return <span>{t`Choose a model to start new work with`}</span>;
   if (!group) return null;
   if (group.health === 'healthy' || group.health === 'checking') return null;
   return (
@@ -443,11 +444,11 @@ function SaveMark({ saving = false }: { saving?: boolean }) {
       role="status"
     >
       {saving ? (
-        <span className="text-muted-foreground">Saving…</span>
+        <span className="text-muted-foreground">{t`Saving…`}</span>
       ) : (
         <>
           <CheckIcon aria-hidden="true" className="size-3.5" />
-          Saved
+          {t`Saved`}
         </>
       )}
     </span>

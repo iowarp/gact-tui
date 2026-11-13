@@ -13,6 +13,7 @@ import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
 import { QueuedMessageRow } from './composer-queue-row';
 import { SavedDraftRow } from './composer-saved-draft-row';
 import { StatusIndicator } from './primitives/status-indicator';
+import { plural, t, ph } from '@lingui/core/macro';
 
 /** Queue state and actions passed through the shared composer. */
 export interface ComposerQueueControls {
@@ -46,14 +47,15 @@ interface ClioComposerQueueProps {
 const COLLAPSIBLE_AFTER = 3;
 
 function queuedMessagesLabel(count: number): string {
-  return `${count} queued ${count === 1 ? 'message' : 'messages'}`;
+  return plural(count, { one: '# queued message', other: '# queued messages' });
 }
 
 function dashLabel(queued: number, saved: number): string {
-  const savedLabel = `${saved} saved ${saved === 1 ? 'draft' : 'drafts'}`;
+  const savedLabel = plural(saved, { one: '# saved draft', other: '# saved drafts' });
   if (!saved) return queuedMessagesLabel(queued);
   if (!queued) return savedLabel;
-  return `${queuedMessagesLabel(queued)}, ${savedLabel}`;
+  const queuedLabel = queuedMessagesLabel(queued);
+  return t`${queuedLabel}, ${savedLabel}`;
 }
 
 function smoothScroll(): ScrollBehavior {
@@ -147,8 +149,8 @@ export function ClioComposerQueue({
       await onUpdate(message, text);
       setEditing(undefined);
     } catch (error) {
-      toast.error('Queued message changed elsewhere', {
-        description: `${composerFailureReason(error, 'It changed before your edit was saved.')} Your draft is still here.`,
+      toast.error(t`Queued message changed elsewhere`, {
+        description: t`${ph({ reason: composerFailureReason(error, t`It changed before your edit was saved.`) })} Your draft is still here.`,
       });
     }
   };
@@ -157,7 +159,7 @@ export function ClioComposerQueue({
     try {
       await action();
     } catch (error) {
-      toast.error(label, { description: composerFailureReason(error, 'The service refused it.') });
+      toast.error(label, { description: composerFailureReason(error, t`The service refused it.`) });
     }
   };
 
@@ -168,18 +170,18 @@ export function ClioComposerQueue({
     } catch (error) {
       setOrderOverride(undefined);
       if (error instanceof QueuedMessageReorderConflictError) {
-        toast.error('Queue changed elsewhere, so your new order was not applied');
+        toast.error(t`Queue changed elsewhere, so your new order was not applied`);
         return;
       }
-      toast.error('Unable to reorder queued messages', {
-        description: composerFailureReason(error, 'The service refused the new order.'),
+      toast.error(t`Unable to reorder queued messages`, {
+        description: composerFailureReason(error, t`The service refused the new order.`),
       });
     }
   };
 
   return (
     <section
-      aria-label={ordered.length ? 'Queued messages' : 'Saved drafts'}
+      aria-label={ordered.length ? t`Queued messages` : t`Saved drafts`}
       data-slot="composer-queue"
       // The strip runs 12px under the composer box so the box's rounded top
       // corners sit on the queue's surface instead of leaving notches.
@@ -193,8 +195,10 @@ export function ClioComposerQueue({
           <span className="truncate font-medium">{countLabel}</span>
           <span aria-live="polite" className="contents">
             {paused ? (
-              <span title="New messages wait here until the queue resumes. Send now still works.">
-                <StatusIndicator label="Paused" tone="stopped" />
+              <span
+                title={t`New messages wait here until the queue resumes. Send now still works.`}
+              >
+                <StatusIndicator label={t`Paused`} tone="stopped" />
               </span>
             ) : null}
           </span>
@@ -203,14 +207,14 @@ export function ClioComposerQueue({
           <Button
             aria-controls={collapsed ? undefined : viewportId}
             aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
+            aria-label={collapsed ? t`Show queued messages` : t`Hide queued messages`}
             className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-hover aria-expanded:hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
             onClick={() => setCollapsedPreference((value) => !value)}
             size="xs"
             type="button"
             variant="ghost"
           >
-            {collapsed ? 'Show' : 'Hide'}
+            {collapsed ? t`Show` : t`Hide`}
             {collapsed ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </Button>
         ) : null}
@@ -253,14 +257,14 @@ export function ClioComposerQueue({
                     message={message}
                     onCancelEdit={() => setEditing(undefined)}
                     onDelete={() =>
-                      void runAction(() => onDelete(message), 'Queued message was not deleted')
+                      void runAction(() => onDelete(message), t`Queued message was not deleted`)
                     }
                     onEditChange={(text) => setEditing({ id: message.id, text })}
                     onOpenResource={onOpenResource}
                     onPromote={() =>
                       void runAction(
                         () => onPromote(message, promoteDelivery),
-                        'Queued message was not sent',
+                        t`Queued message was not sent`,
                       )
                     }
                     onSaveEdit={(text) => void saveEdit(message, text)}
@@ -273,7 +277,7 @@ export function ClioComposerQueue({
             </Sortable>
           ) : null}
           {savedDrafts.length > 0 ? (
-            <ul aria-label="Saved drafts" className="flex flex-col gap-px">
+            <ul aria-label={t`Saved drafts`} className="flex flex-col gap-px">
               {savedDrafts.map((draft, index) => (
                 <SavedDraftRow
                   draft={draft}
@@ -295,7 +299,7 @@ export function ClioComposerQueue({
           }
           type="button"
         >
-          {below} more
+          {t`${below} more`}
           <ChevronDownIcon aria-hidden="true" className="size-3.5" />
         </button>
       ) : !collapsed && overflowing ? (

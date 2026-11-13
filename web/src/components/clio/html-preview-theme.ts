@@ -92,6 +92,7 @@ export function themedSvgBytes(bytes: Uint8Array, theme: HtmlPreviewTheme): Uint
   if (inherit.test(inline.style.getPropertyValue('color').trim())) {
     inline.style.setProperty(
       'color',
+      // i18n-ignore: a CSS value
       'var(--foreground, currentColor)',
       inline.style.getPropertyPriority('color'),
     );

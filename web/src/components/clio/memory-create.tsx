@@ -10,6 +10,7 @@ import { MEMORY_CATEGORY_LABELS } from './memory-presentation';
 import { MemoryPicker, MemoryScopePicker } from './memory-scope-picker';
 import { RuntimeSettingsPanel } from './settings-runtime';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
 
 type Category = (typeof MEMORY_CATEGORIES)[number];
 
@@ -72,12 +73,12 @@ function MemoryWrite({
     if (slug && lines.length && !create.isPending) create.mutate();
   };
   return (
-    <form aria-label="Write a memory" className="grid" onSubmit={submit}>
-      <SettingsGroupLabel>Write a memory</SettingsGroupLabel>
+    <form aria-label={t`Write a memory`} className="grid" onSubmit={submit}>
+      <SettingsGroupLabel>{t`Write a memory`}</SettingsGroupLabel>
       <SettingsRow
         htmlFor="memory-scope"
-        info="Saves exactly what you enter. No model is called."
-        title="Remember in"
+        info={t`Saves exactly what you enter. No model is called.`}
+        title={t`Remember in`}
       >
         <MemoryScopePicker
           disabled={create.isPending}
@@ -90,37 +91,37 @@ function MemoryWrite({
           workspacesLoading={workspacesLoading}
         />
       </SettingsRow>
-      <SettingsRow htmlFor="memory-category" title="Category">
+      <SettingsRow htmlFor="memory-category" title={t`Category`}>
         <MemoryPicker
           disabled={create.isPending}
           id="memory-category"
-          label="Category"
+          label={t`Category`}
           onChange={(next) => setCategory(next as Category)}
           options={CATEGORY_OPTIONS}
-          searchPlaceholder="Search categories…"
+          searchPlaceholder={t`Search categories…`}
           value={category}
         />
       </SettingsRow>
       {!singleton ? (
-        <SettingsRow htmlFor="memory-title" title="Subject">
+        <SettingsRow htmlFor="memory-title" title={t`Subject`}>
           <Input
             className="h-[1.875rem] text-menu"
             disabled={create.isPending}
             id="memory-title"
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="For example, field sensors"
+            placeholder={t`For example, field sensors`}
             required
             value={title}
           />
         </SettingsRow>
       ) : null}
-      <SettingsRow htmlFor="memory-facts" title="What to remember">
+      <SettingsRow htmlFor="memory-facts" title={t`What to remember`}>
         <Textarea
           className="min-h-20 text-menu"
           disabled={create.isPending}
           id="memory-facts"
           onChange={(event) => setFacts(event.target.value)}
-          placeholder="One fact or preference per line"
+          placeholder={t`One fact or preference per line`}
           required
           rows={4}
           value={facts}
@@ -133,7 +134,7 @@ function MemoryWrite({
       ) : null}
       <div className="pt-3">
         <Button disabled={!slug || !lines.length || create.isPending} size="sm" type="submit">
-          {create.isPending ? 'Saving…' : 'Save memory'}
+          {create.isPending ? t`Saving…` : t`Save memory`}
         </Button>
       </div>
     </form>
@@ -158,7 +159,7 @@ export function MemoryCreate(props: {
         description=""
         headingLevel={2}
         only="Memory"
-        title="Background creation"
+        title={t`Background creation`}
       />
     </div>
   );

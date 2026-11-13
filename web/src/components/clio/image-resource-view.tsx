@@ -11,6 +11,7 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { ViewerZoomControls } from './viewer-zoom-controls';
 import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
 import { useElementFullscreen } from './use-element-fullscreen';
+import { t } from '@lingui/core/macro';
 
 const MAX_SCALE = 8;
 const STEP = 1.2;
@@ -124,11 +125,11 @@ export function ImageResourceView({
   if (error || (url && failedImageUrl === url))
     return (
       <ViewerReadError
-        error={error || 'The image bytes could not be decoded.'}
+        error={error || t`The image bytes could not be decoded.`}
         onRetry={error ? onRetry : undefined}
       />
     );
-  if (!url) return <ResourceLoading label={`Loading ${name}`} />;
+  if (!url) return <ResourceLoading label={t`Loading ${name}`} />;
   return (
     <OverlayContainer.Provider value={fullscreenHost ?? inheritedOverlay}>
       <ViewerToolbarHost.Provider value={framed ? toolbarHost : localToolbarHost}>
@@ -147,7 +148,7 @@ export function ImageResourceView({
           ) : null}
           {framed || localToolbarHost ? (
             <ViewerZoomControls
-              label="Image zoom"
+              label={t`Image zoom`}
               onIn={zoomIn}
               onOut={zoomOut}
               onReset={resetZoom}
@@ -158,13 +159,13 @@ export function ImageResourceView({
           {!framed && localToolbarHost && bytes ? (
             <ViewerToolbarContent>
               <ToolbarAction
-                label="Download file"
+                label={t`Download file`}
                 onClick={() => downloadBytes(bytes, mediaType, name)}
               >
                 <DownloadIcon aria-hidden="true" />
               </ToolbarAction>
               <ToolbarAction
-                label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
+                label={fullscreen ? t`Exit image fullscreen` : t`View image fullscreen`}
                 onClick={() => void toggleFullscreen()}
               >
                 {fullscreen ? (
@@ -178,7 +179,7 @@ export function ImageResourceView({
           <div
             ref={viewportRef}
             role="region"
-            aria-label={`Zoomable image ${name}`}
+            aria-label={t`Zoomable image ${name}`}
             tabIndex={0}
             data-slot="image-viewport"
             className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"

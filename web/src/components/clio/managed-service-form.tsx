@@ -17,6 +17,7 @@ import { ServerParametersForm } from './managed-service-parameters';
 import { MonitoringImageStorage } from './monitoring-image-storage';
 import { SearchEnginePicker } from './search-engine-picker';
 import { ServiceInstallationMethod } from './service-installation-method';
+import { t, ph } from '@lingui/core/macro';
 
 /** Shared definition-driven setup and reconfiguration form. Paths belong to the named host. */
 export function ManagedServiceForm({
@@ -79,16 +80,18 @@ export function ManagedServiceForm({
     <Field key={field.id}>
       <div className="flex items-center gap-2">
         <FieldLabel>{field.label}</FieldLabel>
-        <InfoTip label={`About ${field.label}`}>
+        <InfoTip label={t`About ${ph({ label: field.label })}`}>
           {field.id === 'model_path'
-            ? 'The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one.'
+            ? t`The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one.`
             : field.id === 'hf_model'
-              ? 'A Hugging Face GGUF repository and optional quantization. Use this instead of a local model path.'
+              ? t`A Hugging Face GGUF repository and optional quantization. Use this instead of a local model path.`
               : field.id === 'model'
-                ? 'The model identity or downloaded model folder this runtime will load.'
+                ? t`The model identity or downloaded model folder this runtime will load.`
                 : field.required
-                  ? 'Required for this service.'
-                  : `Optional. Leave unchanged to use ${field.placeholder || 'the service default'}.`}
+                  ? t`Required for this service.`
+                  : field.placeholder
+                    ? t`Optional. Leave unchanged to use ${ph({ placeholder: field.placeholder })}.`
+                    : t`Optional. Leave unchanged to use the service default.`}
         </InfoTip>
       </div>
       {field.options?.length ? (
@@ -114,10 +117,12 @@ export function ManagedServiceForm({
                 }
               >
                 {field.id === 'safe_search'
-                  ? { '0': 'Off', '1': 'Moderate', '2': 'Strict' }[option] || option
+                  ? { '0': t`Off`, '1': t`Moderate`, '2': t`Strict` }[option] || option
                   : field.id === 'database_mode'
-                    ? { managed: `Managed by ${vocab.product}`, site: 'Site-provided' }[option] ||
-                      option
+                    ? {
+                        managed: t`Managed by ${ph({ product: vocab.product })}`,
+                        site: t`Site-provided`,
+                      }[option] || option
                     : option}
               </SelectItem>
             ))}
@@ -129,7 +134,7 @@ export function ManagedServiceForm({
           onChange={(event) => onConfiguration(field.id, event.target.value)}
           placeholder={
             field.id === 'model_path' && variant === 'native-windows-cpu'
-              ? 'C:\\models\\model.gguf'
+              ? 'C:\\models\\model.gguf' // i18n-ignore: example path
               : field.placeholder
           }
           required={field.required}
@@ -143,28 +148,27 @@ export function ManagedServiceForm({
     service.variants.some((row) => row.id === variant && row.install_type === 'native_uv') ? (
       <Field>
         <div className="flex items-center gap-2">
-          <FieldLabel>Service data</FieldLabel>
-          <InfoTip label="About service storage">
-            The default uses this computer’s configured service folder. Removing the runtime retains
-            its databases, logs and evidence.{' '}
+          <FieldLabel>{t`Service data`}</FieldLabel>
+          <InfoTip label={t`About service storage`}>
+            {t`The default uses this computer’s configured service folder. Removing the runtime retains its databases, logs and evidence.`}{' '}
             {storageOwned
-              ? 'This installation already owns its folder; reconfiguration does not move it.'
-              : 'Choose a dedicated folder to override the default.'}
+              ? t`This installation already owns its folder; reconfiguration does not move it.`
+              : t`Choose a dedicated folder to override the default.`}
           </InfoTip>
         </div>
         <div className="flex gap-2">
           <Input
-            aria-label={`${service.label} service data on ${hostLabel}`}
+            aria-label={t`${ph({ label: service.label })} service data on ${hostLabel}`}
             value={path}
             disabled={storageOwned}
-            placeholder="Use this computer’s service folder"
+            placeholder={t`Use this computer’s service folder`}
             onChange={(event) => onConfiguration('storage.service_directory', event.target.value)}
           />
           {targetId ? (
             <HostPathPicker
               targetId={targetId}
               hostLabel={hostLabel}
-              label="service data"
+              label={t`service data`}
               path={path || '/'}
               disabled={storageOwned}
               onChoose={(value) => onConfiguration('storage.service_directory', value)}
@@ -186,15 +190,15 @@ export function ManagedServiceForm({
           {showIntroduction && service.category === 'model_runtime' ? (
             <p className="text-xs text-muted-foreground">
               {installationOnly
-                ? 'Install the runtime without a model file. Choose a model when you are ready to start.'
-                : 'Choose the model to load. Ports and runtime settings are under Advanced settings.'}
+                ? t`Install the runtime without a model file. Choose a model when you are ready to start.`
+                : t`Choose the model to load. Ports and runtime settings are under Advanced settings.`}
             </p>
           ) : null}
           {basic.length ? (
             <div className="grid gap-4">{basic.map(renderField)}</div>
           ) : !installationOnly ? (
             <p className="text-sm">
-              Ports and storage use this computer’s defaults. Open Advanced settings to change them.
+              {t`Ports and storage use this computer’s defaults. Open Advanced settings to change them.`}
             </p>
           ) : null}
           <ServiceAccessChoice
@@ -203,7 +207,7 @@ export function ManagedServiceForm({
             service={service}
           />
           <details className="border-t pt-4">
-            <summary className="cursor-pointer text-sm font-medium">Advanced settings</summary>
+            <summary className="cursor-pointer text-sm font-medium">{t`Advanced settings`}</summary>
             <div className="mt-4 space-y-5">
               {fields.some((field) => field.id === 'engines') ? (
                 <SearchEnginePicker

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { followTranscriptLink } from '@/lib/inline-question';
 import { useQuestionAnswer } from './question-answer-context';
+import { ph, t } from '@lingui/core/macro';
 
 /** One compact row per question; preview, source and full-text disclosure stay separate. */
 export function OpenQuestionList({
@@ -18,7 +19,7 @@ export function OpenQuestionList({
   const id = useId();
   const [expanded, setExpanded] = useState<string[]>([]);
   return (
-    <ul aria-label="Questions awaiting your answer" className="min-w-0 space-y-1">
+    <ul aria-label={t`Questions awaiting your answer`} className="min-w-0 space-y-1">
       {questions.map((row, index) => {
         const link = answer?.questionLink?.(row);
         const open = expanded.includes(row.id);
@@ -37,7 +38,7 @@ export function OpenQuestionList({
                 <Button
                   variant="ghost"
                   className="h-8 min-w-0 flex-1 justify-start gap-2 px-1.5 text-left text-xs font-normal"
-                  aria-label={`Read and answer question ${index + 1}`}
+                  aria-label={t`Read and answer question ${ph({ number: index + 1 })}`}
                   onClick={() => {
                     onNavigate?.();
                     answer?.openQuestion?.(row);
@@ -50,8 +51,8 @@ export function OpenQuestionList({
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Go to question ${index + 1}`}
-                    title="Go to question"
+                    aria-label={t`Go to question ${ph({ number: index + 1 })}`}
+                    title={t`Go to question`}
                     onClick={() => {
                       onNavigate?.();
                       followTranscriptLink(link);
@@ -64,9 +65,13 @@ export function OpenQuestionList({
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`${open ? 'Collapse' : 'Expand'} question ${index + 1}`}
+                    aria-label={
+                      open
+                        ? t`Collapse question ${ph({ number: index + 1 })}`
+                        : t`Expand question ${ph({ number: index + 1 })}`
+                    }
                     aria-controls={`${id}-${index}`}
-                    title={open ? 'Show less' : 'Show full question'}
+                    title={open ? t`Show less` : t`Show full question`}
                     className="group"
                   >
                     <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
@@ -76,8 +81,8 @@ export function OpenQuestionList({
               <CollapsibleContent id={`${id}-${index}`} className="px-3 pb-3">
                 <p className="mb-1 text-xs text-muted-foreground">
                   {row.payload?.response_mode === 'async'
-                    ? 'Answer when ready'
-                    : 'Answer needed to continue'}
+                    ? t`Answer when ready`
+                    : t`Answer needed to continue`}
                 </p>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
                   {text}
@@ -91,7 +96,7 @@ export function OpenQuestionList({
                     answer?.openQuestion?.(row);
                   }}
                 >
-                  Read and answer
+                  {t`Read and answer`}
                 </Button>
               </CollapsibleContent>
             </li>
