@@ -126,7 +126,9 @@ describe('ClioMcpApp', () => {
   it('opens its call, pins the view and links the time channel both ways', async () => {
     repository.openMcpAppFromCall.mockResolvedValue(OPENED);
     const context = renderApp(undefined, 'linked');
-    expect(screen.getByText('Opening the open_timeline view')).toBeVisible();
+    expect(screen.getByText('Opening the view')).toBeVisible();
+    // The call's identifiers are technical detail, not the view's name (first-run journey).
+    expect(screen.queryByText(/open_timeline/u)).not.toBeInTheDocument();
     await screen.findByTestId('frame');
     expect(repository.openMcpAppFromCall).toHaveBeenCalledWith('sess_1', {
       server: 'timeline',
@@ -176,7 +178,7 @@ describe('ClioMcpApp', () => {
       })
       .mockResolvedValueOnce(OPENED);
     renderApp(undefined, 'failing');
-    expect(await screen.findByText('The open_timeline view could not open')).toBeVisible();
+    expect(await screen.findByText('The view could not open')).toBeVisible();
     expect(screen.getByText('The timeline service is not connected.')).toBeVisible();
     expect(screen.getByText('open_timeline on timeline')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
