@@ -30,6 +30,23 @@ export interface SnapshotOptions {
 /** Ask the sandbox document for a snapshot of the view it hosts. */
 export type TakeSnapshot = (options: SnapshotOptions) => Promise<McpAppSnapshot>;
 
+/** The snapshot of each mounted view, by its frame: a capture of a surface or a page that
+ * holds the view paints the view from it (CM2), since a sandboxed frame cannot be cloned. */
+const viewSnapshots = new WeakMap<Element, TakeSnapshot>();
+
+/** Offer the view in `frame` to captures; returns the withdrawal. */
+export function registerViewSnapshot(frame: Element, snapshot: TakeSnapshot): () => void {
+  viewSnapshots.set(frame, snapshot);
+  return () => {
+    if (viewSnapshots.get(frame) === snapshot) viewSnapshots.delete(frame);
+  };
+}
+
+/** The snapshot of the view in `frame`, when the view is ready. */
+export function viewSnapshotFor(frame: Element): TakeSnapshot | undefined {
+  return viewSnapshots.get(frame);
+}
+
 type LookHandler = (look: McpAppLookEvent) => void;
 /** Per view, every mount that holds it now; the newest answers (a card and a tab overlap
  * while a frame moves between them). */
