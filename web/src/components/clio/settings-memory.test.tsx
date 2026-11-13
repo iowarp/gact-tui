@@ -177,7 +177,8 @@ describe('memory page', () => {
     const account = await screen.findByRole('region', { name: 'Account' });
     const title = within(account).getByRole('button', { name: 'Frontier allocation details' });
     expect(within(account).getByText('1 fact')).toBeVisible();
-    expect(screen.getByLabelText('1 waiting')).toBeVisible();
+    const views = screen.getByRole('radiogroup', { name: 'Memory views' });
+    expect(within(views).getByLabelText('1 waiting')).toBeVisible();
     await user.click(title);
     const pane = await screen.findByRole('complementary', { name: 'Frontier allocation details' });
     expect(await within(pane).findByText(/read 2×, loaded 1×; last 2026-10-21/u)).toBeVisible();
