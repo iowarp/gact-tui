@@ -27,6 +27,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { usePhoneAppDock, useWorkbenchAppTabs } from './phone-app-dock';
+import { appTabShare } from './workbench-app-width';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -319,6 +320,16 @@ export function ClioAppShell({
       applyWorkbenchShare();
     } else workbenchPanelRef.current?.collapse();
   }, [applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
+
+  // An app view opens at half the window until the person sizes the canvas themselves.
+  useEffect(() => {
+    if (!desktopWorkbench || !workbenchOpen || !appTabShown) return;
+    const personSized = Boolean(window.localStorage.getItem(WORKBENCH_SHARE_KEY));
+    const share = appTabShare(workbenchShareRef.current, currentWindowWidth(), personSized);
+    if (share === workbenchShareRef.current) return;
+    workbenchShareRef.current = share;
+    applyWorkbenchShare();
+  }, [appTabShown, applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
 
   // Under the split breakpoint the canvas is a sheet over the conversation, so
   // the floating conversation rail hides under it: one sheet at a time.

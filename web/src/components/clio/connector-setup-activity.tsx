@@ -10,6 +10,13 @@ const OUTCOME: Record<string, string> = {
   expired: 'expired',
 };
 
+/** An offer's outcomes: the person turned the connector on, or said Not now. */
+const OFFER_OUTCOME: Record<string, string> = {
+  ...OUTCOME,
+  answered: 'turned on',
+  denied: 'not now',
+};
+
 /**
  * The conversation's line for a connector setup request: which connector, and whether
  * it waits for you. The card itself is above the composer; the line jumps to it.
@@ -19,6 +26,7 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
   const id = payload?.connector_id ?? '';
   const { connector } = useConnector(id || undefined);
   const name = connector?.name ?? payload?.connector_name ?? (id || 'a connector');
+  const offer = payload?.intent === 'enable';
   return (
     <div
       className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
@@ -29,11 +37,13 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
         className="size-4 text-[8px]"
         connector={connector ?? { id, name, logo_url: null }}
       />
-      <span className="min-w-0 truncate text-foreground/80">Set up {name}</span>
+      <span className="min-w-0 truncate text-foreground/80">
+        {offer ? 'Turn on' : 'Set up'} {name}
+      </span>
       {interaction.status === 'pending' ? (
         <WaitingForYou interaction={interaction} />
       ) : (
-        <span>{OUTCOME[interaction.status] ?? interaction.status}</span>
+        <span>{(offer ? OFFER_OUTCOME : OUTCOME)[interaction.status] ?? interaction.status}</span>
       )}
     </div>
   );
