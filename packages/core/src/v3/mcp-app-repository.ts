@@ -3,6 +3,8 @@ import type {
   McpAppDescriptor,
   McpAppIdentity,
   McpAppMessageAcknowledgement,
+  McpAppToolsAcknowledgement,
+  McpAppViewTool,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 
@@ -24,6 +26,12 @@ const acknowledgementSchema = z.object({
   message_id: z.string(),
   delivery: z.string(),
   state: z.string(),
+});
+
+const appToolsAcknowledgementSchema = z.object({
+  offered: z.array(z.string()).default([]),
+  reason: z.string().optional(),
+  message: z.string().optional(),
 });
 
 function appPath(identity: McpAppIdentity, suffix = ''): string {
@@ -99,6 +107,38 @@ export class McpAppRepository extends InteractionRepository {
       path: appPath(identity, '/messages'),
       body: message,
       decode: (value) => acknowledgementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** What the view offers now (MA11); an empty list withdraws its tools. */
+  public updateMcpAppTools(
+    identity: McpAppIdentity,
+    tools: McpAppViewTool[],
+    holder?: string,
+    signal?: AbortSignal,
+  ): Promise<McpAppToolsAcknowledgement> {
+    return this.transport.request({
+      method: 'PUT',
+      path: appPath(identity, '/app-tools'),
+      body: holder ? { tools, holder } : { tools },
+      decode: (value) => appToolsAcknowledgementSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The view's answer to one agent call of its tool (MA13). */
+  public postMcpAppToolResult(
+    identity: McpAppIdentity,
+    callId: string,
+    answer: { result: Record<string, unknown> } | { error: { message: string } },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'POST',
+      path: appPath(identity, `/app-tool-results/${encodeURIComponent(callId)}`),
+      body: answer,
+      decode: (value) => value,
       signal,
     });
   }

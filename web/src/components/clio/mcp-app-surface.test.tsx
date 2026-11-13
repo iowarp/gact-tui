@@ -33,6 +33,8 @@ function repository() {
       state: 'waiting',
     })),
     closeMcpApp: vi.fn(async () => undefined),
+    updateMcpAppTools: vi.fn(async () => ({ offered: [] })),
+    postMcpAppToolResult: vi.fn(async () => ({})),
   };
 }
 

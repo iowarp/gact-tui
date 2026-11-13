@@ -22,6 +22,7 @@ import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
+import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
 import { useRepository } from './use-repository';
 
 interface SessionLiveStreamInput {
@@ -204,6 +205,7 @@ export function useSessionLiveStream({
             batcher.push(frame);
             science.push(frame);
             liveSources.push(frame);
+            dispatchMcpAppToolCallFrame(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }

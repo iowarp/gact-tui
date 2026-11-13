@@ -10,6 +10,7 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/fr
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClioStatus } from './status';
+import { McpAppViewTools } from './mcp-app-view-tools';
 import { humanizeToolName } from './tool-presentation';
 
 export const MCP_APPS_PROTOCOL_VERSION = '2026-01-26';
@@ -21,6 +22,8 @@ type McpAppClient = Pick<
   | 'readMcpAppResource'
   | 'updateMcpAppModelContext'
   | 'postMcpAppMessage'
+  | 'updateMcpAppTools'
+  | 'postMcpAppToolResult'
 >;
 
 interface JsonRpcMessage {
@@ -116,10 +119,12 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     let active = true;
     let initialized = false;
     const post = (message: JsonRpcMessage) => targetWindow.postMessage(message, sandboxOrigin);
+    const viewTools = new McpAppViewTools(props.repository, identity, post);
     const onMessage = (event: MessageEvent<unknown>) => {
       if (!active || event.source !== targetWindow || event.origin !== sandboxOrigin) return;
       if (!isJsonRpcMessage(event.data)) return;
       const message = event.data;
+      if (viewTools.handleResponse(message)) return;
       if (message.method === 'ui/notifications/sandbox-proxy-ready') {
         post({
           jsonrpc: '2.0',
@@ -142,6 +147,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
           post(rpcError(message.id, -32602, 'Unsupported MCP Apps protocol version'));
           return;
         }
+        viewTools.declare(message.params.appCapabilities);
         post({
           jsonrpc: '2.0',
           id: message.id,
@@ -166,6 +172,11 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
           method: 'ui/notifications/tool-result',
           params: descriptor.tool_result,
         });
+        viewTools.start();
+        return;
+      }
+      if (message.method === 'notifications/tools/list_changed') {
+        void viewTools.refresh();
         return;
       }
       if (message.method === 'ui/notifications/size-changed') {
@@ -210,6 +221,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     window.addEventListener('message', onMessage);
     return () => {
       active = false;
+      viewTools.stop();
       themeObserver.disconnect();
       window.removeEventListener('resize', notifyContext);
       window.removeEventListener('message', onMessage);
@@ -399,6 +411,10 @@ function initializeResult(descriptor: McpAppDescriptor, iframe: HTMLIFrameElemen
       serverTools: {},
       serverResources: {},
       logging: {},
+      // Draft spec: the host takes ui/update-model-context into the agent's next turns,
+      // and ui/message text. Some views report context only when this is advertised.
+      updateModelContext: { text: {}, structuredContent: {} },
+      message: { text: {} },
       sandbox: { csp: descriptor.resource.csp, permissions: descriptor.resource.permissions },
     },
     hostInfo: { name: 'Agent Workspace', version: '0.11.0' },
