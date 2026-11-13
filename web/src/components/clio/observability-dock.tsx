@@ -368,6 +368,7 @@ export function ClioObservabilityView({
             }
             items={activity}
             messages={messages}
+            tools={tools}
             notice={
               processesError || processesPending ? (
                 <div className="border-b px-3 py-1.5">
