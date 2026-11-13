@@ -4,7 +4,7 @@ import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
 import { repeatOf } from './script-calls';
-import { formatLocale } from '@/lib/locale-format';
+import { formatList, formatLocale } from '@/lib/locale-format';
 import { plural, t } from '@lingui/core/macro';
 
 /** How many of a script's calls show before "Show all". */
@@ -53,9 +53,9 @@ export function NestedToolCalls({
     one: '# call from this script',
     other: '# calls from this script',
   });
-  const detail = [failed ? t`${failed} failed` : '', running ? t`${running} running` : '']
-    .filter(Boolean)
-    .join(', ');
+  const detail = formatList(
+    [failed ? t`${failed} failed` : '', running ? t`${running} running` : ''].filter(Boolean),
+  );
   return (
     <ActivityNest
       label={detail ? t`${count} (${detail})` : count}

@@ -8,7 +8,7 @@ import { CodeBlock, HANGING_SOURCE_WRAP } from '@/components/ai-elements/code-bl
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { formatBytes } from '@/lib/format';
-import { formatNumber } from '@/lib/locale-format';
+import { formatList, formatNumber } from '@/lib/locale-format';
 import { cn } from '@/lib/utils';
 import { parsePrintedValue } from './python-literal';
 import { workspaceImages } from './image-reach';
@@ -427,7 +427,7 @@ function descriptorNote(sizeBytes: number | undefined, shown: boolean): string {
 }
 
 function pagesLabel(pages: readonly number[]): string {
-  const list = pages.join(', ');
+  const list = formatList(pages.map(String));
   return plural(pages.length, { one: `Page ${list}`, other: `Pages ${list}` });
 }
 
@@ -440,7 +440,7 @@ function remainingLabel(remaining: number): string {
 }
 
 function descriptionsLabel(names: readonly string[]): string {
-  const files = names.join(', ');
+  const files = formatList(names);
   return plural(names.length, {
     one: `Description of # image: ${files}`,
     other: `Descriptions of # images: ${files}`,

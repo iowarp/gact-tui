@@ -2430,7 +2430,7 @@ msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr ""
 
 #. A short list, one more item
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr ""
 

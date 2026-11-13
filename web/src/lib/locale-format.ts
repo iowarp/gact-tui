@@ -6,6 +6,20 @@ export function formatLocale(): string {
   return i18n.locale === 'pseudo' ? 'en' : i18n.locale;
 }
 
+/** A short list in the interface language: "a, b, c" (Japanese "a、b、c"). */
+export function formatList(items: readonly string[]): string {
+  return items.length
+    ? items.reduce((list, item) =>
+        t({ message: `${list}, ${item}`, comment: 'A short list, one more item' }),
+      )
+    : '';
+}
+
+/** The separator `formatList` puts between items, for lists of styled parts. */
+export function listSeparator(): string {
+  return formatList(['', '']);
+}
+
 /**
  * Cached Intl formatters for per-row hot paths. `Date#toLocale*String` and
  * `Number#toLocaleString` build a new formatter on every call, which costs a
