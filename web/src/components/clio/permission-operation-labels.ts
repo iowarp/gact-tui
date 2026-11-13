@@ -42,17 +42,29 @@ export function permissionTitle(
     input && typeof input === 'object'
       ? (input as Record<string, unknown>)
       : ({} as Record<string, unknown>);
-  const legacy =
-    interaction.title === `destructive tool call: ${toolName}` ||
-    interaction.title === `tool call: ${toolName}` ||
-    interaction.title === `external MCP tool call: ${toolName}`;
-  if (!legacy) return interaction.title;
+  const named = legacyToolCallName(interaction.title);
+  if (named === undefined || named !== toolName) return interaction.title;
+  return permissionOperationTitle(named, fields) ?? interaction.title;
+}
+
+const LEGACY_TITLE = /^(?:destructive |external MCP )?tool call: (.+)$/u;
+
+/** The tool a legacy agent title ("destructive tool call: fs_write_file") names, if it is one. */
+export function legacyToolCallName(title: string | undefined): string | undefined {
+  return title ? LEGACY_TITLE.exec(title.trim())?.[1] : undefined;
+}
+
+/** A known operation in words; a connect request names its source when the input carries one. */
+export function permissionOperationTitle(
+  toolName: string,
+  fields: Record<string, unknown> = {},
+): string | undefined {
   if (toolName === 'connected_data_connect')
     return typeof fields.label === 'string' && fields.label.trim()
       ? t`Connect ${ph({ source: String(fields.label) })}`
       : t`Connect source`;
   if (toolName === 'connected_data_download') return t`Download source`;
-  return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
+  return permissionOperationLabel(toolName, fields);
 }
 
 /** The command a permission would run and the computer it runs on, when the request names them. */

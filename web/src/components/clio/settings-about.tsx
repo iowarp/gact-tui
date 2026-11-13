@@ -66,11 +66,15 @@ export function AboutSettings() {
             />
           ) : null}
           {/* Rows the service does not report are left out rather than filled with a placeholder. */}
-          {!data || versions?.backend_build ? (
-            <AboutValue label={t`Backend build`} mono value={versions?.backend_build || missing} />
+          {!data || reported(versions?.backend_build) ? (
+            <AboutValue
+              label={t`Backend build`}
+              mono
+              value={reported(versions?.backend_build) || missing}
+            />
           ) : null}
-          {!data || versions?.python ? (
-            <AboutValue label={t`Python`} mono value={versions?.python || missing} />
+          {!data || reported(versions?.python) ? (
+            <AboutValue label={t`Python`} mono value={reported(versions?.python) || missing} />
           ) : null}
           {!data || versions ? (
             <AboutValue
@@ -122,13 +126,21 @@ function endpointHost(endpoint: string): string {
   }
 }
 
+/** The service fills a blank version field with the English placeholder "unknown". */
+function reported(value: string | undefined): string | undefined {
+  return value && value !== 'unknown' ? value : undefined;
+}
+
 function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace']): string {
   if (!marketplace) return t`Not configured`;
-  const ref = marketplace.ref || t`default ref`;
-  const commit = marketplace.installed_commit
-    ? marketplace.installed_commit.slice(0, 12)
-    : undefined;
-  const { source } = marketplace;
+  const ref = reported(marketplace.ref);
+  const installed = reported(marketplace.installed_commit);
+  const commit = installed ? installed.slice(0, 12) : undefined;
+  const source = reported(marketplace.source) || t`unknown source`;
+  if (!ref)
+    return commit
+      ? t`${source}, default ref, installed ${commit}`
+      : t`${source}, default ref, installed commit unavailable`;
   return commit
     ? t`${source}, ref ${ref}, installed ${commit}`
     : t`${source}, ref ${ref}, installed commit unavailable`;
