@@ -150,6 +150,11 @@ export function markMcpAppEnded(appInstanceId: string): void {
   update(appInstanceId, { placement: 'ended', gone: true });
 }
 
+/** Whether CLIO closed the App: its close already withdrew the App's own tools (MA7). */
+export function mcpAppEnded(appInstanceId: string): boolean {
+  return useMcpAppLiveSetStore.getState().apps[appInstanceId]?.placement === 'ended';
+}
+
 /** Whether an App's tab should close: its frame moved back or the host closed it. */
 export function mcpAppTabLeft(appInstanceId: string): boolean {
   const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];

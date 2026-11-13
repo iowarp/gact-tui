@@ -6,6 +6,7 @@ import {
   type McpAppViewTool,
   type TransportFrame,
 } from '@clio/core/v3';
+import { mcpAppEnded } from './mcp-app-live-set';
 
 /** MA14: the limits Claude publishes for app tools. A view over either offers none. */
 export const MAX_VIEW_TOOLS = 64;
@@ -137,7 +138,8 @@ export class McpAppViewTools {
     if (this.stopped) return;
     this.stopped = true;
     this.unregister?.();
-    if (this.published) {
+    // A closed App's tools left with it on the server; its record answers 404 now.
+    if (this.published && !mcpAppEnded(this.identity.appInstanceId)) {
       void this.repository.updateMcpAppTools(this.identity, [], this.holder).catch(() => undefined);
     }
   }
