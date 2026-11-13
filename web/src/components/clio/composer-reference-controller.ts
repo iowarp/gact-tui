@@ -6,7 +6,7 @@ import {
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
 import { editorCaretOffset } from './composer-editor-model';
-import { hdf5DrillQuery } from './composer-hdf5-references';
+import { hdf5DrillQuery, hdf5UpQuery, parseHdf5Mention } from './composer-hdf5-references';
 
 /**
  * The `@` mention the person is in the middle of typing. It is applied only to
@@ -209,12 +209,12 @@ export function useComposerReferenceController({
   /**
    * Tab on an HDF5 file or group lists its contents instead of adding it: the
    * mention becomes `file.h5::/group/`, so the typed text and the listing agree.
-   * The picker's own search box drills inside the menu.
+   * Shift Tab (or Escape) goes back up one level. The picker's own search box
+   * does both inside the menu.
    */
-  const drill = useCallback(
-    (reference: WorkspaceReference): boolean => {
-      const next = hdf5DrillQuery(reference);
-      if (!next || pickerOpen || !mention) return false;
+  const rewriteMention = useCallback(
+    (next: string): boolean => {
+      if (pickerOpen || !mention) return false;
       const nextInput = `${input.slice(0, mention.start + 1)}${next}${input.slice(mention.end)}`;
       const shift = nextInput.length - input.length;
       const offset = mention.start + 1 + next.length;
@@ -233,17 +233,40 @@ export function useComposerReferenceController({
     },
     [focusEditor, input, mention, pickerOpen, selectedReferences, setInput, setSelectedReferences],
   );
+  const drill = useCallback(
+    (reference: WorkspaceReference): boolean => {
+      const next = hdf5DrillQuery(reference);
+      return next ? rewriteMention(next) : false;
+    },
+    [rewriteMention],
+  );
+  const up = useCallback((): boolean => {
+    const inside = mention ? parseHdf5Mention(mention.query) : undefined;
+    return inside ? rewriteMention(hdf5UpQuery(inside)) : false;
+  }, [mention, rewriteMention]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>): boolean => {
       if (!open) return false;
-      if (event.key === 'Escape') {
+      // Back one step, then close: inside a file Escape goes up a level first.
+      if (event.key === 'Escape' || (event.key === 'Tab' && event.shiftKey)) {
+        if (up()) {
+          event.preventDefault();
+          return true;
+        }
+        if (event.key === 'Tab') return false;
         event.preventDefault();
         dismiss();
         return true;
       }
       const menu = menuRef.current;
       if (!menu) return false;
+      if (event.key === 'PageDown' || event.key === 'PageUp') {
+        if (!menu.moveGroup(event.key === 'PageDown' ? 1 : -1)) return false;
+        event.preventDefault();
+        navigatedMentionRef.current = mentionIdentity;
+        return true;
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         if (!menu.move(event.key === 'ArrowDown' ? 1 : -1)) return false;
         event.preventDefault();
@@ -282,7 +305,7 @@ export function useComposerReferenceController({
       }
       return false;
     },
-    [dismiss, drill, mention?.query, mentionIdentity, open, pickerOpen, select],
+    [dismiss, drill, mention?.query, mentionIdentity, open, pickerOpen, select, up],
   );
 
   const onCaretChange = useCallback((offset: number | undefined) => {
