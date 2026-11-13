@@ -116,6 +116,8 @@ type WorkbenchTabKind =
       sessionId: string;
       workspaceId: string;
     }
+  /** An MCP App in its fullscreen display mode: the one frame of that App (MA1). */
+  | ({ id: `mcp-app:${string}`; kind: 'mcp-app' } & McpAppTabTarget)
   /** Ctrl K's results for `query`, moved into a tab (All results). */
   | { id: string; kind: 'search'; label: string; query: string; scope?: CommandMenuScope }
   /** One try of a variant run (BestOfN / Refine); the run's pick card picks between them. */
@@ -128,6 +130,21 @@ type WorkbenchTabKind =
       sessionId: string;
       workspaceId: string;
     };
+
+/** What an `mcp-app` tab carries: the App's identity and a label from its tool. */
+export interface McpAppTabTarget {
+  label: string;
+  appInstanceId: string;
+  dataRef: string;
+  sessionId: string;
+  resourceUri: string;
+  sourceServer: string;
+  toolName: string;
+}
+
+export function mcpAppTab(target: McpAppTabTarget): WorkbenchTab {
+  return { id: `mcp-app:${target.appInstanceId}`, kind: 'mcp-app', ...target };
+}
 
 export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {
   return {

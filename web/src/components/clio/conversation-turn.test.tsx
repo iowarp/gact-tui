@@ -9,6 +9,7 @@ import { MemoryRouter } from 'react-router-dom';
 // module cache instead of charging a cold load to a test's or hook's budget.
 import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
+import { useMcpAppLiveSetStore } from './mcp-app-live-set';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
 
 const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
@@ -268,9 +269,9 @@ describe('ConversationTurn correlated work placement', () => {
         mime_type: 'text/html;profile=mcp-app',
       },
     };
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { session_1: 'app_1' } });
     renderWithTooltips(
       <ConversationTurn
-        activeMcpAppId="app_1"
         iterations={[
           iteration(
             activityLane([{ kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') }, app]),
@@ -321,9 +322,9 @@ describe('ConversationTurn correlated work placement', () => {
       },
     };
 
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { session_1: 'app_2' } });
     renderWithTooltips(
       <ConversationTurn
-        activeMcpAppId="app_2"
         iterations={[iteration(activityLane([replaced, active]))]}
         mcpAppRepository={{} as ClioRepository}
         messageSessionId="session_1"

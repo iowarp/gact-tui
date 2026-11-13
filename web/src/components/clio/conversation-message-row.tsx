@@ -382,7 +382,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                                   .slice(segmentIndex + 1)
                                   .some((later) => later.kind !== 'feedback')
                               }
-                              activeMcpAppId={entities.activeMcpAppId}
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
                               interactions={entities.interactions}
@@ -654,7 +653,6 @@ export function conversationMessageRowPropsEqual(
     left.onRetryMessage !== right.onRetryMessage ||
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.onInteractionResponse !== right.onInteractionResponse ||
-    left.activeMcpAppId !== right.activeMcpAppId ||
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||

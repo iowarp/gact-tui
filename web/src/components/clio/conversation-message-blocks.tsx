@@ -14,7 +14,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
-import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
+import { McpAppCard } from './mcp-app-card';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import { ReferencedArtifact } from './referenced-artifact';
 import type { ClioConversationProps } from './conversation-types';
@@ -137,7 +137,6 @@ export function DeferredA2UISurface({
 }
 
 type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
-  activeMcpAppId?: string;
   block: MessageBlock;
   messageId?: string;
   messageAttentionIndex?: MessageAttentionIndex;
@@ -236,7 +235,6 @@ function MessageBlockView({
   onOpenReference,
   onOpenSubagent,
   reasoningDefaultOpen,
-  activeMcpAppId,
   mcpAppRepository,
   messageId,
   messageAttentionIndex,
@@ -340,19 +338,8 @@ function MessageBlockView({
       );
     }
     case 'mcp_app':
-      return block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
-        <McpAppSurface
-          appInstanceId={block.app_instance_id}
-          dataRef={block.data_ref}
-          height={block.height}
-          repository={mcpAppRepository}
-          resourceUri={block.resource_uri}
-          sessionId={messageSessionId}
-          sourceServer={block.source_server}
-          toolName={block.tool_name}
-        />
-      ) : (
-        <McpAppHistoryLine sourceServer={block.source_server} toolName={block.tool_name} />
+      return (
+        <McpAppCard block={block} repository={mcpAppRepository} sessionId={messageSessionId} />
       );
     case 'citation':
       return (

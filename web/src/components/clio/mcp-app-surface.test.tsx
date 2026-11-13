@@ -32,6 +32,10 @@ function repository() {
       delivery: 'queued',
       state: 'waiting',
     })),
+    saveMcpAppDownload: vi.fn(async () => ({
+      files: [{ name: 'plot.csv', path: 'plot.csv', artifact_id: 'art_1' }],
+    })),
+    openBrowserPage: vi.fn(async () => ({ id: 'page_1', title: 'Example', host: 'example.org' })),
     closeMcpApp: vi.fn(async () => undefined),
   };
 }

@@ -43,7 +43,7 @@ import { PresentationNavigation, usePresentationNavigation } from './presentatio
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import { useConversationColumn } from './use-conversation-column';
-import { useActiveMcpAppId } from './use-active-mcp-app';
+import { useMcpAppLiveSet } from './mcp-app-live-set';
 import { useTranscriptJumpLane } from './use-transcript-jump-lane';
 import { useTranscriptSearchFocus } from './use-transcript-search-focus';
 import { useVirtualizedRowsOverflow } from './use-virtualized-rows-overflow';
@@ -245,7 +245,7 @@ function ConversationBody({
       injectionPlacement.before,
     ],
   );
-  const activeMcpAppId = useActiveMcpAppId(messages, entities.mcpAppRepository);
+  useMcpAppLiveSet(entities.sessionId, messages, entities.mcpAppRepository);
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)
@@ -617,7 +617,6 @@ function ConversationBody({
                       Boolean(activeRunId) && (message.run_id ?? message.turn_id) === activeRunId
                     }
                     {...entities}
-                    activeMcpAppId={activeMcpAppId}
                     displayMode={turnDisplayModes[message.id] ?? 'chain'}
                     index={index}
                     key={message.id}
