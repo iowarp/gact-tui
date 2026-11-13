@@ -97,9 +97,12 @@ export class McpAppViewTools {
   start(): void {
     if (!this.offersTools || this.stopped) return;
     const key = handlerKey(this.identity.sessionId, this.identity.appInstanceId);
-    callHandlers.set(key, (call) => void this.runAgentCall(call));
+    const handler: CallHandler = (call) => void this.runAgentCall(call);
+    callHandlers.set(key, handler);
+    // A newer mount of the same App (the frame moved between card and tab) may already
+    // hold the key: only this mount's own handler leaves with it.
     this.unregister = () => {
-      if (callHandlers.get(key)) callHandlers.delete(key);
+      if (callHandlers.get(key) === handler) callHandlers.delete(key);
     };
     void this.refresh();
   }
