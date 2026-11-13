@@ -193,12 +193,12 @@ export function McpConnectionDialog({
         };
       }
       // Only an address or a command: it becomes a connector with no logo (CN1, AQ11),
-      // enabled for every conversation; its card narrows that to chosen agents.
+      // enabled once created; a conversation adds it from its plugins (CN10).
       if (plainConnector(input)) {
         const created = await repository.createConnector(
           input.transport === 'stdio'
-            ? { command: input.command, args: input.args, name, scope: 'all' }
-            : { url: input.url, name, scope: 'all' },
+            ? { command: input.command, args: input.args, name }
+            : { url: input.url, name },
         );
         await onSaved();
         onClose();

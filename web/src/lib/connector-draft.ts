@@ -35,3 +35,30 @@ export function unfilledRequired(needs: readonly ConnectorNeed[], draft: Connect
     return !need.has_value && !need.value;
   });
 }
+
+/**
+ * A conversation card's answer: the values it changes and the keys that also become the
+ * person's defaults ("Save as default"). A row marked to save that the person did not
+ * change sends its current value, so the default takes it.
+ */
+export function conversationAnswer(
+  needs: readonly ConnectorNeed[],
+  draft: ConnectorDraft,
+  saveAsDefault: Readonly<Record<string, boolean>>,
+): { values: ConnectorValues; save_as_default: string[] } {
+  const values = { ...draftValues(needs, draft) };
+  const keys: string[] = [];
+  for (const need of needs) {
+    if (!saveAsDefault[need.key] || !perConversation(need)) continue;
+    const value = need.key in values ? values[need.key] : need.value;
+    if (!value) continue;
+    values[need.key] = value;
+    keys.push(need.key);
+  }
+  return { values, save_as_default: keys };
+}
+
+/** An address or value need: set per conversation, with a "Save as default" choice. */
+export function perConversation(need: ConnectorNeed) {
+  return need.kind === 'address' || need.kind === 'value';
+}

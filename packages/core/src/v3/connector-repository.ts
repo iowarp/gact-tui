@@ -4,7 +4,6 @@ import {
   connectorSchema,
   type Connector,
   type ConnectorCreateInput,
-  type ConnectorScope,
   type ConnectorValues,
 } from './connector-domain.js';
 import { McpRepository } from './mcp-repository.js';
@@ -21,6 +20,19 @@ export class ConnectorRepository extends McpRepository {
       signal,
     });
     return result.connectors;
+  }
+
+  /**
+   * One connector as a conversation sees it: its own values over the person's defaults,
+   * with each address or value row's `default_value` and `conversation`.
+   */
+  public sessionConnector(id: string, sessionId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'GET',
+      path: `${connectorPath(id)}?session_id=${encodeURIComponent(sessionId)}`,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
   }
 
   /**
@@ -52,15 +64,11 @@ export class ConnectorRepository extends McpRepository {
     });
   }
 
-  public enableConnector(
-    id: string,
-    scope: ConnectorScope,
-    signal?: AbortSignal,
-  ): Promise<Connector> {
+  /** Installs and readies the connector; it joins no conversation by itself. */
+  public enableConnector(id: string, signal?: AbortSignal): Promise<Connector> {
     return this.transport.request({
       method: 'POST',
       path: `${connectorPath(id)}/enable`,
-      body: { scope },
       decode: (value) => connectorSchema.parse(value),
       signal,
     });

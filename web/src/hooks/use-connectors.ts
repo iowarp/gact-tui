@@ -1,4 +1,4 @@
-import type { Connector, ConnectorScope, ConnectorValues } from '@clio/core/v3';
+import type { Connector, ConnectorValues } from '@clio/core/v3';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
@@ -40,6 +40,28 @@ export function useConnector(id: string | undefined) {
     ...connectors,
     connector: id ? connectors.data?.find((row) => row.id === id) : undefined,
   };
+}
+
+/**
+ * One connector as a conversation sees it (its own values over the defaults). Kept under
+ * the `connectors` key, so every connector change refreshes it too.
+ */
+export function useSessionConnector(id: string | undefined, sessionId: string | undefined) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const query = useQuery({
+    queryKey: queryKeys.key(
+      'connectors',
+      settings.endpoint,
+      connectionScope(settings),
+      'conversation',
+      id ?? '',
+      sessionId ?? '',
+    ),
+    queryFn: ({ signal }) => repository.sessionConnector(id!, sessionId!, signal),
+    enabled: Boolean(id && sessionId),
+  });
+  return { ...query, connector: query.data };
 }
 
 /**
@@ -124,8 +146,7 @@ export function useConnectorActions() {
   });
   const enable = useMutation({
     mutationKey: [CONNECTOR_CHANGE, 'starting'],
-    mutationFn: ({ id, scope }: { id: string; scope: ConnectorScope }) =>
-      repository.enableConnector(id, scope),
+    mutationFn: (id: string) => repository.enableConnector(id),
     onSuccess: settle,
     onError: (error: Error) =>
       toast.error('The connector was not enabled', { description: error.message }),

@@ -9,9 +9,11 @@ import {
   packMembersLabel,
   pluginContributions,
   provenanceDetail,
-  provenanceLabel,
+  resolvedPluginName,
+  resolvedPluginOrigin,
 } from '@/lib/plugin-presentation';
 import { AgentPluginMenu } from './agent-plugin-menu';
+import { ConnectorLogo } from './connector-need-rows';
 import {
   bringsLabel,
   CATEGORY_ICONS,
@@ -195,7 +197,10 @@ function PackageRow({
   onRemove?: () => void;
 }) {
   const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
-  const provenance = provenanceLabel(plugin.provenance);
+  const connector = plugin.connector;
+  // A connector's plugin is named by its connector; the person added it here (CN10).
+  const name = resolvedPluginName(plugin);
+  const provenance = resolvedPluginOrigin(plugin);
   const expandable =
     category === 'all'
       ? Object.values(items).some((rows) => rows.length > 0)
@@ -225,7 +230,13 @@ function PackageRow({
       }
       className="cursor-default"
       data-agent-package={plugin.id}
-      icon={<Icon />}
+      icon={
+        connector ? (
+          <ConnectorLogo className="size-4 text-[8px]" connector={{ ...connector, name }} />
+        ) : (
+          <Icon />
+        )
+      }
       meta={
         <span className="block min-w-0 truncate" title={meta}>
           {meta}
@@ -252,7 +263,7 @@ function PackageRow({
           title={plugin.description || plugin.id}
           type="button"
         >
-          {plugin.id}
+          {name}
         </button>
       }
     />

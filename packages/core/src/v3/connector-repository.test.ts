@@ -31,7 +31,7 @@ const fixture = {
   logo_url: null,
   source: 'catalog',
   enabled: true,
-  scope: 'all',
+  plugin_ref: 'clio-connectors/connector-fixture-address',
   plugin: null,
   tool_count: null,
   state: { status: 'needs', needs: ['address', 'account'], reason: null },
@@ -79,7 +79,7 @@ describe('connector repository', () => {
       '<svg xmlns="http://www.w3.org/2000/svg"/>',
       ready,
       ready,
-      { ...ready, enabled: false, scope: null },
+      { ...ready, enabled: false },
       { ...ready, id: 'custom-1', source: 'custom' },
     ]);
     const repository = new ClioRepository(transport);
@@ -95,9 +95,9 @@ describe('connector repository', () => {
       token: null,
     });
     expect(saved.state.status).toBe('ready');
-    await repository.enableConnector('fixture-address', { agents: ['clio'] });
+    await repository.enableConnector('fixture-address');
     const disabled = await repository.disableConnector('fixture-address');
-    expect(disabled.scope).toBeNull();
+    expect(disabled.enabled).toBe(false);
     const created = await repository.createConnector({ url: 'http://127.0.0.1:19202/mcp' });
     expect(created.source).toBe('custom');
 
@@ -113,7 +113,7 @@ describe('connector repository', () => {
     expect(transport.requests[2]?.body).toEqual({
       values: { address: 'http://127.0.0.1:19201/mcp', token: null },
     });
-    expect(transport.requests[3]?.body).toEqual({ scope: { agents: ['clio'] } });
+    expect(transport.requests[3]?.body).toBeUndefined();
   });
 
   it('names the missing needs in the entry order and reads an unknown kind or status', () => {

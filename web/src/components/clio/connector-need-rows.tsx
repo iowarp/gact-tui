@@ -2,6 +2,7 @@ import type { Connector, ConnectorNeed } from '@clio/core/v3';
 import { KeyRoundIcon, LogInIcon } from 'lucide-react';
 import { useId } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useConnectorLogo } from '@/hooks/use-connectors';
-import type { ConnectorDraft } from '@/lib/connector-draft';
+import { perConversation, type ConnectorDraft } from '@/lib/connector-draft';
 import { cn } from '@/lib/utils';
 import { Monogram } from './primitives/monogram';
 
@@ -40,6 +41,9 @@ export function ConnectorLogo({
  * One row for each need (CN4): a text field for an address or a value, a masked field
  * for a secret that is never shown again once saved, and a sign-in button that uses
  * the connection's existing sign-in.
+ *
+ * In a conversation (`saveAsDefault` given) an address or value is this conversation's;
+ * each such row has "Save as default", which also makes it the default for new ones.
  */
 export function ConnectorNeedRows({
   needs,
@@ -49,6 +53,8 @@ export function ConnectorNeedRows({
   disabled = false,
   submitLabel,
   onSubmit,
+  saveAsDefault,
+  onSaveAsDefault,
 }: {
   needs: readonly ConnectorNeed[];
   draft: ConnectorDraft;
@@ -58,6 +64,9 @@ export function ConnectorNeedRows({
   /** Enter in a field submits, with this as the form's accessible action. */
   submitLabel?: string;
   onSubmit?: () => void;
+  /** In a conversation: the rows also saved as the person's defaults. */
+  saveAsDefault?: Readonly<Record<string, boolean>>;
+  onSaveAsDefault?: (key: string, save: boolean) => void;
 }) {
   const ids = useId();
   return (
@@ -174,6 +183,27 @@ export function ConnectorNeedRows({
                 value={draft[need.key] ?? need.value ?? ''}
               />
             )}
+            {saveAsDefault && onSaveAsDefault && perConversation(need) ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                <Checkbox
+                  aria-describedby={`${id}-default-hint`}
+                  checked={Boolean(saveAsDefault[need.key])}
+                  disabled={disabled}
+                  id={`${id}-default`}
+                  onCheckedChange={(checked) => onSaveAsDefault(need.key, checked === true)}
+                />
+                <label className="text-xs" htmlFor={`${id}-default`}>
+                  Save as default
+                </label>
+                <span className="text-xs text-muted-foreground" id={`${id}-default-hint`}>
+                  {saveAsDefault[need.key]
+                    ? 'New conversations use it too.'
+                    : need.conversation && need.default_value !== need.value
+                      ? `This conversation only. Default: ${need.default_value || 'none'}`
+                      : 'This conversation only.'}
+                </span>
+              </div>
+            ) : null}
           </div>
         );
       })}
