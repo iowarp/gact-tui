@@ -9789,8 +9789,13 @@ msgstr "コメント、リビジョン履歴、編集は利用できません: �
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/settings-plugins.tsx
+#: src/components/clio/tool-operation-contract.ts
 msgid "Commit"
 msgstr "コミット"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Commit changes to git"
+msgstr "変更を git にコミット"
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "Commit ID"
@@ -27120,6 +27125,10 @@ msgstr "記録に注意が必要です"
 #: src/components/clio/observability-provenance.tsx
 msgid "Recording unavailable"
 msgstr "記録を利用できません"
+
+#: src/lib/mcp-service-presentation.ts
+msgid "Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run."
+msgstr "ワークスペースのフォルダーの変更を git に記録し、求められた場合はリポジトリを作成します。リポジトリのフックは実行されません。"
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Records full model-call payloads in the selected provenance service for token alignment. Use this only with a trusted service. The inference runtime must also have its attention probe enabled."

@@ -371,7 +371,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
 
   return (
     <div
-      className="grid min-w-0"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
       onKeyDown={newItemKey(promptsOffered && view !== 'commands' ? () => openEditor() : undefined)}
     >
       <SettingsSectionHeading info={INFO} title={t`Prompts & commands`} />

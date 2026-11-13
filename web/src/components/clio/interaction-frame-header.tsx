@@ -130,7 +130,9 @@ export function QuestionFooter({
         composer.answering ? (
           <span className="inline-flex min-w-0 items-center gap-1.5" data-slot="question-answering">
             <EditIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">{t`Type your answer in the message box below`}</span>
+            <span className="min-w-0 whitespace-normal">
+              {t`Type your answer in the message box below`}
+            </span>
           </span>
         ) : (
           <AskHint disabled={disabled} onClick={composer.start}>

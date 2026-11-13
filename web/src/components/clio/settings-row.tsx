@@ -235,6 +235,7 @@ export function SettingsChoice({
     hasIcons,
     options.map((option) => option.label).join('\n'),
   );
+  useBalancedWrap(choiceRef, hasIcons && iconOnly, value);
   return (
     <RadioGroup
       ref={choiceRef}
@@ -248,8 +249,9 @@ export function SettingsChoice({
       className={cn(
         'inline-flex w-auto max-w-full min-w-0 gap-px rounded-[0.4375rem] bg-muted p-0.5',
         // Icon choices fold to icons; word-only choices that don't fit (a long translation
-        // in a narrow column) wrap onto a second line instead of overflowing it.
-        hasIcons ? 'shrink-0' : 'flex-wrap',
+        // in a narrow column) wrap onto a second line instead of overflowing it. Folded
+        // icons wrap too when even they and the selected name don't fit.
+        hasIcons && !iconOnly ? 'shrink-0' : 'flex-wrap',
         disabled && 'pointer-events-none opacity-60',
       )}
     >
@@ -275,9 +277,11 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          {/* Folded to icons, the selected choice still names itself. */}
+          {/* Folded to icons, the selected choice still names itself, in full. */}
           <span
-            className={cn('min-w-0 truncate', Icon && iconOnly && value !== option && 'sr-only')}
+            className={cn(
+              Icon && iconOnly ? (value === option ? 'shrink-0' : 'sr-only') : 'min-w-0 truncate',
+            )}
           >
             {name}
           </span>
@@ -303,12 +307,21 @@ function useIconOnlyFit(
     const slot = group?.parentElement;
     if (!hasIcons || !group || !slot || typeof ResizeObserver === 'undefined') return;
     const check = () => {
-      // The group's width with every name at full length, whether a name is
-      // showing (and maybe truncated) or folded to sr-only.
-      let need = group.offsetWidth;
-      for (const name of group.querySelectorAll<HTMLElement>('label > span')) {
+      // The group's one-line width with every name at full length, whether a name
+      // is showing (and maybe truncated) or folded to sr-only. Summed per choice,
+      // so a folded group that wraps still measures as one line.
+      const style = getComputedStyle(group);
+      const choices = group.querySelectorAll<HTMLElement>(':scope > label');
+      let need =
+        parseFloat(style.paddingLeft) +
+        parseFloat(style.paddingRight) +
+        Math.max(0, choices.length - 1) * (parseFloat(style.columnGap) || 0);
+      for (const choice of choices) {
+        need += choice.offsetWidth;
+        const name = choice.querySelector<HTMLElement>(':scope > span');
+        if (!name) continue;
         const shown = name.getBoundingClientRect().width;
-        const gap = parseFloat(getComputedStyle(name.parentElement!).columnGap) || 0;
+        const gap = parseFloat(getComputedStyle(choice).columnGap) || 0;
         need += shown > 1 ? name.scrollWidth - shown : name.scrollWidth + gap;
       }
       // The control column sizes to its content, so it narrows once the names fold.
@@ -329,4 +342,56 @@ function useIconOnlyFit(
     return () => observer.disconnect();
   }, [hasIcons, names]);
   return [ref, on];
+}
+
+/**
+ * When folded icons and the selected name still need two lines, narrows the group
+ * to the least width that keeps that many lines, so the icons split evenly (3 + 2)
+ * instead of leaving one alone on the last line.
+ */
+function useBalancedWrap(ref: RefObject<HTMLDivElement | null>, folded: boolean, value: string) {
+  useLayoutEffect(() => {
+    const group = ref.current;
+    const observed = group?.parentElement?.parentElement;
+    if (!group || !observed) return;
+    group.style.maxWidth = '';
+    if (!folded || typeof ResizeObserver === 'undefined') return;
+    const balance = () => {
+      group.style.maxWidth = '';
+      const style = getComputedStyle(group);
+      const frame = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const gap = parseFloat(style.columnGap) || 0;
+      const choices = [...group.querySelectorAll<HTMLElement>(':scope > label')];
+      const widths = choices.map((choice) => choice.getBoundingClientRect().width);
+      const lines = (width: number) => {
+        let count = 1;
+        let used = 0;
+        for (const item of widths) {
+          if (used && used + gap + item > width - frame) {
+            count += 1;
+            used = item;
+          } else used += (used ? gap : 0) + item;
+        }
+        return count;
+      };
+      const available = group.clientWidth;
+      const need = new Set(choices.map((choice) => choice.offsetTop)).size;
+      if (need < 2) return;
+      let low = Math.max(...widths) + frame;
+      let high = available;
+      while (high - low > 0.5) {
+        const mid = (low + high) / 2;
+        if (lines(mid) > need) low = mid;
+        else high = mid;
+      }
+      group.style.maxWidth = `${Math.ceil(high) + 1}px`;
+    };
+    balance();
+    const observer = new ResizeObserver(balance);
+    observer.observe(observed);
+    return () => {
+      observer.disconnect();
+      group.style.maxWidth = '';
+    };
+  }, [ref, folded, value]);
 }

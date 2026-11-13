@@ -33,7 +33,7 @@ const context = {
 
 describe('semantic operation contract', () => {
   it('covers every supported operation without retaining obsolete aliases', () => {
-    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(86);
+    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(87);
     for (const name of [
       'wait_agent_tasks',
       'observe_agent_tasks',
@@ -49,6 +49,44 @@ describe('semantic operation contract', () => {
     expect(operation.action).toBeTruthy();
     expect(operation.action).not.toMatch(/[·—]/u);
     expect(tool).toEqual(original);
+  });
+  it('shows what a commit recorded, not only its message', () => {
+    // As recorded live: the producer's blocks name the files the commit added.
+    const tool: ToolInvocation = {
+      ...call(
+        'fs_git_commit',
+        { path: '/work/field-survey', message: 'Initial commit', init: true },
+        { ok: true, committed: true, commit: 'ca2eda89cfdf', files_total: 3 },
+      ),
+      presentation: {
+        action: 'Commit',
+        subject: 'folder',
+        summary: '3 files, ca2eda8 on master',
+        blocks: [
+          {
+            id: 'folder',
+            type: 'link',
+            target: 'file',
+            uri: '/work/field-survey',
+            label: 'field-survey',
+          },
+          { id: 'message', type: 'text', label: 'Message', text: 'Initial commit' },
+          {
+            id: 'file-0',
+            type: 'link',
+            target: 'file',
+            uri: '/work/field-survey/README.md',
+            label: 'README.md',
+            detail: 'added',
+          },
+        ],
+      },
+    } as ToolInvocation;
+    const operation = toolOperation(tool);
+    expect(operation.action).toBe('Commit');
+    expect(operation.kind).not.toBe('message');
+    expect(operation.expandable).toBe(true);
+    expect(JSON.stringify(operation.subjects)).toContain('field-survey');
   });
   it('keeps a wait closed until a result or error returns', () => {
     const operation = toolOperation(
