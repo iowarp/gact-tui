@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { selectFileView } from './file-viewer-setup';
+import { frameSettled, selectFileView } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
@@ -270,26 +270,24 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
   await expect(preview.getByRole('tabpanel', { name: 'Source', exact: true })).toContainText(
     '# Converted guide',
   );
-  // Source preserves long logical lines until the reader chooses wrapping.
-  await expect
-    .poll(() =>
-      preview
-        .getByRole('region', { name: 'Scrollable code' })
-        .evaluate((e) => e.scrollWidth - e.clientWidth),
-    )
-    .toBeGreaterThan(0);
-  // Wrapping is a toggle in the Source toolbar, pressed state included.
-  const wrap = preview.getByRole('button', { name: 'Wrap long lines', exact: true });
-  await expect(wrap).toHaveAttribute('aria-pressed', 'false');
+  const code = preview.getByRole('region', { name: 'Scrollable code' });
+  const toolbar = preview.locator('[data-slot="frame-bar"]');
+  // Long source lines wrap by default (#1207). In the narrow explorer pane the Format
+  // icons fold first (#1220), so Wrap is a checked row in File actions.
+  await expect.poll(() => code.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await frameSettled(toolbar);
+  await expect(toolbar).toHaveAttribute('data-fold-tools');
+  await expect(preview.getByRole('button', { name: 'Wrap long lines', exact: true })).toBeHidden();
+  const wrap = page.getByRole('menuitemcheckbox', { name: /^Wrap long lines/u });
+  await preview.getByRole('button', { name: 'File actions', exact: true }).click();
+  await expect(wrap).toHaveAttribute('aria-checked', 'true');
+  // Turning wrapping off preserves long logical lines, which then scroll sideways.
   await wrap.click();
-  await expect(wrap).toHaveAttribute('aria-pressed', 'true');
-  await expect
-    .poll(() =>
-      preview
-        .getByRole('region', { name: 'Scrollable code' })
-        .evaluate((e) => e.scrollWidth - e.clientWidth),
-    )
-    .toBeLessThan(2);
+  await expect.poll(() => code.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeGreaterThan(0);
+  await preview.getByRole('button', { name: 'File actions', exact: true }).click();
+  await expect(wrap).toHaveAttribute('aria-checked', 'false');
+  await wrap.click();
+  await expect.poll(() => code.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
   await selectFileView(page, preview, 'Read document');
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
 });

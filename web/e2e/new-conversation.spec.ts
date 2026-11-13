@@ -147,6 +147,8 @@ test('draft remains usable when background preparation fails', async ({ page }) 
   await composer.fill('Still able to compose while tools start');
   release();
   await expect(page.getByText(/Tools could not be prepared in advance/)).toBeVisible();
+  // Background preparation is no action of the person's, so it is not reported as one.
+  await expect(page.getByText('That action didn’t run')).toHaveCount(0);
   await expect(composer).toBeEnabled();
   expect(creations).toBe(0);
 });
