@@ -82,7 +82,10 @@ export function ExtensionAddMenu({
     // Without room for both, the button wraps under the status instead of off the row.
     <span className="inline-flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
       {supported !== true ? (
-        <span className="min-w-0 text-xs whitespace-normal text-muted-foreground" role="status">
+        <span
+          className="min-w-0 text-xs whitespace-normal text-muted-foreground [word-break:auto-phrase]"
+          role="status"
+        >
           {supported === false ? t`Needs a newer agent service` : t`Checking the agent service…`}
         </span>
       ) : null}
