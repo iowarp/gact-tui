@@ -1,6 +1,6 @@
 import { TransportError } from '@clio/core/v3';
 import { FileTextIcon, KeyRoundIcon, PaperclipIcon } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ConnectField, ConnectStatusLine, ConnectInput } from '@/components/clio/connect-frame';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -9,10 +9,81 @@ import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
 import { t } from '@lingui/core/macro';
 
 /** The spec's example address; the field itself starts empty. */
 const ADDRESS_EXAMPLE = 'https://homelab.example.org:8100';
+
+/**
+ * How the token field gives its whole placeholder room: beside the service name,
+ * stacked under it, or stacked without the decorative key icon.
+ */
+type TokenRoom = 'side' | 'stack' | 'bare';
+
+let measureCanvas: HTMLCanvasElement | undefined;
+
+function textWidth(text: string, style: CSSStyleDeclaration): number {
+  measureCanvas ??= document.createElement('canvas');
+  const context = measureCanvas.getContext('2d');
+  if (!context) return 0;
+  context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  return context.measureText(text).width;
+}
+
+/**
+ * Picks the token field's layout from widths that don't depend on that layout
+ * (the fields' row, the paste button, the input's padding and font), so
+ * switching never feeds back into the measurement.
+ */
+function useTokenRoom(
+  grid: RefObject<HTMLDivElement | null>,
+  input: RefObject<HTMLInputElement | null>,
+  placeholder: string,
+): TokenRoom {
+  const [room, setRoom] = useState<TokenRoom>('side');
+  useLayoutEffect(() => {
+    const row = grid.current;
+    const field = input.current;
+    if (!row || !field) return;
+    let frame = -1;
+    const measure = () => {
+      frame = -1;
+      const box = field.parentElement;
+      const line = box?.parentElement;
+      if (!box || !line) return;
+      const style = getComputedStyle(field);
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const beside = line.clientWidth - box.clientWidth;
+      const chrome =
+        field.offsetWidth - field.clientWidth + (parseFloat(style.paddingRight) || 0);
+      const needed = Math.ceil(textWidth(placeholder, style)) + 1;
+      const fits = (width: number, paddingLeft: number) =>
+        width - beside - chrome - paddingLeft >= needed;
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      const full = row.clientWidth;
+      const next: TokenRoom = fits((full - gap) / 2, 2 * rem)
+        ? 'side'
+        : fits(full, 2 * rem)
+          ? 'stack'
+          : 'bare';
+      setRoom(next);
+    };
+    const schedule = () => {
+      if (frame === -1) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    observer?.observe(row);
+    void document.fonts?.ready.then(schedule);
+    return () => {
+      if (frame !== -1) cancelAnimationFrame(frame);
+      frame = -1;
+      observer?.disconnect();
+    };
+  }, [grid, input, placeholder]);
+  return room;
+}
 
 /** Connect by address: the address first, then an optional name and token. */
 export function ConnectAddressFields({
@@ -31,6 +102,10 @@ export function ConnectAddressFields({
   onTokenChange: (value: string) => void;
 }) {
   const address = useRef<HTMLInputElement>(null);
+  const fields = useRef<HTMLDivElement>(null);
+  const tokenInput = useRef<HTMLInputElement>(null);
+  const tokenPlaceholder = t`Paste token`;
+  const room = useTokenRoom(fields, tokenInput, tokenPlaceholder);
   useEffect(() => address.current?.focus(), []);
   const paste = () => {
     void navigator.clipboard
@@ -56,7 +131,11 @@ export function ConnectAddressFields({
           {t`Use the agent service address, for example ${ADDRESS_EXAMPLE}. It can differ from this web page's address.`}
         </span>
       </ConnectField>
-      <div className="grid min-w-0 grid-cols-2 gap-2.5">
+      <div
+        className={cn('grid min-w-0 gap-2.5', room === 'side' ? 'grid-cols-2' : 'grid-cols-1')}
+        data-token-room={room}
+        ref={fields}
+      >
         <ConnectField htmlFor="service-name" label={t`Service name`} optional>
           <ConnectInput
             autoComplete="off"
@@ -69,16 +148,19 @@ export function ConnectAddressFields({
         <ConnectField htmlFor="token" label={t`Access token`} optional>
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="relative min-w-0 flex-1">
-              <KeyRoundIcon
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-              />
+              {room === 'bare' ? null : (
+                <KeyRoundIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                />
+              )}
               <ConnectInput
                 autoComplete="off"
-                className="pl-8"
+                className={room === 'bare' ? undefined : 'pl-8'}
                 id="token"
                 onChange={(event) => onTokenChange(event.target.value)}
-                placeholder={t`Paste token`}
+                placeholder={tokenPlaceholder}
+                ref={tokenInput}
                 type="password"
                 value={token}
               />
