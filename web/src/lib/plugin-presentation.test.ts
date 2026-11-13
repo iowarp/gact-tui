@@ -29,6 +29,16 @@ describe('plugin presentation', () => {
       'Required by pdf',
     );
     expect(provenanceLabel({ source: 'user', via: 'user', label: 'user' })).toBe('Added by you');
+    expect(
+      provenanceLabel({
+        source: 'connector',
+        via: 'fixture-plain',
+        label: 'From connector Fixture Plain',
+      }),
+    ).toBe('From connector Fixture Plain');
+    expect(provenanceLabel({ source: 'connector', via: 'fixture-plain', label: '' })).toBe(
+      'From connector fixture-plain',
+    );
   });
 
   it('names a parent agent from its ref, a ranged id, or falls back to the id', () => {
