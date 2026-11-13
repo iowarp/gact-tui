@@ -16,6 +16,17 @@ export const searchLimitKindSchema = z.enum([
 
 export type SearchLimitKind = z.infer<typeof searchLimitKindSchema>;
 
+export const searchAllowanceSchema = z.object({
+  spent: z.number(),
+  limit: z.number(),
+  unit: z.enum(['requests', 'usd']),
+  per: z.enum(['hour', 'day']),
+  /** What the provider itself says is left (OpenAlex dollars). */
+  provider_remaining: z.number().optional(),
+});
+
+export type SearchAllowance = z.infer<typeof searchAllowanceSchema>;
+
 const searchSourceBaseSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -35,6 +46,15 @@ const searchSourceBaseSchema = z.object({
   last_failure_kind: z.string().nullable().default(null),
   answered_today: z.number().int().nonnegative().default(0),
   failed_today: z.number().int().nonnegative().default(0),
+  /** How CLIO reaches the source: keyless, registered (contact email), key, or paid. */
+  tier: z.string().default('keyless'),
+  /** The person marked the saved key as a paid plan. */
+  paid: z.boolean().default(false),
+  /** This CLIO's use of the free allowance; null when the tier has none. */
+  allowance: searchAllowanceSchema.nullable().default(null),
+  /** Requests waiting in, and running from, CLIO's queue for the source. */
+  waiting: z.number().int().nonnegative().default(0),
+  running: z.number().int().nonnegative().default(0),
   enabled: z.boolean().default(true),
 });
 
@@ -70,6 +90,8 @@ export interface SearchSettingsUpdate {
   approved?: string[];
   service_url?: string;
   contact_email?: string;
+  /** Sources whose saved key is on a paid plan. */
+  paid?: string[];
 }
 
 /** Where a newly keyed source goes: to the front of the web order, or where it was. */

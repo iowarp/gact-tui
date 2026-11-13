@@ -4,11 +4,16 @@ import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon } from 'lucide-react';
 import { SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
+  searchSourceAllowance,
   searchSourceMode,
+  searchSourceQueue,
   searchSourceUsage,
   type SearchSourceState,
 } from '@/lib/search-source-status';
+import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
@@ -35,6 +40,7 @@ export function SearchSourceRow({
   onToggle,
   onAddKey,
   onRemoveKey,
+  onPaidChange,
   children,
 }: {
   source: SearchSource;
@@ -45,11 +51,16 @@ export function SearchSourceRow({
   onToggle: (enabled: boolean) => void;
   onAddKey?: () => void;
   onRemoveKey: () => void;
+  /** Mark the saved key as a paid plan (shown while the source has a key). */
+  onPaidChange?: (paid: boolean) => void;
   /** More under the row (the OpenAlex key request). */
   children?: ReactNode;
 }) {
   const [confirming, setConfirming] = useState(false);
   const usage = searchSourceUsage(source);
+  const allowance = searchSourceAllowance(source);
+  const queue = searchSourceQueue(source);
+  const paidId = `search-paid-${source.id}`;
   // "Needs your key" is already the status; the free-use line would only repeat it.
   const freeUse = source.free_use && source.free_use !== state.label ? source.free_use : '';
   const body = (
@@ -72,7 +83,22 @@ export function SearchSourceRow({
           <p className="mt-0.5 text-xs text-muted-foreground">{source.description}</p>
         ) : null}
         {freeUse ? <p className="mt-0.5 text-xs text-faint">Free use: {freeUse}</p> : null}
+        {allowance ? <p className="mt-0.5 text-xs text-faint">{allowance}</p> : null}
         {usage ? <p className="mt-0.5 text-xs text-faint">{usage}</p> : null}
+        {queue ? <p className="mt-0.5 text-xs text-faint">{queue}</p> : null}
+        {source.has_key && onPaidChange ? (
+          <div className="mt-1.5 flex items-center gap-2">
+            <Checkbox
+              checked={source.paid}
+              disabled={busy}
+              id={paidId}
+              onCheckedChange={(checked) => onPaidChange(checked === true)}
+            />
+            <Label className="text-xs font-normal text-muted-foreground" htmlFor={paidId}>
+              Paid plan: {vocab.agent} sets no free allowance and runs more requests at once
+            </Label>
+          </div>
+        ) : null}
         {children}
       </div>
       <div className="flex flex-col items-end gap-1.5 max-sm:col-span-full max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:justify-between">

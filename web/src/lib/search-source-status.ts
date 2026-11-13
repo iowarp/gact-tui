@@ -1,5 +1,6 @@
-import type { SearchSource, WebSearchSource } from '@clio/core/v3';
+import type { SearchAllowance, SearchSource, WebSearchSource } from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
+import { vocab } from '@/lib/brand-vocabulary';
 import { formatClockTime } from '@/lib/locale-format';
 
 /** A search source's state in words, with the tone its status mark carries. */
@@ -41,11 +42,41 @@ export function searchSourceState(
     : { label: 'Ready', tone: 'success' };
 }
 
-/** Whether the source runs on the person's key or on its free use. */
+/** How CLIO reaches the source, in words. */
 export function searchSourceMode(source: SearchSource): string {
+  if (source.key_required && !source.has_key) return 'Key required';
+  if (source.tier === 'paid') return 'Your key, paid plan';
   if (source.has_key) return 'Your key';
-  if (source.key_required) return 'Key required';
+  if (source.tier === 'registered') return 'Free, with your contact email';
   return 'Free, no key';
+}
+
+const amount = (allowance: SearchAllowance, value: number) =>
+  allowance.unit === 'usd'
+    ? `$${value.toFixed(value < 0.1 ? 3 : 2)}`
+    : value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+/** This CLIO's use of the free allowance ("12 of 100 today"); empty when there is none. */
+export function searchSourceAllowance(source: SearchSource): string {
+  const allowance = source.allowance;
+  if (!allowance) return '';
+  const period = allowance.per === 'day' ? 'today' : 'this hour';
+  const used = `${amount(allowance, allowance.spent)} of ${amount(allowance, allowance.limit)}`;
+  const left =
+    allowance.provider_remaining === undefined
+      ? ''
+      : `; ${source.name} says ${amount(allowance, allowance.provider_remaining)} left`;
+  return `Free allowance used by ${vocab.agent}: ${used} ${period}${left}`;
+}
+
+/** Requests in CLIO's queue for the source; empty when the queue is empty. */
+export function searchSourceQueue(source: SearchSource): string {
+  if (!source.waiting && !source.running) return '';
+  const parts = [
+    source.running ? `${source.running} running` : '',
+    source.waiting ? `${source.waiting} waiting` : '',
+  ].filter(Boolean);
+  return `In ${vocab.agent}'s queue: ${parts.join(', ')}`;
 }
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 'es'}`;

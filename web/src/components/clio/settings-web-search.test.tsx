@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { vocab } from '@/lib/brand-vocabulary';
 import { PROFILE_STORAGE_KEY } from './settings-profile-store';
 import { WebSearchSettings } from './settings-web-search';
 
@@ -45,6 +46,9 @@ function view(overrides: Partial<SearchSettings> = {}): SearchSettings {
         free_use: '1,000 searches per hour',
         answered_today: 4,
         failed_today: 1,
+        allowance: { spent: 412, limit: 1000, unit: 'requests', per: 'hour' },
+        running: 1,
+        waiting: 2,
       }),
       row('exa', 'Exa', {
         position: 1,
@@ -55,7 +59,16 @@ function view(overrides: Partial<SearchSettings> = {}): SearchSettings {
       row('you', 'You.com', { position: 2, approved: true, enabled: false }),
     ],
     literature: [
-      row('openalex', 'OpenAlex'),
+      row('openalex', 'OpenAlex', {
+        allowance: {
+          spent: 0.012,
+          limit: 0.1,
+          unit: 'usd',
+          per: 'day',
+          provider_remaining: 0.05,
+        },
+      }),
+      row('crossref', 'Crossref', { tier: 'registered' }),
       row('semantic_scholar', 'Semantic Scholar', { key_required: true }),
     ],
     ...overrides,
@@ -125,6 +138,14 @@ it('lists each source with its state, mode, use today and free allowance in word
   expect(within(keenable).getByText('Free, no key')).toBeVisible();
   expect(within(keenable).getByText('Today on this computer: 4 searches, 1 failed')).toBeVisible();
   expect(within(keenable).getByText('Free use: 1,000 searches per hour')).toBeVisible();
+  expect(
+    within(keenable).getByText(`Free allowance used by ${vocab.agent}: 412 of 1,000 this hour`),
+  ).toBeVisible();
+  expect(
+    within(keenable).getByText(`In ${vocab.agent}'s queue: 1 running, 2 waiting`),
+  ).toBeVisible();
+  // Paid plan is offered only for a source with the person's key.
+  expect(within(keenable).queryByRole('checkbox')).not.toBeInTheDocument();
   const exa = within(list).getByRole('listitem', { name: 'Exa' });
   expect(within(exa).getByText(/^Allowance used up until /u)).toBeVisible();
   expect(within(exa).queryByText(/Today on this computer/u)).not.toBeInTheDocument();
@@ -134,7 +155,18 @@ it('lists each source with its state, mode, use today and free allowance in word
   const literature = await openTab('Literature');
   expect(within(literature).queryByRole('switch', { name: 'Web search' })).not.toBeInTheDocument();
   const papers = within(literature).getByRole('list', { name: 'Papers & datasets sources' });
-  expect(within(papers).getByRole('listitem', { name: 'OpenAlex' })).toHaveTextContent('Ready');
+  const openalex = within(papers).getByRole('listitem', { name: 'OpenAlex' });
+  expect(openalex).toHaveTextContent('Ready');
+  expect(
+    within(openalex).getByText(
+      `Free allowance used by ${vocab.agent}: $0.012 of $0.10 today; OpenAlex says $0.050 left`,
+    ),
+  ).toBeVisible();
+  expect(
+    within(within(papers).getByRole('listitem', { name: 'Crossref' })).getByText(
+      'Free, with your contact email',
+    ),
+  ).toBeVisible();
   expect(within(papers).getByRole('listitem', { name: 'Semantic Scholar' })).toHaveTextContent(
     'Needs your key',
   );
@@ -232,6 +264,21 @@ it('saves a key without showing it again, says the source is tried first, and un
   await waitFor(() =>
     expect(screen.queryByText('Exa is now tried first.')).not.toBeInTheDocument(),
   );
+});
+
+it('marks a keyed source as a paid plan', async () => {
+  const user = userEvent.setup();
+  const keyed = view();
+  keyed.web = keyed.web.map((source) =>
+    source.id === 'exa' ? { ...source, has_key: true, tier: 'key' } : source,
+  );
+  repository.searchSettings.mockResolvedValue(keyed);
+  renderSection();
+  const list = await webList();
+  const exa = within(list).getByRole('listitem', { name: 'Exa' });
+  expect(within(exa).getByText('Your key')).toBeVisible();
+  await user.click(within(exa).getByRole('checkbox', { name: /^Paid plan/u }));
+  expect(repository.updateSearchSettings).toHaveBeenLastCalledWith({ paid: ['exa'] });
 });
 
 it('keeps the dialog open with the server’s reason when a key is refused', async () => {

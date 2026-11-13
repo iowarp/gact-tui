@@ -227,6 +227,18 @@ export function WebSearchSettings() {
       literature: data.literature.map((row) => (row.id === id ? { ...row, enabled: on } : row)),
     });
   };
+  const setPaid = (id: string, on: boolean) => {
+    const rows = [...data.web, ...data.literature];
+    const paid = rows.filter((row) => (row.id === id ? on : row.paid)).map((row) => row.id);
+    const mark = <T extends SearchSource>(row: T): T =>
+      row.id === id ? { ...row, paid: on, tier: on ? 'paid' : 'key' } : row;
+    const area: Area = data.web.some((row) => row.id === id) ? 'web' : 'literature';
+    patch({ paid }, area, {
+      ...data,
+      web: data.web.map(mark),
+      literature: data.literature.map(mark),
+    });
+  };
   const addKey = (source: SearchSource) => {
     saveKey.reset();
     setKeyError('');
@@ -238,6 +250,7 @@ export function WebSearchSettings() {
       busy={busy}
       key={row.id}
       onAddKey={() => addKey(row)}
+      onPaidChange={row.id === SERVICE ? undefined : (on) => setPaid(row.id, on)}
       onRemoveKey={() => removeKey.mutate({ source: row, area: 'web' })}
       onToggle={(on) => toggleWeb(row.id, on)}
       ordering={
@@ -391,6 +404,7 @@ export function WebSearchSettings() {
                           ? () => addKey(row)
                           : undefined
                       }
+                      onPaidChange={(on) => setPaid(row.id, on)}
                       onRemoveKey={() => removeKey.mutate({ source: row, area: 'literature' })}
                       onToggle={(on) => toggleLiterature(row.id, on)}
                       source={row}
