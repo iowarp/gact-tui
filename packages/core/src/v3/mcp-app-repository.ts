@@ -18,6 +18,11 @@ const descriptorSchema = z.object({
   tool_input: z.record(z.string(), z.unknown()).default({}),
   tool_result: z.record(z.string(), z.unknown()).default({}),
   sandbox_url: z.string().url(),
+  service_url: z.string().url().nullable().optional(),
+  service_refusal: z.object({ reason: z.string(), message: z.string() }).nullable().optional(),
+  csp_refused: z
+    .array(z.object({ directive: z.string(), source: z.string(), reason: z.string() }))
+    .optional(),
 });
 
 const acknowledgementSchema = z.object({

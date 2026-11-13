@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { mcpAppServiceHostContext } from './mcp-app-service';
 import { ClioStatus } from './status';
 import { humanizeToolName } from './tool-presentation';
 
@@ -145,7 +146,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
         post({
           jsonrpc: '2.0',
           id: message.id,
-          result: initializeResult(descriptor, iframe),
+          result: initializeResult(descriptor, identity, iframe),
         });
         return;
       }
@@ -198,7 +199,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/host-context-changed',
-        params: hostContext(iframe),
+        params: hostContext(descriptor, identity, iframe),
       });
     };
     const themeObserver = new MutationObserver(notifyContext);
@@ -244,16 +245,27 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
             </Alert>
           </div>
         ) : descriptor ? (
-          <iframe
-            className="block w-full border-0 bg-background"
-            data-mcp-app-iframe={props.appInstanceId}
-            ref={iframeRef}
-            referrerPolicy="origin"
-            sandbox="allow-scripts allow-same-origin"
-            src={descriptor.sandbox_url}
-            style={{ height: frameHeight }}
-            title={`${displayName} interactive view`}
-          />
+          <>
+            {descriptor.service_refusal ? (
+              <p
+                className="border-b px-3 py-2 text-xs text-muted-foreground"
+                data-mcp-app-service-refusal={descriptor.service_refusal.reason}
+                role="status"
+              >
+                {descriptor.service_refusal.message}
+              </p>
+            ) : null}
+            <iframe
+              className="block w-full border-0 bg-background"
+              data-mcp-app-iframe={props.appInstanceId}
+              ref={iframeRef}
+              referrerPolicy="origin"
+              sandbox="allow-scripts allow-same-origin"
+              src={descriptor.sandbox_url}
+              style={{ height: frameHeight }}
+              title={`${displayName} interactive view`}
+            />
+          </>
         ) : (
           <div className="grid gap-3 p-4" style={{ minHeight: frameHeight }}>
             <Skeleton className="h-8 w-2/5" />
@@ -392,7 +404,11 @@ function validateDescriptor(
   }
 }
 
-function initializeResult(descriptor: McpAppDescriptor, iframe: HTMLIFrameElement) {
+function initializeResult(
+  descriptor: McpAppDescriptor,
+  identity: McpAppIdentity,
+  iframe: HTMLIFrameElement,
+) {
   return {
     protocolVersion: MCP_APPS_PROTOCOL_VERSION,
     hostCapabilities: {
@@ -402,13 +418,18 @@ function initializeResult(descriptor: McpAppDescriptor, iframe: HTMLIFrameElemen
       sandbox: { csp: descriptor.resource.csp, permissions: descriptor.resource.permissions },
     },
     hostInfo: { name: 'Agent Workspace', version: '0.11.0' },
-    hostContext: hostContext(iframe),
+    hostContext: hostContext(descriptor, identity, iframe),
   };
 }
 
-function hostContext(iframe: HTMLIFrameElement) {
+function hostContext(
+  descriptor: McpAppDescriptor,
+  identity: McpAppIdentity,
+  iframe: HTMLIFrameElement,
+) {
   const touch = navigator.maxTouchPoints > 0;
   return {
+    ...mcpAppServiceHostContext(descriptor, identity),
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     displayMode: 'inline',
     availableDisplayModes: ['inline'],
