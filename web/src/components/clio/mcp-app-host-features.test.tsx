@@ -225,7 +225,7 @@ describe('display mode and link rules', () => {
     expect(resolveDisplayMode('fullscreen', 'inline', undefined)).toBe('fullscreen');
     expect(resolveDisplayMode('pip', 'inline', undefined)).toBe('inline');
     expect(resolveDisplayMode('fullscreen', 'surface', undefined)).toBe('inline');
-    const inlineOnly = { availableDisplayModes: ['inline'].slice() };
+    const inlineOnly = { availableDisplayModes: Array.of('inline') };
     expect(resolveDisplayMode('fullscreen', 'inline', inlineOnly)).toBe('inline');
   });
 
