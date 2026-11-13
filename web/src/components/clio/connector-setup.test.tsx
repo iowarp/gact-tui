@@ -27,7 +27,11 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { connectorStatus, offeredPlugins } from '@/lib/connector-presentation';
+import {
+  connectorStatus,
+  offeredPlugins,
+  pluginConnectorStatus,
+} from '@/lib/connector-presentation';
 import { extensionEntries } from '@/lib/extension-library-entries';
 import { monogramInitials } from '@/lib/monogram';
 import { draftValues, unfilledRequired } from '@/lib/connector-draft';
@@ -44,7 +48,6 @@ const connector = (value: Partial<Record<string, unknown>> = {}): Connector =>
     logo_url: null,
     source: 'catalog',
     enabled: true,
-    scope: 'all',
     tool_count: null,
     state: { status: 'needs', needs: ['address', 'account'], reason: null },
     needs: [
@@ -112,7 +115,7 @@ describe('connector state in words', () => {
     expect(monogramInitials('')).toBe('');
   });
 
-  it('lists connectors first, keeps a following plugin out of the plugin rows and pickers', () => {
+  it('lists connectors first; pickers offer a connector plugin only while it is on', () => {
     const plugins = [
       pluginEntrySchema.parse({ id: 'tools', ref: 'lab/tools', marketplace: 'lab', trusted: true }),
       pluginEntrySchema.parse({
@@ -121,6 +124,15 @@ describe('connector state in words', () => {
         marketplace: 'clio',
         trusted: true,
         follows: 'fixture-address',
+        connector: { id: 'fixture-address', name: 'Fixture address', enabled: false },
+      }),
+      pluginEntrySchema.parse({
+        id: 'connector-fixture-on',
+        ref: 'clio-connectors/connector-fixture-on',
+        marketplace: 'clio-connectors',
+        trusted: true,
+        follows: 'fixture-on',
+        connector: { id: 'fixture-on', name: 'Fixture on', enabled: true, status: 'ready' },
       }),
     ];
     const rows = extensionEntries({
@@ -136,7 +148,11 @@ describe('connector state in words', () => {
       ['plugin', 'tools'],
     ]);
     expect(rows[0]!.status?.label).toBe('Needs server address and a sign-in');
-    expect(offeredPlugins(plugins)?.map((plugin) => plugin.id)).toEqual(['tools']);
+    expect(offeredPlugins(plugins)?.map((plugin) => plugin.id)).toEqual([
+      'tools',
+      'connector-fixture-on',
+    ]);
+    expect(pluginConnectorStatus(plugins[2]!.connector!)).toBe('Ready');
   });
 
   it('sends only what changed, never an empty secret, and clears an emptied value', () => {
@@ -233,7 +249,7 @@ describe('the setup card in Extensions', () => {
 
   it('says "Starting…" in words while Enable runs, then the settled state (CN3)', async () => {
     const user = userEvent.setup();
-    const off = connector({ enabled: false, scope: null });
+    const off = connector({ enabled: false });
     let finish: (value: Connector) => void = () => undefined;
     repository.enableConnector.mockImplementation(
       () => new Promise<Connector>((resolve) => (finish = resolve)),
@@ -266,7 +282,7 @@ describe('a connector row while it starts', () => {
       marketplaces: [],
       saved: [],
       servers: [],
-      connectors: [connector({ enabled: false, scope: null })],
+      connectors: [connector({ enabled: false })],
       changes: new Map([['fixture-address', 'starting' as const]]),
     });
     expect(row?.status).toEqual({ tone: 'running', label: 'Starting…' });

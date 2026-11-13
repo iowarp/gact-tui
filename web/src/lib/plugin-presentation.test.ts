@@ -7,6 +7,8 @@ import {
   provenanceLabel,
   removalPreviewReason,
   removedPluginReason,
+  resolvedPluginName,
+  resolvedPluginOrigin,
   unwrapFragmentText,
   userAgentId,
 } from './plugin-presentation';
@@ -123,5 +125,23 @@ describe('plugin presentation', () => {
     ]);
     expect(capabilitySummary(visuals)).toBe('2 tools, 2 MCP servers');
     expect(pluginContributions(resolution, 'shell').tools).toEqual(['shell_bash']);
+  });
+
+  it('names a connector plugin by its connector and says why it left (CN10)', () => {
+    const connector = { id: 'viewer', name: 'Viewer', logo_url: null };
+    expect(resolvedPluginName({ id: 'connector-viewer', connector })).toBe('Viewer');
+    expect(resolvedPluginName({ id: 'shell', connector: null })).toBe('shell');
+    expect(
+      resolvedPluginOrigin({ provenance: { source: 'user', via: '', label: '' }, connector }),
+    ).toBe('Connector you added');
+    expect(
+      resolvedPluginOrigin({ provenance: { source: 'agent', via: 'mine', label: '' }, connector }),
+    ).toBe('Connector (from mine)');
+    expect(
+      removedPluginReason({ id: 'connector-viewer', reason: 'connector_off', because: 'viewer' }),
+    ).toContain('turned off');
+    expect(
+      removedPluginReason({ id: 'x', reason: 'connector_not_found', because: 'gone' }),
+    ).toContain('no longer exists');
   });
 });

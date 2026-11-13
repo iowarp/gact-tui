@@ -71,13 +71,6 @@ export const connectorStateSchema = z.object({
 });
 export type ConnectorState = z.infer<typeof connectorStateSchema>;
 
-/** Every conversation, or only the agents named, by agent reference. */
-export const connectorScopeSchema = z.union([
-  z.literal('all'),
-  z.object({ agents: z.array(z.string()) }),
-]);
-export type ConnectorScope = z.infer<typeof connectorScopeSchema>;
-
 export const connectorSchema = z
   .object({
     id: z.string(),
@@ -88,9 +81,14 @@ export const connectorSchema = z
       .nullish()
       .transform((value) => value ?? null),
     source: forwardCompatibleEnum(['catalog', 'custom']).default('catalog'),
+    /** Installed and ready. It reaches a conversation only when its plugin is added there. */
     enabled: z.boolean().default(false),
-    scope: connectorScopeSchema.nullish().transform((value) => value ?? null),
     plugin: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    /** `marketplace/id` a conversation's plugin picker adds for this connector. */
+    plugin_ref: z
       .string()
       .nullish()
       .transform((value) => value ?? null),
@@ -111,10 +109,9 @@ export const connectorListSchema = z.object({ connectors: z.array(connectorSchem
 /** What a person types into the card: `null` clears a value. */
 export type ConnectorValues = Record<string, string | null>;
 
-/** A server with no entry (AQ11): an address or a command, enabled where `scope` says. */
+/** A server with no entry (AQ11): an address or a command, enabled once created. */
 export type ConnectorCreateInput = ({ url: string } | { command: string; args: string[] }) & {
   name?: string;
-  scope?: ConnectorScope;
 };
 
 /**
@@ -128,8 +125,8 @@ export const connectorSetupPayloadSchema = z
     tool_name: optionalWireString(),
     missing: z.array(connectorNeedSchema).default([]),
     /**
-     * `enable`: the agent offers a connector that is off (connector discovery). The
-     * card turns it on, for every conversation or this conversation's agent.
+     * `enable`: the agent offers to add a connector to this conversation (connector
+     * discovery). The card adds it here, turning it on first when it is off.
      */
     intent: optionalWireString(),
     description: optionalWireString(),
@@ -137,6 +134,8 @@ export const connectorSetupPayloadSchema = z
     agent_ref: optionalWireString(),
     agent_name: optionalWireString(),
     asks_sign_in: z.boolean().optional(),
+    /** The connector is on already: the card only adds it to this conversation. */
+    connector_enabled: z.boolean().optional(),
   })
   .passthrough();
 export type ConnectorSetupPayload = z.infer<typeof connectorSetupPayloadSchema>;
@@ -147,7 +146,7 @@ export function connectorSetupPayload(payload: unknown): ConnectorSetupPayload |
   return parsed.success ? parsed.data : undefined;
 }
 
-/** Whether a `connector_setup` payload is the agent's offer of a connector that is off. */
+/** Whether a `connector_setup` payload is the agent's offer to add a connector here. */
 export function isConnectorOffer(payload: unknown): boolean {
   return connectorSetupPayload(payload)?.intent === 'enable';
 }

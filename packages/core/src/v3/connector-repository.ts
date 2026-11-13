@@ -4,7 +4,6 @@ import {
   connectorSchema,
   type Connector,
   type ConnectorCreateInput,
-  type ConnectorScope,
   type ConnectorValues,
 } from './connector-domain.js';
 import { McpRepository } from './mcp-repository.js';
@@ -65,15 +64,11 @@ export class ConnectorRepository extends McpRepository {
     });
   }
 
-  public enableConnector(
-    id: string,
-    scope: ConnectorScope,
-    signal?: AbortSignal,
-  ): Promise<Connector> {
+  /** Installs and readies the connector; it joins no conversation by itself. */
+  public enableConnector(id: string, signal?: AbortSignal): Promise<Connector> {
     return this.transport.request({
       method: 'POST',
       path: `${connectorPath(id)}/enable`,
-      body: { scope },
       decode: (value) => connectorSchema.parse(value),
       signal,
     });
