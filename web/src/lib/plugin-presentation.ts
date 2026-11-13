@@ -7,13 +7,14 @@ import {
   type PluginProvenance,
   type PromptFragment,
   type RemovedPlugin,
+  type ResolvedPlugin,
 } from '@clio/core/v3';
 
 /**
  * Where an active plugin came from, as a person reads it: core (every agent
  * carries it), an agent layer such as standard or science, a pack, a hard
- * requirement of another plugin, the person's own addition, or a connector the
- * person enabled (its plugin comes and goes with it).
+ * requirement of another plugin, the person's own addition, or (from an older
+ * service) a connector the person enabled.
  */
 export function provenanceLabel(provenance: PluginProvenance): string {
   switch (provenance.source) {
@@ -34,6 +35,20 @@ export function provenanceLabel(provenance: PluginProvenance): string {
   }
 }
 
+/** How an active plugin is named: a connector's plugin by its connector (CN10). */
+export function resolvedPluginName(plugin: Pick<ResolvedPlugin, 'id' | 'connector'>): string {
+  return plugin.connector?.name || plugin.id;
+}
+
+/** An active plugin's origin in words; a connector's plugin says it is a connector. */
+export function resolvedPluginOrigin(plugin: Pick<ResolvedPlugin, 'provenance' | 'connector'>) {
+  const label = provenanceLabel(plugin.provenance);
+  if (!plugin.connector) return label;
+  return plugin.provenance.source === 'user'
+    ? 'Connector you added'
+    : `Connector (${label.toLowerCase()})`;
+}
+
 /** A longer explanation for the provenance badge's tooltip. */
 export function provenanceDetail(provenance: PluginProvenance): string {
   switch (provenance.source) {
@@ -48,7 +63,7 @@ export function provenanceDetail(provenance: PluginProvenance): string {
     case 'user':
       return 'You added this plugin to the conversation.';
     case 'connector':
-      return 'It follows a connector you enabled in Extensions, and leaves when you disable it.';
+      return 'It belongs to a connector you enabled in Extensions.';
     default:
       return 'The service reported an origin this app does not recognize yet.';
   }
@@ -229,6 +244,10 @@ export function packMembersLabel(total: number, active: number): string {
 /** Why a plugin the person did not remove left the conversation. */
 export function removedPluginReason(row: RemovedPlugin): string {
   switch (row.reason) {
+    case 'connector_off':
+      return `Left because its connector ${row.because} is turned off; it returns when it is on`;
+    case 'connector_not_found':
+      return `Left because its connector ${row.because} no longer exists`;
     case 'pack_empty':
       return 'Left because none of its members remain';
     case 'removed':

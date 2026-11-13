@@ -1,4 +1,4 @@
-import type { Connector, ConnectorScope, ConnectorValues } from '@clio/core/v3';
+import type { Connector, ConnectorValues } from '@clio/core/v3';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
@@ -124,8 +124,7 @@ export function useConnectorActions() {
   });
   const enable = useMutation({
     mutationKey: [CONNECTOR_CHANGE, 'starting'],
-    mutationFn: ({ id, scope }: { id: string; scope: ConnectorScope }) =>
-      repository.enableConnector(id, scope),
+    mutationFn: (id: string) => repository.enableConnector(id),
     onSuccess: settle,
     onError: (error: Error) =>
       toast.error('The connector was not enabled', { description: error.message }),

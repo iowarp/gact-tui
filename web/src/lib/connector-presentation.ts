@@ -2,7 +2,7 @@
  * One state, in words, for a connector everywhere it appears (CN3): the Extensions
  * list, its setup card, and the card in the conversation.
  */
-import type { Connector, ConnectorNeed, ConnectorScope, PluginEntry } from '@clio/core/v3';
+import type { Connector, ConnectorNeed, PluginConnector, PluginEntry } from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 
 export interface ConnectorStatusWords {
@@ -57,7 +57,7 @@ export function connectorStatus(
     return {
       tone: 'running',
       label: 'Starting…',
-      detail: 'CLIO is starting it and checking what it needs.',
+      detail: 'Starting it and checking what it needs.',
     };
   if (change === 'turning-off')
     return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };
@@ -86,22 +86,29 @@ export function connectorStatus(
   };
 }
 
-/** Where an enabled connector applies, in words. */
-export function scopeWords(scope: ConnectorScope | null, agentNames: (id: string) => string) {
-  if (!scope) return 'Not enabled';
-  if (scope === 'all') return 'Every conversation';
-  if (!scope.agents.length) return 'No agents chosen';
-  return scope.agents.map(agentNames).join(', ');
-}
-
 /**
- * Plugins a person can pick. A plugin that follows a connector joins and leaves with
- * it (CN9), so it is never offered on its own.
+ * Plugins a person can pick for a conversation or an agent. A connector's plugin is
+ * offered while its connector is enabled (CN10): it is how a conversation takes the
+ * connector's tools. One whose connector is off is left out; Extensions (or the agent's
+ * offer in the conversation) turns the connector on first.
  */
-export function offeredPlugins<T extends Pick<PluginEntry, 'follows'>>(
+export function offeredPlugins<T extends Pick<PluginEntry, 'follows' | 'connector'>>(
   plugins: readonly T[] | undefined,
 ): T[] | undefined {
-  return plugins?.filter((plugin) => !plugin.follows);
+  return plugins?.filter((plugin) => !plugin.follows || plugin.connector?.enabled === true);
+}
+
+/** A connector plugin's state in words, from the connector a plugin row names (CN3). */
+export function pluginConnectorStatus(connector: PluginConnector): string {
+  if (!connector.enabled) return 'Not enabled';
+  if (connector.status === 'ready')
+    return connector.tool_count === null
+      ? 'Ready'
+      : `Ready, ${plural(connector.tool_count, 'tool')}`;
+  if (connector.status === 'needs')
+    return connector.needs.length ? `Needs ${connector.needs.join(', ')}` : 'Needs setup';
+  if (connector.status === 'unreachable') return 'Can’t be reached';
+  return 'State not known';
 }
 
 /** The words a list search matches for a connector. */
