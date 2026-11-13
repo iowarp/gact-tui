@@ -210,7 +210,7 @@ function ReplyError({
   const code = humanizeProtocolValue(block.code);
   return (
     <ReplyErrorLine
-      reason={block.message && block.message !== code ? `${block.message} ? ${code}` : code}
+      reason={block.message && block.message !== code ? `${block.message} (${code})` : code}
       onRetry={
         block.recoverable && messageId && onRetryMessage
           ? () => void onRetryMessage(messageId)

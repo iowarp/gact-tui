@@ -6,13 +6,13 @@ import { ClioModelPicker } from './model-picker';
 import { IconButton } from './primitives/icon-button';
 
 interface ComposerSpotterModelProps {
-  /** The session's fleet reference; empty uses the conversation's model. */
+  /** The session's fleet reference; empty uses the Settings default (SPOTTER, else the fast model). */
   value: string;
   options: readonly ClioModelOption[];
   catalogStatus?: 'error' | 'loading' | 'ready';
   disabled?: boolean;
   onRetryCatalog?: (providerId?: string) => void;
-  /** Receives a fleet reference, or empty to use the conversation's model. */
+  /** Receives a fleet reference, or empty to use the Settings default. */
   onChange: (ref: string) => void;
 }
 
@@ -36,7 +36,7 @@ export function ComposerSpotterModel({
     ? option
       ? `${option.providerName} / ${option.label}`
       : value
-    : 'Conversation model';
+    : 'Settings default';
   return (
     <>
       <ClioModelPicker
@@ -64,7 +64,7 @@ export function ComposerSpotterModel({
         <IconButton
           disabled={disabled}
           icon={<RetryIcon />}
-          label="Use conversation model for SPOTTER"
+          label="Use the Settings default for SPOTTER"
           onClick={() => onChange('')}
           size="toolbar"
           tooltipSide="top"

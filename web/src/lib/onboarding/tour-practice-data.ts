@@ -97,6 +97,20 @@ export function practicePlot(light: boolean): Artifact {
   return { ...plot, size: light ? 53700 : 50870 };
 }
 
+/** The tracks map's fields, shared by the surface and the stage's out-of-sight warm-up copy. */
+export const PRACTICE_TRACKS_MAP = {
+  title: 'Atlantic hurricane tracks, 2017 and 2019',
+  dataUri: TRACKS,
+  latitudeField: 'lat',
+  longitudeField: 'lon',
+  labelField: 'label',
+  idField: 'observation_id',
+  trackField: 'storm',
+  orderField: 'time',
+  filterFields: ['storm', 'year', 'wind_kt'],
+  selectionField: 'observation_id',
+};
+
 const surface: A2UISurface = {
   id: SURFACE_ID,
   session_id: SESSION,
@@ -122,17 +136,8 @@ const surface: A2UISurface = {
           {
             id: 'map',
             component: 'clio.map.v1',
-            title: 'Atlantic hurricane tracks, 2017 and 2019',
-            dataUri: TRACKS,
-            latitudeField: 'lat',
-            longitudeField: 'lon',
-            labelField: 'label',
-            idField: 'observation_id',
-            trackField: 'storm',
-            orderField: 'time',
-            filterFields: ['storm', 'year', 'wind_kt'],
+            ...PRACTICE_TRACKS_MAP,
             selection: { path: '/selection/tracks' },
-            selectionField: 'observation_id',
           },
           {
             id: 'table',

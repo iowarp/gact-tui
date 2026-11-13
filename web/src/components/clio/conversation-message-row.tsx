@@ -26,6 +26,7 @@ import {
   MessageRowActions,
   PendingCancelButton,
 } from './message-row-actions';
+import { StatusIndicator } from './primitives/status-indicator';
 import { Tag } from './primitives/tag';
 import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
@@ -448,7 +449,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 >
                   {pendingSteer ? (
                     <>
-                      <Tag width="auto">Queued</Tag>
+                      {/* runs-attention: Queued is an empty ring and the word. */}
+                      <StatusIndicator label="Queued" tone="idle" />
                       <PendingCancelButton entities={entities} message={message} />
                     </>
                   ) : null}

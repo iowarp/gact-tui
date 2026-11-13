@@ -64,14 +64,23 @@ export const documentAnchorSchema = z.object({
   shape_id: optionalString,
   native_comment_id: optionalString,
   rect: z.array(z.number()).optional(),
-  natural_width: z.number().nullish().transform((value) => value ?? undefined),
-  natural_height: z.number().nullish().transform((value) => value ?? undefined),
+  natural_width: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  natural_height: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
   crop_asset: optionalString,
   tag: optionalString,
   text_excerpt: optionalString,
   html_excerpt: optionalString,
   src: optionalString,
-  viewport_width: z.number().nullish().transform((value) => value ?? undefined),
+  viewport_width: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
   source: z.record(z.string(), z.unknown()).default({}),
 });
 const documentManifestSchema = z.object({
@@ -112,15 +121,7 @@ export const artifactReviewSchema = z.object({
   artifact_sha256: z.string(),
   anchor: documentAnchorSchema,
   text: z.string(),
-  status: z.enum([
-    'draft',
-    'queued',
-    'dispatched',
-    'human-note',
-    'failed',
-    'stale',
-    'discarded',
-  ]),
+  status: z.enum(['draft', 'queued', 'dispatched', 'human-note', 'failed', 'stale', 'discarded']),
   native: z.boolean().default(false),
   native_text_hash: optionalString,
   idempotency_key: optionalString,
@@ -135,6 +136,7 @@ export const artifactReviewSchema = z.object({
   reply_version_artifact_id: optionalString,
   reply_error: optionalString,
   anchor_state: z.enum(['current', 'moved', 'outdated']).default('current'),
+  anchor_error: optionalString,
   current_artifact_id: optionalString,
   current_anchor: documentAnchorSchema.nullish().transform((value) => value ?? undefined),
   updated_at: optionalString,

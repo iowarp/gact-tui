@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export function GroupEmptyLine({ children }: { children: ReactNode }) {
   return (
     <p
-      className="truncate border-b border-border/70 px-2 py-2.5 text-xs text-faint max-[599px]:whitespace-normal"
+      className="truncate border-b border-border/70 px-2 py-2.5 text-xs text-muted-foreground max-[599px]:whitespace-normal"
       data-announce-state=""
       title={typeof children === 'string' ? children : undefined}
     >
