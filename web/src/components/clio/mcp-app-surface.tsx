@@ -34,6 +34,7 @@ import {
 } from './mcp-app-bridge';
 import { mcpAppLabel } from './mcp-app-live-set';
 import { mcpAppServiceHostContext } from './mcp-app-service';
+import { McpAppViewTools } from './mcp-app-view-tools';
 import { ClioStatus } from './status';
 
 export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
@@ -222,6 +223,17 @@ const McpAppSurfaceInstance = forwardRef<
     let appCapabilities: Record<string, unknown> | undefined;
     const post = (message: JsonRpcMessage) => targetWindow.postMessage(message, sandboxOrigin);
     view.post = post;
+    // The view's own tools (MA11, MA13): listed when it declares them, called for the agent.
+    const viewTools = new McpAppViewTools(
+      latest.current.repository,
+      identity,
+      (method, params) =>
+        new Promise<unknown>((resolve, reject) => {
+          const id = `host:${(view.next += 1)}`;
+          view.pending.set(id, { resolve, reject });
+          post({ jsonrpc: '2.0', id, method, params });
+        }),
+    );
     const answer = (message: JsonRpcMessage) => {
       const pending = view.pending.get(String(message.id));
       if (!pending) return;
@@ -260,6 +272,7 @@ const McpAppSurfaceInstance = forwardRef<
           return;
         }
         appCapabilities = message.params.appCapabilities;
+        viewTools.declare(appCapabilities);
         post({
           jsonrpc: '2.0',
           id: message.id,
@@ -290,6 +303,7 @@ const McpAppSurfaceInstance = forwardRef<
           params: descriptor.tool_result,
         });
         view.markReady();
+        viewTools.start();
         latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
       }
@@ -302,6 +316,7 @@ const McpAppSurfaceInstance = forwardRef<
       }
       if (message.method === 'notifications/message') return;
       if (message.id === undefined) {
+        if (message.method === 'notifications/tools/list_changed') void viewTools.refresh();
         latest.current.onViewNotification?.(message.method, message.params ?? {});
         return;
       }
@@ -346,6 +361,7 @@ const McpAppSurfaceInstance = forwardRef<
     window.addEventListener('message', onMessage);
     return () => {
       active = false;
+      viewTools.stop();
       view.post = undefined;
       for (const pending of view.pending.values())
         pending.reject(new Error('The interactive view closed.'));
