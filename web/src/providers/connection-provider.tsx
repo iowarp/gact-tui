@@ -751,6 +751,12 @@ export function useConnectionSettings(): ConnectionContextValue {
   return value;
 }
 
+/** Whether this view is inside a connection (a bare component, as in a test, is not). */
+// oxlint-disable-next-line react/only-export-components
+export function useHasConnection(): boolean {
+  return useContext(ConnectionContext) !== undefined;
+}
+
 /** Whether this view belongs to an offline archive without network access. */
 // oxlint-disable-next-line react/only-export-components
 export function useOfflineArchive(): boolean {

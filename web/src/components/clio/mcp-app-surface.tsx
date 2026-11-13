@@ -14,6 +14,7 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/fr
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useHasConnection } from '@/providers/connection-provider';
 import {
   bridgeRequest,
   hostContext,
@@ -144,6 +145,7 @@ const McpAppSurfaceInstance = forwardRef<
     [props.appInstanceId, props.dataRef, props.sessionId],
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasConnection = useHasConnection();
   const [descriptor, setDescriptor] = useState<McpAppDescriptor>();
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(false);
@@ -426,6 +428,8 @@ const McpAppSurfaceInstance = forwardRef<
 
   const displayName = props.label || mcpAppLabel(props.toolName, props.sourceServer);
   const fill = placement === 'tab';
+  // Comments need the conversation's connection (a bare surface, as in a test, has none).
+  const comments = Boolean(props.comments) && hasConnection;
   const frame = (
     <Frame
       className={cn(
@@ -440,7 +444,7 @@ const McpAppSurfaceInstance = forwardRef<
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
         <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
-        {props.comments ? (
+        {comments ? (
           <McpAppCommentsIcon disabledReason={ready ? undefined : 'The view is still loading.'} />
         ) : null}
         {props.actions}
@@ -481,7 +485,7 @@ const McpAppSurfaceInstance = forwardRef<
               style={fill ? undefined : { height: frameHeight }}
               title={`${displayName} interactive view`}
             />
-            {props.comments ? <McpAppRegionLayer /> : null}
+            {comments ? <McpAppRegionLayer /> : null}
           </>
         ) : (
           <div
@@ -495,7 +499,7 @@ const McpAppSurfaceInstance = forwardRef<
       </FramePanel>
     </Frame>
   );
-  if (!props.comments) return frame;
+  if (!comments) return frame;
   return (
     <McpAppCommentSession
       context={() => contextRef.current}
