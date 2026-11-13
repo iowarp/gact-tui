@@ -168,7 +168,8 @@ function PlanPreview({
           'min-h-0',
           expanded
             ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto'
-            : 'max-h-[118px] overflow-hidden',
+            : // A narrow card wraps the plan to more lines, so its glance gets more height.
+              'max-h-[118px] overflow-hidden @max-[420px]/ask:max-h-[11rem]',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
           hidden && 'invisible',
         )}
@@ -423,6 +424,9 @@ export function PlanExitResponse({
   const file = plan?.plan_file;
   return (
     <AskCard
+      // In a narrow dock the options stack and fill the cap, which would squeeze the plan down
+      // to its summary line. There the card keeps its height and the dock scrolls it instead.
+      className="@max-[420px]/dock:max-h-none"
       data-interaction-kind="plan_exit"
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}
