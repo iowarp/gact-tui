@@ -3,8 +3,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { writeOwnAddress } from './search-contact-email-sync';
 import { SearchTextSetting } from './search-text-setting';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
-const TITLE = 'Contact email for Crossref and OpenAlex (optional)';
+const TITLE = t`Contact email for Crossref and OpenAlex (optional)`;
 
 /**
  * The address Crossref and OpenAlex see as the contact for these searches. With a profile
@@ -32,9 +34,10 @@ export function SearchContactEmail({
       id="web-search-contact-email"
       inputMode="email"
       onSave={onSave}
+      // i18n-ignore: an example address, not copy
       placeholder="you@example.org"
       saving={saving}
-      title={profileEmail ? 'Another contact email (optional)' : TITLE}
+      title={profileEmail ? t`Another contact email (optional)` : TITLE}
       value={profileEmail && value === profileEmail ? '' : value}
     />
   );
@@ -43,10 +46,12 @@ export function SearchContactEmail({
       <>
         {field}
         <p className="mt-1 text-xs text-muted-foreground">
-          <Link className="text-link underline-offset-4 hover:underline" to="/settings/profile">
-            Add an email in Profile
-          </Link>{' '}
-          to use it here.
+          <Trans>
+            <Link className="text-link underline-offset-4 hover:underline" to="/settings/profile">
+              Add an email in Profile
+            </Link>{' '}
+            to use it here.
+          </Trans>
         </p>
       </>
     );
@@ -68,11 +73,11 @@ export function SearchContactEmail({
           className="min-w-0 text-[0.8125rem] leading-normal font-normal [overflow-wrap:anywhere]"
           htmlFor="web-search-profile-email"
         >
-          Use my profile email ({profileEmail})
+          {t`Use my profile email (${profileEmail})`}
         </Label>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Crossref and OpenAlex answer faster when a search names a contact.
+        {t`Crossref and OpenAlex answer faster when a search names a contact.`}
       </p>
       {shared ? (
         error ? (

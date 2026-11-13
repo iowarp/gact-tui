@@ -26,9 +26,9 @@ import { SegmentedControl } from './primitives/segmented-control';
 import { useLocalProfile } from './settings-profile-store';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { ph, t } from '@lingui/core/macro';
 
-const INFO =
-  'Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once.';
+const INFO = t`Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once.`;
 
 /** The hosted source a site runs; always tried first while its address is set. */
 const SERVICE = 'service';
@@ -43,7 +43,7 @@ const unsupported = (error: unknown) =>
   error instanceof TransportError && [404, 405, 501].includes(error.status ?? 0);
 
 const errorText = (error: unknown) =>
-  error instanceof Error && error.message ? error.message : 'The change could not be saved.';
+  error instanceof Error && error.message ? error.message : t`The change could not be saved.`;
 
 const ErrorLine = ({ message }: { message?: string }) =>
   message ? (
@@ -65,8 +65,8 @@ const reorder = (settings: SearchSettings, order: readonly string[]): SearchSett
 type SearchTab = 'web' | 'literature';
 
 const TABS = [
-  { value: 'web', label: 'Web' },
-  { value: 'literature', label: 'Literature' },
+  { value: 'web', label: t({ message: 'Web', context: 'search settings tab' }) },
+  { value: 'literature', label: t({ message: 'Literature', context: 'search settings tab' }) },
 ] as const;
 
 /** Saved after a key moved its source to the front, so the person can put it back. */
@@ -148,7 +148,12 @@ export function WebSearchSettings() {
   });
 
   const tabs = (
-    <SegmentedControl label="Web search pages" onValueChange={setTab} options={TABS} value={tab} />
+    <SegmentedControl
+      label={t`Web search pages`}
+      onValueChange={setTab}
+      options={TABS}
+      value={tab}
+    />
   );
   const saveContact = (value: string) =>
     update.mutate({
@@ -164,13 +169,17 @@ export function WebSearchSettings() {
     onSave: saveContact,
   });
   const heading = (
-    <SettingsSectionHeading actions={view.data ? tabs : undefined} info={INFO} title="Web search" />
+    <SettingsSectionHeading
+      actions={view.data ? tabs : undefined}
+      info={INFO}
+      title={t`Web search`}
+    />
   );
   if (view.isPending)
     return (
       <div className="min-w-0">
         {heading}
-        <StateView kind="loading" size="row" title="Loading search sources…" />
+        <StateView kind="loading" size="row" title={t`Loading search sources…`} />
       </div>
     );
   if (view.error || !view.data)
@@ -181,15 +190,15 @@ export function WebSearchSettings() {
           <StateView
             kind="unavailable"
             size="row"
-            title="This service doesn’t offer web search settings."
+            title={t`This service doesn’t offer web search settings.`}
           />
         ) : (
           <div title={view.error?.message}>
             <StateView
-              action={{ label: 'Retry', onClick: () => void view.refetch() }}
+              action={{ label: t`Retry`, onClick: () => void view.refetch() }}
               kind="error"
               size="row"
-              title="Search sources couldn’t be loaded."
+              title={t`Search sources couldn’t be loaded.`}
             />
           </div>
         )}
@@ -270,10 +279,10 @@ export function WebSearchSettings() {
   return (
     <div className="min-w-0">
       {heading}
-      <div aria-label={tab === 'web' ? 'Web' : 'Literature'} role="region">
+      <div aria-label={tab === 'web' ? TABS[0]!.label : TABS[1]!.label} role="region">
         {tab === 'web' ? (
           <>
-            <SettingsRow htmlFor="web-search-enabled" inlineControl title="Web search">
+            <SettingsRow htmlFor="web-search-enabled" inlineControl title={t`Web search`}>
               <Switch
                 checked={data.enabled}
                 disabled={update.isPending}
@@ -284,14 +293,15 @@ export function WebSearchSettings() {
               />
             </SettingsRow>
             <p className="mt-2 text-xs text-muted-foreground">
-              Searches are sent to the services below. Each one asks for your approval the first
-              time.
+              {t`Searches are sent to the services below. Each one asks for your approval the first time.`}
             </p>
             <ErrorLine message={errors.enabled} />
 
-            <section aria-label="Web sources" className="min-w-0">
-              <SettingsGroupLabel info="Tried from the top. Drag a source, or use Move up and Move down, to change the order.">
-                Web sources
+            <section aria-label={t`Web sources`} className="min-w-0">
+              <SettingsGroupLabel
+                info={t`Tried from the top. Drag a source, or use Move up and Move down, to change the order.`}
+              >
+                {t`Web sources`}
               </SettingsGroupLabel>
               {notice ? (
                 <div
@@ -300,8 +310,8 @@ export function WebSearchSettings() {
                 >
                   <span className="min-w-0 flex-1">
                     {notice.previous
-                      ? `${notice.name} is now tried first.`
-                      : `${notice.name} key saved.`}
+                      ? t`${ph({ source: notice.name })} is now tried first.`
+                      : t`${ph({ source: notice.name })} key saved.`}
                   </span>
                   {notice.previous ? (
                     <Button
@@ -314,7 +324,7 @@ export function WebSearchSettings() {
                       size="sm"
                       variant="outline"
                     >
-                      Undo
+                      {t`Undo`}
                     </Button>
                   ) : null}
                   <Button
@@ -323,7 +333,7 @@ export function WebSearchSettings() {
                     size="sm"
                     variant="ghost"
                   >
-                    Dismiss
+                    {t`Dismiss`}
                   </Button>
                 </div>
               ) : null}
@@ -331,12 +341,12 @@ export function WebSearchSettings() {
               {data.web.length ? (
                 <>
                   {service ? (
-                    <div aria-label="Your site's search service, always tried first" role="list">
+                    <div aria-label={t`Your site's search service, always tried first`} role="list">
                       {webRow(service, -1)}
                     </div>
                   ) : null}
                   <Sortable
-                    aria-label="Web sources, in the order they are tried"
+                    aria-label={t`Web sources, in the order they are tried`}
                     getItemValue={(row: WebSearchSource) => row.id}
                     onValueChange={(rows) => setOrder(rows.map((row) => row.id))}
                     role="list"
@@ -350,14 +360,14 @@ export function WebSearchSettings() {
                 <StateView
                   kind="empty"
                   size="row"
-                  title="No web sources are available on this service."
+                  title={t`No web sources are available on this service.`}
                 />
               )}
               <SettingsRow
                 htmlFor="web-search-auto-switch"
                 inlineControl
-                title="Switch sources automatically"
-                description="When a source's free allowance runs out, use the next one without asking."
+                title={t`Switch sources automatically`}
+                description={t`When a source's free allowance runs out, use the next one without asking.`}
               >
                 <Switch
                   checked={data.auto_switch}
@@ -371,15 +381,15 @@ export function WebSearchSettings() {
               <ErrorLine message={errors.auto} />
             </section>
 
-            <section aria-label="Advanced" className="min-w-0">
-              <SettingsGroupLabel>Advanced</SettingsGroupLabel>
+            <section aria-label={t`Advanced`} className="min-w-0">
+              <SettingsGroupLabel>{t`Advanced`}</SettingsGroupLabel>
               <SearchTextSetting
                 error={errors.service_url}
                 id="web-search-service-url"
                 onSave={(value) => patch({ service_url: value }, 'service_url')}
                 placeholder="https://search.example.org"
                 saving={update.isPending && update.variables?.area === 'service_url'}
-                title="Search service address"
+                title={t`Search service address`}
                 inputMode="url"
                 value={data.service_url}
               />
@@ -387,14 +397,14 @@ export function WebSearchSettings() {
           </>
         ) : (
           <>
-            <section aria-label="Papers & datasets" className="min-w-0">
-              <SettingsGroupLabel>Papers &amp; datasets</SettingsGroupLabel>
+            <section aria-label={t`Papers & datasets`} className="min-w-0">
+              <SettingsGroupLabel>{t`Papers & datasets`}</SettingsGroupLabel>
               <p className="mb-1 text-xs text-muted-foreground">
-                Every source that is on is searched together, so there is no order to set.
+                {t`Every source that is on is searched together, so there is no order to set.`}
               </p>
               <ErrorLine message={errors.literature} />
               {data.literature.length ? (
-                <div aria-label="Papers & datasets sources" role="list">
+                <div aria-label={t`Papers & datasets sources`} role="list">
                   {data.literature.map((row) => (
                     <SearchSourceRow
                       busy={busy}
@@ -423,13 +433,13 @@ export function WebSearchSettings() {
                 <StateView
                   kind="empty"
                   size="row"
-                  title="No paper or dataset sources are available on this service."
+                  title={t`No paper or dataset sources are available on this service.`}
                 />
               )}
             </section>
 
-            <section aria-label="Contact email" className="min-w-0">
-              <SettingsGroupLabel>Contact email</SettingsGroupLabel>
+            <section aria-label={t`Contact email`} className="min-w-0">
+              <SettingsGroupLabel>{t`Contact email`}</SettingsGroupLabel>
               <SearchContactEmail
                 error={errors.contact_email}
                 onSave={saveContact}

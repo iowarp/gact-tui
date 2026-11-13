@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
 
 /**
  * One saved text value (an address, an email) with its own Save. The field follows the
@@ -60,7 +61,7 @@ export function SearchTextSetting({
           type="submit"
           variant="outline"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t`Saving…` : t({ message: 'Save', context: 'verb: save a setting' })}
         </Button>
       </form>
     </SettingsRow>

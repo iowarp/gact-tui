@@ -213,7 +213,7 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
   },
   {
     id: 'web-search',
-    label: 'Web search',
+    label: t`Web search`,
     icon: SearchIcon,
     group: 'Agent',
     keywords:

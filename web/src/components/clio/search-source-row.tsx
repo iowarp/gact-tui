@@ -17,6 +17,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
+import { ph, t } from '@lingui/core/macro';
 
 /** How a web row can move: dragged by its handle, or one place with Move up / Move down. */
 export interface SearchSourceOrdering {
@@ -68,7 +69,11 @@ export function SearchSourceRow({
       {ordering ? (
         <div className="flex flex-col items-center gap-0.5 pt-0.5">
           <SortableItemHandle asChild>
-            <Button aria-label={`Drag to reorder ${source.name}`} size="icon-sm" variant="ghost">
+            <Button
+              aria-label={t`Drag to reorder ${ph({ source: source.name })}`}
+              size="icon-sm"
+              variant="ghost"
+            >
               <GripVerticalIcon />
             </Button>
           </SortableItemHandle>
@@ -82,7 +87,7 @@ export function SearchSourceRow({
         {source.description ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{source.description}</p>
         ) : null}
-        {freeUse ? <p className="mt-0.5 text-xs text-faint">Free use: {freeUse}</p> : null}
+        {freeUse ? <p className="mt-0.5 text-xs text-faint">{t`Free use: ${freeUse}`}</p> : null}
         {allowance ? <p className="mt-0.5 text-xs text-faint">{allowance}</p> : null}
         {usage ? <p className="mt-0.5 text-xs text-faint">{usage}</p> : null}
         {queue ? <p className="mt-0.5 text-xs text-faint">{queue}</p> : null}
@@ -95,7 +100,7 @@ export function SearchSourceRow({
               onCheckedChange={(checked) => onPaidChange(checked === true)}
             />
             <Label className="text-xs font-normal text-muted-foreground" htmlFor={paidId}>
-              Paid plan: {vocab.agent} sets no free allowance and runs more requests at once
+              {t`Paid plan: ${ph({ agent: vocab.agent })} sets no free allowance and runs more requests at once`}
             </Label>
           </div>
         ) : null}
@@ -109,14 +114,14 @@ export function SearchSourceRow({
               <IconButton
                 disabled={busy || ordering.first}
                 icon={<ArrowUpIcon />}
-                label={`Move ${source.name} up`}
+                label={t`Move ${ph({ source: source.name })} up`}
                 onClick={() => ordering.onMove(-1)}
                 size="sm"
               />
               <IconButton
                 disabled={busy || ordering.last}
                 icon={<ArrowDownIcon />}
-                label={`Move ${source.name} down`}
+                label={t`Move ${ph({ source: source.name })} down`}
                 onClick={() => ordering.onMove(1)}
                 size="sm"
               />
@@ -124,14 +129,14 @@ export function SearchSourceRow({
           ) : null}
           {confirming ? (
             <span className="flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground">Remove the key?</span>
+              <span className="text-muted-foreground">{t`Remove the key?`}</span>
               <Button
                 className={action}
                 onClick={() => setConfirming(false)}
                 size="sm"
                 variant="ghost"
               >
-                Keep
+                {t({ message: 'Keep', context: 'verb: keep the saved key' })}
               </Button>
               <Button
                 className={action}
@@ -143,34 +148,34 @@ export function SearchSourceRow({
                 size="sm"
                 variant="outline"
               >
-                Remove
+                {t({ message: 'Remove', context: 'verb: remove the saved key' })}
               </Button>
             </span>
           ) : source.has_key ? (
             <Button
-              aria-label={`Remove your ${source.name} key`}
+              aria-label={t`Remove your ${ph({ source: source.name })} key`}
               className={action}
               disabled={busy}
               onClick={() => setConfirming(true)}
               size="sm"
               variant="ghost"
             >
-              Remove key
+              {t`Remove key`}
             </Button>
           ) : onAddKey ? (
             <Button
-              aria-label={`Add your ${source.name} key`}
+              aria-label={t`Add your ${ph({ source: source.name })} key`}
               className={action}
               disabled={busy}
               onClick={onAddKey}
               size="sm"
               variant="outline"
             >
-              Add key
+              {t`Add key`}
             </Button>
           ) : null}
           <Switch
-            aria-label={`Use ${source.name}`}
+            aria-label={t`Use ${ph({ source: source.name })}`}
             checked={source.enabled}
             className="ml-1"
             disabled={busy}

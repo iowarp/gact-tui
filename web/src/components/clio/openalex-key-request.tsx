@@ -3,8 +3,9 @@ import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
+import { t } from '@lingui/core/macro';
 
-const FALLBACK = 'Check your email and click the activation link. The key works after that.';
+const FALLBACK = t`Check your email and click the activation link. The key works after that.`;
 
 /**
  * Ask OpenAlex for a free key by email. OpenAlex sends an activation link; the key the
@@ -38,7 +39,7 @@ export function OpenAlexKeyRequest({
         size="sm"
         variant="link"
       >
-        Get a free OpenAlex key
+        {t`Get a free OpenAlex key`}
       </Button>
     );
   const valid = /^[^\s@]+@[^\s@]+$/u.test(email.trim());
@@ -51,7 +52,7 @@ export function OpenAlexKeyRequest({
       }}
     >
       <label className="text-xs text-muted-foreground" htmlFor="openalex-key-email">
-        Your email address. OpenAlex sends the key’s activation link there.
+        {t`Your email address. OpenAlex sends the key’s activation link there.`}
       </label>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Input
@@ -59,6 +60,7 @@ export function OpenAlexKeyRequest({
           className="h-7 min-w-0 flex-1 text-xs"
           id="openalex-key-email"
           onChange={(event) => setEmail(event.target.value)}
+          // i18n-ignore: an example address, not copy
           placeholder="you@example.org"
           type="email"
           value={email}
@@ -70,7 +72,7 @@ export function OpenAlexKeyRequest({
           type="submit"
           variant="outline"
         >
-          {request.isPending ? 'Requesting…' : 'Request key'}
+          {request.isPending ? t`Requesting…` : t`Request key`}
         </Button>
         <Button
           className="h-7 px-2 text-xs"
@@ -79,7 +81,7 @@ export function OpenAlexKeyRequest({
           type="button"
           variant="ghost"
         >
-          Cancel
+          {t`Cancel`}
         </Button>
       </div>
       {request.error ? (

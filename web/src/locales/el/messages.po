@@ -510,6 +510,11 @@ msgstr "{0, plural, one {# γραμμή} other {# γραμμές}}"
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr "{0, plural, one {# εκτέλεση} other {# εκτελέσεις}}"
 
+#. placeholder {0}: source.answered_today
+#: src/lib/search-source-status.ts
+msgid "{0, plural, one {# search} other {# searches}}"
+msgstr "{0, plural, one {# αναζήτηση} other {# αναζητήσεις}}"
+
 #. placeholder {0}: selected.length
 #: src/components/clio/a2ui-map-geojson-source.tsx
 msgid "{0, plural, one {# selected feature of {totalText}} other {# selected features of {totalText}}}"
@@ -577,20 +582,10 @@ msgstr "{0, plural, one {# τρίγωνο επιφάνειας} other {# τρί�
 msgid "{0, plural, one {# token} other {# tokens}}"
 msgstr "{0, plural, one {# token} other {# token}}"
 
-#. placeholder {0}: connection.tools_count
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{0, plural, one {# tool available: {tools}} other {# tools available: {tools}}}"
-msgstr "{0, plural, one {# διαθέσιμο εργαλείο: {tools}} other {# διαθέσιμα εργαλεία: {tools}}}"
-
 #. placeholder {0}: result.tools_count
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "{0, plural, one {# tool available. Compose a plugin to add it to an agent.} other {# tools available. Compose a plugin to add it to an agent.}}"
 msgstr "{0, plural, one {# εργαλείο διαθέσιμο. Συνθέστε ένα πρόσθετο για να το προσθέσετε σε πράκτορα.} other {# εργαλεία διαθέσιμα. Συνθέστε ένα πρόσθετο για να τα προσθέσετε σε πράκτορα.}}"
-
-#. placeholder {0}: connection.tools_count
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{0, plural, one {# tool available.} other {# tools available.}}"
-msgstr "{0, plural, one {# διαθέσιμο εργαλείο.} other {# διαθέσιμα εργαλεία.}}"
 
 #. placeholder {0}: flow.tools.length
 #: src/components/clio/mcp-sign-in.tsx
@@ -706,12 +701,6 @@ msgstr "{0, plural, one {Κλήθηκε # φορά, {span}} other {Κλήθηκ�
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{0, plural, one {Called # time} other {Called # times}}"
 msgstr "{0, plural, one {Κλήθηκε # φορά} other {Κλήθηκε # φορές}}"
-
-#. placeholder {0}: result.tools_count
-#: src/components/clio/web-search-setup.tsx
-#: src/routes/infrastructure-page.tsx
-msgid "{0, plural, one {CLIO Web Search connected with # tool} other {CLIO Web Search connected with # tools}}"
-msgstr "{0, plural, one {Το CLIO Web Search συνδέθηκε με # εργαλείο} other {Το CLIO Web Search συνδέθηκε με # εργαλεία}}"
 
 #. placeholder {0}: compacted.length
 #: src/components/clio/conversation-summarization.tsx
@@ -1116,10 +1105,6 @@ msgstr "Ο {agent} έκλεισε τη σύνδεση SSH πριν τη συνδ
 msgid "{agent} could not be reached after the update."
 msgstr "Δεν ήταν δυνατή η επικοινωνία με τον {agent} μετά την ενημέρωση."
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{agent} could not determine this service address."
-msgstr "Ο {agent} δεν μπόρεσε να προσδιορίσει τη διεύθυνση αυτής της υπηρεσίας."
-
 #: src/components/clio/settings-runtime.tsx
 msgid "{agent} default"
 msgstr "Προεπιλογή {agent}"
@@ -1258,10 +1243,6 @@ msgstr "Προσπάθειες του {agent}"
 msgid "{agent} update failed."
 msgstr "Η ενημέρωση του {agent} απέτυχε."
 
-#: src/lib/infrastructure-service-labels.ts
-msgid "{agent} Web Search"
-msgstr "Αναζήτηση ιστού {agent}"
-
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
 msgstr "Το {agent} θα εκτελεί εντολές χωρίς απομόνωση λειτουργικού συστήματος."
@@ -1385,10 +1366,6 @@ msgstr "{command} στο {computer}"
 #: src/components/clio/composer.tsx
 msgid "{command} was not run"
 msgstr "Η εντολή {command} δεν εκτελέστηκε"
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{connectedUrl} is connected to {agent}. Connect this deployment to switch targets."
-msgstr "Η {connectedUrl} είναι συνδεδεμένη στον {agent}. Συνδέστε αυτήν την ανάπτυξη για αλλαγή προορισμού."
 
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
@@ -2995,14 +2972,6 @@ msgstr "Το {product} και το {agent} είναι ενημερωμένα"
 msgid "{product} did not respond to the local service request. Retry local startup or reopen the app."
 msgstr "Το {product} δεν απάντησε στο αίτημα της τοπικής υπηρεσίας. Επαναλάβετε την τοπική εκκίνηση ή ανοίξτε ξανά την εφαρμογή."
 
-#: src/lib/installer-native-search.ts
-msgid "{product} Search is ready"
-msgstr "Η Αναζήτηση {product} είναι έτοιμη"
-
-#: src/lib/installer-native-search.ts
-msgid "{product} Search still needs setup"
-msgstr "Η Αναζήτηση {product} χρειάζεται ακόμη ρύθμιση"
-
 #: src/offline-review.tsx
 msgid "{product} session archive"
 msgstr "Αρχειοθήκη συνεδρίας {product}"
@@ -3256,6 +3225,10 @@ msgstr "{selectedRows, plural, one {# επιλεγμένη γραμμή από {
 msgid "{sent} in, {received} out"
 msgstr "{sent} εισερχόμενα, {received} εξερχόμενα"
 
+#: src/lib/search-source-status.ts
+msgid "{sentence}; {source} says {left} left"
+msgstr "{sentence}· σύμφωνα με το {source} απομένουν {left}"
+
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "Προτροπές {server}"
@@ -3360,6 +3333,14 @@ msgstr "{skills, plural, one {# φόρτωση δεξιότητας} other {# φ
 #: src/components/clio/action-alert-card.tsx
 msgid "{source} finding: {title}"
 msgstr "Εύρημα {source}: {title}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "{source} is now tried first."
+msgstr "Το {source} δοκιμάζεται πλέον πρώτο."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "{source} key saved."
+msgstr "Το κλειδί του {source} αποθηκεύτηκε."
 
 #: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
@@ -3907,6 +3888,10 @@ msgstr "Ο <0>{host}</0> παρουσίασε πιστοποιητικό που 
 msgid "<0>{severity}</0>: {message}"
 msgstr "<0>{severity}</0>: {message}"
 
+#: src/components/clio/search-contact-email.tsx
+msgid "<0>Add an email in Profile</0> to use it here."
+msgstr "<0>Προσθέστε ένα email στο Προφίλ</0> για να το χρησιμοποιήσετε εδώ."
+
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
 msgid "<0>Effect:</0> {0}"
@@ -4046,10 +4031,6 @@ msgstr "Ένα σιρίτι"
 msgid "A complete source is required to save a variation."
 msgstr "Απαιτείται πλήρης πηγή για την αποθήκευση μιας παραλλαγής."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "A configured SearXNG engine. Availability and key requirements depend on the installed SearXNG version."
-msgstr "Μια ρυθμισμένη μηχανή SearXNG. Η διαθεσιμότητα και οι απαιτήσεις κλειδιού εξαρτώνται από την εγκατεστημένη έκδοση του SearXNG."
-
 #: src/components/clio/memory-inbox.tsx
 msgid "a conversation"
 msgstr "μια συνομιλία"
@@ -4093,10 +4074,6 @@ msgstr "Ένα αποθετήριο GGUF του Hugging Face και προαιρ
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "A JSON array of strings, passed to the command as they are."
 msgstr "Ένας πίνακας JSON με συμβολοσειρές, που μεταβιβάζονται στην εντολή ως έχουν."
-
-#: src/components/clio/web-search-setup.tsx
-msgid "A key in {agent}’s credential source; the secret is never stored here."
-msgstr "Ένα κλειδί στην πηγή διαπιστευτηρίων του {agent}· το μυστικό δεν αποθηκεύεται ποτέ εδώ."
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
@@ -4177,10 +4154,6 @@ msgstr "Ένας αποθηκευμένος κεντρικός υπολογισ�
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "A script (call {call})"
 msgstr "Ένα σενάριο (κλήση {call})"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "A search service run outside {agent}. {agent} checks it and uses its tools."
-msgstr "Μια υπηρεσία αναζήτησης που εκτελείται εκτός του {agent}. Ο {agent} την ελέγχει και χρησιμοποιεί τα εργαλεία της."
 
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
@@ -4265,7 +4238,6 @@ msgid "About {modelId}"
 msgstr "Σχετικά με {modelId}"
 
 #: src/components/clio/model-description-hint.tsx
-#: src/components/clio/search-engine-picker.tsx
 #: src/components/clio/source-provider-info.tsx
 #: src/tauri/native-copy.ts
 msgid "About {name}"
@@ -4715,7 +4687,6 @@ msgstr "Πραγματικό μέγεθος ({percent}%)"
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/memory-inbox.tsx
-#: src/components/clio/search-engine-picker.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-connection-dialogs.tsx
 #: src/components/clio/settings-row.tsx
@@ -4808,17 +4779,9 @@ msgstr "Προσθήκη σύνδεσης MCP"
 msgid "Add an SSH host"
 msgstr "Προσθήκη κεντρικού υπολογιστή SSH"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Add and explicitly allow opt-in engine"
-msgstr "Προσθήκη και ρητή άδεια για προαιρετική μηχανή"
-
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Add another computer…"
 msgstr "Προσθήκη άλλου υπολογιστή…"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Add another engine"
-msgstr "Προσθήκη άλλης μηχανής"
 
 #: src/components/clio/more-details-panel.tsx
 msgid "Add answer to chat"
@@ -4886,6 +4849,7 @@ msgid "Add item"
 msgstr "Προσθήκη στοιχείου"
 
 #: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/search-source-row.tsx
 msgid "Add key"
 msgstr "Προσθήκη κλειδιού"
 
@@ -4945,10 +4909,6 @@ msgstr "Προσθήκη διακομιστή"
 msgid "Add skill"
 msgstr "Προσθήκη δεξιότητας"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Add source reading and research tools to your agent."
-msgstr "Προσθέστε στον πράκτορά σας εργαλεία ανάγνωσης πηγών και έρευνας."
-
 #: src/components/clio/connected-source-detail.tsx
 msgid "Add source to message"
 msgstr "Προσθήκη πηγής στο μήνυμα"
@@ -5000,6 +4960,10 @@ msgstr "Προσθέστε ολόκληρα μπλοκ στο σύνολο πρ�
 msgid "Add your {name} API key."
 msgstr "Προσθέστε το κλειδί API σας για το {name}."
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Add your {name} key"
+msgstr "Προσθέστε το κλειδί σας για το {name}"
+
 #: src/components/clio/provider-setup-state.ts
 msgid "Add your {name} key to use its models."
 msgstr "Προσθέστε το κλειδί σας για {name} για να χρησιμοποιήσετε τα μοντέλα του."
@@ -5011,6 +4975,10 @@ msgstr "Προσθέστε το κλειδί API σας για το {provider} �
 #: src/lib/provider-availability.ts
 msgid "Add your {providerLabel} API key."
 msgstr "Προσθέστε το κλειδί API σας για το {providerLabel}."
+
+#: src/components/clio/search-source-row.tsx
+msgid "Add your {source} key"
+msgstr "Προσθέστε το κλειδί σας για το {source}"
 
 #: src/components/clio/flow-run-edits.ts
 msgctxt "workflow change"
@@ -5095,10 +5063,6 @@ msgstr "Προσθήκη…"
 msgid "Additional folders"
 msgstr "Πρόσθετοι φάκελοι"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Additional SearXNG engine"
-msgstr "Πρόσθετη μηχανή SearXNG"
-
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
@@ -5150,6 +5114,7 @@ msgstr "Διαχειριστής"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/settings-response-settings.tsx
+#: src/components/clio/settings-web-search.tsx
 msgid "Advanced"
 msgstr "Για προχωρημένους"
 
@@ -5650,6 +5615,10 @@ msgstr "Να επιτρέπεται η εγγραφή στο {folder};"
 msgid "Allow writing to a folder?"
 msgstr "Να επιτρέπεται η εγγραφή σε φάκελο;"
 
+#: src/lib/search-source-status.ts
+msgid "Allowance used up until {time}"
+msgstr "Το όριο εξαντλήθηκε έως τις {time}"
+
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/settings-access-rule-model.ts
 #: src/components/clio/settings-permissions-requests.tsx
@@ -5844,6 +5813,10 @@ msgstr "Άλλος βοηθός"
 msgid "Another command file of the same name wins."
 msgstr "Υπερισχύει άλλο αρχείο εντολής με το ίδιο όνομα."
 
+#: src/components/clio/search-contact-email.tsx
+msgid "Another contact email (optional)"
+msgstr "Άλλο email επικοινωνίας (προαιρετικό)"
+
 #: src/lib/plugin-presentation.ts
 msgid "Another plugin needs this plugin. Removing it also removes what needs it."
 msgstr "Ένα άλλο πρόσθετο χρειάζεται αυτό το πρόσθετο. Η αφαίρεσή του αφαιρεί επίσης ό,τι το χρειάζεται."
@@ -5856,10 +5829,6 @@ msgstr "Η εγκατάσταση άλλου διακομιστή καθυστέ
 #: src/components/clio/settings-prompts.tsx
 msgid "Another source also has {name}; this one runs as {qualified_id}."
 msgstr "Και άλλη πηγή έχει το {name}· αυτή εκτελείται ως {qualified_id}."
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Another Web Search deployment is connected"
-msgstr "Είναι συνδεδεμένη άλλη ανάπτυξη του Web Search"
 
 #: src/components/clio/browser-surface.tsx
 msgid "Another window is using this page"
@@ -6131,6 +6100,11 @@ msgstr "έγκριση"
 #: src/widget-gallery-scenarios.ts
 msgid "Approve"
 msgstr "Έγκριση"
+
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Approved"
+msgstr "Εγκρίθηκε"
 
 #: src/components/clio/activity-projection-labels.ts
 msgid "Approved {actionText}"
@@ -6792,7 +6766,6 @@ msgstr "πίσω"
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/question-bundle-response.tsx
 #: src/components/clio/source-edit-form.tsx
-#: src/components/clio/web-search-setup.tsx
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Back"
 msgstr "Πίσω"
@@ -7068,10 +7041,6 @@ msgstr "Μεταξύ {minimum} και {maximum} tokens."
 #: src/components/clio/context-control.tsx
 msgid "Between {minimum} tokens."
 msgstr "Μεταξύ {minimum} tokens."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Biomedical literature."
-msgstr "Βιοϊατρική βιβλιογραφία."
 
 #: src/lib/onboarding/tour-practice-data.ts
 msgid "BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70."
@@ -7373,11 +7342,16 @@ msgid "Built for {value}."
 msgstr "Σχεδιασμένο για {value}."
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/infrastructure-tools.tsx
 #: src/lib/mcp-service-presentation.ts
 #: src/lib/plugin-presentation.ts
 msgid "Built in"
 msgstr "Ενσωματωμένο"
+
+#: src/components/clio/infrastructure-overview.tsx
+msgid "Built in. Choose its sources and keys in Settings."
+msgstr "Ενσωματωμένη. Επιλέξτε πηγές και κλειδιά στις Ρυθμίσεις."
 
 #: src/components/clio/latex-model.ts
 msgid "built just now"
@@ -7391,14 +7365,6 @@ msgstr "Ενσωματωμένο"
 #: src/components/clio/observability-provenance.tsx
 msgid "Built-in {agent} records"
 msgstr "Ενσωματωμένες εγγραφές του {agent}"
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "Built-in search engine"
-msgstr "Ενσωματωμένη μηχανή αναζήτησης"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Built-in search engine: {name}"
-msgstr "Ενσωματωμένη μηχανή αναζήτησης: {name}"
 
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Bundled"
@@ -7570,6 +7536,7 @@ msgstr "Δεν είναι δυνατή η εκκίνηση"
 #: src/components/clio/ndp-endpoint-actions.tsx
 #: src/components/clio/ndp-endpoint-editor.tsx
 #: src/components/clio/ndp-workflow-form.tsx
+#: src/components/clio/openalex-key-request.tsx
 #: src/components/clio/path-picker.tsx
 #: src/components/clio/plugin-marketplace-dialog.tsx
 #: src/components/clio/primitives/dialog-frame.tsx
@@ -8241,6 +8208,10 @@ msgstr "Ελέγξτε τον εκδότη ταυτότητας και τον ρ
 msgid "Check updates"
 msgstr "Έλεγχος ενημερώσεων"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Check your email and click the activation link. The key works after that."
+msgstr "Ελέγξτε το email σας και ανοίξτε τον σύνδεσμο ενεργοποίησης. Το κλειδί λειτουργεί μετά από αυτό."
+
 #: src/components/clio/provider-panel-footer.tsx
 msgid "checked {short} ago"
 msgstr "ελέγχθηκε πριν από {short}"
@@ -8378,10 +8349,6 @@ msgstr "Έλεγχος της σύνδεσης MCP…"
 msgid "Checking the operating system, Docker, local runtimes, acceleration, and existing {agent} services."
 msgstr "Έλεγχος του λειτουργικού συστήματος, του Docker, των τοπικών περιβαλλόντων εκτέλεσης, της επιτάχυνσης και των υπαρχουσών υπηρεσιών του {agent}."
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Checking the service and loading its tool catalog."
-msgstr "Έλεγχος της υπηρεσίας και φόρτωση του καταλόγου εργαλείων της."
-
 #: src/components/clio/managed-services.tsx
 msgid "Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing {agent} services."
 msgstr "Έλεγχος της σύνδεσης SSH, του λειτουργικού συστήματος, του Docker, των περιβαλλόντων εκτέλεσης, της επιτάχυνσης και των υπαρχουσών υπηρεσιών του {agent}."
@@ -8427,7 +8394,6 @@ msgstr "Έλεγχος του κλειδιού σας…"
 #: src/components/clio/provider-action-flows.ts
 #: src/components/clio/provider-actions.ts
 #: src/components/clio/service-management-panel.tsx
-#: src/components/clio/web-search-setup.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Checking…"
 msgstr "Έλεγχος…"
@@ -9075,38 +9041,6 @@ msgstr "Ο πελάτης ενημερώθηκε και ο κατάλογος α
 #: src/components/clio/provider-model-refresh.ts
 msgid "Client updated; no new models found. New models may need an official {company} client update."
 msgstr "Ο πελάτης ενημερώθηκε· δεν βρέθηκαν νέα μοντέλα. Τα νέα μοντέλα ίσως χρειάζονται επίσημη ενημέρωση του πελάτη {company}."
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search is ready"
-msgstr "Η Αναζήτηση CLIO είναι έτοιμη"
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search still needs setup"
-msgstr "Η Αναζήτηση CLIO χρειάζεται ακόμη ρύθμιση"
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search was installed but is not ready"
-msgstr "Η Αναζήτηση CLIO εγκαταστάθηκε αλλά δεν είναι έτοιμη"
-
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "CLIO Web Search"
-msgstr "CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not be connected"
-msgstr "Δεν ήταν δυνατή η σύνδεση του CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not be disconnected"
-msgstr "Δεν ήταν δυνατή η αποσύνδεση του CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not complete the connection"
-msgstr "Το CLIO Web Search δεν μπόρεσε να ολοκληρώσει τη σύνδεση"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search disconnected"
-msgstr "Το CLIO Web Search αποσυνδέθηκε"
 
 #: src/lib/context-mode.ts
 msgid "clio-core is not installed on this server, so conversations are kept in memory only and are lost on restart. Context editing and compaction are off."
@@ -9835,10 +9769,6 @@ msgstr "Ρύθμιση αυτής της σύνδεσης"
 msgid "Configured in"
 msgstr "Ρυθμίζεται σε"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Configured search engines"
-msgstr "Ρυθμισμένες μηχανές αναζήτησης"
-
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Confirm"
 msgstr "Επιβεβαίωση"
@@ -9885,7 +9815,6 @@ msgstr "Σύγκρουση"
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-setup-action.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Connect"
 msgstr "Σύνδεση"
 
@@ -9985,11 +9914,6 @@ msgstr "Σύνδεση μέσω διεύθυνσης"
 msgid "Connect by Address…"
 msgstr "Σύνδεση μέσω διεύθυνσης…"
 
-#: src/components/clio/infrastructure-services-section.tsx
-#: src/components/clio/web-search-setup.tsx
-msgid "Connect CLIO Web Search"
-msgstr "Σύνδεση CLIO Web Search"
-
 #: src/components/clio/connected-data-setup-link.tsx
 msgid "Connect data"
 msgstr "Σύνδεση δεδομένων"
@@ -10048,10 +9972,6 @@ msgstr "Συνδεθείτε πρώτα στην υπηρεσία."
 msgid "Connect vault"
 msgstr "Σύνδεση θησαυροφυλακίου"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Connect web research"
-msgstr "Σύνδεση διαδικτυακής έρευνας"
-
 #: src/components/clio/extension-discover.tsx
 msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
 msgstr "Συνδέστε την εγκατάσταση Home Assistant ή εκτελέστε το πακέτο ha-mcp στον κεντρικό υπολογιστή του πράκτορα."
@@ -10060,7 +9980,6 @@ msgstr "Συνδέστε την εγκατάσταση Home Assistant ή εκτ�
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/infrastructure-hosts.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/managed-service-host-selector.tsx
 #: src/components/clio/managed-services.tsx
 #: src/lib/infrastructure-service-labels.ts
@@ -10116,7 +10035,6 @@ msgid "Connected sources could not be loaded."
 msgstr "Δεν ήταν δυνατή η φόρτωση των συνδεδεμένων πηγών."
 
 #: src/components/clio/managed-service-inventory-row.tsx
-#: src/components/clio/web-search-service-connection.tsx
 msgid "Connected to {agent}"
 msgstr "Συνδεδεμένο με {agent}"
 
@@ -10148,10 +10066,6 @@ msgstr "Σύνδεση θυγατρικού πράκτορα"
 #: src/components/clio/deploy-progress-model.ts
 msgid "Connecting over SSH"
 msgstr "Σύνδεση μέσω SSH"
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Connecting search tools to {agent}…"
-msgstr "Σύνδεση εργαλείων αναζήτησης στον {agent}…"
 
 #: src/lib/mcp-preparation.ts
 msgid "Connecting the server for this conversation; its tools join when it is ready."
@@ -10236,10 +10150,6 @@ msgstr "Η σύνδεση καθιστά αυτή την υπηρεσία δια
 msgid "Connection map"
 msgstr "Χάρτης συνδέσεων"
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Connection needs attention"
-msgstr "Η σύνδεση χρειάζεται προσοχή"
-
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Connection route"
 msgstr "Διαδρομή σύνδεσης"
@@ -10273,6 +10183,14 @@ msgstr "Συνδέσεις από αυτόν τον πελάτη προς τον
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Connects from {hostLabel}. A selected key or password is sent privately to this {agent} and kept in memory until disconnect or restart. It is never included in the conversation. Without a selected key, this host's configured keys or SSH agent are used. Interactive Duo/2FA, security-key prompts and Kerberos require {product}."
 msgstr "Συνδέεται από {hostLabel}. Ένα επιλεγμένο κλειδί ή κωδικός πρόσβασης αποστέλλεται ιδιωτικά σε αυτόν τον {agent} και διατηρείται στη μνήμη μέχρι την αποσύνδεση ή την επανεκκίνηση. Δεν περιλαμβάνεται ποτέ στη συνομιλία. Χωρίς επιλεγμένο κλειδί, χρησιμοποιούνται τα διαμορφωμένα κλειδιά αυτού του κεντρικού υπολογιστή ή ο SSH agent. Το διαδραστικό Duo/2FA, οι προτροπές κλειδιού ασφαλείας και το Kerberos απαιτούν {product}."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Contact email"
+msgstr "Email επικοινωνίας"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Contact email for Crossref and OpenAlex (optional)"
+msgstr "Email επικοινωνίας για Crossref και OpenAlex (προαιρετικό)"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Container"
@@ -11711,10 +11629,6 @@ msgstr "Δημιουργία…"
 msgid "Creation log"
 msgstr "Αρχείο καταγραφής δημιουργίας"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Credential reference"
-msgstr "Αναφορά διαπιστευτηρίων"
-
 #: src/components/clio/settings-model-server-details.tsx
 #: src/lib/provider-availability.ts
 msgid "Credentials"
@@ -11731,6 +11645,10 @@ msgstr "Πίστωση"
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Critical risk"
 msgstr "Κρίσιμος κίνδυνος"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Crossref and OpenAlex answer faster when a search names a contact."
+msgstr "Το Crossref και το OpenAlex απαντούν γρηγορότερα όταν μια αναζήτηση δηλώνει επαφή."
 
 #: src/widget-gallery-demos.ts
 msgid "Crushed tomatoes"
@@ -12018,6 +11936,10 @@ msgstr "Άρνηση"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "Απορρίφθηκε από εσάς"
+
+#: src/lib/search-source-status.ts
+msgid "Declined this session"
+msgstr "Απορρίφθηκε σε αυτή τη συνεδρία"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decoded host"
@@ -12694,7 +12616,6 @@ msgstr "Απόρριψη…"
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/managed-services.tsx
 #: src/components/clio/settings-mcp-services.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Disconnect"
 msgstr "Αποσύνδεση"
 
@@ -12754,6 +12675,7 @@ msgstr "Συζήτηση"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/interaction-frame-header.tsx
+#: src/components/clio/settings-web-search.tsx
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Dismiss"
 msgstr "Παράβλεψη"
@@ -13256,6 +13178,10 @@ msgstr "Σύρετε για μετακίνηση, κύλιση με {primary} γ
 msgid "Drag to reorder"
 msgstr "Σύρετε για αναδιάταξη"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Drag to reorder {source}"
+msgstr "Σύρετε για αναδιάταξη του {source}"
+
 #: src/components/clio/session-rail-customize.tsx
 msgid "Drag to reorder, or {keys}"
 msgstr "Σύρετε για αναδιάταξη ή {keys}"
@@ -13426,13 +13352,8 @@ msgid "Edit address"
 msgstr "Επεξεργασία διεύθυνσης"
 
 #: src/components/clio/managed-service-host-selector.tsx
-#: src/components/clio/managed-service-inventory-row.tsx
 msgid "Edit connection"
 msgstr "Επεξεργασία σύνδεσης"
-
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "Edit connection CLIO Web Search"
-msgstr "Επεξεργασία σύνδεσης CLIO Web Search"
 
 #: src/components/clio/ndp-endpoint-actions.tsx
 msgid "Edit endpoint"
@@ -13643,21 +13564,9 @@ msgstr "Κενό"
 msgid "Empty text"
 msgstr "Κενό κείμενο"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Enable {name}"
-msgstr "Ενεργοποίηση {name}"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Enable the sources you want. Drag to arrange the list; result ranking is handled by SearXNG."
-msgstr "Ενεργοποιήστε τις πηγές που θέλετε. Σύρετε για να ταξινομήσετε τη λίστα· την κατάταξη των αποτελεσμάτων την αναλαμβάνει το SearXNG."
-
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "Ενεργοποιημένο"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Encyclopedia articles."
-msgstr "Άρθρα εγκυκλοπαίδειας."
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -13980,6 +13889,10 @@ msgstr "Κάθε Δευτέρα"
 msgid "Every Saturday"
 msgstr "Κάθε Σάββατο"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Every source that is on is searched together, so there is no order to set."
+msgstr "Όλες οι ενεργές πηγές αναζητούνται μαζί, οπότε δεν υπάρχει σειρά να οριστεί."
+
 #: src/components/clio/settings-schedule-time.ts
 msgid "Every Sunday"
 msgstr "Κάθε Κυριακή"
@@ -14051,10 +13964,6 @@ msgstr "Πηγές τεκμηρίων"
 #: src/components/clio/attention-lookup-panel.tsx
 msgid "Evidence: {field}"
 msgstr "Τεκμήρια: {field}"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Exact SearXNG engine name"
-msgstr "Ακριβές όνομα μηχανής SearXNG"
 
 #: src/lib/session-export/archive-evidence.tsx
 msgid "Exact tool records"
@@ -15413,6 +15322,14 @@ msgstr "δωρεάν"
 msgid "Free"
 msgstr "Δωρεάν"
 
+#: src/lib/search-source-status.ts
+msgid "Free allowance used by {agent}: {used} of {limit} this hour"
+msgstr "Δωρεάν όριο που χρησιμοποίησε το {agent}: {used} από {limit} αυτή την ώρα"
+
+#: src/lib/search-source-status.ts
+msgid "Free allowance used by {agent}: {used} of {limit} today"
+msgstr "Δωρεάν όριο που χρησιμοποίησε το {agent}: {used} από {limit} σήμερα"
+
 #: src/components/clio/context-usage.tsx
 msgid "Free space"
 msgstr "Ελεύθερος χώρος"
@@ -15420,6 +15337,18 @@ msgstr "Ελεύθερος χώρος"
 #: src/components/clio/model-acquisition.tsx
 msgid "Free space in {path}"
 msgstr "Ελεύθερος χώρος στο {path}"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Free use: {freeUse}"
+msgstr "Δωρεάν χρήση: {freeUse}"
+
+#: src/lib/search-source-status.ts
+msgid "Free, no key"
+msgstr "Δωρεάν, χωρίς κλειδί"
+
+#: src/lib/search-source-status.ts
+msgid "Free, with your contact email"
+msgstr "Δωρεάν, με το email επικοινωνίας σας"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Frequency penalty"
@@ -15653,18 +15582,6 @@ msgstr "gateway ή alice@gateway.example.edu:2222"
 msgid "General"
 msgstr "Γενικά"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search using an independent index."
-msgstr "Γενική αναζήτηση στον ιστό με ανεξάρτητο ευρετήριο."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search using Brave’s index."
-msgstr "Γενική αναζήτηση στον ιστό με το ευρετήριο του Brave."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search."
-msgstr "Γενική αναζήτηση στον ιστό."
-
 #: src/components/clio/tool-presentation.ts
 msgid "Generate widget"
 msgstr "Δημιουργία γραφικού στοιχείου"
@@ -15692,6 +15609,14 @@ msgstr "Δεδομένα GeoJSON"
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "geometry only"
 msgstr "μόνο γεωμετρία"
+
+#: src/components/clio/openalex-key-request.tsx
+msgid "Get a free OpenAlex key"
+msgstr "Λήψη δωρεάν κλειδιού OpenAlex"
+
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Get a key"
+msgstr "Λήψη κλειδιού"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Get execution environment"
@@ -16594,6 +16519,18 @@ msgstr "Εισαγόμενο: ελέγξτε το πριν εφαρμοστεί"
 msgid "Importing…"
 msgstr "Εισαγωγή…"
 
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {running} running"
+msgstr "Στην ουρά του {agent}: {running} σε εξέλιξη"
+
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {running} running, {waiting} waiting"
+msgstr "Στην ουρά του {agent}: {running} σε εξέλιξη, {waiting} σε αναμονή"
+
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {waiting} waiting"
+msgstr "Στην ουρά του {agent}: {waiting} σε αναμονή"
+
 #: src/components/clio/tool-operation.ts
 msgid "in {delay}"
 msgstr "σε {delay}"
@@ -17189,10 +17126,6 @@ msgstr "Εγκατάσταση του {agentName} σε υπολογιστή"
 msgid "Install {label}"
 msgstr "Εγκατάσταση {label}"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Install {name}"
-msgstr "Εγκατάσταση {name}"
-
 #: src/tauri/native-copy.ts
 msgid "Install {name} on a Computer…"
 msgstr "Εγκατάσταση του {name} σε υπολογιστή…"
@@ -17265,10 +17198,6 @@ msgstr "Εγκατεστημένο {name}"
 #: src/components/clio/settings-agents.tsx
 msgid "Installed agents"
 msgstr "Εγκατεστημένοι πράκτορες"
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "Installed as"
-msgstr "Εγκατεστημένο ως"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17752,6 +17681,11 @@ msgstr "Θέμα Kafka"
 msgid "Keep"
 msgstr "Διατήρηση"
 
+#: src/components/clio/search-source-row.tsx
+msgctxt "verb: keep the saved key"
+msgid "Keep"
+msgstr "Διατήρηση"
+
 #: src/components/clio/tool-operation-contract.ts
 msgctxt "verb: tool action"
 msgid "Keep"
@@ -17861,6 +17795,10 @@ msgstr "Διατηρεί την περιοχή της εικόνας και τη
 msgid "Kept in"
 msgstr "Φυλάσσεται σε"
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Key"
+msgstr "Κλειδί"
+
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Key file on {hostLabel}"
 msgstr "Αρχείο κλειδιού στο {hostLabel}"
@@ -17876,6 +17814,14 @@ msgstr "Φράση πρόσβασης κλειδιού"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Key passphrase (optional)"
 msgstr "Φράση πρόσβασης κλειδιού (προαιρετικό)"
+
+#: src/lib/search-source-status.ts
+msgid "Key rejected"
+msgstr "Το κλειδί απορρίφθηκε"
+
+#: src/lib/search-source-status.ts
+msgid "Key required"
+msgstr "Απαιτείται κλειδί"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "key sha256/{fingerprint}"
@@ -18125,6 +18071,10 @@ msgstr "Περιορισμένο"
 msgid "Limited history"
 msgstr "Περιορισμένο ιστορικό"
 
+#: src/lib/search-source-status.ts
+msgid "Limited until {time}"
+msgstr "Περιορισμένη έως τις {time}"
+
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Limits"
@@ -18269,6 +18219,11 @@ msgstr "Λίστα πόρων χώρου εργασίας"
 #: src/components/clio/knowledge-vault-files.tsx
 msgid "Listing notes"
 msgstr "Παράθεση σημειώσεων"
+
+#: src/components/clio/settings-web-search.tsx
+msgctxt "search settings tab"
+msgid "Literature"
+msgstr "Βιβλιογραφία"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "live"
@@ -18881,6 +18836,10 @@ msgstr "Φόρτωση χρονοπρογραμματισμών…"
 msgid "Loading science log"
 msgstr "Φόρτωση επιστημονικού ημερολογίου"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Loading search sources…"
+msgstr "Φόρτωση πηγών αναζήτησης…"
+
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Loading service…"
 msgstr "Φόρτωση υπηρεσίας…"
@@ -19058,7 +19017,6 @@ msgstr "Φόρτωση…"
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/infrastructure-hosts.tsx
 #: src/components/clio/infrastructure-inventory.tsx
-#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/infrastructure-topology.tsx
 #: src/components/clio/managed-service-host-selector.tsx
 #: src/components/clio/managed-services.tsx
@@ -19208,6 +19166,10 @@ msgstr "Μέγιστη απάντηση"
 msgid "Look inside a file"
 msgstr "Προβολή του εσωτερικού ενός αρχείου"
 
+#: src/components/clio/tool-operation-contract.ts
+msgid "Look up"
+msgstr "Αναζήτηση στοιχείων"
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Look-alike address warning"
 msgstr "Προειδοποίηση παρόμοιας διεύθυνσης"
@@ -19354,10 +19316,6 @@ msgstr "Διαχείριση υπηρεσιών στον συνδεδεμένο 
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Manage SSH hosts"
 msgstr "Διαχείριση κεντρικών υπολογιστών SSH"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Manage web research"
-msgstr "Διαχείριση διαδικτυακής έρευνας"
 
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Managed"
@@ -20343,6 +20301,14 @@ msgstr "Μετακίνηση"
 msgid "Move {name} to Applications?"
 msgstr "Μετακίνηση του {name} στις Εφαρμογές;"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Move {source} down"
+msgstr "Μετακίνηση του {source} κάτω"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Move {source} up"
+msgstr "Μετακίνηση του {source} πάνω"
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Move between nodes"
 msgstr "Μετακίνηση μεταξύ κόμβων"
@@ -20478,10 +20444,6 @@ msgstr "National Data Platform"
 msgid "Native"
 msgstr "Εγγενής"
 
-#: src/lib/installer-native-search.ts
-msgid "Native web search is available to your agents. No Docker service is required."
-msgstr "Η εγγενής αναζήτηση ιστού είναι διαθέσιμη στους πράκτορές σας. Δεν απαιτείται υπηρεσία Docker."
-
 #: src/components/clio/map-initial-view.ts
 msgid "Natural Earth coarse land outline"
 msgstr "Αδρό περίγραμμα ξηράς Natural Earth"
@@ -20571,8 +20533,6 @@ msgstr "Απαιτεί έγκριση σε έναν χώρο εργασίας"
 msgid "Needs approval, set by you"
 msgstr "Απαιτεί έγκριση, ορίστηκε από εσάς"
 
-#: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/settings-operations.tsx
@@ -20659,6 +20619,10 @@ msgstr "Σας χρειάζεται"
 #: src/components/clio/workbench-activity-model.ts
 msgid "needs your answer"
 msgstr "χρειάζεται την απάντησή σας"
+
+#: src/lib/search-source-status.ts
+msgid "Needs your key"
+msgstr "Χρειάζεται το κλειδί σας"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Needs your response"
@@ -21612,6 +21576,10 @@ msgstr "Κανένα πακέτο δεν φέρνει υποπράκτορες."
 msgid "No package brings tools."
 msgstr "Κανένα πακέτο δεν φέρνει εργαλεία."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "No paper or dataset sources are available on this service."
+msgstr "Δεν υπάρχουν πηγές άρθρων ή συνόλων δεδομένων σε αυτή την υπηρεσία."
+
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
 msgstr "Χωρίς PDF: η μεταγλώττιση σταμάτησε πριν δημιουργήσει ένα"
@@ -21705,10 +21673,6 @@ msgstr "Δεν υπάρχει έκδοση για σύγκριση."
 #: src/components/clio/relay-settings.tsx
 msgid "No remote MCP servers yet."
 msgstr "Δεν υπάρχουν ακόμη απομακρυσμένοι διακομιστές MCP."
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "No research service connected"
-msgstr "Δεν έχει συνδεθεί υπηρεσία έρευνας"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
@@ -21970,6 +21934,10 @@ msgstr "Δεν υπάρχει ακόμη πρόγραμμα προβολής γ�
 msgid "No visible endpoints. Connect an API or show hidden connections."
 msgstr "Δεν υπάρχουν ορατές διευθύνσεις. Συνδέστε ένα API ή εμφανίστε τις κρυφές συνδέσεις."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "No web sources are available on this service."
+msgstr "Δεν υπάρχουν πηγές ιστού σε αυτή την υπηρεσία."
+
 #: src/lib/fleet-usage.ts
 msgid "No windows"
 msgstr "Χωρίς παράθυρα"
@@ -22080,6 +22048,10 @@ msgstr "Δεν επιτρέπεται ακόμη"
 msgid "Not answered: {status}"
 msgstr "Χωρίς απάντηση: {status}"
 
+#: src/lib/search-source-status.ts
+msgid "Not approved yet"
+msgstr "Δεν έχει εγκριθεί ακόμη"
+
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/hooks/use-connection-availability.ts
@@ -22160,14 +22132,11 @@ msgstr "δεν επιβεβαιώθηκε"
 msgid "Not confirmed"
 msgstr "Δεν επιβεβαιώθηκε"
 
-#: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/session-usage-readout.tsx
 msgid "Not connected"
 msgstr "Δεν συνδέθηκε"
 
 #: src/components/clio/managed-service-inventory-row.tsx
-#: src/components/clio/web-search-service-connection.tsx
 msgid "Not connected to {agent}"
 msgstr "Δεν είναι συνδεδεμένο με {agent}"
 
@@ -22277,14 +22246,9 @@ msgstr "Δεν δόθηκε"
 
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/settings-connection-runtime.ts
-#: src/components/clio/web-search-setup.tsx
 #: src/hooks/use-connection-availability.ts
 msgid "Not reachable"
 msgstr "Μη προσβάσιμο"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Not reachable, checked {checked}"
-msgstr "Μη προσβάσιμο, έλεγχος {checked}"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "not recorded"
@@ -22730,6 +22694,11 @@ msgstr "Θησαυροφυλάκιο Obsidian Sync"
 #: src/lib/reasoning-levels.ts
 msgid "Off"
 msgstr "Ανενεργό"
+
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Off"
+msgstr "Ανενεργή"
 
 #: src/components/clio/managed-service-access.tsx
 msgid "Off: {agent} protects it with a key it makes and sends for you."
@@ -23279,15 +23248,6 @@ msgstr "Άνοιγμα συμπεριλαμβανόμενου αρχείου π�
 msgid "Open Inference"
 msgstr "Άνοιγμα Συμπερασμού"
 
-#: src/lib/installer-infrastructure.ts
-msgid "Open Infrastructure to inspect the service."
-msgstr "Ανοίξτε την Υποδομή για να ελέγξετε την υπηρεσία."
-
-#: src/lib/installer-infrastructure.ts
-#: src/lib/installer-native-search.ts
-msgid "Open Infrastructure to inspect this computer."
-msgstr "Ανοίξτε την Υποδομή για να ελέγξετε αυτόν τον υπολογιστή."
-
 #: src/components/clio/pending-a2ui-response.tsx
 msgid "Open interactive surface full screen"
 msgstr "Άνοιγμα της διαδραστικής επιφάνειας σε πλήρη οθόνη"
@@ -23517,6 +23477,10 @@ msgstr "Άνοιγμα διάρθρωσης πρακτικών"
 msgid "Open transcript outline with attention"
 msgstr "Άνοιγμα διάρθρωσης πρακτικών με προσοχή"
 
+#: src/components/clio/infrastructure-overview.tsx
+msgid "Open web search settings"
+msgstr "Άνοιγμα ρυθμίσεων αναζήτησης ιστού"
+
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"
 msgstr "Άνοιγμα Εργασιών"
@@ -23663,10 +23627,6 @@ msgstr "προαιρετικό"
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Προαιρετικό"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Optional, e.g. infrastructure:nsf-search"
-msgstr "Προαιρετικό, π.χ. infrastructure:nsf-search"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -23990,6 +23950,10 @@ msgstr "σελίδα {pageNumber}, x {xRange}, y {yRange}"
 msgid "Pages you or the agent open appear here."
 msgstr "Οι σελίδες που ανοίγετε εσείς ή ο πράκτορας εμφανίζονται εδώ."
 
+#: src/components/clio/search-source-row.tsx
+msgid "Paid plan: {agent} sets no free allowance and runs more requests at once"
+msgstr "Πληρωμένο πρόγραμμα: το {agent} δεν ορίζει δωρεάν όριο και εκτελεί περισσότερα αιτήματα ταυτόχρονα"
+
 #: src/components/clio/document-view-controls.tsx
 #: src/components/clio/latex-frame-controls.tsx
 msgid "Paper"
@@ -24006,6 +23970,14 @@ msgstr "Προβολές εργασίας"
 #: src/components/clio/settings-appearance.tsx
 msgid "Paper, ink and verdigris."
 msgstr "Χαρτί, μελάνι και πατίνα."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Papers & datasets"
+msgstr "Άρθρα και σύνολα δεδομένων"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Papers & datasets sources"
+msgstr "Πηγές άρθρων και συνόλων δεδομένων"
 
 #: src/lib/model-capability-tags.ts
 msgid "Parallel tools"
@@ -24111,6 +24083,10 @@ msgstr "Επικολλήστε το URL ανακατεύθυνσης ή τον �
 msgid "Paste token"
 msgstr "Επικόλληση διακριτικού"
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Paste your {name} key"
+msgstr "Επικολλήστε το κλειδί σας για το {name}"
+
 #: src/components/clio/provider-setup-action.tsx
 msgid "Paste your {provider} key"
 msgstr "Επικολλήστε το κλειδί σας για {provider}"
@@ -24199,6 +24175,10 @@ msgstr "σε παύση"
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "Σε παύση"
+
+#: src/lib/search-source-status.ts
+msgid "Paused after errors until {time}"
+msgstr "Σε παύση λόγω σφαλμάτων έως τις {time}"
 
 #: src/components/clio/run-presentation.ts
 msgctxt "run state"
@@ -25764,14 +25744,9 @@ msgstr "Ανεπεξέργαστα πρακτικά"
 msgid "Raw values"
 msgstr "Ακατέργαστες τιμές"
 
-#: src/components/clio/web-search-setup.tsx
 #: src/lib/provider-availability.ts
 msgid "Reachable"
 msgstr "Προσβάσιμο"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Reachable, checked {checked}"
-msgstr "Προσβάσιμο, έλεγχος {checked}"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Reached {host} via {route}."
@@ -26117,6 +26092,11 @@ msgstr "Διαβάζει έως {tokens} token ταυτόχρονα. Το ίδι
 msgid "Ready"
 msgstr "Έτοιμο"
 
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Ready"
+msgstr "Έτοιμη"
+
 #: src/routes/infrastructure-foundation-groups.tsx
 msgid "Ready and working"
 msgstr "Έτοιμο και σε λειτουργία"
@@ -26288,10 +26268,6 @@ msgstr "Πρόσφατα αρχεία καταγραφής σε {hostLabel}"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "Πρόσφατα αποσπάσματα συνεδρίας"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Recheck"
-msgstr "Επανέλεγχος"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Recommended"
@@ -26915,6 +26891,11 @@ msgstr "Απομακρυσμένα εργαλεία"
 msgid "Remove"
 msgstr "Αφαίρεση"
 
+#: src/components/clio/search-source-row.tsx
+msgctxt "verb: remove the saved key"
+msgid "Remove"
+msgstr "Αφαίρεση"
+
 #. placeholder {0}: row?.title ?? value
 #: src/components/clio/capability-picker.tsx
 msgid "Remove {0}"
@@ -27061,6 +27042,7 @@ msgid "Remove jump host {number}"
 msgstr "Αφαίρεση ενδιάμεσου κεντρικού υπολογιστή {number}"
 
 #: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/search-source-row.tsx
 msgid "Remove key"
 msgstr "Αφαίρεση κλειδιού"
 
@@ -27124,6 +27106,10 @@ msgstr "Αφαίρεση πηγής"
 msgid "Remove the copy and its local edits? Originals are kept."
 msgstr "Αφαίρεση του αντιγράφου και των τοπικών επεξεργασιών του; Τα πρωτότυπα διατηρούνται."
 
+#: src/components/clio/search-source-row.tsx
+msgid "Remove the key?"
+msgstr "Αφαίρεση του κλειδιού;"
+
 #: src/components/clio/connected-source-detail.tsx
 msgid "Remove the workspace copy? Originals are kept."
 msgstr "Αφαίρεση του αντιγράφου του χώρου εργασίας; Τα πρωτότυπα διατηρούνται."
@@ -27147,6 +27133,10 @@ msgstr "Αφαίρεση γραφικού στοιχείου"
 #: src/components/clio/workspace-actions-menu.tsx
 msgid "Remove workspace…"
 msgstr "Αφαίρεση χώρου εργασίας…"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Remove your {source} key"
+msgstr "Αφαίρεση του κλειδιού σας για το {source}"
 
 #: src/components/clio/diff-lines.tsx
 #: src/components/clio/infrastructure-activity.tsx
@@ -27310,10 +27300,6 @@ msgstr "Απόδοση..."
 #: src/widget-gallery-demos.ts
 msgid "Reno"
 msgstr "Reno"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Reorder {name}"
-msgstr "Αναδιάταξη {name}"
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Reorder destination"
@@ -27518,6 +27504,10 @@ msgstr "Κεφαλίδες αιτήματος"
 msgid "Request JSON"
 msgstr "JSON αιτήματος"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Request key"
+msgstr "Αίτηση κλειδιού"
+
 #: src/components/clio/settings-models-rows.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Request timeout"
@@ -27535,6 +27525,10 @@ msgstr "Ζητήθηκε από τη συνεδρία {session}"
 #: src/routes/runs-page.tsx
 msgid "Requesting cancellation…"
 msgstr "Αίτημα ακύρωσης…"
+
+#: src/components/clio/openalex-key-request.tsx
+msgid "Requesting…"
+msgstr "Αίτηση…"
 
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Requests"
@@ -27587,14 +27581,6 @@ msgstr "Μοντέλο επανακατάταξης"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "Τα μοντέλα επανακατάταξης δεν μπορούν να διεξάγουν συνομιλία."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Research papers and citations."
-msgstr "Ερευνητικές δημοσιεύσεις και παραπομπές."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Research preprints."
-msgstr "Ερευνητικές προδημοσιεύσεις."
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -28097,6 +28083,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/settings-web-search.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/transcript-inline-states.tsx
 #: src/components/clio/workbench-file-tree.tsx
@@ -28128,7 +28115,6 @@ msgid "Retry attachment"
 msgstr "Επανάληψη συνημμένου"
 
 #: src/components/clio/managed-service-host-selector.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Retry connection"
 msgstr "Επανάληψη σύνδεσης"
 
@@ -28862,6 +28848,11 @@ msgstr "Σάββατο"
 msgid "Save"
 msgstr "Αποθήκευση"
 
+#: src/components/clio/search-text-setting.tsx
+msgctxt "verb: save a setting"
+msgid "Save"
+msgstr "Αποθήκευση"
+
 #: src/components/clio/tool-operation-contract.ts
 msgctxt "verb: tool action"
 msgid "Save"
@@ -28886,10 +28877,6 @@ msgstr "Αποθηκεύστε πρώτα έναν πράκτορα, μια δε
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "Save and check"
 msgstr "Αποθήκευση και έλεγχος"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Save and reconnect"
-msgstr "Αποθήκευση και επανασύνδεση"
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "Save another agent to switch to. Nothing changes until you switch."
@@ -28930,6 +28917,10 @@ msgstr "Αποθήκευση για"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Save host"
 msgstr "Αποθήκευση κεντρικού υπολογιστή"
+
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Save key"
+msgstr "Αποθήκευση κλειδιού"
 
 #: src/components/clio/plugin-source-editor.tsx
 msgid "Save local copy"
@@ -28979,10 +28970,6 @@ msgstr "Αποθήκευση παράκαμψης υπηρεσίας"
 #: src/lib/shortcuts/catalog.ts
 msgid "Save the draft for later"
 msgstr "Αποθήκευση του πρόχειρου για αργότερα"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Save this endpoint before checking it."
-msgstr "Αποθηκεύστε αυτήν τη διεύθυνση πριν την ελέγξετε."
 
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Save this new prompt before rendering it against live context"
@@ -29160,10 +29147,6 @@ msgstr "Αποθηκεύτηκε στην Ιδιωτική τοπική αγορ
 msgid "Saved without a model call"
 msgstr "Αποθηκεύτηκε χωρίς κλήση μοντέλου"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Saved, but the service isn’t answering. Start it or fix the address."
-msgstr "Αποθηκεύτηκε, αλλά η υπηρεσία δεν απαντά. Ξεκινήστε την ή διορθώστε τη διεύθυνση."
-
 #: src/lib/provider-availability.ts
 msgid "Saved, not verified"
 msgstr "Αποθηκεύτηκε, δεν επαληθεύτηκε"
@@ -29221,6 +29204,8 @@ msgstr "Αποθήκευση του κλειδιού σας…"
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/resource-dialogs.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
+#: src/components/clio/search-source-key-dialog.tsx
+#: src/components/clio/search-text-setting.tsx
 #: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-models.tsx
 #: src/components/clio/settings-prompt-editor.tsx
@@ -29311,10 +29296,6 @@ msgstr "Χρονοπρογραμματισμοί"
 msgid "Schedules could not be loaded."
 msgstr "Δεν ήταν δυνατή η φόρτωση των χρονοπρογραμματισμών."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Scholarly publications and DOI metadata."
-msgstr "Επιστημονικές δημοσιεύσεις και μεταδεδομένα DOI."
-
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/science-log-tab-state.ts
 #: src/components/clio/science-log-tab.tsx
@@ -29344,6 +29325,10 @@ msgstr "Επιστημονικό"
 #: src/components/clio/settings-health-views.tsx
 msgid "Scientific remote connection"
 msgstr "Επιστημονική απομακρυσμένη σύνδεση"
+
+#: src/components/clio/managed-service-groups.ts
+msgid "Scientific services"
+msgstr "Επιστημονικές υπηρεσίες"
 
 #: src/lib/model-capability-tags.ts
 msgid "Scientific surrogate"
@@ -29498,10 +29483,6 @@ msgstr "Αναζήτηση σε όλους τους τύπους"
 msgid "Search and commands"
 msgstr "Αναζήτηση και εντολές"
 
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "Search and read sources through CLIO Web Search."
-msgstr "Αναζήτηση και ανάγνωση πηγών μέσω του CLIO Web Search."
-
 #: src/components/clio/ndp-action-picker.tsx
 msgid "Search API actions…"
 msgstr "Αναζήτηση ενεργειών API…"
@@ -29542,14 +29523,6 @@ msgstr "Αναζήτηση συνόλων δεδομένων"
 #: src/components/clio/ndp-action-picker.tsx
 msgid "Search endpoint actions"
 msgstr "Αναζήτηση ενεργειών διεύθυνσης"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Search engines"
-msgstr "Μηχανές αναζήτησης"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Search engines <0>{enabledCount} enabled</0>"
-msgstr "Μηχανές αναζήτησης <0>{enabledCount} ενεργές</0>"
 
 #: src/components/clio/model-picker-no-match.tsx
 msgid "Search every model type"
@@ -29596,6 +29569,10 @@ msgstr "Αναζήτηση στα συμπεριλαμβανόμενα αρχε�
 #: src/components/clio/search-assistant.tsx
 msgid "Search is unavailable on this connection. Update its agent to enable it."
 msgstr "Η αναζήτηση δεν είναι διαθέσιμη σε αυτή τη σύνδεση. Ενημερώστε τον πράκτορά της για να την ενεργοποιήσετε."
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Search literature"
+msgstr "Αναζήτηση βιβλιογραφίας"
 
 #: src/components/clio/memory-documents.tsx
 #: src/components/clio/settings-memory.tsx
@@ -29668,6 +29645,10 @@ msgstr "Αναζήτηση εκτελέσεων"
 msgid "Search sections…"
 msgstr "Αναζήτηση ενοτήτων…"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Search service address"
+msgstr "Διεύθυνση υπηρεσίας αναζήτησης"
+
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "Search services"
@@ -29692,6 +29673,10 @@ msgstr "Αναζήτηση αρχείων πηγής"
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Search sources"
 msgstr "Αναζήτηση πηγών"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Search sources couldn’t be loaded."
+msgstr "Δεν ήταν δυνατή η φόρτωση των πηγών αναζήτησης."
 
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "Search stations"
@@ -29790,6 +29775,10 @@ msgstr "Αναζήτηση…"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "searched"
 msgstr "αναζήτησε"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Searches are sent to the services below. Each one asks for your approval the first time."
+msgstr "Οι αναζητήσεις στέλνονται στις παρακάτω υπηρεσίες. Καθεμία ζητά την έγκρισή σας την πρώτη φορά."
 
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/search-results-tab.tsx
@@ -30323,10 +30312,6 @@ msgstr "Υπηρεσία"
 #: src/components/clio/known-service-actions.tsx
 msgid "Service actions for {name}"
 msgstr "Ενέργειες υπηρεσίας για {name}"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Service address"
-msgstr "Διεύθυνση υπηρεσίας"
 
 #: src/components/clio/settings-context-history.tsx
 msgid "Service compaction"
@@ -31649,10 +31634,6 @@ msgstr "Ορισμένα περιεχόμενα δεν είναι διαθέσι
 msgid "Some dependencies or workspace folders were unavailable or excluded. See <0>Evidence and coverage</0>."
 msgstr "Ορισμένες εξαρτήσεις ή φάκελοι του χώρου εργασίας δεν ήταν διαθέσιμοι ή εξαιρέθηκαν. Δείτε <0>Τεκμήρια και κάλυψη</0>."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Some engines need a key. Engines such as baidu, sogou and 360search require explicit opt-in."
-msgstr "Ορισμένες μηχανές χρειάζονται κλειδί. Μηχανές όπως οι baidu, sogou και 360search απαιτούν ρητή ενεργοποίηση."
-
 #: src/components/clio/observability-provenance.tsx
 msgid "Some events or relationships may be missing. Review the available records before relying on the full sequence or timings."
 msgstr "Ορισμένα συμβάντα ή σχέσεις μπορεί να λείπουν. Ελέγξτε τις διαθέσιμες εγγραφές πριν βασιστείτε στην πλήρη ακολουθία ή στους χρόνους."
@@ -31719,6 +31700,7 @@ msgstr "Ήχος ακόμη και όταν είστε εδώ."
 msgid "Sound only while this app is not focused."
 msgstr "Ήχος μόνο όταν αυτή η εφαρμογή δεν είναι εστιασμένη."
 
+#: src/components/clio/search-source-key-dialog.tsx
 #: src/components/clio/workbench-activity-model.ts
 #: src/lib/composer-reference-domain.ts
 msgid "source"
@@ -31823,10 +31805,6 @@ msgstr "Πηγή του {file}"
 #: src/components/clio/file-source-view.tsx
 msgid "Source of {name}"
 msgstr "Πηγαίος κώδικας του {name}"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Source reading and research tools are connected."
-msgstr "Τα εργαλεία ανάγνωσης πηγών και έρευνας είναι συνδεδεμένα."
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Source sign in"
@@ -32047,7 +32025,6 @@ msgstr "Εκκινήστε το {label} και φορτώστε ένα μοντ�
 msgid "Start {label}, then choose Use"
 msgstr "Εκκινήστε το {label} και μετά επιλέξτε Χρήση"
 
-#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Start {name}"
 msgstr "Εκκίνηση {name}"
@@ -32997,6 +32974,10 @@ msgstr "Εναλλαγή"
 msgid "Switch agent"
 msgstr "Εναλλαγή πράκτορα"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Switch sources automatically"
+msgstr "Αυτόματη αλλαγή πηγής"
+
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
 #: src/components/clio/settings-connection.tsx
@@ -33670,6 +33651,10 @@ msgstr "το μοντέλο του καλούντος"
 msgid "The certificate could not be trusted."
 msgstr "Δεν ήταν δυνατή η εμπιστοσύνη του πιστοποιητικού."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "The change could not be saved."
+msgstr "Δεν ήταν δυνατή η αποθήκευση της αλλαγής."
+
 #: src/components/clio/diff-canvas-view.tsx
 msgid "The change was not undone"
 msgstr "Η αλλαγή δεν αναιρέθηκε"
@@ -33828,10 +33813,6 @@ msgstr "Η ανατεθειμένη εργασία, ο πράκτορας που
 msgid "The deployment failed."
 msgstr "Η ανάπτυξη απέτυχε."
 
-#: src/routes/infrastructure-page.tsx
-msgid "The deployment is still running and can be connected again at any time."
-msgstr "Η ανάπτυξη εξακολουθεί να εκτελείται και μπορεί να συνδεθεί ξανά οποιαδήποτε στιγμή."
-
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "The deployment was cancelled."
 msgstr "Η ανάπτυξη ακυρώθηκε."
@@ -33879,10 +33860,6 @@ msgstr "Δεν ήταν δυνατή η ανάγνωση του τέλους"
 #: src/components/clio/workspace-text-view.tsx
 msgid "The end of {name} couldn't be read."
 msgstr "Δεν ήταν δυνατή η ανάγνωση του τέλους του {name}."
-
-#: src/components/clio/web-search-setup.tsx
-msgid "The endpoint did not report its tools."
-msgstr "Η διεύθυνση δεν ανέφερε τα εργαλεία της."
 
 #: src/components/clio/observability-provenance.tsx
 msgid "The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic."
@@ -34101,6 +34078,10 @@ msgstr "Η αιτιολόγηση του κριτή"
 msgid "The key file could not be read. Choose it again."
 msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου κλειδιού. Επιλέξτε το ξανά."
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "The key is saved securely and never shown again."
+msgstr "Το κλειδί αποθηκεύεται με ασφάλεια και δεν εμφανίζεται ξανά."
+
 #: src/components/clio/settings-language.tsx
 msgid "The language of menus, settings and messages from this app. Conversations stay in the language you and the agent write in. Changing it reloads the window."
 msgstr "Η γλώσσα των μενού, των ρυθμίσεων και των μηνυμάτων αυτής της εφαρμογής. Οι συνομιλίες παραμένουν στη γλώσσα στην οποία γράφετε εσείς και ο πράκτορας. Η αλλαγή της επαναφορτώνει το παράθυρο."
@@ -34136,10 +34117,6 @@ msgstr "Η συνδεδεμένη προβολή δεν είναι διαθέσ�
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "Η ζωντανή προβολή τελείωσε."
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "The local {agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent."
-msgstr "Ο τοπικός {agent} χρησιμοποιεί αυτόματα το ενσωματωμένο SearXNG του. Μια απομακρυσμένη εγκατάσταση SearXNG δεν επιλέγεται αυτόματα για αυτόν τον πράκτορα."
 
 #: src/tauri/desktop-updater.ts
 msgid "The local installation needs repair"
@@ -34755,15 +34732,6 @@ msgstr "Η υπηρεσία αντιμετώπισε σφάλμα κατά τη�
 #: src/components/clio/composer-failure.ts
 msgid "The service hit an error."
 msgstr "Η υπηρεσία αντιμετώπισε σφάλμα."
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "The service is running, but its search and document tools are not available to sessions."
-msgstr "Η υπηρεσία εκτελείται, αλλά τα εργαλεία αναζήτησης και εγγράφων της δεν είναι διαθέσιμα στις συνεδρίες."
-
-#: src/components/clio/web-search-service-connection.tsx
-#: src/routes/infrastructure-page.tsx
-msgid "The service is saved, but its tools did not respond."
-msgstr "Η υπηρεσία αποθηκεύτηκε, αλλά τα εργαλεία της δεν απάντησαν."
 
 #: src/components/clio/settings-context-history.tsx
 msgid "The service recommends compacting this session."
@@ -35894,6 +35862,11 @@ msgstr "Αυτή η υπηρεσία δεν προσφέρει οικογένε�
 msgid "This service doesn’t offer reminders."
 msgstr "Αυτή η υπηρεσία δεν προσφέρει υπενθυμίσεις."
 
+#: src/components/clio/settings-web-search.tsx
+#: src/hooks/use-unavailable-settings-sections.ts
+msgid "This service doesn’t offer web search settings."
+msgstr "Αυτή η υπηρεσία δεν προσφέρει ρυθμίσεις αναζήτησης ιστού."
+
 #: src/components/clio/path-picker.tsx
 msgid "This service has not exposed any folders yet. Enter a path manually, or use {product} for native folder browsing."
 msgstr "Αυτή η υπηρεσία δεν έχει εκθέσει ακόμη φακέλους. Εισαγάγετε μια διαδρομή χειροκίνητα ή χρησιμοποιήστε το {product} για εγγενή περιήγηση φακέλων."
@@ -36204,6 +36177,10 @@ msgstr "Έτος λήξης για {label}"
 #: src/components/reui/date-selector.tsx
 msgid "Today"
 msgstr "Σήμερα"
+
+#: src/lib/search-source-status.ts
+msgid "Today on this computer: {searches}, {failed} failed"
+msgstr "Σήμερα σε αυτόν τον υπολογιστή: {searches}, {failed} απέτυχαν"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Todo list reminder"
@@ -36607,6 +36584,10 @@ msgstr "Μεταφορά"
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Transport: {0}"
 msgstr "Μεταφορά: {0}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Tried from the top. Drag a source, or use Move up and Move down, to change the order."
+msgstr "Δοκιμάζονται από πάνω προς τα κάτω. Σύρετε μια πηγή ή χρησιμοποιήστε Μετακίνηση πάνω και κάτω για να αλλάξετε τη σειρά."
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "tried to edit files"
@@ -37013,6 +36994,7 @@ msgstr "Κατανοεί αρχεία PDF."
 
 #: src/components/clio/diff-canvas-view.tsx
 #: src/components/clio/settings-folders.tsx
+#: src/components/clio/settings-web-search.tsx
 msgid "Undo"
 msgstr "Αναίρεση"
 
@@ -37714,6 +37696,10 @@ msgstr "Χρήση"
 msgid "Use {label}"
 msgstr "Χρήση {label}"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Use {source}"
+msgstr "Χρήση του {source}"
+
 #: src/components/clio/settings-appearance.tsx
 msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Χρησιμοποιήστε μια εστιασμένη στήλη ανάγνωσης ή δώστε περισσότερο χώρο σε πίνακες και διαγράμματα."
@@ -37779,6 +37765,10 @@ msgstr "Χρήση μοντέλου από τις ρυθμίσεις Μοντέ�
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Use my NDP sign-in"
 msgstr "Χρήση της σύνδεσής μου NDP"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Use my profile email ({profileEmail})"
+msgstr "Χρήση του email του προφίλ μου ({profileEmail})"
 
 #: src/components/clio/ssh-route-utils.ts
 msgid "Use one OpenSSH destination, without spaces, commas, quotes or #."
@@ -38609,36 +38599,39 @@ msgstr "Καιρός για {location}"
 msgid "Weather unavailable: {error}"
 msgstr "Ο καιρός δεν είναι διαθέσιμος: {error}"
 
+#: src/components/clio/settings-web-search.tsx
+msgctxt "search settings tab"
+msgid "Web"
+msgstr "Ιστός"
+
 #: src/components/clio/settings-about.tsx
 #: src/routes/infrastructure-foundation.ts
 msgid "Web browser"
 msgstr "Πρόγραμμα περιήγησης"
 
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/managed-service-groups.ts
-msgid "Web research"
-msgstr "Διαδικτυακή έρευνα"
-
+#: src/components/clio/settings-web-search.tsx
+#: src/lib/application-destinations.ts
 #: src/lib/model-capability-tags.ts
 #: src/lib/model-quick-filters.ts
 msgid "Web search"
 msgstr "Αναζήτηση ιστού"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search did not answer"
-msgstr "Το Web Search δεν απάντησε"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web search pages"
+msgstr "Σελίδες αναζήτησης ιστού"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search disconnected"
-msgstr "Το Web Search αποσυνδέθηκε"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once."
+msgstr "Οι αναζητήσεις ιστού δοκιμάζουν τις παρακάτω πηγές με τη σειρά και χρησιμοποιούν την πρώτη που απαντά. Οι αναζητήσεις άρθρων και δεδομένων ρωτούν ταυτόχρονα κάθε ενεργή ακαδημαϊκή πηγή."
 
-#: src/lib/installer-infrastructure.ts
-msgid "Web search is available to your agents. Document conversion is an optional service feature."
-msgstr "Η αναζήτηση ιστού είναι διαθέσιμη στους πράκτορές σας. Η μετατροπή εγγράφων είναι προαιρετική δυνατότητα της υπηρεσίας."
+#: src/components/clio/settings-web-search.tsx
+msgid "Web sources"
+msgstr "Πηγές ιστού"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search is reachable"
-msgstr "Το Web Search είναι προσβάσιμο"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web sources, in the order they are tried"
+msgstr "Πηγές ιστού, με τη σειρά που δοκιμάζονται"
 
 #: src/components/clio/settings-about.tsx
 msgid "Website"
@@ -38780,6 +38773,10 @@ msgstr "Τι νέο υπάρχει"
 #: src/components/clio/settings-reminders.tsx
 msgid "When {trigger}"
 msgstr "Όταν {trigger}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "When a source's free allowance runs out, use the next one without asking."
+msgstr "Όταν εξαντληθεί το δωρεάν όριο μιας πηγής, χρήση της επόμενης χωρίς ερώτηση."
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -39536,6 +39533,18 @@ msgstr "Η συνομιλία σας με τον {agent} εμφανίζεται 
 msgid "Your edits after version {head_version} were not saved"
 msgstr "Οι επεξεργασίες σας μετά την έκδοση {head_version} δεν αποθηκεύτηκαν"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Your email address. OpenAlex sends the key’s activation link there."
+msgstr "Η διεύθυνση email σας. Το OpenAlex στέλνει εκεί τον σύνδεσμο ενεργοποίησης του κλειδιού."
+
+#: src/lib/search-source-status.ts
+msgid "Your key"
+msgstr "Το κλειδί σας"
+
+#: src/lib/search-source-status.ts
+msgid "Your key, paid plan"
+msgstr "Το κλειδί σας, πληρωμένο πρόγραμμα"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Your MCP server"
 msgstr "Ο διακομιστής MCP σας"
@@ -39587,6 +39596,10 @@ msgstr "Η σύνδεσή σας αποθηκεύεται σε αυτόν τον
 #: src/routes/mcp-oauth-return.tsx
 msgid "Your sign-in return was sent to the window that opened it. {agent} will check the connection there."
 msgstr "Η επιστροφή της σύνδεσής σας στάλθηκε στο παράθυρο που την άνοιξε. Ο {agent} θα ελέγξει τη σύνδεση εκεί."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Your site's search service, always tried first"
+msgstr "Η υπηρεσία αναζήτησης του οργανισμού σας, δοκιμάζεται πάντα πρώτη"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Your sources"
