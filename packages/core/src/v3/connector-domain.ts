@@ -118,6 +118,16 @@ export const connectorSetupPayloadSchema = z
     connector_name: optionalWireString(),
     tool_name: optionalWireString(),
     missing: z.array(connectorNeedSchema).default([]),
+    /**
+     * `enable`: the agent offers a connector that is off (connector discovery). The
+     * card turns it on, for every conversation or this conversation's agent.
+     */
+    intent: optionalWireString(),
+    description: optionalWireString(),
+    reason: optionalWireString(),
+    agent_ref: optionalWireString(),
+    agent_name: optionalWireString(),
+    asks_sign_in: z.boolean().optional(),
   })
   .passthrough();
 export type ConnectorSetupPayload = z.infer<typeof connectorSetupPayloadSchema>;
@@ -126,6 +136,11 @@ export type ConnectorSetupPayload = z.infer<typeof connectorSetupPayloadSchema>;
 export function connectorSetupPayload(payload: unknown): ConnectorSetupPayload | undefined {
   const parsed = connectorSetupPayloadSchema.safeParse(payload);
   return parsed.success ? parsed.data : undefined;
+}
+
+/** Whether a `connector_setup` payload is the agent's offer of a connector that is off. */
+export function isConnectorOffer(payload: unknown): boolean {
+  return connectorSetupPayload(payload)?.intent === 'enable';
 }
 
 /** The needs still blocking a connector: what its state names, in the entry's order. */

@@ -1,10 +1,11 @@
-import { connectorSetupPayload, type PendingInteraction } from '@clio/core/v3';
+import { connectorSetupPayload, isConnectorOffer, type PendingInteraction } from '@clio/core/v3';
 import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useConnector, useInvalidateConnectors } from '@/hooks/use-connectors';
 import { connectorStatus } from '@/lib/connector-presentation';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
+import { ConnectorOfferResponse } from './connector-offer-response';
 import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { McpSignInDialog } from './mcp-sign-in';
@@ -16,17 +17,28 @@ import { StatusIndicator } from './primitives/status-indicator';
  * that is not ready; the call waits while the card shows the rows still missing. Filling
  * them continues the same call. Declining returns a refusal that names the connector.
  */
-export function ConnectorSetupResponse({
-  disabled,
-  interaction,
-  onResponse,
-  responseError,
-}: {
+export function ConnectorSetupResponse(props: ConnectorCardProps) {
+  // The agent's offer of a connector that is off is the same card, in its enable form.
+  return isConnectorOffer(props.interaction.payload) ? (
+    <ConnectorOfferResponse {...props} />
+  ) : (
+    <ConnectorSetupCard {...props} />
+  );
+}
+
+interface ConnectorCardProps {
   disabled?: boolean;
   interaction: PendingInteraction;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   responseError?: Error;
-}) {
+}
+
+function ConnectorSetupCard({
+  disabled,
+  interaction,
+  onResponse,
+  responseError,
+}: ConnectorCardProps) {
   const payload = connectorSetupPayload(interaction.payload);
   const id = payload?.connector_id ?? '';
   const { connector } = useConnector(id || undefined);
