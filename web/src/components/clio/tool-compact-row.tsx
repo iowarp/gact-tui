@@ -102,11 +102,7 @@ export function ToolCompactRow({
               {subject.label || subject.text}
             </Button>
           ) : subject.type === 'link' ? (
-            <PresentationLink
-              block={subject}
-              compact
-              className={ARGUMENT_CLASS}
-            />
+            <PresentationLink block={subject} compact className={ARGUMENT_CLASS} />
           ) : subject.id === 'operation-command' ? (
             (subject.text || subject.label || '').split('\n', 1)[0]
           ) : (
@@ -213,7 +209,8 @@ export function ToolCompactRow({
         </CollapsibleTrigger>
       }
       link={delegateLink}
-      argument={delegate ? delegate.assignment : argument}
+      // A denied call with no target still names what was refused: "Denied · <tool> · …".
+      argument={delegate ? delegate.assignment : (argument ?? (denied ? action : undefined))}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
       recap={operation.metadata}
       recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
