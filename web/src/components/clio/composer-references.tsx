@@ -30,7 +30,7 @@ import {
   matchingSummons,
   workspaceReferenceIdentity,
 } from '@/lib/composer-reference-domain';
-import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
+import { hdf5DrillQuery, hdf5UpQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { publishActiveOption } from './composer-reference-controller-active-option';
 import { referenceKindIcon } from './composer-reference-presentation';
 import {
@@ -95,10 +95,19 @@ const KEY_HINTS = [
   { id: 'menu-close', label: 'Close' },
 ] as const;
 
+/** Inside an HDF5 file the footer offers the way back up instead of moving. */
+const INSIDE_FILE_KEY_HINTS = [
+  { id: 'menu-pick', label: 'Add' },
+  { id: 'menu-up', label: 'Up' },
+  { id: 'menu-close', label: 'Close' },
+] as const;
+
 /** What the composer's keyboard asks of the open menu while the editor keeps focus. */
 export interface ReferenceMenuHandle {
   /** Moves the highlight one row; false when nothing is listed. */
   move: (direction: 1 | -1) => boolean;
+  /** Moves the highlight to the first row of the next or previous group (PgDn, PgUp). */
+  moveGroup: (direction: 1 | -1) => boolean;
   /** The highlighted reference, which Enter adds and Tab looks inside. */
   active: () => WorkspaceReference | undefined;
   /**
@@ -462,38 +471,50 @@ export function ClioComposerReferenceMenu({
   useLayoutEffect(() => {
     latest.current = { activeIndex, allRows, loading, visibleRows };
   }, [activeIndex, allRows, loading, visibleRows]);
-  const handle = useMemo<ReferenceMenuHandle>(
-    () => ({
+  const handle = useMemo<ReferenceMenuHandle>(() => {
+    const highlightRow = (next: { label: string; row: WorkspaceReference }) => {
+      const { visibleRows: rows } = latest.current;
+      scrollToActive.current = true;
+      setOpenGroups((open) => (open[next.label] ? open : { ...open, [next.label]: true }));
+      // Two keys in one frame each move one row, before React commits the first.
+      const nextVisible = rows.includes(next.row) ? rows : [...rows, next.row];
+      latest.current = {
+        ...latest.current,
+        activeIndex: nextVisible.indexOf(next.row),
+        visibleRows: nextVisible,
+      };
+      setActiveIdentity(workspaceReferenceIdentity(next.row));
+      return true;
+    };
+    const currentRow = () => {
+      const { activeIndex: index, allRows: all, visibleRows: rows } = latest.current;
+      const current = index >= 0 ? rows[index] : undefined;
+      return current ? all.findIndex(({ row }) => row === current) : -1;
+    };
+    return {
       active: () => {
         const { activeIndex: index, visibleRows: rows } = latest.current;
         return index >= 0 ? rows[index] : undefined;
       },
       move: (direction) => {
-        const { activeIndex: index, allRows: all, visibleRows: rows } = latest.current;
+        const all = latest.current.allRows;
         if (!all.length) return false;
-        const current = index >= 0 ? rows[index] : undefined;
-        const at = current
-          ? all.findIndex(({ row }) => row === current)
-          : direction === 1
-            ? -1
-            : all.length;
-        const next = all[(at + direction + all.length) % all.length]!;
-        scrollToActive.current = true;
-        setOpenGroups((open) => (open[next.label] ? open : { ...open, [next.label]: true }));
-        // Two keys in one frame each move one row, before React commits the first.
-        const nextVisible = rows.includes(next.row) ? rows : [...rows, next.row];
-        latest.current = {
-          ...latest.current,
-          activeIndex: nextVisible.indexOf(next.row),
-          visibleRows: nextVisible,
-        };
-        setActiveIdentity(workspaceReferenceIdentity(next.row));
-        return true;
+        const found = currentRow();
+        const at = found >= 0 ? found : direction === 1 ? -1 : all.length;
+        return highlightRow(all[(at + direction + all.length) % all.length]!);
+      },
+      moveGroup: (direction) => {
+        const all = latest.current.allRows;
+        const labels = [...new Set(all.map(({ label }) => label))];
+        if (!labels.length) return false;
+        const found = currentRow();
+        const at = found >= 0 ? labels.indexOf(all[found]!.label) : direction === 1 ? -1 : 0;
+        const label = labels[(at + direction + labels.length) % labels.length];
+        return highlightRow(all.find((entry) => entry.label === label)!);
       },
       offering: () => latest.current.allRows.length > 0 || latest.current.loading,
-    }),
-    [],
-  );
+    };
+  }, []);
   useImperativeHandle(handleRef, () => handle, [handle]);
 
   const onSelectRef = useRef(onSelect);
@@ -507,6 +528,21 @@ export function ClioComposerReferenceMenu({
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (handle.move(event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+      return;
+    }
+    if (event.key === 'PageDown' || event.key === 'PageUp') {
+      if (handle.moveGroup(event.key === 'PageDown' ? 1 : -1)) event.preventDefault();
+      return;
+    }
+    // Back one step, then close: inside a file Shift Tab and Escape go up a level.
+    if (
+      hdf5.mention &&
+      (event.key === 'Escape' || (event.key === 'Tab' && event.shiftKey)) &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      setSearchQuery(hdf5UpQuery(hdf5.mention));
       return;
     }
     if (event.shiftKey || event.nativeEvent.isComposing) return;
@@ -554,7 +590,12 @@ export function ClioComposerReferenceMenu({
   return (
     <ComposerSuggestionPopup onDismiss={onDismiss} popupId={popoverId}>
       <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 pr-2 pl-3">
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
+        {createElement(
+          hdf5.mention
+            ? referenceKindIcon('workspace_file', hdf5.mention.file, 'application/x-hdf5')
+            : SearchIcon,
+          { 'aria-hidden': true, className: 'size-[15px] shrink-0 text-muted-foreground' },
+        )}
         {searchInput ? (
           <input
             {...identifierInputProps}
@@ -707,7 +748,10 @@ export function ClioComposerReferenceMenu({
           rowId={optionId(workspaceReferenceIdentity(described))}
         />
       ) : null}
-      <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      <MenuKeyHints
+        className="h-[34px] shrink-0 px-2.5 text-faint"
+        hints={hdf5.mention ? INSIDE_FILE_KEY_HINTS : KEY_HINTS}
+      />
     </ComposerSuggestionPopup>
   );
 }
