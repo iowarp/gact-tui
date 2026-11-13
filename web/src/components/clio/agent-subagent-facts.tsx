@@ -40,7 +40,7 @@ export function subagentFacts(row: Subagent): KeyValueItem[] {
   else if (tools)
     facts.push({
       label: 'Tools',
-      value: tools.length ? <span className="whitespace-normal">{tools.join(', ')}</span> : 'None',
+      value: tools.length ? tools.join(', ') : 'None',
       title: tools.join(', '),
     });
   if (text(row.derive) === 'caller')
@@ -48,7 +48,7 @@ export function subagentFacts(row: Subagent): KeyValueItem[] {
   else if (plugins?.length)
     facts.push({
       label: 'Packages',
-      value: <span className="whitespace-normal">{plugins.join(', ')}</span>,
+      value: plugins.join(', '),
       title: plugins.join(', '),
     });
   if (text(row.effects) === 'read') facts.push({ label: 'Access', value: 'Read-only' });
@@ -58,5 +58,6 @@ export function subagentFacts(row: Subagent): KeyValueItem[] {
     facts.push({ label: 'Step limit', value: `${row.max_iters} steps` });
   if (row.internal === true)
     facts.push({ label: 'Use', value: 'Internal: the agent’s own flows call it' });
-  return facts;
+  // The pane is narrow and these are read, not scanned: wrap rather than cut.
+  return facts.map((fact) => ({ ...fact, wrap: true }));
 }

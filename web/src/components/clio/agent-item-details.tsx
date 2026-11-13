@@ -21,11 +21,17 @@ type Subagent = AgentResolution['subagents'][number];
 
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
+/**
+ * The viewers' type scale with one step between heading levels, so a narrow
+ * pane still reads "Planning" above its sections (18 / 15 / 13 px).
+ */
+const PANE_HEADINGS = '[&_h2]:!text-h3 [&_h3]:!text-ui [&_h4]:!text-meta';
+
 /** A readable document: Markdown at the viewers' type scale. */
 function Reading({ children }: { children: string }) {
   return (
     <div className="min-w-0 rounded-md border bg-card px-3.5 py-3">
-      <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}>
+      <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE, PANE_HEADINGS)}>
         {children}
       </ContentMarkdown>
     </div>
@@ -124,8 +130,8 @@ export function SkillContent({
           aria-label={`${item.id} settings`}
           items={facts.map(([key, value]) => ({
             label: label(key),
-            value: <span className="whitespace-normal">{value}</span>,
-            title: value,
+            value,
+            wrap: true,
           }))}
           variant="rows"
         />

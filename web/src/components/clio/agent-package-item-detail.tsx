@@ -63,8 +63,8 @@ export function AgentPackageItemDetail({
               ? [
                   {
                     label: item.category === 'prompts' ? 'Section' : 'Description',
-                    value: <span className="whitespace-normal">{item.description}</span>,
-                    title: item.description,
+                    value: item.description,
+                    wrap: true,
                   },
                 ]
               : []),
