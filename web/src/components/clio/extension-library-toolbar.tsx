@@ -46,8 +46,8 @@ const TYPES = (Object.keys(EXTENSION_TYPE_LABELS) as ExtensionType[]).map((value
 }));
 
 const ADD_CHOICES: { kind: ExtensionAdd['kind']; label: string }[] = [
-  { kind: 'remote', label: 'MCP server URL' },
-  { kind: 'local', label: 'Local MCP command' },
+  // The raw connection form, for a server with no connector entry (CN12).
+  { kind: 'remote', label: 'Add by URL or command' },
   { kind: 'import', label: 'Repository or host folder' },
   { kind: 'upload', label: 'Upload ZIP' },
   { kind: 'skill', label: 'Create a skill' },

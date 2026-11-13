@@ -48,11 +48,17 @@ const pendingInteractionFieldSchema = z
 
 export const pendingInteractionSchema = z.object({
   id: z.string(),
-  kind: forwardCompatibleEnum(['question', 'permission', 'a2ui', 'mcp_task_input']),
+  kind: forwardCompatibleEnum([
+    'question',
+    'permission',
+    'a2ui',
+    'mcp_task_input',
+    'connector_setup',
+  ]),
   owner_session_id: z.string(),
   attended_session_id: z.string(),
   task_id: z.string().optional(),
-  status: forwardCompatibleEnum(['pending', 'answered', 'cancelled', 'expired']),
+  status: forwardCompatibleEnum(['pending', 'answered', 'denied', 'cancelled', 'expired']),
   title: z.string(),
   prompt: z.string().optional(),
   requires_human_response: z.boolean().optional(),

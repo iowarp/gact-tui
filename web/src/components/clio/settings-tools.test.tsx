@@ -17,6 +17,8 @@ const repository = vi.hoisted(() => ({
   reconnectMcpServer: vi.fn(),
   deleteMcpServer: vi.fn(),
   reconnectSessionMcpServer: vi.fn(),
+  connectors: vi.fn(async () => []),
+  createConnector: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -77,6 +79,15 @@ beforeEach(() => {
     retryable: false,
   }));
   repository.savedMcpServices.mockResolvedValue([]);
+  repository.createConnector.mockImplementation(async (input: { name?: string }) => ({
+    id: input.name,
+    name: input.name,
+    enabled: true,
+    scope: 'all',
+    state: { status: 'ready', needs: [], reason: null },
+    tool_count: 0,
+    needs: [],
+  }));
   repository.removeMcpConfiguration.mockResolvedValue({});
   repository.reconnectMcpServer.mockResolvedValue(external);
   repository.deleteMcpServer.mockResolvedValue(undefined);
@@ -133,10 +144,14 @@ it('says why adding is unavailable instead of hiding it in a hover title', async
   expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
 });
 
+/** The raw connection form sits behind "Add by URL or command"; Command is its other face. */
 async function openAdd(kind: 'MCP server URL' | 'Local MCP command', menu = 'Add options') {
   await userEvent.click(await screen.findByRole('button', { name: menu }));
-  await userEvent.click(screen.getByRole('menuitem', { name: kind }));
-  return screen.getByRole('dialog');
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Add by URL or command' }));
+  const dialog = screen.getByRole('dialog');
+  if (kind === 'Local MCP command')
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Command' }));
+  return dialog;
 }
 async function pasteField(dialog: HTMLElement, label: string, text: string) {
   const field = within(dialog).getByLabelText(label, { exact: true });
@@ -183,12 +198,15 @@ describe('tool provider settings', () => {
     await pasteField(dialog, 'Name', 'Research Tools');
     await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
     await confirmAdd(dialog);
+    // An address alone becomes a connector (CN1, AQ11), enabled for every conversation.
     await waitFor(() =>
-      expect(repository.configureMcpServer).toHaveBeenCalledWith(
-        'research-tools',
-        expect.objectContaining({ name: 'Research Tools', transport: 'http', always_load: false }),
-      ),
+      expect(repository.createConnector).toHaveBeenCalledWith({
+        url: 'https://mcp.example.test',
+        name: 'Research Tools',
+        scope: 'all',
+      }),
     );
+    expect(repository.configureMcpServer).not.toHaveBeenCalled();
   });
   it('opens the URL form from the face of the Add split button', async () => {
     renderSettings(<ToolsSettings embedded />);
@@ -204,14 +222,11 @@ describe('tool provider settings', () => {
     await pasteField(dialog, 'Arguments', '["mcp-server-fetch"]');
     await confirmAdd(dialog);
     await waitFor(() =>
-      expect(repository.configureMcpServer).toHaveBeenCalledWith('fetch-qualification', {
-        name: 'fetch-qualification',
-        transport: 'stdio',
+      expect(repository.createConnector).toHaveBeenCalledWith({
         command: 'uvx',
         args: ['mcp-server-fetch'],
-        env: {},
-        always_load: false,
-        connection_only: true,
+        name: 'fetch-qualification',
+        scope: 'all',
       }),
     );
   });
@@ -280,14 +295,10 @@ describe('tool provider settings', () => {
     await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
     await confirmAdd(dialog);
     await waitFor(() =>
-      expect(repository.configureMcpServer).toHaveBeenCalledWith('science-tools', {
-        name: 'science-tools',
-        transport: 'http',
+      expect(repository.createConnector).toHaveBeenCalledWith({
         url: 'https://mcp.example.test',
-        authentication: 'auto',
-        headers: {},
-        always_load: false,
-        connection_only: true,
+        name: 'science-tools',
+        scope: 'all',
       }),
     );
   });
