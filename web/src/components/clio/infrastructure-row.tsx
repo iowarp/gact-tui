@@ -4,10 +4,13 @@ import {
   memo,
   useContext,
   useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
@@ -31,6 +34,58 @@ interface InfraColumns {
   hover: number;
   /** Whether rows reserve the 26px pinned action column. */
   pinned: boolean;
+}
+
+/** The widest a status column grows for a long word: 200px, or 30% of a narrower list. */
+const STATUS_MAX = 200;
+const STATUS_MAX_SHARE = 0.3;
+
+/**
+ * Grows a list's status column to its widest status word, so a long word in a
+ * wide locale ("Κανένα συνδεδεμένο") is read whole and every row still lines up.
+ * The configured width stays the minimum. The width lives in `--infra-status`
+ * on the list, so a change re-renders no row.
+ */
+function useStatusColumnFit(list: RefObject<HTMLDivElement | null>, minimum: number) {
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      let widest = 0;
+      for (const cell of element.querySelectorAll<HTMLElement>('[data-slot="infra-status"]')) {
+        const indicator = cell.firstElementChild as HTMLElement | null;
+        const word = indicator?.lastElementChild as HTMLElement | null;
+        // A narrow row shows only the mark here; its word is on the sub-line.
+        if (!indicator || !word || word.clientWidth <= 1) continue;
+        widest = Math.max(
+          widest,
+          indicator.getBoundingClientRect().width - word.clientWidth + word.scrollWidth,
+        );
+      }
+      const cap = Math.max(minimum, Math.min(STATUS_MAX, element.clientWidth * STATUS_MAX_SHARE));
+      const width = Math.min(cap, Math.max(minimum, Math.ceil(widest)));
+      if (element.style.getPropertyValue('--infra-status') !== `${width}px`) {
+        element.style.setProperty('--infra-status', `${width}px`);
+      }
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(fit);
+    };
+    fit();
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(element, { subtree: true, childList: true, characterData: true });
+    const resizes = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(schedule);
+    resizes?.observe(element);
+    void document.fonts?.ready.then(schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      frame = -1;
+      mutations.disconnect();
+      resizes?.disconnect();
+    };
+  }, [list, minimum]);
 }
 
 const InfraColumnsContext = createContext<InfraColumns>({
@@ -69,9 +124,12 @@ export function InfraList({
 }) {
   const columns = useMemo(() => ({ status, meta, hover, pinned }), [status, meta, hover, pinned]);
   const headingId = useId();
+  const list = useRef<HTMLDivElement>(null);
+  useStatusColumnFit(list, status);
   return (
     <InfraColumnsContext.Provider value={columns}>
       <div
+        ref={list}
         className={cn('@container/infra flex min-w-0 flex-col', className)}
         data-slot="infra-list"
       >
@@ -187,7 +245,11 @@ export const InfraRow = memo(
           description={subLine}
           columns={
             <>
-              <span className={NARROW_STATUS} style={{ width: columns.status }}>
+              <span
+                className={NARROW_STATUS}
+                data-slot="infra-status"
+                style={{ width: `var(--infra-status, ${columns.status}px)` }}
+              >
                 {status ? (
                   <StatusIndicator
                     className="text-caption"

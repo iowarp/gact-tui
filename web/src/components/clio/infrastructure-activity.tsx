@@ -36,6 +36,29 @@ const SEARCH_LABEL = t`Search actions, computers or results`;
 
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
+/** "Start vLLM": the agent's operation verbs in words, its own wording for any other. */
+function operationTitle(action: string, serviceId: string): string {
+  const name = infrastructureServiceName(serviceId);
+  switch (action) {
+    case 'install':
+      return t`Install ${ph({ label: name })}`;
+    case 'start':
+      return t`Start ${ph({ label: name })}`;
+    case 'stop':
+      return t`Stop ${ph({ label: name })}`;
+    case 'restart':
+      return t`Restart ${ph({ label: name })}`;
+    case 'update':
+    case 'upgrade':
+      return t`Update ${ph({ label: name })}`;
+    case 'remove':
+    case 'uninstall':
+      return t`Remove ${ph({ label: name })}`;
+    default:
+      return sentence(`${action.replaceAll('_', ' ')} ${name}`);
+  }
+}
+
 /** Recent operations in one timeline; host and result stay visible before opening details. */
 export function InfrastructureActivity({ data }: { data: InfrastructureInventory }) {
   const [search, setSearch] = useState('');
@@ -50,9 +73,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
     ...data.operations.map((operation) => ({
       id: operation.id,
       target: operation.target_id,
-      title: sentence(
-        `${operation.action.replaceAll('_', ' ')} ${infrastructureServiceName(operation.service_id)}`,
-      ),
+      title: operationTitle(operation.action.toLocaleLowerCase(), operation.service_id),
       state: operation.state,
       time: new Date(operation.updated_at).getTime(),
       detail: operation.error || operation.progress,

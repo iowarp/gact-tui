@@ -2,7 +2,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { bundleQuestions } from './question-bundle';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ph, t } from '@lingui/core/macro';
-import { decisionList } from './decision-list';
+import { formatList } from '@/lib/locale-format';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -21,7 +21,7 @@ function replyText(reply: Record<string, unknown>, options: unknown): string {
   });
   return [
     reply.action === 'decline' ? t`You declined to answer.` : '',
-    choices.length ? t`Selected: ${ph({ choices: decisionList(choices) })}` : '',
+    choices.length ? t`Selected: ${ph({ choices: formatList(choices) })}` : '',
     typeof reply.answer === 'string' ? reply.answer : '',
     ...(Array.isArray(reply.parts)
       ? reply.parts.flatMap((raw) => {

@@ -2133,10 +2133,6 @@ msgstr ""
 msgid "{interrupted} stopped"
 msgstr ""
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr ""
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr ""
@@ -2463,10 +2459,13 @@ msgstr ""
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr ""
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr ""
+
 #. A short list, one more item
-#. A short list, one more item
-#: src/components/clio/decision-list.ts
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr ""
 
@@ -3454,6 +3453,14 @@ msgid "{source} key saved."
 msgstr ""
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr ""
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr ""
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr ""
 
@@ -4070,8 +4077,20 @@ msgstr ""
 msgid "1 year"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "1,000 credits a month on a free key."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "1,000 searches per hour, shared by everyone on your network"
+msgstr ""
+
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "10.0.0.102 or login.example.edu"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "100 searches per day, shared by everyone on your network"
 msgstr ""
 
 #: src/widget-preview-app.tsx
@@ -4128,6 +4147,10 @@ msgstr ""
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "A {agent} search service your site runs (search.service.url)."
 msgstr ""
 
 #: src/components/clio/managed-service-target-utils.ts
@@ -4189,6 +4212,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "A fork of {step}"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "A free key ($1 a day budget); {agent} can request one with your email."
 msgstr ""
 
 #: src/lib/model-capability-tags.ts
@@ -4269,6 +4296,14 @@ msgstr ""
 
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance (100,000 requests a month free)."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance and site allowlists."
 msgstr ""
 
 #: src/widget-preview-app.tsx
@@ -4403,6 +4438,10 @@ msgstr ""
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "About 100 searches a day per network without a key; single-work lookups are free"
 msgstr ""
 
 #: src/components/clio/settings-permissions.tsx
@@ -4727,6 +4766,7 @@ msgid "Actions for session"
 msgstr ""
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "active"
 msgstr ""
@@ -5789,8 +5829,16 @@ msgstr ""
 msgid "Allowed actions"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by approval mode: {mode}"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by the tool’s default permission"
 msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
@@ -5886,7 +5934,7 @@ msgstr ""
 msgid "Amount"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "An access rule asked"
 msgstr ""
 
@@ -6058,6 +6106,11 @@ msgstr ""
 
 #: src/components/clio/agent-question-dialog.tsx
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
+msgstr ""
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "answered"
 msgstr ""
 
 #: src/components/clio/comments/comment-thread-list.tsx
@@ -6327,6 +6380,11 @@ msgstr ""
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
 msgid "Approve"
+msgstr ""
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "approved"
 msgstr ""
 
 #: src/lib/search-source-status.ts
@@ -7305,7 +7363,11 @@ msgstr ""
 msgid "Blocked"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by a hook"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
 msgid "Blocked by an access rule"
 msgstr ""
 
@@ -7315,6 +7377,10 @@ msgstr ""
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Blocked by the sandbox: {folders}"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by the tool’s default permission"
 msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
@@ -8507,6 +8573,7 @@ msgid "Checking client updates…"
 msgstr ""
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "checking completion"
 msgstr ""
 
@@ -9485,6 +9552,7 @@ msgstr ""
 msgid "Collapse {group}"
 msgstr ""
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr ""
@@ -11763,6 +11831,10 @@ msgstr ""
 msgid "Covered"
 msgstr ""
 
+#: src/components/clio/permission-request-text.ts
+msgid "Covered by its script’s approval"
+msgstr ""
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Covered by the script's approval"
 msgstr ""
@@ -12261,10 +12333,6 @@ msgstr ""
 #: src/components/clio/settings-models.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
-msgstr ""
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
 msgstr ""
 
 #: src/components/clio/settings-schema-copy.ts
@@ -13048,6 +13116,14 @@ msgstr ""
 
 #: src/components/clio/session-behavior-options.ts
 msgid "Does the work, within the policy."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "DOI metadata for journals, preprints and their links."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "DOIs for datasets and software."
 msgstr ""
 
 #: src/components/clio/settings-access-rule-model.ts
@@ -14398,6 +14474,7 @@ msgstr ""
 msgid "Expand {group}"
 msgstr ""
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr ""
@@ -14443,6 +14520,11 @@ msgstr ""
 
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
+msgstr ""
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "expired"
 msgstr ""
 
 #: src/components/clio/agent-answer-activity.tsx
@@ -14642,6 +14724,11 @@ msgstr ""
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/lib/mcp-preparation.ts
+msgid "Failed"
+msgstr ""
+
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
 msgid "Failed"
 msgstr ""
 
@@ -15897,6 +15984,11 @@ msgstr ""
 msgid "Generate widget"
 msgstr ""
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "generated"
+msgstr ""
+
 #: src/components/clio/artifact-card.tsx
 msgid "Generated by {ownerLabel}"
 msgstr ""
@@ -16401,6 +16493,10 @@ msgstr ""
 msgid "Higher values make replies more varied; lower values more focused."
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Higher-quality search mode and date and site filters."
+msgstr ""
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr ""
@@ -16685,6 +16781,7 @@ msgid "Identity"
 msgstr ""
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "idle"
 msgstr ""
@@ -17468,6 +17565,7 @@ msgstr ""
 msgid "Install {agentName} on a computer"
 msgstr ""
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Install {label}"
 msgstr ""
@@ -17929,6 +18027,18 @@ msgstr ""
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Its menu"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date and excluded sites."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and excluded sites."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr ""
 
 #: src/components/clio/marketplace-manager.tsx
@@ -18412,6 +18522,10 @@ msgstr ""
 
 #: src/components/clio/registry-model-details.tsx
 msgid "License"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Life-science literature and preprints, with full text where open."
 msgstr ""
 
 #: src/components/clio/spotter-quarantine-card.tsx
@@ -19996,6 +20110,34 @@ msgstr ""
 msgid "MCP services on the connected computer"
 msgstr ""
 
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by an access rule"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by approval mode: {mode}"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by its default permission"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by a hook"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by an access rule"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by its default permission"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} covered by its script’s approval"
+msgstr ""
+
 #: src/components/clio/settings-tools.tsx
 msgid "MCP tools"
 msgstr ""
@@ -20980,6 +21122,7 @@ msgid "Needs attention: {services}."
 msgstr ""
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "needs input"
 msgstr ""
 
@@ -21053,6 +21196,7 @@ msgid "needs your answer"
 msgstr ""
 
 #: src/lib/search-source-status.ts
+#: src/lib/search-source-text.ts
 msgid "Needs your key"
 msgstr ""
 
@@ -21548,6 +21692,10 @@ msgstr ""
 msgid "No custody receipt was returned for {path}"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "No daily limit; paced"
+msgstr ""
+
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "No data"
 msgstr ""
@@ -21719,6 +21867,10 @@ msgstr ""
 
 #: src/offline-review.tsx
 msgid "No interactive views were recorded. Images and file references remain in the conversation."
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "No key needed"
 msgstr ""
 
 #: src/lib/fleet-usage.ts
@@ -23314,6 +23466,10 @@ msgstr ""
 msgid "One plant"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "One request every 3 seconds"
+msgstr ""
+
 #: src/widget-preview-app.tsx
 msgid "One set of observations powers the tracks, wind curves, and table. Pick a point in any view to find it in the others."
 msgstr ""
@@ -23588,6 +23744,10 @@ msgstr ""
 
 #: src/components/clio/task-activity-row.tsx
 msgid "Open child conversation {title}"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Open citation links: what a work cites and who cites it."
 msgstr ""
 
 #: src/lib/session-export/archive-timeline.tsx
@@ -24460,6 +24620,10 @@ msgstr ""
 msgid "Papers & datasets sources"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Papers across fields with citation data."
+msgstr ""
+
 #: src/lib/model-capability-tags.ts
 msgid "Parallel tools"
 msgstr ""
@@ -24662,6 +24826,7 @@ msgid "Paused after errors until {time}"
 msgstr ""
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "pausing"
 msgstr ""
@@ -25329,6 +25494,10 @@ msgstr ""
 msgid "Preparing…"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Preprints in physics, computing, mathematics and more."
+msgstr ""
+
 #: src/components/clio/settings-models-form.ts
 msgid "Presence penalty"
 msgstr ""
@@ -25980,6 +26149,11 @@ msgstr ""
 msgid "Quality review"
 msgstr ""
 
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
+msgid "Quarantined"
+msgstr ""
+
 #: src/components/reui/date-selector.tsx
 msgid "Quarter"
 msgstr ""
@@ -26068,6 +26242,11 @@ msgstr ""
 
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
+msgid "queued"
+msgstr ""
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
 msgid "queued"
 msgstr ""
 
@@ -26935,6 +27114,7 @@ msgid "Recovered from the matching workspace file."
 msgstr ""
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "recovering"
 msgstr ""
@@ -27420,6 +27600,7 @@ msgstr ""
 msgid "Remove {id}"
 msgstr ""
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Remove {label}"
@@ -27995,7 +28176,7 @@ msgstr ""
 msgid "Request access"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request cancelled"
 msgstr ""
 
@@ -28003,7 +28184,7 @@ msgstr ""
 msgid "Request changes"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr ""
 
@@ -28315,6 +28496,10 @@ msgstr ""
 
 #: src/components/clio/provider-component-status.tsx
 msgid "Restart {agent} to finish"
+msgstr ""
+
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Restart {label}"
 msgstr ""
 
 #: src/components/clio/tool-presentation.ts
@@ -29090,6 +29275,11 @@ msgstr ""
 
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/workbench-activity-model.ts
+msgid "running"
+msgstr ""
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
 msgid "running"
 msgstr ""
 
@@ -31143,6 +31333,10 @@ msgstr ""
 msgid "Set by the connected service's workspace configuration."
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Set by the service"
+msgstr ""
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
 msgstr ""
@@ -32505,6 +32699,7 @@ msgstr ""
 msgid "SPOTTER model: {label}"
 msgstr ""
 
+#: src/components/clio/permission-request-text.ts
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
@@ -32635,6 +32830,7 @@ msgctxt "verb"
 msgid "Start"
 msgstr ""
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Start {label}"
 msgstr ""
@@ -33047,6 +33243,7 @@ msgctxt "verb"
 msgid "Stop"
 msgstr ""
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/rail-runs.tsx
 msgid "Stop {label}"
@@ -33124,6 +33321,7 @@ msgid "stopped"
 msgstr ""
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopped"
 msgstr ""
@@ -33168,6 +33366,7 @@ msgid "Stopped: {status}"
 msgstr ""
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopping"
 msgstr ""
@@ -33571,6 +33770,7 @@ msgid "superseded"
 msgstr ""
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "superseded"
 msgstr ""
@@ -35523,6 +35723,10 @@ msgstr ""
 msgid "The service will put {path} back as it was before this change."
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "The service’s access token, if it needs one."
+msgstr ""
+
 #: src/components/clio/navigation.tsx
 msgid "The session could not be imported."
 msgstr ""
@@ -36986,6 +37190,34 @@ msgstr ""
 msgid "Tool"
 msgstr ""
 
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by an access rule"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by approval mode: {mode}"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by its default permission"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by a hook"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by an access rule"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by its default permission"
+msgstr ""
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} covered by its script’s approval"
+msgstr ""
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Tool action"
 msgstr ""
@@ -37465,6 +37697,10 @@ msgstr ""
 msgid "Turned off in system settings"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Turns the source on."
+msgstr ""
+
 #: src/widget-gallery-scenarios.ts
 msgid "Two sites need attention"
 msgstr ""
@@ -37530,6 +37766,10 @@ msgstr ""
 
 #: src/components/clio/path-picker.tsx
 msgid "Type, paste, or browse for a folder"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "U.S. Department of Energy reports and papers."
 msgstr ""
 
 #: src/components/clio/plugin-explorer.tsx
@@ -37813,6 +38053,7 @@ msgstr ""
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-activity-model.ts
 #: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr ""
@@ -37867,6 +38108,10 @@ msgstr ""
 
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Unknown session"
+msgstr ""
+
+#: src/components/clio/settings-about.tsx
+msgid "unknown source"
 msgstr ""
 
 #: src/routes/runs-rows.ts
@@ -38045,6 +38290,10 @@ msgstr ""
 #: src/components/clio/settings-app-updates.tsx
 #: src/tauri/desktop-updater.ts
 msgid "Update {agent}"
+msgstr ""
+
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Update {label}"
 msgstr ""
 
 #: src/components/clio/extension-library.tsx
@@ -38613,6 +38862,11 @@ msgstr ""
 msgid "Use valid NAME=value process settings"
 msgstr ""
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "used"
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
@@ -39146,6 +39400,7 @@ msgid "waiting"
 msgstr ""
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "waiting"
 msgstr ""
@@ -39388,8 +39643,16 @@ msgstr ""
 msgid "Web search"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Web search for agents; the free tier is its faster, lighter mode."
+msgstr ""
+
 #: src/components/clio/settings-web-search.tsx
 msgid "Web search pages"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Web search with research and PDF categories and full page text."
 msgstr ""
 
 #: src/components/clio/settings-web-search.tsx
@@ -39838,6 +40101,10 @@ msgstr ""
 msgid "Working…"
 msgstr ""
 
+#: src/lib/search-source-text.ts
+msgid "Works across every field, with citations and open-access links."
+msgstr ""
+
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Works on this screen"
 msgstr ""
@@ -40149,7 +40416,7 @@ msgstr ""
 msgid "You added this plugin to the conversation."
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You allowed it"
 msgstr ""
 
@@ -40185,7 +40452,7 @@ msgstr ""
 msgid "You asked for the workflow {target} on this message"
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You blocked it"
 msgstr ""
 
@@ -40217,7 +40484,7 @@ msgstr ""
 msgid "You declined to answer."
 msgstr ""
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You deleted the conversation"
 msgstr ""
 
@@ -40335,6 +40602,10 @@ msgstr ""
 
 #: src/lib/transcript-message-preview.ts
 msgid "Your message"
+msgstr ""
+
+#: src/lib/search-source-text.ts
+msgid "Your own monthly allowance, and deeper search modes."
 msgstr ""
 
 #: src/components/clio/private-local-library.tsx

@@ -1,5 +1,5 @@
 import { childToolInvocations, type ToolInvocation } from '@clio/core/v3';
-import { t } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 import { useContext } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
@@ -42,11 +42,7 @@ export function scriptCallsRecap(
   const names = [...counts].map(([name, count]) => (count > 1 ? `${name} ×${count}` : name));
   const reaches = children.map(imageReach).filter((item) => item !== undefined);
   const reach = reachSummary(reaches);
-  const label = [...names, reach]
-    .filter((part): part is string => Boolean(part))
-    .reduce((list, item) =>
-      t({ message: `${list}, ${item}`, comment: 'A short list, one more item' }),
-    );
+  const label = formatList([...names, reach].filter((part): part is string => Boolean(part)));
   const details = [...new Set(reaches.map((item) => item.detail))];
   return { label, title: details.length ? [label, ...details].join('\n') : label };
 }

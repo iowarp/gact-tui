@@ -53,7 +53,7 @@ function computerName(host: Computer) {
 
 /** The muted line under a computer's name: Local, the route through a jump host, or user@host. */
 function computerRoute(host: Computer) {
-  if (host.kind === 'local') return 'Local';
+  if (host.kind === 'local') return t`Local`;
   const ssh = host.ssh;
   if (!ssh) return '';
   if (ssh.jump_hosts.length) {
@@ -102,7 +102,11 @@ export function ManagedServiceHostSelector({
     ? targets.filter((host) => host.kind !== 'direct')
     : [{ id: 'local', label: AGENT_COMPUTER, kind: 'local' }];
   const selected = computers.find((host) => host.id === targetId);
-  const selectedName = selected ? (selected.kind === 'local' ? 'Local' : selected.label) : targetId;
+  const selectedName = selected
+    ? selected.kind === 'local'
+      ? t`Local`
+      : selected.label
+    : targetId;
   const SelectedIcon = selected?.kind === 'local' ? LaptopIcon : ServerIcon;
   const connecting = canAdd && onSshHost !== undefined;
   const startConnect = () => {

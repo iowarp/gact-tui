@@ -30,7 +30,12 @@ import { copyTextToClipboard } from './surface-export';
 import { taskProgressLabel } from './task-progress-label';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { activityTab } from './workbench-activity-tab';
-import { compactDuration, toolActivityItem, type ActivityItem } from './workbench-activity-model';
+import {
+  compactDuration,
+  stateWord,
+  toolActivityItem,
+  type ActivityItem,
+} from './workbench-activity-model';
 import {
   useActivityItems,
   useWorkbenchActivitySource,
@@ -334,6 +339,13 @@ function Mono({ text, label }: { text: string; label: string }) {
   );
 }
 
+/** How a source fed the session; a relation this build does not know reads as recorded. */
+function relationWord(relation: string): string {
+  if (relation === 'used') return t({ message: 'used', context: 'evidence relation' });
+  if (relation === 'generated') return t({ message: 'generated', context: 'evidence relation' });
+  return relation.replaceAll('_', ' ');
+}
+
 function DetailBody({
   item,
   source,
@@ -366,7 +378,7 @@ function DetailBody({
         <KeyValueGrid
           items={[
             ...(item.source.relation
-              ? [{ label: t`Used as`, value: item.source.relation.replaceAll('_', ' ') }]
+              ? [{ label: t`Used as`, value: relationWord(item.source.relation) }]
               : []),
             ...(item.source.ownerLabel
               ? [{ label: t`Used by`, value: item.source.ownerLabel }]
@@ -455,7 +467,7 @@ function ToolDetail({
     {
       label: t`Policy`,
       value: approval
-        ? t`Asked for approval, ${ph({ status: approval.status.replaceAll('_', ' ') })}`
+        ? t`Asked for approval, ${ph({ status: stateWord(approval.status) })}`
         : t`Ran without asking`,
     },
     { label: t`Tool`, value: tool.name, mono: true },
@@ -662,7 +674,7 @@ function InteractionDetail({
       ) : null}
       <KeyValueGrid
         items={[
-          { label: t`State`, value: interaction.status.replaceAll('_', ' ') },
+          { label: t`State`, value: stateWord(interaction.status) },
           ...(interaction.source.tool_name
             ? [{ label: t`Asked by`, value: interaction.source.tool_name, mono: true }]
             : []),

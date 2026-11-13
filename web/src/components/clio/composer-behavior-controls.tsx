@@ -329,12 +329,13 @@ export function ClioComposerBehaviorControls({
       <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
       {beforeModel}
       {modelControl}
-      {/* The mode is a word beside the model (spec v10); a fifth-width row keeps its icon. */}
+      {/* The mode is a word beside the model (spec v10); a fifth-width row keeps its icon.
+          After the route, the word is the next to give way, whole, so the model keeps its name. */}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
           <IconButton
             className={cn(
-              'h-[26px] w-auto shrink-0 gap-1.5 px-1.5 text-meta font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
+              'h-[26px] w-auto min-w-[26px] shrink gap-1.5 px-1.5 text-meta font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:min-w-0 @max-[300px]/composer:shrink-0 @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
               selectedMode &&
                 selectedMode.value !== 'edit' &&
                 'text-accent-foreground hover:text-accent-foreground',
@@ -344,8 +345,12 @@ export function ClioComposerBehaviorControls({
             icon={
               <>
                 <ModeIcon />
-                <span className="@max-[300px]/composer:hidden" data-slot="composer-mode-label">
-                  {modeLabel}
+                <span
+                  className="flex h-[1lh] min-w-0 flex-wrap overflow-hidden @max-[300px]/composer:hidden"
+                  data-slot="composer-mode-label"
+                >
+                  <span aria-hidden="true" className="h-full w-0" />
+                  <span className="shrink-0 whitespace-nowrap">{modeLabel}</span>
                 </span>
               </>
             }

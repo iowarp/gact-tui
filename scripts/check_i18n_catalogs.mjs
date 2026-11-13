@@ -5,6 +5,11 @@
 //
 // It also fails when a translated message drops or invents a placeholder, which
 // would show `{name}` or lose a value in that language.
+//
+// And it fails on a catalog written in the wrong encoding: a byte-order mark, bytes
+// that are not UTF-8, or a translation where "??" or U+FFFD stands in for text the
+// writer could not encode (a PowerShell pipe saves Greek and Japanese as "?").
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,9 +42,53 @@ export function placeholderSet(message) {
   return set;
 }
 
+/** Runs of two or more "?" and every U+FFFD: what a lossy encoder leaves behind. */
+export function lossyRuns(text) {
+  return text.match(/\?{2,}|\uFFFD+/gu) ?? [];
+}
+
+/** A translation with a lossy run its source message does not have. */
+export function lossyTranslation(original, translation) {
+  const source = lossyRuns(original);
+  return lossyRuns(translation).filter((run) => !source.includes(run));
+}
+
+/** A byte-order mark or bytes that are not UTF-8. */
+export function encodingProblem(bytes) {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
+    return 'starts with a byte-order mark';
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return 'is UTF-16 (byte-order mark FF FE)';
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return 'is UTF-16 (byte-order mark FE FF)';
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return 'is not valid UTF-8';
+  }
+  return undefined;
+}
+
+function catalogFileFailures() {
+  const locales = resolve(web, 'src', 'locales');
+  const failures = [];
+  for (const locale of readdirSync(locales, { withFileTypes: true })) {
+    if (!locale.isDirectory()) continue;
+    const file = resolve(locales, locale.name, 'messages.po');
+    let bytes;
+    try {
+      bytes = readFileSync(file);
+    } catch {
+      continue;
+    }
+    const problem = encodingProblem(bytes);
+    if (problem)
+      failures.push(`${locale.name}/messages.po ${problem}; write it as UTF-8 without a BOM.`);
+  }
+  return failures;
+}
+
 async function main() {
   const config = getConfig({ cwd: web });
-  const failures = [];
+  const failures = catalogFileFailures();
   for (const catalog of await getCatalogs(config)) {
     const collected = await catalog.collect();
     if (!collected) throw new Error('Message extraction failed');
@@ -66,6 +115,14 @@ async function main() {
       for (const [id, entry] of Object.entries(messages)) {
         if (!entry.translation || entry.obsolete) continue;
         const original = collected[id]?.message ?? source[id]?.message ?? id;
+        const lossy = lossyTranslation(original, entry.translation);
+        if (lossy.length) {
+          failures.push(
+            `${locale}: ${JSON.stringify(original)} → ${JSON.stringify(entry.translation)} has ${lossy
+              .map((run) => JSON.stringify(run))
+              .join(' ')}, text lost to the wrong encoding`,
+          );
+        }
         let got;
         try {
           got = placeholderSet(entry.translation);

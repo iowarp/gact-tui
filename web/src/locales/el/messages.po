@@ -2133,10 +2133,6 @@ msgstr "{input} token εισόδου, {output} token εξόδου"
 msgid "{interrupted} stopped"
 msgstr "{interrupted} σταμάτησαν"
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr "{joined}, {next}"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "Διατηρήθηκαν {kept} από {returned}"
@@ -2463,10 +2459,13 @@ msgstr "{lines, plural, one {# γραμμή} other {# γραμμές}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # γραμμή} other {Python, # γραμμές}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list} και {item}"
+
 #. A short list, one more item
-#. A short list, one more item
-#: src/components/clio/decision-list.ts
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr "{list}, {item}"
 
@@ -3461,6 +3460,14 @@ msgid "{source} key saved."
 msgstr "Το κλειδί του {source} αποθηκεύτηκε."
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr "{source}, προεπιλεγμένο ref, εγκατεστημένο commit {commit}"
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr "{source}, προεπιλεγμένο ref, το εγκατεστημένο commit δεν είναι διαθέσιμο"
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr "{source}, ref {ref}, εγκατεστημένο commit {commit}"
 
@@ -4078,9 +4085,21 @@ msgstr "~{minutes} λεπτά"
 msgid "1 year"
 msgstr "1 έτος"
 
+#: src/lib/search-source-text.ts
+msgid "1,000 credits a month on a free key."
+msgstr "1.000 μονάδες τον μήνα με δωρεάν κλειδί."
+
+#: src/lib/search-source-text.ts
+msgid "1,000 searches per hour, shared by everyone on your network"
+msgstr "1.000 αναζητήσεις την ώρα, κοινές για όλους στο δίκτυό σας"
+
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "10.0.0.102 or login.example.edu"
 msgstr "10.0.0.102 ή login.example.edu"
+
+#: src/lib/search-source-text.ts
+msgid "100 searches per day, shared by everyone on your network"
+msgstr "100 αναζητήσεις την ημέρα, κοινές για όλους στο δίκτυό σας"
 
 #: src/widget-preview-app.tsx
 msgid "115 kt near the Texas coast"
@@ -4137,6 +4156,10 @@ msgstr "95% εντός {duration}"
 #: src/components/clio/memory-import-dialog.tsx
 msgid "A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
 msgstr "Ένα .zip που αποθηκεύτηκε με την Εξαγωγή. Τα γεγονότα συγχωνεύονται βάσει id, οπότε η διπλή εισαγωγή της ίδιας εξαγωγής δεν αλλάζει τίποτα."
+
+#: src/lib/search-source-text.ts
+msgid "A {agent} search service your site runs (search.service.url)."
+msgstr "Μια υπηρεσία αναζήτησης {agent} που εκτελεί ο οργανισμός σας (search.service.url)."
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "A {agent}-looking process (pid {pid}) is on the port but isn't answering."
@@ -4198,6 +4221,10 @@ msgstr "Μια διακλάδωση"
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "A fork of {step}"
 msgstr "Μια διακλάδωση του {step}"
+
+#: src/lib/search-source-text.ts
+msgid "A free key ($1 a day budget); {agent} can request one with your email."
+msgstr "Ένα δωρεάν κλειδί (προϋπολογισμός 1 $ την ημέρα)· το {agent} μπορεί να το ζητήσει με το email σας."
 
 #: src/lib/model-capability-tags.ts
 msgid "A general model: it can hold a conversation."
@@ -4278,6 +4305,14 @@ msgstr "Φάκελος πρόσθετου που περιέχει plugin.json ή
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
 msgstr "Ένα αίτημα εξάσκησης έχει ήδη πληκτρολογηθεί."
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance (100,000 requests a month free)."
+msgstr "Ένα ιδιωτικό όριο (100.000 αιτήματα τον μήνα δωρεάν)."
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance and site allowlists."
+msgstr "Ένα ιδιωτικό όριο και λίστες επιτρεπόμενων ιστότοπων."
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4412,6 +4447,10 @@ msgstr "Σχετικά με {title}"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
 msgstr "Σχετικά: {wordmark}"
+
+#: src/lib/search-source-text.ts
+msgid "About 100 searches a day per network without a key; single-work lookups are free"
+msgstr "Περίπου 100 αναζητήσεις την ημέρα ανά δίκτυο χωρίς κλειδί· οι αναζητήσεις μεμονωμένων έργων είναι δωρεάν"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -4735,6 +4774,7 @@ msgid "Actions for session"
 msgstr "Ενέργειες συνεδρίας"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "active"
 msgstr "ενεργός"
@@ -5797,9 +5837,17 @@ msgstr "Επιτράπηκε το {folder} για αυτόν τον χώρο ε�
 msgid "Allowed actions"
 msgstr "Επιτρεπόμενες ενέργειες"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "Επιτράπηκε από κανόνα πρόσβασης"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by approval mode: {mode}"
+msgstr "Επιτράπηκε από τη λειτουργία έγκρισης: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by the tool’s default permission"
+msgstr "Επιτράπηκε από την προεπιλεγμένη άδεια του εργαλείου"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/workspace-folders.tsx
@@ -5894,7 +5942,7 @@ msgstr "Εντοπίστηκε GPU AMD."
 msgid "Amount"
 msgstr "Ποσότητα"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "An access rule asked"
 msgstr "Ένας κανόνας πρόσβασης ζήτησε επιβεβαίωση"
 
@@ -6067,6 +6115,11 @@ msgstr "Απαντήστε όταν είστε έτοιμοι. Ο {agent} μπο
 #: src/components/clio/agent-question-dialog.tsx
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
 msgstr "Απαντήστε όταν είστε έτοιμοι. Ο {agent} μπορεί να συνεχίσει να εργάζεται· η απάντησή σας μπαίνει στην ουρά μηνυμάτων."
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "answered"
+msgstr "απαντήθηκε"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6336,6 +6389,11 @@ msgstr "έγκριση"
 #: src/widget-gallery-scenarios.ts
 msgid "Approve"
 msgstr "Έγκριση"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "approved"
+msgstr "εγκρίθηκε"
 
 #: src/lib/search-source-status.ts
 msgctxt "search source state"
@@ -6924,7 +6982,7 @@ msgstr "Η αυτόματη σύνδεση δεν είναι διαθέσιμη"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "Automation hooks"
-msgstr "Hooks αυτοματισμού"
+msgstr "Άγκιστρα αυτοματισμού"
 
 #: src/components/clio/settings-operations.tsx
 msgid "Automation that runs before or after tools, and what it recently did."
@@ -7277,7 +7335,7 @@ msgstr "Βέλτιστες πρακτικές, πίνακες ελέγχου, α
 #: src/components/clio/settings-app-updates.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Beta updates"
-msgstr "Ενημερώσεις beta"
+msgstr "Δοκιμαστικές ενημερώσεις"
 
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
@@ -7313,7 +7371,11 @@ msgstr "Αποκλεισμός"
 msgid "Blocked"
 msgstr "Αποκλεισμένο"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by a hook"
+msgstr "Αποκλείστηκε από άγκιστρο"
+
+#: src/components/clio/permission-request-text.ts
 msgid "Blocked by an access rule"
 msgstr "Αποκλείστηκε από κανόνα πρόσβασης"
 
@@ -7324,6 +7386,10 @@ msgstr "Αποκλείστηκε από το απομονωμένο περιβά
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Blocked by the sandbox: {folders}"
 msgstr "Αποκλείστηκε από το απομονωμένο περιβάλλον: {folders}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by the tool’s default permission"
+msgstr "Αποκλείστηκε από την προεπιλεγμένη άδεια του εργαλείου"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Blocked by you"
@@ -8515,6 +8581,7 @@ msgid "Checking client updates…"
 msgstr "Έλεγχος για ενημερώσεις πελάτη…"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "checking completion"
 msgstr "έλεγχος ολοκλήρωσης"
 
@@ -9493,6 +9560,7 @@ msgstr "Σύμπτυξη {action}"
 msgid "Collapse {group}"
 msgstr "Σύμπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Σύμπτυξη {label}"
@@ -11771,6 +11839,10 @@ msgstr "Δεν ήταν δυνατή η επαλήθευση του κλειδι
 msgid "Covered"
 msgstr "Καλύπτεται"
 
+#: src/components/clio/permission-request-text.ts
+msgid "Covered by its script’s approval"
+msgstr "Καλύπτεται από την έγκριση του σεναρίου του"
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Covered by the script's approval"
 msgstr "Καλύπτεται από την έγκριση του script"
@@ -12270,10 +12342,6 @@ msgstr "Προεπιλεγμένη εφαρμογή αλληλογραφίας"
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
 msgstr "Προεπιλεγμένο μοντέλο"
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
-msgstr "προεπιλεγμένο ref"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Default tool timeout"
@@ -13057,6 +13125,14 @@ msgstr "Έγγραφα"
 #: src/components/clio/session-behavior-options.ts
 msgid "Does the work, within the policy."
 msgstr "Εκτελεί την εργασία, εντός της πολιτικής."
+
+#: src/lib/search-source-text.ts
+msgid "DOI metadata for journals, preprints and their links."
+msgstr "Μεταδεδομένα DOI για περιοδικά, προδημοσιεύσεις και τους συνδέσμους τους."
+
+#: src/lib/search-source-text.ts
+msgid "DOIs for datasets and software."
+msgstr "DOI για σύνολα δεδομένων και λογισμικό."
 
 #: src/components/clio/settings-access-rule-model.ts
 #: src/lib/model-facets.ts
@@ -14406,6 +14482,7 @@ msgstr "Ανάπτυξη {action}"
 msgid "Expand {group}"
 msgstr "Ανάπτυξη {group}"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Ανάπτυξη {label}"
@@ -14452,6 +14529,11 @@ msgstr "Αναπτυγμένο"
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
 msgstr "Πείραμα"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "expired"
+msgstr "έληξε"
 
 #: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -14650,6 +14732,11 @@ msgstr "απέτυχε"
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/lib/mcp-preparation.ts
+msgid "Failed"
+msgstr "Απέτυχε"
+
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
 msgid "Failed"
 msgstr "Απέτυχε"
 
@@ -15905,6 +15992,11 @@ msgstr "Γενικά"
 msgid "Generate widget"
 msgstr "Δημιουργία γραφικού στοιχείου"
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "generated"
+msgstr "παράχθηκε"
+
 #: src/components/clio/artifact-card.tsx
 msgid "Generated by {ownerLabel}"
 msgstr "Δημιουργήθηκε από {ownerLabel}"
@@ -16418,6 +16510,10 @@ msgstr "Υπερισχύει η υψηλότερη προτεραιότητα. �
 msgid "Higher values make replies more varied; lower values more focused."
 msgstr "Υψηλότερες τιμές κάνουν τις απαντήσεις πιο ποικίλες· χαμηλότερες, πιο εστιασμένες."
 
+#: src/lib/search-source-text.ts
+msgid "Higher-quality search mode and date and site filters."
+msgstr "Λειτουργία αναζήτησης υψηλότερης ποιότητας και φίλτρα ημερομηνίας και ιστότοπου."
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr "Tokens εξόδου με την υψηλότερη βαθμολογία, εμφανίζονται {shown} από {total}"
@@ -16484,19 +16580,19 @@ msgstr "Άγκιστρο"
 #: src/components/clio/conversation-harness-injection.tsx
 msgctxt "noun"
 msgid "Hook"
-msgstr "Hook"
+msgstr "Άγκιστρο"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Hook answer"
-msgstr "Απάντηση hook"
+msgstr "Απάντηση αγκίστρου"
 
 #: src/components/clio/settings-health-load-error.tsx
 msgid "hook inspection"
-msgstr "επιθεώρηση hooks"
+msgstr "επιθεώρηση αγκίστρων"
 
 #: src/components/clio/settings-operations.tsx
 msgid "Hook inspection unavailable."
-msgstr "Ο έλεγχος των hooks δεν είναι διαθέσιμος."
+msgstr "Η επιθεώρηση των αγκίστρων δεν είναι διαθέσιμη."
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-plugin-tree.tsx
@@ -16702,6 +16798,7 @@ msgid "Identity"
 msgstr "Ταυτότητα"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "idle"
 msgstr "αδρανής"
@@ -17088,7 +17185,7 @@ msgstr "Συμπερίληψη ανατεθειμένων θυγατρικών"
 
 #: src/components/clio/settings-app-updates.tsx
 msgid "Include prereleases. Beta versions may be unstable."
-msgstr "Συμπερίληψη προδημοσιεύσεων. Οι εκδόσεις beta μπορεί να είναι ασταθείς."
+msgstr "Συμπερίληψη προδημοσιεύσεων. Οι δοκιμαστικές εκδόσεις μπορεί να είναι ασταθείς."
 
 #: src/widget-gallery-demos.ts
 msgid "Include quality-flagged stations"
@@ -17485,6 +17582,7 @@ msgstr "Εγκατάσταση του {agent} μέσω SSH και σύνδεση
 msgid "Install {agentName} on a computer"
 msgstr "Εγκατάσταση του {agentName} σε υπολογιστή"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Install {label}"
 msgstr "Εγκατάσταση {label}"
@@ -17948,6 +18046,18 @@ msgstr "Οι είσοδοί του γίνονται γνωστές όταν μι
 msgid "Its menu"
 msgstr "Το μενού του"
 
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date and excluded sites."
+msgstr "Δικό του ευρετήριο ιστού· φίλτρα κατά ημερομηνία και εξαιρούμενους ιστότοπους."
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and excluded sites."
+msgstr "Δικό του ευρετήριο ιστού· φίλτρα κατά ημερομηνία, ιστότοπο και εξαιρούμενους ιστότοπους."
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
+msgstr "Δικό του ευρετήριο ιστού· φίλτρα κατά ημερομηνία, ιστότοπο και είδος (άρθρα, ειδήσεις, PDF)."
+
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
 msgstr "Τα πρόσθετα και οι πράκτορές της αφαιρούνται από το μενού +. Οι συνομιλίες που εκτελούνται ήδη διατηρούν τα καρφιτσωμένα πρόσθετά τους μέχρι να τελειώσουν."
@@ -17955,15 +18065,15 @@ msgstr "Τα πρόσθετα και οι πράκτορές της αφαιρο
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Its plugins can run commands and hooks. Trust only sources you know."
-msgstr "Τα πρόσθετά του μπορούν να εκτελούν εντολές και hooks. Εμπιστευτείτε μόνο πηγές που γνωρίζετε."
+msgstr "Τα πρόσθετά του μπορούν να εκτελούν εντολές και άγκιστρα. Εμπιστευτείτε μόνο πηγές που γνωρίζετε."
 
 #: src/components/clio/settings-plugins.tsx
 msgid "Its plugins can run commands, start servers and run hooks on this service."
-msgstr "Τα πρόσθετά του μπορούν να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν hooks σε αυτή την υπηρεσία."
+msgstr "Τα πρόσθετά του μπορούν να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν άγκιστρα σε αυτή την υπηρεσία."
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins can run commands, start servers and run hooks on this service. Trust only sources you know. An update that changes executable parts asks again."
-msgstr "Τα πρόσθετά της μπορούν να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν hooks σε αυτή την υπηρεσία. Εμπιστευτείτε μόνο πηγές που γνωρίζετε. Μια ενημέρωση που αλλάζει εκτελέσιμα μέρη θα ζητήσει ξανά έγκριση."
+msgstr "Τα πρόσθετά της μπορούν να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν άγκιστρα σε αυτή την υπηρεσία. Εμπιστευτείτε μόνο πηγές που γνωρίζετε. Μια ενημέρωση που αλλάζει εκτελέσιμα μέρη θα ζητήσει ξανά έγκριση."
 
 #: src/components/clio/managed-service-access.tsx
 msgid "its port on this host"
@@ -17999,7 +18109,7 @@ msgstr "Ο γύρος του ολοκληρώθηκε"
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "Its update can run commands and hooks. Trust only sources you know."
-msgstr "Η ενημέρωσή του μπορεί να εκτελεί εντολές και hooks. Εμπιστευτείτε μόνο πηγές που γνωρίζετε."
+msgstr "Η ενημέρωσή του μπορεί να εκτελεί εντολές και άγκιστρα. Εμπιστευτείτε μόνο πηγές που γνωρίζετε."
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -18431,6 +18541,10 @@ msgstr "Επίπεδα"
 msgid "License"
 msgstr "Άδεια χρήσης"
 
+#: src/lib/search-source-text.ts
+msgid "Life-science literature and preprints, with full text where open."
+msgstr "Βιβλιογραφία και προδημοσιεύσεις επιστημών ζωής, με πλήρες κείμενο όπου είναι ανοιχτό."
+
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Lift quarantine"
 msgstr "Άρση καραντίνας"
@@ -18743,7 +18857,7 @@ msgstr "Περιεχόμενο που φορτώθηκε"
 
 #: src/components/clio/settings-health-views.tsx
 msgid "Loaded hooks"
-msgstr "Φορτωμένα hooks"
+msgstr "Φορτωμένα άγκιστρα"
 
 #: src/lib/session-export/archive-evidence.tsx
 msgid "Loaded skill"
@@ -19041,7 +19155,7 @@ msgstr "Φόρτωση ιστορικού…"
 
 #: src/components/clio/settings-operations.tsx
 msgid "Loading hooks…"
-msgstr "Φόρτωση hooks…"
+msgstr "Φόρτωση αγκίστρων…"
 
 #: src/components/clio/artifact-card.tsx
 #: src/components/clio/artifact-markdown-image.tsx
@@ -20012,6 +20126,34 @@ msgstr "Υπηρεσίες MCP στο {computer}"
 #: src/components/clio/settings-tools.tsx
 msgid "MCP services on the connected computer"
 msgstr "Υπηρεσίες MCP στον συνδεδεμένο υπολογιστή"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by an access rule"
+msgstr "Το εργαλείο MCP {name} επιτράπηκε από κανόνα πρόσβασης"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by approval mode: {mode}"
+msgstr "Το εργαλείο MCP {name} επιτράπηκε από τη λειτουργία έγκρισης: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by its default permission"
+msgstr "Το εργαλείο MCP {name} επιτράπηκε από την προεπιλεγμένη άδειά του"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by a hook"
+msgstr "Το εργαλείο MCP {name} αποκλείστηκε από άγκιστρο"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by an access rule"
+msgstr "Το εργαλείο MCP {name} αποκλείστηκε από κανόνα πρόσβασης"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by its default permission"
+msgstr "Το εργαλείο MCP {name} αποκλείστηκε από την προεπιλεγμένη άδειά του"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} covered by its script’s approval"
+msgstr "Το εργαλείο MCP {name} καλύπτεται από την έγκριση του σεναρίου του"
 
 #: src/components/clio/settings-tools.tsx
 msgid "MCP tools"
@@ -20997,6 +21139,7 @@ msgid "Needs attention: {services}."
 msgstr "Χρειάζεται προσοχή: {services}."
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "needs input"
 msgstr "χρειάζεται είσοδο"
 
@@ -21070,6 +21213,7 @@ msgid "needs your answer"
 msgstr "χρειάζεται την απάντησή σας"
 
 #: src/lib/search-source-status.ts
+#: src/lib/search-source-text.ts
 msgid "Needs your key"
 msgstr "Χρειάζεται το κλειδί σας"
 
@@ -21441,7 +21585,7 @@ msgstr "Δεν έχει καταγραφεί ακόμη έλεγχος παρα�
 
 #: src/tauri/desktop-updater.ts
 msgid "No beta release feed is configured."
-msgstr "Δεν έχει ρυθμιστεί ροή εκδόσεων beta."
+msgstr "Δεν έχει ρυθμιστεί ροή δοκιμαστικών εκδόσεων."
 
 #: src/components/clio/github-revision-picker.tsx
 msgid "No branches found."
@@ -21564,6 +21708,10 @@ msgstr "Δεν υπάρχουν τρέχουσες εκκρεμότητες."
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "No custody receipt was returned for {path}"
 msgstr "Δεν επιστράφηκε απόδειξη παραλαβής για {path}"
+
+#: src/lib/search-source-text.ts
+msgid "No daily limit; paced"
+msgstr "Χωρίς ημερήσιο όριο· με ρυθμό"
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "No data"
@@ -21711,7 +21859,7 @@ msgstr "Δεν εντοπίστηκε GPU."
 
 #: src/components/clio/settings-health-views.tsx
 msgid "No hooks are loaded."
-msgstr "Δεν υπάρχουν φορτωμένα hooks."
+msgstr "Δεν υπάρχουν φορτωμένα άγκιστρα."
 
 #: src/components/clio/infrastructure-activity.tsx
 msgid "No infrastructure operations yet."
@@ -21737,6 +21885,10 @@ msgstr "Δεν αναφέρθηκαν ενσωματώσεις"
 #: src/offline-review.tsx
 msgid "No interactive views were recorded. Images and file references remain in the conversation."
 msgstr "Δεν καταγράφηκαν διαδραστικές προβολές. Οι εικόνες και οι αναφορές αρχείων παραμένουν στη συνομιλία."
+
+#: src/lib/search-source-text.ts
+msgid "No key needed"
+msgstr "Δεν χρειάζεται κλειδί"
 
 #: src/lib/fleet-usage.ts
 msgid "No limits"
@@ -23331,6 +23483,10 @@ msgstr "Μία επισήμανση ανά token του μοντέλου"
 msgid "One plant"
 msgstr "Ένα φυτό"
 
+#: src/lib/search-source-text.ts
+msgid "One request every 3 seconds"
+msgstr "Ένα αίτημα κάθε 3 δευτερόλεπτα"
+
 #: src/widget-preview-app.tsx
 msgid "One set of observations powers the tracks, wind curves, and table. Pick a point in any view to find it in the others."
 msgstr "Ένα σύνολο παρατηρήσεων τροφοδοτεί τις τροχιές, τις καμπύλες ανέμου και τον πίνακα. Επιλέξτε ένα σημείο σε οποιαδήποτε προβολή για να το βρείτε στις άλλες."
@@ -23606,6 +23762,10 @@ msgstr "Άνοιγμα απόκρισης που καταγράφηκε"
 #: src/components/clio/task-activity-row.tsx
 msgid "Open child conversation {title}"
 msgstr "Άνοιγμα θυγατρικής συνομιλίας {title}"
+
+#: src/lib/search-source-text.ts
+msgid "Open citation links: what a work cites and who cites it."
+msgstr "Ανοιχτοί σύνδεσμοι παραπομπών: τι παραθέτει ένα έργο και ποιος το παραθέτει."
 
 #: src/lib/session-export/archive-timeline.tsx
 msgid "Open complete saved output"
@@ -24477,6 +24637,10 @@ msgstr "Άρθρα και σύνολα δεδομένων"
 msgid "Papers & datasets sources"
 msgstr "Πηγές άρθρων και συνόλων δεδομένων"
 
+#: src/lib/search-source-text.ts
+msgid "Papers across fields with citation data."
+msgstr "Άρθρα από όλα τα πεδία με δεδομένα παραπομπών."
+
 #: src/lib/model-capability-tags.ts
 msgid "Parallel tools"
 msgstr "Παράλληλα εργαλεία"
@@ -24679,6 +24843,7 @@ msgid "Paused after errors until {time}"
 msgstr "Σε παύση λόγω σφαλμάτων έως τις {time}"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "pausing"
 msgstr "παύεται"
@@ -25346,6 +25511,10 @@ msgstr "Προετοιμασία προβολών…"
 msgid "Preparing…"
 msgstr "Προετοιμασία…"
 
+#: src/lib/search-source-text.ts
+msgid "Preprints in physics, computing, mathematics and more."
+msgstr "Προδημοσιεύσεις στη φυσική, την πληροφορική, τα μαθηματικά και άλλα."
+
 #: src/components/clio/settings-models-form.ts
 msgid "Presence penalty"
 msgstr "Ποινή παρουσίας"
@@ -25997,6 +26166,11 @@ msgstr "Έλεγχος ποιότητας"
 msgid "Quality review"
 msgstr "Αξιολόγηση ποιότητας"
 
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
+msgid "Quarantined"
+msgstr "Σε καραντίνα"
+
 #: src/components/reui/date-selector.tsx
 msgid "Quarter"
 msgstr "Τρίμηνο"
@@ -26087,6 +26261,11 @@ msgstr "Η ουρά είναι κενή"
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
 msgstr "σε αναμονή"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
+msgid "queued"
+msgstr "σε ουρά"
 
 #: src/components/clio/run-presentation.ts
 msgctxt "run state"
@@ -26952,6 +27131,7 @@ msgid "Recovered from the matching workspace file."
 msgstr "Ανακτήθηκε από το αντίστοιχο αρχείο του χώρου εργασίας."
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "recovering"
 msgstr "ανάκτηση"
@@ -27437,6 +27617,7 @@ msgstr "Αφαίρεση {filename}"
 msgid "Remove {id}"
 msgstr "Αφαίρεση {id}"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Remove {label}"
@@ -28012,7 +28193,7 @@ msgstr "Το αίτημα έγινε δεκτό"
 msgid "Request access"
 msgstr "Αίτημα πρόσβασης"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request cancelled"
 msgstr "Το αίτημα ακυρώθηκε"
 
@@ -28020,7 +28201,7 @@ msgstr "Το αίτημα ακυρώθηκε"
 msgid "Request changes"
 msgstr "Αίτημα αλλαγών"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "Το αίτημα έληξε"
 
@@ -28333,6 +28514,10 @@ msgstr "Επανεκκινήστε τον {agent} για να ενεργοποι
 #: src/components/clio/provider-component-status.tsx
 msgid "Restart {agent} to finish"
 msgstr "Επανεκκινήστε το {agent} για ολοκλήρωση"
+
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Restart {label}"
+msgstr "Επανεκκίνηση {label}"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Restart agent"
@@ -28861,7 +29046,7 @@ msgstr "Έλεγχος προτεινόμενων αλλαγών"
 
 #: src/components/clio/settings-operations.tsx
 msgid "Review service health, storage, activity and automation hooks. Status comes from your connected service."
-msgstr "Ελέγξτε την κατάσταση της υπηρεσίας, την αποθήκευση, τη δραστηριότητα και τα hooks αυτοματισμού. Η κατάσταση προέρχεται από τη συνδεδεμένη υπηρεσία σας."
+msgstr "Ελέγξτε την κατάσταση της υπηρεσίας, την αποθήκευση, τη δραστηριότητα και τα άγκιστρα αυτοματισμού. Η κατάσταση προέρχεται από τη συνδεδεμένη υπηρεσία σας."
 
 #: src/components/clio/source-review-panel.tsx
 msgid "Review source changes"
@@ -29109,6 +29294,11 @@ msgstr "Εκτέλεση: {label}"
 #: src/components/clio/workbench-activity-model.ts
 msgid "running"
 msgstr "σε εκτέλεση"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
+msgid "running"
+msgstr "τρέχει"
 
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -31160,6 +31350,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των συνεδριών
 msgid "Set by the connected service's workspace configuration."
 msgstr "Ορίζεται από τη διαμόρφωση χώρου εργασίας της συνδεδεμένης υπηρεσίας."
 
+#: src/lib/search-source-text.ts
+msgid "Set by the service"
+msgstr "Ορίζεται από την υπηρεσία"
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
 msgstr "Ορίζεται από αυτή την ανάπτυξη"
@@ -32522,6 +32716,7 @@ msgstr "Το μοντέλο του SPOTTER δεν άλλαξε"
 msgid "SPOTTER model: {label}"
 msgstr "Μοντέλο SPOTTER: {label}"
 
+#: src/components/clio/permission-request-text.ts
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
@@ -32653,6 +32848,7 @@ msgctxt "verb"
 msgid "Start"
 msgstr "Εκκίνηση"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Start {label}"
 msgstr "Εκκίνηση {label}"
@@ -33065,6 +33261,7 @@ msgctxt "verb"
 msgid "Stop"
 msgstr "Διακοπή"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/rail-runs.tsx
 msgid "Stop {label}"
@@ -33142,6 +33339,7 @@ msgid "stopped"
 msgstr "σταματημένος"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopped"
 msgstr "σταματημένο"
@@ -33186,6 +33384,7 @@ msgid "Stopped: {status}"
 msgstr "Σταμάτησε: {status}"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopping"
 msgstr "διακόπτεται"
@@ -33589,6 +33788,7 @@ msgid "superseded"
 msgstr "αντικαταστάθηκε"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "superseded"
 msgstr "αντικαταστάθηκε"
@@ -35541,6 +35741,10 @@ msgstr "Η υπηρεσία θα αφαιρέσει οριστικά το τελ
 msgid "The service will put {path} back as it was before this change."
 msgstr "Η υπηρεσία θα επαναφέρει το {path} όπως ήταν πριν από αυτή την αλλαγή."
 
+#: src/lib/search-source-text.ts
+msgid "The service’s access token, if it needs one."
+msgstr "Το διακριτικό πρόσβασης της υπηρεσίας, αν χρειάζεται."
+
 #: src/components/clio/navigation.tsx
 msgid "The session could not be imported."
 msgstr "Δεν ήταν δυνατή η εισαγωγή της συνεδρίας."
@@ -35711,7 +35915,7 @@ msgstr "Το αρχείο καταγραφής μεταφοράς δεν είν�
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "The update changes parts that run on this service: commands, servers or hooks. Until you trust it, the installed version keeps running."
-msgstr "Η ενημέρωση αλλάζει μέρη που εκτελούνται σε αυτή την υπηρεσία: εντολές, διακομιστές ή hooks. Μέχρι να την εμπιστευτείτε, συνεχίζει να εκτελείται η εγκατεστημένη έκδοση."
+msgstr "Η ενημέρωση αλλάζει μέρη που εκτελούνται σε αυτή την υπηρεσία: εντολές, διακομιστές ή άγκιστρα. Μέχρι να την εμπιστευτείτε, συνεχίζει να εκτελείται η εγκατεστημένη έκδοση."
 
 #: src/tauri/desktop-updater.ts
 msgid "The update channel changed. Check for updates again."
@@ -37004,6 +37208,34 @@ msgstr "Διάρκεια"
 msgid "Tool"
 msgstr "Εργαλείο"
 
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by an access rule"
+msgstr "Το εργαλείο {name} επιτράπηκε από κανόνα πρόσβασης"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by approval mode: {mode}"
+msgstr "Το εργαλείο {name} επιτράπηκε από τη λειτουργία έγκρισης: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by its default permission"
+msgstr "Το εργαλείο {name} επιτράπηκε από την προεπιλεγμένη άδειά του"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by a hook"
+msgstr "Το εργαλείο {name} αποκλείστηκε από άγκιστρο"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by an access rule"
+msgstr "Το εργαλείο {name} αποκλείστηκε από κανόνα πρόσβασης"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by its default permission"
+msgstr "Το εργαλείο {name} αποκλείστηκε από την προεπιλεγμένη άδειά του"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} covered by its script’s approval"
+msgstr "Το εργαλείο {name} καλύπτεται από την έγκριση του σεναρίου του"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Tool action"
 msgstr "Ενέργεια εργαλείου"
@@ -37405,7 +37637,7 @@ msgstr "Έγινε έμπιστο. Επανεκκίνηση του προγρά�
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "Trusting {marketplace} lets its plugins run commands, start servers and run hooks on this service."
-msgstr "Η εμπιστοσύνη στο {marketplace} επιτρέπει στα πρόσθετά του να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν hooks σε αυτήν την υπηρεσία."
+msgstr "Η εμπιστοσύνη στο {marketplace} επιτρέπει στα πρόσθετά του να εκτελούν εντολές, να εκκινούν διακομιστές και να εκτελούν άγκιστρα σε αυτήν την υπηρεσία."
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "Trusting…"
@@ -37483,6 +37715,10 @@ msgstr "Ενεργοποιήστε τις οποιαδήποτε στιγμή σ
 msgid "Turned off in system settings"
 msgstr "Απενεργοποιήθηκαν στις ρυθμίσεις συστήματος"
 
+#: src/lib/search-source-text.ts
+msgid "Turns the source on."
+msgstr "Ενεργοποιεί την πηγή."
+
 #: src/widget-gallery-scenarios.ts
 msgid "Two sites need attention"
 msgstr "Δύο τοποθεσίες χρειάζονται προσοχή"
@@ -37549,6 +37785,10 @@ msgstr "Πληκτρολογήστε την απάντησή σας στο πε�
 #: src/components/clio/path-picker.tsx
 msgid "Type, paste, or browse for a folder"
 msgstr "Πληκτρολογήστε, επικολλήστε ή αναζητήστε έναν φάκελο"
+
+#: src/lib/search-source-text.ts
+msgid "U.S. Department of Energy reports and papers."
+msgstr "Αναφορές και άρθρα του Υπουργείου Ενέργειας των ΗΠΑ."
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "UI catalogs"
@@ -37831,6 +38071,7 @@ msgstr "μονάδες {unit}"
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-activity-model.ts
 #: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr "άγνωστο"
@@ -37886,6 +38127,10 @@ msgstr "Άγνωστος αποστολέας"
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Unknown session"
 msgstr "Άγνωστη συνεδρία"
+
+#: src/components/clio/settings-about.tsx
+msgid "unknown source"
+msgstr "άγνωστη πηγή"
 
 #: src/routes/runs-rows.ts
 msgid "Unknown source"
@@ -38064,6 +38309,10 @@ msgstr "Ενημέρωση"
 #: src/tauri/desktop-updater.ts
 msgid "Update {agent}"
 msgstr "Ενημέρωση {agent}"
+
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Update {label}"
+msgstr "Ενημέρωση {label}"
 
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/marketplace-manager.tsx
@@ -38631,6 +38880,11 @@ msgstr "Χρησιμοποιήστε έως 32 πεζά γράμματα, ψηφ
 msgid "Use valid NAME=value process settings"
 msgstr "Χρησιμοποιήστε έγκυρες ρυθμίσεις διεργασίας ΟΝΟΜΑ=τιμή"
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "used"
+msgstr "χρησιμοποιήθηκε"
+
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
@@ -39164,6 +39418,7 @@ msgid "waiting"
 msgstr "σε αναμονή"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "waiting"
 msgstr "σε αναμονή"
@@ -39406,9 +39661,17 @@ msgstr "Πρόγραμμα περιήγησης"
 msgid "Web search"
 msgstr "Αναζήτηση ιστού"
 
+#: src/lib/search-source-text.ts
+msgid "Web search for agents; the free tier is its faster, lighter mode."
+msgstr "Αναζήτηση ιστού για πράκτορες· η δωρεάν βαθμίδα είναι η ταχύτερη, ελαφρύτερη λειτουργία της."
+
 #: src/components/clio/settings-web-search.tsx
 msgid "Web search pages"
 msgstr "Σελίδες αναζήτησης ιστού"
+
+#: src/lib/search-source-text.ts
+msgid "Web search with research and PDF categories and full page text."
+msgstr "Αναζήτηση ιστού με κατηγορίες έρευνας και PDF και πλήρες κείμενο σελίδας."
 
 #: src/components/clio/settings-web-search.tsx
 msgid "Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once."
@@ -39856,6 +40119,10 @@ msgstr "Η διένεξη του αντιγράφου εργασίας επιλ�
 msgid "Working…"
 msgstr "Σε εξέλιξη…"
 
+#: src/lib/search-source-text.ts
+msgid "Works across every field, with citations and open-access links."
+msgstr "Έργα από κάθε πεδίο, με παραπομπές και συνδέσμους ανοιχτής πρόσβασης."
+
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Works on this screen"
 msgstr "Λειτουργεί σε αυτή την οθόνη"
@@ -40167,7 +40434,7 @@ msgstr "Εσείς"
 msgid "You added this plugin to the conversation."
 msgstr "Προσθέσατε αυτό το πρόσθετο στη συνομιλία."
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You allowed it"
 msgstr "Το επιτρέψατε"
 
@@ -40203,7 +40470,7 @@ msgstr "Ζητήσατε τη ροή {target} σε αυτό το μήνυμα"
 msgid "You asked for the workflow {target} on this message"
 msgstr "Ζητήσατε τη ροή εργασιών {target} σε αυτό το μήνυμα"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You blocked it"
 msgstr "Το αποκλείσατε"
 
@@ -40235,7 +40502,7 @@ msgstr "Απορρίψατε"
 msgid "You declined to answer."
 msgstr "Αρνηθήκατε να απαντήσετε."
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You deleted the conversation"
 msgstr "Διαγράψατε τη συνομιλία"
 
@@ -40354,6 +40621,10 @@ msgstr "το μήνυμά σας"
 #: src/lib/transcript-message-preview.ts
 msgid "Your message"
 msgstr "Το μήνυμά σας"
+
+#: src/lib/search-source-text.ts
+msgid "Your own monthly allowance, and deeper search modes."
+msgstr "Το δικό σας μηνιαίο όριο και πιο εις βάθος λειτουργίες αναζήτησης."
 
 #: src/components/clio/private-local-library.tsx
 msgid "Your plugins"

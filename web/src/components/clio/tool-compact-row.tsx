@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { copyText } from '@/lib/clipboard';
 import { formatDuration } from '@/lib/format';
+import { listSeparator } from '@/lib/locale-format';
 import { toolKindIcon } from '@/lib/tool-kind-icons';
 import { cn } from '@/lib/utils';
 import {
@@ -105,7 +106,9 @@ export function ToolCompactRow({
     <>
       {operation.subjects.map((subject, index) => (
         <Fragment key={`${subject.id}-${index}`}>
-          {index && index === operation.subjects.length - 1 ? ' and ' : null}
+          {index
+            ? listSeparator({ last: index === operation.subjects.length - 1 })
+            : null}
           {onOpenFlow && index === 0 ? (
             <Button
               variant="link"
@@ -121,7 +124,6 @@ export function ToolCompactRow({
           ) : (
             subject.label || subject.text
           )}
-          {index < operation.subjects.length - 2 ? ', ' : null}
         </Fragment>
       ))}
       {operation.qualifier ? ` ${operation.qualifier}` : null}

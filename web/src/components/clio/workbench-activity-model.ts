@@ -146,24 +146,80 @@ const FILE_VERBS: Record<string, (file: string) => string> = {
   fs_edit_file: (file) => t`Edited ${file}`,
 };
 
-/** A state as the trailing column and status line say it. */
-const STATE_WORDS: Record<string, string> = {
-  completed: t`done`,
-  succeeded: t`done`,
-  task_state_uncertain: t`needs inspection`,
-  running: t`running`,
-  paused: t`paused`,
-  queued: t`queued`,
-  failed: t`failed`,
-  error: t`error`,
-  denied: t`denied`,
-  cancelled: t`cancelled`,
-  interrupted: t`interrupted`,
-  pending: t`pending`,
-};
+/**
+ * A wire state as the status line and detail say it, resolved at render in the
+ * active locale. A state this build does not know reads as recorded.
+ */
+export function stateWord(state: string): string {
+  switch (state) {
+    case 'completed':
+    case 'succeeded':
+      return t`done`;
+    case 'task_state_uncertain':
+    case 'recovery_required':
+      return t`needs inspection`;
+    case 'running':
+    case 'starting':
+    case 'streaming':
+      return t`running`;
+    case 'recovering':
+      return t({ message: 'recovering', context: 'run state' });
+    case 'stopping':
+    case 'cancellation_requested':
+      return t({ message: 'stopping', context: 'run state' });
+    case 'stopped':
+      return t({ message: 'stopped', context: 'run state' });
+    case 'pause_requested':
+      return t({ message: 'pausing', context: 'run state' });
+    case 'paused':
+      return t`paused`;
+    case 'yielded':
+      return t({ message: 'idle', context: 'run state' });
+    case 'queued':
+      return t`queued`;
+    case 'waiting':
+      return t({ message: 'waiting', context: 'goal or loop state' });
+    case 'waiting_permission':
+      return t`waiting for approval`;
+    case 'waiting_user':
+    case 'needs_input':
+      return t`needs input`;
+    case 'judging':
+      return t`checking completion`;
+    case 'active':
+      return t({ message: 'active', context: 'goal or loop state' });
+    case 'superseded':
+      return t({ message: 'superseded', context: 'goal or loop state' });
+    case 'failed':
+      return t`failed`;
+    case 'error':
+      return t`error`;
+    case 'denied':
+      return t`denied`;
+    case 'cancelled':
+      return t`cancelled`;
+    case 'interrupted':
+      return t`interrupted`;
+    case 'pending':
+      return t`pending`;
+    case 'approved':
+      return t({ message: 'approved', context: 'request state' });
+    case 'answered':
+      return t({ message: 'answered', context: 'request state' });
+    case 'expired':
+      return t({ message: 'expired', context: 'request state' });
+    case 'unknown':
+      return t`unknown`;
+    default:
+      return state.replaceAll('_', ' ');
+  }
+}
 
-function stateWord(state: string): string {
-  return STATE_WORDS[state] ?? state.replaceAll('_', ' ');
+/** The short live word a narrow trailing chip shows for queued or running work. */
+export function liveChipWord(state: string): string {
+  return state === 'queued'
+    ? t({ message: 'queued', context: 'activity chip' })
+    : t({ message: 'running', context: 'activity chip' });
 }
 
 function inputPath(tool: ToolInvocation): string | undefined {
@@ -310,7 +366,7 @@ function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
   const duration = tool.duration_ms !== undefined ? formatToolDuration(tool.duration_ms) : '';
   const brief = tool.duration_ms !== undefined ? compactDuration(tool.duration_ms) : '';
   const trailing = running
-    ? (percent(tool.progress, tool.progress_total) ?? t`running`)
+    ? (percent(tool.progress, tool.progress_total) ?? liveChipWord(status))
     : failed
       ? stateWord(status)
       : brief || stateWord(status);
@@ -375,7 +431,7 @@ function taskRows(input: ActivityInput, groupAt: (at?: string) => ActivityGroup)
       : undefined;
     const trailing = settled
       ? stateWord(state)
-      : (progress ?? (isAgent ? t`subagent` : running ? t`running` : stateWord(state)));
+      : (progress ?? (isAgent ? t`subagent` : running ? liveChipWord(state) : stateWord(state)));
     return {
       id: process ? `process:${process.id}` : `subagent:${subagent!.id}`,
       kind: isAgent ? 'subagent' : 'process',
@@ -585,7 +641,7 @@ export function activityItems(input: ActivityInput): ActivityItem[] {
       filter: 'tasks',
       group: running ? 'now' : 'turn',
       name: task.title,
-      trailing: running ? t`running` : stateWord(task.state),
+      trailing: running ? liveChipWord(task.state) : stateWord(task.state),
       status: running ? t`running` : stateWord(task.state),
       running,
       failed: FAILED_STATES.has(task.state),

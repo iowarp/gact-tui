@@ -18,9 +18,9 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionTitle } from './permission-operation-labels';
-import { decisionList } from './decision-list';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { t, ph, plural } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 const SCOPES = [
   { action: 'allow', label: t`Allow once`, name: t`Allow once` },
@@ -141,7 +141,7 @@ function spokenToolCall(
       .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
       .map(([key, value]) => `${key} ${String(value).replace(/\s+/gu, ' ')}`);
     if (values.length) {
-      const list = decisionList(values);
+      const list = formatList(values);
       return clip(
         t({ message: `${toolName}: ${list}`, comment: 'Spoken tool call: tool name, then its arguments' }),
       );

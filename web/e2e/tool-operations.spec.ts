@@ -759,7 +759,9 @@ for (const width of [1440, 390]) {
     await open('script-shown');
     await expect(shown).toContainText('Descriptions of 2 images: page-1.png, page-2.png');
     await expect(shown.getByRole('heading', { name: 'Shown to the model' })).toBeVisible();
-    await expect(shown).toContainText("with the run_code script's result");
+    await expect(shown).toContainText(
+      'Shown to the model on its next step, with the run_code script’s result.',
+    );
     if (width > 480)
       await expect(row('script-shown-view-3')).toContainText('Not shown to the model');
     await open('script-shown-view-3');
@@ -767,7 +769,9 @@ for (const width of [1440, 390]) {
 
     // A direct view shows the image and opens it; a vanished file says so in place.
     await open('view-direct');
-    await expect(row('view-direct')).toContainText('Shown to the model on its next step.');
+    await expect(row('view-direct')).toContainText(
+      'Shown to the model on its next step, as this call’s result.',
+    );
     await row('view-direct').getByRole('button', { name: 'Open page-1.png' }).click();
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText(
       'tmp/pdfs/page-1.png',

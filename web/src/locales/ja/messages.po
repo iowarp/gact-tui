@@ -2133,10 +2133,6 @@ msgstr "入力{input}トークン、出力{output}トークン"
 msgid "{interrupted} stopped"
 msgstr "{interrupted}件停止"
 
-#: src/lib/locale-format.ts
-msgid "{joined}, {next}"
-msgstr "{joined}、{next}"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{returned}件中{kept}件を保持"
@@ -2463,10 +2459,13 @@ msgstr "{lines, plural, one {#行} other {#行}}"
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python、#行} other {Python、#行}}"
 
+#. A short list, its last item
+#: src/lib/locale-format.ts
+msgid "{list} and {item}"
+msgstr "{list}、{item}"
+
 #. A short list, one more item
-#. A short list, one more item
-#: src/components/clio/decision-list.ts
-#: src/components/clio/script-calls.ts
+#: src/lib/locale-format.ts
 msgid "{list}, {item}"
 msgstr "{list}、{item}"
 
@@ -3461,6 +3460,14 @@ msgid "{source} key saved."
 msgstr "{source}のキーを保存しました。"
 
 #: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed {commit}"
+msgstr "{source}、デフォルトのref、インストール済みコミット{commit}"
+
+#: src/components/clio/settings-about.tsx
+msgid "{source}, default ref, installed commit unavailable"
+msgstr "{source}、デフォルトのref、インストール済みコミットは不明"
+
+#: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
 msgstr "{source}、ref {ref}、インストール済みコミット{commit}"
 
@@ -4078,9 +4085,21 @@ msgstr "約{minutes}分"
 msgid "1 year"
 msgstr "1年"
 
+#: src/lib/search-source-text.ts
+msgid "1,000 credits a month on a free key."
+msgstr "無料キーで月 1,000 クレジット。"
+
+#: src/lib/search-source-text.ts
+msgid "1,000 searches per hour, shared by everyone on your network"
+msgstr "1 時間あたり 1,000 件の検索。ネットワーク内の全員で共有"
+
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "10.0.0.102 or login.example.edu"
 msgstr "10.0.0.102またはlogin.example.edu"
+
+#: src/lib/search-source-text.ts
+msgid "100 searches per day, shared by everyone on your network"
+msgstr "1 日あたり 100 件の検索。ネットワーク内の全員で共有"
 
 #: src/widget-preview-app.tsx
 msgid "115 kt near the Texas coast"
@@ -4137,6 +4156,10 @@ msgstr "95%が{duration}以内"
 #: src/components/clio/memory-import-dialog.tsx
 msgid "A .zip saved with Export. Facts merge by id, so importing the same export twice changes nothing."
 msgstr "エクスポートで保存した .zipです。事実はIDでマージされるため、同じエクスポートを2回インポートしても何も変わりません。"
+
+#: src/lib/search-source-text.ts
+msgid "A {agent} search service your site runs (search.service.url)."
+msgstr "組織で運用する {agent} 検索サービス (search.service.url)。"
 
 #: src/components/clio/managed-service-target-utils.ts
 msgid "A {agent}-looking process (pid {pid}) is on the port but isn't answering."
@@ -4198,6 +4221,10 @@ msgstr "フォーク"
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "A fork of {step}"
 msgstr "{step}のフォーク"
+
+#: src/lib/search-source-text.ts
+msgid "A free key ($1 a day budget); {agent} can request one with your email."
+msgstr "無料キー (1 日 1 ドルの予算)。{agent} がメールアドレスで申請できます。"
 
 #: src/lib/model-capability-tags.ts
 msgid "A general model: it can hold a conversation."
@@ -4278,6 +4305,14 @@ msgstr "plugin.jsonまたは .claude-plugin/plugin.jsonを含むプラグイン�
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
 msgstr "練習用のリクエストが入力済みです。"
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance (100,000 requests a month free)."
+msgstr "専用の利用枠 (月 100,000 リクエストまで無料)。"
+
+#: src/lib/search-source-text.ts
+msgid "A private allowance and site allowlists."
+msgstr "専用の利用枠とサイトの許可リスト。"
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4412,6 +4447,10 @@ msgstr "{title}について"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
 msgstr "{wordmark}について"
+
+#: src/lib/search-source-text.ts
+msgid "About 100 searches a day per network without a key; single-work lookups are free"
+msgstr "キーなしでネットワークごとに 1 日約 100 件の検索。個別の文献の参照は無料"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -4735,6 +4774,7 @@ msgid "Actions for session"
 msgstr "セッションのアクション"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "active"
 msgstr "アクティブ"
@@ -5797,9 +5837,17 @@ msgstr "このワークスペースで{folder}を許可しました"
 msgid "Allowed actions"
 msgstr "許可されたアクション"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "アクセスルールにより許可"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by approval mode: {mode}"
+msgstr "承認モードにより許可: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Allowed by the tool’s default permission"
+msgstr "ツールの既定の権限により許可"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/workspace-folders.tsx
@@ -5894,7 +5942,7 @@ msgstr "AMD GPUが検出されました。"
 msgid "Amount"
 msgstr "量"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "An access rule asked"
 msgstr "アクセスルールにより確認"
 
@@ -6068,6 +6116,11 @@ msgstr "準備ができたら回答してください。{agent}は作業を続�
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
 msgstr "準備ができたら回答してください。{agent}は作業を続けることができ、回答はメッセージキューに入ります。"
 
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "answered"
+msgstr "回答済み"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/tool-presentation.ts
@@ -6148,7 +6201,7 @@ msgstr "API URL"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "API version"
-msgstr "API バージョン"
+msgstr "APIバージョン"
 
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
@@ -6202,7 +6255,7 @@ msgstr "次回のバックグラウンドスケジューラーの実行時に適
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Applies on the next scheduler pass, normally checked once a minute."
-msgstr "次回のスケジューラーの実行時に適用されます。通常は 1 分に 1 回確認されます。"
+msgstr "次回のスケジューラーの実行時に適用されます。通常は1分に1回確認されます。"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Applies to"
@@ -6336,6 +6389,11 @@ msgstr "承認待ち"
 #: src/widget-gallery-scenarios.ts
 msgid "Approve"
 msgstr "承認"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "approved"
+msgstr "承認済み"
 
 #: src/lib/search-source-status.ts
 msgctxt "search source state"
@@ -6985,15 +7043,15 @@ msgstr "承認待ち"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "AWS profile"
-msgstr "AWS プロファイル"
+msgstr "AWSプロファイル"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "AWS region"
-msgstr "AWS リージョン"
+msgstr "AWSリージョン"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Azure OpenAI API version."
-msgstr "Azure OpenAI の API バージョン。"
+msgstr "Azure OpenAIのAPIバージョン。"
 
 #: src/components/clio/clio-menu.tsx
 msgctxt "menu key hint"
@@ -7313,7 +7371,11 @@ msgstr "ブロック"
 msgid "Blocked"
 msgstr "ブロック"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by a hook"
+msgstr "フックによりブロック"
+
+#: src/components/clio/permission-request-text.ts
 msgid "Blocked by an access rule"
 msgstr "アクセスルールによりブロック"
 
@@ -7324,6 +7386,10 @@ msgstr "サンドボックスによりブロック"
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Blocked by the sandbox: {folders}"
 msgstr "サンドボックスによりブロック：{folders}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Blocked by the tool’s default permission"
+msgstr "ツールの既定の権限によりブロック"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Blocked by you"
@@ -7627,7 +7693,7 @@ msgstr "同梱の{name}"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Bundled Chromium"
-msgstr "同梱の Chromium"
+msgstr "同梱のChromium"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "by {by}"
@@ -8515,6 +8581,7 @@ msgid "Checking client updates…"
 msgstr "クライアントのアップデートを確認中…"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "checking completion"
 msgstr "完了を確認中"
 
@@ -9493,6 +9560,7 @@ msgstr "{action}を折りたたむ"
 msgid "Collapse {group}"
 msgstr "{group}を折りたたむ"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "{label}を折りたたむ"
@@ -10539,7 +10607,7 @@ msgstr "コンテキストフレームを利用できません"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
-msgstr "{agent} が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
+msgstr "{agent}が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
 
 #: src/components/clio/context-control.tsx
 msgid "Context length"
@@ -11771,6 +11839,10 @@ msgstr "{provider}のAPIキーを検証できませんでした。"
 msgid "Covered"
 msgstr "対象済み"
 
+#: src/components/clio/permission-request-text.ts
+msgid "Covered by its script’s approval"
+msgstr "スクリプトの承認の対象"
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Covered by the script's approval"
 msgstr "スクリプトの承認に含まれる"
@@ -12270,10 +12342,6 @@ msgstr "既定のメールアプリ"
 #: src/lib/settings-search-rows.ts
 msgid "Default model"
 msgstr "デフォルトモデル"
-
-#: src/components/clio/settings-about.tsx
-msgid "default ref"
-msgstr "デフォルトのref"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Default tool timeout"
@@ -13057,6 +13125,14 @@ msgstr "ドキュメント"
 #: src/components/clio/session-behavior-options.ts
 msgid "Does the work, within the policy."
 msgstr "ポリシーの範囲内で作業を行います。"
+
+#: src/lib/search-source-text.ts
+msgid "DOI metadata for journals, preprints and their links."
+msgstr "学術誌とプレプリントの DOI メタデータとそのリンク。"
+
+#: src/lib/search-source-text.ts
+msgid "DOIs for datasets and software."
+msgstr "データセットとソフトウェアの DOI。"
 
 #: src/components/clio/settings-access-rule-model.ts
 #: src/lib/model-facets.ts
@@ -14406,6 +14482,7 @@ msgstr "{action}を展開"
 msgid "Expand {group}"
 msgstr "{group}を展開"
 
+#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "{label}を展開"
@@ -14452,6 +14529,11 @@ msgstr "展開"
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
 msgstr "実験"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "request state"
+msgid "expired"
+msgstr "期限切れ"
 
 #: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -14650,6 +14732,11 @@ msgstr "失敗"
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/lib/mcp-preparation.ts
+msgid "Failed"
+msgstr "失敗"
+
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
 msgid "Failed"
 msgstr "失敗"
 
@@ -15905,6 +15992,11 @@ msgstr "一般"
 msgid "Generate widget"
 msgstr "ウィジェットを生成"
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "generated"
+msgstr "生成"
+
 #: src/components/clio/artifact-card.tsx
 msgid "Generated by {ownerLabel}"
 msgstr "{ownerLabel}が生成"
@@ -16101,11 +16193,11 @@ msgstr "良い応答"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Google Cloud location"
-msgstr "Google Cloud のロケーション"
+msgstr "Google Cloudのロケーション"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Google Cloud project"
-msgstr "Google Cloud プロジェクト"
+msgstr "Google Cloudプロジェクト"
 
 #: src/components/clio/source-fields.tsx
 msgid "Google Drive folder link"
@@ -16418,6 +16510,10 @@ msgstr "優先度が高いルールが優先されます。同じ場合はより
 msgid "Higher values make replies more varied; lower values more focused."
 msgstr "値を大きくすると応答が多様になり、小さくすると焦点が絞られます。"
 
+#: src/lib/search-source-text.ts
+msgid "Higher-quality search mode and date and site filters."
+msgstr "より高品質な検索モードと、日付とサイトのフィルター。"
+
 #: src/components/clio/attention-lookup-results.tsx
 msgid "Highest scoring output tokens, showing {shown} of {total}"
 msgstr "スコアの高い出力トークン ({total}個中{shown}個を表示)"
@@ -16567,7 +16663,7 @@ msgstr "モデルがリリースされてからの期間"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "How many levels of subagents may be created. The first child is level 1."
-msgstr "作成できるサブエージェントの階層数です。最初の子がレベル 1 です。"
+msgstr "作成できるサブエージェントの階層数です。最初の子がレベル1です。"
 
 #: src/components/clio/settings-models-form.ts
 msgid "How many replies the server works on at the same time."
@@ -16702,6 +16798,7 @@ msgid "Identity"
 msgstr "ID"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "idle"
 msgstr "アイドル"
@@ -17485,6 +17582,7 @@ msgstr "SSH経由で{agent}をインストールし、プライベートトン�
 msgid "Install {agentName} on a computer"
 msgstr "コンピューターに{agentName}をインストール"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Install {label}"
 msgstr "{label}をインストール"
@@ -17564,11 +17662,11 @@ msgstr "インストール済みのエージェント"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Installed Google Chrome"
-msgstr "インストール済みの Google Chrome"
+msgstr "インストール済みのGoogle Chrome"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Installed Microsoft Edge"
-msgstr "インストール済みの Microsoft Edge"
+msgstr "インストール済みのMicrosoft Edge"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17947,6 +18045,18 @@ msgstr "入力は、会話でツールが読み込まれた時点で判明しま
 #: src/lib/shortcuts/catalog.ts
 msgid "Its menu"
 msgstr "そのメニュー"
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date and excluded sites."
+msgstr "独自のウェブインデックス。日付と除外サイトで絞り込めます。"
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and excluded sites."
+msgstr "独自のウェブインデックス。日付、サイト、除外サイトで絞り込めます。"
+
+#: src/lib/search-source-text.ts
+msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
+msgstr "独自のウェブインデックス。日付、サイト、種類 (論文、ニュース、PDF) で絞り込めます。"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
@@ -18430,6 +18540,10 @@ msgstr "レベル"
 #: src/components/clio/registry-model-details.tsx
 msgid "License"
 msgstr "ライセンス"
+
+#: src/lib/search-source-text.ts
+msgid "Life-science literature and preprints, with full text where open."
+msgstr "ライフサイエンスの文献とプレプリント。オープンなものは全文付き。"
 
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Lift quarantine"
@@ -20013,6 +20127,34 @@ msgstr "{computer}上のMCPサービス"
 msgid "MCP services on the connected computer"
 msgstr "接続先コンピューターのMCPサービス"
 
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by an access rule"
+msgstr "MCP ツール {name} はアクセスルールにより許可"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by approval mode: {mode}"
+msgstr "MCP ツール {name} は承認モードにより許可: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} allowed by its default permission"
+msgstr "MCP ツール {name} は既定の権限により許可"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by a hook"
+msgstr "MCP ツール {name} はフックによりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by an access rule"
+msgstr "MCP ツール {name} はアクセスルールによりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} blocked by its default permission"
+msgstr "MCP ツール {name} は既定の権限によりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "MCP tool {name} covered by its script’s approval"
+msgstr "MCP ツール {name} はスクリプトの承認の対象"
+
 #: src/components/clio/settings-tools.tsx
 msgid "MCP tools"
 msgstr "MCPツール"
@@ -20712,11 +20854,11 @@ msgstr "エージェントが別の方向を試すために作成できる自身
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Most rounds of edits in one workflow run. A workflow may ask for fewer."
-msgstr "1 回のワークフロー実行での編集ラウンドの最大数です。ワークフロー側でより少なく指定できます。"
+msgstr "1回のワークフロー実行での編集ラウンドの最大数です。ワークフロー側でより少なく指定できます。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
-msgstr "ワークフローの編集者が 1 回の実行に追加できるステップの最大数です。ワークフロー側でより少なく指定できます。"
+msgstr "ワークフローの編集者が1回の実行に追加できるステップの最大数です。ワークフロー側でより少なく指定できます。"
 
 #: src/components/clio/settings-appearance.tsx
 #: src/lib/settings-search-rows.ts
@@ -20997,6 +21139,7 @@ msgid "Needs attention: {services}."
 msgstr "要対応：{services}。"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgid "needs input"
 msgstr "入力が必要"
 
@@ -21070,6 +21213,7 @@ msgid "needs your answer"
 msgstr "回答が必要"
 
 #: src/lib/search-source-status.ts
+#: src/lib/search-source-text.ts
 msgid "Needs your key"
 msgstr "キーが必要です"
 
@@ -21565,6 +21709,10 @@ msgstr "現在のToDoはありません。"
 msgid "No custody receipt was returned for {path}"
 msgstr "{path}の受領証明が返されませんでした"
 
+#: src/lib/search-source-text.ts
+msgid "No daily limit; paced"
+msgstr "1 日の上限なし。間隔を空けて実行"
+
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "No data"
 msgstr "データなし"
@@ -21737,6 +21885,10 @@ msgstr "連携は報告されていません"
 #: src/offline-review.tsx
 msgid "No interactive views were recorded. Images and file references remain in the conversation."
 msgstr "インタラクティブビューは記録されていません。画像とファイル参照は会話内に残っています。"
+
+#: src/lib/search-source-text.ts
+msgid "No key needed"
+msgstr "キー不要"
 
 #: src/lib/fleet-usage.ts
 msgid "No limits"
@@ -23331,6 +23483,10 @@ msgstr "モデルのトークンごとに1つのハイライト"
 msgid "One plant"
 msgstr "1つのプラント"
 
+#: src/lib/search-source-text.ts
+msgid "One request every 3 seconds"
+msgstr "3 秒ごとに 1 リクエスト"
+
 #: src/widget-preview-app.tsx
 msgid "One set of observations powers the tracks, wind curves, and table. Pick a point in any view to find it in the others."
 msgstr "1組の観測データが経路、風速曲線、表を支えています。どのビューで点を選んでも、ほかのビューで同じ点が見つかります。"
@@ -23606,6 +23762,10 @@ msgstr "取得した応答を開く"
 #: src/components/clio/task-activity-row.tsx
 msgid "Open child conversation {title}"
 msgstr "子会話{title}を開く"
+
+#: src/lib/search-source-text.ts
+msgid "Open citation links: what a work cites and who cites it."
+msgstr "オープンな引用リンク。文献が何を引用し、誰に引用されているか。"
 
 #: src/lib/session-export/archive-timeline.tsx
 msgid "Open complete saved output"
@@ -24124,7 +24284,7 @@ msgstr "任意"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Optional shared AWS profile name."
-msgstr "共有 AWS プロファイル名(省略可)。"
+msgstr "共有AWSプロファイル名(省略可)。"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -24477,6 +24637,10 @@ msgstr "論文とデータセット"
 msgid "Papers & datasets sources"
 msgstr "論文とデータセットのソース"
 
+#: src/lib/search-source-text.ts
+msgid "Papers across fields with citation data."
+msgstr "あらゆる分野の論文と引用データ。"
+
 #: src/lib/model-capability-tags.ts
 msgid "Parallel tools"
 msgstr "並列ツール"
@@ -24679,6 +24843,7 @@ msgid "Paused after errors until {time}"
 msgstr "エラーのため{time}まで一時停止"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "pausing"
 msgstr "一時停止中"
@@ -25346,6 +25511,10 @@ msgstr "ビューを準備中…"
 msgid "Preparing…"
 msgstr "準備中…"
 
+#: src/lib/search-source-text.ts
+msgid "Preprints in physics, computing, mathematics and more."
+msgstr "物理学、計算機科学、数学などのプレプリント。"
+
 #: src/components/clio/settings-models-form.ts
 msgid "Presence penalty"
 msgstr "存在ペナルティ"
@@ -25997,6 +26166,11 @@ msgstr "品質チェック"
 msgid "Quality review"
 msgstr "品質レビュー"
 
+#: src/components/clio/workbench-sources-list.tsx
+msgctxt "source state"
+msgid "Quarantined"
+msgstr "隔離済み"
+
 #: src/components/reui/date-selector.tsx
 msgid "Quarter"
 msgstr "四半期"
@@ -26085,6 +26259,11 @@ msgstr "キューは空です"
 
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
+msgid "queued"
+msgstr "待機中"
+
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
 msgid "queued"
 msgstr "待機中"
 
@@ -26952,6 +27131,7 @@ msgid "Recovered from the matching workspace file."
 msgstr "一致するワークスペースファイルから復元しました。"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "recovering"
 msgstr "復旧中"
@@ -27437,6 +27617,7 @@ msgstr "{filename}を削除"
 msgid "Remove {id}"
 msgstr "{id}を削除"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Remove {label}"
@@ -28012,7 +28193,7 @@ msgstr "リクエストを受け付けました"
 msgid "Request access"
 msgstr "アクセスをリクエスト"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request cancelled"
 msgstr "リクエストはキャンセルされました"
 
@@ -28020,7 +28201,7 @@ msgstr "リクエストはキャンセルされました"
 msgid "Request changes"
 msgstr "変更をリクエスト"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "リクエストの有効期限が切れました"
 
@@ -28334,6 +28515,10 @@ msgstr "すでに実行中のバックグラウンドのツールプロセスで
 msgid "Restart {agent} to finish"
 msgstr "完了するには{agent}を再起動"
 
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Restart {label}"
+msgstr "{label}を再起動"
+
 #: src/components/clio/tool-presentation.ts
 msgid "Restart agent"
 msgstr "エージェントを再起動"
@@ -28364,15 +28549,15 @@ msgstr "サブエージェントを再開始"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service for this change to take effect."
-msgstr "変更を反映するには、接続中の {agent} サービスを再起動してください。"
+msgstr "変更を反映するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service to update existing model clients."
-msgstr "既存のモデルクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+msgstr "既存のモデルクライアントを更新するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service to update existing tool clients."
-msgstr "既存のツールクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+msgstr "既存のツールクライアントを更新するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Restart the shell"
@@ -29110,6 +29295,11 @@ msgstr "実行：{label}"
 msgid "running"
 msgstr "実行中"
 
+#: src/components/clio/workbench-activity-model.ts
+msgctxt "activity chip"
+msgid "running"
+msgstr "実行中"
+
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/flow-run-presentation.ts
@@ -29384,7 +29574,7 @@ msgstr "確率の合計がこの値になるまでの、最も可能性の高い
 
 #: src/components/clio/settings-models-form.ts
 msgid "Sample only from this many of the most likely tokens (0 turns it off)."
-msgstr "最も可能性の高いこの数のトークンだけからサンプリングします(0 でオフ)。"
+msgstr "最も可能性の高いこの数のトークンだけからサンプリングします(0でオフ)。"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Sample size"
@@ -31160,6 +31350,10 @@ msgstr "セッションを読み込めませんでした"
 msgid "Set by the connected service's workspace configuration."
 msgstr "接続中のサービスのワークスペース構成で設定されています。"
 
+#: src/lib/search-source-text.ts
+msgid "Set by the service"
+msgstr "サービスが設定"
+
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Set by this deployment"
 msgstr "このデプロイで設定"
@@ -32522,6 +32716,7 @@ msgstr "SPOTTERのモデルは変更されませんでした"
 msgid "SPOTTER model: {label}"
 msgstr "SPOTTERのモデル: {label}"
 
+#: src/components/clio/permission-request-text.ts
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/settings-fleet.tsx
 #: src/lib/settings-search-rows.ts
@@ -32653,6 +32848,7 @@ msgctxt "verb"
 msgid "Start"
 msgstr "開始"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 msgid "Start {label}"
 msgstr "{label}を開始"
@@ -33065,6 +33261,7 @@ msgctxt "verb"
 msgid "Stop"
 msgstr "停止"
 
+#: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/rail-runs.tsx
 msgid "Stop {label}"
@@ -33142,6 +33339,7 @@ msgid "stopped"
 msgstr "停止"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopped"
 msgstr "停止"
@@ -33186,6 +33384,7 @@ msgid "Stopped: {status}"
 msgstr "停止：{status}"
 
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "run state"
 msgid "stopping"
 msgstr "停止中"
@@ -33296,7 +33495,7 @@ msgstr "ストリーム{name}"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
-msgstr "拡散モデル(Mercury など)のノイズ除去の各ステップをその場でストリーミング表示します。保存されるのは最終回答だけです。"
+msgstr "拡散モデル(Mercuryなど)のノイズ除去の各ステップをその場でストリーミング表示します。保存されるのは最終回答だけです。"
 
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
@@ -33589,6 +33788,7 @@ msgid "superseded"
 msgstr "置き換え済み"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "superseded"
 msgstr "置き換え済み"
@@ -34296,7 +34496,7 @@ msgstr "ブラウザーがこのリンクをブロックしました。承諾さ
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
-msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中の Chrome または Edge にはあなたのサインイン情報があります。"
+msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中のChromeまたはEdgeにはあなたのサインイン情報があります。"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -34876,7 +35076,7 @@ msgstr "最新の変換がキャンセルされたため、この構造はその
 
 #: src/components/clio/settings-models-form.ts
 msgid "The most tokens one reply may use."
-msgstr "1 回の応答で使えるトークンの最大数です。"
+msgstr "1回の応答で使えるトークンの最大数です。"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "The name shown for this service on this device."
@@ -35541,6 +35741,10 @@ msgstr "サービスはこのセッションに保存された最後のメッセ
 msgid "The service will put {path} back as it was before this change."
 msgstr "サービスが{path}をこの変更前の状態に戻します。"
 
+#: src/lib/search-source-text.ts
+msgid "The service’s access token, if it needs one."
+msgstr "サービスのアクセストークン (必要な場合)。"
+
 #: src/components/clio/navigation.tsx
 msgid "The session could not be imported."
 msgstr "セッションをインポートできませんでした。"
@@ -36168,7 +36372,7 @@ msgstr "このコンピューター"
 #: src/components/clio/navigation-agent-menu.tsx
 msgctxt "agent place"
 msgid "this computer"
-msgstr "このコンピューター"
+msgstr "ローカル"
 
 #: src/components/clio/connected-source-form.tsx
 #: src/components/clio/deploy-clio-dialog.tsx
@@ -37004,6 +37208,34 @@ msgstr "所要時間"
 msgid "Tool"
 msgstr "ツール"
 
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by an access rule"
+msgstr "ツール {name} はアクセスルールにより許可"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by approval mode: {mode}"
+msgstr "ツール {name} は承認モードにより許可: {mode}"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} allowed by its default permission"
+msgstr "ツール {name} は既定の権限により許可"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by a hook"
+msgstr "ツール {name} はフックによりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by an access rule"
+msgstr "ツール {name} はアクセスルールによりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} blocked by its default permission"
+msgstr "ツール {name} は既定の権限によりブロック"
+
+#: src/components/clio/permission-request-text.ts
+msgid "Tool {name} covered by its script’s approval"
+msgstr "ツール {name} はスクリプトの承認の対象"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Tool action"
 msgstr "ツールのアクション"
@@ -37483,6 +37715,10 @@ msgstr "設定 › 通知でいつでもオンにできます。"
 msgid "Turned off in system settings"
 msgstr "システム設定でオフになっています"
 
+#: src/lib/search-source-text.ts
+msgid "Turns the source on."
+msgstr "このソースを有効にします。"
+
 #: src/widget-gallery-scenarios.ts
 msgid "Two sites need attention"
 msgstr "2つの地点に対応が必要です"
@@ -37549,6 +37785,10 @@ msgstr "下の入力欄に回答を入力してください"
 #: src/components/clio/path-picker.tsx
 msgid "Type, paste, or browse for a folder"
 msgstr "フォルダーを入力、貼り付け、または参照"
+
+#: src/lib/search-source-text.ts
+msgid "U.S. Department of Energy reports and papers."
+msgstr "米国エネルギー省の報告書と論文。"
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "UI catalogs"
@@ -37831,6 +38071,7 @@ msgstr "単位{unit}"
 
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-activity-model.ts
 #: src/tauri/clio-update-verification.ts
 msgid "unknown"
 msgstr "不明"
@@ -37886,6 +38127,10 @@ msgstr "不明な送信者"
 #: src/components/clio/observability-evidence-sources.ts
 msgid "Unknown session"
 msgstr "不明なセッション"
+
+#: src/components/clio/settings-about.tsx
+msgid "unknown source"
+msgstr "不明なソース"
 
 #: src/routes/runs-rows.ts
 msgid "Unknown source"
@@ -38064,6 +38309,10 @@ msgstr "アップデート"
 #: src/tauri/desktop-updater.ts
 msgid "Update {agent}"
 msgstr "{agent}をアップデート"
+
+#: src/components/clio/infrastructure-activity.tsx
+msgid "Update {label}"
+msgstr "{label}を更新"
 
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/marketplace-manager.tsx
@@ -38631,6 +38880,11 @@ msgstr "小文字、数字、ハイフンを最大32文字まで使用し、先�
 msgid "Use valid NAME=value process settings"
 msgstr "有効なNAME=value形式のプロセス設定を使用してください"
 
+#: src/components/clio/workbench-activity-detail.tsx
+msgctxt "evidence relation"
+msgid "used"
+msgstr "使用"
+
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
@@ -38658,11 +38912,11 @@ msgstr "ツール呼び出しに明示的なタイムアウトがない場合に
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
-msgstr "別のブラウザーで使用します。初回使用時にダウンロードされる同梱の Chromium、またはそのコンピューターにインストールされた Chrome か Edge を、専用のプロファイルで使います。"
+msgstr "別のブラウザーで使用します。初回使用時にダウンロードされる同梱のChromium、またはそのコンピューターにインストールされたChromeかEdgeを、専用のプロファイルで使います。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
-msgstr "実行中の Chrome または Edge で使用します。そのコンピューター上のものなら {page} でリモートデバッグをオンにした後(Chrome 144 以降)に {chrome} または {edge}、もしくは {address} のような DevTools アドレスを指定します。"
+msgstr "実行中のChromeまたはEdgeで使用します。そのコンピューター上のものなら{page}でリモートデバッグをオンにした後(Chrome 144以降)に{chrome}または{edge}、もしくは{address}のようなDevToolsアドレスを指定します。"
 
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-family-navigation.ts
@@ -38724,11 +38978,11 @@ msgstr "ユタのクラスター"
 
 #: src/components/clio/clio-menu.tsx
 msgid "v{version} available"
-msgstr "v{version} を利用できます"
+msgstr "v{version}を利用できます"
 
 #: src/components/clio/clio-menu.tsx
 msgid "v{version} ready"
-msgstr "v{version} の準備ができました"
+msgstr "v{version}の準備ができました"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"
@@ -38768,7 +39022,7 @@ msgstr "値。平均: {MEAN_UNAVAILABLE}"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Values above 1 discourage repeating recent tokens; 1 turns it off."
-msgstr "1 より大きい値にすると直近のトークンを繰り返しにくくなります。1 でオフです。"
+msgstr "1より大きい値にすると直近のトークンを繰り返しにくくなります。1でオフです。"
 
 #: src/gallery-skill-dialog.tsx
 msgid "Values: {values}"
@@ -38947,7 +39201,7 @@ msgstr "{name}のバージョン"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Vertex region."
-msgstr "Vertex のリージョン。"
+msgstr "Vertexのリージョン。"
 
 #: src/widget-gallery-demos.ts
 msgid "Vertical displacement chart"
@@ -39164,6 +39418,7 @@ msgid "waiting"
 msgstr "待機中"
 
 #: src/components/clio/session-work.tsx
+#: src/components/clio/workbench-activity-model.ts
 msgctxt "goal or loop state"
 msgid "waiting"
 msgstr "待機中"
@@ -39406,9 +39661,17 @@ msgstr "ウェブブラウザー"
 msgid "Web search"
 msgstr "Web検索"
 
+#: src/lib/search-source-text.ts
+msgid "Web search for agents; the free tier is its faster, lighter mode."
+msgstr "エージェント向けのウェブ検索。無料プランは高速で軽量なモードです。"
+
 #: src/components/clio/settings-web-search.tsx
 msgid "Web search pages"
 msgstr "ウェブ検索のページ"
+
+#: src/lib/search-source-text.ts
+msgid "Web search with research and PDF categories and full page text."
+msgstr "リサーチと PDF のカテゴリーとページ全文に対応したウェブ検索。"
 
 #: src/components/clio/settings-web-search.tsx
 msgid "Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once."
@@ -39856,6 +40119,10 @@ msgstr "作業コピーの競合を、確定した成果物の最新版に基づ
 msgid "Working…"
 msgstr "処理中…"
 
+#: src/lib/search-source-text.ts
+msgid "Works across every field, with citations and open-access links."
+msgstr "あらゆる分野の文献。引用とオープンアクセスのリンク付き。"
+
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Works on this screen"
 msgstr "この画面で使用可能"
@@ -40167,7 +40434,7 @@ msgstr "あなた"
 msgid "You added this plugin to the conversation."
 msgstr "このプラグインを会話に追加しました。"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You allowed it"
 msgstr "あなたが許可しました"
 
@@ -40203,7 +40470,7 @@ msgstr "このメッセージでフロー{target}をリクエストしました"
 msgid "You asked for the workflow {target} on this message"
 msgstr "このメッセージでワークフロー{target}をリクエストしました"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You blocked it"
 msgstr "あなたがブロックしました"
 
@@ -40235,7 +40502,7 @@ msgstr "辞退しました"
 msgid "You declined to answer."
 msgstr "回答を辞退しました。"
 
-#: src/components/clio/settings-permissions-requests.tsx
+#: src/components/clio/permission-request-text.ts
 msgid "You deleted the conversation"
 msgstr "あなたが会話を削除しました"
 
@@ -40355,6 +40622,10 @@ msgstr "あなたのメッセージ"
 msgid "Your message"
 msgstr "あなたのメッセージ"
 
+#: src/lib/search-source-text.ts
+msgid "Your own monthly allowance, and deeper search modes."
+msgstr "専用の月間利用枠と、より詳しい検索モード。"
+
 #: src/components/clio/private-local-library.tsx
 msgid "Your plugins"
 msgstr "あなたのプラグイン"
@@ -40377,7 +40648,7 @@ msgstr "あなたのルール"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Your running Chrome or Edge"
-msgstr "実行中の Chrome または Edge"
+msgstr "実行中のChromeまたはEdge"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "Your service and saved work were not changed. Reload the workspace to reconnect and try the view again."

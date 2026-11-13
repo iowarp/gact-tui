@@ -5,13 +5,8 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading } from '@/components/clio/settings-section-heading';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
@@ -29,9 +24,27 @@ import {
 } from '@/providers/notification-preferences-provider';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
+import { SettingsSelectField } from './model-select-field';
 
-const SELECT_TRIGGER =
-  'w-[150px] px-[9px] text-menu data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+// The spec's 150 px is the floor; a longer translation widens the field up to its column.
+const SELECT_FIELD = 'w-fit min-w-[9.375rem] max-w-full';
+
+/**
+ * The chosen value over invisible copies of every choice in this section, so both
+ * selects take the width of the longest one: aligned, and steady when the value changes.
+ */
+function NotificationValue({ value, choices }: { value: string; choices: readonly string[] }) {
+  return (
+    <span className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
+      {choices.map((choice) => (
+        <span aria-hidden="true" className="invisible col-start-1 row-start-1 truncate" key={choice}>
+          {choice}
+        </span>
+      ))}
+      <span className="col-start-1 row-start-1 truncate">{value}</span>
+    </span>
+  );
+}
 
 /** Sound, desktop alerts, finished work and where the bell's settings icon leads. */
 const { agent } = vocab;
@@ -45,6 +58,16 @@ export function NotificationSettings() {
     setDesktopNotifications,
     setFinishedWork,
   } = useNotificationPreferences();
+  const alertLabels = { 'needs-you': t`Needs you`, off: t`Off` } as const;
+  const finishedLabels: Record<FinishedWorkMode, string> = {
+    bell: t`Bell only`,
+    desktop: t`Desktop alert`,
+    off: t`Off`,
+  };
+  const choices = [
+    ...new Set([...Object.values(alertLabels), ...Object.values(finishedLabels)]),
+  ];
+  const alertValue = desktopNotifications ? 'needs-you' : 'off';
   const [permission, setPermission] = useState<SystemNotificationPermission>('default');
   useEffect(() => {
     let current = true;
@@ -147,15 +170,20 @@ export function NotificationSettings() {
         ) : null}
         <Select
           disabled={!supported}
-          value={desktopNotifications ? 'needs-you' : 'off'}
+          value={alertValue}
           onValueChange={(value) => void updateDesktopNotifications(value === 'needs-you')}
         >
-          <SelectTrigger className={SELECT_TRIGGER} id="desktop-attention-notifications">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectPrimitive.Trigger asChild>
+            <SettingsSelectField
+              className={SELECT_FIELD}
+              id="desktop-attention-notifications"
+              title={alertLabels[alertValue]}
+              value={<NotificationValue choices={choices} value={alertLabels[alertValue]} />}
+            />
+          </SelectPrimitive.Trigger>
           <SelectContent align="end">
-            <SelectItem value="needs-you">{t`Needs you`}</SelectItem>
-            <SelectItem value="off">{t`Off`}</SelectItem>
+            <SelectItem value="needs-you">{alertLabels['needs-you']}</SelectItem>
+            <SelectItem value="off">{alertLabels.off}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>
@@ -168,15 +196,20 @@ export function NotificationSettings() {
           value={finishedWork}
           onValueChange={(value) => void updateFinishedWork(value as FinishedWorkMode)}
         >
-          <SelectTrigger className={SELECT_TRIGGER} id="finished-work-notifications">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectPrimitive.Trigger asChild>
+            <SettingsSelectField
+              className={SELECT_FIELD}
+              id="finished-work-notifications"
+              title={finishedLabels[finishedWork]}
+              value={<NotificationValue choices={choices} value={finishedLabels[finishedWork]} />}
+            />
+          </SelectPrimitive.Trigger>
           <SelectContent align="end">
-            <SelectItem value="bell">{t`Bell only`}</SelectItem>
+            <SelectItem value="bell">{finishedLabels.bell}</SelectItem>
             <SelectItem disabled={!supported} value="desktop">
-              {t`Desktop alert`}
+              {finishedLabels.desktop}
             </SelectItem>
-            <SelectItem value="off">{t`Off`}</SelectItem>
+            <SelectItem value="off">{finishedLabels.off}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>

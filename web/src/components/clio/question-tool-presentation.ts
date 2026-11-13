@@ -1,7 +1,7 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { interactionAnswerLabels, isCausalQuestionInteraction } from './agent-answer-domain';
 import { ph, t, plural } from '@lingui/core/macro';
-import { decisionList } from './decision-list';
+import { formatList } from '@/lib/locale-format';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -217,7 +217,7 @@ export function withQuestionPresentation(
         status === 'pending'
           ? t`Waiting for your answer`
           : status === 'answered'
-            ? decisionList(answers) || t`Answered`
+            ? formatList(answers) || t`Answered`
             : status === 'cancelled'
               ? t`Cancelled`
               : status === 'expired'
@@ -226,7 +226,7 @@ export function withQuestionPresentation(
     });
   }
   if (answers.length)
-    blocks.unshift({ id: 'question-answer', type: 'text', text: decisionList(answers) });
+    blocks.unshift({ id: 'question-answer', type: 'text', text: formatList(answers) });
   return {
     ...tool,
     presentation: {

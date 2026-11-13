@@ -1,6 +1,5 @@
 import { plural, t } from '@lingui/core/macro';
-import { formatLocale } from '@/lib/locale-format';
-import { decisionList } from './decision-list';
+import { formatList, formatLocale } from '@/lib/locale-format';
 
 /** What a plan contains, read from its markdown: steps, a recommendation, risks. */
 export interface PlanSections {
@@ -65,6 +64,6 @@ export function planOutline(
         ? t({ message: 'risk notes', comment: 'Plan summary item, mid-list' })
         : '',
   ].filter(Boolean);
-  const text = decisionList(parts);
+  const text = formatList(parts);
   return text ? text.charAt(0).toLocaleUpperCase(formatLocale()) + text.slice(1) : '';
 }
