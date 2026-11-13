@@ -1,6 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
+import { useScrollClipped } from './use-scroll-clipped';
 import { t, ph } from '@lingui/core/macro';
 
 const TITLE_LIMIT = 120;
@@ -58,6 +59,8 @@ export function QuestionCard({
   ...props
 }: QuestionCardProps) {
   const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
+  const promptRef = useRef<HTMLDivElement>(null);
+  useScrollClipped(promptRef);
   return (
     <AskCard
       data-interaction-kind={interaction.kind}
@@ -77,11 +80,14 @@ export function QuestionCard({
       {body ? (
         <AskSection
           className={cn(
-            'mt-1 text-foreground/85 [&_.text-sm]:text-menu',
-            !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pr-1',
+            // The prompt has its own cap; under the card's cap the options give up height.
+            'mt-1 shrink-0 text-foreground/85 [&_.text-sm]:text-menu',
+            !showFullPrompt &&
+              'clio-scrollbar max-h-28 overflow-y-auto pr-1 data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
             promptClassName,
           )}
           data-slot="question-prompt"
+          ref={promptRef}
         >
           <QuestionMarkdown>{body}</QuestionMarkdown>
         </AskSection>

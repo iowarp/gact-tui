@@ -1,7 +1,8 @@
-import type { ComponentProps, ReactNode } from 'react';
+import { useRef, type ComponentProps, type ReactNode } from 'react';
 import { CheckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AskKeyChip, AskSection } from './ask-card';
+import { useScrollClipped } from './use-scroll-clipped';
 import { askKeyAttributes } from './ask-card-keys';
 
 export interface AskRowProps extends Omit<ComponentProps<'button'>, 'children'> {
@@ -14,12 +15,23 @@ export interface AskRowProps extends Omit<ComponentProps<'button'>, 'children'> 
   highlighted?: boolean;
 }
 
-/** Vertical option rows, for options that carry a line of detail. */
+/**
+ * Vertical option rows, for options that carry a line of detail. Under a capped card the rows
+ * scroll, so the title, the write-in, Submit and the footer stay inside the card. Two rows stay
+ * in view.
+ */
 export function AskRows({ className, ...props }: ComponentProps<'div'>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useScrollClipped(ref);
   return (
     <AskSection
-      className={cn('mt-2 ml-[19px] flex flex-col gap-0.5 @max-[420px]/ask:ml-0', className)}
+      className={cn(
+        // Rows keep their height (their min-h would otherwise let them shrink): the region scrolls.
+        'clio-scrollbar mt-2 ml-[19px] flex min-h-0 flex-col gap-0.5 overflow-y-auto overscroll-contain [scrollbar-gutter:auto]! *:shrink-0 @max-[420px]/ask:ml-0 has-[[data-slot=ask-row]~[data-slot=ask-row]]:min-h-[62px] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        className,
+      )}
       data-slot="ask-rows"
+      ref={ref}
       {...props}
     />
   );

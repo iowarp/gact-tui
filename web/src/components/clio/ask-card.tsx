@@ -34,6 +34,7 @@ import {
 } from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
+import { useScrollClipped } from './use-scroll-clipped';
 import { composerFailureReason } from './composer-failure';
 import { plural, t } from '@lingui/core/macro';
 
@@ -252,23 +253,7 @@ export function AskSection({ className, ...props }: ComponentProps<'div'>) {
  */
 export function AskBody({ className, ...props }: ComponentProps<'div'>) {
   const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const update = () => {
-      const clipped = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
-      element.toggleAttribute('data-clipped', clipped);
-    };
-    update();
-    element.addEventListener('scroll', update, { passive: true });
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
-    observer?.observe(element);
-    for (const child of element.children) observer?.observe(child);
-    return () => {
-      element.removeEventListener('scroll', update);
-      observer?.disconnect();
-    };
-  }, []);
+  useScrollClipped(ref);
   return (
     <div
       ref={ref}
