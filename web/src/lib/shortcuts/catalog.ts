@@ -147,6 +147,11 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-open', 'Into a submenu', 'menu', ['Right']),
   def('menu-back', 'Back out of a submenu', 'menu', ['Left']),
   def('menu-close', 'Close', 'menu', ['Esc']),
+  def('menu-group', 'Next, previous group', 'menu', ['PageDown', 'PageUp'], { joiner: 'pair' }),
+  def('menu-inside', 'Look inside a file', 'menu', ['Tab'], {
+    when: 'On an HDF5 file in the @ menu',
+  }),
+  def('menu-up', 'Up one level', 'menu', ['Shift+Tab'], { when: 'Inside a file' }),
   def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
     joiner: 'pair',
   }),

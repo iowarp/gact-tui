@@ -116,6 +116,7 @@ export function ClioModelPicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   // The composer box, measured at open: the picker spans it and sits just above it.
   const [composerFrame, setComposerFrame] = useState<ComposerFrame | null>(null);
+  const [windowFrame, setWindowFrame] = useState<{ element: Element; width: number } | null>(null);
   // Decided at open: a large catalog mounts only after the dialog and its
   // skeleton have painted, so the click answers at once.
   const [shellPainted, setShellPainted] = useState(true);
@@ -193,7 +194,11 @@ export function ClioModelPicker({
         setActiveProvider(provider);
         const frame = placement === 'composer' ? measureComposer(triggerRef.current) : null;
         setComposerFrame(frame);
-        const width = frame ? frame.width : Math.min(640, window.innerWidth - 16);
+        // Opened inside a window (Settings), the picker stays within that window's content.
+        const host = frame ? null : triggerRef.current?.closest('[data-window-content]');
+        const hostWidth = host ? host.getBoundingClientRect().width - 16 : Infinity;
+        setWindowFrame(host ? { element: host, width: hostWidth } : null);
+        const width = frame ? frame.width : Math.min(640, window.innerWidth - 16, hostWidth);
         setPickerWidth(width);
         setShellPainted(options.length < LARGE_MODEL_CATALOG);
       }
@@ -280,7 +285,14 @@ export function ClioModelPicker({
         onOpenAutoFocus={(event) => event.preventDefault()}
         side={placement === 'composer' ? 'top' : 'bottom'}
         sideOffset={composerFrame?.sideOffset ?? 6}
-        style={composerFrame ? { width: composerFrame.width } : undefined}
+        collisionBoundary={windowFrame?.element}
+        style={
+          composerFrame
+            ? { width: composerFrame.width }
+            : windowFrame
+              ? { maxWidth: windowFrame.width }
+              : undefined
+        }
       >
         {open && catalogStatus === 'error' ? (
           <ModelCatalogError onRetry={() => onRetryCatalog?.(activeProvider)} />

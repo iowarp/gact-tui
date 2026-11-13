@@ -69,7 +69,7 @@ function SegmentedControlImpl<Value extends string>({
             }
             disabled={option.disabled}
             className={cn(
-              'h-6 min-w-0 gap-1.5 rounded-[5px]! border-0 px-2.5 text-meta font-normal whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset aria-checked:bg-menu-highlight aria-checked:text-foreground [&_svg:not([class*=size-])]:size-3.5',
+              'h-6 min-w-0 gap-1.5 rounded-[5px]! border-0 px-2.5 text-meta font-normal whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-[state=on]:bg-popover data-[state=on]:text-foreground data-[state=on]:shadow-xs dark:data-[state=on]:bg-menu-highlight dark:data-[state=on]:shadow-none [&_svg:not([class*=size-])]:size-3.5',
               bare && (option.count === undefined ? 'w-[27px] px-0' : 'gap-1 px-1.5'),
             )}
           >

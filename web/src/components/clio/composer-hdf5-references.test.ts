@@ -2,6 +2,7 @@ import type { WorkspaceReference } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   hdf5DrillQuery,
+  hdf5UpQuery,
   isHdf5File,
   parseHdf5Mention,
   readableDtype,
@@ -51,6 +52,13 @@ describe('HDF5 mentions', () => {
     ).toBeUndefined();
     expect(hdf5DrillQuery(fileReference('README.md'))).toBeUndefined();
     expect(isHdf5File('A/B.HDF5')).toBe(true);
+  });
+
+  it('goes up one group, then out of the file to the workspace list', () => {
+    const up = (query: string) => hdf5UpQuery(parseHdf5Mention(query)!);
+    expect(up('data/run.h5::/entry/data/I')).toBe('data/run.h5::/entry/');
+    expect(up('data/run.h5::/entry/da')).toBe('data/run.h5::/');
+    expect(up('data/run.h5::/')).toBe('data/run.h5');
   });
 
   it('names dtypes the way readers do', () => {
