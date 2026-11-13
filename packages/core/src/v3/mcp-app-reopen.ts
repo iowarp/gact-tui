@@ -35,6 +35,7 @@ export const MCP_APP_RETRYABLE_REOPEN_REASONS: ReadonlySet<string> = new Set([
   'tool_unavailable',
   'permission_denied',
   'call_failed',
+  'call_cancelled',
   'tool_error',
   'view_not_opened',
 ]);
