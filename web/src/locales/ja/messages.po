@@ -3823,7 +3823,7 @@ msgstr "{window} {percent}%、上限間近"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "{wordmark} could not update the desktop window."
-msgstr "{wordmark} はデスクトップウィンドウを更新できませんでした。"
+msgstr "{wordmark}はデスクトップウィンドウを更新できませんでした。"
 
 #: src/components/clio/navigation-agent-menu.tsx
 msgid "{wordmark} local"
@@ -3831,7 +3831,7 @@ msgstr "{wordmark}（ローカル）"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "{wordmark} menu"
-msgstr "{wordmark} メニュー"
+msgstr "{wordmark}メニュー"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "{workflowTitle} on <0>{endpointName}</0>?"
@@ -4255,7 +4255,7 @@ msgstr "{title} について"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "About {wordmark}"
-msgstr "{wordmark} について"
+msgstr "{wordmark}について"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -25633,7 +25633,7 @@ msgstr "{product} を終了しますか？"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
-msgstr "{wordmark} を終了"
+msgstr "{wordmark}を終了"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -37485,11 +37485,11 @@ msgstr "アップデート中"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark}"
-msgstr "{wordmark} をアップデート中"
+msgstr "{wordmark}をアップデート中"
 
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating {wordmark} to {version}"
-msgstr "{wordmark} を {version} にアップデート中"
+msgstr "{wordmark}を{version}にアップデート中"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Updating chart…"
