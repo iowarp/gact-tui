@@ -20,14 +20,17 @@ export interface KeyValueItem {
   narrow?: ReactNode | false;
   /** `facts` only: `false` shows the row only in a narrow container (where `narrow: false` left it). */
   wide?: false;
-  /** `facts` only: wrap onto more lines instead of an ellipsis (a path being approved). */
+  /**
+   * `facts` and `rows`: wrap onto more lines instead of an ellipsis (a path being
+   * approved, a subagent's tool list), breaking long identifiers anywhere.
+   */
   wrap?: boolean;
 }
 
 /**
  * Details as label-left, value-right rows on one shared grid, so every label
  * and value starts at the same x. Each value stays on one line and ends in
- * an ellipsis; the action slot keeps its width whether or not a row has one.
+ * an ellipsis unless its row says `wrap`; the action slot keeps its width whether or not a row has one.
  *
  * `facts` is the ask card's form: a fixed 110px label column, 24px rows and
  * left-aligned values. In a narrow container the labels give way to their icons,
@@ -77,10 +80,19 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             data-slot="key-value-row"
             key={item.label}
           >
-            <dt className="truncate whitespace-nowrap text-muted-foreground">{item.label}</dt>
+            <dt
+              className={cn(
+                'truncate whitespace-nowrap text-muted-foreground',
+                item.wrap && 'self-start',
+              )}
+            >
+              {item.label}
+            </dt>
             <dd
               className={cn(
-                'flex min-w-0 items-center gap-[7px] truncate whitespace-nowrap text-left text-foreground',
+                item.wrap
+                  ? 'min-w-0 whitespace-normal text-left text-foreground [overflow-wrap:anywhere]'
+                  : 'flex min-w-0 items-center gap-[7px] truncate whitespace-nowrap text-left text-foreground',
                 item.mono && 'font-mono text-caption tabular-nums',
               )}
               title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}

@@ -42,6 +42,7 @@ import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { McpServiceIcon, McpServiceList } from './settings-mcp-services';
+import { McpServerToolSettings } from './settings-mcp-tool-settings';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SchemaSection } from './tool-schema-section';
 import { humanizeToolName } from './tool-presentation';
@@ -446,13 +447,22 @@ function McpServerDetailPane({
         />
       ) : null}
       {view === 'tools' ? (
-        <InventoryRows
-          empty={
-            live ? 'This server reported no tools.' : 'Tools appear when a conversation connects.'
+        <McpServerToolSettings
+          entry={entry}
+          fallback={
+            <InventoryRows
+              empty={
+                live
+                  ? 'This server reported no tools.'
+                  : 'Tools appear when a conversation connects.'
+              }
+              icon={<WrenchIcon aria-hidden="true" />}
+              label={`Tools of ${title}`}
+              rows={toolRows}
+            />
           }
-          icon={<WrenchIcon aria-hidden="true" />}
-          label={`Tools of ${title}`}
-          rows={toolRows}
+          key={entry.key}
+          title={title}
         />
       ) : view === 'resources' ? (
         <InventoryRows

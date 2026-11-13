@@ -1,12 +1,15 @@
-import type { PluginEntry, ToolSettings } from '@clio/core/v3';
+import type { PluginEntry, ToolSetting, ToolSettings } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useDeferredValue, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
-import { useSeenInView } from '@/hooks/use-seen-in-view';
+import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { scrollParent, useSeenInView } from '@/hooks/use-seen-in-view';
 import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ListDetailLayout } from './primitives/detail-pane';
 import { StateView } from './primitives/state-view';
+import { ToolDetailPane } from './settings-tool-detail';
 import { useToolSettingsEditor } from './settings-tools-editor';
 import {
   DefaultLegend,
@@ -37,12 +40,25 @@ function matches(text: string, term: string): boolean {
   return text.toLocaleLowerCase().includes(term);
 }
 
+/** One group of the table: an installed plugin, or one of the person's own MCP servers. */
+interface ToolSource {
+  id: string;
+  title: string;
+  hint: string;
+  /** What is known before its settings are read. */
+  catalog: string;
+  count: number;
+  read: (signal: AbortSignal) => Promise<ToolSettings>;
+  /** A person's or workspace's server; an agent that can't read it leaves it out. */
+  own?: boolean;
+}
+
 function pluginSection(
-  plugin: PluginEntry,
+  source: ToolSource,
   settings: ToolSettings,
   term: string,
 ): ToolTableSection | undefined {
-  const pluginHit = !term || matches(plugin.id, term);
+  const pluginHit = !term || matches(source.title, term);
   const tools = pluginHit
     ? settings.tools
     : settings.tools.filter(
@@ -51,10 +67,10 @@ function pluginSection(
       );
   if (tools.length) {
     return {
-      id: plugin.ref,
-      title: plugin.id,
-      hint: plugin.description || plugin.ref,
-      bulkLabel: `All ${plugin.id} tools`,
+      id: source.id,
+      title: source.title,
+      hint: source.hint,
+      bulkLabel: `All ${source.title} tools`,
       meta: [
         ...originText(settings),
         tools.length < settings.tools.length
@@ -66,10 +82,10 @@ function pluginSection(
   }
   if (settings.servers_not_loaded.length && pluginHit) {
     return {
-      id: plugin.ref,
-      title: plugin.id,
-      hint: plugin.description || plugin.ref,
-      bulkLabel: `All ${plugin.id} tools`,
+      id: source.id,
+      title: source.title,
+      hint: source.hint,
+      bulkLabel: `All ${source.title} tools`,
       tools: [],
       notice: {
         text: 'Tools appear once a conversation connects its server',
@@ -104,58 +120,84 @@ export function ToolPermissionsSettings() {
   const scope = connectionScope(settings);
   const supported = useAgentPluginsSupported();
   const catalog = usePluginCatalog();
+  const saved = useSavedMcpServices();
   // A plugin with neither tools nor MCP servers has nothing to list here.
   const plugins = (catalog.data?.plugins ?? []).filter(
     (plugin) => plugin.tools.length || plugin.mcp_servers.length,
   );
+  const sources: ToolSource[] = [
+    ...plugins.map(
+      (plugin): ToolSource => ({
+        id: plugin.ref,
+        title: plugin.id,
+        hint: plugin.description || plugin.ref,
+        catalog: catalogMeta(plugin),
+        count: plugin.tools.length,
+        read: (signal) => repository.toolSettings(plugin.ref, signal),
+      }),
+    ),
+    ...(saved.data ?? []).map(
+      (service): ToolSource => ({
+        id: `server:${service.name}`,
+        title: service.name,
+        hint: 'Your MCP server',
+        catalog: `${service.name} server`,
+        count: 0,
+        read: (signal) => repository.serverToolSettings(service.name, signal),
+        own: true,
+      }),
+    ),
+  ];
   const editor = useToolSettingsEditor();
   const [filter, setFilter] = useState('');
   const [mode, setMode] = useState('');
   // The field answers each key at once; the table, its reads and the layout key follow.
   const term = useDeferredValue(filter).trim().toLocaleLowerCase();
   const container = useRef<HTMLDivElement>(null);
-  // Groups (`data-tool-group`) are replaced when the plugins or the filter change.
+  // Groups (`data-tool-group`) are replaced when the sources or the filter change.
   const seen = useSeenInView(
     container,
     'data-tool-group',
-    `${plugins.map((plugin) => plugin.ref).join('\n')}\n${term}`,
+    `${sources.map((source) => source.id).join('\n')}\n${term}`,
   );
   const results = useQueries({
-    queries: plugins.map((plugin) => ({
-      queryKey: ['tool-settings', scope, plugin.ref],
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
-      enabled: Boolean(term) || seen.has(plugin.ref),
+    queries: sources.map((source) => ({
+      queryKey: ['tool-settings', scope, source.id],
+      queryFn: ({ signal }: { signal: AbortSignal }) => source.read(signal),
+      enabled: Boolean(term) || seen.has(source.id),
       // Every plugin's tool list is the heaviest cache in Settings; leaving Tools lets it go.
       gcTime: SECTION_CACHE_MS,
+      // An agent without per-server settings answers 404 or 422 at once.
+      retry: source.own ? false : undefined,
     })),
   });
   const loaded = results.flatMap((result) => (result.data ? [result.data] : []));
   const modes = loaded[0]?.approval_modes ?? ['ask'];
   const shown = mode && modes.includes(mode) ? mode : (modes[0] ?? 'ask');
-  const sections = plugins.flatMap((plugin, index): ToolTableSection[] => {
+  const sections = sources.flatMap((source, index): ToolTableSection[] => {
     const result = results[index];
     if (result && !result.data && !result.error) {
-      // Not read yet: while filtering, only a plugin whose name matches holds its place.
-      if (term && !matches(plugin.id, term)) return [];
+      // Not read yet: while filtering, only a group whose name matches holds its place.
+      if (term && !matches(source.title, term)) return [];
       return [
         {
-          id: plugin.ref,
-          title: plugin.id,
-          hint: plugin.description || plugin.ref,
-          bulkLabel: `All ${plugin.id} tools`,
+          id: source.id,
+          title: source.title,
+          hint: source.hint,
+          bulkLabel: `All ${source.title} tools`,
           tools: [],
-          notice: { text: catalogMeta(plugin), status: 'Loading', tone: 'running' },
-          reserveRows: plugin.tools.length,
+          notice: { text: source.catalog, status: 'Loading', tone: 'running' },
+          reserveRows: source.count,
         },
       ];
     }
     if (result?.error) {
-      if (term && !matches(plugin.id, term)) return [];
+      if (source.own || (term && !matches(source.title, term))) return [];
       return [
         {
-          id: plugin.ref,
-          title: plugin.id,
-          bulkLabel: `All ${plugin.id} tools`,
+          id: source.id,
+          title: source.title,
+          bulkLabel: `All ${source.title} tools`,
           tools: [],
           notice: {
             text: 'Tool settings couldn’t be loaded.',
@@ -168,14 +210,63 @@ export function ToolPermissionsSettings() {
       ];
     }
     if (!result?.data) return [];
-    const section = pluginSection(plugin, result.data, term);
+    const section = pluginSection(source, result.data, term);
     return section ? [section] : [];
   });
-  const anyTools = plugins.some((_, index) => {
+  const anyTools = sources.some((_, index) => {
     const data = results[index]?.data;
     return Boolean(data && (data.tools.length || data.servers_not_loaded.length));
   });
 
+  // A tool's details beside the table. Under 40rem the pane replaces the table, which
+  // loses its scroll; closing returns to the same row.
+  const [open, setOpen] = useState<string>();
+  const back = useRef<{ name: string; scroll: number } | null>(null);
+  const onOpenTool = useCallback((tool: ToolSetting) => {
+    const scroller = container.current ? scrollParent(container.current) : null;
+    back.current = { name: tool.name, scroll: scroller?.scrollTop ?? 0 };
+    setOpen(tool.name);
+  }, []);
+  const onCloseTool = useCallback(() => {
+    const returning = back.current;
+    back.current = null;
+    setOpen(undefined);
+    if (!returning) return;
+    // Under 40rem the table remounts and its window fills in a few frames later.
+    let frames = 20;
+    let scrolled = false;
+    const focusRow = () => {
+      const element = container.current;
+      if (element && !scrolled) {
+        scrolled = true;
+        const scroller = scrollParent(element);
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        if (scroller && element.clientWidth < 40 * rem) scroller.scrollTop = returning.scroll;
+      }
+      const name = element?.querySelector<HTMLElement>(
+        `[data-tool="${CSS.escape(returning.name)}"] [data-tool-open]`,
+      );
+      if (name) name.focus({ preventScroll: true });
+      else if (--frames > 0) requestAnimationFrame(focusRow);
+    };
+    requestAnimationFrame(focusRow);
+  }, []);
+  let detail: { tool: ToolSetting; origin?: string } | undefined;
+  if (open) {
+    for (const [index, source] of sources.entries()) {
+      const tool = results[index]?.data?.tools.find((item) => item.name === open);
+      if (!tool) continue;
+      detail = {
+        tool,
+        origin: source.own
+          ? `${source.title} server`
+          : tool.server
+            ? `${tool.server} server, from ${source.title}`
+            : source.title,
+      };
+      break;
+    }
+  }
   let body;
   // Filtering and outcome modes only mean something once there are tools.
   let toolbar = false;
@@ -221,17 +312,20 @@ export function ToolPermissionsSettings() {
     toolbar = true;
     body = (
       <>
-        <ToolSettingsTable editor={editor} label="Plugin tools" mode={shown} sections={sections} />
+        <ToolSettingsTable
+          editor={editor}
+          label="Plugin tools"
+          mode={shown}
+          onOpenTool={onOpenTool}
+          openTool={detail?.tool.name}
+          sections={sections}
+        />
         <ToolTableFooter />
       </>
     );
   }
-  return (
-    <div
-      className="@container/page grid min-w-0 gap-3"
-      data-slot="tool-permissions"
-      ref={container}
-    >
+  const list = (
+    <div className="@container/page grid min-w-0 gap-3">
       {toolbar ? (
         <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField
@@ -247,6 +341,26 @@ export function ToolPermissionsSettings() {
         </div>
       ) : null}
       {body}
+    </div>
+  );
+  return (
+    <div className="min-w-0" data-slot="tool-permissions" ref={container}>
+      <ListDetailLayout
+        detail={
+          detail ? (
+            <ToolDetailPane
+              busy={editor.busy.has(detail.tool.name)}
+              editor={editor}
+              mode={shown}
+              onClose={onCloseTool}
+              origin={detail.origin}
+              status={editor.status[detail.tool.name]}
+              tool={detail.tool}
+            />
+          ) : undefined
+        }
+        list={list}
+      />
     </div>
   );
 }
