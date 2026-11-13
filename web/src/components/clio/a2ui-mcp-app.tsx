@@ -126,7 +126,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
   if (!sessionId) {
     return (
       <p className="py-3 text-sm text-destructive" role="alert">
-        The {label} view cannot open outside a conversation.
+        This view cannot open outside a conversation.
       </p>
     );
   }
@@ -138,7 +138,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
         data-mcp-app-component={props.componentId}
         style={{ minHeight: props.height ?? 320 }}
       >
-        <p className="text-sm text-muted-foreground">Opening the {label} view</p>
+        <p className="text-sm text-muted-foreground">Opening the view</p>
         <Skeleton className="h-full min-h-40 w-full" />
       </div>
     );
@@ -147,7 +147,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
     return (
       <Alert data-mcp-app-component={props.componentId} variant="destructive">
         <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>The {label} view could not open</AlertTitle>
+        <AlertTitle>The view could not open</AlertTitle>
         <AlertDescription className="grid gap-2">
           <span>{outcome.detail}</span>
           <span className="text-xs text-muted-foreground">
