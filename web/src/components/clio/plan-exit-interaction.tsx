@@ -194,8 +194,9 @@ function PlanPreview({
       {hasFooter ? (
         <div
           ref={footerRef}
-          // rem, so the footer grows with its button at larger interface sizes. When the summary
-          // can't keep a readable width beside the button, the button takes its own line.
+          // rem, so the footer grows with its button at larger interface sizes. The summary's
+          // basis is its whole line, so whenever it can't fit beside the button, the button
+          // takes its own line rather than cutting the summary short.
           className={cn(
             'flex min-h-[2.125rem] min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-border py-[0.3125rem] pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground',
             !hidden && 'border-t',
@@ -206,7 +207,7 @@ function PlanPreview({
             className={cn(
               'min-w-0',
               stacked ? 'whitespace-normal' : 'truncate',
-              footer && 'flex-[1_1_4.5rem]',
+              footer && 'flex-auto',
             )}
             data-plan-summary-stacked={stacked || undefined}
             title={footer}
