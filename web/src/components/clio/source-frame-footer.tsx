@@ -28,6 +28,7 @@ export function SourceFooterStart({ start }: { start: NonNullable<SourceFooter['
       type="button"
       variant="ghost"
       size="sm"
+      data-footer-action=""
       className="-ml-2 text-muted-foreground hover:text-foreground"
       disabled={start.disabled}
       onClick={start.onClick}

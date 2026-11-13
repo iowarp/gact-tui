@@ -274,7 +274,7 @@ msgstr "{0, plural, one {# πεδίο} other {# πεδία}}"
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
-msgstr "{0, plural, one {# αρχείο, {sizeMb} MB, αντιγράφηκε στο {hostLabel}} other {# αρχεία, {sizeMb} MB, αντιγράφηκαν στο {hostLabel}}}"
+msgstr "{0, plural, one {# αρχείο, {sizeMb} MB, αντιγράφηκε ({hostLabel})} other {# αρχεία, {sizeMb} MB, αντιγράφηκαν ({hostLabel})}}"
 
 #. placeholder {0}: blocks.length
 #. placeholder {0}: files.size
@@ -1174,7 +1174,7 @@ msgstr "Το {agent} είναι ενημερωμένο"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "{agent} keeps a dedicated copy on {hostLabel}. Direction is separate from editing."
-msgstr "Ο {agent} διατηρεί ένα αποκλειστικό αντίγραφο στο {hostLabel}. Η κατεύθυνση συγχρονισμού είναι ανεξάρτητη από την επεξεργασία."
+msgstr "Ο {agent} διατηρεί ένα αποκλειστικό αντίγραφο ({hostLabel}). Η κατεύθυνση συγχρονισμού είναι ανεξάρτητη από την επεξεργασία."
 
 #: src/components/clio/connection-names.ts
 msgid "{agent} local"
@@ -1190,7 +1190,7 @@ msgstr "Το {agent} διαχειρίζεται τα δικά του χρονι�
 
 #: src/components/clio/source-fields.tsx
 msgid "{agent} manages this synced copy on {hostLabel}. Direction is separate from permission to edit notes."
-msgstr "Ο {agent} διαχειρίζεται αυτό το συγχρονισμένο αντίγραφο στο {hostLabel}. Η κατεύθυνση είναι ξεχωριστή από το δικαίωμα επεξεργασίας σημειώσεων."
+msgstr "Ο {agent} διαχειρίζεται αυτό το συγχρονισμένο αντίγραφο ({hostLabel}). Η κατεύθυνση είναι ξεχωριστή από το δικαίωμα επεξεργασίας σημειώσεων."
 
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "{agent} may still be setting up protection. Checking its status. {message}"
@@ -1958,7 +1958,7 @@ msgstr "Το {format} έχει μη πεπερασμένες συντεταγμ�
 
 #: src/components/clio/model-acquisition.tsx
 msgid "{free} free on {hostLabel}"
-msgstr "{free} ελεύθερα στο {hostLabel}"
+msgstr "{free} ελεύθερα ({hostLabel})"
 
 #. A sentence ending
 #: src/components/clio/model-acquisition.tsx
@@ -2294,7 +2294,7 @@ msgstr "Ελάχιστο {label}"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "{label} on {hostLabel}"
-msgstr "{label} στο {hostLabel}"
+msgstr "{label} ({hostLabel})"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "{label} options"
@@ -2326,7 +2326,7 @@ msgstr "Το {label} επιλέχθηκε, ακολουθούν {items}"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "{label} service data on {hostLabel}"
-msgstr "Δεδομένα υπηρεσίας {label} στο {hostLabel}"
+msgstr "Δεδομένα υπηρεσίας {label} ({hostLabel})"
 
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "{label} URL"
@@ -7315,7 +7315,7 @@ msgstr "Περιήγηση"
 
 #: src/components/clio/host-path-picker.tsx
 msgid "Browse {folder} on {hostLabel}"
-msgstr "Περιήγηση στο {folder} στο {hostLabel}"
+msgstr "Περιήγηση: {folder} ({hostLabel})"
 
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Browse all agent tools"
@@ -7396,7 +7396,7 @@ msgstr "Πρόγραμμα περιήγησης: {label}"
 
 #: src/components/clio/host-path-picker.tsx
 msgid "Browsing {hostLabel}"
-msgstr "Περιήγηση στο {hostLabel}"
+msgstr "Περιήγηση: {hostLabel}"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -8689,7 +8689,7 @@ msgstr "Επιλέξτε μοντέλο που δέχεται εικόνες γ�
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Choose a model to download to {hostLabel}."
-msgstr "Επιλέξτε ένα μοντέλο για λήψη στο {hostLabel}."
+msgstr "Επιλέξτε ένα μοντέλο για λήψη ({hostLabel})."
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Choose a model to see its capabilities and model card."
@@ -8718,7 +8718,7 @@ msgstr "Επιλέξτε έναν πάροχο για να φέρετε τα α�
 #. placeholder {0}: model.repository
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Choose a runtime for <0>{0}</0>. Model files stay on {hostLabel}."
-msgstr "Επιλέξτε περιβάλλον εκτέλεσης για το <0>{0}</0>. Τα αρχεία του μοντέλου παραμένουν στο {hostLabel}."
+msgstr "Επιλέξτε περιβάλλον εκτέλεσης για το <0>{0}</0>. Τα αρχεία του μοντέλου δεν μετακινούνται ({hostLabel})."
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Choose a saved computer"
@@ -10288,7 +10288,7 @@ msgstr "Συνδέσεις από αυτόν τον πελάτη προς τον
 
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Connects from {hostLabel}. A selected key or password is sent privately to this {agent} and kept in memory until disconnect or restart. It is never included in the conversation. Without a selected key, this host's configured keys or SSH agent are used. Interactive Duo/2FA, security-key prompts and Kerberos require {product}."
-msgstr "Συνδέεται από {hostLabel}. Ένα επιλεγμένο κλειδί ή κωδικός πρόσβασης αποστέλλεται ιδιωτικά σε αυτόν τον {agent} και διατηρείται στη μνήμη μέχρι την αποσύνδεση ή την επανεκκίνηση. Δεν περιλαμβάνεται ποτέ στη συνομιλία. Χωρίς επιλεγμένο κλειδί, χρησιμοποιούνται τα διαμορφωμένα κλειδιά αυτού του κεντρικού υπολογιστή ή ο SSH agent. Το διαδραστικό Duo/2FA, οι προτροπές κλειδιού ασφαλείας και το Kerberos απαιτούν {product}."
+msgstr "Σύνδεση από: {hostLabel}. Ένα επιλεγμένο κλειδί ή κωδικός πρόσβασης αποστέλλεται ιδιωτικά σε αυτόν τον {agent} και διατηρείται στη μνήμη μέχρι την αποσύνδεση ή την επανεκκίνηση. Δεν περιλαμβάνεται ποτέ στη συνομιλία. Χωρίς επιλεγμένο κλειδί, χρησιμοποιούνται τα διαμορφωμένα κλειδιά αυτού του κεντρικού υπολογιστή ή ο SSH agent. Το διαδραστικό Duo/2FA, οι προτροπές κλειδιού ασφαλείας και το Kerberos απαιτούν {product}."
 
 #: src/components/clio/settings-web-search.tsx
 msgid "Contact email"
@@ -10309,7 +10309,7 @@ msgstr "Αποθήκευση εικόνων κοντέινερ"
 #: src/components/clio/monitoring-image-storage.tsx
 #: src/components/clio/service-management-facts.tsx
 msgid "Container images on {hostLabel}"
-msgstr "Εικόνες κοντέινερ στο {hostLabel}"
+msgstr "Εικόνες κοντέινερ ({hostLabel})"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Container launch"
@@ -10807,7 +10807,7 @@ msgstr "Αντιγράφηκε από <0/>"
 
 #: src/components/clio/folder-attach-form.tsx
 msgid "Copied into this workspace on {hostLabel}. No size limit."
-msgstr "Αντιγράφηκε σε αυτόν τον χώρο εργασίας στο {hostLabel}. Χωρίς όριο μεγέθους."
+msgstr "Αντιγράφηκε σε αυτόν τον χώρο εργασίας ({hostLabel}). Χωρίς όριο μεγέθους."
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "Copied the absolute path."
@@ -10861,7 +10861,7 @@ msgstr "Η διαδρομή του χώρου εργασίας αντιγράφ�
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "Copied to {hostLabel}"
-msgstr "Αντιγράφηκε στο {hostLabel}"
+msgstr "Αντιγράφηκε ({hostLabel})"
 
 #: src/components/clio/tool-terminal-result.tsx
 msgid "Copied: {folder}"
@@ -10980,8 +10980,8 @@ msgid "Copy file"
 msgstr "Αντιγραφή αρχείου"
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Copy files or a folder to {hostLabel}."
-msgstr "Αντιγράψτε αρχεία ή έναν φάκελο στο {hostLabel}."
+msgid "Copy files or a folder to {agent}'s computer."
+msgstr "Αντιγράψτε αρχεία ή έναν φάκελο στον υπολογιστή του {agent}."
 
 #: src/components/clio/workspace-actions-menu.tsx
 msgid "Copy folder path"
@@ -11312,7 +11312,7 @@ msgstr "Δεν ήταν δυνατός ο έλεγχος του {executionHostLa
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Could not inspect {hostLabel}"
-msgstr "Δεν ήταν δυνατός ο έλεγχος του {hostLabel}"
+msgstr "Δεν ήταν δυνατός ο έλεγχος: {hostLabel}"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Could not inspect {storage_root}. Showing the last observation."
@@ -11694,7 +11694,7 @@ msgstr "Δημιουργήθηκε το {file}"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Created on {hostLabel}. Open the same folder in Obsidian later."
-msgstr "Δημιουργήθηκε στο {hostLabel}. Ανοίξτε αργότερα τον ίδιο φάκελο στο Obsidian."
+msgstr "Δημιουργήθηκε ({hostLabel}). Ανοίξτε αργότερα τον ίδιο φάκελο στο Obsidian."
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Created on this host ({count})"
@@ -12488,7 +12488,7 @@ msgstr "Προορισμός"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Destination on {hostLabel}"
-msgstr "Προορισμός στο {hostLabel}"
+msgstr "Προορισμός ({hostLabel})"
 
 #: src/components/clio/file-copy-dialog.tsx
 msgid "Destination workspace"
@@ -13095,7 +13095,7 @@ msgstr "Λήψη των αρχείων του αποθετηρίου σε απο
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Download to {hostLabel}"
-msgstr "Λήψη στο {hostLabel}"
+msgstr "Λήψη ({hostLabel})"
 
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Download unsuccessful"
@@ -13128,8 +13128,12 @@ msgid "Downloaded files"
 msgstr "Ληφθέντα αρχεία"
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
-msgstr "Τα αρχεία που λαμβάνονται αποθηκεύονται στο {hostLabel}. Η μεταφόρτωση αντιγράφει αρχεία από τον υπολογιστή σας σε αυτόν τον χώρο εργασίας. Οι αλλαγές στα πρωτότυπα δεν αντιγράφονται αυτόματα."
+msgid "Downloaded files are saved on {agent}'s computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgstr "Τα αρχεία που λαμβάνονται αποθηκεύονται στον υπολογιστή του {agent}. Η μεταφόρτωση αντιγράφει αρχεία από τον υπολογιστή σας σε αυτόν τον χώρο εργασίας. Οι αλλαγές στα πρωτότυπα δεν αντιγράφονται αυτόματα."
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Downloaded files are saved on this computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgstr "Τα αρχεία που λαμβάνονται αποθηκεύονται σε αυτόν τον υπολογιστή. Η μεταφόρτωση αντιγράφει αρχεία από τον υπολογιστή σας σε αυτόν τον χώρο εργασίας. Οι αλλαγές στα πρωτότυπα δεν αντιγράφονται αυτόματα."
 
 #: src/components/clio/settings-data-sources.tsx
 msgid "Downloaded files stay available. Linked folders will need you to sign in again."
@@ -13142,7 +13146,7 @@ msgstr "Φάκελος που λήφθηκε"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Downloaded models on {hostLabel}"
-msgstr "Μοντέλα που έχουν ληφθεί στο {hostLabel}"
+msgstr "Μοντέλα που έχουν ληφθεί ({hostLabel})"
 
 #: src/components/clio/source-operation-status.tsx
 msgid "Downloaded to workspace Files, {amount}"
@@ -14647,15 +14651,19 @@ msgstr "Αρχεία και φάκελοι από το Google Drive"
 
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "Files and their folder structure are uploaded to {hostLabel}. The desktop original stays unchanged. Empty folders are not exposed by the browser picker. If interrupted, select the same folder to resume from uploaded bytes."
-msgstr "Τα αρχεία και η δομή φακέλων τους μεταφορτώνονται στο {hostLabel}. Το πρωτότυπο στον υπολογιστή παραμένει αμετάβλητο. Οι κενοί φάκελοι δεν εμφανίζονται στο εργαλείο επιλογής του προγράμματος περιήγησης. Αν διακοπεί, επιλέξτε τον ίδιο φάκελο για να συνεχίσετε από τα byte που έχουν ήδη μεταφορτωθεί."
+msgstr "Τα αρχεία και η δομή φακέλων τους μεταφορτώνονται ({hostLabel}). Το πρωτότυπο στον υπολογιστή παραμένει αμετάβλητο. Οι κενοί φάκελοι δεν εμφανίζονται στο εργαλείο επιλογής του προγράμματος περιήγησης. Αν διακοπεί, επιλέξτε τον ίδιο φάκελο για να συνεχίσετε από τα byte που έχουν ήδη μεταφορτωθεί."
 
 #: src/components/clio/composer-file-upload.tsx
 msgid "Files are added to this message and remain editable before you send it."
 msgstr "Τα αρχεία προστίθενται σε αυτό το μήνυμα και παραμένουν επεξεργάσιμα πριν το στείλετε."
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Files are saved on {hostLabel}"
-msgstr "Τα αρχεία αποθηκεύονται στο {hostLabel}"
+msgid "Files are saved on {agent}'s computer"
+msgstr "Τα αρχεία αποθηκεύονται στον υπολογιστή του {agent}"
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Files are saved on this computer"
+msgstr "Τα αρχεία αποθηκεύονται σε αυτόν τον υπολογιστή"
 
 #: src/components/clio/context-sources.tsx
 msgid "Files available to this agent. Availability does not mean the full file is in the prompt."
@@ -15145,7 +15153,7 @@ msgstr "Το ευρετήριο του φακέλου είναι έτοιμο, {
 
 #: src/components/clio/connected-source-form.tsx
 msgid "Folder on {hostLabel}"
-msgstr "Φάκελος στο {hostLabel}"
+msgstr "Φάκελος ({hostLabel})"
 
 #: src/components/clio/folder-attach-form.tsx
 msgid "Folder on this computer"
@@ -15167,7 +15175,7 @@ msgstr "Η διαδρομή φακέλου αντιγράφηκε"
 
 #: src/components/clio/host-path-picker.tsx
 msgid "Folder path on {hostLabel}"
-msgstr "Διαδρομή φακέλου στο {hostLabel}"
+msgstr "Διαδρομή φακέλου ({hostLabel})"
 
 #: src/components/clio/source-fields.tsx
 msgid "Folder retained"
@@ -15501,7 +15509,7 @@ msgstr "Από {firstSource} και {moreSources} ακόμη"
 
 #: src/components/clio/source-sftp-target.tsx
 msgid "From {hostLabel}"
-msgstr "Από {hostLabel}"
+msgstr "Από: {hostLabel}"
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "from {marketplace}"
@@ -17213,7 +17221,7 @@ msgstr "Επιθεώρηση"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Inspecting {hostLabel}"
-msgstr "Έλεγχος του {hostLabel}"
+msgstr "Έλεγχος: {hostLabel}"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Inspecting model storage…"
@@ -17937,7 +17945,7 @@ msgstr "Κλειδί"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Key file on {hostLabel}"
-msgstr "Αρχείο κλειδιού στο {hostLabel}"
+msgstr "Αρχείο κλειδιού ({hostLabel})"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Key fingerprint (SHA-256): {fingerprint}"
@@ -18271,7 +18279,7 @@ msgstr "Διασύνδεση φακέλου"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link selected files"
-msgstr "Διασύνδεση επιλεγμένων αρχείων"
+msgstr "Διασύνδεση επιλεγμένων"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Link the selected files to add them to a message."
@@ -21221,7 +21229,7 @@ msgstr "Δεν υπάρχει ακόμη συμβατή ενημέρωση πε�
 
 #: src/components/clio/model-acquisition.tsx
 msgid "No compatible runtime for these files on {hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file."
-msgstr "Δεν υπάρχει συμβατό περιβάλλον εκτέλεσης για αυτά τα αρχεία στο {hostLabel}. Τα μοντέλα Transformers χρειάζονται υπολογιστή με υποστηριζόμενο vLLM· το llama.cpp χρειάζεται αρχείο GGUF."
+msgstr "Δεν υπάρχει συμβατό περιβάλλον εκτέλεσης για αυτά τα αρχεία ({hostLabel}). Τα μοντέλα Transformers χρειάζονται υπολογιστή με υποστηριζόμενο vLLM· το llama.cpp χρειάζεται αρχείο GGUF."
 
 #: src/components/clio/transcript-content-picker.tsx
 msgid "No completed content is available."
@@ -21424,7 +21432,7 @@ msgstr "Δεν δηλώθηκαν είσοδοι."
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "No installable services found on {hostLabel}"
-msgstr "Δεν βρέθηκαν υπηρεσίες προς εγκατάσταση στο {hostLabel}"
+msgstr "Δεν βρέθηκαν υπηρεσίες προς εγκατάσταση ({hostLabel})"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "No instructions written."
@@ -21468,7 +21476,7 @@ msgstr "Δεν υπάρχει διαχειριζόμενο πρόγραμμα ε
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "No managed services on {hostLabel}"
-msgstr "Δεν υπάρχουν διαχειριζόμενες υπηρεσίες στο {hostLabel}"
+msgstr "Δεν υπάρχουν διαχειριζόμενες υπηρεσίες ({hostLabel})"
 
 #: src/components/clio/transcript-outline.tsx
 msgid "No marked messages yet. Use the bookmark beside a message or in its rail preview."
@@ -22343,6 +22351,10 @@ msgstr "Δεν έχει ελεγχθεί ακόμη"
 msgid "Not installed"
 msgstr "Δεν έχει εγκατασταθεί"
 
+#: src/components/clio/connected-source-detail.tsx
+msgid "Not linked"
+msgstr "Χωρίς διασύνδεση"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Not loaded"
 msgstr "Δεν φορτώθηκε"
@@ -22942,11 +22954,11 @@ msgstr "Ενεργό"
 
 #: src/components/clio/source-fields.tsx
 msgid "On {hostLabel}"
-msgstr "Στο {hostLabel}"
+msgstr "Υπολογιστής: {hostLabel}"
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "On {hostLabel}. Hidden files and Obsidian settings are excluded."
-msgstr "Στο {hostLabel}. Τα κρυφά αρχεία και οι ρυθμίσεις του Obsidian εξαιρούνται."
+msgstr "Υπολογιστής: {hostLabel}. Τα κρυφά αρχεία και οι ρυθμίσεις του Obsidian εξαιρούνται."
 
 #: src/lib/shortcuts/catalog.ts
 msgid "On a file too large to show"
@@ -24297,7 +24309,7 @@ msgstr "Πρόταση διαδρομής"
 
 #: src/components/clio/model-storage-locations.tsx
 msgid "Paths are on {hostLabel}. New deployments inherit these locations."
-msgstr "Οι διαδρομές βρίσκονται στο {hostLabel}. Οι νέες αναπτύξεις κληρονομούν αυτές τις θέσεις."
+msgstr "Υπολογιστής διαδρομών: {hostLabel}. Οι νέες αναπτύξεις κληρονομούν αυτές τις θέσεις."
 
 #: src/components/clio/host-storage-settings.tsx
 msgid "Paths are on the selected host. New deployments inherit these locations; existing deployments keep their recorded paths. Docker and Podman image storage is configured separately in the container engine."
@@ -26193,7 +26205,7 @@ msgstr "Ανάγνωση πρόσθετου…"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Reading recent logs from {hostLabel}…"
-msgstr "Ανάγνωση πρόσφατων αρχείων καταγραφής από {hostLabel}…"
+msgstr "Ανάγνωση πρόσφατων αρχείων καταγραφής ({hostLabel})…"
 
 #: src/components/clio/source-files-browser.tsx
 msgid "Reading source files…"
@@ -26438,7 +26450,7 @@ msgstr "Φάκελος λήψης"
 
 #: src/components/clio/globus-receiving-storage.tsx
 msgid "Receiving storage on {hostLabel}"
-msgstr "Αποθήκευση λήψης στο {hostLabel}"
+msgstr "Αποθήκευση λήψης ({hostLabel})"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 #: src/lib/model-capability-tags.ts
@@ -26455,7 +26467,7 @@ msgstr "Πρόσφατες κλήσεις"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "Recent logs on {hostLabel}"
-msgstr "Πρόσφατα αρχεία καταγραφής σε {hostLabel}"
+msgstr "Πρόσφατα αρχεία καταγραφής ({hostLabel})"
 
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
@@ -28973,7 +28985,7 @@ msgstr "ίδιο με το script παραπάνω"
 
 #: src/components/clio/globus-receiving-storage.tsx
 msgid "Same folder on {hostLabel}"
-msgstr "Ο ίδιος φάκελος στο {hostLabel}"
+msgstr "Ο ίδιος φάκελος ({hostLabel})"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -30541,7 +30553,7 @@ msgstr "Δεδομένα υπηρεσίας"
 
 #: src/components/clio/service-management-facts.tsx
 msgid "Service data on {hostLabel}"
-msgstr "Δεδομένα υπηρεσίας στο {hostLabel}"
+msgstr "Δεδομένα υπηρεσίας ({hostLabel})"
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Service default"
@@ -30581,7 +30593,7 @@ msgstr "Όνομα υπηρεσίας"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Service on {hostLabel}"
-msgstr "Υπηρεσία στο {hostLabel}"
+msgstr "Υπηρεσία ({hostLabel})"
 
 #: src/components/clio/settings-context-history.tsx
 msgid "Service record"
@@ -30599,7 +30611,7 @@ msgstr "Υπηρεσίες"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Services on {hostLabel}"
-msgstr "Υπηρεσίες στο {hostLabel}"
+msgstr "Υπηρεσίες ({hostLabel})"
 
 #: src/components/clio/infrastructure-topology.tsx
 msgid "Services on {hostName}"
@@ -32828,7 +32840,7 @@ msgstr "Αποθήκευση στο {host_label}"
 
 #: src/components/clio/model-storage-locations.tsx
 msgid "Storage on {hostLabel}"
-msgstr "Αποθήκευση στο {hostLabel}"
+msgstr "Αποθήκευση ({hostLabel})"
 
 #: src/components/clio/host-storage-settings.tsx
 #: src/components/clio/model-storage-locations.tsx
@@ -35883,7 +35895,7 @@ msgstr "Δεν ήταν δυνατή η σχεδίαση του διαγράμμ
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "This folder is available to {agent} on {hostLabel}. Add it to your message so the agent knows which files to use."
-msgstr "Αυτός ο φάκελος είναι διαθέσιμος στον {agent} στο {hostLabel}. Προσθέστε τον στο μήνυμά σας ώστε ο πράκτορας να γνωρίζει ποια αρχεία να χρησιμοποιήσει."
+msgstr "Αυτός ο φάκελος είναι διαθέσιμος στον {agent} ({hostLabel}). Προσθέστε τον στο μήνυμά σας ώστε ο πράκτορας να γνωρίζει ποια αρχεία να χρησιμοποιήσει."
 
 #: src/components/clio/host-folder-view.tsx
 msgid "This folder is empty."
@@ -36051,7 +36063,7 @@ msgstr "Αυτό αφαιρεί το αποθηκευμένο προφίλ SSH �
 
 #: src/components/clio/model-inventory-row.tsx
 msgid "This removes this download from {hostLabel} and frees its model files. You can download it again. The operation receipt is retained."
-msgstr "Αυτό αφαιρεί αυτή τη λήψη από το {hostLabel} και ελευθερώνει τα αρχεία του μοντέλου. Μπορείτε να το κατεβάσετε ξανά. Το αποδεικτικό της ενέργειας διατηρείται."
+msgstr "Αυτό αφαιρεί αυτή τη λήψη ({hostLabel}) και ελευθερώνει τα αρχεία του μοντέλου. Μπορείτε να το κατεβάσετε ξανά. Το αποδεικτικό της ενέργειας διατηρείται."
 
 #: src/components/clio/conversation-message-blocks.tsx
 #: src/components/clio/conversation-message-row.tsx
@@ -37933,6 +37945,10 @@ msgstr "Μεταφορτώθηκε"
 msgid "Uploaded file"
 msgstr "Μεταφορτωμένο αρχείο"
 
+#: src/components/clio/connected-source-detail.tsx
+msgid "Uploaded from your computer"
+msgstr "Μεταφορτώθηκε από τον υπολογιστή σας"
+
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Uploading"
 msgstr "Μεταφόρτωση"
@@ -38011,8 +38027,12 @@ msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Χρησιμοποιήστε μια εστιασμένη στήλη ανάγνωσης ή δώστε περισσότερο χώρο σε πίνακες και διαγράμματα."
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Use a folder on {hostLabel}"
-msgstr "Χρήση φακέλου στο {hostLabel}"
+msgid "Use a folder on {agent}'s computer"
+msgstr "Χρήση φακέλου στον υπολογιστή του {agent}"
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Use a folder on this computer"
+msgstr "Χρήση φακέλου σε αυτόν τον υπολογιστή"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Use a whole number."
@@ -38050,7 +38070,7 @@ msgstr "Χρήση κληρονομημένου {setting}"
 
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Use keys configured on {hostLabel}"
-msgstr "Χρήση κλειδιών που έχουν διαμορφωθεί στο {hostLabel}"
+msgstr "Χρήση κλειδιών που έχουν διαμορφωθεί ({hostLabel})"
 
 #: src/components/clio/save-user-agent-dialog.tsx
 msgid "Use letters or numbers."
@@ -38229,7 +38249,7 @@ msgstr "Το χρησιμοποιεί χωρίς ερώτηση."
 
 #: src/components/clio/source-sftp-target.tsx
 msgid "Uses SFTP from {hostLabel}. Choose browses the selected remote host. Basic key and password login are supported; interactive authentication requires {product}."
-msgstr "Χρησιμοποιεί SFTP από {hostLabel}. Η Επιλογή περιηγείται στον επιλεγμένο απομακρυσμένο κεντρικό υπολογιστή. Υποστηρίζεται βασική σύνδεση με κλειδί και κωδικό πρόσβασης· ο διαδραστικός έλεγχος ταυτότητας απαιτεί {product}."
+msgstr "Σύνδεση SFTP από: {hostLabel}. Η Επιλογή περιηγείται στον επιλεγμένο απομακρυσμένο κεντρικό υπολογιστή. Υποστηρίζεται βασική σύνδεση με κλειδί και κωδικό πρόσβασης· ο διαδραστικός έλεγχος ταυτότητας απαιτεί {product}."
 
 #: src/components/clio/provenance-connections.tsx
 msgid "Uses the direct CMF server API to retain artifact lineage. No Flowcept or inference service is required."

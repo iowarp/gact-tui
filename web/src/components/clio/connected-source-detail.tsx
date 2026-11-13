@@ -447,7 +447,7 @@ function SourceManage({
   const details: KeyValueItem[] = [
     {
       label: t`Location`,
-      value: source.origin === 'desktop_upload' ? 'Uploaded from your computer' : source.root,
+      value: source.origin === 'desktop_upload' ? t`Uploaded from your computer` : source.root,
       mono: source.origin !== 'desktop_upload',
     },
     {
@@ -465,7 +465,7 @@ function SourceManage({
             label: t`Link`,
             value: source.linked
               ? sourceAccessNames[source.link_access ?? 'read_only']
-              : 'Not linked',
+              : t`Not linked`,
             action:
               source.linked && source.connected && canAccessSource ? (
                 <Button

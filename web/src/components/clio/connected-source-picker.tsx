@@ -479,9 +479,15 @@ export function ConnectedSourceContents({
   return (
     <div className="space-y-4">
       <div className="flex min-h-[26px] items-center gap-1.5 text-meta text-muted-foreground">
-        <span className="min-w-0 truncate">{t`Files are saved on ${hostLabel}`}</span>
+        <span className="min-w-0 truncate">
+          {localConnection
+            ? t`Files are saved on this computer`
+            : t`Files are saved on ${agent}'s computer`}
+        </span>
         <InfoTip label={t`About connected data`}>
-          {t`Downloaded files are saved on ${hostLabel}. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically.`}
+          {localConnection
+            ? t`Downloaded files are saved on this computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically.`
+            : t`Downloaded files are saved on ${agent}'s computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically.`}
         </InfoTip>
       </div>
       {(sources.error || providers.error || folderReference.error) && (
@@ -499,7 +505,7 @@ export function ConnectedSourceContents({
             </h3>
             {!localConnection && (
               <p className="text-xs text-muted-foreground">
-                {t`Copy files or a folder to ${hostLabel}.`}
+                {t`Copy files or a folder to ${agent}'s computer.`}
               </p>
             )}
           </div>
@@ -545,7 +551,11 @@ export function ConnectedSourceContents({
                   title={
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate">
-                        {row.id === 'local' ? t`Use a folder on ${hostLabel}` : row.name}
+                        {row.id !== 'local'
+                          ? row.name
+                          : localConnection
+                            ? t`Use a folder on this computer`
+                            : t`Use a folder on ${agent}'s computer`}
                       </span>
                       <SourceProviderInfo provider={row} />
                     </span>

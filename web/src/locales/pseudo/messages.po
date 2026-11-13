@@ -10972,7 +10972,7 @@ msgid "Copy file"
 msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Copy files or a folder to {hostLabel}."
+msgid "Copy files or a folder to {agent}'s computer."
 msgstr ""
 
 #: src/components/clio/workspace-actions-menu.tsx
@@ -13120,7 +13120,11 @@ msgid "Downloaded files"
 msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgid "Downloaded files are saved on {agent}'s computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
+msgstr ""
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Downloaded files are saved on this computer. Upload copies files from your computer to this workspace. Changes to the originals are not copied automatically."
 msgstr ""
 
 #: src/components/clio/settings-data-sources.tsx
@@ -14646,7 +14650,11 @@ msgid "Files are added to this message and remain editable before you send it."
 msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Files are saved on {hostLabel}"
+msgid "Files are saved on {agent}'s computer"
+msgstr ""
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Files are saved on this computer"
 msgstr ""
 
 #: src/components/clio/context-sources.tsx
@@ -22324,6 +22332,10 @@ msgstr ""
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/managed-service-status.ts
 msgid "Not installed"
+msgstr ""
+
+#: src/components/clio/connected-source-detail.tsx
+msgid "Not linked"
 msgstr ""
 
 #: src/components/clio/settings-tool-permissions.tsx
@@ -37915,6 +37927,10 @@ msgstr ""
 msgid "Uploaded file"
 msgstr ""
 
+#: src/components/clio/connected-source-detail.tsx
+msgid "Uploaded from your computer"
+msgstr ""
+
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Uploading"
 msgstr ""
@@ -37993,7 +38009,11 @@ msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
-msgid "Use a folder on {hostLabel}"
+msgid "Use a folder on {agent}'s computer"
+msgstr ""
+
+#: src/components/clio/connected-source-picker.tsx
+msgid "Use a folder on this computer"
 msgstr ""
 
 #: src/components/clio/settings-access-rule-model.ts

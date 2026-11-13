@@ -296,7 +296,8 @@ export const DialogFrame = memo(function DialogFrame({
           className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
-            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-meta whitespace-nowrap text-muted-foreground">
+            // Supplemental text truncates; an action button (Back) keeps its whole label.
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-meta whitespace-nowrap text-muted-foreground has-[[data-footer-action]]:shrink-0">
               {footerStart}
             </div>
           ) : null}
