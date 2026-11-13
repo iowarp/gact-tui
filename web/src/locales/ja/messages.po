@@ -9956,7 +9956,7 @@ msgstr "{label}に接続"
 msgid "Connect {name}"
 msgstr "{name}を接続"
 
-#: src/components/clio/permission-response.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Connect {source}"
 msgstr "{source}を接続"
 
@@ -10054,7 +10054,6 @@ msgid "Connect over SSH…"
 msgstr "SSHで接続…"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Connect source"
 msgstr "ソースを接続"
 
@@ -13085,7 +13084,6 @@ msgid "Download selected files"
 msgstr "選択したファイルをダウンロード"
 
 #: src/components/clio/permission-operation-labels.ts
-#: src/components/clio/permission-response.tsx
 msgid "Download source"
 msgstr "ソースをダウンロード"
 
@@ -38282,6 +38280,14 @@ msgstr "ツールを使用中"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Utah cluster"
 msgstr "ユタのクラスター"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} available"
+msgstr "v{version} を利用できます"
+
+#: src/components/clio/clio-menu.tsx
+msgid "v{version} ready"
+msgstr "v{version} の準備ができました"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"
