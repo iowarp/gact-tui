@@ -31,7 +31,9 @@ export interface SnapshotOptions {
 export type TakeSnapshot = (options: SnapshotOptions) => Promise<McpAppSnapshot>;
 
 type LookHandler = (look: McpAppLookEvent) => void;
-const lookHandlers = new Map<string, LookHandler>();
+/** Per view, every mount that holds it now; the newest answers (a card and a tab overlap
+ * while a frame moves between them). */
+const lookHandlers = new Map<string, LookHandler[]>();
 
 function key(sessionId: string, appInstanceId: string): string {
   return `${sessionId}:${appInstanceId}`;
@@ -47,7 +49,7 @@ export function dispatchMcpAppLookFrame(frame: TransportFrame): void {
     return; // Frame reduction owns malformed-envelope reporting.
   }
   const look = lookEvent(payload);
-  if (look) lookHandlers.get(key(look.session_id, look.app_instance_id))?.(look);
+  if (look) lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1)?.(look);
 }
 
 function lookEvent(value: unknown): McpAppLookEvent | undefined {
@@ -108,7 +110,8 @@ export class McpAppLooks {
   start(): void {
     if (this.stopped || this.started || !this.repository.setMcpAppShown) return;
     this.started = true;
-    lookHandlers.set(key(this.identity.sessionId, this.identity.appInstanceId), this.handler);
+    const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
+    lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.handler]);
     void this.repository
       .setMcpAppShown(this.identity, this.holder, true)
       .catch((error: unknown) =>
@@ -121,9 +124,11 @@ export class McpAppLooks {
     if (this.stopped) return;
     this.stopped = true;
     if (!this.started) return;
-    // A newer mount of the same view (card to tab) may already hold it: leave its handler.
+    // Another mount of the same view (card to tab) may hold it too: only this one goes.
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
-    if (lookHandlers.get(handlerKey) === this.handler) lookHandlers.delete(handlerKey);
+    const rest = (lookHandlers.get(handlerKey) ?? []).filter((handler) => handler !== this.handler);
+    if (rest.length) lookHandlers.set(handlerKey, rest);
+    else lookHandlers.delete(handlerKey);
     void this.repository.setMcpAppShown?.(this.identity, this.holder, false).catch(() => undefined);
   }
 
