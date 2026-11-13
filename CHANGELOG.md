@@ -6,6 +6,74 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.13.0] - 2026-11-13
+
+The interface for CLIO 0.9.7: it finishes the design introduced in 0.12.0 and is
+available in Spanish, Japanese and Greek.
+
+### Added
+
+- The interface, the Desktop menus and tray, Desktop errors and the update reason are
+  available in Spanish, Japanese and Greek as well as English; choose the language in
+  Settings > Appearance > Language or follow the system. The translations are
+  machine-made and marked as such until reviewed (#1232, #1237, #1241, #1242, #1243, #1244)
+- A guided tour starts on first launch and can be replayed from Settings > General
+  (#1155, #1162, #1168, #1214)
+- Settings > Web search orders CLIO's built-in web and literature sources, turns each
+  on or off and holds their keys; the SearXNG screens are removed (#1234)
+- Settings > Models offers a selectable fast model, which helpers use unless given
+  their own, and a Delegation section for the accounts that may run delegated work
+  (#1226)
+- A script's tool row shows what the script ran, the images it viewed and whether the
+  model saw them, with Show the task in Work and Open in tab for its printed output
+  (#1229)
+- A reply that failed after partial output offers Retry (#1180)
+- Workspace rows open their menu on right-click, and workspace settings live in
+  Settings > Folders (#1205)
+
+### Changed
+
+- An MCP server's tools use the same rows as built-in tools, with permissions, and
+  every tool opens its details. The agent view shows the agent's packages and prompt,
+  and its subagents and skills open on their own pages (#1227, #1228)
+- The conversation rail docks beside the transcript while the side pocket is closed,
+  and rail rows show New activity for conversations that aren't open (#1203, #1209)
+- Switching conversations keeps the window and the rail in place instead of redrawing
+  them (#1190, #1199)
+- The lineage graph is laid out with ELK, with fewer crossing lines, and supports zoom,
+  pan and drag; code is coloured and wraps by default (#1207, #1215, #1220)
+- A PDF cited by the agent opens on the cited page; paging, zoom and resizing keep
+  your place (#1179, #1201)
+- A comment marked on an older version of a file says so and offers to mark it again
+  on the current one; comment threads list even when one version is unreadable
+  (#1204, #1212, #1224)
+- Interface size scales every piece of text, and type sizes follow the design's scale
+  (#1206, #1211, #1217)
+- Attaching a folder offers in place or a full copy, with no size limit, and attached
+  folders keep their names whole (#1156, #1164, #1170, #1172)
+- Settings polish: search index, panes, packages, the model picker and phone widths
+  (#1174, #1176, #1182, #1187, #1210, #1213, #1218, #1221, #1222, #1225)
+
+### Fixed
+
+- A draft moved to another workspace keeps its model, agent and text, and on Linux the
+  close prompt no longer refers to Windows' hidden icons (#1223)
+- Deleting a conversation or workspace that still has running work says why it can't
+  be deleted yet, instead of "409 Conflict" (#1216)
+- Focus returns to the search question after choosing its model, and Ctrl K Esc steps
+  back from a typed prefix (#1188, #1231)
+- On Windows hosts that use the sandbox users, a Desktop upgrade or repair no longer
+  spends 7 to 9 s granting them access to the new runtime (#1230)
+- Transcript, viewer and decision-card fixes from the post-release review (#1185,
+  #1191, #1193, #1194, #1196, #1198, #1202, #1208, #1219)
+
+### Known issues
+
+- In Greek and Japanese, some labels are cut off at desktop width: the CLIO menu,
+  Infrastructure map nodes, some Settings rows and the shortcut sheet
+- Settings > Runtime and history is still in English in Greek and Japanese
+- Bell request rows can show a raw "destructive tool call:" title
+
 ## [0.12.2] - 2026-11-12
 
 Fixes from the 0.9.6 on-screen runs on Windows, macOS and Linux.
