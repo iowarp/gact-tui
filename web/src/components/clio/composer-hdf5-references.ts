@@ -48,6 +48,13 @@ export function hdf5DrillQuery(reference: WorkspaceReference): string | undefine
   return undefined;
 }
 
+/** The mention text one level up: the parent group, or the file itself in the workspace list. */
+export function hdf5UpQuery(mention: Hdf5Mention): string {
+  if (mention.group === '/') return mention.file;
+  const parent = mention.group.slice(0, mention.group.lastIndexOf('/'));
+  return `${mention.file}${HDF5_LOCATOR_SEPARATOR}${parent}/`;
+}
+
 interface GroupChild {
   name: string;
   kind: string;
