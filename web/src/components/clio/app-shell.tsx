@@ -255,6 +255,9 @@ export function ClioAppShell({
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // An App tab shown on a phone docks between the conversation's header and composer.
   const appTabShown = useWorkbenchAppTabs((state) => state.shown);
+  // With an App tab open the closed sheet stays mounted and hidden: unmounting it
+  // would reload the App's view when the sheet opens again.
+  const keepSheetMounted = useWorkbenchAppTabs((state) => state.open);
   const appDock = usePhoneAppDock(
     hasWorkbench && !desktopWorkbench && workbenchOpen && appTabShown,
   );
@@ -496,13 +499,15 @@ export function ClioAppShell({
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
             // it underneath, not cut off.
-            className="w-[86vw] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            className="w-[86vw] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
             // Land on the sheet itself, announced by its title, rather than on whichever icon
             // button comes first (which would also pop its tooltip).
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            forceMount={keepSheetMounted || undefined}
+            inert={!workbenchOpen || undefined}
             // Docked beside the composer, typing in the conversation keeps the App shown.
             onInteractOutside={(event) => {
               if (appDock) event.preventDefault();
