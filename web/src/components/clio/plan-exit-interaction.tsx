@@ -106,22 +106,30 @@ function PlanPreview({
   // The glance goes from the summary straight to the numbered steps, as the spec draws.
   const glance = expanded ? content : content?.replace(STEPS_HEADING, '');
   const [overflowing, setOverflowing] = useState(false);
+  // Under a tight height cap the reading area can get less than a line: show none of it, not a sliver.
+  const [cramped, setCramped] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const clip = clipRef.current;
     const body = bodyRef.current;
     if (!clip || !body || expanded) return;
-    const measure = () => setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+    const measure = () => {
+      setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setCramped(clip.clientHeight > 0 && clip.clientHeight < 2.5 * rem);
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(body);
+    observer.observe(clip);
     return () => observer.disconnect();
   }, [expanded, content]);
   const opens = Boolean(artifact && onOpenArtifact);
   const toggles = Boolean(content) && !opens && (overflowing || expanded);
   const clipped = !expanded && overflowing;
+  const hidden = !expanded && cramped;
   const footer = footerText(plan);
   return (
     <AskSection
@@ -140,8 +148,10 @@ function PlanPreview({
             ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto'
             : 'max-h-[118px] overflow-hidden',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
+          hidden && 'invisible',
         )}
         data-plan-clipped={clipped || undefined}
+        data-plan-cramped={hidden || undefined}
         ref={clipRef}
         tabIndex={expanded ? 0 : undefined}
       >
@@ -161,11 +171,15 @@ function PlanPreview({
       </div>
       {footer || opens || toggles ? (
         <div
-          // rem, so the footer grows with its button at larger interface sizes.
-          className="flex h-[2.125rem] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground"
+          // rem, so the footer grows with its button at larger interface sizes. When the summary
+          // can't keep a readable width beside the button, the button takes its own line.
+          className={cn(
+            'flex min-h-[2.125rem] min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-border py-[0.3125rem] pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground',
+            !hidden && 'border-t',
+          )}
           data-slot="plan-preview-footer"
         >
-          <span className="min-w-0 truncate" title={footer}>
+          <span className={cn('min-w-0 truncate', footer && 'flex-[1_1_4.5rem]')} title={footer}>
             {footer}
           </span>
           {!keys && content ? (

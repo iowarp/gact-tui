@@ -424,21 +424,31 @@ function announcement(interaction: PendingInteraction, index: number, total: num
   ]
     .filter((sentence): sentence is string => Boolean(sentence))
     .reduce((text, sentence) =>
-      // A title that already ends a sentence ("…flat-ndp?") takes no second stop.
-      SENTENCE_END.test(text)
+      // A title that already ends a sentence ("…flat-ndp?") takes no second stop. Half-width
+      // punctuation still needs a gap before the next sentence, even in Japanese.
+      LATIN_SENTENCE_END.test(text)
         ? t({
             message: `${text} ${sentence}`,
+            context: 'after half-width sentence punctuation',
             comment:
-              'Joins sentences of a screen-reader announcement when the first already ends in ? ! or .',
+              'Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …',
           })
-        : t({
-            message: `${text}. ${sentence}`,
-            comment: 'Joins sentences of a screen-reader announcement',
-          }),
+        : WIDE_SENTENCE_END.test(text)
+          ? t({
+              message: `${text} ${sentence}`,
+              comment:
+                'Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！',
+            })
+          : t({
+              message: `${text}. ${sentence}`,
+              comment: 'Joins sentences of a screen-reader announcement',
+            }),
     );
 }
 
-const SENTENCE_END = /[?!.。？！]\s*$/u;
+// ";" and U+037E are the Greek question mark.
+const LATIN_SENTENCE_END = /[?!.;\u037e…]\s*$/u;
+const WIDE_SENTENCE_END = /[。？！]\s*$/u;
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
   if (!map.has(key)) return map;

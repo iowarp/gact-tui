@@ -1,10 +1,28 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
+import { compileMessage } from '@lingui/message-utils/compileMessage';
+import { generateMessageId } from '@lingui/message-utils/generateMessageId';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import { i18n } from '@/i18n/instance';
 import { ClioPendingInteractions } from './pending-interactions';
+
+/** Load the shipped announcement joins of a locale's catalog (vitest has no .po loader). */
+function loadShippedJoins(locale: string) {
+  const po = readFileSync(`src/locales/${locale}/messages.po`, 'utf8');
+  const messages: Record<string, ReturnType<typeof compileMessage>> = {};
+  for (const [, context, id, message] of po.matchAll(
+    /(?:msgctxt "([^"]*)"\n)?msgid "([^"]*)"\nmsgstr "([^"]*)"/g,
+  )) {
+    if (message && (id.startsWith('{text}') || id === '{position} of {total}'))
+      messages[generateMessageId(id, context)] = compileMessage(message);
+  }
+  i18n.load(locale, messages);
+  i18n.activate(locale);
+}
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
@@ -467,6 +485,40 @@ describe('ClioPendingInteractions', () => {
     expect(document.querySelector('p[aria-live="polite"]')).toHaveTextContent(
       /^Question: Pick a mesh\. 1 of 2$/,
     );
+  });
+
+  function announced(title: string): string | null | undefined {
+    cleanup();
+    renderPending([
+      pending('question', { id: 'question:q-first', prompt: title, title }),
+      pending('question', { id: 'question:q-next', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
+    ]);
+    return document.querySelector('p[aria-live="polite"]')?.textContent;
+  }
+
+  it('takes the Greek question mark, a semicolon and an ellipsis as sentence ends', () => {
+    expect(announced('Να το τρέξω στο flat-ndp\u037e')).toBe(
+      'Question: Να το τρέξω στο flat-ndp\u037e 1 of 2',
+    );
+    expect(announced('Να το τρέξω στο flat-ndp;')).toBe(
+      'Question: Να το τρέξω στο flat-ndp; 1 of 2',
+    );
+    expect(announced('Run it on flat-ndp…')).toBe('Question: Run it on flat-ndp… 1 of 2');
+  });
+
+  it('keeps a gap after half-width punctuation in Japanese, and none after full-width', () => {
+    loadShippedJoins('ja');
+    try {
+      const after = (title: string) => announced(title)?.split('flat-ndp')[1];
+      // Half-width "?" ends Latin text: a full-width space, not a run-on "?2件中…".
+      expect(after('Run it on flat-ndp?')).toMatch(/^\?\u3000\S/);
+      // Full-width "？" ends Japanese text: no space.
+      expect(after('flat-ndpで実行しますか？')).toMatch(/^で実行しますか？\S/);
+      // No punctuation: the ja full stop joins, with no space.
+      expect(after('flat-ndpで実行')).toMatch(/^で実行。\S/);
+    } finally {
+      i18n.activate('en');
+    }
   });
 
   it('allows choices and a free-form answer in the same child question', async () => {

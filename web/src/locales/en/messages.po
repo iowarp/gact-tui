@@ -3680,8 +3680,14 @@ msgstr "{tasks, plural, one {# task} other {# tasks}}"
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr "{tasks, plural, one {ran # task} other {ran # tasks}}"
 
-#. Joins sentences of a screen-reader announcement when the first already ends in ? ! or .
+#. Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！
 #: src/components/clio/pending-interactions.tsx
+msgid "{text} {sentence}"
+msgstr "{text} {sentence}"
+
+#. Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …
+#: src/components/clio/pending-interactions.tsx
+msgctxt "after half-width sentence punctuation"
 msgid "{text} {sentence}"
 msgstr "{text} {sentence}"
 
