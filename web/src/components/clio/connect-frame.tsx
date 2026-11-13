@@ -105,11 +105,15 @@ export function ConnectField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-[5px]">
-      <span className="flex items-center gap-1.5 text-label whitespace-nowrap text-muted-foreground">
-        <label htmlFor={htmlFor}>{label}</label>
+    // Long localized labels wrap inside the card; beside a wrapped neighbour the input
+    // stays on the shared bottom line.
+    <div className="flex min-w-0 flex-col justify-between gap-[5px]">
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-label text-muted-foreground">
+        <label className="min-w-0 [overflow-wrap:anywhere]" htmlFor={htmlFor}>
+          {label}
+        </label>
         {optional ? (
-          <span aria-hidden="true" className="text-faint">
+          <span aria-hidden="true" className="whitespace-nowrap text-faint">
             {t`optional`}
           </span>
         ) : null}
