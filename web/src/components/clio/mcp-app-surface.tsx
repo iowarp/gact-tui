@@ -399,7 +399,11 @@ const McpAppSurfaceInstance = forwardRef<
       <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
-        <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+        {error ? (
+          <ClioStatus label="Unavailable" value="unavailable" />
+        ) : (
+          <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+        )}
         {props.actions}
       </FrameHeader>
       <FramePanel

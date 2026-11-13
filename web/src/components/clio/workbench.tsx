@@ -85,6 +85,7 @@ import {
 import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
 import { useMcpAppTabSync } from './mcp-app-tab-sync';
+import { usePublishWorkbenchAppTabs } from './phone-app-dock';
 
 export interface ClioWorkbenchProps {
   workspaceId: string;
@@ -304,6 +305,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     };
     const closeTabOrCanvas = (tabId: string) => closeTabsOrCanvas([tabId]);
     useMcpAppTabSync(orderedTabs, closeTabsOrCanvas, canvasControl?.hide);
+    usePublishWorkbenchAppTabs(activeTab);
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
