@@ -49,6 +49,8 @@ import {
   McpAppRegionLayer,
 } from './comments/mcp-app-comments';
 import { ClioStatus } from './status';
+import { McpAppBlankNotice, McpAppFrameMenu, McpAppPaintStatus } from './mcp-app-frame-menu';
+import { watchFirstPaint, type PaintVerdict } from './mcp-app-first-paint';
 
 export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
 
@@ -128,13 +130,23 @@ export const McpAppSurface = forwardRef<McpAppSurfaceHandle, McpAppSurfaceProps>
     const placement = props.placement ?? 'inline';
     // A move between placements reloads the frame and replays initialize, input and result.
     const identityKey = `${props.sessionId}:${props.appInstanceId}:${props.dataRef}:${placement}`;
-    return <McpAppSurfaceInstance key={identityKey} {...props} ref={ref} placement={placement} />;
+    // "Reload view" (FP-D9) mounts the frame afresh the same way.
+    const [reloads, setReloads] = useState(0);
+    return (
+      <McpAppSurfaceInstance
+        key={`${identityKey}:${reloads}`}
+        {...props}
+        onReload={() => setReloads((count) => count + 1)}
+        placement={placement}
+        ref={ref}
+      />
+    );
   },
 );
 
 const McpAppSurfaceInstance = forwardRef<
   McpAppSurfaceHandle,
-  McpAppSurfaceProps & { placement: McpAppPlacementKind }
+  McpAppSurfaceProps & { placement: McpAppPlacementKind; onReload: () => void }
 >(function McpAppSurfaceInstance(props, ref) {
   const { placement } = props;
   const identity = useMemo<McpAppIdentity>(
@@ -151,6 +163,7 @@ const McpAppSurfaceInstance = forwardRef<
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(false);
   const [ready, setReady] = useState(false);
+  const [paint, setPaint] = useState<PaintVerdict>('pending');
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const channel = useRef<ViewChannel>(newChannel());
@@ -271,6 +284,7 @@ const McpAppSurfaceInstance = forwardRef<
       }).then(snapshotAnswer);
     const looks = new McpAppLooks(latest.current.repository, identity, snapshot);
     let withdrawSnapshot = () => undefined as void;
+    let firstPaint: ReturnType<typeof watchFirstPaint> | undefined;
     const answer = (message: JsonRpcMessage) => {
       const pending = view.pending.get(String(message.id));
       if (!pending) return;
@@ -344,6 +358,7 @@ const McpAppSurfaceInstance = forwardRef<
         snapshotRef.current = snapshot;
         withdrawSnapshot = registerViewSnapshot(iframe, snapshot);
         looks.start();
+        firstPaint = watchFirstPaint(snapshot, setPaint);
         latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
       }
@@ -386,6 +401,7 @@ const McpAppSurfaceInstance = forwardRef<
     };
     const notifyContext = () => {
       if (!initialized) return;
+      firstPaint?.recheck();
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/host-context-changed',
@@ -408,6 +424,7 @@ const McpAppSurfaceInstance = forwardRef<
       active = false;
       viewTools.stop();
       looks.stop();
+      firstPaint?.stop();
       snapshotRef.current = undefined;
       withdrawSnapshot();
       view.post = undefined;
@@ -454,12 +471,13 @@ const McpAppSurfaceInstance = forwardRef<
         ) : descriptor?.service_refusal ? (
           <ClioStatus label="Service unavailable" value="unavailable" />
         ) : (
-          <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+          <McpAppPaintStatus paint={paint} ready={ready} />
         )}
         {comments ? (
           <McpAppCommentsIcon disabledReason={ready ? undefined : 'The view is still loading.'} />
         ) : null}
         {props.actions}
+        <McpAppFrameMenu label={displayName} onReload={props.onReload} />
       </FrameHeader>
       <FramePanel
         className={cn('relative min-w-0 p-0', fill && 'min-h-0 flex-1')}
@@ -484,6 +502,7 @@ const McpAppSurfaceInstance = forwardRef<
                 {descriptor.service_refusal.message}
               </p>
             ) : null}
+            {ready && paint === 'blank' ? <McpAppBlankNotice onReload={props.onReload} /> : null}
             <iframe
               className={cn(
                 'block w-full border-0 bg-background',
@@ -495,7 +514,7 @@ const McpAppSurfaceInstance = forwardRef<
               sandbox="allow-scripts allow-same-origin"
               src={descriptor.sandbox_url}
               style={fill ? undefined : { height: frameHeight }}
-              title={`${displayName} interactive view`}
+              title={`${displayName}, interactive view`}
             />
             {comments ? <McpAppRegionLayer /> : null}
           </>

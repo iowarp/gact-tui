@@ -79,7 +79,7 @@ async function mountView(
       {...(extra as Record<string, never>)}
     />,
   );
-  const iframe = await screen.findByTitle<HTMLIFrameElement>('open_panel interactive view');
+  const iframe = await screen.findByTitle<HTMLIFrameElement>('open_panel, interactive view');
   const view = iframe.contentWindow!;
   const post = vi.spyOn(view, 'postMessage');
   const send = (data: Record<string, unknown>) =>
